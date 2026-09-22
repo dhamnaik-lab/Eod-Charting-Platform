@@ -1,0 +1,13 @@
+diff --git a/src/components/ChartCanvas.tsx b/src/components/ChartCanvas.tsx
+index fe3cc12..6ee3dd9 100644
+--- a/src/components/ChartCanvas.tsx
++++ b/src/components/ChartCanvas.tsx
+@@ -262,7 +262,7 @@ export function ChartCanvas({
+ 
+   useEffect(() => {
+     engineRef.current?.setViewport(viewport);
+-  }, [viewport]);
++  }, [viewport.startIndex, viewport.endIndex]);
+ 
+   useEffect(() => {
+     engineRef.current?.setDrawingTool(activeDrawingTool);

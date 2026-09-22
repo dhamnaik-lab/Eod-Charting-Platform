@@ -1,0 +1,59 @@
+diff --git a/src/components/ChartCanvas.tsx b/src/components/ChartCanvas.tsx
+index fe3cc12..535c7b8 100644
+--- a/src/components/ChartCanvas.tsx
++++ b/src/components/ChartCanvas.tsx
+@@ -69,6 +69,7 @@ export function ChartCanvas({
+   const chartViewportRef = useRef<HTMLDivElement | null>(null);
+   const nativeScrollbarRef = useRef<HTMLDivElement | null>(null);
+   const syncingNativeScrollbarRef = useRef(false);
++  const userInteractingWithScrollbarRef = useRef(false);
+   const setHoverBar = useChartStore((state) => state.setHoverBar);
+   const syncViewport = useChartStore((state) => state.syncViewport);
+   const scrollToViewportStart = useChartStore((state) => state.scrollToViewportStart);
+@@ -356,12 +357,13 @@ export function ChartCanvas({
+ 
+   useLayoutEffect(() => {
+     const element = nativeScrollbarRef.current;
+-    if (!element || bars.length === 0) {
++    if (!element || bars.length === 0 || userInteractingWithScrollbarRef.current) {
+       return;
+     }
+ 
+     const maxScrollLeft = Math.max(element.scrollWidth - element.clientWidth, 0);
+     const nextScrollLeft = maxScrollStart > 0 ? (scrollValue / maxScrollStart) * maxScrollLeft : 0;
++    
+     if (Math.abs(element.scrollLeft - nextScrollLeft) < 1) {
+       return;
+     }
+@@ -864,8 +866,30 @@ export function ChartCanvas({
+             <div
+               ref={nativeScrollbarRef}
+               style={nativeScrollbarStyle}
++              onPointerDown={(e) => {
++                userInteractingWithScrollbarRef.current = true;
++                e.currentTarget.setPointerCapture(e.pointerId);
++              }}
++              onPointerUp={(e) => {
++                userInteractingWithScrollbarRef.current = false;
++                if (e.currentTarget.hasPointerCapture(e.pointerId)) {
++                  e.currentTarget.releasePointerCapture(e.pointerId);
++                }
++              }}
++              onPointerCancel={(e) => {
++                userInteractingWithScrollbarRef.current = false;
++                if (e.currentTarget.hasPointerCapture(e.pointerId)) {
++                  e.currentTarget.releasePointerCapture(e.pointerId);
++                }
++              }}
++              onBlur={() => {
++                userInteractingWithScrollbarRef.current = false;
++              }}
+               onScroll={(event) => {
+-                if (syncingNativeScrollbarRef.current || loading) {
++                if (loading) {
++                  return;
++                }
++                if (syncingNativeScrollbarRef.current && !userInteractingWithScrollbarRef.current) {
+                   return;
+                 }
+ 

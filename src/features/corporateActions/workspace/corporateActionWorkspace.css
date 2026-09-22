@@ -1,0 +1,750 @@
+.corporate-action-workspace {
+  position: fixed;
+  inset: 0;
+  z-index: 1200;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  color: var(--text);
+  background: var(--workspace-bg);
+}
+
+.corporate-action-workspace-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  flex: 0 0 auto;
+  min-width: 0;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border);
+  background: var(--chrome-bg);
+}
+
+.corporate-action-workspace-heading {
+  min-width: 0;
+}
+
+.corporate-action-workspace-heading h1 {
+  margin: 2px 0 0;
+  color: var(--text);
+  font-size: clamp(18px, 1.7vw, 24px);
+  font-weight: 650;
+  line-height: 1.15;
+}
+
+.corporate-action-workspace-heading p {
+  margin: 5px 0 0;
+  color: var(--text-dim);
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.corporate-action-workspace-eyebrow,
+.corporate-action-workspace-stage-kicker {
+  color: var(--text-dim);
+  font-size: 10px;
+  font-weight: 650;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.corporate-action-workspace-close {
+  flex: 0 0 auto;
+  min-width: 82px;
+  height: 32px;
+  padding: 0 14px;
+  border: 1px solid var(--border2);
+  border-radius: 5px;
+  background: var(--bg3);
+  color: var(--text);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.corporate-action-workspace-close:hover {
+  border-color: var(--accent);
+}
+
+.corporate-action-workflow-header {
+  flex: 0 0 auto;
+  padding: 12px 20px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg2);
+}
+
+.corporate-action-workflow-steps {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.corporate-action-workflow-step {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  min-height: 48px;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg3);
+  color: var(--text-dim);
+}
+
+.corporate-action-workflow-step[data-state='current'] {
+  border-color: var(--accent);
+  color: var(--text);
+  box-shadow: inset 0 0 0 1px var(--accent-soft);
+}
+
+.corporate-action-workflow-step[data-state='complete'] {
+  color: var(--text);
+}
+
+.corporate-action-workflow-step[data-state='locked'] {
+  opacity: 0.58;
+}
+
+.corporate-action-workflow-step-index {
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  width: 24px;
+  height: 24px;
+  border: 1px solid var(--border2);
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 650;
+}
+
+.corporate-action-workflow-step[data-state='current']
+  .corporate-action-workflow-step-index {
+  border-color: var(--accent);
+}
+
+.corporate-action-workflow-step-copy {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  min-width: 0;
+  width: 100%;
+}
+
+.corporate-action-workflow-step-label {
+  overflow: hidden;
+  font-size: 12px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.corporate-action-workflow-step-count {
+  flex: 0 0 auto;
+  color: var(--text-dim);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+
+.corporate-action-workspace-body {
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
+  overflow: auto;
+  padding: clamp(16px, 2.2vw, 28px);
+}
+
+.corporate-action-workspace-stage {
+  width: min(1120px, 100%);
+  margin: 0 auto;
+  padding: clamp(16px, 2vw, 24px);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg2);
+  box-shadow: var(--shadow-lg);
+}
+
+.corporate-action-workspace-stage-copy {
+  min-width: 0;
+}
+
+.corporate-action-workspace-stage-copy h2 {
+  margin: 4px 0 0;
+  color: var(--text);
+  font-size: clamp(17px, 1.5vw, 22px);
+  line-height: 1.2;
+}
+
+.corporate-action-workspace-stage-copy p {
+  max-width: 720px;
+  margin: 8px 0 0;
+  color: var(--text-dim);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.corporate-action-workspace-summary {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 20px;
+}
+
+.corporate-action-workspace-summary > div {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  min-width: 0;
+  padding: 11px 12px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg3);
+}
+
+.corporate-action-workspace-summary span {
+  overflow: hidden;
+  color: var(--text-dim);
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.corporate-action-workspace-summary strong {
+  flex: 0 0 auto;
+  color: var(--text);
+  font-size: 15px;
+  font-variant-numeric: tabular-nums;
+}
+
+@media (max-width: 840px) {
+  .corporate-action-workflow-steps,
+  .corporate-action-workspace-summary {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .corporate-action-workspace-topbar {
+    align-items: flex-start;
+    padding: 12px 14px;
+  }
+
+  .corporate-action-workflow-header {
+    padding: 10px 14px;
+  }
+
+  .corporate-action-workspace-body {
+    padding: 14px;
+  }
+}
+
+@media (max-width: 520px) {
+  .corporate-action-workspace-heading p {
+    display: none;
+  }
+
+  .corporate-action-workflow-steps,
+  .corporate-action-workspace-summary {
+    grid-template-columns: 1fr;
+  }
+
+  .corporate-action-workflow-step {
+    min-height: 42px;
+  }
+}
+
+.corporate-action-workspace-stage-content {
+  margin-top: 18px;
+}
+
+.corporate-action-workspace-action-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.corporate-action-workspace-action-row > span {
+  min-width: 0;
+  color: var(--text-dim);
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.corporate-action-workspace-fetch-controls {
+  display: grid;
+  grid-template-columns: minmax(120px, 170px) minmax(150px, 220px) minmax(150px, 220px) minmax(220px, 1fr);
+  align-items: end;
+  gap: 12px;
+  min-width: 0;
+}
+
+.corporate-action-workspace-fetch-controls label {
+  display: grid;
+  gap: 5px;
+  color: var(--text-dim);
+  font-size: 10px;
+  font-weight: 650;
+  letter-spacing: 0.03em;
+}
+
+.corporate-action-workspace-fetch-controls input,
+.corporate-action-workspace-fetch-controls select {
+  width: 100%;
+  min-width: 0;
+  height: 36px;
+  padding: 0 10px;
+  border: 1px solid var(--border2);
+  border-radius: 5px;
+  background: var(--bg3);
+  color: var(--text);
+  font: inherit;
+  font-size: 12px;
+}
+
+.corporate-action-workspace-fetch-action {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.corporate-action-workspace-fetch-action .corporate-action-workspace-primary-action {
+  width: 100%;
+}
+
+.corporate-action-workspace-last-fetch {
+  overflow-wrap: anywhere;
+  color: var(--text-dim);
+  font-size: 10px;
+  line-height: 1.35;
+}
+
+.corporate-action-workspace-fetch-log {
+  display: grid;
+  gap: 4px;
+  margin: 2px 0 0;
+  padding: 8px 8px 8px 26px;
+  border-top: 1px solid var(--border);
+  color: var(--text-dim);
+  font-size: 10px;
+  line-height: 1.4;
+}
+
+.corporate-action-workspace-fetch-log li {
+  padding-left: 2px;
+}
+
+.corporate-action-workspace-primary-action {
+  flex: 0 0 auto;
+  min-width: 152px;
+  height: 36px;
+  padding: 0 16px;
+  border: 1px solid var(--accent);
+  border-radius: 5px;
+  background: var(--accent-soft);
+  color: var(--text);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 650;
+  cursor: pointer;
+}
+
+.corporate-action-workspace-primary-action:disabled {
+  cursor: default;
+  opacity: 0.5;
+}
+
+.corporate-action-workspace-stage-note {
+  margin: 10px 0 0;
+  color: var(--text-dim);
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.corporate-action-workspace-operation-status {
+  display: grid;
+  gap: 8px;
+  margin-top: 14px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg3);
+  color: var(--text-dim);
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.corporate-action-workspace-operation-status[data-error='true'] {
+  border-color: var(--danger, var(--border2));
+  color: var(--text);
+}
+
+.corporate-action-workspace-operation-status progress {
+  width: 100%;
+  height: 5px;
+}
+
+@media (max-width: 640px) {
+  .corporate-action-workspace-fetch-controls {
+    grid-template-columns: 1fr;
+    align-items: stretch;
+  }
+
+  .corporate-action-workspace-fetch-controls .corporate-action-workspace-primary-action {
+    width: 100%;
+  }
+
+  .corporate-action-workspace-action-row {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .corporate-action-workspace-primary-action {
+    width: 100%;
+  }
+}
+
+.corporate-action-review-workspace {
+  display: grid;
+  gap: 18px;
+  min-width: 0;
+}
+
+.corporate-action-review-toolbar {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(180px, 240px);
+  gap: 10px;
+}
+
+.corporate-action-review-toolbar label {
+  display: grid;
+  gap: 5px;
+  color: var(--text-dim);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+}
+
+.corporate-action-review-toolbar input,
+.corporate-action-review-toolbar select {
+  width: 100%;
+  min-width: 0;
+  height: 34px;
+  padding: 0 10px;
+  border: 1px solid var(--border2);
+  border-radius: 5px;
+  background: var(--bg3);
+  color: var(--text);
+  font: inherit;
+  font-size: 12px;
+}
+
+.corporate-action-review-search-controls {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  min-width: 0;
+}
+
+.corporate-action-review-current-filter {
+  min-width: 82px;
+  height: 34px;
+  padding: 0 10px;
+  border: 1px solid var(--border2);
+  border-radius: 5px;
+  background: var(--bg2);
+  color: var(--text);
+  font: inherit;
+  font-size: 10px;
+  font-weight: 650;
+  cursor: pointer;
+}
+
+.corporate-action-review-current-filter:disabled {
+  cursor: default;
+  opacity: 0.5;
+}
+
+.corporate-action-review-section {
+  display: grid;
+  gap: 9px;
+}
+
+.corporate-action-review-section-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.corporate-action-review-section-heading h3 {
+  margin: 0;
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 650;
+}
+
+.corporate-action-review-section-heading span {
+  min-width: 28px;
+  padding: 2px 7px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--text-dim);
+  font-size: 10px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+.corporate-action-review-card-list {
+  display: grid;
+  gap: 8px;
+}
+
+.corporate-action-review-card {
+  display: grid;
+  gap: 9px;
+  min-width: 0;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: var(--bg3);
+}
+
+.corporate-action-review-card[data-status='NEEDS_REVIEW'],
+.corporate-action-review-card[data-status='CONFLICT'] {
+  border-color: var(--border2);
+}
+
+.corporate-action-review-card-list-compact .corporate-action-review-card {
+  padding-block: 10px;
+}
+
+.corporate-action-review-card-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  min-width: 0;
+}
+
+.corporate-action-review-card-header > div {
+  min-width: 0;
+}
+
+.corporate-action-review-card-header h3 {
+  margin: 3px 0 0;
+  overflow: hidden;
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 650;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.corporate-action-review-card-header p,
+.corporate-action-review-reason,
+.corporate-action-review-price-summary {
+  margin: 4px 0 0;
+  color: var(--text-dim);
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.corporate-action-review-card-header button,
+.corporate-action-review-drawer header button {
+  flex: 0 0 auto;
+  min-height: 30px;
+  padding: 0 10px;
+  border: 1px solid var(--border2);
+  border-radius: 5px;
+  background: var(--bg2);
+  color: var(--text);
+  font: inherit;
+  font-size: 10px;
+  font-weight: 650;
+  cursor: pointer;
+}
+
+.corporate-action-review-status {
+  color: var(--text-dim);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.corporate-action-review-card-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 12px;
+  color: var(--text-dim);
+  font-size: 10px;
+}
+
+.corporate-action-review-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding-top: 4px;
+}
+
+.corporate-action-review-footer p {
+  max-width: 700px;
+  margin: 0;
+  color: var(--text-dim);
+  font-size: 10px;
+  line-height: 1.45;
+}
+
+.corporate-action-review-drawer {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 1210;
+  display: flex;
+  flex-direction: column;
+  width: min(560px, 94vw);
+  min-width: 0;
+  border-left: 1px solid var(--border2);
+  background: var(--bg2);
+  box-shadow: var(--shadow-lg);
+}
+
+.corporate-action-review-drawer > header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 16px;
+  border-bottom: 1px solid var(--border);
+  background: var(--chrome-bg);
+}
+
+.corporate-action-review-drawer > header h3 {
+  margin: 3px 0 0;
+  color: var(--text);
+  font-size: 16px;
+}
+
+.corporate-action-review-drawer > header p {
+  margin: 4px 0 0;
+  color: var(--text-dim);
+  font-size: 11px;
+}
+
+.corporate-action-review-drawer-body {
+  display: grid;
+  gap: 10px;
+  overflow: auto;
+  padding: 12px;
+}
+
+.corporate-action-review-evidence-row {
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: var(--bg3);
+}
+
+.corporate-action-review-evidence-row > header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  color: var(--text);
+  font-size: 11px;
+}
+
+.corporate-action-review-evidence-row > header span {
+  color: var(--text-dim);
+  font-size: 10px;
+}
+
+.corporate-action-review-evidence-row dl {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin: 0;
+}
+
+.corporate-action-review-evidence-row dl > div {
+  min-width: 0;
+  padding: 8px;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  background: var(--bg2);
+}
+
+.corporate-action-review-evidence-row dt {
+  color: var(--text-dim);
+  font-size: 9px;
+  font-weight: 650;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.corporate-action-review-evidence-row dd {
+  margin: 3px 0 0;
+  overflow-wrap: anywhere;
+  color: var(--text);
+  font-size: 10px;
+  line-height: 1.4;
+}
+
+.corporate-action-review-evidence-note,
+.corporate-action-review-evidence-message p {
+  margin: 0;
+  color: var(--text-dim);
+  font-size: 10px;
+  line-height: 1.45;
+}
+
+.corporate-action-review-evidence-message {
+  display: grid;
+  gap: 4px;
+}
+
+.corporate-action-review-price-evidence {
+  display: grid;
+  gap: 5px;
+  padding: 9px;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  background: var(--bg2);
+  color: var(--text-dim);
+  font-size: 10px;
+  line-height: 1.4;
+}
+
+.corporate-action-review-price-evidence strong {
+  color: var(--text);
+  font-size: 11px;
+}
+
+@media (max-width: 720px) {
+  .corporate-action-review-toolbar,
+  .corporate-action-review-evidence-row dl {
+    grid-template-columns: 1fr;
+  }
+
+  .corporate-action-review-card-header,
+  .corporate-action-review-footer {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .corporate-action-review-card-header button,
+  .corporate-action-review-footer .corporate-action-workspace-primary-action {
+    width: 100%;
+  }
+}

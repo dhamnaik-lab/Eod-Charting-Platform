@@ -1,0 +1,495 @@
+:root {
+  --font-ui: "Segoe UI", Aptos, "Helvetica Neue", Arial, sans-serif;
+  --font-mono: "Cascadia Mono", Consolas, "Courier New", monospace;
+  --ui-font-size: 13px;
+  --compact-font-size: 10.5px;
+  --control-radius: 5px;
+  --panel-radius: 8px;
+  --bg: #070b10;
+  --bg2: #0d131a;
+  --bg3: #141b24;
+  --bg4: #1a2430;
+  --chart-bg: #071019;
+  --border: #26313d;
+  --border2: #334151;
+  --text: #e6edf3;
+  --text-dim: #9aa8b8;
+  --text-mute: #667586;
+  --green: #22c55e;
+  --red: #ef4444;
+  --accent: #3b82f6;
+  --accent-strong: #60a5fa;
+  --accent-soft: rgba(59, 130, 246, 0.22);
+  --accent-faint: rgba(59, 130, 246, 0.07);
+  --blue: #60a5fa;
+  --blue-dim: rgba(59, 130, 246, 0.16);
+  --control-bg: #111923;
+  --control-bg-hover: #172232;
+  --control-bg-active: var(--accent-soft);
+  --legend-text: #e6edf3;
+  --legend-muted: #8b98a7;
+  --legend-bg: rgba(13, 19, 26, 0.7);
+  --chart-overlay-text-shadow: 0 1px 0 rgba(0, 0, 0, 0.45);
+  --workspace-bg: linear-gradient(180deg, #071019 0%, #050a11 100%);
+  --chrome-bg: linear-gradient(180deg, rgba(13, 19, 26, 0.98), rgba(9, 15, 23, 0.98));
+  --chart-wrap-bg: linear-gradient(180deg, #071019 0%, #050a11 100%);
+  --chart-viewport-bg: linear-gradient(180deg, #071019 0%, #050b12 100%);
+  --tab-strip-bg: #111923;
+  --overlay-bg: rgba(5, 10, 17, 0.72);
+  --shadow-lg: 0 18px 46px rgba(0, 0, 0, 0.42);
+  --scrollbar-thumb: rgba(154, 168, 184, 0.32);
+  --scrollbar-thumb-hover: rgba(154, 168, 184, 0.5);
+  color-scheme: dark;
+}
+
+[data-theme="amoled-black"] {
+  --bg: #000000;
+  --bg2: #050505;
+  --bg3: #0a0a0a;
+  --bg4: #111111;
+  --chart-bg: #000000;
+  --border: #1f2937;
+  --border2: #2f3a48;
+  --text: #f8fafc;
+  --text-dim: #a7b2bf;
+  --text-mute: #64748b;
+  --green: #20c997;
+  --red: #ff4d4f;
+  --accent: #38bdf8;
+  --accent-strong: #67e8f9;
+  --accent-soft: rgba(56, 189, 248, 0.22);
+  --accent-faint: rgba(56, 189, 248, 0.07);
+  --blue: #38bdf8;
+  --blue-dim: rgba(56, 189, 248, 0.14);
+  --control-bg: #080808;
+  --control-bg-hover: #111111;
+  --control-bg-active: var(--accent-soft);
+  --legend-text: #f8fafc;
+  --legend-muted: #94a3b8;
+  --legend-bg: rgba(5, 5, 5, 0.72);
+  --chart-overlay-text-shadow: 0 1px 0 rgba(0, 0, 0, 0.7);
+  --workspace-bg: #000000;
+  --chrome-bg: linear-gradient(180deg, #070707 0%, #020202 100%);
+  --chart-wrap-bg: #000000;
+  --chart-viewport-bg: #000000;
+  --tab-strip-bg: #050505;
+  --overlay-bg: rgba(0, 0, 0, 0.78);
+  --shadow-lg: 0 20px 50px rgba(0, 0, 0, 0.72);
+  --scrollbar-thumb: rgba(148, 163, 184, 0.36);
+  --scrollbar-thumb-hover: rgba(148, 163, 184, 0.58);
+}
+
+[data-theme="classic-light"] {
+  --bg: #f3f4f6;
+  --bg2: #ffffff;
+  --bg3: #f9fafb;
+  --bg4: #eef2f7;
+  --chart-bg: #ffffff;
+  --border: #d1d5db;
+  --border2: #b8c0cc;
+  --text: #111827;
+  --text-dim: #4b5563;
+  --text-mute: #6b7280;
+  --green: #059669;
+  --red: #dc2626;
+  --accent: #2563eb;
+  --accent-strong: #1d4ed8;
+  --accent-soft: rgba(37, 99, 235, 0.14);
+  --accent-faint: rgba(37, 99, 235, 0.06);
+  --blue: #2563eb;
+  --blue-dim: rgba(37, 99, 235, 0.12);
+  --control-bg: #ffffff;
+  --control-bg-hover: #f3f4f6;
+  --control-bg-active: rgba(37, 99, 235, 0.12);
+  --legend-text: #1f2937;
+  --legend-muted: #64748b;
+  --legend-bg: rgba(255, 255, 255, 0.78);
+  --chart-overlay-text-shadow: 0 1px 0 rgba(255, 255, 255, 0.9);
+  --workspace-bg: linear-gradient(180deg, #f6f8fb 0%, #eef2f7 100%);
+  --chrome-bg: linear-gradient(180deg, #ffffff 0%, #f3f4f6 100%);
+  --chart-wrap-bg: #eef2f7;
+  --chart-viewport-bg: #ffffff;
+  --tab-strip-bg: #e5e7eb;
+  --overlay-bg: rgba(248, 250, 252, 0.72);
+  --shadow-lg: 0 18px 42px rgba(15, 23, 42, 0.18);
+  --scrollbar-thumb: rgba(75, 85, 99, 0.36);
+  --scrollbar-thumb-hover: rgba(75, 85, 99, 0.55);
+  color-scheme: light;
+}
+
+[data-theme="deep-light"] {
+  --bg: #f1f5f9;
+  --bg2: #ffffff;
+  --bg3: #f8fafc;
+  --bg4: #e2e8f0;
+  --chart-bg: #f8fafc;
+  --border: #cbd5e1;
+  --border2: #94a3b8;
+  --text: #0f172a;
+  --text-dim: #334155;
+  --text-mute: #64748b;
+  --green: #047857;
+  --red: #b91c1c;
+  --accent: #1d4ed8;
+  --accent-strong: #1e40af;
+  --accent-soft: rgba(29, 78, 216, 0.14);
+  --accent-faint: rgba(29, 78, 216, 0.06);
+  --blue: #1d4ed8;
+  --blue-dim: rgba(29, 78, 216, 0.12);
+  --control-bg: #ffffff;
+  --control-bg-hover: #f1f5f9;
+  --control-bg-active: rgba(29, 78, 216, 0.12);
+  --legend-text: #0f172a;
+  --legend-muted: #475569;
+  --legend-bg: rgba(255, 255, 255, 0.88);
+  --chart-overlay-text-shadow: 0 1px 0 rgba(255, 255, 255, 0.9);
+  --workspace-bg: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%);
+  --chrome-bg: linear-gradient(180deg, #ffffff 0%, #f1f5f9 100%);
+  --chart-wrap-bg: #f1f5f9;
+  --chart-viewport-bg: #f8fafc;
+  --tab-strip-bg: #e2e8f0;
+  --overlay-bg: rgba(241, 245, 249, 0.76);
+  --shadow-lg: 0 4px 14px rgba(15, 23, 42, 0.07), 0 16px 36px rgba(15, 23, 42, 0.12);
+  --scrollbar-thumb: rgba(100, 116, 139, 0.32);
+  --scrollbar-thumb-hover: rgba(100, 116, 139, 0.52);
+  color-scheme: light;
+}
+
+[data-theme="bloomberg-pro"] {
+  --bg: #000000;
+  --bg2: #0a0a0a;
+  --bg3: #121212;
+  --bg4: #1c1c1c;
+  --chart-bg: #000000;
+  --border: #262626;
+  --border2: #404040;
+  --text: #f39f41;
+  --text-dim: #d4a373;
+  --text-mute: #8c9ba5;
+  --green: #00e676;
+  --red: #ff1744;
+  --accent: #f39f41;
+  --accent-strong: #fb8c00;
+  --accent-soft: rgba(243, 159, 65, 0.22);
+  --accent-faint: rgba(243, 159, 65, 0.08);
+  --blue: #f39f41;
+  --blue-dim: rgba(243, 159, 65, 0.16);
+  --control-bg: #0d0d0d;
+  --control-bg-hover: #171717;
+  --control-bg-active: rgba(243, 159, 65, 0.2);
+  --legend-text: #f39f41;
+  --legend-muted: #8c9ba5;
+  --legend-bg: rgba(10, 10, 10, 0.85);
+  --chart-overlay-text-shadow: 0 1px 0 rgba(0, 0, 0, 0.8);
+  --workspace-bg: #000000;
+  --chrome-bg: linear-gradient(180deg, #0d0d0d 0%, #000000 100%);
+  --chart-wrap-bg: #000000;
+  --chart-viewport-bg: #000000;
+  --tab-strip-bg: #0a0a0a;
+  --overlay-bg: rgba(0, 0, 0, 0.82);
+  --shadow-lg: 0 20px 50px rgba(0, 0, 0, 0.85);
+  --scrollbar-thumb: rgba(243, 159, 65, 0.35);
+  --scrollbar-thumb-hover: rgba(243, 159, 65, 0.6);
+  color-scheme: dark;
+}
+
+[data-theme="refinitiv-dark"] {
+  --bg: #080e18;
+  --bg2: #0f172a;
+  --bg3: #1e293b;
+  --bg4: #334155;
+  --chart-bg: #080e18;
+  --border: #1e293b;
+  --border2: #334155;
+  --text: #f8fafc;
+  --text-dim: #94a3b8;
+  --text-mute: #64748b;
+  --green: #10b981;
+  --red: #f43f5e;
+  --accent: #0284c7;
+  --accent-strong: #0369a1;
+  --accent-soft: rgba(2, 132, 199, 0.22);
+  --accent-faint: rgba(2, 132, 199, 0.08);
+  --blue: #0284c7;
+  --blue-dim: rgba(2, 132, 199, 0.16);
+  --control-bg: #0c1322;
+  --control-bg-hover: #152035;
+  --control-bg-active: rgba(2, 132, 199, 0.22);
+  --legend-text: #f8fafc;
+  --legend-muted: #94a3b8;
+  --legend-bg: rgba(15, 23, 42, 0.82);
+  --chart-overlay-text-shadow: 0 1px 0 rgba(0, 0, 0, 0.55);
+  --workspace-bg: linear-gradient(180deg, #080e18 0%, #04070d 100%);
+  --chrome-bg: linear-gradient(180deg, #0f172a 0%, #080e18 100%);
+  --chart-wrap-bg: #080e18;
+  --chart-viewport-bg: #080e18;
+  --tab-strip-bg: #0c1322;
+  --overlay-bg: rgba(4, 7, 13, 0.78);
+  --shadow-lg: 0 20px 48px rgba(0, 0, 0, 0.55);
+  --scrollbar-thumb: rgba(148, 163, 184, 0.32);
+  --scrollbar-thumb-hover: rgba(148, 163, 184, 0.52);
+  color-scheme: dark;
+}
+
+[data-theme="orderflow-dark"] {
+  --bg: #04060a;
+  --bg2: #0a0e17;
+  --bg3: #121826;
+  --bg4: #1b2438;
+  --chart-bg: #04060a;
+  --border: #1e293b;
+  --border2: #2d3e57;
+  --text: #00f5d4;
+  --text-dim: #7000ff;
+  --text-mute: #64748b;
+  --green: #00f5d4;
+  --red: #ff0055;
+  --accent: #7000ff;
+  --accent-strong: #9d4edd;
+  --accent-soft: rgba(112, 0, 255, 0.25);
+  --accent-faint: rgba(112, 0, 255, 0.08);
+  --blue: #00f5d4;
+  --blue-dim: rgba(0, 245, 212, 0.16);
+  --control-bg: #080c14;
+  --control-bg-hover: #101624;
+  --control-bg-active: rgba(112, 0, 255, 0.25);
+  --legend-text: #00f5d4;
+  --legend-muted: #8b98a7;
+  --legend-bg: rgba(10, 14, 23, 0.85);
+  --chart-overlay-text-shadow: 0 1px 0 rgba(0, 0, 0, 0.6);
+  --workspace-bg: linear-gradient(180deg, #04060a 0%, #020305 100%);
+  --chrome-bg: linear-gradient(180deg, #0a0e17 0%, #04060a 100%);
+  --chart-wrap-bg: #04060a;
+  --chart-viewport-bg: #04060a;
+  --tab-strip-bg: #080c14;
+  --overlay-bg: rgba(2, 3, 5, 0.82);
+  --shadow-lg: 0 20px 50px rgba(0, 0, 0, 0.7);
+  --scrollbar-thumb: rgba(0, 245, 212, 0.32);
+  --scrollbar-thumb-hover: rgba(0, 245, 212, 0.58);
+  color-scheme: dark;
+}
+
+[data-theme="tos-charcoal"] {
+  --bg: #181a1f;
+  --bg2: #21252b;
+  --bg3: #2c313a;
+  --bg4: #3b4048;
+  --chart-bg: #181a1f;
+  --border: #333842;
+  --border2: #4b5263;
+  --text: #abb2bf;
+  --text-dim: #828997;
+  --text-mute: #5c6370;
+  --green: #26a69a;
+  --red: #ef5350;
+  --accent: #61afef;
+  --accent-strong: #4fa3e3;
+  --accent-soft: rgba(97, 175, 239, 0.22);
+  --accent-faint: rgba(97, 175, 239, 0.07);
+  --blue: #61afef;
+  --blue-dim: rgba(97, 175, 239, 0.16);
+  --control-bg: #1e2227;
+  --control-bg-hover: #282c34;
+  --control-bg-active: rgba(97, 175, 239, 0.2);
+  --legend-text: #abb2bf;
+  --legend-muted: #7f848e;
+  --legend-bg: rgba(33, 37, 43, 0.82);
+  --chart-overlay-text-shadow: 0 1px 0 rgba(0, 0, 0, 0.5);
+  --workspace-bg: linear-gradient(180deg, #181a1f 0%, #14161a 100%);
+  --chrome-bg: linear-gradient(180deg, #21252b 0%, #181a1f 100%);
+  --chart-wrap-bg: #181a1f;
+  --chart-viewport-bg: #181a1f;
+  --tab-strip-bg: #1e2227;
+  --overlay-bg: rgba(20, 22, 26, 0.78);
+  --shadow-lg: 0 18px 44px rgba(0, 0, 0, 0.48);
+  --scrollbar-thumb: rgba(171, 178, 191, 0.32);
+  --scrollbar-thumb-hover: rgba(171, 178, 191, 0.52);
+  color-scheme: dark;
+}
+
+[data-theme="terminal-pro-dark"] {
+  --font-ui: "Cascadia Mono", Consolas, "Segoe UI", monospace;
+  --font-mono: "Cascadia Mono", Consolas, "Courier New", monospace;
+  --ui-font-size: 12px;
+  --compact-font-size: 10px;
+  --control-radius: 3px;
+  --panel-radius: 5px;
+  --bg: #020617;
+  --bg2: #07111f;
+  --bg3: #0b1b2d;
+  --bg4: #0f2538;
+  --chart-bg: #020617;
+  --border: #134e4a;
+  --border2: #1f766e;
+  --text: #d9fff6;
+  --text-dim: #99f6e4;
+  --text-mute: #5eead4;
+  --green: #00d084;
+  --red: #ff4d6d;
+  --accent: #22d3ee;
+  --accent-strong: #67e8f9;
+  --accent-soft: rgba(34, 211, 238, 0.2);
+  --accent-faint: rgba(34, 211, 238, 0.07);
+  --blue: #22d3ee;
+  --blue-dim: rgba(34, 211, 238, 0.14);
+  --workspace-bg: linear-gradient(180deg, #020617 0%, #010409 100%);
+  --chrome-bg: linear-gradient(180deg, #07111f 0%, #020617 100%);
+  --chart-wrap-bg: #020617;
+  --chart-viewport-bg: #020617;
+  --tab-strip-bg: #07111f;
+  --overlay-bg: rgba(1, 4, 9, 0.78);
+  --shadow-lg: 0 20px 50px rgba(0, 0, 0, 0.64);
+  --scrollbar-thumb: rgba(94, 234, 212, 0.28);
+  --scrollbar-thumb-hover: rgba(94, 234, 212, 0.48);
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+html,
+body {
+  overflow: hidden;
+  background: var(--bg);
+}
+
+/* Global button appearance reset — prevents Chromium/WebKit UA hover brightening */
+button {
+  -webkit-appearance: none;
+  appearance: none;
+  background: transparent;
+  border: none;
+  padding: 0;
+  color: inherit;
+  cursor: pointer;
+}
+
+button:hover {
+  color: inherit;
+  filter: none;
+  -webkit-filter: none;
+}
+
+body,
+input,
+select,
+button,
+textarea {
+  font-family: var(--font-ui);
+  font-size: var(--ui-font-size);
+  line-height: 1.35;
+  font-weight: 500;
+}
+
+/* Suppress outline for sidebar row buttons and pointer interactions */
+aside button,
+aside button:focus,
+aside button:focus-visible,
+aside button:active,
+button:not(:focus-visible) {
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+/* Sidebar list rows: prevent white text color brightening on mouse hover */
+aside button:hover,
+.chart-native-scrollbar button:hover {
+  color: inherit !important;
+  filter: none !important;
+}
+
+button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+button:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+/* Hide scrollbar for tab lists */
+.tab-strip-scroll::-webkit-scrollbar {
+  display: none;
+}
+
+.tab-strip-scroll {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.chart-native-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: var(--scrollbar-thumb) transparent;
+  scrollbar-gutter: stable;
+}
+
+.chart-native-scrollbar::-webkit-scrollbar {
+  height: 8px;
+}
+
+.chart-native-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.chart-native-scrollbar::-webkit-scrollbar-thumb {
+  background: var(--scrollbar-thumb);
+  background-clip: padding-box;
+  border: 2px solid transparent;
+  border-radius: 999px;
+}
+
+.chart-native-scrollbar:hover::-webkit-scrollbar-thumb,
+.chart-native-scrollbar:focus::-webkit-scrollbar-thumb {
+  background: var(--scrollbar-thumb-hover);
+  background-clip: padding-box;
+}
+
+.chart-native-scrollbar:focus-visible {
+  outline: 1px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.chart-native-scrollbar::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+.sidebar-compact-input::placeholder {
+  color: var(--text-dim);
+  opacity: 1;
+}
+
+/* Keyboard focus ring for non-button focusable elements (e.g. pane resize handles) */
+[role="separator"]:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+/* Individual Sidebar list row hover highlighting */
+.sidebar-row-shell {
+  transition: background-color 0.1s ease;
+}
+
+.sidebar-row-shell:hover {
+  background-color: var(--control-bg-hover);
+}
+
+.sidebar-row-shell[data-active="true"] {
+  background-color: var(--accent-soft);
+}
+
+.sidebar-indicator-row {
+  transition: background-color 0.1s ease;
+}
+
+.sidebar-indicator-row:hover {
+  background-color: var(--control-bg-hover);
+}

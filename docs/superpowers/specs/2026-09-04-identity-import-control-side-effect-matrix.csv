@@ -1,0 +1,18 @@
+capability_id,current_control,operator_job,handler_or_api,network_possible,file_write,instrument_or_setting_db_write,preview_or_write,current_gap,recommended_ui_disposition
+IDN-001,Identity import information,Help,setIdentityInfoOpen(true),No,No,No,READ_ONLY,None,Small Help icon
+IDN-002/003,Close/OK identity information,Help,setIdentityInfoOpen(false),No,No,No,READ_ONLY,None,Keep inside Help modal
+IDN-004,Download NSE Master,Current Universe,downloadNseCurrentUniverseMaster,Yes,Yes,No,DOWNLOAD,"Label hides equity+SME+symbol-change bundle",Merge presentation into Refresh NSE Sources
+IDN-005,Download NSE De-listed,Current Universe,downloadNseDelistedWorkbook,Yes,Yes,No,DOWNLOAD,Separate source required for deterministic classification,Orchestrate within Refresh NSE Sources but log separately
+IDN-006,Preview NSE,Current Universe,previewNseCurrentUniverseSync,"Yes if local delisted workbook absent",No,No,PREVIEW,"Can access network; delisted errors degrade to empty set",Keep as Preview Saved Sources / routine refresh-and-preview
+IDN-007,Apply NSE,Current Universe,applyNseCurrentUniverseSync,"Yes if local delisted workbook absent",No,Yes,WRITE,"Does not require/bind prior preview",Keep separate as Apply Reviewed Changes
+IDN-008,BSE current master CSV path,Advanced Sources,setBseMasterFilePath,No,No,No,READ_ONLY,"No picker; not persisted",Move to Advanced/Sources with Browse
+IDN-009,Download BSE Master,Current Universe,downloadBseCurrentUniverseMaster,Yes,Yes,No,DOWNLOAD,"Actually combines Active+Delisted+Suspended",Merge presentation into Refresh BSE Sources
+IDN-010,Preview BSE,Current Universe,previewBseCurrentUniverseSync,No,No,No,PREVIEW,Single-exchange preview only,Keep as Preview Saved Sources / routine refresh-and-preview
+IDN-011,Apply BSE,Current Universe,applyBseCurrentUniverseSync,No,No,Yes,WRITE,"Does not require/bind prior preview",Keep separate as Apply Reviewed Changes
+IDN-012,Archive Root,Historical Identity / Advanced,setIdentityArchiveRoot,No,No,No,READ_ONLY,"No picker; not persisted",Move to Historical Identity with Browse
+IDN-013,Preview Sync,Manual NSE Current Universe,previewNseCurrentUniverseSync,"Yes if local delisted workbook absent",No,No,PREVIEW,"Name is ambiguous; previews current sync not historical rows",Rename Preview Current Universe from Archive
+IDN-014,Apply Sync,Manual NSE Current Universe,applyNseCurrentUniverseSync,"Yes if local delisted workbook absent",No,Yes,WRITE,"Not bound to preview",Keep explicit under Advanced manual-current-sync
+IDN-015,Import NSE Identity,Historical Identity,importNseIdentityArchive,"Possible during later current sync",No,Yes,WRITE,"No historical preview; possible partial committed rows requires test",Separate Historical Identity task; do not merge with routine refresh
+IDN-016,Find,Preview filtering,setIdentitySearchQuery,No,No,No,READ_ONLY,None,Keep compact above table
+IDN-017,Current,Preview filtering,"applyCurrentSymbolFilter(...,'NSE')",No,No,No,READ_ONLY,"Hard-coded NSE; fails for BSE preview",Fix separately and rename Current Chart
+CFG-014,Apply URLs,Advanced Sources,setSetting officialSourceUrls.v1,No,No,Yes,CONFIG_WRITE,"Hidden setting write; no default/custom summary",Keep in Advanced/Sources with explicit persistence label

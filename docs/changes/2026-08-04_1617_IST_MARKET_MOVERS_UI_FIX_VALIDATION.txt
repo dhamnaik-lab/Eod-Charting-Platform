@@ -1,0 +1,69 @@
+﻿**********************
+Windows PowerShell transcript start
+Start time: 20260804161751
+Username: DESKTOP-R4E4TIE\dharm
+RunAs User: DESKTOP-R4E4TIE\dharm
+Configuration Name: 
+Machine: DESKTOP-R4E4TIE (Microsoft Windows NT 10.0.19045.0)
+Host Application: C:\WINDOWS\System32\WindowsPowerShell\v1.0\powershell.exe -NoProfile -ExecutionPolicy Bypass -File E:\TA Projects\EOD Charting Platform\market_movers_ui_fix_20260804_1559_IST\Apply-MarketMovers-UI-Fix-2026-08-04_1559_IST.ps1 -ProjectRoot .
+Process ID: 24712
+PSVersion: 5.1.19041.7548
+PSEdition: Desktop
+PSCompatibleVersions: 1.0, 2.0, 3.0, 4.0, 5.0, 5.1.19041.7548
+BuildVersion: 10.0.19041.7548
+CLRVersion: 4.0.30319.42000
+WSManStackVersion: 3.0
+PSRemotingProtocolVersion: 2.3
+SerializationVersion: 1.1.0.1
+**********************
+PROJECT ROOT: E:\TA Projects\EOD Charting Platform
+PATCH       : E:\TA Projects\EOD Charting Platform\market_movers_ui_fix_20260804_1559_IST\2026-08-04_1559_IST_MARKET_MOVERS_UI_FIX.patch
+STARTED     : 2026-08-04 16:17:51 +05:30
+
+
+============================================================
+START: Apply Market Movers UI correction patch
+TIME : 2026-08-04 16:17:51 +05:30
+============================================================
+
+PASS: Apply Market Movers UI correction patch
+
+============================================================
+START: Market Movers focused tests
+TIME : 2026-08-04 16:17:51 +05:30
+============================================================
+
+PASS: Market Movers focused tests
+
+============================================================
+START: TypeScript semantic typecheck
+TIME : 2026-08-04 16:18:26 +05:30
+============================================================
+
+PASS: TypeScript semantic typecheck
+
+============================================================
+START: Renderer validation profile
+TIME : 2026-08-04 16:18:36 +05:30
+============================================================
+
+PASS: Renderer validation profile
+
+============================================================
+START: Integrated production build
+TIME : 2026-08-04 16:18:49 +05:30
+============================================================
+
+PASS: Integrated production build
+
+============================================================
+MARKET MOVERS UI CORRECTION COMPLETED
+REPORT     : E:\TA Projects\EOD Charting Platform\docs\changes\2026-08-04_1617_IST_MARKET_MOVERS_UI_FIX.md
+VALIDATION : E:\TA Projects\EOD Charting Platform\docs\changes\2026-08-04_1617_IST_MARKET_MOVERS_UI_FIX_VALIDATION.txt
+PATCH      : E:\TA Projects\EOD Charting Platform\docs\changes\2026-08-04_1617_IST_MARKET_MOVERS_UI_FIX.patch
+BACKUPS    : E:\TA Projects\EOD Charting Platform\docs\changes\backups\2026-08-04_1617_IST_MARKET_MOVERS_UI_FIX
+============================================================
+**********************
+Windows PowerShell transcript end
+End time: 20260804161917
+**********************

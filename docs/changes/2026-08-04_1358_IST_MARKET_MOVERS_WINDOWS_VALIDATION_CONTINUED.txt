@@ -1,0 +1,25 @@
+**********************
+PowerShell transcript start
+Start time: 20260804135819
+Username: DESKTOP-R4E4TIE\dharm
+RunAs User: DESKTOP-R4E4TIE\dharm
+Configuration Name: 
+Machine: DESKTOP-R4E4TIE (Microsoft Windows NT 10.0.19045.0)
+Host Application: C:\Program Files\WindowsApps\Microsoft.PowerShell_7.6.4.0_x64__8wekyb3d8bbwe\pwsh.dll
+Process ID: 20352
+PSVersion: 7.6.4
+PSEdition: Core
+GitCommitId: 7.6.4
+OS: Microsoft Windows 10.0.19045
+Platform: Win32NT
+PSCompatibleVersions: 1.0, 2.0, 3.0, 4.0, 5.0, 5.1, 6.0, 7.0
+PSRemotingProtocolVersion: 2.4
+SerializationVersion: 1.1.0.1
+WSManStackVersion: 3.0
+**********************
+Transcript started, output file is .\docs\changes\2026-08-04_1358_IST_MARKET_MOVERS_WINDOWS_VALIDATION_CONTINUED.txt
+PS E:\TA Projects\EOD Charting Platform> Stop-Transcript
+**********************
+PowerShell transcript end
+End time: 20260804135839
+**********************

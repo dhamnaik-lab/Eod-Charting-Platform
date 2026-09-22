@@ -1,0 +1,43 @@
+PRECOMPUTED DNN PREDICTION ADAPTER V1 — FILE MANIFEST
+IST timestamp: 2026-08-05 19:18 +05:30
+
+MODIFIED
+ARCHITECTURE_CURRENT_EOD_CHARTING_PLATFORM.md
+FEATURE_STATUS_MATRIX_EOD_CHARTING_PLATFORM.md
+FILE_INVENTORY.md
+HANDOFF.md
+PROJECT_STATE_EOD_CHARTING_PLATFORM.md
+README.md
+src/components/SettingsDialog.tsx
+src/features/app/appSettingsService.ts
+src/platform/tauriDesktop.ts
+src/platform/types.ts
+src/plugins/__tests__/pluginRegistry.test.ts
+src/plugins/forecast/dnnTrend/dnnTrendPlugin.ts
+src/plugins/forecast/dnnTrend/index.ts
+src/types/desktop.ts
+src-tauri-shell/src/app_profile.rs
+src-tauri-shell/src/main.rs
+
+CREATED — PRODUCTION/RESOURCE
+resources/dnn-trend/README.md
+resources/dnn-trend/dnn-trend-predictions-v1.schema.json
+resources/dnn-trend/sample-precomputed-predictions-v1.json
+src/plugins/forecast/dnnTrend/DnnTrendPredictionPanel.tsx
+src/plugins/forecast/dnnTrend/pluginConfiguration.ts
+src/plugins/forecast/dnnTrend/precomputedInferenceProvider.ts
+src/plugins/forecast/dnnTrend/precomputedPredictionFileService.ts
+src/plugins/forecast/dnnTrend/precomputedPredictionSource.ts
+src-tauri-shell/src/plugin_data.rs
+
+CREATED — TESTS
+src/plugins/forecast/dnnTrend/__tests__/pluginConfiguration.test.ts
+src/plugins/forecast/dnnTrend/__tests__/precomputedPredictionSource.test.ts
+
+CREATED — CHANGE EVIDENCE
+2026-08-05_1803_IST_SYNCED_CROSSHAIR_TEST_EXPECTATION_FIX.md
+2026-08-05_1825_IST_DNN_TREND_PLUGIN_FINAL_VALIDATION.md
+2026-08-05_1918_IST_PRECOMPUTED_DNN_PREDICTION_ADAPTER_V1.md
+2026-08-05_1918_IST_PRECOMPUTED_DNN_PREDICTION_ADAPTER_V1_FILE_MANIFEST.txt
+2026-08-05_1918_IST_PRECOMPUTED_DNN_PREDICTION_ADAPTER_V1_VALIDATION.txt
+backups/2026-08-05_1909_IST_PRECOMPUTED_DNN_PREDICTION_ADAPTER_V1/

@@ -1,0 +1,22 @@
+DNN RESEARCH DATASET EXPORT V1 - ARTIFACT ENVIRONMENT VALIDATION
+Timestamp: 2026-08-05 22:30 IST (+05:30)
+
+PASS  TypeScript syntax transpilation: 8/8 changed/new TS/TSX files
+PASS  Focused strict TypeScript compile
+PASS  Deterministic export-service runtime harness
+PASS  Manifest JSON parse
+PASS  Draft 2020-12 JSON Schema validation
+PASS  Cross-layer command/event/UI wiring audit: 11/11
+PASS  Generated/dependency/output exclusion audit
+
+NOT COMPLETED  npm ci --ignore-scripts
+Reason: internal npm mirror HTTP 404 for zustand-4.5.7.tgz
+
+NOT RUN  Actual Vitest/full renderer typecheck/build
+Reason: project dependencies unavailable in artifact environment
+
+NOT RUN  Rust/Tauri compilation and rustfmt
+Reason: cargo/rustc/rustfmt unavailable in artifact environment
+
+NOT RUN  Windows portable packaging and real-database manual export
+Required in the live Windows project.

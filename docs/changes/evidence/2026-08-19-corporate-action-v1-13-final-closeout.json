@@ -1,0 +1,164 @@
+{
+  "schemaVersion": 1,
+  "version": "V1.13-FINAL",
+  "mode": "DOCUMENTATION_EVIDENCE_RECONCILIATION",
+  "status": "FULL_SUCCESS_RECORDED",
+  "generatedAt": "2026-08-19T00:44:03.0844763+05:30",
+  "mutationSetFingerprint": "60b411e1bbc564fcdd28870f0eb4dd3b273df87c13297548fe2621a7834c6fa7",
+  "applyPlanFingerprint": "62faae5fb5f7dc106ec3ecb986b11250c50e82071bfff36a6d2c0e9b27f421f3",
+  "authorizationTrancheFingerprint": "4289fd6be38777fafac3af253d1e201b976b79cdf8f9cc1c1f8ccef5a0f44ef7",
+  "preflight": {
+    "status": "READY",
+    "readyInsertCount": 6,
+    "alreadySatisfiedCount": 0,
+    "blockedCount": 0,
+    "artifact": {
+      "path": "E:\\TA Projects\\EOD Charting Platform\\tmp\\corporate-action-v1-13b-1-preflight_20260818_144646_557\\reports\\v1-13b-1-ready-manifest.json",
+      "sha256": "008ae0d08e0dd09e247b65c6c792870225f707b81121af37e9d7d8de1b8bfbfb",
+      "length": 7630
+    }
+  },
+  "apply": {
+    "result": "COMMITTED_PENDING_POST_AUDIT",
+    "transactionCommitted": true,
+    "historyRowsInserted": 6,
+    "databaseWrites": 6,
+    "corporateActionWrites": 0,
+    "quickResolves": 0,
+    "approvals": 0,
+    "artifact": {
+      "path": "E:\\TA Projects\\EOD Charting Platform\\tmp\\corporate-action-v1-13b-1-apply_20260818_170635_303\\reports\\v1-13b-1-apply-result.json",
+      "sha256": "4bfa12e919a60c6a70ab6796c29757b78b7c2267745fe1fe5ccbec7662ef882e",
+      "length": 1472
+    },
+    "mutationResults": [
+      {
+        "importId": 42274,
+        "symbol": "PARSVNATH",
+        "historyRowId": 11602,
+        "outcome": "INSERTED"
+      },
+      {
+        "importId": 19888,
+        "symbol": "SBIN",
+        "historyRowId": 11603,
+        "outcome": "INSERTED"
+      },
+      {
+        "importId": 24224,
+        "symbol": "HINDCOMPOS",
+        "historyRowId": 11604,
+        "outcome": "INSERTED"
+      },
+      {
+        "importId": 24025,
+        "symbol": "GAYAPROJ",
+        "historyRowId": 11605,
+        "outcome": "INSERTED"
+      },
+      {
+        "importId": 23036,
+        "symbol": "BAJFINANCE",
+        "historyRowId": 11606,
+        "outcome": "INSERTED"
+      },
+      {
+        "importId": 12841,
+        "symbol": "TITAN",
+        "historyRowId": 11607,
+        "outcome": "INSERTED"
+      }
+    ]
+  },
+  "preWriteBackup": {
+    "verified": true,
+    "sourceDatabaseFamily": {
+      "mainSha256": "ef9cdeb03cdaba051cbbc6aae4b16cea547c09601e2f0c38fb1278c7f39eeec9",
+      "walSha256": "51e12dbc313c593e285bf45131135f611c7dda7cc363e171c035ea6581356468",
+      "shmSha256": "77a548de500e900e22fb8e74f158b7e3010891d799fe36f478d30630f37779ee"
+    },
+    "artifact": {
+      "path": "E:\\TA Projects\\EOD Charting Platform\\backups\\pre_corporate_action_v1_13b1_apply_20260818_170635_303\\v1-13b-1-backup-manifest.json",
+      "sha256": "a10b87b59ac86fae693b1a84c59558cc0f0f9f1e818e8f09e711e73499978c2b",
+      "length": 527
+    }
+  },
+  "independentPostAudit": {
+    "version": "V1.13C-1.2.1",
+    "status": "FULL_SUCCESS",
+    "authorizedMutationCount": 6,
+    "protectedImportCount": 8,
+    "instrumentIsinHistoryRowDelta": 6,
+    "forbiddenTableChangeCount": 0,
+    "corporateActionStatusPromotions": 0,
+    "quickResolves": 0,
+    "approvals": 0,
+    "liveDatabaseFamilyUnchangedAcrossAudit": true,
+    "verificationArtifact": {
+      "path": "E:\\TA Projects\\EOD Charting Platform\\tmp\\corporate-action-v1-13c-1-2-1-post-audit_20260819_003421_289\\reports\\v1-13c-1-2-1-post-audit-verification.json",
+      "sha256": "b3c1be66764ff6e6ed39229c625cc77e922f920fa0aef7543d8325ff5e8ef88f",
+      "length": 2047
+    },
+    "semanticSummaryArtifact": {
+      "path": "E:\\TA Projects\\EOD Charting Platform\\tmp\\corporate-action-v1-13c-1-2-1-post-audit_20260819_003421_289\\reports\\v1-13c-1-post-audit-summary.json",
+      "sha256": "f1fcb9f6a1e593d2d7426f5f05d99614ea047c6f3856015013a5938f5b7fdeb9",
+      "length": 973
+    }
+  },
+  "protectedImportsCarriedForward": [
+    819,
+    19896,
+    19973,
+    19977,
+    22969,
+    41025,
+    41574,
+    42863
+  ],
+  "documentationBackup": "E:\\TA Projects\\EOD Charting Platform\\backups\\pre_corporate_action_v1_13_final_docs_20260819_004402_240",
+  "documentationFiles": {
+    "README.md": {
+      "path": "E:\\TA Projects\\EOD Charting Platform\\README.md",
+      "sha256": "ae17b26a4774e8478f32086a3b67af31279ffc79010a46e669b201ab09cb2388",
+      "length": 87586
+    },
+    "HANDOFF.md": {
+      "path": "E:\\TA Projects\\EOD Charting Platform\\HANDOFF.md",
+      "sha256": "44b89aeea2d1b62e23f753c5ef3e450b63d7552e53e103dca5b445561ec1a3f5",
+      "length": 27509
+    },
+    "PROJECT_STATE_EOD_CHARTING_PLATFORM.md": {
+      "path": "E:\\TA Projects\\EOD Charting Platform\\PROJECT_STATE_EOD_CHARTING_PLATFORM.md",
+      "sha256": "0fe368fa9a52b0cd264bd2924a1dc4581af38b2667d16690ba6b0d01503f5e91",
+      "length": 405929
+    },
+    "FEATURE_STATUS_MATRIX_EOD_CHARTING_PLATFORM.md": {
+      "path": "E:\\TA Projects\\EOD Charting Platform\\FEATURE_STATUS_MATRIX_EOD_CHARTING_PLATFORM.md",
+      "sha256": "bcceb5008b38d18d81a7774f18955fbe3185b762d823745deccd02a06e26019a",
+      "length": 20521
+    },
+    "ARCHITECTURE_CURRENT_EOD_CHARTING_PLATFORM.md": {
+      "path": "E:\\TA Projects\\EOD Charting Platform\\ARCHITECTURE_CURRENT_EOD_CHARTING_PLATFORM.md",
+      "sha256": "034826d949969fb10f23ce585b3202638377c85f6aa1865ef3895110cea27b09",
+      "length": 56439
+    },
+    "FILE_INVENTORY.md": {
+      "path": "E:\\TA Projects\\EOD Charting Platform\\FILE_INVENTORY.md",
+      "sha256": "35e35a030b8ec67ad9e5e9fe66bca2932b9d7759ba19dcddc47f9e9346f60034",
+      "length": 28686
+    },
+    "docs/changes/2026-08-19_CORPORATE_ACTION_PHASE1_V1_13_FINAL_DOCUMENTATION_EVIDENCE_RECONCILIATION.md": {
+      "path": "E:\\TA Projects\\EOD Charting Platform\\docs\\changes\\2026-08-19_CORPORATE_ACTION_PHASE1_V1_13_FINAL_DOCUMENTATION_EVIDENCE_RECONCILIATION.md",
+      "sha256": "10f5b08ce020e345decc6a7fa0ba4e07e26dc41021d0986292e37d0d053ff96c",
+      "length": 4264
+    }
+  },
+  "safety": {
+    "databaseOperations": 0,
+    "corporateActionOperations": 0,
+    "quickResolveOperations": 0,
+    "approvalOperations": 0,
+    "productionSourceWrites": 0,
+    "gitOperations": 0
+  }
+}

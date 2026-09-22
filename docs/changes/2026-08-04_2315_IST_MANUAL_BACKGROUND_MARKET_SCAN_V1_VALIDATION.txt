@@ -1,0 +1,53 @@
+﻿**********************
+Windows PowerShell transcript start
+Start time: 20260804231546
+Username: DESKTOP-R4E4TIE\dharm
+RunAs User: DESKTOP-R4E4TIE\dharm
+Configuration Name: 
+Machine: DESKTOP-R4E4TIE (Microsoft Windows NT 10.0.19045.0)
+Host Application: C:\WINDOWS\System32\WindowsPowerShell\v1.0\powershell.exe -NoProfile -ExecutionPolicy Bypass -File E:\TA Projects\EOD Charting Platform\manual_bg_patch_build\Apply-Manual-Background-Market-Scan-V1-2026-08-04_1844_IST.ps1 -ProjectRoot .
+Process ID: 20740
+PSVersion: 5.1.19041.7548
+PSEdition: Desktop
+PSCompatibleVersions: 1.0, 2.0, 3.0, 4.0, 5.0, 5.1.19041.7548
+BuildVersion: 10.0.19041.7548
+CLRVersion: 4.0.30319.42000
+WSManStackVersion: 3.0
+PSRemotingProtocolVersion: 2.3
+SerializationVersion: 1.1.0.1
+**********************
+PROJECT ROOT: E:\TA Projects\EOD Charting Platform
+PATCH       : E:\TA Projects\EOD Charting Platform\manual_bg_patch_build\2026-08-04_1844_IST_MANUAL_BACKGROUND_MARKET_SCAN_V1.patch
+STARTED     : 2026-08-04 23:15:46 +05:30
+PORTABLE    : False
+error: patch failed: src/features/marketMovers/__tests__/marketMoversStore.test.ts:71
+error: src/features/marketMovers/__tests__/marketMoversStore.test.ts: patch does not apply
+error: patch failed: src/types/desktop.ts:130
+error: src/types/desktop.ts: patch does not apply
+error: patch failed: src/platform/types.ts:85
+error: src/platform/types.ts: patch does not apply
+error: patch failed: src/platform/tauriDesktop.ts:5
+error: src/platform/tauriDesktop.ts: patch does not apply
+error: patch failed: src/features/marketMovers/marketMoversStyles.ts:319
+error: src/features/marketMovers/marketMoversStyles.ts: patch does not apply
+error: patch failed: src/features/marketMovers/marketMoversStore.ts:1
+error: src/features/marketMovers/marketMoversStore.ts: patch does not apply
+error: src/features/marketMovers/marketMoversSnapshotWorkerClient.ts: No such file or directory
+error: src/features/marketMovers/marketMoversSnapshot.worker.ts: No such file or directory
+error: patch failed: src/features/marketMovers/__tests__/marketMoversStore.test.ts:49
+error: src/features/marketMovers/__tests__/marketMoversStore.test.ts: patch does not apply
+error: patch failed: src/features/marketMovers/MarketMoversPanel.tsx:23
+error: src/features/marketMovers/MarketMoversPanel.tsx: patch does not apply
+error: patch failed: src/features/marketMovers/MarketMoversFullView.tsx:7
+error: src/features/marketMovers/MarketMoversFullView.tsx: patch does not apply
+
+============================================================
+MANUAL BACKGROUND MARKET SCAN V1 FAILED
+ERROR: Patch preflight failed. The target files do not match the expected post-UI-fix baseline. No source files were changed.
+TIME : 2026-08-04 23:15:48 +05:30
+============================================================
+Backups, if created, are located at: E:\TA Projects\EOD Charting Platform\docs\changes\backups\2026-08-04_2315_IST_MANUAL_BACKGROUND_MARKET_SCAN_V1
+**********************
+Windows PowerShell transcript end
+End time: 20260804231548
+**********************

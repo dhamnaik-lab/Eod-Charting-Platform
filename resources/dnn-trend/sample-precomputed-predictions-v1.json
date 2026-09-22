@@ -1,0 +1,45 @@
+{
+  "schemaVersion": "dnn-trend-predictions-v1",
+  "model": {
+    "modelId": "DNN-TREND-SAMPLE",
+    "modelVersion": "0.1.0",
+    "featureVersion": "dnn-trend-features-v1",
+    "generatedAt": "2026-08-05T13:00:00.000Z",
+    "productionReady": false
+  },
+  "predictions": [
+    {
+      "symbol": "TCS",
+      "exchange": "NSE",
+      "timeframe": "1D",
+      "asOfDate": "2026-08-03",
+      "dataRevision": "sample-nse-eod-2026-08-03-adjusted-v1",
+      "horizonBars": 5,
+      "bullishProbability": 0.64,
+      "sidewaysProbability": 0.23,
+      "bearishProbability": 0.13
+    },
+    {
+      "symbol": "TCS",
+      "exchange": "NSE",
+      "timeframe": "1D",
+      "asOfDate": "2026-08-03",
+      "dataRevision": "sample-nse-eod-2026-08-03-adjusted-v1",
+      "horizonBars": 10,
+      "bullishProbability": 0.55,
+      "sidewaysProbability": 0.3,
+      "bearishProbability": 0.15
+    },
+    {
+      "symbol": "TCS",
+      "exchange": "NSE",
+      "timeframe": "1D",
+      "asOfDate": "2026-08-03",
+      "dataRevision": "sample-nse-eod-2026-08-03-adjusted-v1",
+      "horizonBars": 20,
+      "bullishProbability": 0.42,
+      "sidewaysProbability": 0.38,
+      "bearishProbability": 0.2
+    }
+  ]
+}

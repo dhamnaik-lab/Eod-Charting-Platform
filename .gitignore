@@ -1,0 +1,63 @@
+node_modules/
+node_modules
+
+dist/
+release/
+
+src-tauri/target/
+src-tauri-shell/target/
+target/
+
+.vscode/
+.idea/
+
+*.log
+*.tmp
+*.sqlite3
+*.db
+
+database-registry.json
+
+backups/
+EOD DATABASE/
+EOD Charting Platform/
+
+nul
+0
+
+# Local notes / loose artifacts
+CLAUDE.md
+*.rtf
+bhavcopy logs*.txt
+images/
+mockup/
+patches/
+sample-data/
+render_meridian.py
+signal_meridian.png
+signal_meridian_philosophy.md
+
+# GitHub clean baseline exclusions — 2026-09-22
+tmp/
+New Database/
+outputs/
+test-output/
+TAPRO_REFERENCE_FROM_EOD/
+.antigravitycli/
+
+*.zip
+*.sqlite
+*.sqlite3
+*.db
+*.wal
+*.shm
+*.eod
+*.exe
+*.dll
+*.pdb
+.env
+.env.*
+__pycache__/
+*.pyc
+Sript to remember.txt
+MANIFEST_SHA256.txt

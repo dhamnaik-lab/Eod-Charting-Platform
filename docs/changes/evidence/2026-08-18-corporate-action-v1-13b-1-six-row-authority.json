@@ -1,0 +1,192 @@
+{
+  "schemaVersion": 1,
+  "workstream": "Corporate Action Phase 1",
+  "phase": "V1.13B-1 Six-Row Historical ISIN Repair",
+  "status": "DESIGN_AUTHORITY_ONLY_NO_WRITE_IMPLEMENTATION",
+  "basis": {
+    "v1121FinalReports": "tmp\\corporate-action-v1-12-1-final_20260818_011520_117\\reports",
+    "v113a2PreviewReports": "tmp\\corporate-action-v1-13a-preview_20260818_102638_150\\reports",
+    "v1121Fingerprints": {
+      "residualId": "8a42afa94287f2c80531020d6df80030229f647f86d3419a55ab94d8d5272bef",
+      "residualBusiness": "2e53917f05386379e4fb034f8a2e7a814bd4bca33ec6fa84e44668bb52482b72",
+      "classification": "f840120706f2450e8235beed6db63edf1a1b4b06f984d64f2eb90900a1149543",
+      "safeCandidate": "4211d104b21bb44837e15ef57a851380b615d557782fb8b7ebae11091550f58e"
+    },
+    "v113a2": {
+      "candidateSetFingerprint": "b4f61783db9a84958b3a278a0ff00d2687925463dea63a97bd39e46a28e504cf",
+      "dispositionSetFingerprint": "f9254415fd96434f43a32b686d90519d30cc2b30210e913c57fe016283894f35",
+      "mutationSetFingerprint": "60b411e1bbc564fcdd28870f0eb4dd3b273df87c13297548fe2621a7834c6fa7",
+      "safeCount": 14,
+      "readyInsertCount": 6,
+      "alreadySatisfiedCount": 0,
+      "blockedCount": 8,
+      "uniqueMutationCount": 6,
+      "nonSafeExcludedCount": 97
+    },
+    "liveDatabaseFamilyAtPreview": {
+      "dbSha256": "ef9cdeb03cdaba051cbbc6aae4b16cea547c09601e2f0c38fb1278c7f39eeec9",
+      "walSha256": "92fbc1f9c0c280979b34cdaf8d525335451db9a34ae7d90e53d251353df35e37",
+      "shmSha256": "ebdd8118b15e0eef819e920ebe698821e305ef84466ddd01342d1cb862a0af9a"
+    }
+  },
+  "tranche": {
+    "version": "V1.13B-1-AUTHORIZATION-V1",
+    "parentCandidateSetFingerprint": "b4f61783db9a84958b3a278a0ff00d2687925463dea63a97bd39e46a28e504cf",
+    "parentMutationSetFingerprint": "60b411e1bbc564fcdd28870f0eb4dd3b273df87c13297548fe2621a7834c6fa7",
+    "authorizedImportIds": [
+      12841,
+      19888,
+      23036,
+      24025,
+      24224,
+      42274
+    ],
+    "protectedBlockedImportIds": [
+      819,
+      19896,
+      19973,
+      19977,
+      22969,
+      41025,
+      41574,
+      42863
+    ],
+    "nonSafeExcludedCount": 97,
+    "authorizationTrancheFingerprint": "4289fd6be38777fafac3af253d1e201b976b79cdf8f9cc1c1f8ccef5a0f44ef7",
+    "authorizedMutations": [
+      {
+        "importId": 12841,
+        "exchange": "NSE",
+        "symbol": "TITAN",
+        "historicalIsin": "INE280A01010",
+        "effectiveDate": "2011-06-23",
+        "source": "V1.12.1_EXTERNAL_EVIDENCE",
+        "sourceRef": "V112-EVID-0001",
+        "note": "V1.13 controlled identity repair; importIds=12841; evidence=V112-EVID-0001",
+        "candidateFingerprint": "da29a101e6d77956313a50fb358cf0a887445c67bb7f0e001d95097eb7c01036",
+        "mutationFingerprint": "017ce461b70361e13daa875ef0ea3b9c81fb9a2fe23fd673fed47a7777e19a9a"
+      },
+      {
+        "importId": 19888,
+        "exchange": "NSE",
+        "symbol": "SBIN",
+        "historicalIsin": "INE062A01012",
+        "effectiveDate": "2014-11-20",
+        "source": "V1.12.1_EXTERNAL_EVIDENCE",
+        "sourceRef": "V112-EVID-0003",
+        "note": "V1.13 controlled identity repair; importIds=19888; evidence=V112-EVID-0003",
+        "candidateFingerprint": "20e767523c28d6c604472dbcf0e28c5bb478d3c4228126c79bc9090499a2bbfc",
+        "mutationFingerprint": "05c02da876bcb5c59844ee5e9b20030fb5d6d11fd6e7981f4a562289f6a098a1"
+      },
+      {
+        "importId": 23036,
+        "exchange": "NSE",
+        "symbol": "BAJFINANCE",
+        "historicalIsin": "INE296A01016",
+        "effectiveDate": "2016-09-08",
+        "source": "V1.12.1_EXTERNAL_EVIDENCE",
+        "sourceRef": "V112-EVID-0002",
+        "note": "V1.13 controlled identity repair; importIds=23036; evidence=V112-EVID-0002",
+        "candidateFingerprint": "6cca72caffe3939672c285ee40722c68594c9a545265dc1f8a83cb99df1dded7",
+        "mutationFingerprint": "94ef9a56909a80414f3cb70a81da1bff43ae3cd3ead85327318edb7aaaf6d259"
+      },
+      {
+        "importId": 24025,
+        "exchange": "NSE",
+        "symbol": "GAYAPROJ",
+        "historicalIsin": "INE336H01015",
+        "effectiveDate": "2017-02-10",
+        "source": "V1.12.1_EXTERNAL_EVIDENCE",
+        "sourceRef": "V112-EVID-0026",
+        "note": "V1.13 controlled identity repair; importIds=24025; evidence=V112-EVID-0026",
+        "candidateFingerprint": "26c04b61d616c1380f4f164b75fbbfdf80a18cc91f0e49cf14dbb22dc99b6130",
+        "mutationFingerprint": "f547dd7a3ffd71be79147b46b356d481a50b690bf85d7481ae211ea36b151db0"
+      },
+      {
+        "importId": 24224,
+        "exchange": "NSE",
+        "symbol": "HINDCOMPOS",
+        "historicalIsin": "INE310C01011",
+        "effectiveDate": "2017-05-25",
+        "source": "V1.12.1_EXTERNAL_EVIDENCE",
+        "sourceRef": "V112-EVID-0006",
+        "note": "V1.13 controlled identity repair; importIds=24224; evidence=V112-EVID-0006",
+        "candidateFingerprint": "23558e6c75cfb44706f9bbff188c7910d040127c0fd8c812d86e0cc1a7923a25",
+        "mutationFingerprint": "df352f3f2040eb82e1f6bbfd0c4383cd419ea9f599b72ac3eab32acc21c591f8"
+      },
+      {
+        "importId": 42274,
+        "exchange": "NSE",
+        "symbol": "PARSVNATH",
+        "historicalIsin": "INE561H01018",
+        "effectiveDate": "2010-10-18",
+        "source": "V1.12.1_EXTERNAL_EVIDENCE",
+        "sourceRef": "V112-EVID-0027",
+        "note": "V1.13 controlled identity repair; importIds=42274; evidence=V112-EVID-0027",
+        "candidateFingerprint": "e3c5148788a82d0dcd3d8a71ef0b848417e043960ed2e40deb57e86bd4d372f2",
+        "mutationFingerprint": "af77845ccff45db329228f17f6e53d4ea71a0aae91570eb9222f3e35df62d3ae"
+      }
+    ],
+    "protectedBlockedCandidates": [
+      {
+        "importId": 819,
+        "reason": "CORRECT_STALE_IDENTITY_ASSOCIATION is not representable by the narrow history-only writer."
+      },
+      {
+        "importId": 19896,
+        "reason": "CORRECT_STALE_IDENTITY_ASSOCIATION is not representable by the narrow history-only writer."
+      },
+      {
+        "importId": 19973,
+        "reason": "Legal successor/restructuring evidence is not same-security NAME_CHANGE/SYMBOL_CHANGE/BOTH continuity."
+      },
+      {
+        "importId": 19977,
+        "reason": "Legal successor/restructuring evidence is not same-security NAME_CHANGE/SYMBOL_CHANGE/BOTH continuity."
+      },
+      {
+        "importId": 22969,
+        "reason": "CORRECT_STALE_IDENTITY_ASSOCIATION is not representable by the narrow history-only writer."
+      },
+      {
+        "importId": 41025,
+        "reason": "Legal successor/restructuring evidence is not same-security NAME_CHANGE/SYMBOL_CHANGE/BOTH continuity."
+      },
+      {
+        "importId": 41574,
+        "reason": "Legal successor/restructuring evidence is not same-security NAME_CHANGE/SYMBOL_CHANGE/BOTH continuity."
+      },
+      {
+        "importId": 42863,
+        "reason": "Historical symbol is absent; exact instrument_isin_history tuple cannot be formed without inference."
+      }
+    ]
+  },
+  "sourceSentinels": {
+    "src-tauri-shell/src/main.rs": "13abe8d0853c4e8dd9edc92d032cc2d3f1bd67b413e141dcb569750b28cfb869",
+    "src-tauri-shell/src/database/bootstrap.rs": "4e2c611eecf7575b5e4811c11d96c9c47d0eb88f200f05968efa7d6f86c4f348",
+    "src-tauri-shell/src/database/corporate_action_imports.rs": "67b9b373d83204917b2a0185496656b323a6887dcc2c3f9a50b37b6715f2680c",
+    "src-tauri-shell/src/database/corporate_action_imports/historical_isin_bootstrap.rs": "fcdd11bacb83ab5b79b07d8cb353b46e86ea5872bbf300618cad236c15547858",
+    "src-tauri-shell/src/database/instrument_mutations.rs": "c4616929bde17915ec9d1337e5582b12231d8fad4faed3be6dff60d7d5b2a2b7"
+  },
+  "constraints": {
+    "onlyWritableTable": "instrument_isin_history",
+    "mustNotWriteTables": [
+      "instrument_identity_history",
+      "instruments",
+      "corporate_action_imports",
+      "corporate_action_import_evidence",
+      "corporate_action_import_decisions",
+      "corporate_actions",
+      "eod_prices"
+    ],
+    "corporateActionApprovals": 0,
+    "quickResolves": 0,
+    "statusPromotions": 0,
+    "rawPriceWrites": 0,
+    "factorAdjustmentWrites": 0,
+    "gitOperations": 0,
+    "transactionPolicy": "ALL_SIX_OR_ROLLBACK",
+    "postAuditRequiredBeforeFullSuccess": true
+  }
+}

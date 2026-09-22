@@ -1,0 +1,134 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://eod-chart.local/schemas/dnn-research-dataset-v1-manifest.schema.json",
+  "title": "EOD Charting Platform DNN research dataset V1 manifest",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "datasetId",
+    "generatedAt",
+    "status",
+    "database",
+    "filters",
+    "semantics",
+    "files",
+    "counts"
+  ],
+  "properties": {
+    "schemaVersion": { "const": "dnn-research-dataset-v1" },
+    "datasetId": { "type": "string", "minLength": 1 },
+    "generatedAt": { "type": "string", "format": "date-time" },
+    "status": { "enum": ["complete", "completeWithFailures"] },
+    "database": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "identity",
+        "revision",
+        "name",
+        "storageMode",
+        "latestDate",
+        "sourceSymbolCount",
+        "sourceBarCount"
+      ],
+      "properties": {
+        "identity": { "type": "string", "minLength": 1 },
+        "revision": { "type": "string", "minLength": 1 },
+        "name": { "type": "string", "minLength": 1 },
+        "storageMode": { "enum": ["hybrid", "binary"] },
+        "latestDate": {
+          "anyOf": [
+            { "type": "null" },
+            { "type": "string", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$" }
+          ]
+        },
+        "sourceSymbolCount": { "type": "integer", "minimum": 0 },
+        "sourceBarCount": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "filters": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "exchange",
+        "fromDate",
+        "toDate",
+        "adjusted",
+        "includeDividendAdjustments",
+        "includeRightsAdjustments",
+        "includeInactive"
+      ],
+      "properties": {
+        "exchange": { "enum": ["all", "NSE", "BSE"] },
+        "fromDate": { "type": "string", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$" },
+        "toDate": { "type": "string", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$" },
+        "adjusted": { "type": "boolean" },
+        "includeDividendAdjustments": { "type": "boolean" },
+        "includeRightsAdjustments": { "type": "boolean" },
+        "includeInactive": { "type": "boolean" }
+      }
+    },
+    "semantics": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "timeframe",
+        "canonicalSymbolPolicy",
+        "sourceSymbolColumn",
+        "identityHistoryResolution",
+        "corporateActionPolicy",
+        "missingInstrumentsPolicy"
+      ],
+      "properties": {
+        "timeframe": { "const": "1D" },
+        "canonicalSymbolPolicy": { "type": "string", "minLength": 1 },
+        "sourceSymbolColumn": { "type": "string", "minLength": 1 },
+        "identityHistoryResolution": { "const": true },
+        "corporateActionPolicy": { "type": "string", "minLength": 1 },
+        "missingInstrumentsPolicy": { "type": "string", "minLength": 1 }
+      }
+    },
+    "files": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["instruments", "dailyBars", "corporateActions", "failures"],
+      "properties": {
+        "instruments": { "$ref": "#/$defs/file" },
+        "dailyBars": { "$ref": "#/$defs/file" },
+        "corporateActions": { "$ref": "#/$defs/file" },
+        "failures": { "$ref": "#/$defs/file" }
+      }
+    },
+    "counts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "targetInstruments",
+        "exportedInstruments",
+        "dailyBars",
+        "corporateActions",
+        "failures"
+      ],
+      "properties": {
+        "targetInstruments": { "type": "integer", "minimum": 0 },
+        "exportedInstruments": { "type": "integer", "minimum": 0 },
+        "dailyBars": { "type": "integer", "minimum": 0 },
+        "corporateActions": { "type": "integer", "minimum": 0 },
+        "failures": { "type": "integer", "minimum": 0 }
+      }
+    }
+  },
+  "$defs": {
+    "file": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "format", "rowCount"],
+      "properties": {
+        "path": { "type": "string", "minLength": 1 },
+        "format": { "const": "csv-utf8-rfc4180" },
+        "rowCount": { "type": "integer", "minimum": 0 }
+      }
+    }
+  }
+}

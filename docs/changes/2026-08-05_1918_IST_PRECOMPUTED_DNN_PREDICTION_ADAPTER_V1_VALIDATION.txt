@@ -1,0 +1,19 @@
+PRECOMPUTED DNN PREDICTION ADAPTER V1 — LOCAL VALIDATION
+IST timestamp: 2026-08-05 19:18 +05:30
+
+PASS — TypeScript syntax transpilation for 15 changed/new TS/TSX files using global TypeScript 5.8.3.
+PASS — Focused strict production TypeScript compile for prediction types, validation, provider contract, precomputed parser/index, and provider.
+PASS — Focused strict DNN production/test TypeScript compile including precomputed source and plugin-configuration tests with a minimal Vitest declaration.
+PASS — Compiled deterministic runtime harness: parse, exact lookup, causal stale lookup, no future fallback, provider result, revision mismatch, and invalid calendar timestamp rejection.
+PASS — Sample JSON parsed and validated against dnn-trend-predictions-v1.schema.json.
+PASS — Cross-layer wiring/source audit for app-profile persistence, desktop bridge, Tauri command registration, bounded Rust file-read implementation, and Settings integration.
+PASS — No node_modules directory remained after failed dependency installation.
+PASS — Final source exclusion, symlink, intended-file existence, and trailing-whitespace audit.
+
+INCOMPLETE — npm ci --ignore-scripts.
+Reason: the internal artifact-environment npm mirror returned HTTP 404 for zustand-4.5.7.tgz.
+
+NOT RUN — actual Vitest execution, full renderer typecheck, renderer build, Rust/Tauri check, Tauri build, and portable Windows packaging.
+Reason: repository dependencies could not be installed; cargo/rustc were unavailable in the artifact environment.
+
+Required Windows commands are recorded in the Markdown change report.

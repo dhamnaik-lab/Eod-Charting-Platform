@@ -1,0 +1,8301 @@
+# V1.14AD Git-Only Commit Attribution Preflight R3
+
+**IST timestamp:** 2026-08-28 15:13:46 +05:30 IST
+
+## Objective
+
+Audit whether the closed V1.14AD state can be committed with an explicit narrow path set without accidentally including accumulated unrelated working-tree history.
+
+## Previous defect or limitation
+
+The first preservation harness incorrectly normalized Git paths with a leading-dot-destructive TrimStart operation. The actual tracked path is .antigravitycli/chart_visual_layout.md; it must never be rewritten as antigravitycli/chart_visual_layout.md.
+
+R1 then exposed a separate PowerShell collection-materialization defect: a System.Collections.Generic.List[object] created through New-Object and wrapped with @() can throw Argument types do not match. R2 uses the direct generic constructor and ToArray() while preserving the exact manifest contents.
+
+R2 then exposed PowerShell function-output scalarization: Get-ExactPathStatus returned one Git-status row through the pipeline, so the caller received a scalar string and Set-StrictMode rejected .Count. R3 wraps each call in @() so zero, one, or many status rows are always collected as an array.
+
+## Files inspected
+
+- package.json
+- src-tauri-shell\\src\\database\\corporate_action_imports.rs
+- src-tauri-shell\\src\\database\\corporate_action_imports\\v114ad_tests.rs
+- docs\\changes\\2026-08-28_1121_IST_V1_14AD_FINAL_CLOSEOUT.md
+- final C2-R3 evidence/state and final portable identity
+- existing source snapshot: E:\TA Projects\EOD Charting Platform Source Audit\Eod Charting Platform Source Code 2026-08-28_141317_IST
+- complete Git status/index/tracked-file inventory
+- exact package.json and corporate_action_imports.rs working-tree patches
+
+## Files created
+
+- Read-only preflight evidence under E:\TA Projects\EOD Charting Platform\tmp\v1-14ad-git-only-attribution-preflight-r3_20260828_151346_481\reports
+- This report: E:\TA Projects\EOD Charting Platform\docs\changes\2026-08-28_1513_IST_V1_14AD_GIT_ONLY_COMMIT_ATTRIBUTION_PREFLIGHT_R3.md
+- Compact preflight reports ZIP under E:\TA Projects\EOD Charting Platform\tmp\v1-14ad-git-only-attribution-preflight-r3_20260828_151346_481
+
+## Files modified
+
+- No production source/configuration/test file.
+- No Git index entry.
+- No database.
+- No build output.
+
+## Existing source-preservation authority
+
+- Snapshot path: E:\TA Projects\EOD Charting Platform Source Audit\Eod Charting Platform Source Code 2026-08-28_141317_IST
+- Files: 752 — PASS.
+- Bytes: 16988072 — PASS.
+- Deterministic tree SHA-256: 194D8A54F54C4366D35397D2F535F076C8B071458B8D262FE3B2977F857581D2 — PASS.
+- Independently uploaded ZIP SHA-256 reference: 9FA30DA0ACC4327790E84DB6536E05B1E4E7D85DFA161F0BFE8AAF6882F2B845.
+- No duplicate source snapshot was created by this R3.
+
+## Leading-dot path correction
+
+- Exact tracked path: .antigravitycli/chart_visual_layout.md — PASS.
+- Corrupted non-dot path tracked: NO — PASS.
+- Leading-dot path components are preserved; only slash direction is normalized when needed.
+
+## Commit attribution result
+
+- package.json: **NOT_V114AD_ONLY__V114Z_TEST_DISCOVERY_HYGIENE**
+- corporate_action_imports.rs: **CUMULATIVE_MULTI_PHASE_SOURCE__SEPARATION_REQUIRED**
+- v114ad_tests.rs: **V114AD_ONLY_CANDIDATE**
+- final closeout documentation: **V114AD_DOCUMENTATION_CANDIDATE**
+- Git index dirty before report creation: **False**
+- V1.14AD-only commit ready: **False**
+
+### Source cumulative markers found
+
+- `five_pair_consolidation`
+- `five_pair_consolidation_apply`
+- `v114w_tests`
+- `v114x_tests`
+- `v114y_tests`
+- `event_identity_maintenance`
+- `controlled_identity_repair`
+
+## Validation commands
+
+- Get-FileHash on final V1.14AD locked files/evidence/portable.
+- Deterministic SHA-256 tree fingerprint over the existing 752-file source snapshot.
+- git rev-parse --show-toplevel / HEAD / HEAD:path.
+- git branch --show-current.
+- git status --short --untracked-files=all.
+- git diff --cached --name-status.
+- git -c core.quotepath=false ls-files.
+- git diff --no-ext-diff -- package.json.
+- git diff --no-ext-diff -- src-tauri-shell/src/database/corporate_action_imports.rs.
+- git diff --numstat for the two tracked candidate paths.
+
+## Actual validation results
+
+- Exact final V1.14AD hashes: PASS.
+- Exact final C2-R3 evidence: PASS.
+- Exact existing source snapshot tree: PASS.
+- Exact leading-dot tracked path: PASS.
+- Git index clean: True.
+- package.json attribution: NOT_V114AD_ONLY__V114Z_TEST_DISCOVERY_HYGIENE.
+- corporate_action_imports.rs attribution: CUMULATIVE_MULTI_PHASE_SOURCE__SEPARATION_REQUIRED.
+- v114ad_tests.rs attribution: V114AD_ONLY_CANDIDATE.
+
+## Current working-tree status
+
+- ` M .gitignore`
+- ` M AGENTS.md`
+- ` D APP_VERSION_BUILD_METADATA_REPORT.md`
+- ` M ARCHITECTURE_CURRENT_EOD_CHARTING_PLATFORM.md`
+- ` D BHAVCOPY_INLINE_LOG_SCROLL_REPORT.md`
+- ` D BHAVCOPY_SYMBOL_BATCHED_IMPORT_REPORT.md`
+- ` D CHANGES_EMPTY_STATE_FIX_20260331.md`
+- ` D CHART_SCROLLBAR_VIEWPORT_SYNC_REGRESSION_AUDIT.md`
+- ` D CHART_TYPES_FOUNDATION_REPORT.md`
+- ` D CHART_VISUAL_AREA_BOUNDS_CLIPPING_AUDIT.md`
+- ` D CLAUDE_HANDOFF_PROMPT_EOD_CHARTING_PLATFORM.md`
+- ` D COMPACT_INDICATOR_LABEL_CONSISTENCY_REPORT.md`
+- ` D CSV_IMPORT_BATCH_PROGRESS_OPTIMIZATION_REPORT.md`
+- ` D CURRENT_ARCHITECTURE_STRUCTURE_EOD_CHARTING_PLATFORM.md`
+- ` D CURRENT_BUILD_AUDIT_EOD_CHARTING_PLATFORM.md`
+- ` D CUSTOM_FORMULA_ENGINE_MVP_REPORT.md`
+- ` D CUSTOM_POINTER_SCROLLBAR_DESIGN_AUDIT.md`
+- ` D CV1_CHART_VIEWPORT_RESTORE_AUDIT_20260517.md`
+- ` D DBSAVE1_ACTIVE_DATABASE_SAVE_AUDIT_20260517.md`
+- ` D DRAWING_FIBONACCI_FOUNDATION_PASS_REPORT.md`
+- ` M FEATURE_STATUS_MATRIX_EOD_CHARTING_PLATFORM.md`
+- ` M FILE_INVENTORY.md`
+- ` D FULL_ZOOM_OUT_VIEWPORT_FIX_REPORT.md`
+- ` D FUTURE_PROMPT_README_EOD_CHARTING_PLATFORM.md`
+- ` D FUTURE_TV_CHART_UI_IMPLEMENTATION_NOTES_20260524.md`
+- ` M HANDOFF.md`
+- ` D HIDE_AUTO_SCALE_BADGE_REPORT.md`
+- ` D HISTORICAL_CORPORATE_ACTIONS_BACKFILL_PHASE_PLAN.md`
+- ` D HISTORICAL_CORPORATE_ACTIONS_SOURCE_SPIKE_REPORT.md`
+- ` D INDICATOR_PANE_LEGEND_IN_PLOT_TV_STYLE_REPORT.md`
+- ` D INDICATOR_PANE_PADDING_CONTROLS_VISIBILITY_REPORT.md`
+- ` D LC_A2_CHART_CLIPPING_FIX.patch`
+- ` D LC_A2_CHART_CLIPPING_FIX_REPORT.backup.md`
+- ` D LC_A2_CHART_CLIPPING_FIX_REPORT.md`
+- ` D LIGHTWEIGHT_CHARTS_VISUAL_AREA_AUDIT.md`
+- ` D MENU_RESTRUCTURING_PHASE_PLAN_EOD_CHARTING_PLATFORM.md`
+- ` D NEXT_SMALL_IMPLEMENTATION_PHASES_20260517.md`
+- ` D NSE_INDEX_HISTORY_API_REPORT.md`
+- ` D PANE_LEGEND_STATUS_LINE_AUDIT.md`
+- ` D PANE_LEGEND_STATUS_LINE_PHASE2B_AXIS_LABEL_REPORT.md`
+- ` D PANE_LEGEND_STATUS_LINE_PHASE2C_HOVER_ZONE_REPORT.md`
+- ` D PANE_LEGEND_STATUS_LINE_PHASE2_REPORT.md`
+- ` D PANE_LEGEND_STATUS_LINE_PHASE3A_TV_STYLE_LEGEND_AUDIT.md`
+- ` D POP1_POPUP_MODAL_SYSTEM_AUDIT.md`
+- ` D POP2_FLOATING_WINDOW_FOUNDATION_REPORT.md`
+- ` D POP3B_SETTINGS_FLOATING_WINDOW_MIGRATION_REPORT.md`
+- ` D POP3_FAQ_FLOATING_WINDOW_MIGRATION_REPORT.md`
+- ` D POP4A_DATABASE_TOOLS_FLOATING_WINDOW_AUDIT.md`
+- ` D POP4B1A_DATABASE_TOOLS_CLOSE_OVERLAY_AUDIT.md`
+- ` D POP4B1B_DATABASE_TOOLS_CLOSE_OVERLAY_FIX_REPORT.md`
+- ` D POP4B_DATABASE_TOOLS_FLOATING_WINDOW_MIGRATION_REPORT.md`
+- ` D PRICE_LEGEND_GAP_VERTICAL_INDICATORS_REPORT.md`
+- ` D PRICE_PANE_LEGEND_IN_PLOT_TV_STYLE_REPORT.md`
+- ` M PROJECT_STATE_EOD_CHARTING_PLATFORM.md`
+- ` D QE2_F2_QUOTE_DELETE_CHART_REFRESH_AUDIT.md`
+- ` D QE2_QUOTE_EDITOR_DELETE_AUDIT.md`
+- ` D QE3_A_BHAVCOPY_CHART_REFRESH_AUDIT.md`
+- ` D QE3_C_NSE_INDEX_ALREADY_DOWNLOADED_AUDIT.md`
+- ` D QUOTE_EDITOR_PHASE_A_ALL_SYMBOLS_SINGLE_DATE_REPORT.md`
+- ` M README.md`
+- ` D SCALE_LABEL_SETTINGS_REFINEMENTS_REPORT.md`
+- ` D SCALE_LABEL_SETTINGS_TV_STYLE_REPORT.md`
+- ` D SCALE_MENU_INDICATOR_PADDING_REPORT.md`
+- ` D SCROLLBAR_GUARD_USER_INTERACTION_FIX_REPORT.md`
+- ` D SCROLLBAR_GUARD_USER_INTERACTION_FIX_REPORT.not-final.md`
+- ` D SCROLLBAR_NATIVE_GUARD_PARTIAL_FIX_NOT_FINAL.patch`
+- ` D SCROLLBAR_SHEET_VIEWPORT_SYNC_REPORT.md`
+- ` D SCROLLBAR_TRACE_DIAGNOSTICS_REPORT.md`
+- ` D SCROLLBAR_VIEWPORT_DEPENDENCY_FIX_FAILED.patch`
+- ` D SCROLLBAR_VIEWPORT_DEPENDENCY_FIX_REPORT.md`
+- ` D SCROLLBAR_VISUAL_POLISH_REPORT.md`
+- ` D SESSION_LOG_20260511.md`
+- ` D SESSION_LOG_20260511_PERFORMANCE.md`
+- ` D SESSION_LOG_20260513_BINARY.md`
+- ` D SESSION_LOG_20260513_INTEGRATION.md`
+- ` D SESSION_LOG_20260514_PHASE3A.md`
+- ` D SESSION_LOG_20260514_PHASE3B2.md`
+- ` D SESSION_LOG_20260515_3_PHASE4B2_UI.md`
+- ` D SESSION_LOG_20260515_PHASE4B4_QA.md`
+- ` D SESSION_LOG_20260515_PHASE4C1_AUDIT.md`
+- ` D SESSION_LOG_20260515_PHASE4C2_AUDIT.md`
+- ` D SESSION_LOG_20260515_PHASE4C3.md`
+- ` D SESSION_LOG_20260516_PHASE4C4_4C6.md`
+- ` D SESSION_LOG_20260516_PHASE4C8_4C9B.md`
+- ` D SESSION_LOG_20260516_PHASE4C9C_CORRECTION_4C9D.md`
+- ` D SESSION_LOG_20260517_5_DBSAVE2_QA_SCROLLBAR_FIX.md`
+- ` D SESSION_LOG_20260518_POP4B_STABILITY.md`
+- ` D SESSION_LOG_20260521_INDICATOR_SETTINGS_PORTAL_FIX.md`
+- ` D SRC1_BHAVCOPY_SOURCE_URL_AUDIT_20260518.md`
+- ` D STABILITY_S1A_MAIN_THREAD_BLOCKING_AUDIT.md`
+- ` D STABILITY_S1D_E_QUOTE_EDIT_DELETE_AUDIT.md`
+- ` D STABILITY_S1D_HEAVY_MUTATORS_AUDIT.md`
+- ` D STABILITY_S1E_FINAL_QA_REPORT.md`
+- ` D THEME_IMPLEMENTATION_PLAN_20260524.md`
+- ` D W1B_ALREADY_IMPORTED_WATCHLIST_AUDIT_20260518.md`
+- ` M docs/archive/CHANGES_EMPTY_STATE_FIX_20260331.md`
+- ` M docs/indicator-catalog.md`
+- ` M package-lock.json`
+- ` M package.json`
+- ` M run-release-preview.ps1`
+- ` M scripts/check-doc-references.ps1`
+- ` M scripts/create-project-backup.ps1`
+- ` M scripts/prepare-tauri-portable.ps1`
+- ` M src-tauri-shell/Cargo.lock`
+- ` M src-tauri-shell/Cargo.toml`
+- ` M src-tauri-shell/README.md`
+- ` M src-tauri-shell/gen/schemas/acl-manifests.json`
+- ` M src-tauri-shell/gen/schemas/desktop-schema.json`
+- ` M src-tauri-shell/gen/schemas/windows-schema.json`
+- ` M src-tauri-shell/src/app_profile.rs`
+- ` M src-tauri-shell/src/bhavcopy.rs`
+- ` M src-tauri-shell/src/database.rs`
+- ` M src-tauri-shell/src/database/binary_eod.rs`
+- ` M src-tauri-shell/src/database/bootstrap.rs`
+- ` M src-tauri-shell/src/database/corporate_action_imports.rs`
+- ` M src-tauri-shell/src/database/eod_data.rs`
+- ` M src-tauri-shell/src/database/instrument_mutations.rs`
+- ` M src-tauri-shell/src/database/nse_identity_imports.rs`
+- ` M src-tauri-shell/src/database/quotes.rs`
+- ` M src-tauri-shell/src/database/symbol_search.rs`
+- ` M src-tauri-shell/src/imports.rs`
+- ` M src-tauri-shell/src/main.rs`
+- ` M src/RootApp.tsx`
+- ` M src/components/BhavcopyDownloadWindow.tsx`
+- ` M src/components/ChartCanvas.tsx`
+- ` M src/components/ChartDrawingContextMenu.tsx`
+- ` M src/components/ChartDrawingPropertiesDialog.tsx`
+- ` M src/components/ChartToolDock.tsx`
+- ` M src/components/CommandPalette.tsx`
+- ` M src/components/DatabaseToolsDialogs.tsx`
+- ` M src/components/ImportCsvDialog.tsx`
+- ` M src/components/IndicatorPickerDialog.tsx`
+- ` M src/components/IndicatorSettingsDialog.tsx`
+- ` M src/components/OfficialWatchlistImportDialog.tsx`
+- ` M src/components/ScannerWindow.tsx`
+- ` M src/components/SettingsDialog.tsx`
+- ` M src/components/Sidebar.tsx`
+- ` M src/components/StatusBar.tsx`
+- ` M src/components/Toolbar.tsx`
+- ` M src/components/WatchlistDialogs.tsx`
+- ` M src/components/WatchlistManagerDialog.tsx`
+- ` M src/components/WindowTray.tsx`
+- ` M src/engine/ChartEngine.ts`
+- ` M src/engine/Indicators.ts`
+- ` M src/engine/Patterns.ts`
+- ` M src/engine/Renderer.ts`
+- ` M src/engine/ScaleManager.ts`
+- ` M src/engine/__tests__/DrawingMagnet.test.ts`
+- ` M src/engine/__tests__/syncedCrosshair.test.ts`
+- ` M src/engine/types.ts`
+- ` M src/features/alerts/__tests__/eodAlerts.test.ts`
+- ` M src/features/app/appSettingsService.ts`
+- ` M src/features/charts/__tests__/chartSheetWorkspaceService.test.ts`
+- ` M src/features/charts/__tests__/chartTabStateMutationService.test.ts`
+- ` M src/features/charts/chartDataUtils.ts`
+- ` M src/features/charts/chartInstrumentCompareController.ts`
+- ` M src/features/charts/chartInstrumentHydrationService.ts`
+- ` M src/features/charts/chartSearchController.ts`
+- ` M src/features/charts/chartSheetWorkspaceService.ts`
+- ` M src/features/charts/chartTabStateMutationService.ts`
+- ` M src/features/charts/chartTabWorkspaceService.ts`
+- ` M src/features/watchlists/__tests__/officialWatchlistImportService.test.ts`
+- ` M src/features/watchlists/officialWatchlistData.generated.ts`
+- ` M src/features/watchlists/officialWatchlistProviders.ts`
+- ` M src/features/workspace/__tests__/workspacePersistence.test.ts`
+- ` M src/features/workspace/workspacePersistence.ts`
+- ` M src/indicators/catalog.ts`
+- ` M src/platform/tauriDesktop.ts`
+- ` M src/platform/types.ts`
+- ` M src/plugins/__tests__/pluginRegistry.test.ts`
+- ` M src/plugins/registry.ts`
+- ` M src/plugins/scanner/__tests__/chartPatternPrimitives.test.ts`
+- ` M src/plugins/scanner/__tests__/scannerPatternMap.test.ts`
+- ` M src/plugins/scanner/__tests__/scannerWorkspace.test.ts`
+- ` M src/plugins/scanner/chartPatternPrimitives.ts`
+- ` M src/plugins/scanner/chartPatternScanners.ts`
+- ` M src/plugins/scanner/dailyMarketScanners.ts`
+- ` M src/plugins/scanner/scannerPatternMap.ts`
+- ` M src/plugins/scanner/scannerPlugin.ts`
+- ` M src/plugins/scanner/scannerWorkspace.ts`
+- ` M src/plugins/types.ts`
+- ` M src/store/chartStoreTypes.ts`
+- ` M src/store/uiStore.ts`
+- ` M src/types/desktop.ts`
+- ` D vite.config.ts`
+- ` M vitest.config.ts`
+- `?? .cargo/config.toml`
+- `?? "Chart Patterns/download_chart_patterns.py"`
+- `?? EOD_Aug24_Corporate_Action_Canonical_Documentation_Closure_V1_2026-08-24_1215_IST.zip`
+- `?? EOD_Aug24_Corporate_Action_Canonical_Documentation_Update_V1_2026-08-24_0245_IST.zip`
+- `?? EOD_Chart_48_Tool_TradingView_Fidelity_Audit_2026-08-11_IST.md`
+- `?? EOD_Chart_Corporate_Action_Phase1_V1_14F_1_Instruments_Composite_Key_Preflight_Compatibility_2026-08-23_0600_IST/README.md`
+- `?? EOD_Chart_Corporate_Action_Phase1_V1_14F_1_Instruments_Composite_Key_Preflight_Compatibility_2026-08-23_0600_IST/Run-V1-14F-1-Four-Row-Repair-Preflight.ps1`
+- `?? EOD_Chart_Corporate_Action_Phase1_V1_14F_1_Instruments_Composite_Key_Preflight_Compatibility_2026-08-23_0600_IST/Test-V1-14F-1-Synthetic-Preflight.py`
+- `?? EOD_Chart_Corporate_Action_Phase1_V1_14F_1_Instruments_Composite_Key_Preflight_Compatibility_2026-08-23_0600_IST/Validate-V1-14F-1-Package.py`
+- `?? EOD_Chart_Corporate_Action_Phase1_V1_14F_1_Instruments_Composite_Key_Preflight_Compatibility_2026-08-23_0600_IST/__pycache__/Test-V1-14F-1-Synthetic-Preflight.cpython-314.pyc`
+- `?? EOD_Chart_Corporate_Action_Phase1_V1_14F_1_Instruments_Composite_Key_Preflight_Compatibility_2026-08-23_0600_IST/audit/v114f1/__pycache__/four_row_repair_preflight.cpython-314.pyc`
+- `?? EOD_Chart_Corporate_Action_Phase1_V1_14F_1_Instruments_Composite_Key_Preflight_Compatibility_2026-08-23_0600_IST/audit/v114f1/four_row_repair_preflight.py`
+- `?? EOD_Chart_Corporate_Action_Phase1_V1_14F_1_Instruments_Composite_Key_Preflight_Compatibility_2026-08-23_0600_IST/authority/four-row-resolver-replay.json`
+- `?? EOD_Chart_Corporate_Action_Phase1_V1_14F_1_Instruments_Composite_Key_Preflight_Compatibility_2026-08-23_0600_IST/authority/v1-14f-four-row-repair-authority.json`
+- `?? EOD_Chart_Corporate_Action_Phase1_V1_14F_1_Instruments_Composite_Key_Preflight_Compatibility_2026-08-23_0600_IST/docs/changes/2026-08-23_CORPORATE_ACTION_PHASE1_V1_14F_1_INSTRUMENTS_COMPOSITE_KEY_PREFLIGHT_COMPATIBILITY.md`
+- `?? EOD_Chart_Corporate_Action_Phase1_V1_14F_1_Instruments_Composite_Key_Preflight_Compatibility_2026-08-23_0600_IST/docs/changes/2026-08-23_CORPORATE_ACTION_PHASE1_V1_14F_EXACT_FOUR_ROW_REPAIR_DESIGN_PREFLIGHT.md`
+- `?? EOD_Chart_Corporate_Action_Phase1_V1_14F_1_Instruments_Composite_Key_Preflight_Compatibility_2026-08-23_0600_IST/docs/superpowers/plans/2026-08-23-corporate-action-v1-14f-exact-four-row-repair-plan.md`
+- `?? EOD_Chart_Corporate_Action_Phase1_V1_14F_1_Instruments_Composite_Key_Preflight_Compatibility_2026-08-23_0600_IST/docs/superpowers/specs/2026-08-23-corporate-action-v1-14f-exact-four-row-repair-design.md`
+- `?? EOD_Chart_Corporate_Action_Phase1_V1_14F_1_Instruments_Composite_Key_Preflight_Compatibility_2026-08-23_0600_IST/package-manifest.json`
+- `?? EOD_Chart_Corporate_Action_Phase1_V1_14F_2_Dedupe_Key_Aligned_Repair_Design_Preflight_2026-08-23_1400_IST/README.md`
+- `?? EOD_Chart_Corporate_Action_Phase1_V1_14F_2_Dedupe_Key_Aligned_Repair_Design_Preflight_2026-08-23_1400_IST/Run-V1-14F-2-Dedupe-Key-Aligned-Repair-Preflight.ps1`
+- `?? EOD_Chart_Corporate_Action_Phase1_V1_14F_2_Dedupe_Key_Aligned_Repair_Design_Preflight_2026-08-23_1400_IST/Test-V1-14F-2-Synthetic-Preflight.py`
+- `?? EOD_Chart_Corporate_Action_Phase1_V1_14F_2_Dedupe_Key_Aligned_Repair_Design_Preflight_2026-08-23_1400_IST/Validate-V1-14F-2-Package.py`
+- `?? EOD_Chart_Corporate_Action_Phase1_V1_14F_2_Dedupe_Key_Aligned_Repair_Design_Preflight_2026-08-23_1400_IST/__pycache__/Test-V1-14F-2-Synthetic-Preflight.cpython-314.pyc`
+- `?? EOD_Chart_Corporate_Action_Phase1_V1_14F_2_Dedupe_Key_Aligned_Repair_Design_Preflight_2026-08-23_1400_IST/audit/v114f2/__pycache__/four_row_dedupe_aligned_repair_preflight.cpython-314.pyc`
+- `?? EOD_Chart_Corporate_Action_Phase1_V1_14F_2_Dedupe_Key_Aligned_Repair_Design_Preflight_2026-08-23_1400_IST/audit/v114f2/four_row_dedupe_aligned_repair_preflight.py`
+- `?? EOD_Chart_Corporate_Action_Phase1_V1_14F_2_Dedupe_Key_Aligned_Repair_Design_Preflight_2026-08-23_1400_IST/authority/four-row-resolver-replay.json`
+- `?? EOD_Chart_Corporate_Action_Phase1_V1_14F_2_Dedupe_Key_Aligned_Repair_Design_Preflight_2026-08-23_1400_IST/authority/v1-14f-1-reviewed-candidates.json`
+- `?? EOD_Chart_Corporate_Action_Phase1_V1_14F_2_Dedupe_Key_Aligned_Repair_Design_Preflight_2026-08-23_1400_IST/authority/v1-14f-1-reviewed-preflight-summary.json`
+- `?? EOD_Chart_Corporate_Action_Phase1_V1_14F_2_Dedupe_Key_Aligned_Repair_Design_Preflight_2026-08-23_1400_IST/authority/v1-14f-1-reviewed-ready-manifest.json`
+- `?? EOD_Chart_Corporate_Action_Phase1_V1_14F_2_Dedupe_Key_Aligned_Repair_Design_Preflight_2026-08-23_1400_IST/authority/v1-14f-2-dedupe-key-aligned-repair-authority.json`
+- `?? EOD_Chart_Corporate_Action_Phase1_V1_14F_2_Dedupe_Key_Aligned_Repair_Design_Preflight_2026-08-23_1400_IST/docs/changes/2026-08-23_CORPORATE_ACTION_PHASE1_V1_14F_2_DEDUPE_KEY_ALIGNED_REPAIR_DESIGN_PREFLIGHT.md`
+- `?? EOD_Chart_Corporate_Action_Phase1_V1_14F_2_Dedupe_Key_Aligned_Repair_Design_Preflight_2026-08-23_1400_IST/docs/superpowers/plans/2026-08-23-corporate-action-v1-14f-2-dedupe-key-aligned-four-row-repair-plan.md`
+- `?? EOD_Chart_Corporate_Action_Phase1_V1_14F_2_Dedupe_Key_Aligned_Repair_Design_Preflight_2026-08-23_1400_IST/docs/superpowers/specs/2026-08-23-corporate-action-v1-14f-2-dedupe-key-aligned-four-row-repair-design.md`
+- `?? EOD_Chart_Corporate_Action_Phase1_V1_14F_2_Dedupe_Key_Aligned_Repair_Design_Preflight_2026-08-23_1400_IST/package-manifest.json`
+- `?? EOD_Chart_Corporate_Action_Phase1_V1_14F_3_Production_Candidate_Aligned_Repair_Design_Preflight_2026-08-23_1615_IST/README.md`
+- `?? EOD_Chart_Corporate_Action_Phase1_V1_14F_3_Production_Candidate_Aligned_Repair_Design_Preflight_2026-08-23_1615_IST/Run-V1-14F-3-Production-Candidate-Aligned-Repair-Preflight.ps1`
+- `?? EOD_Chart_Corporate_Action_Phase1_V1_14F_3_Production_Candidate_Aligned_Repair_Design_Preflight_2026-08-23_1615_IST/Test-V1-14F-3-Synthetic-Preflight.py`
+- `?? EOD_Chart_Corporate_Action_Phase1_V1_14F_3_Production_Candidate_Aligned_Repair_Design_Preflight_2026-08-23_1615_IST/Validate-V1-14F-3-Package.py`
+- `?? EOD_Chart_Corporate_Action_Phase1_V1_14F_3_Production_Candidate_Aligned_Repair_Design_Preflight_2026-08-23_1615_IST/audit/v114f3/four_row_production_candidate_repair_preflight.py`
+- `?? EOD_Chart_Corporate_Action_Phase1_V1_14F_3_Production_Candidate_Aligned_Repair_Design_Preflight_2026-08-23_1615_IST/authority/four-row-resolver-replay.json`
+- `?? EOD_Chart_Corporate_Action_Phase1_V1_14F_3_Production_Candidate_Aligned_Repair_Design_Preflight_2026-08-23_1615_IST/authority/v1-14f-2-message-construction-evidence.txt`
+- `?? EOD_Chart_Corporate_Action_Phase1_V1_14F_3_Production_Candidate_Aligned_Repair_Design_Preflight_2026-08-23_1615_IST/authority/v1-14f-2-reviewed-candidates.json`
+- `?? EOD_Chart_Corporate_Action_Phase1_V1_14F_3_Production_Candidate_Aligned_Repair_Design_Preflight_2026-08-23_1615_IST/authority/v1-14f-2-reviewed-preflight-summary.json`
+- `?? EOD_Chart_Corporate_Action_Phase1_V1_14F_3_Production_Candidate_Aligned_Repair_Design_Preflight_2026-08-23_1615_IST/authority/v1-14f-2-reviewed-ready-manifest.json`
+- `?? EOD_Chart_Corporate_Action_Phase1_V1_14F_3_Production_Candidate_Aligned_Repair_Design_Preflight_2026-08-23_1615_IST/authority/v1-14f-2-reviewed-schema-safety.json`
+- `?? EOD_Chart_Corporate_Action_Phase1_V1_14F_3_Production_Candidate_Aligned_Repair_Design_Preflight_2026-08-23_1615_IST/authority/v1-14f-3-production-candidate-aligned-repair-authority.json`
+- `?? EOD_Chart_Corporate_Action_Phase1_V1_14F_3_Production_Candidate_Aligned_Repair_Design_Preflight_2026-08-23_1615_IST/docs/changes/2026-08-23_CORPORATE_ACTION_PHASE1_V1_14F_3_PRODUCTION_CANDIDATE_ALIGNED_REPAIR_DESIGN_PREFLIGHT.md`
+- `?? EOD_Chart_Corporate_Action_Phase1_V1_14F_3_Production_Candidate_Aligned_Repair_Design_Preflight_2026-08-23_1615_IST/docs/superpowers/plans/2026-08-23-corporate-action-v1-14f-3-production-candidate-aligned-repair-preflight-plan.md`
+- `?? EOD_Chart_Corporate_Action_Phase1_V1_14F_3_Production_Candidate_Aligned_Repair_Design_Preflight_2026-08-23_1615_IST/docs/superpowers/specs/2026-08-23-corporate-action-v1-14f-3-production-candidate-aligned-repair-design.md`
+- `?? EOD_Chart_Corporate_Action_Phase1_V1_14F_3_Production_Candidate_Aligned_Repair_Design_Preflight_2026-08-23_1615_IST/package-manifest.json`
+- `?? EOD_Chart_Corporate_Action_Phase1_V1_14F_Exact_Four_Row_Backward_Normalization_Repair_Design_Preflight_2026-08-23_0445_IST/README.md`
+- `?? EOD_Chart_Corporate_Action_Phase1_V1_14F_Exact_Four_Row_Backward_Normalization_Repair_Design_Preflight_2026-08-23_0445_IST/Run-V1-14F-Four-Row-Repair-Preflight.ps1`
+- `?? EOD_Chart_Corporate_Action_Phase1_V1_14F_Exact_Four_Row_Backward_Normalization_Repair_Design_Preflight_2026-08-23_0445_IST/Test-V1-14F-Synthetic-Preflight.py`
+- `?? EOD_Chart_Corporate_Action_Phase1_V1_14F_Exact_Four_Row_Backward_Normalization_Repair_Design_Preflight_2026-08-23_0445_IST/Validate-V1-14F-Package.py`
+- `?? EOD_Chart_Corporate_Action_Phase1_V1_14F_Exact_Four_Row_Backward_Normalization_Repair_Design_Preflight_2026-08-23_0445_IST/__pycache__/Test-V1-14F-Synthetic-Preflight.cpython-314.pyc`
+- `?? EOD_Chart_Corporate_Action_Phase1_V1_14F_Exact_Four_Row_Backward_Normalization_Repair_Design_Preflight_2026-08-23_0445_IST/audit/v114f/__pycache__/four_row_repair_preflight.cpython-314.pyc`
+- `?? EOD_Chart_Corporate_Action_Phase1_V1_14F_Exact_Four_Row_Backward_Normalization_Repair_Design_Preflight_2026-08-23_0445_IST/audit/v114f/four_row_repair_preflight.py`
+- `?? EOD_Chart_Corporate_Action_Phase1_V1_14F_Exact_Four_Row_Backward_Normalization_Repair_Design_Preflight_2026-08-23_0445_IST/authority/four-row-resolver-replay.json`
+- `?? EOD_Chart_Corporate_Action_Phase1_V1_14F_Exact_Four_Row_Backward_Normalization_Repair_Design_Preflight_2026-08-23_0445_IST/authority/v1-14f-four-row-repair-authority.json`
+- `?? EOD_Chart_Corporate_Action_Phase1_V1_14F_Exact_Four_Row_Backward_Normalization_Repair_Design_Preflight_2026-08-23_0445_IST/docs/changes/2026-08-23_CORPORATE_ACTION_PHASE1_V1_14F_EXACT_FOUR_ROW_REPAIR_DESIGN_PREFLIGHT.md`
+- `?? EOD_Chart_Corporate_Action_Phase1_V1_14F_Exact_Four_Row_Backward_Normalization_Repair_Design_Preflight_2026-08-23_0445_IST/docs/superpowers/plans/2026-08-23-corporate-action-v1-14f-exact-four-row-repair-plan.md`
+- `?? EOD_Chart_Corporate_Action_Phase1_V1_14F_Exact_Four_Row_Backward_Normalization_Repair_Design_Preflight_2026-08-23_0445_IST/docs/superpowers/specs/2026-08-23-corporate-action-v1-14f-exact-four-row-repair-design.md`
+- `?? EOD_Chart_Corporate_Action_Phase1_V1_14F_Exact_Four_Row_Backward_Normalization_Repair_Design_Preflight_2026-08-23_0445_IST/package-manifest.json`
+- `?? EOD_Charting_Platform_QUOTE_DELETE_ORPHAN_SYMBOL_PRUNE_V1.patch`
+- `?? EOD_DOCS_CA_V114M11_PRE/README.md`
+- `?? EOD_DOCS_CA_V114M11_PRE/Run-Aug24-Corporate-Action-Canonical-Documentation-Update.ps1`
+- `?? EOD_DOCS_CA_V114M11_PRE/Validate-Aug24-CA-Docs-Package.py`
+- `?? EOD_DOCS_CA_V114M11_PRE/authority/aug24-ca-docs-authority.json`
+- `?? EOD_DOCS_CA_V114M11_PRE/authority/v114l-source-hardening-result.json`
+- `?? EOD_DOCS_CA_V114M11_PRE/authority/v114m11-apply-result.json`
+- `?? EOD_DOCS_CA_V114M11_PRE/authority/v114m11-live-family-after-apply.json`
+- `?? EOD_DOCS_CA_V114M11_PRE/authority/v114m11-protected-table-fingerprints-after.json`
+- `?? EOD_DOCS_CA_V114M11_PRE/authority/v114m11-target-rows-after.json`
+- `?? EOD_DOCS_CA_V114M11_PRE/package-manifest.json`
+- `?? EOD_DOCS_CA_V114M11_PRE/tests/__pycache__/test_docs_patch.cpython-314-pytest-9.1.1.pyc`
+- `?? EOD_DOCS_CA_V114M11_PRE/tests/__pycache__/test_docs_patch.cpython-314.pyc`
+- `?? EOD_DOCS_CA_V114M11_PRE/tests/test_docs_patch.py`
+- `?? EOD_DOCS_CA_V114M11_PRE/tools/__pycache__/apply_aug24_corporate_action_docs.cpython-314.pyc`
+- `?? EOD_DOCS_CA_V114M11_PRE/tools/apply_aug24_corporate_action_docs.py`
+- `?? EOD_DOCS_CA_V114M2_CLOSE/README.md`
+- `?? EOD_DOCS_CA_V114M2_CLOSE/Run-Aug24-Corporate-Action-Canonical-Closure.ps1`
+- `?? EOD_DOCS_CA_V114M2_CLOSE/Validate-Aug24-CA-Docs-Closure-Package.py`
+- `?? EOD_DOCS_CA_V114M2_CLOSE/authority/aug24-ca-docs-closure-authority.json`
+- `?? EOD_DOCS_CA_V114M2_CLOSE/authority/prior-docs-file-hashes.json`
+- `?? EOD_DOCS_CA_V114M2_CLOSE/authority/prior-docs-safety-verification.json`
+- `?? EOD_DOCS_CA_V114M2_CLOSE/authority/prior-docs-update-result.json`
+- `?? EOD_DOCS_CA_V114M2_CLOSE/authority/v114m2-closure-material.json`
+- `?? EOD_DOCS_CA_V114M2_CLOSE/authority/v114m2-live-family-after.json`
+- `?? EOD_DOCS_CA_V114M2_CLOSE/authority/v114m2-summary.json`
+- `?? EOD_DOCS_CA_V114M2_CLOSE/authority/v114m2-target-rows.json`
+- `?? EOD_DOCS_CA_V114M2_CLOSE/package-manifest.json`
+- `?? EOD_DOCS_CA_V114M2_CLOSE/tests/__pycache__/test_finalize_docs.cpython-314-pytest-9.1.1.pyc`
+- `?? EOD_DOCS_CA_V114M2_CLOSE/tests/__pycache__/test_finalize_docs.cpython-314.pyc`
+- `?? EOD_DOCS_CA_V114M2_CLOSE/tests/test_finalize_docs.py`
+- `?? EOD_DOCS_CA_V114M2_CLOSE/tools/__pycache__/finalize_aug24_corporate_action_docs.cpython-314.pyc`
+- `?? EOD_DOCS_CA_V114M2_CLOSE/tools/finalize_aug24_corporate_action_docs.py`
+- `?? EOD_V1_14F_3_1_Short_Path_Macro_Compatibility_2026-08-23.zip`
+- `?? EOD_V1_14F_3_2_Controlled_Apply_Wrapper_Count_Compatibility_2026-08-23_1908_IST.zip`
+- `?? EOD_V1_14G_Post_V1_14F_3_Residual_Identity_Rebaseline_Audit_2026-08-23_2025_IST.zip`
+- `?? EOD_V1_14H_Four_Row_Residual_Symbol_Bearing_Provenance_Audit_2026-08-23_2315_IST.zip`
+- `?? EOD_V1_14I_1_Exact_Symbol_Headerless_Directional_Classifier_Correction_2026-08-24_0005_IST.zip`
+- `?? EOD_V1_14I_Raw_NSE_Identity_Source_Verification_Audit_2026-08-23_2355_IST.zip`
+- `?? EOD_V1_14J_Official_NSE_Archive_Provenance_Audit_2026-08-24_0015_IST.zip`
+- `?? EOD_V1_14K_1_Three_Row_Production_Candidate_Repairability_Replay_Rebased_V1_14L_2026-08-24_0145_IST.zip`
+- `?? EOD_V1_14K_Three_Row_Production_Candidate_Repairability_Replay_Preflight_2026-08-24_0040_IST.zip`
+- `?? EOD_V1_14L_Exact_Active_NSE_Ambiguous_Inactive_Historical_ISIN_Resolver_TDD_Hardening_2026-08-24_0125_IST.zip`
+- `?? EOD_V1_14M_1_1_Three_Row_Controlled_Apply_Wrapper_Correction_2026-08-24_0228_IST.zip`
+- `?? EOD_V1_14M_1_Three_Row_Production_Candidate_Controlled_Apply_2026-08-24_0218_IST.zip`
+- `?? EOD_V1_14M_2_Independent_Exact_Three_Row_Post_Audit_2026-08-24_1145_IST.zip`
+- `?? EOD_V1_14M_Three_Row_Production_Candidate_Repair_Controlled_Preflight_2026-08-24_0208_IST.zip`
+- `?? EOD_V1_14N_Post_Repair_NSE_Residual_Rebaseline_2026-08-24_1415_IST.zip`
+- `?? EOD_V1_14O_Official_NSE_Historical_Symbol_Provenance_Audit_2026-08-24_1435_IST.zip`
+- `?? EOD_V1_14P_Five_Row_Official_Provenance_Production_Candidate_Replay_2026-08-24_1525_IST.zip`
+- `?? EOD_V1_14U_Five_Pair_Evidence_Preserving_Consolidation_Simulation_2026-08-24_2335_IST.zip`
+- `?? EOD_V1_14U_Five_Pair_Evidence_Preserving_Consolidation_Simulation_2026-08-24_2335_IST/README.md`
+- `?? EOD_V1_14U_Five_Pair_Evidence_Preserving_Consolidation_Simulation_2026-08-24_2335_IST/Run-V1-14U-Consolidation-Simulation.ps1`
+- `?? EOD_V1_14U_Five_Pair_Evidence_Preserving_Consolidation_Simulation_2026-08-24_2335_IST/SHA256SUMS.txt`
+- `?? EOD_V1_14U_Five_Pair_Evidence_Preserving_Consolidation_Simulation_2026-08-24_2335_IST/v114u_consolidation_simulation.py`
+- `?? EOD_V1_14V_Exact_Live_Five_Pair_Consolidation_Preflight_2026-08-25_0015_IST.zip`
+- `?? EOD_V1_14V_Exact_Live_Five_Pair_Consolidation_Preflight_2026-08-25_0015_IST/README.md`
+- `?? EOD_V1_14V_Exact_Live_Five_Pair_Consolidation_Preflight_2026-08-25_0015_IST/Run-V1-14V-Exact-Live-Preflight.ps1`
+- `?? EOD_V1_14V_Exact_Live_Five_Pair_Consolidation_Preflight_2026-08-25_0015_IST/SHA256SUMS.txt`
+- `?? EOD_V1_14V_Exact_Live_Five_Pair_Consolidation_Preflight_2026-08-25_0015_IST/docs/changes/2026-08-25_0015_IST_V1_14V_PACKAGE_BUILD.md`
+- `?? EOD_V1_14V_Exact_Live_Five_Pair_Consolidation_Preflight_2026-08-25_0015_IST/v114v_authority.json`
+- `?? EOD_V1_14V_Exact_Live_Five_Pair_Consolidation_Preflight_2026-08-25_0015_IST/v114v_live_preflight.py`
+- `?? EOD_V1_14V_R1_Exact_Live_Five_Pair_Consolidation_Preflight_2026-08-25_0018_IST.zip`
+- `?? EOD_V1_14V_R1_Exact_Live_Five_Pair_Consolidation_Preflight_2026-08-25_0018_IST/README.md`
+- `?? EOD_V1_14V_R1_Exact_Live_Five_Pair_Consolidation_Preflight_2026-08-25_0018_IST/Run-V1-14V-Exact-Live-Preflight.ps1`
+- `?? EOD_V1_14V_R1_Exact_Live_Five_Pair_Consolidation_Preflight_2026-08-25_0018_IST/SHA256SUMS.txt`
+- `?? EOD_V1_14V_R1_Exact_Live_Five_Pair_Consolidation_Preflight_2026-08-25_0018_IST/docs/changes/2026-08-25_0015_IST_V1_14V_PACKAGE_BUILD.md`
+- `?? EOD_V1_14V_R1_Exact_Live_Five_Pair_Consolidation_Preflight_2026-08-25_0018_IST/docs/changes/2026-08-25_0018_IST_V1_14V_R1_WRAPPER_PARSER_CORRECTION.md`
+- `?? EOD_V1_14V_R1_Exact_Live_Five_Pair_Consolidation_Preflight_2026-08-25_0018_IST/v114v_authority.json`
+- `?? EOD_V1_14V_R1_Exact_Live_Five_Pair_Consolidation_Preflight_2026-08-25_0018_IST/v114v_live_preflight.py`
+- `?? EOD_V1_14W_Current_Source_Capture_20260825_005956_IST.zip`
+- `?? EOD_V1_14X_Post_C3_Source_And_Authority_Capture_20260825_111347_IST.zip`
+- `?? EOD_V1_14Y_A_Current_Source_Capture_20260825_185228_IST.zip`
+- `?? EOD_V1_14Y_B_R2_Post_RED_State_Capture_20260825_234706_741_IST.zip`
+- `?? EOD_V1_7A_P1_Parallel_Test_Isolation_Root_Cause_Capture_20260825_153025_661_IST.zip`
+- `?? MANIFEST_SHA256.txt`
+- `?? "New Database/database.json"`
+- `?? "New Database/eod_data/BSE/07ABB.eod"`
+- `?? "New Database/eod_data/BSE/07AGG.eod"`
+- `?? "New Database/eod_data/BSE/07GPG.eod"`
+- `?? "New Database/eod_data/BSE/08GPG.eod"`
+- `?? "New Database/eod_data/BSE/08MPD.eod"`
+- `?? "New Database/eod_data/BSE/09AGG.eod"`
+- `?? "New Database/eod_data/BSE/09GPG.eod"`
+- `?? "New Database/eod_data/BSE/0CCIL25.eod"`
+- `?? "New Database/eod_data/BSE/0CCIL30.eod"`
+- `?? "New Database/eod_data/BSE/0DLSL24.eod"`
+- `?? "New Database/eod_data/BSE/0ECL24.eod"`
+- `?? "New Database/eod_data/BSE/0EEL26.eod"`
+- `?? "New Database/eod_data/BSE/0EEL27.eod"`
+- `?? "New Database/eod_data/BSE/0EFL24.eod"`
+- `?? "New Database/eod_data/BSE/0EFSL24.eod"`
+- `?? "New Database/eod_data/BSE/0EFSL24A.eod"`
+- `?? "New Database/eod_data/BSE/0EFSL25.eod"`
+- `?? "New Database/eod_data/BSE/0EFSL26B.eod"`
+- `?? "New Database/eod_data/BSE/0EFSL28A.eod"`
+- `?? "New Database/eod_data/BSE/0GIPL26.eod"`
+- `?? "New Database/eod_data/BSE/0IBHFL25.eod"`
+- `?? "New Database/eod_data/BSE/0IBHFL26.eod"`
+- `?? "New Database/eod_data/BSE/0IFL25.eod"`
+- `?? "New Database/eod_data/BSE/0IFL28.eod"`
+- `?? "New Database/eod_data/BSE/0IHFL28.eod"`
+- `?? "New Database/eod_data/BSE/0IIFL24.eod"`
+- `?? "New Database/eod_data/BSE/0IIFL25.eod"`
+- `?? "New Database/eod_data/BSE/0IIFL28.eod"`
+- `?? "New Database/eod_data/BSE/0JMFPL26.eod"`
+- `?? "New Database/eod_data/BSE/0KAFL24.eod"`
+- `?? "New Database/eod_data/BSE/0KFL25A.eod"`
+- `?? "New Database/eod_data/BSE/0KFL25C.eod"`
+- `?? "New Database/eod_data/BSE/0KFL25D.eod"`
+- `?? "New Database/eod_data/BSE/0KFL26.eod"`
+- `?? "New Database/eod_data/BSE/0KFL28A.eod"`
+- `?? "New Database/eod_data/BSE/0KLM26.eod"`
+- `?? "New Database/eod_data/BSE/0KSFL24.eod"`
+- `?? "New Database/eod_data/BSE/0KSFL25.eod"`
+- `?? "New Database/eod_data/BSE/0LTFL24A.eod"`
+- `?? "New Database/eod_data/BSE/0MFCL26VIII.eod"`
+- `?? "New Database/eod_data/BSE/0MFL23D.eod"`
+- `?? "New Database/eod_data/BSE/0MFL24.eod"`
+- `?? "New Database/eod_data/BSE/0MFL24A.eod"`
+- `?? "New Database/eod_data/BSE/0MFL24BB.eod"`
+- `?? "New Database/eod_data/BSE/0MFL24D.eod"`
+- `?? "New Database/eod_data/BSE/0MFL24VII.eod"`
+- `?? "New Database/eod_data/BSE/0MFL25.eod"`
+- `?? "New Database/eod_data/BSE/0MFL25A.eod"`
+- `?? "New Database/eod_data/BSE/0MFL25B.eod"`
+- `?? "New Database/eod_data/BSE/0MFL25C.eod"`
+- `?? "New Database/eod_data/BSE/0MFL25D.eod"`
+- `?? "New Database/eod_data/BSE/0MFL26.eod"`
+- `?? "New Database/eod_data/BSE/0MFL26A.eod"`
+- `?? "New Database/eod_data/BSE/0MFL26B.eod"`
+- `?? "New Database/eod_data/BSE/0MFL27A.eod"`
+- `?? "New Database/eod_data/BSE/0MFL27B.eod"`
+- `?? "New Database/eod_data/BSE/0MFL27IX.eod"`
+- `?? "New Database/eod_data/BSE/0MHFL24.eod"`
+- `?? "New Database/eod_data/BSE/0MHFL26.eod"`
+- `?? "New Database/eod_data/BSE/0MHIL24.eod"`
+- `?? "New Database/eod_data/BSE/0MMFL25B.eod"`
+- `?? "New Database/eod_data/BSE/0MSFL25.eod"`
+- `?? "New Database/eod_data/BSE/0MSFL25A.eod"`
+- `?? "New Database/eod_data/BSE/0MVAFL25.eod"`
+- `?? "New Database/eod_data/BSE/0MVAFL27.eod"`
+- `?? "New Database/eod_data/BSE/0NWFL25.eod"`
+- `?? "New Database/eod_data/BSE/0SFL024.eod"`
+- `?? "New Database/eod_data/BSE/0SFL24A.eod"`
+- `?? "New Database/eod_data/BSE/0STF26.eod"`
+- `?? "New Database/eod_data/BSE/0STFCL24.eod"`
+- `?? "New Database/eod_data/BSE/0STFCL25.eod"`
+- `?? "New Database/eod_data/BSE/1003DLSL24.eod"`
+- `?? "New Database/eod_data/BSE/1003VCL25.eod"`
+- `?? "New Database/eod_data/BSE/1004PFL24.eod"`
+- `?? "New Database/eod_data/BSE/1010EFS28.eod"`
+- `?? "New Database/eod_data/BSE/1010EFSL28.eod"`
+- `?? "New Database/eod_data/BSE/1010EFSL28A.eod"`
+- `?? "New Database/eod_data/BSE/1010EFSL32.eod"`
+- `?? "New Database/eod_data/BSE/1010NHFL28.eod"`
+- `?? "New Database/eod_data/BSE/1013DLSL24.eod"`
+- `?? "New Database/eod_data/BSE/1015EFL29.eod"`
+- `?? "New Database/eod_data/BSE/1015IHFL281.eod"`
+- `?? "New Database/eod_data/BSE/1015MFL24.eod"`
+- `?? "New Database/eod_data/BSE/1015UCL24A.eod"`
+- `?? "New Database/eod_data/BSE/1015UPPCL24.eod"`
+- `?? "New Database/eod_data/BSE/1015UPPCL25.eod"`
+- `?? "New Database/eod_data/BSE/1015UPPCL26.eod"`
+- `?? "New Database/eod_data/BSE/1015UPPCL27.eod"`
+- `?? "New Database/eod_data/BSE/1015UPPCL28.eod"`
+- `?? "New Database/eod_data/BSE/101EFSL28.eod"`
+- `?? "New Database/eod_data/BSE/101JMFCSL23.eod"`
+- `?? "New Database/eod_data/BSE/1025IHFL331.eod"`
+- `?? "New Database/eod_data/BSE/1025IHFL33B.eod"`
+- `?? "New Database/eod_data/BSE/1025JFCSL28.eod"`
+- `?? "New Database/eod_data/BSE/1025KFL25.eod"`
+- `?? "New Database/eod_data/BSE/1025KFL26B.eod"`
+- `?? "New Database/eod_data/BSE/1025MHFL24.eod"`
+- `?? "New Database/eod_data/BSE/1025MMFL26A.eod"`
+- `?? "New Database/eod_data/BSE/1025NFL25.eod"`
+- `?? "New Database/eod_data/BSE/1025NWFL25.eod"`
+- `?? "New Database/eod_data/BSE/1025NWFL30.eod"`
+- `?? "New Database/eod_data/BSE/1025SFL24B.eod"`
+- `?? "New Database/eod_data/BSE/1025STFL24.eod"`
+- `?? "New Database/eod_data/BSE/1025UCL25.eod"`
+- `?? "New Database/eod_data/BSE/1032APCRD24.eod"`
+- `?? "New Database/eod_data/BSE/1032APCRD25.eod"`
+- `?? "New Database/eod_data/BSE/1032APCRD26.eod"`
+- `?? "New Database/eod_data/BSE/1032APCRD28.eod"`
+- `?? "New Database/eod_data/BSE/1035UCL24.eod"`
+- `?? "New Database/eod_data/BSE/1040EFL24.eod"`
+- `?? "New Database/eod_data/BSE/1040MFL23.eod"`
+- `?? "New Database/eod_data/BSE/1040UCL25.eod"`
+- `?? "New Database/eod_data/BSE/1041KFL26.eod"`
+- `?? "New Database/eod_data/BSE/1041KFSVIII.eod"`
+- `?? "New Database/eod_data/BSE/1045EFS33.eod"`
+- `?? "New Database/eod_data/BSE/1045EFSL33.eod"`
+- `?? "New Database/eod_data/BSE/1045EFSL33A.eod"`
+- `?? "New Database/eod_data/BSE/1045EFSL33B.eod"`
+- `?? "New Database/eod_data/BSE/104ECL24.eod"`
+- `?? "New Database/eod_data/BSE/104EFL24.eod"`
+- `?? "New Database/eod_data/BSE/104EFL29.eod"`
+- `?? "New Database/eod_data/BSE/1050CCIL24.eod"`
+- `?? "New Database/eod_data/BSE/1050HFL27A.eod"`
+- `?? "New Database/eod_data/BSE/1050IML25.eod"`
+- `?? "New Database/eod_data/BSE/1050KLM24.eod"`
+- `?? "New Database/eod_data/BSE/1050KLM27.eod"`
+- `?? "New Database/eod_data/BSE/1050KLMA28.eod"`
+- `?? "New Database/eod_data/BSE/1050NFL26.eod"`
+- `?? "New Database/eod_data/BSE/1050UCL25.eod"`
+- `?? "New Database/eod_data/BSE/1050UCL26.eod"`
+- `?? "New Database/eod_data/BSE/1050VCL25.eod"`
+- `?? "New Database/eod_data/BSE/1055MECL33.eod"`
+- `?? "New Database/eod_data/BSE/105HFL27.eod"`
+- `?? "New Database/eod_data/BSE/105MMFL25.eod"`
+- `?? "New Database/eod_data/BSE/105MMFL25C.eod"`
+- `?? "New Database/eod_data/BSE/1060EFL29.eod"`
+- `?? "New Database/eod_data/BSE/1065MHFL24.eod"`
+- `?? "New Database/eod_data/BSE/1075CCIL25.eod"`
+- `?? "New Database/eod_data/BSE/1075FSBL29.eod"`
+- `?? "New Database/eod_data/BSE/1075FSFBL29.eod"`
+- `?? "New Database/eod_data/BSE/1075IHFL33A.eod"`
+- `?? "New Database/eod_data/BSE/1075KLMAF28.eod"`
+- `?? "New Database/eod_data/BSE/1075MFSL28.eod"`
+- `?? "New Database/eod_data/BSE/1075MMF26.eod"`
+- `?? "New Database/eod_data/BSE/1075MSFSL28.eod"`
+- `?? "New Database/eod_data/BSE/1075SSFL25A.eod"`
+- `?? "New Database/eod_data/BSE/1075SSFL26.eod"`
+- `?? "New Database/eod_data/BSE/1088CIFCPER.eod"`
+- `?? "New Database/eod_data/BSE/1095SCNL25.eod"`
+- `?? "New Database/eod_data/BSE/1096MECL31.eod"`
+- `?? "New Database/eod_data/BSE/10AGG.eod"`
+- `?? "New Database/eod_data/BSE/10ARD.eod"`
+- `?? "New Database/eod_data/BSE/10BUDPL26C.eod"`
+- `?? "New Database/eod_data/BSE/10CAGL27.eod"`
+- `?? "New Database/eod_data/BSE/10EFS33.eod"`
+- `?? "New Database/eod_data/BSE/10EFSL2033.eod"`
+- `?? "New Database/eod_data/BSE/10EFSL33.eod"`
+- `?? "New Database/eod_data/BSE/10EFSL33A.eod"`
+- `?? "New Database/eod_data/BSE/10GPG.eod"`
+- `?? "New Database/eod_data/BSE/10IFL25.eod"`
+- `?? "New Database/eod_data/BSE/10IFL28.eod"`
+- `?? "New Database/eod_data/BSE/10IFL29.eod"`
+- `?? "New Database/eod_data/BSE/10IHFL28.eod"`
+- `?? "New Database/eod_data/BSE/10KAFL24.eod"`
+- `?? "New Database/eod_data/BSE/10KFIL27.eod"`
+- `?? "New Database/eod_data/BSE/10KFL24C.eod"`
+- `?? "New Database/eod_data/BSE/10KFL24D.eod"`
+- `?? "New Database/eod_data/BSE/10KFL25.eod"`
+- `?? "New Database/eod_data/BSE/10KFL27.eod"`
+- `?? "New Database/eod_data/BSE/10KSFL25.eod"`
+- `?? "New Database/eod_data/BSE/10MFL23.eod"`
+- `?? "New Database/eod_data/BSE/10MFL24.eod"`
+- `?? "New Database/eod_data/BSE/10MFL24A.eod"`
+- `?? "New Database/eod_data/BSE/10MFL24AA.eod"`
+- `?? "New Database/eod_data/BSE/10MFL24B.eod"`
+- `?? "New Database/eod_data/BSE/10MHIL24.eod"`
+- `?? "New Database/eod_data/BSE/10MMFL24A.eod"`
+- `?? "New Database/eod_data/BSE/10MVAFL25.eod"`
+- `?? "New Database/eod_data/BSE/10NHFL33.eod"`
+- `?? "New Database/eod_data/BSE/10NIDO26.eod"`
+- `?? "New Database/eod_data/BSE/10SFL24.eod"`
+- `?? "New Database/eod_data/BSE/10SFL27.eod"`
+- `?? "New Database/eod_data/BSE/10VCL25.eod"`
+- `?? "New Database/eod_data/BSE/1101MECL30.eod"`
+- `?? "New Database/eod_data/BSE/1102NFL26.eod"`
+- `?? "New Database/eod_data/BSE/1105ACAPL24.eod"`
+- `?? "New Database/eod_data/BSE/1110SSFL25.eod"`
+- `?? "New Database/eod_data/BSE/1115LFL25.eod"`
+- `?? "New Database/eod_data/BSE/1125ESFBL29.eod"`
+- `?? "New Database/eod_data/BSE/1135SSFL25A.eod"`
+- `?? "New Database/eod_data/BSE/1150IML28.eod"`
+- `?? "New Database/eod_data/BSE/115CCIL28.eod"`
+- `?? "New Database/eod_data/BSE/1164MECL29.eod"`
+- `?? "New Database/eod_data/BSE/1175KLM25.eod"`
+- `?? "New Database/eod_data/BSE/1175SIBL29.eod"`
+- `?? "New Database/eod_data/BSE/119AML26.eod"`
+- `?? "New Database/eod_data/BSE/11AGG.eod"`
+- `?? "New Database/eod_data/BSE/11AMD.eod"`
+- `?? "New Database/eod_data/BSE/11DLSL22.eod"`
+- `?? "New Database/eod_data/BSE/11DLSL24.eod"`
+- `?? "New Database/eod_data/BSE/11DPD.eod"`
+- `?? "New Database/eod_data/BSE/11DPR.eod"`
+- `?? "New Database/eod_data/BSE/11GPG.eod"`
+- `?? "New Database/eod_data/BSE/11HFL23A.eod"`
+- `?? "New Database/eod_data/BSE/11HFL28.eod"`
+- `?? "New Database/eod_data/BSE/11IML26.eod"`
+- `?? "New Database/eod_data/BSE/11IML27.eod"`
+- `?? "New Database/eod_data/BSE/11KAFL27.eod"`
+- `?? "New Database/eod_data/BSE/11KLM26.eod"`
+- `?? "New Database/eod_data/BSE/11MML26.eod"`
+- `?? "New Database/eod_data/BSE/11MML26A.eod"`
+- `?? "New Database/eod_data/BSE/11MPD.eod"`
+- `?? "New Database/eod_data/BSE/11MPR.eod"`
+- `?? "New Database/eod_data/BSE/11QPD.eod"`
+- `?? "New Database/eod_data/BSE/11SCNL26.eod"`
+- `?? "New Database/eod_data/BSE/1240AFPL29.eod"`
+- `?? "New Database/eod_data/BSE/12IML26.eod"`
+- `?? "New Database/eod_data/BSE/1375SIBLPER.eod"`
+- `?? "New Database/eod_data/BSE/182TB070324.eod"`
+- `?? "New Database/eod_data/BSE/20_MICRONS.eod"`
+- `?? "New Database/eod_data/BSE/21ST_CEN.MGM.eod"`
+- `?? "New Database/eod_data/BSE/360ONE.eod"`
+- `?? "New Database/eod_data/BSE/364TB180724.eod"`
+- `?? "New Database/eod_data/BSE/3I_INFOTECH.eod"`
+- `?? "New Database/eod_data/BSE/3M_INDIA_LTD.eod"`
+- `?? "New Database/eod_data/BSE/3PLAND.eod"`
+- `?? "New Database/eod_data/BSE/48PFCL24.eod"`
+- `?? "New Database/eod_data/BSE/500096.eod"`
+- `?? "New Database/eod_data/BSE/500124.eod"`
+- `?? "New Database/eod_data/BSE/500168.eod"`
+- `?? "New Database/eod_data/BSE/500366.eod"`
+- `?? "New Database/eod_data/BSE/500480.eod"`
+- `?? "New Database/eod_data/BSE/500488.eod"`
+- `?? "New Database/eod_data/BSE/500790.eod"`
+- `?? "New Database/eod_data/BSE/505412.eod"`
+- `?? "New Database/eod_data/BSE/505714.eod"`
+- `?? "New Database/eod_data/BSE/507808.eod"`
+- `?? "New Database/eod_data/BSE/507815.eod"`
+- `?? "New Database/eod_data/BSE/512481.eod"`
+- `?? "New Database/eod_data/BSE/513269.eod"`
+- `?? "New Database/eod_data/BSE/514162.eod"`
+- `?? "New Database/eod_data/BSE/517344.eod"`
+- `?? "New Database/eod_data/BSE/519031.eod"`
+- `?? "New Database/eod_data/BSE/522113.eod"`
+- `?? "New Database/eod_data/BSE/523054.eod"`
+- `?? "New Database/eod_data/BSE/523261.eod"`
+- `?? "New Database/eod_data/BSE/524202.eod"`
+- `?? "New Database/eod_data/BSE/526397.eod"`
+- `?? "New Database/eod_data/BSE/526415.eod"`
+- `?? "New Database/eod_data/BSE/526588.eod"`
+- `?? "New Database/eod_data/BSE/530931.eod"`
+- `?? "New Database/eod_data/BSE/530973.eod"`
+- `?? "New Database/eod_data/BSE/531173.eod"`
+- `?? "New Database/eod_data/BSE/531502.eod"`
+- `?? "New Database/eod_data/BSE/531508.eod"`
+- `?? "New Database/eod_data/BSE/531556.eod"`
+- `?? "New Database/eod_data/BSE/531936.eod"`
+- `?? "New Database/eod_data/BSE/531994.eod"`
+- `?? "New Database/eod_data/BSE/532015.eod"`
+- `?? "New Database/eod_data/BSE/532067.eod"`
+- `?? "New Database/eod_data/BSE/532145.eod"`
+- `?? "New Database/eod_data/BSE/532155.eod"`
+- `?? "New Database/eod_data/BSE/532163.eod"`
+- `?? "New Database/eod_data/BSE/532178.eod"`
+- `?? "New Database/eod_data/BSE/532340.eod"`
+- `?? "New Database/eod_data/BSE/532344.eod"`
+- `?? "New Database/eod_data/BSE/532460.eod"`
+- `?? "New Database/eod_data/BSE/532482.eod"`
+- `?? "New Database/eod_data/BSE/532488.eod"`
+- `?? "New Database/eod_data/BSE/574GS2026.eod"`
+- `?? "New Database/eod_data/BSE/590003.eod"`
+- `?? "New Database/eod_data/BSE/590005.eod"`
+- `?? "New Database/eod_data/BSE/590013.eod"`
+- `?? "New Database/eod_data/BSE/590018.eod"`
+- `?? "New Database/eod_data/BSE/590021.eod"`
+- `?? "New Database/eod_data/BSE/590022.eod"`
+- `?? "New Database/eod_data/BSE/590024.eod"`
+- `?? "New Database/eod_data/BSE/590025.eod"`
+- `?? "New Database/eod_data/BSE/590030.eod"`
+- `?? "New Database/eod_data/BSE/5PAISA.eod"`
+- `?? "New Database/eod_data/BSE/63MOONS.eod"`
+- `?? "New Database/eod_data/BSE/654GOI2032.eod"`
+- `?? "New Database/eod_data/BSE/664GOI35.eod"`
+- `?? "New Database/eod_data/BSE/667GOI2035.eod"`
+- `?? "New Database/eod_data/BSE/669GOI2024.eod"`
+- `?? "New Database/eod_data/BSE/675IGT24.eod"`
+- `?? "New Database/eod_data/BSE/675PCHFL31.eod"`
+- `?? "New Database/eod_data/BSE/676GOI2061.eod"`
+- `?? "New Database/eod_data/BSE/682PFCL31.eod"`
+- `?? "New Database/eod_data/BSE/695GOI2061.eod"`
+- `?? "New Database/eod_data/BSE/697PFCL36.eod"`
+- `?? "New Database/eod_data/BSE/699GOI2051.eod"`
+- `?? "New Database/eod_data/BSE/699GOI26.eod"`
+- `?? "New Database/eod_data/BSE/704NABARD26.eod"`
+- `?? "New Database/eod_data/BSE/704PFC2028.eod"`
+- `?? "New Database/eod_data/BSE/706GS28M23.eod"`
+- `?? "New Database/eod_data/BSE/708IIFCL33.eod"`
+- `?? "New Database/eod_data/BSE/711NHAI25.eod"`
+- `?? "New Database/eod_data/BSE/714REC25.eod"`
+- `?? "New Database/eod_data/BSE/715PFCL36.eod"`
+- `?? "New Database/eod_data/BSE/719HUDCO28.eod"`
+- `?? "New Database/eod_data/BSE/71GOI2029.eod"`
+- `?? "New Database/eod_data/BSE/725GOI2063.eod"`
+- `?? "New Database/eod_data/BSE/725MFL24.eod"`
+- `?? "New Database/eod_data/BSE/726GOI2032.eod"`
+- `?? "New Database/eod_data/BSE/726GOI2033.eod"`
+- `?? "New Database/eod_data/BSE/727HUDCO26.eod"`
+- `?? "New Database/eod_data/BSE/729HUDCO26.eod"`
+- `?? "New Database/eod_data/BSE/729IRFC26.eod"`
+- `?? "New Database/eod_data/BSE/729NABARD26.eod"`
+- `?? "New Database/eod_data/BSE/732IRFC25.eod"`
+- `?? "New Database/eod_data/BSE/734IRFC2028.eod"`
+- `?? "New Database/eod_data/BSE/734REC30.eod"`
+- `?? "New Database/eod_data/BSE/735NHAI31.eod"`
+- `?? "New Database/eod_data/BSE/736GOI2052.eod"`
+- `?? "New Database/eod_data/BSE/736IIFCL28.eod"`
+- `?? "New Database/eod_data/BSE/736NTPC25D.eod"`
+- `?? "New Database/eod_data/BSE/736PFC25.eod"`
+- `?? "New Database/eod_data/BSE/738GOI2027.eod"`
+- `?? "New Database/eod_data/BSE/739NHAI26.eod"`
+- `?? "New Database/eod_data/BSE/739NHAI31A.eod"`
+- `?? "New Database/eod_data/BSE/73GOI2053.eod"`
+- `?? "New Database/eod_data/BSE/740IIFCL33.eod"`
+- `?? "New Database/eod_data/BSE/741GOI36.eod"`
+- `?? "New Database/eod_data/BSE/743REC35.eod"`
+- `?? "New Database/eod_data/BSE/747MHSDL34.eod"`
+- `?? "New Database/eod_data/BSE/750IRFC35.eod"`
+- `?? "New Database/eod_data/BSE/750MFL27.eod"`
+- `?? "New Database/eod_data/BSE/750PFC26.eod"`
+- `?? "New Database/eod_data/BSE/751HUDCO28.eod"`
+- `?? "New Database/eod_data/BSE/752PFC30.eod"`
+- `?? "New Database/eod_data/BSE/753IREDA26.eod"`
+- `?? "New Database/eod_data/BSE/753IRFC30.eod"`
+- `?? "New Database/eod_data/BSE/753NTPC30E.eod"`
+- `?? "New Database/eod_data/BSE/753PFC33.eod"`
+- `?? "New Database/eod_data/BSE/754GOI2036.eod"`
+- `?? "New Database/eod_data/BSE/755PFC38.eod"`
+- `?? "New Database/eod_data/BSE/760MFL25.eod"`
+- `?? "New Database/eod_data/BSE/760PFC35.eod"`
+- `?? "New Database/eod_data/BSE/761GUJSDL32.eod"`
+- `?? "New Database/eod_data/BSE/762NTPC35F.eod"`
+- `?? "New Database/eod_data/BSE/764HUDCO31.eod"`
+- `?? "New Database/eod_data/BSE/764IRFC31.eod"`
+- `?? "New Database/eod_data/BSE/764NABARD31.eod"`
+- `?? "New Database/eod_data/BSE/764TMN32.eod"`
+- `?? "New Database/eod_data/BSE/768IREDA36.eod"`
+- `?? "New Database/eod_data/BSE/769HUDCO31.eod"`
+- `?? "New Database/eod_data/BSE/769NHAI31.eod"`
+- `?? "New Database/eod_data/BSE/76NHAI31.eod"`
+- `?? "New Database/eod_data/BSE/774IREDA31.eod"`
+- `?? "New Database/eod_data/BSE/774SBIPER.eod"`
+- `?? "New Database/eod_data/BSE/775MFL2025.eod"`
+- `?? "New Database/eod_data/BSE/775MFL2026.eod"`
+- `?? "New Database/eod_data/BSE/775MFL25.eod"`
+- `?? "New Database/eod_data/BSE/775MFL26.eod"`
+- `?? "New Database/eod_data/BSE/775MFLTD26.eod"`
+- `?? "New Database/eod_data/BSE/785MFL2028.eod"`
+- `?? "New Database/eod_data/BSE/785MFL28.eod"`
+- `?? "New Database/eod_data/BSE/78ABFL33.eod"`
+- `?? "New Database/eod_data/BSE/78GUJSDL32.eod"`
+- `?? "New Database/eod_data/BSE/791JMFPL26.eod"`
+- `?? "New Database/eod_data/BSE/797HDFCB33.eod"`
+- `?? "New Database/eod_data/BSE/797IGT31.eod"`
+- `?? "New Database/eod_data/BSE/79NHIT35.eod"`
+- `?? "New Database/eod_data/BSE/79NHIT40.eod"`
+- `?? "New Database/eod_data/BSE/79NHIT47.eod"`
+- `?? "New Database/eod_data/BSE/7NR.eod"`
+- `?? "New Database/eod_data/BSE/7PFCL31.eod"`
+- `?? "New Database/eod_data/BSE/7SEAS.eod"`
+- `?? "New Database/eod_data/BSE/800MMFSL27.eod"`
+- `?? "New Database/eod_data/BSE/801TCH25.eod"`
+- `?? "New Database/eod_data/BSE/805MMFSL32.eod"`
+- `?? "New Database/eod_data/BSE/810IRFC2327.eod"`
+- `?? "New Database/eod_data/BSE/810MFL2028.eod"`
+- `?? "New Database/eod_data/BSE/810MFL25.eod"`
+- `?? "New Database/eod_data/BSE/812REC27.eod"`
+- `?? "New Database/eod_data/BSE/819IRFC24.eod"`
+- `?? "New Database/eod_data/BSE/81MFL28.eod"`
+- `?? "New Database/eod_data/BSE/81TCHF28.eod"`
+- `?? "New Database/eod_data/BSE/820IHFL27.eod"`
+- `?? "New Database/eod_data/BSE/820JMFPL26.eod"`
+- `?? "New Database/eod_data/BSE/823IRFC24.eod"`
+- `?? "New Database/eod_data/BSE/825BOBPER.eod"`
+- `?? "New Database/eod_data/BSE/825CIFCL25.eod"`
+- `?? "New Database/eod_data/BSE/825CIFCL25A.eod"`
+- `?? "New Database/eod_data/BSE/825IHFL25.eod"`
+- `?? "New Database/eod_data/BSE/825MFL24.eod"`
+- `?? "New Database/eod_data/BSE/825MFL25.eod"`
+- `?? "New Database/eod_data/BSE/825MFL25A.eod"`
+- `?? "New Database/eod_data/BSE/827NHAI24.eod"`
+- `?? "New Database/eod_data/BSE/829LTFL24.eod"`
+- `?? "New Database/eod_data/BSE/82IGT31.eod"`
+- `?? "New Database/eod_data/BSE/830NHAI27.eod"`
+- `?? "New Database/eod_data/BSE/835IFL25.eod"`
+- `?? "New Database/eod_data/BSE/835MFL26.eod"`
+- `?? "New Database/eod_data/BSE/835NICL27.eod"`
+- `?? "New Database/eod_data/BSE/837REC33.eod"`
+- `?? "New Database/eod_data/BSE/83TCHF25.eod"`
+- `?? "New Database/eod_data/BSE/840CIFCL28.eod"`
+- `?? "New Database/eod_data/BSE/841IIFCL24B.eod"`
+- `?? "New Database/eod_data/BSE/841IREDA24.eod"`
+- `?? "New Database/eod_data/BSE/842IHFL24.eod"`
+- `?? "New Database/eod_data/BSE/842IIFL26.eod"`
+- `?? "New Database/eod_data/BSE/843IHFL29.eod"`
+- `?? "New Database/eod_data/BSE/844REC24.eod"`
+- `?? "New Database/eod_data/BSE/845LTFL24.eod"`
+- `?? "New Database/eod_data/BSE/848IIFCL29A.eod"`
+- `?? "New Database/eod_data/BSE/848IRFC24.eod"`
+- `?? "New Database/eod_data/BSE/849NTPC25.eod"`
+- `?? "New Database/eod_data/BSE/84CIFCL28.eod"`
+- `?? "New Database/eod_data/BSE/84MFL25.eod"`
+- `?? "New Database/eod_data/BSE/84TCHF28.eod"`
+- `?? "New Database/eod_data/BSE/850IHFL27.eod"`
+- `?? "New Database/eod_data/BSE/850IIFL25.eod"`
+- `?? "New Database/eod_data/BSE/850MFCL24B.eod"`
+- `?? "New Database/eod_data/BSE/850MFL24.eod"`
+- `?? "New Database/eod_data/BSE/850MFL28.eod"`
+- `?? "New Database/eod_data/BSE/850MMFL24.eod"`
+- `?? "New Database/eod_data/BSE/850NHAI29.eod"`
+- `?? "New Database/eod_data/BSE/850NIDO24.eod"`
+- `?? "New Database/eod_data/BSE/850SBIPER.eod"`
+- `?? "New Database/eod_data/BSE/852NHAI24.eod"`
+- `?? "New Database/eod_data/BSE/854HUDCO24.eod"`
+- `?? "New Database/eod_data/BSE/854NHPC28.eod"`
+- `?? "New Database/eod_data/BSE/854PFC28.eod"`
+- `?? "New Database/eod_data/BSE/85BOBPERP.eod"`
+- `?? "New Database/eod_data/BSE/85IFL26.eod"`
+- `?? "New Database/eod_data/BSE/85KFL25.eod"`
+- `?? "New Database/eod_data/BSE/85PCHFL24.eod"`
+- `?? "New Database/eod_data/BSE/85TCFS24.eod"`
+- `?? "New Database/eod_data/BSE/861KPL24.eod"`
+- `?? "New Database/eod_data/BSE/863IIFCL28.eod"`
+- `?? "New Database/eod_data/BSE/863RECL28.eod"`
+- `?? "New Database/eod_data/BSE/865IBHFL26.eod"`
+- `?? "New Database/eod_data/BSE/865IFL28.eod"`
+- `?? "New Database/eod_data/BSE/865IIFL28.eod"`
+- `?? "New Database/eod_data/BSE/865IRFC29.eod"`
+- `?? "New Database/eod_data/BSE/865LTFL26.eod"`
+- `?? "New Database/eod_data/BSE/865MF25.eod"`
+- `?? "New Database/eod_data/BSE/865MFL25A.eod"`
+- `?? "New Database/eod_data/BSE/865MFL26A.eod"`
+- `?? "New Database/eod_data/BSE/865TCFS27.eod"`
+- `?? "New Database/eod_data/BSE/866IBHL25.eod"`
+- `?? "New Database/eod_data/BSE/866IHFL24.eod"`
+- `?? "New Database/eod_data/BSE/866IIFCL24C.eod"`
+- `?? "New Database/eod_data/BSE/866LTFL24.eod"`
+- `?? "New Database/eod_data/BSE/866NTPC33.eod"`
+- `?? "New Database/eod_data/BSE/866STFCL25.eod"`
+- `?? "New Database/eod_data/BSE/86LTFL24.eod"`
+- `?? "New Database/eod_data/BSE/870MFL27.eod"`
+- `?? "New Database/eod_data/BSE/870NIDO25.eod"`
+- `?? "New Database/eod_data/BSE/871REC28.eod"`
+- `?? "New Database/eod_data/BSE/873IIFCL29D.eod"`
+- `?? "New Database/eod_data/BSE/874HUDCO33.eod"`
+- `?? "New Database/eod_data/BSE/875EFSL23.eod"`
+- `?? "New Database/eod_data/BSE/875EFSL24.eod"`
+- `?? "New Database/eod_data/BSE/875EFSL24A.eod"`
+- `?? "New Database/eod_data/BSE/875IBHL24.eod"`
+- `?? "New Database/eod_data/BSE/875IIFCL33.eod"`
+- `?? "New Database/eod_data/BSE/875KFL25.eod"`
+- `?? "New Database/eod_data/BSE/875KFL25A.eod"`
+- `?? "New Database/eod_data/BSE/875KLMAF24.eod"`
+- `?? "New Database/eod_data/BSE/875MFCL26C.eod"`
+- `?? "New Database/eod_data/BSE/875MFL26.eod"`
+- `?? "New Database/eod_data/BSE/875MFL28.eod"`
+- `?? "New Database/eod_data/BSE/875NHAI29.eod"`
+- `?? "New Database/eod_data/BSE/875NWIL24.eod"`
+- `?? "New Database/eod_data/BSE/875PCHFL26.eod"`
+- `?? "New Database/eod_data/BSE/876HUDCO24.eod"`
+- `?? "New Database/eod_data/BSE/876HUDCO28.eod"`
+- `?? "New Database/eod_data/BSE/879NHPC28.eod"`
+- `?? "New Database/eod_data/BSE/879PFC28.eod"`
+- `?? "New Database/eod_data/BSE/87BOBPER.eod"`
+- `?? "New Database/eod_data/BSE/87IHFL24.eod"`
+- `?? "New Database/eod_data/BSE/87LTFL27.eod"`
+- `?? "New Database/eod_data/BSE/880IIFCL29.eod"`
+- `?? "New Database/eod_data/BSE/880IIFCL34.eod"`
+- `?? "New Database/eod_data/BSE/880IREDA29.eod"`
+- `?? "New Database/eod_data/BSE/880IREDA34.eod"`
+- `?? "New Database/eod_data/BSE/880MFL28.eod"`
+- `?? "New Database/eod_data/BSE/883HUDCO29.eod"`
+- `?? "New Database/eod_data/BSE/884ICCL28.eod"`
+- `?? "New Database/eod_data/BSE/885EFSL24.eod"`
+- `?? "New Database/eod_data/BSE/885IBHFL26A.eod"`
+- `?? "New Database/eod_data/BSE/885TCFS29.eod"`
+- `?? "New Database/eod_data/BSE/888ERFL28.eod"`
+- `?? "New Database/eod_data/BSE/888IRFC29.eod"`
+- `?? "New Database/eod_data/BSE/888REC29.eod"`
+- `?? "New Database/eod_data/BSE/889IBHL27.eod"`
+- `?? "New Database/eod_data/BSE/889LTFL24.eod"`
+- `?? "New Database/eod_data/BSE/88MFL28.eod"`
+- `?? "New Database/eod_data/BSE/88NWIL25.eod"`
+- `?? "New Database/eod_data/BSE/890MFL26A.eod"`
+- `?? "New Database/eod_data/BSE/891IIFCL34.eod"`
+- `?? "New Database/eod_data/BSE/891NTPC33.eod"`
+- `?? "New Database/eod_data/BSE/892PFC33.eod"`
+- `?? "New Database/eod_data/BSE/894IHFL24.eod"`
+- `?? "New Database/eod_data/BSE/894IHFL25.eod"`
+- `?? "New Database/eod_data/BSE/895EFS25.eod"`
+- `?? "New Database/eod_data/BSE/895EFSL25.eod"`
+- `?? "New Database/eod_data/BSE/895EFSL25A.eod"`
+- `?? "New Database/eod_data/BSE/898HUDCO29.eod"`
+- `?? "New Database/eod_data/BSE/898LTFL29.eod"`
+- `?? "New Database/eod_data/BSE/899BOBPERP.eod"`
+- `?? "New Database/eod_data/BSE/89EFSL25.eod"`
+- `?? "New Database/eod_data/BSE/89MFL26.eod"`
+- `?? "New Database/eod_data/BSE/8BOBPERP.eod"`
+- `?? "New Database/eod_data/BSE/8MFL2026.eod"`
+- `?? "New Database/eod_data/BSE/8MFL24.eod"`
+- `?? "New Database/eod_data/BSE/8MFL24A.eod"`
+- `?? "New Database/eod_data/BSE/8MFL26.eod"`
+- `?? "New Database/eod_data/BSE/8MFLTD26.eod"`
+- `?? "New Database/eod_data/BSE/8MFLTD28.eod"`
+- `?? "New Database/eod_data/BSE/900KPL29.eod"`
+- `?? "New Database/eod_data/BSE/901HUDCO34.eod"`
+- `?? "New Database/eod_data/BSE/903STFCL28.eod"`
+- `?? "New Database/eod_data/BSE/905IH24.eod"`
+- `?? "New Database/eod_data/BSE/905LTFL27.eod"`
+- `?? "New Database/eod_data/BSE/905MFL28.eod"`
+- `?? "New Database/eod_data/BSE/905MFL28A.eod"`
+- `?? "New Database/eod_data/BSE/905NIDO25.eod"`
+- `?? "New Database/eod_data/BSE/905PCHFL26.eod"`
+- `?? "New Database/eod_data/BSE/905PEL26.eod"`
+- `?? "New Database/eod_data/BSE/910CAGL25.eod"`
+- `?? "New Database/eod_data/BSE/910EFSL24.eod"`
+- `?? "New Database/eod_data/BSE/910KLMAF24.eod"`
+- `?? "New Database/eod_data/BSE/910MFL26.eod"`
+- `?? "New Database/eod_data/BSE/910TCFSL28.eod"`
+- `?? "New Database/eod_data/BSE/912STFCL24.eod"`
+- `?? "New Database/eod_data/BSE/913IFSL24.eod"`
+- `?? "New Database/eod_data/BSE/915EFSL26.eod"`
+- `?? "New Database/eod_data/BSE/915EFSL26A.eod"`
+- `?? "New Database/eod_data/BSE/915IBHFL26B.eod"`
+- `?? "New Database/eod_data/BSE/915IHFL27.eod"`
+- `?? "New Database/eod_data/BSE/915IHFL27A.eod"`
+- `?? "New Database/eod_data/BSE/915MFL25.eod"`
+- `?? "New Database/eod_data/BSE/915MMFSL24.eod"`
+- `?? "New Database/eod_data/BSE/915NIDO27.eod"`
+- `?? "New Database/eod_data/BSE/915NWIL25.eod"`
+- `?? "New Database/eod_data/BSE/915PTCIF27A.eod"`
+- `?? "New Database/eod_data/BSE/916EFSL26.eod"`
+- `?? "New Database/eod_data/BSE/916IHFL25.eod"`
+- `?? "New Database/eod_data/BSE/916NWIL27.eod"`
+- `?? "New Database/eod_data/BSE/91EFSL24.eod"`
+- `?? "New Database/eod_data/BSE/91EFSL24A.eod"`
+- `?? "New Database/eod_data/BSE/91STFCL27.eod"`
+- `?? "New Database/eod_data/BSE/91TMFLPERP.eod"`
+- `?? "New Database/eod_data/BSE/920EFSL2026.eod"`
+- `?? "New Database/eod_data/BSE/920EFSL26.eod"`
+- `?? "New Database/eod_data/BSE/920EFSL26A.eod"`
+- `?? "New Database/eod_data/BSE/920NFL23.eod"`
+- `?? "New Database/eod_data/BSE/920PEL28.eod"`
+- `?? "New Database/eod_data/BSE/922STF24.eod"`
+- `?? "New Database/eod_data/BSE/925CIFPERP.eod"`
+- `?? "New Database/eod_data/BSE/925EFSL25.eod"`
+- `?? "New Database/eod_data/BSE/925ERFL28.eod"`
+- `?? "New Database/eod_data/BSE/925IBHFL25.eod"`
+- `?? "New Database/eod_data/BSE/925IBHL27.eod"`
+- `?? "New Database/eod_data/BSE/925IFSL24.eod"`
+- `?? "New Database/eod_data/BSE/925IHFL25I3.eod"`
+- `?? "New Database/eod_data/BSE/925IHFL26.eod"`
+- `?? "New Database/eod_data/BSE/925KFIL25.eod"`
+- `?? "New Database/eod_data/BSE/925KFL24.eod"`
+- `?? "New Database/eod_data/BSE/925LTFL24.eod"`
+- `?? "New Database/eod_data/BSE/925MFL25.eod"`
+- `?? "New Database/eod_data/BSE/927MFL26.eod"`
+- `?? "New Database/eod_data/BSE/92EFSL26.eod"`
+- `?? "New Database/eod_data/BSE/92HLFL24.eod"`
+- `?? "New Database/eod_data/BSE/92ICCL28.eod"`
+- `?? "New Database/eod_data/BSE/930EFSL31.eod"`
+- `?? "New Database/eod_data/BSE/930NIDO32.eod"`
+- `?? "New Database/eod_data/BSE/930STFCL28.eod"`
+- `?? "New Database/eod_data/BSE/934JMFCS28.eod"`
+- `?? "New Database/eod_data/BSE/935AHFL28.eod"`
+- `?? "New Database/eod_data/BSE/935EFSL24.eod"`
+- `?? "New Database/eod_data/BSE/935EFSL27.eod"`
+- `?? "New Database/eod_data/BSE/935LTFL29.eod"`
+- `?? "New Database/eod_data/BSE/935PEL33.eod"`
+- `?? "New Database/eod_data/BSE/935SFL24.eod"`
+- `?? "New Database/eod_data/BSE/937SBIPER.eod"`
+- `?? "New Database/eod_data/BSE/939EFSL26.eod"`
+- `?? "New Database/eod_data/BSE/939IHFL27.eod"`
+- `?? "New Database/eod_data/BSE/93EFSL31.eod"`
+- `?? "New Database/eod_data/BSE/93EFSL31A.eod"`
+- `?? "New Database/eod_data/BSE/93MMFSL27.eod"`
+- `?? "New Database/eod_data/BSE/93STFCL29.eod"`
+- `?? "New Database/eod_data/BSE/940IFCI25.eod"`
+- `?? "New Database/eod_data/BSE/943EFL28.eod"`
+- `?? "New Database/eod_data/BSE/944MFL28.eod"`
+- `?? "New Database/eod_data/BSE/944MFL28A.eod"`
+- `?? "New Database/eod_data/BSE/945IFSL25.eod"`
+- `?? "New Database/eod_data/BSE/945MFL23.eod"`
+- `?? "New Database/eod_data/BSE/948IFSL25.eod"`
+- `?? "New Database/eod_data/BSE/948IHFL26.eod"`
+- `?? "New Database/eod_data/BSE/948IHFL26I.eod"`
+- `?? "New Database/eod_data/BSE/948JFPL25.eod"`
+- `?? "New Database/eod_data/BSE/94STFCL28.eod"`
+- `?? "New Database/eod_data/BSE/950CCIL24.eod"`
+- `?? "New Database/eod_data/BSE/950KLMF26.eod"`
+- `?? "New Database/eod_data/BSE/950MFCL27D.eod"`
+- `?? "New Database/eod_data/BSE/950MFL27.eod"`
+- `?? "New Database/eod_data/BSE/950MMFL25.eod"`
+- `?? "New Database/eod_data/BSE/950MMFL26.eod"`
+- `?? "New Database/eod_data/BSE/950NFL23.eod"`
+- `?? "New Database/eod_data/BSE/953EFSL31.eod"`
+- `?? "New Database/eod_data/BSE/953NWIL32.eod"`
+- `?? "New Database/eod_data/BSE/955EFSL26.eod"`
+- `?? "New Database/eod_data/BSE/955EFSL26A.eod"`
+- `?? "New Database/eod_data/BSE/955EFSL26B.eod"`
+- `?? "New Database/eod_data/BSE/955IHFL25.eod"`
+- `?? "New Database/eod_data/BSE/955NIDO27.eod"`
+- `?? "New Database/eod_data/BSE/955NWIL27.eod"`
+- `?? "New Database/eod_data/BSE/957ICCL25.eod"`
+- `?? "New Database/eod_data/BSE/957VCL25.eod"`
+- `?? "New Database/eod_data/BSE/95KFL27.eod"`
+- `?? "New Database/eod_data/BSE/95KFL27A.eod"`
+- `?? "New Database/eod_data/BSE/95MFL25.eod"`
+- `?? "New Database/eod_data/BSE/95MMFSL29.eod"`
+- `?? "New Database/eod_data/BSE/95SIBL28.eod"`
+- `?? "New Database/eod_data/BSE/95STFCL24.eod"`
+- `?? "New Database/eod_data/BSE/960CAGL25.eod"`
+- `?? "New Database/eod_data/BSE/960EFSL2026.eod"`
+- `?? "New Database/eod_data/BSE/960EFSL26.eod"`
+- `?? "New Database/eod_data/BSE/960EFSLA.eod"`
+- `?? "New Database/eod_data/BSE/960NHFL26.eod"`
+- `?? "New Database/eod_data/BSE/962APSB30.eod"`
+- `?? "New Database/eod_data/BSE/962ASB32.eod"`
+- `?? "New Database/eod_data/BSE/965EFSL32.eod"`
+- `?? "New Database/eod_data/BSE/965IBHFL25.eod"`
+- `?? "New Database/eod_data/BSE/965IHFL25.eod"`
+- `?? "New Database/eod_data/BSE/965IHFL25A.eod"`
+- `?? "New Database/eod_data/BSE/965IHFL25I.eod"`
+- `?? "New Database/eod_data/BSE/965VCL25.eod"`
+- `?? "New Database/eod_data/BSE/966IFSL25.eod"`
+- `?? "New Database/eod_data/BSE/967EFS28.eod"`
+- `?? "New Database/eod_data/BSE/967EFSL2028.eod"`
+- `?? "New Database/eod_data/BSE/967EFSL28.eod"`
+- `?? "New Database/eod_data/BSE/967EFSL28A.eod"`
+- `?? "New Database/eod_data/BSE/967JMFCSL23.eod"`
+- `?? "New Database/eod_data/BSE/967NHFL28.eod"`
+- `?? "New Database/eod_data/BSE/96EFSL26.eod"`
+- `?? "New Database/eod_data/BSE/96IFL28.eod"`
+- `?? "New Database/eod_data/BSE/96IHFL28.eod"`
+- `?? "New Database/eod_data/BSE/96MFL25.eod"`
+- `?? "New Database/eod_data/BSE/96STF24.eod"`
+- `?? "New Database/eod_data/BSE/970CAGL28.eod"`
+- `?? "New Database/eod_data/BSE/970NIDO32.eod"`
+- `?? "New Database/eod_data/BSE/970STFCL28.eod"`
+- `?? "New Database/eod_data/BSE/970UPC29.eod"`
+- `?? "New Database/eod_data/BSE/970UPCL31.eod"`
+- `?? "New Database/eod_data/BSE/970UPCL32.eod"`
+- `?? "New Database/eod_data/BSE/970UPPC30.eod"`
+- `?? "New Database/eod_data/BSE/971IHFL28.eod"`
+- `?? "New Database/eod_data/BSE/971IHFL28A.eod"`
+- `?? "New Database/eod_data/BSE/975AHFL28.eod"`
+- `?? "New Database/eod_data/BSE/975EFSL27.eod"`
+- `?? "New Database/eod_data/BSE/975JMFCSL28.eod"`
+- `?? "New Database/eod_data/BSE/975MFL24.eod"`
+- `?? "New Database/eod_data/BSE/975MFL24A.eod"`
+- `?? "New Database/eod_data/BSE/975MFL24AA.eod"`
+- `?? "New Database/eod_data/BSE/975MFL24B.eod"`
+- `?? "New Database/eod_data/BSE/975MFL24BB.eod"`
+- `?? "New Database/eod_data/BSE/975MFL29.eod"`
+- `?? "New Database/eod_data/BSE/975MHIL24.eod"`
+- `?? "New Database/eod_data/BSE/975MMFL24.eod"`
+- `?? "New Database/eod_data/BSE/975MMFL26.eod"`
+- `?? "New Database/eod_data/BSE/975MVAFL25.eod"`
+- `?? "New Database/eod_data/BSE/975NFL24.eod"`
+- `?? "New Database/eod_data/BSE/975NFL25.eod"`
+- `?? "New Database/eod_data/BSE/975SFL024.eod"`
+- `?? "New Database/eod_data/BSE/975SFL24.eod"`
+- `?? "New Database/eod_data/BSE/975TMFLPERP.eod"`
+- `?? "New Database/eod_data/BSE/975UPPCL24.eod"`
+- `?? "New Database/eod_data/BSE/975UPPCL25.eod"`
+- `?? "New Database/eod_data/BSE/975UPPCL26.eod"`
+- `?? "New Database/eod_data/BSE/975UPPCL27.eod"`
+- `?? "New Database/eod_data/BSE/97EFSL31.eod"`
+- `?? "New Database/eod_data/BSE/97EFSL31A.eod"`
+- `?? "New Database/eod_data/BSE/97STF26.eod"`
+- `?? "New Database/eod_data/BSE/97UPPCL25.eod"`
+- `?? "New Database/eod_data/BSE/97UPPCL26.eod"`
+- `?? "New Database/eod_data/BSE/981JMFCSL28.eod"`
+- `?? "New Database/eod_data/BSE/985EFL28.eod"`
+- `?? "New Database/eod_data/BSE/985ICFL26.eod"`
+- `?? "New Database/eod_data/BSE/98EFSL26.eod"`
+- `?? "New Database/eod_data/BSE/98IHFL27.eod"`
+- `?? "New Database/eod_data/BSE/98NWFL25.eod"`
+- `?? "New Database/eod_data/BSE/98NWFL30.eod"`
+- `?? "New Database/eod_data/BSE/990IBHFL26.eod"`
+- `?? "New Database/eod_data/BSE/990IFCI24F.eod"`
+- `?? "New Database/eod_data/BSE/990IFCI27B.eod"`
+- `?? "New Database/eod_data/BSE/990IFCI32C.eod"`
+- `?? "New Database/eod_data/BSE/990IFCI37D.eod"`
+- `?? "New Database/eod_data/BSE/990IHFL26A.eod"`
+- `?? "New Database/eod_data/BSE/995ECL24.eod"`
+- `?? "New Database/eod_data/BSE/995ECL29.eod"`
+- `?? "New Database/eod_data/BSE/995EFL24.eod"`
+- `?? "New Database/eod_data/BSE/995EFL24A.eod"`
+- `?? "New Database/eod_data/BSE/995EFL29.eod"`
+- `?? "New Database/eod_data/BSE/995EFSL31.eod"`
+- `?? "New Database/eod_data/BSE/995NWIL32.eod"`
+- `?? "New Database/eod_data/BSE/995UPPCL25.eod"`
+- `?? "New Database/eod_data/BSE/995UPPCL26.eod"`
+- `?? "New Database/eod_data/BSE/995UPPCL27.eod"`
+- `?? "New Database/eod_data/BSE/995UPPCL28.eod"`
+- `?? "New Database/eod_data/BSE/995UPPCL29.eod"`
+- `?? "New Database/eod_data/BSE/995UPPCL31.eod"`
+- `?? "New Database/eod_data/BSE/995UPPCL32.eod"`
+- `?? "New Database/eod_data/BSE/99JFPL25.eod"`
+- `?? "New Database/eod_data/BSE/9EFSL25.eod"`
+- `?? "New Database/eod_data/BSE/9FFSL30.eod"`
+- `?? "New Database/eod_data/BSE/9IBHFL26B.eod"`
+- `?? "New Database/eod_data/BSE/9IBHL25.eod"`
+- `?? "New Database/eod_data/BSE/9IHFL24.eod"`
+- `?? "New Database/eod_data/BSE/9IHFL25.eod"`
+- `?? "New Database/eod_data/BSE/9IIFL28.eod"`
+- `?? "New Database/eod_data/BSE/9KAFL24.eod"`
+- `?? "New Database/eod_data/BSE/9LTFL24.eod"`
+- `?? "New Database/eod_data/BSE/9MFL23B.eod"`
+- `?? "New Database/eod_data/BSE/9MFL25.eod"`
+- `?? "New Database/eod_data/BSE/9MFL25A.eod"`
+- `?? "New Database/eod_data/BSE/9MFL27.eod"`
+- `?? "New Database/eod_data/BSE/9MFL30.eod"`
+- `?? "New Database/eod_data/BSE/9MFL30A.eod"`
+- `?? "New Database/eod_data/BSE/9MMFSL26.eod"`
+- `?? "New Database/eod_data/BSE/9PCHFL31A.eod"`
+- `?? "New Database/eod_data/BSE/9PEL25.eod"`
+- `?? "New Database/eod_data/BSE/9STFCL25.eod"`
+- `?? "New Database/eod_data/BSE/A.K.CAPITAL.eod"`
+- `?? "New Database/eod_data/BSE/A.SARABHAI.eod"`
+- `?? "New Database/eod_data/BSE/A2ZINFRA.eod"`
+- `?? "New Database/eod_data/BSE/AAATECH.eod"`
+- `?? "New Database/eod_data/BSE/AADI_INDUS_L.eod"`
+- `?? "New Database/eod_data/BSE/AAIL.eod"`
+- `?? "New Database/eod_data/BSE/AAL.eod"`
+- `?? "New Database/eod_data/BSE/AANANDALAK.eod"`
+- `?? "New Database/eod_data/BSE/AANCHALISP.eod"`
+- `?? "New Database/eod_data/BSE/AAPLUSTRAD.eod"`
+- `?? "New Database/eod_data/BSE/AAREY_DRUGS.eod"`
+- `?? "New Database/eod_data/BSE/AARNAV.eod"`
+- `?? "New Database/eod_data/BSE/AARTECH.eod"`
+- `?? "New Database/eod_data/BSE/AARTIPHARM.eod"`
+- `?? "New Database/eod_data/BSE/AARTIPP.eod"`
+- `?? "New Database/eod_data/BSE/AARTISURF.eod"`
+- `?? "New Database/eod_data/BSE/AARTI_DRUGS.eod"`
+- `?? "New Database/eod_data/BSE/AARTI_INDUST.eod"`
+- `?? "New Database/eod_data/BSE/AARVEE_DENIM.eod"`
+- `?? "New Database/eod_data/BSE/AASHKA.eod"`
+- `?? "New Database/eod_data/BSE/AASTAFIN.eod"`
+- `?? "New Database/eod_data/BSE/AAVAS.eod"`
+- `?? "New Database/eod_data/BSE/AAYUSH.eod"`
+- `?? "New Database/eod_data/BSE/ABANSENT.eod"`
+- `?? "New Database/eod_data/BSE/ABAN_OFFSHO.eod"`
+- `?? "New Database/eod_data/BSE/ABATEAS.eod"`
+- `?? "New Database/eod_data/BSE/ABB_LTD..eod"`
+- `?? "New Database/eod_data/BSE/ABCAPITAL.eod"`
+- `?? "New Database/eod_data/BSE/ABC_GAS_INT.eod"`
+- `?? "New Database/eod_data/BSE/ABC_INDIA.eod"`
+- `?? "New Database/eod_data/BSE/ABFL091023B.eod"`
+- `?? "New Database/eod_data/BSE/ABFRL.eod"`
+- `?? "New Database/eod_data/BSE/ABHIFIN.eod"`
+- `?? "New Database/eod_data/BSE/ABHIINFRA.eod"`
+- `?? "New Database/eod_data/BSE/ABHINAV_CAP.eod"`
+- `?? "New Database/eod_data/BSE/ABIRAMI_FIN..eod"`
+- `?? "New Database/eod_data/BSE/ABML.eod"`
+- `?? "New Database/eod_data/BSE/ABM_KNOWLEDG.eod"`
+- `?? "New Database/eod_data/BSE/ABSLAMC.eod"`
+- `?? "New Database/eod_data/BSE/ABSLBANETF.eod"`
+- `?? "New Database/eod_data/BSE/ABSLLIQUID.eod"`
+- `?? "New Database/eod_data/BSE/ABSLNN50ET.eod"`
+- `?? "New Database/eod_data/BSE/ABVL.eod"`
+- `?? "New Database/eod_data/BSE/ACCEDERE.eod"`
+- `?? "New Database/eod_data/BSE/ACCEL.eod"`
+- `?? "New Database/eod_data/BSE/ACCELERATE.eod"`
+- `?? "New Database/eod_data/BSE/ACCELYA.eod"`
+- `?? "New Database/eod_data/BSE/ACC_LTD.eod"`
+- `?? "New Database/eod_data/BSE/ACEENGITEC.eod"`
+- `?? "New Database/eod_data/BSE/ACEMEN.eod"`
+- `?? "New Database/eod_data/BSE/ACE_INDIA_LT.eod"`
+- `?? "New Database/eod_data/BSE/ACE_SOFTWARE.eod"`
+- `?? "New Database/eod_data/BSE/ACHYUT.eod"`
+- `?? "New Database/eod_data/BSE/ACI.eod"`
+- `?? "New Database/eod_data/BSE/ACI_INFOCOM.eod"`
+- `?? "New Database/eod_data/BSE/ACKNIT_IND.eod"`
+- `?? "New Database/eod_data/BSE/ACL.eod"`
+- `?? "New Database/eod_data/BSE/ACME.eod"`
+- `?? "New Database/eod_data/BSE/ACML.eod"`
+- `?? "New Database/eod_data/BSE/ACROW_INDIA.eod"`
+- `?? "New Database/eod_data/BSE/ACTION_CONST.eod"`
+- `?? "New Database/eod_data/BSE/ACTIVE.eod"`
+- `?? "New Database/eod_data/BSE/AD-MANUM_FIN.eod"`
+- `?? "New Database/eod_data/BSE/ADANIENSOL.eod"`
+- `?? "New Database/eod_data/BSE/ADANIGREEN.eod"`
+- `?? "New Database/eod_data/BSE/ADANI_ENTER.eod"`
+- `?? "New Database/eod_data/BSE/ADANI_PORTS.eod"`
+- `?? "New Database/eod_data/BSE/ADANI_POWER.eod"`
+- `?? "New Database/eod_data/BSE/ADARSH_PLANT.eod"`
+- `?? "New Database/eod_data/BSE/ADCINDIA.eod"`
+- `?? "New Database/eod_data/BSE/ADCON.eod"`
+- `?? "New Database/eod_data/BSE/ADCONPP.eod"`
+- `?? "New Database/eod_data/BSE/ADDI_IND..eod"`
+- `?? "New Database/eod_data/BSE/ADESHWAR.eod"`
+- `?? "New Database/eod_data/BSE/ADF_FOODS_LT.eod"`
+- `?? "New Database/eod_data/BSE/ADHBHUTIN.eod"`
+- `?? "New Database/eod_data/BSE/ADHINATH_TEX.eod"`
+- `?? "New Database/eod_data/BSE/ADINATH_EXIM.eod"`
+- `?? "New Database/eod_data/BSE/ADISHAKTI.eod"`
+- `?? "New Database/eod_data/BSE/ADITYA_ISPAT.eod"`
+- `?? "New Database/eod_data/BSE/ADITYA_SPIN..eod"`
+- `?? "New Database/eod_data/BSE/ADJIA.eod"`
+- `?? "New Database/eod_data/BSE/ADL.eod"`
+- `?? "New Database/eod_data/BSE/ADLINE.eod"`
+- `?? "New Database/eod_data/BSE/ADORWELDING.eod"`
+- `?? "New Database/eod_data/BSE/ADOR_FONTECH.eod"`
+- `?? "New Database/eod_data/BSE/ADOR_MULTI..eod"`
+- `?? "New Database/eod_data/BSE/ADROITINFO.eod"`
+- `?? "New Database/eod_data/BSE/ADV.PETROCH..eod"`
+- `?? "New Database/eod_data/BSE/ADVAIT.eod"`
+- `?? "New Database/eod_data/BSE/ADVANCE_TECH.eod"`
+- `?? "New Database/eod_data/BSE/ADVANI_HOTEL.eod"`
+- `?? "New Database/eod_data/BSE/ADVENZYMES.eod"`
+- `?? "New Database/eod_data/BSE/ADVIKCA.eod"`
+- `?? "New Database/eod_data/BSE/ADVIK_LABORS.eod"`
+- `?? "New Database/eod_data/BSE/ADV_LIFESTY.eod"`
+- `?? "New Database/eod_data/BSE/AEGIS_LOGIS.eod"`
+- `?? "New Database/eod_data/BSE/AEL.eod"`
+- `?? "New Database/eod_data/BSE/AEPL.eod"`
+- `?? "New Database/eod_data/BSE/AEROFLEX.eod"`
+- `?? "New Database/eod_data/BSE/AERPACE.eod"`
+- `?? "New Database/eod_data/BSE/AETHER.eod"`
+- `?? "New Database/eod_data/BSE/AFEL.eod"`
+- `?? "New Database/eod_data/BSE/AFFLE.eod"`
+- `?? "New Database/eod_data/BSE/AFFORDABLE.eod"`
+- `?? "New Database/eod_data/BSE/AGARWAL.eod"`
+- `?? "New Database/eod_data/BSE/AGAR_IND_COR.eod"`
+- `?? "New Database/eod_data/BSE/AGI.eod"`
+- `?? "New Database/eod_data/BSE/AGIIL.eod"`
+- `?? "New Database/eod_data/BSE/AGIO_PAPER.eod"`
+- `?? "New Database/eod_data/BSE/AGOL.eod"`
+- `?? "New Database/eod_data/BSE/AGRI_TECH.eod"`
+- `?? "New Database/eod_data/BSE/AGRO_TECH_FO.eod"`
+- `?? "New Database/eod_data/BSE/AGSTRA.eod"`
+- `?? "New Database/eod_data/BSE/AHASOLAR.eod"`
+- `?? "New Database/eod_data/BSE/AHL.eod"`
+- `?? "New Database/eod_data/BSE/AHLUWALIA_CO.eod"`
+- `?? "New Database/eod_data/BSE/AHMED.STEEL.eod"`
+- `?? "New Database/eod_data/BSE/AIAENGINEER.eod"`
+- `?? "New Database/eod_data/BSE/AIHL.eod"`
+- `?? "New Database/eod_data/BSE/AIIL.eod"`
+- `?? "New Database/eod_data/BSE/AIMCO_PESTI..eod"`
+- `?? "New Database/eod_data/BSE/AIML.eod"`
+- `?? "New Database/eod_data/BSE/AIRAN.eod"`
+- `?? "New Database/eod_data/BSE/AIRTELPP.eod"`
+- `?? "New Database/eod_data/BSE/AISHWARYA.eod"`
+- `?? "New Database/eod_data/BSE/AI_CHAMPDNY.eod"`
+- `?? "New Database/eod_data/BSE/AJANTA_PHARM.eod"`
+- `?? "New Database/eod_data/BSE/AJANTA_SOYA.eod"`
+- `?? "New Database/eod_data/BSE/AJCON_GLOBAL.eod"`
+- `?? "New Database/eod_data/BSE/AJEL.eod"`
+- `?? "New Database/eod_data/BSE/AJMERA.eod"`
+- `?? "New Database/eod_data/BSE/AJWA_FUN_WOR.eod"`
+- `?? "New Database/eod_data/BSE/AKI.eod"`
+- `?? "New Database/eod_data/BSE/AKM.eod"`
+- `?? "New Database/eod_data/BSE/AKSHAR.eod"`
+- `?? "New Database/eod_data/BSE/AKSHARCHEM_I.eod"`
+- `?? "New Database/eod_data/BSE/AKSH_OPTIFIB.eod"`
+- `?? "New Database/eod_data/BSE/AKSPINTEX.eod"`
+- `?? "New Database/eod_data/BSE/AKZOINDIA.eod"`
+- `?? "New Database/eod_data/BSE/ALANKIT.eod"`
+- `?? "New Database/eod_data/BSE/ALANPP.eod"`
+- `?? "New Database/eod_data/BSE/ALAN_SCOTT.eod"`
+- `?? "New Database/eod_data/BSE/ALBERT_DAVID.eod"`
+- `?? "New Database/eod_data/BSE/ALCH_CORP.eod"`
+- `?? "New Database/eod_data/BSE/ALEMBIC_LTD..eod"`
+- `?? "New Database/eod_data/BSE/ALEM_PHARMA.eod"`
+- `?? "New Database/eod_data/BSE/ALEXANDER.eod"`
+- `?? "New Database/eod_data/BSE/ALFAVISON.OV.eod"`
+- `?? "New Database/eod_data/BSE/ALFA_TRANSFO.eod"`
+- `?? "New Database/eod_data/BSE/ALFL.eod"`
+- `?? "New Database/eod_data/BSE/ALFRED_HERB.eod"`
+- `?? "New Database/eod_data/BSE/ALICON.eod"`
+- `?? "New Database/eod_data/BSE/ALKALI.eod"`
+- `?? "New Database/eod_data/BSE/ALKEM.eod"`
+- `?? "New Database/eod_data/BSE/ALKOSIGN.eod"`
+- `?? "New Database/eod_data/BSE/ALKYL_AMINES.eod"`
+- `?? "New Database/eod_data/BSE/ALLCARGO.eod"`
+- `?? "New Database/eod_data/BSE/ALLIED_DIGIT.eod"`
+- `?? "New Database/eod_data/BSE/ALLSEC_TECH.eod"`
+- `?? "New Database/eod_data/BSE/ALMONDZ_GLO.eod"`
+- `?? "New Database/eod_data/BSE/ALOK_INDS..eod"`
+- `?? "New Database/eod_data/BSE/ALPA_LAB.eod"`
+- `?? "New Database/eod_data/BSE/ALPHAETF.eod"`
+- `?? "New Database/eod_data/BSE/ALPHAIND.eod"`
+- `?? "New Database/eod_data/BSE/ALPHALOGIC.eod"`
+- `?? "New Database/eod_data/BSE/ALPINE_HSG..eod"`
+- `?? "New Database/eod_data/BSE/ALPS_INDS..eod"`
+- `?? "New Database/eod_data/BSE/ALSL.eod"`
+- `?? "New Database/eod_data/BSE/ALSTONE.eod"`
+- `?? "New Database/eod_data/BSE/ALU_FLUORIDE.eod"`
+- `?? "New Database/eod_data/BSE/AMALGAMATED.eod"`
+- `?? "New Database/eod_data/BSE/AMAL_PRODUCT.eod"`
+- `?? "New Database/eod_data/BSE/AMANAYA.eod"`
+- `?? "New Database/eod_data/BSE/AMARJOTHI_SP.eod"`
+- `?? "New Database/eod_data/BSE/AMARSEC.eod"`
+- `?? "New Database/eod_data/BSE/AMBARPIL.eod"`
+- `?? "New Database/eod_data/BSE/AMBER.eod"`
+- `?? "New Database/eod_data/BSE/AMBICA_AGAR..eod"`
+- `?? "New Database/eod_data/BSE/AMBIKA_COTTO.eod"`
+- `?? "New Database/eod_data/BSE/AMBITION.eod"`
+- `?? "New Database/eod_data/BSE/AMBITIOUS_PL.eod"`
+- `?? "New Database/eod_data/BSE/AMBOAGRI.eod"`
+- `?? "New Database/eod_data/BSE/AMBUJA_CEME.eod"`
+- `?? "New Database/eod_data/BSE/AMCO_INDIA_L.eod"`
+- `?? "New Database/eod_data/BSE/AMD_INDUS.eod"`
+- `?? "New Database/eod_data/BSE/AMERISE.eod"`
+- `?? "New Database/eod_data/BSE/AMFORGE_IND..eod"`
+- `?? "New Database/eod_data/BSE/AMINES&PLAST.eod"`
+- `?? "New Database/eod_data/BSE/AMINTAN.eod"`
+- `?? "New Database/eod_data/BSE/AMIORG.eod"`
+- `?? "New Database/eod_data/BSE/AMIT_INTNL..eod"`
+- `?? "New Database/eod_data/BSE/AMJLAND.eod"`
+- `?? "New Database/eod_data/BSE/AMRAPALI_IND.eod"`
+- `?? "New Database/eod_data/BSE/AMRAWOR_AGRI.eod"`
+- `?? "New Database/eod_data/BSE/AMRUTANJAN.eod"`
+- `?? "New Database/eod_data/BSE/AMTL.eod"`
+- `?? "New Database/eod_data/BSE/ANANDRATHI.eod"`
+- `?? "New Database/eod_data/BSE/ANANTRAJ.eod"`
+- `?? "New Database/eod_data/BSE/ANDHRA_PETRO.eod"`
+- `?? "New Database/eod_data/BSE/ANDHRA_SUGAR.eod"`
+- `?? "New Database/eod_data/BSE/ANDPAPER.eod"`
+- `?? "New Database/eod_data/BSE/ANDREW_YULE.eod"`
+- `?? "New Database/eod_data/BSE/ANERI.eod"`
+- `?? "New Database/eod_data/BSE/ANG.eod"`
+- `?? "New Database/eod_data/BSE/ANGEL.eod"`
+- `?? "New Database/eod_data/BSE/ANGELONE.eod"`
+- `?? "New Database/eod_data/BSE/ANIK_INDS.eod"`
+- `?? "New Database/eod_data/BSE/ANJANIFOODS.eod"`
+- `?? "New Database/eod_data/BSE/ANJANI_FINL.eod"`
+- `?? "New Database/eod_data/BSE/ANJANI_PORTL.eod"`
+- `?? "New Database/eod_data/BSE/ANJANI_SYNT..eod"`
+- `?? "New Database/eod_data/BSE/ANKA_INDIA.eod"`
+- `?? "New Database/eod_data/BSE/ANKIT_METAL.eod"`
+- `?? "New Database/eod_data/BSE/ANMOL.eod"`
+- `?? "New Database/eod_data/BSE/ANNA_INFRA.eod"`
+- `?? "New Database/eod_data/BSE/ANSALHSG.eod"`
+- `?? "New Database/eod_data/BSE/ANSAL_BUILD..eod"`
+- `?? "New Database/eod_data/BSE/ANSAL_INFRAS.eod"`
+- `?? "New Database/eod_data/BSE/ANS_LTD.eod"`
+- `?? "New Database/eod_data/BSE/ANUH_PHARMA.eod"`
+- `?? "New Database/eod_data/BSE/ANUP.eod"`
+- `?? "New Database/eod_data/BSE/ANUPAM.eod"`
+- `?? "New Database/eod_data/BSE/ANURAS.eod"`
+- `?? "New Database/eod_data/BSE/ANUROOP.eod"`
+- `?? "New Database/eod_data/BSE/APAR_INDUS..eod"`
+- `?? "New Database/eod_data/BSE/APCOTEX_IND.eod"`
+- `?? "New Database/eod_data/BSE/APEX.eod"`
+- `?? "New Database/eod_data/BSE/APIL.eod"`
+- `?? "New Database/eod_data/BSE/APLAB_LTD..eod"`
+- `?? "New Database/eod_data/BSE/APL_APOLLO.eod"`
+- `?? "New Database/eod_data/BSE/APM_INDUS..eod"`
+- `?? "New Database/eod_data/BSE/APOLLO.eod"`
+- `?? "New Database/eod_data/BSE/APOLLOPIPES.eod"`
+- `?? "New Database/eod_data/BSE/APOLLO_FIN_I.eod"`
+- `?? "New Database/eod_data/BSE/APOLLO_HOSP..eod"`
+- `?? "New Database/eod_data/BSE/APOLLO_TYRES.eod"`
+- `?? "New Database/eod_data/BSE/APOORVA.eod"`
+- `?? "New Database/eod_data/BSE/APTECH_LTD.eod"`
+- `?? "New Database/eod_data/BSE/APTUS.eod"`
+- `?? "New Database/eod_data/BSE/APT_PACK.eod"`
+- `?? "New Database/eod_data/BSE/AQFINTECH.eod"`
+- `?? "New Database/eod_data/BSE/ARAVALI_SEC..eod"`
+- `?? "New Database/eod_data/BSE/ARCEE_INDUST.eod"`
+- `?? "New Database/eod_data/BSE/ARCFIN.eod"`
+- `?? "New Database/eod_data/BSE/ARCHANA_SOFT.eod"`
+- `?? "New Database/eod_data/BSE/ARCHIDPLY_IN.eod"`
+- `?? "New Database/eod_data/BSE/ARCHIES_LTD.eod"`
+- `?? "New Database/eod_data/BSE/ARCHITORG.eod"`
+- `?? "New Database/eod_data/BSE/ARCL.eod"`
+- `?? "New Database/eod_data/BSE/ARE&M.eod"`
+- `?? "New Database/eod_data/BSE/AREX_IND..eod"`
+- `?? "New Database/eod_data/BSE/ARFIN.eod"`
+- `?? "New Database/eod_data/BSE/ARIES_AGRO.eod"`
+- `?? "New Database/eod_data/BSE/ARIHANT_CAP..eod"`
+- `?? "New Database/eod_data/BSE/ARIHANT_FOUN.eod"`
+- `?? "New Database/eod_data/BSE/ARIHANT_SEC..eod"`
+- `?? "New Database/eod_data/BSE/ARIH_SUPER.eod"`
+- `?? "New Database/eod_data/BSE/ARL.eod"`
+- `?? "New Database/eod_data/BSE/ARMAN.eod"`
+- `?? "New Database/eod_data/BSE/ARMAN_FIN.eod"`
+- `?? "New Database/eod_data/BSE/ARNOLD_HOLD.eod"`
+- `?? "New Database/eod_data/BSE/ARO_GRANITE.eod"`
+- `?? "New Database/eod_data/BSE/ARROWGREEN.eod"`
+- `?? "New Database/eod_data/BSE/ARSHIYA.eod"`
+- `?? "New Database/eod_data/BSE/ARSS_INFRA.eod"`
+- `?? "New Database/eod_data/BSE/ARTEFACT_PR.eod"`
+- `?? "New Database/eod_data/BSE/ARTEMISMED.eod"`
+- `?? "New Database/eod_data/BSE/ARTSON_ENG.eod"`
+- `?? "New Database/eod_data/BSE/ARUNAHTEL.eod"`
+- `?? "New Database/eod_data/BSE/ARUNIS.eod"`
+- `?? "New Database/eod_data/BSE/ARVINDFASN.eod"`
+- `?? "New Database/eod_data/BSE/ARVIND_LTD.eod"`
+- `?? "New Database/eod_data/BSE/ARVSMART.eod"`
+- `?? "New Database/eod_data/BSE/ARYAMAN_FIN..eod"`
+- `?? "New Database/eod_data/BSE/ARYAN.eod"`
+- `?? "New Database/eod_data/BSE/ARYAVAN.eod"`
+- `?? "New Database/eod_data/BSE/ASAHI_IN.GLA.eod"`
+- `?? "New Database/eod_data/BSE/ASAHI_SONG.eod"`
+- `?? "New Database/eod_data/BSE/ASARFI.eod"`
+- `?? "New Database/eod_data/BSE/ASCENSIVE.eod"`
+- `?? "New Database/eod_data/BSE/ASHAPURA_LTD.eod"`
+- `?? "New Database/eod_data/BSE/ASHIANA_AGRO.eod"`
+- `?? "New Database/eod_data/BSE/ASHIANA_HOU.eod"`
+- `?? "New Database/eod_data/BSE/ASHIANA_ISP..eod"`
+- `?? "New Database/eod_data/BSE/ASHIKA.eod"`
+- `?? "New Database/eod_data/BSE/ASHIMA_LTD..eod"`
+- `?? "New Database/eod_data/BSE/ASHIRWAD_CAP.eod"`
+- `?? "New Database/eod_data/BSE/ASHIRWAD_STL.eod"`
+- `?? "New Database/eod_data/BSE/ASHISH_POLY..eod"`
+- `?? "New Database/eod_data/BSE/ASHNI.eod"`
+- `?? "New Database/eod_data/BSE/ASHNOOR_TEX..eod"`
+- `?? "New Database/eod_data/BSE/ASHOK-ALCO.eod"`
+- `?? "New Database/eod_data/BSE/ASHOKA.eod"`
+- `?? "New Database/eod_data/BSE/ASHOKAMET.eod"`
+- `?? "New Database/eod_data/BSE/ASHOKA_REFIN.eod"`
+- `?? "New Database/eod_data/BSE/ASHOK_LEYL..eod"`
+- `?? "New Database/eod_data/BSE/ASHRAM_ONLIN.eod"`
+- `?? "New Database/eod_data/BSE/ASHUTOSH_PAP.eod"`
+- `?? "New Database/eod_data/BSE/ASIAN.eod"`
+- `?? "New Database/eod_data/BSE/ASIANENE.eod"`
+- `?? "New Database/eod_data/BSE/ASIANHOTNR.eod"`
+- `?? "New Database/eod_data/BSE/ASIAN_GRANIT.eod"`
+- `?? "New Database/eod_data/BSE/ASIAN_HTL_E.eod"`
+- `?? "New Database/eod_data/BSE/ASIAN_PAINTS.eod"`
+- `?? "New Database/eod_data/BSE/ASIAN_PETRO.eod"`
+- `?? "New Database/eod_data/BSE/ASIAN_STAR.eod"`
+- `?? "New Database/eod_data/BSE/ASIAN_TEA.eod"`
+- `?? "New Database/eod_data/BSE/ASIA_PACK.eod"`
+- `?? "New Database/eod_data/BSE/ASIIL.eod"`
+- `?? "New Database/eod_data/BSE/ASIT_C_FIN.eod"`
+- `?? "New Database/eod_data/BSE/ASKAUTOLTD.eod"`
+- `?? "New Database/eod_data/BSE/ASM_TECHNOLO.eod"`
+- `?? "New Database/eod_data/BSE/ASPIRA.eod"`
+- `?? "New Database/eod_data/BSE/ASRL.eod"`
+- `?? "New Database/eod_data/BSE/ASSAMENT.eod"`
+- `?? "New Database/eod_data/BSE/ASSO.ALCOHOL.eod"`
+- `?? "New Database/eod_data/BSE/ASSOC.CERAMI.eod"`
+- `?? "New Database/eod_data/BSE/ASTEC_LIFE.eod"`
+- `?? "New Database/eod_data/BSE/ASTERDM.eod"`
+- `?? "New Database/eod_data/BSE/ASTRAL.eod"`
+- `?? "New Database/eod_data/BSE/ASTRAZEN.PH..eod"`
+- `?? "New Database/eod_data/BSE/ASTRA_MICRO.eod"`
+- `?? "New Database/eod_data/BSE/ASTRON.eod"`
+- `?? "New Database/eod_data/BSE/ASYL.eod"`
+- `?? "New Database/eod_data/BSE/ATALREAL.eod"`
+- `?? "New Database/eod_data/BSE/ATAM.eod"`
+- `?? "New Database/eod_data/BSE/ATGL.eod"`
+- `?? "New Database/eod_data/BSE/ATHARV_ENT.eod"`
+- `?? "New Database/eod_data/BSE/ATHCON.eod"`
+- `?? "New Database/eod_data/BSE/ATHENAGLO.eod"`
+- `?? "New Database/eod_data/BSE/ATISHAY.eod"`
+- `?? "New Database/eod_data/BSE/ATL.eod"`
+- `?? "New Database/eod_data/BSE/ATLANTA.eod"`
+- `?? "New Database/eod_data/BSE/ATUL_AUTO.eod"`
+- `?? "New Database/eod_data/BSE/ATUL_LTD..eod"`
+- `?? "New Database/eod_data/BSE/ATV_PROJECTS.eod"`
+- `?? "New Database/eod_data/BSE/AUBANK.eod"`
+- `?? "New Database/eod_data/BSE/AURIONPRO_SO.eod"`
+- `?? "New Database/eod_data/BSE/AUROB.PHARMA.eod"`
+- `?? "New Database/eod_data/BSE/AURO_LAB..eod"`
+- `?? "New Database/eod_data/BSE/AURUM.eod"`
+- `?? "New Database/eod_data/BSE/AURUMPP.eod"`
+- `?? "New Database/eod_data/BSE/AUSOM_ENT.eod"`
+- `?? "New Database/eod_data/BSE/AUSTIN_ENGG..eod"`
+- `?? "New Database/eod_data/BSE/AUTOIND.eod"`
+- `?? "New Database/eod_data/BSE/AUTOMOTIVE_S.eod"`
+- `?? "New Database/eod_data/BSE/AUTO_AXLES.eod"`
+- `?? "New Database/eod_data/BSE/AUTO_COR.GOA.eod"`
+- `?? "New Database/eod_data/BSE/AVADHSUGAR.eod"`
+- `?? "New Database/eod_data/BSE/AVAILABLE_FI.eod"`
+- `?? "New Database/eod_data/BSE/AVALON.eod"`
+- `?? "New Database/eod_data/BSE/AVANTEL_LTD.eod"`
+- `?? "New Database/eod_data/BSE/AVANTI_FEEDS.eod"`
+- `?? "New Database/eod_data/BSE/AVASARA.eod"`
+- `?? "New Database/eod_data/BSE/AVEER.eod"`
+- `?? "New Database/eod_data/BSE/AVG.eod"`
+- `?? "New Database/eod_data/BSE/AVI.eod"`
+- `?? "New Database/eod_data/BSE/AVIVA_INDS.eod"`
+- `?? "New Database/eod_data/BSE/AVL.eod"`
+- `?? "New Database/eod_data/BSE/AVONMORE.eod"`
+- `?? "New Database/eod_data/BSE/AVROIND.eod"`
+- `?? "New Database/eod_data/BSE/AVT_NATURAL.eod"`
+- `?? "New Database/eod_data/BSE/AWHCL.eod"`
+- `?? "New Database/eod_data/BSE/AWL.eod"`
+- `?? "New Database/eod_data/BSE/AXEL_POLYMER.eod"`
+- `?? "New Database/eod_data/BSE/AXISCADES.eod"`
+- `?? "New Database/eod_data/BSE/AXISCETF.eod"`
+- `?? "New Database/eod_data/BSE/AXISGOLD.eod"`
+- `?? "New Database/eod_data/BSE/AXISHETF.eod"`
+- `?? "New Database/eod_data/BSE/AXISPEGP.eod"`
+- `?? "New Database/eod_data/BSE/AXISTECETF.eod"`
+- `?? "New Database/eod_data/BSE/AXIS_BANK.eod"`
+- `?? "New Database/eod_data/BSE/AXITA.eod"`
+- `?? "New Database/eod_data/BSE/AXTEL_INDUS..eod"`
+- `?? "New Database/eod_data/BSE/AYMSYNTEX.eod"`
+- `?? "New Database/eod_data/BSE/B.N.RATHI_SE.eod"`
+- `?? "New Database/eod_data/BSE/B2B_SOFT..eod"`
+- `?? "New Database/eod_data/BSE/BABA_ARTS.eod"`
+- `?? "New Database/eod_data/BSE/BACIL_PHARMA.eod"`
+- `?? "New Database/eod_data/BSE/BAFNA_PHARMA.eod"`
+- `?? "New Database/eod_data/BSE/BAG_FIL_MED.eod"`
+- `?? "New Database/eod_data/BSE/BAIDFIN.eod"`
+- `?? "New Database/eod_data/BSE/BAJAJCON.eod"`
+- `?? "New Database/eod_data/BSE/BAJAJHCARE.eod"`
+- `?? "New Database/eod_data/BSE/BAJAJHIND.eod"`
+- `?? "New Database/eod_data/BSE/BAJAJ_AUTO.eod"`
+- `?? "New Database/eod_data/BSE/BAJAJ_ELECT..eod"`
+- `?? "New Database/eod_data/BSE/BAJAJ_FINSE.eod"`
+- `?? "New Database/eod_data/BSE/BAJAJ_STEEL.eod"`
+- `?? "New Database/eod_data/BSE/BAJFINANCE.eod"`
+- `?? "New Database/eod_data/BSE/BAJ_HOLD_INV.eod"`
+- `?? "New Database/eod_data/BSE/BALAJI_AMINE.eod"`
+- `?? "New Database/eod_data/BSE/BALAJI_TELE..eod"`
+- `?? "New Database/eod_data/BSE/BALGOPAL.eod"`
+- `?? "New Database/eod_data/BSE/BALKRISHNA.eod"`
+- `?? "New Database/eod_data/BSE/BALKRISH_IND.eod"`
+- `?? "New Database/eod_data/BSE/BALMER_LA.IN.eod"`
+- `?? "New Database/eod_data/BSE/BALMER_LAWRI.eod"`
+- `?? "New Database/eod_data/BSE/BALRAM.CHINI.eod"`
+- `?? "New Database/eod_data/BSE/BALUFORGE.eod"`
+- `?? "New Database/eod_data/BSE/BALURGHAT_TE.eod"`
+- `?? "New Database/eod_data/BSE/BAL_PHARMA.eod"`
+- `?? "New Database/eod_data/BSE/BAMBINO_AGRO.eod"`
+- `?? "New Database/eod_data/BSE/BAMPSL_SECUR.eod"`
+- `?? "New Database/eod_data/BSE/BANARAS_BEAD.eod"`
+- `?? "New Database/eod_data/BSE/BANAS_FIN..eod"`
+- `?? "New Database/eod_data/BSE/BANCO_PROD..eod"`
+- `?? "New Database/eod_data/BSE/BANDARAM.eod"`
+- `?? "New Database/eod_data/BSE/BANDHANBNK.eod"`
+- `?? "New Database/eod_data/BSE/BANG.eod"`
+- `?? "New Database/eod_data/BSE/BANKBARODA.eod"`
+- `?? "New Database/eod_data/BSE/BANKBEES.eod"`
+- `?? "New Database/eod_data/BSE/BANKETF.eod"`
+- `?? "New Database/eod_data/BSE/BANK_MAHA.eod"`
+- `?? "New Database/eod_data/BSE/BANNARI_AMAN.eod"`
+- `?? "New Database/eod_data/BSE/BANNARI_AMMA.eod"`
+- `?? "New Database/eod_data/BSE/BANSAL_ROOF.eod"`
+- `?? "New Database/eod_data/BSE/BANSW.SYNTEX.eod"`
+- `?? "New Database/eod_data/BSE/BARAK_VALL.eod"`
+- `?? "New Database/eod_data/BSE/BARBEQUE.eod"`
+- `?? "New Database/eod_data/BSE/BARODA_EXTR..eod"`
+- `?? "New Database/eod_data/BSE/BARODA_RAYON.eod"`
+- `?? "New Database/eod_data/BSE/BARON_INFO..eod"`
+- `?? "New Database/eod_data/BSE/BARTRONICSIN.eod"`
+- `?? "New Database/eod_data/BSE/BASANT_AGRO.eod"`
+- `?? "New Database/eod_data/BSE/BASF_INDIA.eod"`
+- `?? "New Database/eod_data/BSE/BATA_INDIA.eod"`
+- `?? "New Database/eod_data/BSE/BATLIBOI_LTD.eod"`
+- `?? "New Database/eod_data/BSE/BAYER_CROP.eod"`
+- `?? "New Database/eod_data/BSE/BAZELINTER.eod"`
+- `?? "New Database/eod_data/BSE/BA_PACK.eod"`
+- `?? "New Database/eod_data/BSE/BBETF0432.eod"`
+- `?? "New Database/eod_data/BSE/BBOX.eod"`
+- `?? "New Database/eod_data/BSE/BBTCL.eod"`
+- `?? "New Database/eod_data/BSE/BCCL.eod"`
+- `?? "New Database/eod_data/BSE/BCC_FUBA.eod"`
+- `?? "New Database/eod_data/BSE/BCG.eod"`
+- `?? "New Database/eod_data/BSE/BCLENTERPR.eod"`
+- `?? "New Database/eod_data/BSE/BCLIL.eod"`
+- `?? "New Database/eod_data/BSE/BCONCEPTS.eod"`
+- `?? "New Database/eod_data/BSE/BCPL.eod"`
+- `?? "New Database/eod_data/BSE/BCP_LTD.eod"`
+- `?? "New Database/eod_data/BSE/BDH_INDUS..eod"`
+- `?? "New Database/eod_data/BSE/BDL.eod"`
+- `?? "New Database/eod_data/BSE/BEARDSELL.eod"`
+- `?? "New Database/eod_data/BSE/BECTORFOOD.eod"`
+- `?? "New Database/eod_data/BSE/BEDMUTHA_IN.eod"`
+- `?? "New Database/eod_data/BSE/BEEKAY.eod"`
+- `?? "New Database/eod_data/BSE/BEEYU_OVERSE.eod"`
+- `?? "New Database/eod_data/BSE/BELLACASA.eod"`
+- `?? "New Database/eod_data/BSE/BEMCO_HYDRAU.eod"`
+- `?? "New Database/eod_data/BSE/BEML_LTD.eod"`
+- `?? "New Database/eod_data/BSE/BENARA.eod"`
+- `?? "New Database/eod_data/BSE/BENARES_HOT.eod"`
+- `?? "New Database/eod_data/BSE/BENGAL_TEA_&.eod"`
+- `?? "New Database/eod_data/BSE/BENGLA&_ASM.eod"`
+- `?? "New Database/eod_data/BSE/BERGE_PAINT.eod"`
+- `?? "New Database/eod_data/BSE/BERVIN_INV..eod"`
+- `?? "New Database/eod_data/BSE/BERYL_DRUGS.eod"`
+- `?? "New Database/eod_data/BSE/BERYL_SECUR..eod"`
+- `?? "New Database/eod_data/BSE/BESTAGRO.eod"`
+- `?? "New Database/eod_data/BSE/BEST_E.HOTEL.eod"`
+- `?? "New Database/eod_data/BSE/BETEX_INDIA.eod"`
+- `?? "New Database/eod_data/BSE/BFFL.eod"`
+- `?? "New Database/eod_data/BSE/BFLAFL.eod"`
+- `?? "New Database/eod_data/BSE/BFLYGANDHI.eod"`
+- `?? "New Database/eod_data/BSE/BFSI.eod"`
+- `?? "New Database/eod_data/BSE/BF_INVEST.eod"`
+- `?? "New Database/eod_data/BSE/BF_UTILI.eod"`
+- `?? "New Database/eod_data/BSE/BGIL_FL_TEC.eod"`
+- `?? "New Database/eod_data/BSE/BGJL.eod"`
+- `?? "New Database/eod_data/BSE/BGLOBAL.eod"`
+- `?? "New Database/eod_data/BSE/BGR_ENERGY.eod"`
+- `?? "New Database/eod_data/BSE/BH.IMMUN&BIO.eod"`
+- `?? "New Database/eod_data/BSE/BHAGIL.eod"`
+- `?? "New Database/eod_data/BSE/BHAGIRA.CHEM.eod"`
+- `?? "New Database/eod_data/BSE/BHAGWATI_AUT.eod"`
+- `?? "New Database/eod_data/BSE/BHAGWATI_OXY.eod"`
+- `?? "New Database/eod_data/BSE/BHAGYA_INL.eod"`
+- `?? "New Database/eod_data/BSE/BHANDARI_HOS.eod"`
+- `?? "New Database/eod_data/BSE/BHANSALI_ENG.eod"`
+- `?? "New Database/eod_data/BSE/BHARATAGRI.eod"`
+- `?? "New Database/eod_data/BSE/BHARATWIRE.eod"`
+- `?? "New Database/eod_data/BSE/BHARAT_BHUSH.eod"`
+- `?? "New Database/eod_data/BSE/BHARAT_BIJLE.eod"`
+- `?? "New Database/eod_data/BSE/BHARAT_ELECT.eod"`
+- `?? "New Database/eod_data/BSE/BHARAT_FORGE.eod"`
+- `?? "New Database/eod_data/BSE/BHARAT_GEARS.eod"`
+- `?? "New Database/eod_data/BSE/BHARAT_PET..eod"`
+- `?? "New Database/eod_data/BSE/BHARAT_SEATS.eod"`
+- `?? "New Database/eod_data/BSE/BHARTIYA_INT.eod"`
+- `?? "New Database/eod_data/BSE/BHARTI_ARTL.eod"`
+- `?? "New Database/eod_data/BSE/BHASKAR_AGRO.eod"`
+- `?? "New Database/eod_data/BSE/BHATIA.eod"`
+- `?? "New Database/eod_data/BSE/BHEEMA_CEM.eod"`
+- `?? "New Database/eod_data/BSE/BHEL.eod"`
+- `?? "New Database/eod_data/BSE/BHILWARA_SP..eod"`
+- `?? "New Database/eod_data/BSE/BHILWRA_TEC.eod"`
+- `?? "New Database/eod_data/BSE/BHUDEVI.eod"`
+- `?? "New Database/eod_data/BSE/BIGBLOC.eod"`
+- `?? "New Database/eod_data/BSE/BIHAR_SPONGE.eod"`
+- `?? "New Database/eod_data/BSE/BIKAJI.eod"`
+- `?? "New Database/eod_data/BSE/BILCARE_LTD..eod"`
+- `?? "New Database/eod_data/BSE/BILLWIN.eod"`
+- `?? "New Database/eod_data/BSE/BILNCD2021.eod"`
+- `?? "New Database/eod_data/BSE/BIMETAL_BEAR.eod"`
+- `?? "New Database/eod_data/BSE/BINANI_IND..eod"`
+- `?? "New Database/eod_data/BSE/BINNY_LTD..eod"`
+- `?? "New Database/eod_data/BSE/BINNY_MILLS.eod"`
+- `?? "New Database/eod_data/BSE/BIOCON_LTD..eod"`
+- `?? "New Database/eod_data/BSE/BIOFIL_CHEM.eod"`
+- `?? "New Database/eod_data/BSE/BIOGEN.eod"`
+- `?? "New Database/eod_data/BSE/BIRET.eod"`
+- `?? "New Database/eod_data/BSE/BIRLACABLE.eod"`
+- `?? "New Database/eod_data/BSE/BIRLA_CORPN..eod"`
+- `?? "New Database/eod_data/BSE/BIRLA_PRETEC.eod"`
+- `?? "New Database/eod_data/BSE/BISIL_PLAST.eod"`
+- `?? "New Database/eod_data/BSE/BITS_LTD..eod"`
+- `?? "New Database/eod_data/BSE/BIZOTIC.eod"`
+- `?? "New Database/eod_data/BSE/BKMINDST.eod"`
+- `?? "New Database/eod_data/BSE/BKV_INDUSTRS.eod"`
+- `?? "New Database/eod_data/BSE/BL.CHIP_TEX.eod"`
+- `?? "New Database/eod_data/BSE/BLACKROSE.eod"`
+- `?? "New Database/eod_data/BSE/BLAL.eod"`
+- `?? "New Database/eod_data/BSE/BLB_LTD..eod"`
+- `?? "New Database/eod_data/BSE/BLISSGVS_PH.eod"`
+- `?? "New Database/eod_data/BSE/BLOOM_DEKOR.eod"`
+- `?? "New Database/eod_data/BSE/BLOOM_INDUST.eod"`
+- `?? "New Database/eod_data/BSE/BLS.eod"`
+- `?? "New Database/eod_data/BSE/BLS_INFOTE.eod"`
+- `?? "New Database/eod_data/BSE/BLUECLOUDS.eod"`
+- `?? "New Database/eod_data/BSE/BLUECOAST.eod"`
+- `?? "New Database/eod_data/BSE/BLUEJET.eod"`
+- `?? "New Database/eod_data/BSE/BLUE_DART_EX.eod"`
+- `?? "New Database/eod_data/BSE/BLUE_STAR.eod"`
+- `?? "New Database/eod_data/BSE/BL_KASHYAP.eod"`
+- `?? "New Database/eod_data/BSE/BMB_MUSIC.eod"`
+- `?? "New Database/eod_data/BSE/BMW.eod"`
+- `?? "New Database/eod_data/BSE/BNALTD.eod"`
+- `?? "New Database/eod_data/BSE/BNHOLDINGS.eod"`
+- `?? "New Database/eod_data/BSE/BNK_OF_INDIA.eod"`
+- `?? "New Database/eod_data/BSE/BNL.eod"`
+- `?? "New Database/eod_data/BSE/BNR_UDYOG.eod"`
+- `?? "New Database/eod_data/BSE/BODAL_CHEM.eod"`
+- `?? "New Database/eod_data/BSE/BODHTREE.eod"`
+- `?? "New Database/eod_data/BSE/BOM.BURMAH.eod"`
+- `?? "New Database/eod_data/BSE/BOM.CYCLE.eod"`
+- `?? "New Database/eod_data/BSE/BOM.WIRE_ROP.eod"`
+- `?? "New Database/eod_data/BSE/BOMOXY-B1.eod"`
+- `?? "New Database/eod_data/BSE/BOMTALKIES.eod"`
+- `?? "New Database/eod_data/BSE/BOM_DYEING.eod"`
+- `?? "New Database/eod_data/BSE/BONDADA.eod"`
+- `?? "New Database/eod_data/BSE/BONLON.eod"`
+- `?? "New Database/eod_data/BSE/BOROLTD.eod"`
+- `?? "New Database/eod_data/BSE/BORORENEW.eod"`
+- `?? "New Database/eod_data/BSE/BOSCH_LTD.eod"`
+- `?? "New Database/eod_data/BSE/BOTHRA_MET.eod"`
+- `?? "New Database/eod_data/BSE/BPLPHARMA.eod"`
+- `?? "New Database/eod_data/BSE/BPL_LTD..eod"`
+- `?? "New Database/eod_data/BSE/BPTEX.eod"`
+- `?? "New Database/eod_data/BSE/BP_CAPITAL.eod"`
+- `?? "New Database/eod_data/BSE/BRADY_MORRIS.eod"`
+- `?? "New Database/eod_data/BSE/BRAHM_INFRA.eod"`
+- `?? "New Database/eod_data/BSE/BRANDBUCKT.eod"`
+- `?? "New Database/eod_data/BSE/BRAWN_BIO.eod"`
+- `?? "New Database/eod_data/BSE/BRIDGE_SECUR.eod"`
+- `?? "New Database/eod_data/BSE/BRIGADE.eod"`
+- `?? "New Database/eod_data/BSE/BRIGHT.eod"`
+- `?? "New Database/eod_data/BSE/BRIGHT_BROS..eod"`
+- `?? "New Database/eod_data/BSE/BRIJLAXMI_LE.eod"`
+- `?? "New Database/eod_data/BSE/BRITANIA_IND.eod"`
+- `?? "New Database/eod_data/BSE/BRNL.eod"`
+- `?? "New Database/eod_data/BSE/BRONZE_INFRA.eod"`
+- `?? "New Database/eod_data/BSE/BROOKS_LABS.eod"`
+- `?? "New Database/eod_data/BSE/BRRL.eod"`
+- `?? "New Database/eod_data/BSE/BSE_INFRA.eod"`
+- `?? "New Database/eod_data/BSE/BSLGOLDETF.eod"`
+- `?? "New Database/eod_data/BSE/BSLNIFTY.eod"`
+- `?? "New Database/eod_data/BSE/BSLSENETFG.eod"`
+- `?? "New Database/eod_data/BSE/BSL_LTD..eod"`
+- `?? "New Database/eod_data/BSE/BSOFT.eod"`
+- `?? "New Database/eod_data/BSE/BTML.eod"`
+- `?? "New Database/eod_data/BSE/BURNPUR.eod"`
+- `?? "New Database/eod_data/BSE/BYKE_HOSP.eod"`
+- `?? "New Database/eod_data/BSE/CALCOM_VISIO.eod"`
+- `?? "New Database/eod_data/BSE/CALIFORN.SOF.eod"`
+- `?? "New Database/eod_data/BSE/CAMBRIDGE.eod"`
+- `?? "New Database/eod_data/BSE/CAMEX_LTD.eod"`
+- `?? "New Database/eod_data/BSE/CAMLINFINE.eod"`
+- `?? "New Database/eod_data/BSE/CAMPUS.eod"`
+- `?? "New Database/eod_data/BSE/CAMS.eod"`
+- `?? "New Database/eod_data/BSE/CANARA_BANK.eod"`
+- `?? "New Database/eod_data/BSE/CANDOUR.eod"`
+- `?? "New Database/eod_data/BSE/CANFIN_HOMES.eod"`
+- `?? "New Database/eod_data/BSE/CANOPYFIN.eod"`
+- `?? "New Database/eod_data/BSE/CANTABIL.eod"`
+- `?? "New Database/eod_data/BSE/CAPACITE.eod"`
+- `?? "New Database/eod_data/BSE/CAPFIN.eod"`
+- `?? "New Database/eod_data/BSE/CAPITAL_TRUS.eod"`
+- `?? "New Database/eod_data/BSE/CAPLIN_POINT.eod"`
+- `?? "New Database/eod_data/BSE/CAPPIPES.eod"`
+- `?? "New Database/eod_data/BSE/CAPRICORN.eod"`
+- `?? "New Database/eod_data/BSE/CAPRIHANS.eod"`
+- `?? "New Database/eod_data/BSE/CAPROLA.CHEM.eod"`
+- `?? "New Database/eod_data/BSE/CAPTAIN_POLY.eod"`
+- `?? "New Database/eod_data/BSE/CARBORUNDUM.eod"`
+- `?? "New Database/eod_data/BSE/CAREERP.eod"`
+- `?? "New Database/eod_data/BSE/CARERATING.eod"`
+- `?? "New Database/eod_data/BSE/CARGOSOL.eod"`
+- `?? "New Database/eod_data/BSE/CARGOTRANS.eod"`
+- `?? "New Database/eod_data/BSE/CARNATION_IN.eod"`
+- `?? "New Database/eod_data/BSE/CARTRADE.eod"`
+- `?? "New Database/eod_data/BSE/CARYSIL.eod"`
+- `?? "New Database/eod_data/BSE/CASPIAN.eod"`
+- `?? "New Database/eod_data/BSE/CASTROL.eod"`
+- `?? "New Database/eod_data/BSE/CATVISION.eod"`
+- `?? "New Database/eod_data/BSE/CBPL.eod"`
+- `?? "New Database/eod_data/BSE/CCAL.eod"`
+- `?? "New Database/eod_data/BSE/CCHHL.eod"`
+- `?? "New Database/eod_data/BSE/CCL_INTER.eod"`
+- `?? "New Database/eod_data/BSE/CCL_PRODUCTS.eod"`
+- `?? "New Database/eod_data/BSE/CDG.eod"`
+- `?? "New Database/eod_data/BSE/CEAT_LIMITED.eod"`
+- `?? "New Database/eod_data/BSE/CEEJAY_FINAN.eod"`
+- `?? "New Database/eod_data/BSE/CEENIK_EXPO..eod"`
+- `?? "New Database/eod_data/BSE/CEETA_IND..eod"`
+- `?? "New Database/eod_data/BSE/CEINSYSTECH.eod"`
+- `?? "New Database/eod_data/BSE/CELEBRITYFAS.eod"`
+- `?? "New Database/eod_data/BSE/CELLA.eod"`
+- `?? "New Database/eod_data/BSE/CELLO.eod"`
+- `?? "New Database/eod_data/BSE/CENLUB_INDUS.eod"`
+- `?? "New Database/eod_data/BSE/CENTENIAL_SU.eod"`
+- `?? "New Database/eod_data/BSE/CENTRAL_BK.eod"`
+- `?? "New Database/eod_data/BSE/CENTRUM_CAP.eod"`
+- `?? "New Database/eod_data/BSE/CENTUM_ELEC.eod"`
+- `?? "New Database/eod_data/BSE/CENTURYPLY.eod"`
+- `?? "New Database/eod_data/BSE/CENTURY_ENKA.eod"`
+- `?? "New Database/eod_data/BSE/CENTURY_EXT.eod"`
+- `?? "New Database/eod_data/BSE/CENTURY_TEXT.eod"`
+- `?? "New Database/eod_data/BSE/CERA_SANITAR.eod"`
+- `?? "New Database/eod_data/BSE/CEREBRA_INTE.eod"`
+- `?? "New Database/eod_data/BSE/CESC_LTD..eod"`
+- `?? "New Database/eod_data/BSE/CFEL.eod"`
+- `?? "New Database/eod_data/BSE/CFF.eod"`
+- `?? "New Database/eod_data/BSE/CFL.eod"`
+- `?? "New Database/eod_data/BSE/CG-VAK_SOFTW.eod"`
+- `?? "New Database/eod_data/BSE/CGCL.eod"`
+- `?? "New Database/eod_data/BSE/CGFL.eod"`
+- `?? "New Database/eod_data/BSE/CGPOWER.eod"`
+- `?? "New Database/eod_data/BSE/CHALET.eod"`
+- `?? "New Database/eod_data/BSE/CHAMANLAL_SE.eod"`
+- `?? "New Database/eod_data/BSE/CHAMBAL_BREW.eod"`
+- `?? "New Database/eod_data/BSE/CHAMBAL_FERT.eod"`
+- `?? "New Database/eod_data/BSE/CHANDNIMACH.eod"`
+- `?? "New Database/eod_data/BSE/CHANDRA_PRAB.eod"`
+- `?? "New Database/eod_data/BSE/CHANDRIMA.eod"`
+- `?? "New Database/eod_data/BSE/CHARMS_INDUS.eod"`
+- `?? "New Database/eod_data/BSE/CHARTERED_CA.eod"`
+- `?? "New Database/eod_data/BSE/CHARTERLOGIS.eod"`
+- `?? "New Database/eod_data/BSE/CHCL.eod"`
+- `?? "New Database/eod_data/BSE/CHDCHEM.eod"`
+- `?? "New Database/eod_data/BSE/CHECKPOINT.eod"`
+- `?? "New Database/eod_data/BSE/CHEMBOND_CHM.eod"`
+- `?? "New Database/eod_data/BSE/CHEMCON.eod"`
+- `?? "New Database/eod_data/BSE/CHEMCRUX.eod"`
+- `?? "New Database/eod_data/BSE/CHEMFABALKA.eod"`
+- `?? "New Database/eod_data/BSE/CHEMO_PHARMA.eod"`
+- `?? "New Database/eod_data/BSE/CHEMPLASTS.eod"`
+- `?? "New Database/eod_data/BSE/CHEMTECH_IND.eod"`
+- `?? "New Database/eod_data/BSE/CHENFERRO.eod"`
+- `?? "New Database/eod_data/BSE/CHENNAI_PET..eod"`
+- `?? "New Database/eod_data/BSE/CHEVIOT_CO..eod"`
+- `?? "New Database/eod_data/BSE/CHITRA.SPIN..eod"`
+- `?? "New Database/eod_data/BSE/CHL_LTD.eod"`
+- `?? "New Database/eod_data/BSE/CHOICE_INT..eod"`
+- `?? "New Database/eod_data/BSE/CHOKSI_IMAG.eod"`
+- `?? "New Database/eod_data/BSE/CHOKSI_LABOR.eod"`
+- `?? "New Database/eod_data/BSE/CHOLAFIN.eod"`
+- `?? "New Database/eod_data/BSE/CHOLAHLDNG.eod"`
+- `?? "New Database/eod_data/BSE/CHORDIA_FOOD.eod"`
+- `?? "New Database/eod_data/BSE/CHOTHANI.eod"`
+- `?? "New Database/eod_data/BSE/CHOWGULE_ST.eod"`
+- `?? "New Database/eod_data/BSE/CIANAGRO.eod"`
+- `?? "New Database/eod_data/BSE/CIEINDIA.eod"`
+- `?? "New Database/eod_data/BSE/CIFC090823A.eod"`
+- `?? "New Database/eod_data/BSE/CIFL.eod"`
+- `?? "New Database/eod_data/BSE/CIGNITI_TECH.eod"`
+- `?? "New Database/eod_data/BSE/CIL.eod"`
+- `?? "New Database/eod_data/BSE/CIL_NOVA.eod"`
+- `?? "New Database/eod_data/BSE/CIL_SECURITS.eod"`
+- `?? "New Database/eod_data/BSE/CINDRELLA_FI.eod"`
+- `?? "New Database/eod_data/BSE/CINDRELLA_HT.eod"`
+- `?? "New Database/eod_data/BSE/CINELINE.eod"`
+- `?? "New Database/eod_data/BSE/CINERAD_COMM.eod"`
+- `?? "New Database/eod_data/BSE/CINEVISTA.eod"`
+- `?? "New Database/eod_data/BSE/CIPLA_LTD..eod"`
+- `?? "New Database/eod_data/BSE/CISTRO_TELE..eod"`
+- `?? "New Database/eod_data/BSE/CITADEL.eod"`
+- `?? "New Database/eod_data/BSE/CITI_PORT_FN.eod"`
+- `?? "New Database/eod_data/BSE/CITL.eod"`
+- `?? "New Database/eod_data/BSE/CITYMAN.eod"`
+- `?? "New Database/eod_data/BSE/CITYONLINE.eod"`
+- `?? "New Database/eod_data/BSE/CITY_UNION.eod"`
+- `?? "New Database/eod_data/BSE/CJ_GELATIN.eod"`
+- `?? "New Database/eod_data/BSE/CLARA.eod"`
+- `?? "New Database/eod_data/BSE/CLASSIC.eod"`
+- `?? "New Database/eod_data/BSE/CLEAN.eod"`
+- `?? "New Database/eod_data/BSE/CLEDUCATE.eod"`
+- `?? "New Database/eod_data/BSE/CLEDUCATE7.eod"`
+- `?? "New Database/eod_data/BSE/CLFL.eod"`
+- `?? "New Database/eod_data/BSE/CLIO_INFOTEC.eod"`
+- `?? "New Database/eod_data/BSE/CMI_LTD..eod"`
+- `?? "New Database/eod_data/BSE/CMM_HOSPITAL.eod"`
+- `?? "New Database/eod_data/BSE/CMSINFO.eod"`
+- `?? "New Database/eod_data/BSE/CNCRD.eod"`
+- `?? "New Database/eod_data/BSE/CNI_RES_LTD.eod"`
+- `?? "New Database/eod_data/BSE/COAL_INDIA.eod"`
+- `?? "New Database/eod_data/BSE/COASTAL_ROAD.eod"`
+- `?? "New Database/eod_data/BSE/COAST_CORP.eod"`
+- `?? "New Database/eod_data/BSE/COCHINSHIP.eod"`
+- `?? "New Database/eod_data/BSE/COCHIN_MALA.eod"`
+- `?? "New Database/eod_data/BSE/COCHIN_MIN..eod"`
+- `?? "New Database/eod_data/BSE/COCKERILL.eod"`
+- `?? "New Database/eod_data/BSE/COFFEEDAY.eod"`
+- `?? "New Database/eod_data/BSE/COFORGE.eod"`
+- `?? "New Database/eod_data/BSE/COLABCLOUD.eod"`
+- `?? "New Database/eod_data/BSE/COLGATE_PALM.eod"`
+- `?? "New Database/eod_data/BSE/COLINZ_LABOR.eod"`
+- `?? "New Database/eod_data/BSE/COLORCHIPS.eod"`
+- `?? "New Database/eod_data/BSE/COMFORT_COM.eod"`
+- `?? "New Database/eod_data/BSE/COMFORT_INTE.eod"`
+- `?? "New Database/eod_data/BSE/COMMAND.eod"`
+- `?? "New Database/eod_data/BSE/COMPETENT_AU.eod"`
+- `?? "New Database/eod_data/BSE/COMPUAGE_INF.eod"`
+- `?? "New Database/eod_data/BSE/COMPUCOM_SOF.eod"`
+- `?? "New Database/eod_data/BSE/COMPUTER_PNT.eod"`
+- `?? "New Database/eod_data/BSE/COMRADE.eod"`
+- `?? "New Database/eod_data/BSE/COMSYN.eod"`
+- `?? "New Database/eod_data/BSE/COM_FINCAP.eod"`
+- `?? "New Database/eod_data/BSE/CONART_ENG..eod"`
+- `?? "New Database/eod_data/BSE/CONCORD.eod"`
+- `?? "New Database/eod_data/BSE/CONCORDBIO.eod"`
+- `?? "New Database/eod_data/BSE/CONCRETE.eod"`
+- `?? "New Database/eod_data/BSE/CONFINT.eod"`
+- `?? "New Database/eod_data/BSE/CONFI_PETRO.eod"`
+- `?? "New Database/eod_data/BSE/CONSTRONIC.eod"`
+- `?? "New Database/eod_data/BSE/CONT.CHEM.eod"`
+- `?? "New Database/eod_data/BSE/CONT.PETRO.eod"`
+- `?? "New Database/eod_data/BSE/CONTAIN.CORP.eod"`
+- `?? "New Database/eod_data/BSE/CONTAINE.eod"`
+- `?? "New Database/eod_data/BSE/CONTAINER.eod"`
+- `?? "New Database/eod_data/BSE/CONTI.CONTRL.eod"`
+- `?? "New Database/eod_data/BSE/CONTIL_I_LTD.eod"`
+- `?? "New Database/eod_data/BSE/CONTROL_PRNT.eod"`
+- `?? "New Database/eod_data/BSE/CORAL_LAB..eod"`
+- `?? "New Database/eod_data/BSE/CORAL_NEWSPR.eod"`
+- `?? "New Database/eod_data/BSE/CORDS_CABLE.eod"`
+- `?? "New Database/eod_data/BSE/COROM_INTER.eod"`
+- `?? "New Database/eod_data/BSE/CORO_ENGG.eod"`
+- `?? "New Database/eod_data/BSE/CORPOR_COUR.eod"`
+- `?? "New Database/eod_data/BSE/COSCO_INDIA.eod"`
+- `?? "New Database/eod_data/BSE/COSMICCRF.eod"`
+- `?? "New Database/eod_data/BSE/COSMOFIRST.eod"`
+- `?? "New Database/eod_data/BSE/COSMO_FERR..eod"`
+- `?? "New Database/eod_data/BSE/COSPOWER.eod"`
+- `?? "New Database/eod_data/BSE/COSYN.eod"`
+- `?? "New Database/eod_data/BSE/COUNTRY_COND.eod"`
+- `?? "New Database/eod_data/BSE/COVIDH.eod"`
+- `?? "New Database/eod_data/BSE/CPML.eod"`
+- `?? "New Database/eod_data/BSE/CPSE_ETF.eod"`
+- `?? "New Database/eod_data/BSE/CRAFTSMAN.eod"`
+- `?? "New Database/eod_data/BSE/CRANES_SOFTW.eod"`
+- `?? "New Database/eod_data/BSE/CRANEX_LTD..eod"`
+- `?? "New Database/eod_data/BSE/CRANE_INFRA.eod"`
+- `?? "New Database/eod_data/BSE/CRAVATEX.eod"`
+- `?? "New Database/eod_data/BSE/CREATIVE.eod"`
+- `?? "New Database/eod_data/BSE/CREATIVE_EYE.eod"`
+- `?? "New Database/eod_data/BSE/CREDITACC.eod"`
+- `?? "New Database/eod_data/BSE/CRESSANDA_SO.eod"`
+- `?? "New Database/eod_data/BSE/CRESSANPP.eod"`
+- `?? "New Database/eod_data/BSE/CREST.eod"`
+- `?? "New Database/eod_data/BSE/CRESTCHEM_LT.eod"`
+- `?? "New Database/eod_data/BSE/CRISIL_LTD.eod"`
+- `?? "New Database/eod_data/BSE/CROISSANCE.eod"`
+- `?? "New Database/eod_data/BSE/CROMPTON.eod"`
+- `?? "New Database/eod_data/BSE/CROPSTER.eod"`
+- `?? "New Database/eod_data/BSE/CSBBANK.eod"`
+- `?? "New Database/eod_data/BSE/CSL.eod"`
+- `?? "New Database/eod_data/BSE/CSLFINANCE.eod"`
+- `?? "New Database/eod_data/BSE/CTCL.eod"`
+- `?? "New Database/eod_data/BSE/CTL.eod"`
+- `?? "New Database/eod_data/BSE/CUBEX_TUBING.eod"`
+- `?? "New Database/eod_data/BSE/CUBICAL_FIN..eod"`
+- `?? "New Database/eod_data/BSE/CUPID_LTD.eod"`
+- `?? "New Database/eod_data/BSE/CWD.eod"`
+- `?? "New Database/eod_data/BSE/CYBELE_IND.eod"`
+- `?? "New Database/eod_data/BSE/CYBERTECH.eod"`
+- `?? "New Database/eod_data/BSE/CYBER_MEDIA.eod"`
+- `?? "New Database/eod_data/BSE/CYIENT.eod"`
+- `?? "New Database/eod_data/BSE/CYIENTDLM.eod"`
+- `?? "New Database/eod_data/BSE/DAAWAT.eod"`
+- `?? "New Database/eod_data/BSE/DAI-ICHI_KAR.eod"`
+- `?? "New Database/eod_data/BSE/DAIKAFFIL_CH.eod"`
+- `?? "New Database/eod_data/BSE/DAL.eod"`
+- `?? "New Database/eod_data/BSE/DALAL_ST_INV.eod"`
+- `?? "New Database/eod_data/BSE/DALBHARAT.eod"`
+- `?? "New Database/eod_data/BSE/DALMIASUG.eod"`
+- `?? "New Database/eod_data/BSE/DAMOINDUS.eod"`
+- `?? "New Database/eod_data/BSE/DANLAW_TECH..eod"`
+- `?? "New Database/eod_data/BSE/DANUBE.eod"`
+- `?? "New Database/eod_data/BSE/DAPS.eod"`
+- `?? "New Database/eod_data/BSE/DARJEELING.eod"`
+- `?? "New Database/eod_data/BSE/DARSHANORNA.eod"`
+- `?? "New Database/eod_data/BSE/DATAM_GLOB.eod"`
+- `?? "New Database/eod_data/BSE/DATAPATTNS.eod"`
+- `?? "New Database/eod_data/BSE/DAULAT_SEC..eod"`
+- `?? "New Database/eod_data/BSE/DAVANGERE.eod"`
+- `?? "New Database/eod_data/BSE/DBL.eod"`
+- `?? "New Database/eod_data/BSE/DBOL.eod"`
+- `?? "New Database/eod_data/BSE/DB_INT.ST.BR.eod"`
+- `?? "New Database/eod_data/BSE/DCAL.eod"`
+- `?? "New Database/eod_data/BSE/DCBBANK.eod"`
+- `?? "New Database/eod_data/BSE/DCI.eod"`
+- `?? "New Database/eod_data/BSE/DCMNVL.eod"`
+- `?? "New Database/eod_data/BSE/DCMSHRIRAM.eod"`
+- `?? "New Database/eod_data/BSE/DCM_FINANCIA.eod"`
+- `?? "New Database/eod_data/BSE/DCM_LTD..eod"`
+- `?? "New Database/eod_data/BSE/DCM_SHR.IND.eod"`
+- `?? "New Database/eod_data/BSE/DCW_LTD..eod"`
+- `?? "New Database/eod_data/BSE/DCXINDIA.eod"`
+- `?? "New Database/eod_data/BSE/DDEVPLASTIK.eod"`
+- `?? "New Database/eod_data/BSE/DDIL.eod"`
+- `?? "New Database/eod_data/BSE/DECAN_CEMENT.eod"`
+- `?? "New Database/eod_data/BSE/DECCAN.eod"`
+- `?? "New Database/eod_data/BSE/DECCANGOLD.eod"`
+- `?? "New Database/eod_data/BSE/DECCAN_BEAR..eod"`
+- `?? "New Database/eod_data/BSE/DECCAN_POLYP.eod"`
+- `?? "New Database/eod_data/BSE/DECIPHER.eod"`
+- `?? "New Database/eod_data/BSE/DECO-MICA.eod"`
+- `?? "New Database/eod_data/BSE/DEEP.eod"`
+- `?? "New Database/eod_data/BSE/DEEPAK_FERT..eod"`
+- `?? "New Database/eod_data/BSE/DEEPAK_NITR..eod"`
+- `?? "New Database/eod_data/BSE/DEEPAK_SPINN.eod"`
+- `?? "New Database/eod_data/BSE/DEEPENR.eod"`
+- `?? "New Database/eod_data/BSE/DEEPIND.eod"`
+- `?? "New Database/eod_data/BSE/DEL.eod"`
+- `?? "New Database/eod_data/BSE/DELHIVERY.eod"`
+- `?? "New Database/eod_data/BSE/DELPHIFX.eod"`
+- `?? "New Database/eod_data/BSE/DELTA.eod"`
+- `?? "New Database/eod_data/BSE/DELTAMAGNT.eod"`
+- `?? "New Database/eod_data/BSE/DELTA_CORP.eod"`
+- `?? "New Database/eod_data/BSE/DELTON_CABLE.eod"`
+- `?? "New Database/eod_data/BSE/DENIS_CHEM.eod"`
+- `?? "New Database/eod_data/BSE/DEN_NETWORK.eod"`
+- `?? "New Database/eod_data/BSE/DESH_RAKSHAK.eod"`
+- `?? "New Database/eod_data/BSE/DEVINE_IMPE.eod"`
+- `?? "New Database/eod_data/BSE/DEVIT.eod"`
+- `?? "New Database/eod_data/BSE/DEVLAB.eod"`
+- `?? "New Database/eod_data/BSE/DEVYANI.eod"`
+- `?? "New Database/eod_data/BSE/DE_NORA.eod"`
+- `?? "New Database/eod_data/BSE/DFL.eod"`
+- `?? "New Database/eod_data/BSE/DGCONTENT.eod"`
+- `?? "New Database/eod_data/BSE/DGL.eod"`
+- `?? "New Database/eod_data/BSE/DHABRIYA.eod"`
+- `?? "New Database/eod_data/BSE/DHAMPURE_SGR.eod"`
+- `?? "New Database/eod_data/BSE/DHAMPUR_SUGA.eod"`
+- `?? "New Database/eod_data/BSE/DHANADACOL.eod"`
+- `?? "New Database/eod_data/BSE/DHANAL.COTEX.eod"`
+- `?? "New Database/eod_data/BSE/DHANALAK.BNK.eod"`
+- `?? "New Database/eod_data/BSE/DHANI.eod"`
+- `?? "New Database/eod_data/BSE/DHANLXMI_FAB.eod"`
+- `?? "New Database/eod_data/BSE/DHAN_AGRI.eod"`
+- `?? "New Database/eod_data/BSE/DHAN_JEEVAN.eod"`
+- `?? "New Database/eod_data/BSE/DHAN_ROTO_SP.eod"`
+- `?? "New Database/eod_data/BSE/DHARANI_FIN..eod"`
+- `?? "New Database/eod_data/BSE/DHARMAJ.eod"`
+- `?? "New Database/eod_data/BSE/DHARNI.eod"`
+- `?? "New Database/eod_data/BSE/DHATRE.eod"`
+- `?? "New Database/eod_data/BSE/DHENUBUILD.eod"`
+- `?? "New Database/eod_data/BSE/DHINDIA.eod"`
+- `?? "New Database/eod_data/BSE/DHOOT_I.FIN..eod"`
+- `?? "New Database/eod_data/BSE/DHP_INDIA_LT.eod"`
+- `?? "New Database/eod_data/BSE/DHRUV.eod"`
+- `?? "New Database/eod_data/BSE/DHRUVA_CAP..eod"`
+- `?? "New Database/eod_data/BSE/DHUNINV.eod"`
+- `?? "New Database/eod_data/BSE/DHUN_TEAIND.eod"`
+- `?? "New Database/eod_data/BSE/DHYAANI.eod"`
+- `?? "New Database/eod_data/BSE/DIACABS.eod"`
+- `?? "New Database/eod_data/BSE/DIAMANT.eod"`
+- `?? "New Database/eod_data/BSE/DIAMINES&CHM.eod"`
+- `?? "New Database/eod_data/BSE/DIAMONDYD.eod"`
+- `?? "New Database/eod_data/BSE/DIANA_TEA_CO.eod"`
+- `?? "New Database/eod_data/BSE/DIC_INDIA.eod"`
+- `?? "New Database/eod_data/BSE/DIGISPICE.eod"`
+- `?? "New Database/eod_data/BSE/DIGJAMLTD.eod"`
+- `?? "New Database/eod_data/BSE/DILIGENT.eod"`
+- `?? "New Database/eod_data/BSE/DISA_INDIA.eod"`
+- `?? "New Database/eod_data/BSE/DISH_TV.eod"`
+- `?? "New Database/eod_data/BSE/DITCO.eod"`
+- `?? "New Database/eod_data/BSE/DIVGIITTS.eod"`
+- `?? "New Database/eod_data/BSE/DIVSHKT.eod"`
+- `?? "New Database/eod_data/BSE/DIXON.eod"`
+- `?? "New Database/eod_data/BSE/DJML.eod"`
+- `?? "New Database/eod_data/BSE/DLCL.eod"`
+- `?? "New Database/eod_data/BSE/DLF_LIMITED.eod"`
+- `?? "New Database/eod_data/BSE/DLINK_IND.eod"`
+- `?? "New Database/eod_data/BSE/DLSL27JU19B.eod"`
+- `?? "New Database/eod_data/BSE/DMART.eod"`
+- `?? "New Database/eod_data/BSE/DMCC.eod"`
+- `?? "New Database/eod_data/BSE/DML.eod"`
+- `?? "New Database/eod_data/BSE/DMR.eod"`
+- `?? "New Database/eod_data/BSE/DNAMEDIA.eod"`
+- `?? "New Database/eod_data/BSE/DODLA.eod"`
+- `?? "New Database/eod_data/BSE/DOLATALGO.eod"`
+- `?? "New Database/eod_data/BSE/DOLFIN.eod"`
+- `?? "New Database/eod_data/BSE/DOLLAR.eod"`
+- `?? "New Database/eod_data/BSE/DOLPHIN_MEDI.eod"`
+- `?? "New Database/eod_data/BSE/DOLPHIN_OFF..eod"`
+- `?? "New Database/eod_data/BSE/DONEAR_IND..eod"`
+- `?? "New Database/eod_data/BSE/DPL.eod"`
+- `?? "New Database/eod_data/BSE/DPWIRES.eod"`
+- `?? "New Database/eod_data/BSE/DR.AGAR.EYE.eod"`
+- `?? "New Database/eod_data/BSE/DRA.eod"`
+- `?? "New Database/eod_data/BSE/DRCSYSTEMS.eod"`
+- `?? "New Database/eod_data/BSE/DREAMFOLKS.eod"`
+- `?? "New Database/eod_data/BSE/DREDGING_COR.eod"`
+- `?? "New Database/eod_data/BSE/DRL.eod"`
+- `?? "New Database/eod_data/BSE/DRONACHRYA.eod"`
+- `?? "New Database/eod_data/BSE/DSPBANKETF.eod"`
+- `?? "New Database/eod_data/BSE/DSPGOLDETF.eod"`
+- `?? "New Database/eod_data/BSE/DSPITETF.eod"`
+- `?? "New Database/eod_data/BSE/DSPN50ETF.eod"`
+- `?? "New Database/eod_data/BSE/DSPNEWETF.eod"`
+- `?? "New Database/eod_data/BSE/DSPPSBKETF.eod"`
+- `?? "New Database/eod_data/BSE/DSPPVBKETF.eod"`
+- `?? "New Database/eod_data/BSE/DSPQ50ETF.eod"`
+- `?? "New Database/eod_data/BSE/DSPSENXETF.eod"`
+- `?? "New Database/eod_data/BSE/DSPSILVETF.eod"`
+- `?? "New Database/eod_data/BSE/DUCON.eod"`
+- `?? "New Database/eod_data/BSE/DUKE_OFFSHOR.eod"`
+- `?? "New Database/eod_data/BSE/DUNCANENG.eod"`
+- `?? "New Database/eod_data/BSE/DUROPLY.eod"`
+- `?? "New Database/eod_data/BSE/DURO_PACK.eod"`
+- `?? "New Database/eod_data/BSE/DUTRON_POLY..eod"`
+- `?? "New Database/eod_data/BSE/DVL.eod"`
+- `?? "New Database/eod_data/BSE/DWAR_SUGAR.eod"`
+- `?? "New Database/eod_data/BSE/DWL.eod"`
+- `?? "New Database/eod_data/BSE/DYNACONS_SYS.eod"`
+- `?? "New Database/eod_data/BSE/DYNAMAT.TECH.eod"`
+- `?? "New Database/eod_data/BSE/DYNAMIC.eod"`
+- `?? "New Database/eod_data/BSE/DYNAMIC_IND..eod"`
+- `?? "New Database/eod_data/BSE/DYNAMIC_PORT.eod"`
+- `?? "New Database/eod_data/BSE/DYNAVISION.eod"`
+- `?? "New Database/eod_data/BSE/DYNEMIC_PRO.eod"`
+- `?? "New Database/eod_data/BSE/D_B_CORP.eod"`
+- `?? "New Database/eod_data/BSE/D_B_REALTY.eod"`
+- `?? "New Database/eod_data/BSE/E.I.D.PAR.eod"`
+- `?? "New Database/eod_data/BSE/EARTH.eod"`
+- `?? "New Database/eod_data/BSE/EARUM.eod"`
+- `?? "New Database/eod_data/BSE/EASEMYTRIP.eod"`
+- `?? "New Database/eod_data/BSE/EASTBUILD.eod"`
+- `?? "New Database/eod_data/BSE/EASTERN_TRED.eod"`
+- `?? "New Database/eod_data/BSE/EASTWEST.eod"`
+- `?? "New Database/eod_data/BSE/EAST_C.STEEL.eod"`
+- `?? "New Database/eod_data/BSE/EASUN.eod"`
+- `?? "New Database/eod_data/BSE/EBBETF0425.eod"`
+- `?? "New Database/eod_data/BSE/EBBETF0430.eod"`
+- `?? "New Database/eod_data/BSE/EBBETF0431.eod"`
+- `?? "New Database/eod_data/BSE/EBBETF0433.eod"`
+- `?? "New Database/eod_data/BSE/ECLERX.eod"`
+- `?? "New Database/eod_data/BSE/ECOHOTELS.eod"`
+- `?? "New Database/eod_data/BSE/ECOPLAST_LTD.eod"`
+- `?? "New Database/eod_data/BSE/ECORECO.eod"`
+- `?? "New Database/eod_data/BSE/ECO_BOARD_IN.eod"`
+- `?? "New Database/eod_data/BSE/ECO_FRIENDLY.eod"`
+- `?? "New Database/eod_data/BSE/ECS.eod"`
+- `?? "New Database/eod_data/BSE/EDELWEISS.eod"`
+- `?? "New Database/eod_data/BSE/EDSL.eod"`
+- `?? "New Database/eod_data/BSE/EDUCOMP_SOLN.eod"`
+- `?? "New Database/eod_data/BSE/EDVENSWA.eod"`
+- `?? "New Database/eod_data/BSE/EFCIL.eod"`
+- `?? "New Database/eod_data/BSE/EFL4JAN19A.eod"`
+- `?? "New Database/eod_data/BSE/EFS10SEP21.eod"`
+- `?? "New Database/eod_data/BSE/EFSL10SEP21.eod"`
+- `?? "New Database/eod_data/BSE/EFSL140121.eod"`
+- `?? "New Database/eod_data/BSE/EFSL201022.eod"`
+- `?? "New Database/eod_data/BSE/EFSL201022A.eod"`
+- `?? "New Database/eod_data/BSE/EFSL210723.eod"`
+- `?? "New Database/eod_data/BSE/EFSL210723A.eod"`
+- `?? "New Database/eod_data/BSE/EFSL270423.eod"`
+- `?? "New Database/eod_data/BSE/EFSL281221.eod"`
+- `?? "New Database/eod_data/BSE/EFSL281221A.eod"`
+- `?? "New Database/eod_data/BSE/EFSL281221B.eod"`
+- `?? "New Database/eod_data/BSE/EICHER_MOTOR.eod"`
+- `?? "New Database/eod_data/BSE/EIGHTY.eod"`
+- `?? "New Database/eod_data/BSE/EIH_ASSO.HOT.eod"`
+- `?? "New Database/eod_data/BSE/EIH_LTD..eod"`
+- `?? "New Database/eod_data/BSE/EIKO.eod"`
+- `?? "New Database/eod_data/BSE/EIKOPP.eod"`
+- `?? "New Database/eod_data/BSE/EIMCO_ELECON.eod"`
+- `?? "New Database/eod_data/BSE/EKAM_LEASING.eod"`
+- `?? "New Database/eod_data/BSE/EKANSH.eod"`
+- `?? "New Database/eod_data/BSE/EKENNIS.eod"`
+- `?? "New Database/eod_data/BSE/EKI.eod"`
+- `?? "New Database/eod_data/BSE/ELAND.eod"`
+- `?? "New Database/eod_data/BSE/ELANGO_INDUS.eod"`
+- `?? "New Database/eod_data/BSE/ELANTAS.eod"`
+- `?? "New Database/eod_data/BSE/ELCID_INV.eod"`
+- `?? "New Database/eod_data/BSE/ELDECO_HOUS..eod"`
+- `?? "New Database/eod_data/BSE/ELEC.CASTING.eod"`
+- `?? "New Database/eod_data/BSE/ELECON_ENG.eod"`
+- `?? "New Database/eod_data/BSE/ELECTROTHERM.eod"`
+- `?? "New Database/eod_data/BSE/ELEGANT_FLOR.eod"`
+- `?? "New Database/eod_data/BSE/ELEGANT_MARB.eod"`
+- `?? "New Database/eod_data/BSE/ELGI_EQUIP.eod"`
+- `?? "New Database/eod_data/BSE/ELIL.eod"`
+- `?? "New Database/eod_data/BSE/ELIN.eod"`
+- `?? "New Database/eod_data/BSE/ELIXIR.eod"`
+- `?? "New Database/eod_data/BSE/ELNET_TECH..eod"`
+- `?? "New Database/eod_data/BSE/ELPRO_INTER.eod"`
+- `?? "New Database/eod_data/BSE/EL_FORGE_LTD.eod"`
+- `?? "New Database/eod_data/BSE/EMAMIREAL.eod"`
+- `?? "New Database/eod_data/BSE/EMAMI_LTD..eod"`
+- `?? "New Database/eod_data/BSE/EMAMI_PAPER.eod"`
+- `?? "New Database/eod_data/BSE/EMA_INDIA.eod"`
+- `?? "New Database/eod_data/BSE/EMBASSY.eod"`
+- `?? "New Database/eod_data/BSE/EMERALD.eod"`
+- `?? "New Database/eod_data/BSE/EMERALL.eod"`
+- `?? "New Database/eod_data/BSE/EMIL.eod"`
+- `?? "New Database/eod_data/BSE/EMKAY_GLOB_F.eod"`
+- `?? "New Database/eod_data/BSE/EMMBI.eod"`
+- `?? "New Database/eod_data/BSE/EMMESSAR_BIO.eod"`
+- `?? "New Database/eod_data/BSE/EMPIRE_IND..eod"`
+- `?? "New Database/eod_data/BSE/EMPOWER.eod"`
+- `?? "New Database/eod_data/BSE/EMSLIMITED.eod"`
+- `?? "New Database/eod_data/BSE/EMUDHRA.eod"`
+- `?? "New Database/eod_data/BSE/ENBEE_TRADG..eod"`
+- `?? "New Database/eod_data/BSE/ENCODE.eod"`
+- `?? "New Database/eod_data/BSE/ENDURANCE.eod"`
+- `?? "New Database/eod_data/BSE/ENERGY_DEV..eod"`
+- `?? "New Database/eod_data/BSE/ENKEI_WHEEL.eod"`
+- `?? "New Database/eod_data/BSE/ENTERPR.INTE.eod"`
+- `?? "New Database/eod_data/BSE/ENT_NETWORK.eod"`
+- `?? "New Database/eod_data/BSE/ENVAIN_ELECT.eod"`
+- `?? "New Database/eod_data/BSE/EPBIO.eod"`
+- `?? "New Database/eod_data/BSE/EPIC_ENERGY.eod"`
+- `?? "New Database/eod_data/BSE/EPIGRAL.eod"`
+- `?? "New Database/eod_data/BSE/EPL.eod"`
+- `?? "New Database/eod_data/BSE/EPSOM_PRO.eod"`
+- `?? "New Database/eod_data/BSE/EQUIPPP.eod"`
+- `?? "New Database/eod_data/BSE/EQUITASBNK.eod"`
+- `?? "New Database/eod_data/BSE/ERIS.eod"`
+- `?? "New Database/eod_data/BSE/EROS_MEDIA.eod"`
+- `?? "New Database/eod_data/BSE/ERP_SOFT_SYS.eod"`
+- `?? "New Database/eod_data/BSE/ESAB_INDIA.eod"`
+- `?? "New Database/eod_data/BSE/ESAFSFB.eod"`
+- `?? "New Database/eod_data/BSE/ESCORP.eod"`
+- `?? "New Database/eod_data/BSE/ESCORTS.eod"`
+- `?? "New Database/eod_data/BSE/ESG.eod"`
+- `?? "New Database/eod_data/BSE/ESHAMEDIA.eod"`
+- `?? "New Database/eod_data/BSE/ESPIRE.eod"`
+- `?? "New Database/eod_data/BSE/ESSAR_SECU.eod"`
+- `?? "New Database/eod_data/BSE/ESSAR_SHIP.eod"`
+- `?? "New Database/eod_data/BSE/ESSENTIA.eod"`
+- `?? "New Database/eod_data/BSE/ESTER_INDUS..eod"`
+- `?? "New Database/eod_data/BSE/ETHOSLTD.eod"`
+- `?? "New Database/eod_data/BSE/ETIL.eod"`
+- `?? "New Database/eod_data/BSE/ETT_LTD.eod"`
+- `?? "New Database/eod_data/BSE/EUREKAFORBE.eod"`
+- `?? "New Database/eod_data/BSE/EUREKA_IND..eod"`
+- `?? "New Database/eod_data/BSE/EUROTEX_IND.eod"`
+- `?? "New Database/eod_data/BSE/EURO_ASIA.eod"`
+- `?? "New Database/eod_data/BSE/EURO_LEDAR_F.eod"`
+- `?? "New Database/eod_data/BSE/EVANS.eod"`
+- `?? "New Database/eod_data/BSE/EVEREST_INDS.eod"`
+- `?? "New Database/eod_data/BSE/EVEREST_KANT.eod"`
+- `?? "New Database/eod_data/BSE/EVEREST_ORG..eod"`
+- `?? "New Database/eod_data/BSE/EVERFIN.eod"`
+- `?? "New Database/eod_data/BSE/EVERTEX.eod"`
+- `?? "New Database/eod_data/BSE/EVEXIA.eod"`
+- `?? "New Database/eod_data/BSE/EVOQ.eod"`
+- `?? "New Database/eod_data/BSE/EXCEL.eod"`
+- `?? "New Database/eod_data/BSE/EXCEL_INDUST.eod"`
+- `?? "New Database/eod_data/BSE/EXHICON.eod"`
+- `?? "New Database/eod_data/BSE/EXIDE_IND..eod"`
+- `?? "New Database/eod_data/BSE/EXPLEOSOL.eod"`
+- `?? "New Database/eod_data/BSE/EXPLICIT_FIN.eod"`
+- `?? "New Database/eod_data/BSE/EXPO_GAS.eod"`
+- `?? "New Database/eod_data/BSE/EXXARO.eod"`
+- `?? "New Database/eod_data/BSE/EY.eod"`
+- `?? "New Database/eod_data/BSE/FABINO.eod"`
+- `?? "New Database/eod_data/BSE/FACOR_ALLOYS.eod"`
+- `?? "New Database/eod_data/BSE/FAIRCHEMOR.eod"`
+- `?? "New Database/eod_data/BSE/FAMILYCARE.eod"`
+- `?? "New Database/eod_data/BSE/FAZE3AUTO.eod"`
+- `?? "New Database/eod_data/BSE/FAZE_THREE_L.eod"`
+- `?? "New Database/eod_data/BSE/FCONSUMER.eod"`
+- `?? "New Database/eod_data/BSE/FCS_SOFTWARE.eod"`
+- `?? "New Database/eod_data/BSE/FDC_LIMITED.eod"`
+- `?? "New Database/eod_data/BSE/FEDERAL_BANK.eod"`
+- `?? "New Database/eod_data/BSE/FED_MOG_GOE.eod"`
+- `?? "New Database/eod_data/BSE/FEL.eod"`
+- `?? "New Database/eod_data/BSE/FELDVR.eod"`
+- `?? "New Database/eod_data/BSE/FERMENTA.eod"`
+- `?? "New Database/eod_data/BSE/FERVENTSYN.eod"`
+- `?? "New Database/eod_data/BSE/FGP_LTD..eod"`
+- `?? "New Database/eod_data/BSE/FIBERWB_IN.eod"`
+- `?? "New Database/eod_data/BSE/FIEM_INDS.eod"`
+- `?? "New Database/eod_data/BSE/FILATEX_INDI.eod"`
+- `?? "New Database/eod_data/BSE/FILAT_FASH.eod"`
+- `?? "New Database/eod_data/BSE/FILTRA.eod"`
+- `?? "New Database/eod_data/BSE/FINELINE_CI.eod"`
+- `?? "New Database/eod_data/BSE/FINEORG.eod"`
+- `?? "New Database/eod_data/BSE/FINEOTEX_CH.eod"`
+- `?? "New Database/eod_data/BSE/FINKURVE.eod"`
+- `?? "New Database/eod_data/BSE/FINOL._CABLE.eod"`
+- `?? "New Database/eod_data/BSE/FINOLEX_IND..eod"`
+- `?? "New Database/eod_data/BSE/FINOPB.eod"`
+- `?? "New Database/eod_data/BSE/FIRSTFIN.eod"`
+- `?? "New Database/eod_data/BSE/FIRST_CUSTO..eod"`
+- `?? "New Database/eod_data/BSE/FISCHER.eod"`
+- `?? "New Database/eod_data/BSE/FIVESTAR.eod"`
+- `?? "New Database/eod_data/BSE/FLEXITUFF.eod"`
+- `?? "New Database/eod_data/BSE/FLEX_FOODS.eod"`
+- `?? "New Database/eod_data/BSE/FLOMIC.eod"`
+- `?? "New Database/eod_data/BSE/FLORACORP.eod"`
+- `?? "New Database/eod_data/BSE/FLORA_TEXTIL.eod"`
+- `?? "New Database/eod_data/BSE/FLUIDOMAT.eod"`
+- `?? "New Database/eod_data/BSE/FLUOROCHEM.eod"`
+- `?? "New Database/eod_data/BSE/FMEC.eod"`
+- `?? "New Database/eod_data/BSE/FMNL.eod"`
+- `?? "New Database/eod_data/BSE/FOCUS.eod"`
+- `?? "New Database/eod_data/BSE/FONE4.eod"`
+- `?? "New Database/eod_data/BSE/FOODS_&_INNS.eod"`
+- `?? "New Database/eod_data/BSE/FORBES_&_CO.eod"`
+- `?? "New Database/eod_data/BSE/FORCE_MOTR.eod"`
+- `?? "New Database/eod_data/BSE/FORTIS.eod"`
+- `?? "New Database/eod_data/BSE/FORTIS_MLR.eod"`
+- `?? "New Database/eod_data/BSE/FORTUNE_INT..eod"`
+- `?? "New Database/eod_data/BSE/FOSECO_INDIA.eod"`
+- `?? "New Database/eod_data/BSE/FOUNDRY_FUEL.eod"`
+- `?? "New Database/eod_data/BSE/FOURTH_GEN..eod"`
+- `?? "New Database/eod_data/BSE/FRANKLIN.eod"`
+- `?? "New Database/eod_data/BSE/FRANKLININD.eod"`
+- `?? "New Database/eod_data/BSE/FRASER.eod"`
+- `?? "New Database/eod_data/BSE/FREDUN.eod"`
+- `?? "New Database/eod_data/BSE/FRESHTROP_FR.eod"`
+- `?? "New Database/eod_data/BSE/FRETAIL.eod"`
+- `?? "New Database/eod_data/BSE/FRONTCAP.eod"`
+- `?? "New Database/eod_data/BSE/FRONTIER_SPR.eod"`
+- `?? "New Database/eod_data/BSE/FRONTL_CORP.eod"`
+- `?? "New Database/eod_data/BSE/FRUTION.eod"`
+- `?? "New Database/eod_data/BSE/FSC.eod"`
+- `?? "New Database/eod_data/BSE/FSL.eod"`
+- `?? "New Database/eod_data/BSE/FUNDVISER.eod"`
+- `?? "New Database/eod_data/BSE/FUSION.eod"`
+- `?? "New Database/eod_data/BSE/FUTLIF_FAS.eod"`
+- `?? "New Database/eod_data/BSE/FUTURA_SEC..eod"`
+- `?? "New Database/eod_data/BSE/FUT_SOL.eod"`
+- `?? "New Database/eod_data/BSE/G-TECH_INFO..eod"`
+- `?? "New Database/eod_data/BSE/G.G.AUTOMATI.eod"`
+- `?? "New Database/eod_data/BSE/G.G.DANDEKAR.eod"`
+- `?? "New Database/eod_data/BSE/G.K.CONSULT..eod"`
+- `?? "New Database/eod_data/BSE/G.M.BREWERI.eod"`
+- `?? "New Database/eod_data/BSE/G.S.AUTO_INT.eod"`
+- `?? "New Database/eod_data/BSE/G.V.FILMS.eod"`
+- `?? "New Database/eod_data/BSE/GAGAN_GASES.eod"`
+- `?? "New Database/eod_data/BSE/GAJANANSEC.eod"`
+- `?? "New Database/eod_data/BSE/GALACTICO.eod"`
+- `?? "New Database/eod_data/BSE/GALADAFIN.eod"`
+- `?? "New Database/eod_data/BSE/GALAXYSURF.eod"`
+- `?? "New Database/eod_data/BSE/GALAXY_AGRIC.eod"`
+- `?? "New Database/eod_data/BSE/GALAXY_BEAR..eod"`
+- `?? "New Database/eod_data/BSE/GALLANTT.eod"`
+- `?? "New Database/eod_data/BSE/GALLOPENT.eod"`
+- `?? "New Database/eod_data/BSE/GANDHI_SP.TU.eod"`
+- `?? "New Database/eod_data/BSE/GANESH_BENZO.eod"`
+- `?? "New Database/eod_data/BSE/GANESH_ECOSP.eod"`
+- `?? "New Database/eod_data/BSE/GANESH_HOLDI.eod"`
+- `?? "New Database/eod_data/BSE/GANESH_HSG..eod"`
+- `?? "New Database/eod_data/BSE/GANGAPAPERS.eod"`
+- `?? "New Database/eod_data/BSE/GANGESSEC.eod"`
+- `?? "New Database/eod_data/BSE/GANGOTRI_TEX.eod"`
+- `?? "New Database/eod_data/BSE/GANONPRO.eod"`
+- `?? "New Database/eod_data/BSE/GANVERSE.eod"`
+- `?? "New Database/eod_data/BSE/GARBIFIN.eod"`
+- `?? "New Database/eod_data/BSE/GARFIBRES.eod"`
+- `?? "New Database/eod_data/BSE/GARGI.eod"`
+- `?? "New Database/eod_data/BSE/GARG_FURNACE.eod"`
+- `?? "New Database/eod_data/BSE/GARMNTMNTR.eod"`
+- `?? "New Database/eod_data/BSE/GARNET_CONST.eod"`
+- `?? "New Database/eod_data/BSE/GARNET_INTL.eod"`
+- `?? "New Database/eod_data/BSE/GARWA.MARINE.eod"`
+- `?? "New Database/eod_data/BSE/GARWARE_SYN..eod"`
+- `?? "New Database/eod_data/BSE/GATECH.eod"`
+- `?? "New Database/eod_data/BSE/GATECHDVR.eod"`
+- `?? "New Database/eod_data/BSE/GATEWAY.eod"`
+- `?? "New Database/eod_data/BSE/GATI_LTD..eod"`
+- `?? "New Database/eod_data/BSE/GAYAHWS.eod"`
+- `?? "New Database/eod_data/BSE/GAYATRI_BIO.eod"`
+- `?? "New Database/eod_data/BSE/GAYATRI_PROJ.eod"`
+- `?? "New Database/eod_data/BSE/GAYATRI_SUGR.eod"`
+- `?? "New Database/eod_data/BSE/GBFL.eod"`
+- `?? "New Database/eod_data/BSE/GCKL.eod"`
+- `?? "New Database/eod_data/BSE/GCMCOMM.eod"`
+- `?? "New Database/eod_data/BSE/GCM_CAPI.eod"`
+- `?? "New Database/eod_data/BSE/GCM_SECU.eod"`
+- `?? "New Database/eod_data/BSE/GCSL.eod"`
+- `?? "New Database/eod_data/BSE/GEECEE.eod"`
+- `?? "New Database/eod_data/BSE/GEETANJ.eod"`
+- `?? "New Database/eod_data/BSE/GEE_LTD.eod"`
+- `?? "New Database/eod_data/BSE/GEMSTONE_INV.eod"`
+- `?? "New Database/eod_data/BSE/GEM_SPINNERS.eod"`
+- `?? "New Database/eod_data/BSE/GENCON.eod"`
+- `?? "New Database/eod_data/BSE/GENESIS.eod"`
+- `?? "New Database/eod_data/BSE/GENESYS_INT..eod"`
+- `?? "New Database/eod_data/BSE/GENNEX_LAB.eod"`
+- `?? "New Database/eod_data/BSE/GENPHARMA.eod"`
+- `?? "New Database/eod_data/BSE/GENSOL.eod"`
+- `?? "New Database/eod_data/BSE/GENUSPAPER.eod"`
+- `?? "New Database/eod_data/BSE/GENUSPRIME.eod"`
+- `?? "New Database/eod_data/BSE/GENUS_POWER.eod"`
+- `?? "New Database/eod_data/BSE/GEOJITFSL.eod"`
+- `?? "New Database/eod_data/BSE/GEPIL.eod"`
+- `?? "New Database/eod_data/BSE/GET&D.eod"`
+- `?? "New Database/eod_data/BSE/GETALONG.eod"`
+- `?? "New Database/eod_data/BSE/GFIL.eod"`
+- `?? "New Database/eod_data/BSE/GFLLIMITED.eod"`
+- `?? "New Database/eod_data/BSE/GGENG.eod"`
+- `?? "New Database/eod_data/BSE/GGL.eod"`
+- `?? "New Database/eod_data/BSE/GGPL.eod"`
+- `?? "New Database/eod_data/BSE/GHCLTEXTIL.eod"`
+- `?? "New Database/eod_data/BSE/GHCL_LTD.eod"`
+- `?? "New Database/eod_data/BSE/GIANLIFE.eod"`
+- `?? "New Database/eod_data/BSE/GICRE.eod"`
+- `?? "New Database/eod_data/BSE/GIC_HOUSING.eod"`
+- `?? "New Database/eod_data/BSE/GILADAFINS.eod"`
+- `?? "New Database/eod_data/BSE/GILLA_ARBUT.eod"`
+- `?? "New Database/eod_data/BSE/GINI_SILK_MI.eod"`
+- `?? "New Database/eod_data/BSE/GITARENEW.eod"`
+- `?? "New Database/eod_data/BSE/GKB_OPHTHA.eod"`
+- `?? "New Database/eod_data/BSE/GKP.eod"`
+- `?? "New Database/eod_data/BSE/GLANCE_FIN..eod"`
+- `?? "New Database/eod_data/BSE/GLAND.eod"`
+- `?? "New Database/eod_data/BSE/GLAXOSMITH.eod"`
+- `?? "New Database/eod_data/BSE/GLCL.eod"`
+- `?? "New Database/eod_data/BSE/GLENMARK_PHA.eod"`
+- `?? "New Database/eod_data/BSE/GLHRL.eod"`
+- `?? "New Database/eod_data/BSE/GLITTEK_GRAN.eod"`
+- `?? "New Database/eod_data/BSE/GLOBAL_CAP..eod"`
+- `?? "New Database/eod_data/BSE/GLOBAL_OFFS.eod"`
+- `?? "New Database/eod_data/BSE/GLOBAL_VECT.eod"`
+- `?? "New Database/eod_data/BSE/GLOBUS_CON.eod"`
+- `?? "New Database/eod_data/BSE/GLOBUS_SPR.eod"`
+- `?? "New Database/eod_data/BSE/GLOSTERLTD.eod"`
+- `?? "New Database/eod_data/BSE/GLS.eod"`
+- `?? "New Database/eod_data/BSE/GMETCOAL.eod"`
+- `?? "New Database/eod_data/BSE/GMM_PFAUDLER.eod"`
+- `?? "New Database/eod_data/BSE/GMPL.eod"`
+- `?? "New Database/eod_data/BSE/GMRINFRA.eod"`
+- `?? "New Database/eod_data/BSE/GMRP&UI.eod"`
+- `?? "New Database/eod_data/BSE/GNA.eod"`
+- `?? "New Database/eod_data/BSE/GNRL.eod"`
+- `?? "New Database/eod_data/BSE/GOA_CARBON.eod"`
+- `?? "New Database/eod_data/BSE/GOBLIN.eod"`
+- `?? "New Database/eod_data/BSE/GOCLCORP.eod"`
+- `?? "New Database/eod_data/BSE/GOCOLORS.eod"`
+- `?? "New Database/eod_data/BSE/GODAVARI_DRU.eod"`
+- `?? "New Database/eod_data/BSE/GODAWARI_POW.eod"`
+- `?? "New Database/eod_data/BSE/GODFREY_PH.eod"`
+- `?? "New Database/eod_data/BSE/GODREJAGRO.eod"`
+- `?? "New Database/eod_data/BSE/GODREJ_CONS.eod"`
+- `?? "New Database/eod_data/BSE/GODREJ_IND.eod"`
+- `?? "New Database/eod_data/BSE/GODREJ_PROP.eod"`
+- `?? "New Database/eod_data/BSE/GOEL.eod"`
+- `?? "New Database/eod_data/BSE/GOENKA_DIAM.eod"`
+- `?? "New Database/eod_data/BSE/GOGIA_CAP.eod"`
+- `?? "New Database/eod_data/BSE/GOKAK_TEXTI.eod"`
+- `?? "New Database/eod_data/BSE/GOKALDAS.eod"`
+- `?? "New Database/eod_data/BSE/GOKULAGRO.eod"`
+- `?? "New Database/eod_data/BSE/GOKUL_REFOIL.eod"`
+- `?? "New Database/eod_data/BSE/GOLDBEES.eod"`
+- `?? "New Database/eod_data/BSE/GOLDCOINHF.eod"`
+- `?? "New Database/eod_data/BSE/GOLDEN_CARPE.eod"`
+- `?? "New Database/eod_data/BSE/GOLDEN_LAMIN.eod"`
+- `?? "New Database/eod_data/BSE/GOLDEN_TOB.eod"`
+- `?? "New Database/eod_data/BSE/GOLDETF.eod"`
+- `?? "New Database/eod_data/BSE/GOLDIAM_INT..eod"`
+- `?? "New Database/eod_data/BSE/GOLDSTONE_EN.eod"`
+- `?? "New Database/eod_data/BSE/GOLD_LINE.eod"`
+- `?? "New Database/eod_data/BSE/GOLECHA_GLOB.eod"`
+- `?? "New Database/eod_data/BSE/GOLKONDA.eod"`
+- `?? "New Database/eod_data/BSE/GOLKUNDA_DIA.eod"`
+- `?? "New Database/eod_data/BSE/GOODLUCK.eod"`
+- `?? "New Database/eod_data/BSE/GOODRICKE.eod"`
+- `?? "New Database/eod_data/BSE/GOPAL_IRON_S.eod"`
+- `?? "New Database/eod_data/BSE/GORANI_INDUS.eod"`
+- `?? "New Database/eod_data/BSE/GOTHI_PLASCO.eod"`
+- `?? "New Database/eod_data/BSE/GOVNOW.eod"`
+- `?? "New Database/eod_data/BSE/GOWRA_LEASNG.eod"`
+- `?? "New Database/eod_data/BSE/GOYALALUM.eod"`
+- `?? "New Database/eod_data/BSE/GOYAL_ASSO..eod"`
+- `?? "New Database/eod_data/BSE/GPPL.eod"`
+- `?? "New Database/eod_data/BSE/GPT_INFRA.eod"`
+- `?? "New Database/eod_data/BSE/GRAND_FOUND.eod"`
+- `?? "New Database/eod_data/BSE/GRAPHITE_IN..eod"`
+- `?? "New Database/eod_data/BSE/GRASIM_IND..eod"`
+- `?? "New Database/eod_data/BSE/GRATEX_INDS..eod"`
+- `?? "New Database/eod_data/BSE/GRAUER&_WEIL.eod"`
+- `?? "New Database/eod_data/BSE/GRAVISS_HOSP.eod"`
+- `?? "New Database/eod_data/BSE/GRAVITA.eod"`
+- `?? "New Database/eod_data/BSE/GREAT_EASTE.eod"`
+- `?? "New Database/eod_data/BSE/GREAVES_COTT.eod"`
+- `?? "New Database/eod_data/BSE/GREENCREST.eod"`
+- `?? "New Database/eod_data/BSE/GREENPANEL.eod"`
+- `?? "New Database/eod_data/BSE/GREENPLY_IND.eod"`
+- `?? "New Database/eod_data/BSE/GREENPOWER.eod"`
+- `?? "New Database/eod_data/BSE/GRIND_NORTON.eod"`
+- `?? "New Database/eod_data/BSE/GRINFRA.eod"`
+- `?? "New Database/eod_data/BSE/GRM_OVERSEAS.eod"`
+- `?? "New Database/eod_data/BSE/GRNLAM_IND.eod"`
+- `?? "New Database/eod_data/BSE/GROVY.eod"`
+- `?? "New Database/eod_data/BSE/GROWINGTON.eod"`
+- `?? "New Database/eod_data/BSE/GRPLTD.eod"`
+- `?? "New Database/eod_data/BSE/GRSE.eod"`
+- `?? "New Database/eod_data/BSE/GRWRHITECH.eod"`
+- `?? "New Database/eod_data/BSE/GSB_FINANCE.eod"`
+- `?? "New Database/eod_data/BSE/GSEC10YEAR.eod"`
+- `?? "New Database/eod_data/BSE/GSLSU.eod"`
+- `?? "New Database/eod_data/BSE/GSL_SECUR..eod"`
+- `?? "New Database/eod_data/BSE/GSS_INFOTECH.eod"`
+- `?? "New Database/eod_data/BSE/GSTL-RE.eod"`
+- `?? "New Database/eod_data/BSE/GSTL.eod"`
+- `?? "New Database/eod_data/BSE/GTL_INFRAST.eod"`
+- `?? "New Database/eod_data/BSE/GTL_LTD..eod"`
+- `?? "New Database/eod_data/BSE/GTN_INDUS.eod"`
+- `?? "New Database/eod_data/BSE/GTN_TEXTILE.eod"`
+- `?? "New Database/eod_data/BSE/GTPL.eod"`
+- `?? "New Database/eod_data/BSE/GTV.eod"`
+- `?? "New Database/eod_data/BSE/GUFIC_BIO_SC.eod"`
+- `?? "New Database/eod_data/BSE/GUJ.ALKALI.eod"`
+- `?? "New Database/eod_data/BSE/GUJ.CONTAIN..eod"`
+- `?? "New Database/eod_data/BSE/GUJ.CRAFT_IN.eod"`
+- `?? "New Database/eod_data/BSE/GUJ.CREDIT.eod"`
+- `?? "New Database/eod_data/BSE/GUJ.HOTELS.eod"`
+- `?? "New Database/eod_data/BSE/GUJ.IND.POW..eod"`
+- `?? "New Database/eod_data/BSE/GUJ.INTRUX.eod"`
+- `?? "New Database/eod_data/BSE/GUJ.INVESTA.eod"`
+- `?? "New Database/eod_data/BSE/GUJ.LEASE.eod"`
+- `?? "New Database/eod_data/BSE/GUJ.MINERAL.eod"`
+- `?? "New Database/eod_data/BSE/GUJ.NARMADA.eod"`
+- `?? "New Database/eod_data/BSE/GUJ.PETRO.eod"`
+- `?? "New Database/eod_data/BSE/GUJ.RAFFIA.eod"`
+- `?? "New Database/eod_data/BSE/GUJ.ST.FERT.eod"`
+- `?? "New Database/eod_data/BSE/GUJ.STAT.FIN.eod"`
+- `?? "New Database/eod_data/BSE/GUJ.TERC_LAB.eod"`
+- `?? "New Database/eod_data/BSE/GUJ.THEMIS..eod"`
+- `?? "New Database/eod_data/BSE/GUJ.TOOLROOM.eod"`
+- `?? "New Database/eod_data/BSE/GUJARATPOLY.eod"`
+- `?? "New Database/eod_data/BSE/GUJCHEM_DIST.eod"`
+- `?? "New Database/eod_data/BSE/GUJGAS.eod"`
+- `?? "New Database/eod_data/BSE/GUJHYSPIN.eod"`
+- `?? "New Database/eod_data/BSE/GUJINJK.eod"`
+- `?? "New Database/eod_data/BSE/GUJ_AMB_EXP.eod"`
+- `?? "New Database/eod_data/BSE/GUJ_APOIND.eod"`
+- `?? "New Database/eod_data/BSE/GUJ_COTEX.eod"`
+- `?? "New Database/eod_data/BSE/GUJ_PETRONET.eod"`
+- `?? "New Database/eod_data/BSE/GULFOIL_LUB.eod"`
+- `?? "New Database/eod_data/BSE/GULFPETRO.eod"`
+- `?? "New Database/eod_data/BSE/GULSHAN_POLY.eod"`
+- `?? "New Database/eod_data/BSE/GVBL.eod"`
+- `?? "New Database/eod_data/BSE/GVK_POWERINF.eod"`
+- `?? "New Database/eod_data/BSE/GYAN_DEVELOP.eod"`
+- `?? "New Database/eod_data/BSE/H.P.COTTON.eod"`
+- `?? "New Database/eod_data/BSE/HAL.eod"`
+- `?? "New Database/eod_data/BSE/HALDER.eod"`
+- `?? "New Database/eod_data/BSE/HALDYN_GLASS.eod"`
+- `?? "New Database/eod_data/BSE/HANMAN.eod"`
+- `?? "New Database/eod_data/BSE/HANSUGAR.eod"`
+- `?? "New Database/eod_data/BSE/HAPPSTMNDS.eod"`
+- `?? "New Database/eod_data/BSE/HAR.LEATHER.eod"`
+- `?? "New Database/eod_data/BSE/HARDCASTLE.eod"`
+- `?? "New Database/eod_data/BSE/HARDWYN.eod"`
+- `?? "New Database/eod_data/BSE/HARIA_APL.eod"`
+- `?? "New Database/eod_data/BSE/HARIA_EXPORT.eod"`
+- `?? "New Database/eod_data/BSE/HARIOMPIPE.eod"`
+- `?? "New Database/eod_data/BSE/HARISH.eod"`
+- `?? "New Database/eod_data/BSE/HARIYANA_SH..eod"`
+- `?? "New Database/eod_data/BSE/HARMONY_CAP..eod"`
+- `?? "New Database/eod_data/BSE/HARR.MALAYAL.eod"`
+- `?? "New Database/eod_data/BSE/HARSHA.eod"`
+- `?? "New Database/eod_data/BSE/HARYA_CAPFIN.eod"`
+- `?? "New Database/eod_data/BSE/HASTI_FINANC.eod"`
+- `?? "New Database/eod_data/BSE/HATHWAY_BHAW.eod"`
+- `?? "New Database/eod_data/BSE/HATHWAY_CAB.eod"`
+- `?? "New Database/eod_data/BSE/HATSUN_AGRO.eod"`
+- `?? "New Database/eod_data/BSE/HAVELLSINDIA.eod"`
+- `?? "New Database/eod_data/BSE/HAVISHA.eod"`
+- `?? "New Database/eod_data/BSE/HAWAENG.eod"`
+- `?? "New Database/eod_data/BSE/HAWKINS_COOK.eod"`
+- `?? "New Database/eod_data/BSE/HAZ_MUL_PRO.eod"`
+- `?? "New Database/eod_data/BSE/HBEL.eod"`
+- `?? "New Database/eod_data/BSE/HBL_P_SYS.eod"`
+- `?? "New Database/eod_data/BSE/HB_ESTATE_DE.eod"`
+- `?? "New Database/eod_data/BSE/HB_LEAS.PUB.eod"`
+- `?? "New Database/eod_data/BSE/HB_PORTFOLIO.eod"`
+- `?? "New Database/eod_data/BSE/HB_STOCKHOL..eod"`
+- `?? "New Database/eod_data/BSE/HCG.eod"`
+- `?? "New Database/eod_data/BSE/HCKKVENTURE.eod"`
+- `?? "New Database/eod_data/BSE/HCL_INFOSYS.eod"`
+- `?? "New Database/eod_data/BSE/HCL_TECHNO.eod"`
+- `?? "New Database/eod_data/BSE/HDFCAMC.eod"`
+- `?? "New Database/eod_data/BSE/HDFCBSE500.eod"`
+- `?? "New Database/eod_data/BSE/HDFCGOLD.eod"`
+- `?? "New Database/eod_data/BSE/HDFCGROWTH.eod"`
+- `?? "New Database/eod_data/BSE/HDFCLIFE.eod"`
+- `?? "New Database/eod_data/BSE/HDFCLIQUID.eod"`
+- `?? "New Database/eod_data/BSE/HDFCLOWVOL.eod"`
+- `?? "New Database/eod_data/BSE/HDFCMID150.eod"`
+- `?? "New Database/eod_data/BSE/HDFCMOMENT.eod"`
+- `?? "New Database/eod_data/BSE/HDFCNEXT50.eod"`
+- `?? "New Database/eod_data/BSE/HDFCNIF100.eod"`
+- `?? "New Database/eod_data/BSE/HDFCNIFBAN.eod"`
+- `?? "New Database/eod_data/BSE/HDFCNIFIT.eod"`
+- `?? "New Database/eod_data/BSE/HDFCNIFTY.eod"`
+- `?? "New Database/eod_data/BSE/HDFCPVTBAN.eod"`
+- `?? "New Database/eod_data/BSE/HDFCQUAL.eod"`
+- `?? "New Database/eod_data/BSE/HDFCSENSEX.eod"`
+- `?? "New Database/eod_data/BSE/HDFCSILVER.eod"`
+- `?? "New Database/eod_data/BSE/HDFCSML250.eod"`
+- `?? "New Database/eod_data/BSE/HDFCVALUE.eod"`
+- `?? "New Database/eod_data/BSE/HDFC_BANK.eod"`
+- `?? "New Database/eod_data/BSE/HEADSUP.eod"`
+- `?? "New Database/eod_data/BSE/HEALTHY.eod"`
+- `?? "New Database/eod_data/BSE/HEALTHYLIFE.eod"`
+- `?? "New Database/eod_data/BSE/HEERA_ISPAT.eod"`
+- `?? "New Database/eod_data/BSE/HEG_LIMITED.eod"`
+- `?? "New Database/eod_data/BSE/HEIDEL_CEM.eod"`
+- `?? "New Database/eod_data/BSE/HELPAGE.eod"`
+- `?? "New Database/eod_data/BSE/HEMADRI_CEM.eod"`
+- `?? "New Database/eod_data/BSE/HEMANG.eod"`
+- `?? "New Database/eod_data/BSE/HEMIPROP.eod"`
+- `?? "New Database/eod_data/BSE/HEMORGANIC.eod"`
+- `?? "New Database/eod_data/BSE/HERANBA.eod"`
+- `?? "New Database/eod_data/BSE/HERC.HOISTS.eod"`
+- `?? "New Database/eod_data/BSE/HERITGFOOD.eod"`
+- `?? "New Database/eod_data/BSE/HEROMOTOCO.eod"`
+- `?? "New Database/eod_data/BSE/HESTER_BISC.eod"`
+- `?? "New Database/eod_data/BSE/HEUBACHIND.eod"`
+- `?? "New Database/eod_data/BSE/HEXATRADEX.eod"`
+- `?? "New Database/eod_data/BSE/HFCL.eod"`
+- `?? "New Database/eod_data/BSE/HFIL.eod"`
+- `?? "New Database/eod_data/BSE/HGIND.eod"`
+- `?? "New Database/eod_data/BSE/HGINFRA.eod"`
+- `?? "New Database/eod_data/BSE/HGSL.eod"`
+- `?? "New Database/eod_data/BSE/HIGH_ENERGY.eod"`
+- `?? "New Database/eod_data/BSE/HIKAL_LTD..eod"`
+- `?? "New Database/eod_data/BSE/HIL.eod"`
+- `?? "New Database/eod_data/BSE/HILIKS.eod"`
+- `?? "New Database/eod_data/BSE/HILTON_MET.eod"`
+- `?? "New Database/eod_data/BSE/HIM.FIBRES.eod"`
+- `?? "New Database/eod_data/BSE/HIMAT.SEIDE.eod"`
+- `?? "New Database/eod_data/BSE/HIMTEK.eod"`
+- `?? "New Database/eod_data/BSE/HIND.AGRIGEN.eod"`
+- `?? "New Database/eod_data/BSE/HIND.APPLIAN.eod"`
+- `?? "New Database/eod_data/BSE/HIND.COMPOSI.eod"`
+- `?? "New Database/eod_data/BSE/HIND.CONSTN..eod"`
+- `?? "New Database/eod_data/BSE/HIND.COPPER.eod"`
+- `?? "New Database/eod_data/BSE/HIND.FLUROCA.eod"`
+- `?? "New Database/eod_data/BSE/HIND.FOODS.eod"`
+- `?? "New Database/eod_data/BSE/HIND.MOTORS.eod"`
+- `?? "New Database/eod_data/BSE/HIND.NAT.GLS.eod"`
+- `?? "New Database/eod_data/BSE/HIND.OIL_EXP.eod"`
+- `?? "New Database/eod_data/BSE/HIND.ORG.CHM.eod"`
+- `?? "New Database/eod_data/BSE/HIND.PETRO.eod"`
+- `?? "New Database/eod_data/BSE/HIND.RECT.eod"`
+- `?? "New Database/eod_data/BSE/HIND.TIN_WRK.eod"`
+- `?? "New Database/eod_data/BSE/HINDALCO.eod"`
+- `?? "New Database/eod_data/BSE/HINDHARD.eod"`
+- `?? "New Database/eod_data/BSE/HINDU.ADHESI.eod"`
+- `?? "New Database/eod_data/BSE/HINDUS.ZI.eod"`
+- `?? "New Database/eod_data/BSE/HINDUSTN_BIO.eod"`
+- `?? "New Database/eod_data/BSE/HINDWAREAP.eod"`
+- `?? "New Database/eod_data/BSE/HIND_ALUMIN.eod"`
+- `?? "New Database/eod_data/BSE/HIND_MILLS.eod"`
+- `?? "New Database/eod_data/BSE/HIND_UNI_LT.eod"`
+- `?? "New Database/eod_data/BSE/HIPOLIN_LTD..eod"`
+- `?? "New Database/eod_data/BSE/HISAR_SPIN..eod"`
+- `?? "New Database/eod_data/BSE/HITECH.eod"`
+- `?? "New Database/eod_data/BSE/HITECHCORP.eod"`
+- `?? "New Database/eod_data/BSE/HITECHGEAR.eod"`
+- `?? "New Database/eod_data/BSE/HITECHWIND.eod"`
+- `?? "New Database/eod_data/BSE/HITKIT_GLOB.eod"`
+- `?? "New Database/eod_data/BSE/HITTCO_TOOLS.eod"`
+- `?? "New Database/eod_data/BSE/HLEGLAS.eod"`
+- `?? "New Database/eod_data/BSE/HLVLTD.eod"`
+- `?? "New Database/eod_data/BSE/HMAAGRO.eod"`
+- `?? "New Database/eod_data/BSE/HMT_LTD..eod"`
+- `?? "New Database/eod_data/BSE/HMVL.eod"`
+- `?? "New Database/eod_data/BSE/HNGSNGBEES.eod"`
+- `?? "New Database/eod_data/BSE/HOMEFIRST.eod"`
+- `?? "New Database/eod_data/BSE/HONASA.eod"`
+- `?? "New Database/eod_data/BSE/HONDAPOWER.eod"`
+- `?? "New Database/eod_data/BSE/HONEYWELL.eod"`
+- `?? "New Database/eod_data/BSE/HOUSING_DEV.eod"`
+- `?? "New Database/eod_data/BSE/HOV_SERVICES.eod"`
+- `?? "New Database/eod_data/BSE/HOWARD_HOTEL.eod"`
+- `?? "New Database/eod_data/BSE/HPAL.eod"`
+- `?? "New Database/eod_data/BSE/HPBL.eod"`
+- `?? "New Database/eod_data/BSE/HPIL.eod"`
+- `?? "New Database/eod_data/BSE/HPL.eod"`
+- `?? "New Database/eod_data/BSE/HSCL.eod"`
+- `?? "New Database/eod_data/BSE/HSIL.eod"`
+- `?? "New Database/eod_data/BSE/HT_MEDIA.eod"`
+- `?? "New Database/eod_data/BSE/HUBTOWN.eod"`
+- `?? "New Database/eod_data/BSE/HUDCO.eod"`
+- `?? "New Database/eod_data/BSE/HUDCO050327.eod"`
+- `?? "New Database/eod_data/BSE/HUHTAMAKI.eod"`
+- `?? "New Database/eod_data/BSE/HUIL.eod"`
+- `?? "New Database/eod_data/BSE/HYBRIDFIN.eod"`
+- `?? "New Database/eod_data/BSE/HYPERSOFT.eod"`
+- `?? "New Database/eod_data/BSE/I-POWER_SOLS.eod"`
+- `?? "New Database/eod_data/BSE/I.C.D.S..eod"`
+- `?? "New Database/eod_data/BSE/I.G.PETRO.eod"`
+- `?? "New Database/eod_data/BSE/IBUL_HSG_FIN.eod"`
+- `?? "New Database/eod_data/BSE/IB_INFOTECH.eod"`
+- `?? "New Database/eod_data/BSE/ICCL2223B.eod"`
+- `?? "New Database/eod_data/BSE/ICCL2223C.eod"`
+- `?? "New Database/eod_data/BSE/ICCL250423B.eod"`
+- `?? "New Database/eod_data/BSE/ICICI10GS.eod"`
+- `?? "New Database/eod_data/BSE/ICICI500.eod"`
+- `?? "New Database/eod_data/BSE/ICICI5GSEC.eod"`
+- `?? "New Database/eod_data/BSE/ICICIALPLV.eod"`
+- `?? "New Database/eod_data/BSE/ICICIAUTO.eod"`
+- `?? "New Database/eod_data/BSE/ICICIB22.eod"`
+- `?? "New Database/eod_data/BSE/ICICIBANKN.eod"`
+- `?? "New Database/eod_data/BSE/ICICIBANKP.eod"`
+- `?? "New Database/eod_data/BSE/ICICICOMMO.eod"`
+- `?? "New Database/eod_data/BSE/ICICICONSU.eod"`
+- `?? "New Database/eod_data/BSE/ICICIFIN.eod"`
+- `?? "New Database/eod_data/BSE/ICICIFMCG.eod"`
+- `?? "New Database/eod_data/BSE/ICICIGI.eod"`
+- `?? "New Database/eod_data/BSE/ICICIGOLD.eod"`
+- `?? "New Database/eod_data/BSE/ICICIINFRA.eod"`
+- `?? "New Database/eod_data/BSE/ICICILIQ.eod"`
+- `?? "New Database/eod_data/BSE/ICICILOVOL.eod"`
+- `?? "New Database/eod_data/BSE/ICICIM150.eod"`
+- `?? "New Database/eod_data/BSE/ICICIMCAP.eod"`
+- `?? "New Database/eod_data/BSE/ICICIMOM30.eod"`
+- `?? "New Database/eod_data/BSE/ICICINF100.eod"`
+- `?? "New Database/eod_data/BSE/ICICINIFTY.eod"`
+- `?? "New Database/eod_data/BSE/ICICINV20.eod"`
+- `?? "New Database/eod_data/BSE/ICICINXT50.eod"`
+- `?? "New Database/eod_data/BSE/ICICIPHARM.eod"`
+- `?? "New Database/eod_data/BSE/ICICIPRULI.eod"`
+- `?? "New Database/eod_data/BSE/ICICIQTY30.eod"`
+- `?? "New Database/eod_data/BSE/ICICISENSX.eod"`
+- `?? "New Database/eod_data/BSE/ICICISILVE.eod"`
+- `?? "New Database/eod_data/BSE/ICICITECH.eod"`
+- `?? "New Database/eod_data/BSE/ICICI_BANK.eod"`
+- `?? "New Database/eod_data/BSE/ICL.eod"`
+- `?? "New Database/eod_data/BSE/ICLORGANIC.eod"`
+- `?? "New Database/eod_data/BSE/ICRA.eod"`
+- `?? "New Database/eod_data/BSE/ICSL.eod"`
+- `?? "New Database/eod_data/BSE/IDBI_BANK_L.eod"`
+- `?? "New Database/eod_data/BSE/IDEA.eod"`
+- `?? "New Database/eod_data/BSE/IDEAFORGE.eod"`
+- `?? "New Database/eod_data/BSE/IDFC.eod"`
+- `?? "New Database/eod_data/BSE/IDFCFIRSTB.eod"`
+- `?? "New Database/eod_data/BSE/IDFSENSEXE.eod"`
+- `?? "New Database/eod_data/BSE/IEL.eod"`
+- `?? "New Database/eod_data/BSE/IEX.eod"`
+- `?? "New Database/eod_data/BSE/IFB_AGRO.eod"`
+- `?? "New Database/eod_data/BSE/IFB_IND.LTD..eod"`
+- `?? "New Database/eod_data/BSE/IFCI010811B.eod"`
+- `?? "New Database/eod_data/BSE/IFCI010811D.eod"`
+- `?? "New Database/eod_data/BSE/IFCI121211D.eod"`
+- `?? "New Database/eod_data/BSE/IFCI150212C.eod"`
+- `?? "New Database/eod_data/BSE/IFCI150212D.eod"`
+- `?? "New Database/eod_data/BSE/IFCI310312A.eod"`
+- `?? "New Database/eod_data/BSE/IFCI310312B.eod"`
+- `?? "New Database/eod_data/BSE/IFCI310312C.eod"`
+- `?? "New Database/eod_data/BSE/IFCI311026D.eod"`
+- `?? "New Database/eod_data/BSE/IFCI_LTD.eod"`
+- `?? "New Database/eod_data/BSE/IFGLEXPOR.eod"`
+- `?? "New Database/eod_data/BSE/IFINSEC.eod"`
+- `?? "New Database/eod_data/BSE/IFINSER.eod"`
+- `?? "New Database/eod_data/BSE/IFL.eod"`
+- `?? "New Database/eod_data/BSE/IFSL110823.eod"`
+- `?? "New Database/eod_data/BSE/IGARSHI_MOT.eod"`
+- `?? "New Database/eod_data/BSE/IHF031122.eod"`
+- `?? "New Database/eod_data/BSE/IHF24SEP21A.eod"`
+- `?? "New Database/eod_data/BSE/IHFL280922B.eod"`
+- `?? "New Database/eod_data/BSE/IHFL281222.eod"`
+- `?? "New Database/eod_data/BSE/IHFL281222A.eod"`
+- `?? "New Database/eod_data/BSE/IHFL60122.eod"`
+- `?? "New Database/eod_data/BSE/IIFCLBDIS3.eod"`
+- `?? "New Database/eod_data/BSE/IIFCLBDIS4.eod"`
+- `?? "New Database/eod_data/BSE/IIFL.eod"`
+- `?? "New Database/eod_data/BSE/IIFLSEC.eod"`
+- `?? "New Database/eod_data/BSE/IIL.eod"`
+- `?? "New Database/eod_data/BSE/IISL.eod"`
+- `?? "New Database/eod_data/BSE/IITL_PROJ.eod"`
+- `?? "New Database/eod_data/BSE/IKIO.eod"`
+- `?? "New Database/eod_data/BSE/IL&FS_TRANS.eod"`
+- `?? "New Database/eod_data/BSE/ILFSENGG.eod"`
+- `?? "New Database/eod_data/BSE/IL_&_FS_INVE.eod"`
+- `?? "New Database/eod_data/BSE/IMAGICAA.eod"`
+- `?? "New Database/eod_data/BSE/IMCAP.eod"`
+- `?? "New Database/eod_data/BSE/IML2362023.eod"`
+- `?? "New Database/eod_data/BSE/IML280622B.eod"`
+- `?? "New Database/eod_data/BSE/IMPEX.eod"`
+- `?? "New Database/eod_data/BSE/IMPPOWERS.eod"`
+- `?? "New Database/eod_data/BSE/INA.eod"`
+- `?? "New Database/eod_data/BSE/INANI_MARBLE.eod"`
+- `?? "New Database/eod_data/BSE/INANI_SEC..eod"`
+- `?? "New Database/eod_data/BSE/INCAP_LTD..eod"`
+- `?? "New Database/eod_data/BSE/INCON_ENGG..eod"`
+- `?? "New Database/eod_data/BSE/INCREDIBLE.eod"`
+- `?? "New Database/eod_data/BSE/IND-SWIFT_LA.eod"`
+- `?? "New Database/eod_data/BSE/IND.ACRYLICS.eod"`
+- `?? "New Database/eod_data/BSE/IND.BANK_HSG.eod"`
+- `?? "New Database/eod_data/BSE/IND.BANK_MER.eod"`
+- `?? "New Database/eod_data/BSE/IND.CARD.eod"`
+- `?? "New Database/eod_data/BSE/IND.GLYCOLS.eod"`
+- `?? "New Database/eod_data/BSE/IND.HUME_PIP.eod"`
+- `?? "New Database/eod_data/BSE/IND.LEAS.DEV.eod"`
+- `?? "New Database/eod_data/BSE/IND.LINKCHAI.eod"`
+- `?? "New Database/eod_data/BSE/IND.SWIFT_LT.eod"`
+- `?? "New Database/eod_data/BSE/IND.TONERS.eod"`
+- `?? "New Database/eod_data/BSE/INDAGIV_COMM.eod"`
+- `?? "New Database/eod_data/BSE/INDAG_RUBBER.eod"`
+- `?? "New Database/eod_data/BSE/INDBUL_REAL.eod"`
+- `?? "New Database/eod_data/BSE/INDERGIRI_FN.eod"`
+- `?? "New Database/eod_data/BSE/INDIAMART.eod"`
+- `?? "New Database/eod_data/BSE/INDIAN_BANK.eod"`
+- `?? "New Database/eod_data/BSE/INDIAN_HOTEL.eod"`
+- `?? "New Database/eod_data/BSE/INDIAN_INFO..eod"`
+- `?? "New Database/eod_data/BSE/INDIAN_MET.eod"`
+- `?? "New Database/eod_data/BSE/INDIAN_OIL.eod"`
+- `?? "New Database/eod_data/BSE/INDIAN_OVER..eod"`
+- `?? "New Database/eod_data/BSE/INDIAN_SUCRO.eod"`
+- `?? "New Database/eod_data/BSE/INDIA_CEM..eod"`
+- `?? "New Database/eod_data/BSE/INDIA_GELAT..eod"`
+- `?? "New Database/eod_data/BSE/INDIA_HOME.eod"`
+- `?? "New Database/eod_data/BSE/INDIA_MOTOR.eod"`
+- `?? "New Database/eod_data/BSE/INDIA_NIPPON.eod"`
+- `?? "New Database/eod_data/BSE/INDIA_NIVEH.eod"`
+- `?? "New Database/eod_data/BSE/INDIA_TOURIS.eod"`
+- `?? "New Database/eod_data/BSE/INDICAP.eod"`
+- `?? "New Database/eod_data/BSE/INDIGO.eod"`
+- `?? "New Database/eod_data/BSE/INDIGOPNTS.eod"`
+- `?? "New Database/eod_data/BSE/INDIGRID.eod"`
+- `?? "New Database/eod_data/BSE/INDO-CITY_IN.eod"`
+- `?? "New Database/eod_data/BSE/INDOBORAXC.eod"`
+- `?? "New Database/eod_data/BSE/INDOCO_REM.eod"`
+- `?? "New Database/eod_data/BSE/INDOEURO.eod"`
+- `?? "New Database/eod_data/BSE/INDOKEM_LTD..eod"`
+- `?? "New Database/eod_data/BSE/INDONG.eod"`
+- `?? "New Database/eod_data/BSE/INDOSTAR.eod"`
+- `?? "New Database/eod_data/BSE/INDOTECHTR.eod"`
+- `?? "New Database/eod_data/BSE/INDOUS.eod"`
+- `?? "New Database/eod_data/BSE/INDO_AMINES.eod"`
+- `?? "New Database/eod_data/BSE/INDO_ASN.FIN.eod"`
+- `?? "New Database/eod_data/BSE/INDO_COUNT.eod"`
+- `?? "New Database/eod_data/BSE/INDO_CREDIT.eod"`
+- `?? "New Database/eod_data/BSE/INDO_RAMA.eod"`
+- `?? "New Database/eod_data/BSE/INDO_THAI.eod"`
+- `?? "New Database/eod_data/BSE/INDRAIND.eod"`
+- `?? "New Database/eod_data/BSE/INDRAPRAST.eod"`
+- `?? "New Database/eod_data/BSE/INDRAYANI_BI.eod"`
+- `?? "New Database/eod_data/BSE/INDRA_GAS.eod"`
+- `?? "New Database/eod_data/BSE/INDRENEW.eod"`
+- `?? "New Database/eod_data/BSE/INDSIL_HYD.eod"`
+- `?? "New Database/eod_data/BSE/INDUCTO_STL..eod"`
+- `?? "New Database/eod_data/BSE/INDUS.&PRUD..eod"`
+- `?? "New Database/eod_data/BSE/INDUS.INV.TR.eod"`
+- `?? "New Database/eod_data/BSE/INDUSFINL.eod"`
+- `?? "New Database/eod_data/BSE/INDUSIND_BNK.eod"`
+- `?? "New Database/eod_data/BSE/INDUSTOWER.eod"`
+- `?? "New Database/eod_data/BSE/INDXTRA.eod"`
+- `?? "New Database/eod_data/BSE/IND_CEM_CAP.eod"`
+- `?? "New Database/eod_data/BSE/IND_TERRAIN.eod"`
+- `?? "New Database/eod_data/BSE/INFIBEAM.eod"`
+- `?? "New Database/eod_data/BSE/INFLAME.eod"`
+- `?? "New Database/eod_data/BSE/INFOBEAN.eod"`
+- `?? "New Database/eod_data/BSE/INFOMEDIA.eod"`
+- `?? "New Database/eod_data/BSE/INFORMEDTEC.eod"`
+- `?? "New Database/eod_data/BSE/INFOSYS_LTD.eod"`
+- `?? "New Database/eod_data/BSE/INFO_EDGE.eod"`
+- `?? "New Database/eod_data/BSE/INFRABEES.eod"`
+- `?? "New Database/eod_data/BSE/INFRONICS_SY.eod"`
+- `?? "New Database/eod_data/BSE/INGERSOLL.eod"`
+- `?? "New Database/eod_data/BSE/INLAND_PRINT.eod"`
+- `?? "New Database/eod_data/BSE/INN.TECH.PAC.eod"`
+- `?? "New Database/eod_data/BSE/INNOCORP_L.eod"`
+- `?? "New Database/eod_data/BSE/INNOKAIZ.eod"`
+- `?? "New Database/eod_data/BSE/INNOVATIVE.eod"`
+- `?? "New Database/eod_data/BSE/INNOVATORS.eod"`
+- `?? "New Database/eod_data/BSE/INNOVATUS.eod"`
+- `?? "New Database/eod_data/BSE/INNO_INVEST.eod"`
+- `?? "New Database/eod_data/BSE/INOXGREEN.eod"`
+- `?? "New Database/eod_data/BSE/INOXWIND.eod"`
+- `?? "New Database/eod_data/BSE/INSECTCID.eod"`
+- `?? "New Database/eod_data/BSE/INSPIRISYS.eod"`
+- `?? "New Database/eod_data/BSE/INT.CONVEYOR.eod"`
+- `?? "New Database/eod_data/BSE/INT.DATA_MAN.eod"`
+- `?? "New Database/eod_data/BSE/INTCAPL.eod"`
+- `?? "New Database/eod_data/BSE/INTEC_CAP.eod"`
+- `?? "New Database/eod_data/BSE/INTEG.PROEIN.eod"`
+- `?? "New Database/eod_data/BSE/INTEG.SWITCH.eod"`
+- `?? "New Database/eod_data/BSE/INTEGRA_ENG.eod"`
+- `?? "New Database/eod_data/BSE/INTEGRA_TELE.eod"`
+- `?? "New Database/eod_data/BSE/INTELLECT.eod"`
+- `?? "New Database/eod_data/BSE/INTELL_CAP.eod"`
+- `?? "New Database/eod_data/BSE/INTENS_TECH.eod"`
+- `?? "New Database/eod_data/BSE/INTER.COMBUS.eod"`
+- `?? "New Database/eod_data/BSE/INTER.TRAVEL.eod"`
+- `?? "New Database/eod_data/BSE/INTER_DIGI.eod"`
+- `?? "New Database/eod_data/BSE/INTER_GLOB_F.eod"`
+- `?? "New Database/eod_data/BSE/INTER_ST.FIN.eod"`
+- `?? "New Database/eod_data/BSE/INTER_ST.OIL.eod"`
+- `?? "New Database/eod_data/BSE/INTRASOFT.eod"`
+- `?? "New Database/eod_data/BSE/INVENTURE.eod"`
+- `?? "New Database/eod_data/BSE/INVEST_&PREC.eod"`
+- `?? "New Database/eod_data/BSE/INVIGO.eod"`
+- `?? "New Database/eod_data/BSE/IOL_CHEM_PH.eod"`
+- `?? "New Database/eod_data/BSE/ION_EXCHANGE.eod"`
+- `?? "New Database/eod_data/BSE/IPCA_LAB_LTD.eod"`
+- `?? "New Database/eod_data/BSE/IPL.eod"`
+- `?? "New Database/eod_data/BSE/IP_RINGS_LTD.eod"`
+- `?? "New Database/eod_data/BSE/IRBINVIT.eod"`
+- `?? "New Database/eod_data/BSE/IRB_INFRA.eod"`
+- `?? "New Database/eod_data/BSE/IRCON.eod"`
+- `?? "New Database/eod_data/BSE/IRCTC.eod"`
+- `?? "New Database/eod_data/BSE/IRFC.eod"`
+- `?? "New Database/eod_data/BSE/IRIS.eod"`
+- `?? "New Database/eod_data/BSE/IRMENERGY.eod"`
+- `?? "New Database/eod_data/BSE/IRONWOOD.eod"`
+- `?? "New Database/eod_data/BSE/ISEC.eod"`
+- `?? "New Database/eod_data/BSE/ISGEC.eod"`
+- `?? "New Database/eod_data/BSE/ISHAN_DYES.eod"`
+- `?? "New Database/eod_data/BSE/ISHITA_DRUGS.eod"`
+- `?? "New Database/eod_data/BSE/ISL_CONSULT.eod"`
+- `?? "New Database/eod_data/BSE/ISMT_LTD.eod"`
+- `?? "New Database/eod_data/BSE/ISTRNETWK.eod"`
+- `?? "New Database/eod_data/BSE/IST_LTD..eod"`
+- `?? "New Database/eod_data/BSE/ISW_LTD.eod"`
+- `?? "New Database/eod_data/BSE/ITCONS.eod"`
+- `?? "New Database/eod_data/BSE/ITC_LTD..eod"`
+- `?? "New Database/eod_data/BSE/ITDCEM.eod"`
+- `?? "New Database/eod_data/BSE/ITETF.eod"`
+- `?? "New Database/eod_data/BSE/ITI_LTD..eod"`
+- `?? "New Database/eod_data/BSE/ITL_INDUSTRS.eod"`
+- `?? "New Database/eod_data/BSE/IVP_LIMITED.eod"`
+- `?? "New Database/eod_data/BSE/IVZINGOLD.eod"`
+- `?? "New Database/eod_data/BSE/IWEL.eod"`
+- `?? "New Database/eod_data/BSE/IWIND_ENERGY.eod"`
+- `?? "New Database/eod_data/BSE/IWP.eod"`
+- `?? "New Database/eod_data/BSE/IYKOT_HITEC.eod"`
+- `?? "New Database/eod_data/BSE/IZMO.eod"`
+- `?? "New Database/eod_data/BSE/I_BRIGHT_ST.eod"`
+- `?? "New Database/eod_data/BSE/J.B.CHEMICAL.eod"`
+- `?? "New Database/eod_data/BSE/JACKSON.eod"`
+- `?? "New Database/eod_data/BSE/JAFINANCE.eod"`
+- `?? "New Database/eod_data/BSE/JAGAN_LAMPS.eod"`
+- `?? "New Database/eod_data/BSE/JAGATJIT_IND.eod"`
+- `?? "New Database/eod_data/BSE/JAGJANANI.eod"`
+- `?? "New Database/eod_data/BSE/JAGRAN_PRAK.eod"`
+- `?? "New Database/eod_data/BSE/JAGSON_FIN..eod"`
+- `?? "New Database/eod_data/BSE/JAGSON_PHAR.eod"`
+- `?? "New Database/eod_data/BSE/JAIBALA_IND.eod"`
+- `?? "New Database/eod_data/BSE/JAIMATA_GLAS.eod"`
+- `?? "New Database/eod_data/BSE/JAINCO_PROJ..eod"`
+- `?? "New Database/eod_data/BSE/JAINEX.eod"`
+- `?? "New Database/eod_data/BSE/JAIN_IRRIG.eod"`
+- `?? "New Database/eod_data/BSE/JAIPAN_INDUS.eod"`
+- `?? "New Database/eod_data/BSE/JAIPRA.eod"`
+- `?? "New Database/eod_data/BSE/JAI_CORP_LTD.eod"`
+- `?? "New Database/eod_data/BSE/JAMESWARREN.eod"`
+- `?? "New Database/eod_data/BSE/JAMNA_AUTO.eod"`
+- `?? "New Database/eod_data/BSE/JAMSHRI.eod"`
+- `?? "New Database/eod_data/BSE/JANUSCORP.eod"`
+- `?? "New Database/eod_data/BSE/JATTAINDUS.eod"`
+- `?? "New Database/eod_data/BSE/JAUS_POLYMER.eod"`
+- `?? "New Database/eod_data/BSE/JAYANT.eod"`
+- `?? "New Database/eod_data/BSE/JAYANT_AGRO.eod"`
+- `?? "New Database/eod_data/BSE/JAYBH.CREDIT.eod"`
+- `?? "New Database/eod_data/BSE/JAYBH.MARUTI.eod"`
+- `?? "New Database/eod_data/BSE/JAYIND.eod"`
+- `?? "New Database/eod_data/BSE/JAYKAY.eod"`
+- `?? "New Database/eod_data/BSE/JAYSHRE_TEA.eod"`
+- `?? "New Database/eod_data/BSE/JAYSHRI_CHEM.eod"`
+- `?? "New Database/eod_data/BSE/JAYSN_DYEST.eod"`
+- `?? "New Database/eod_data/BSE/JAY_HIND_SYN.eod"`
+- `?? "New Database/eod_data/BSE/JAY_NECO_IND.eod"`
+- `?? "New Database/eod_data/BSE/JAY_USHIN.eod"`
+- `?? "New Database/eod_data/BSE/JBM_AUTO.eod"`
+- `?? "New Database/eod_data/BSE/JCHAC.eod"`
+- `?? "New Database/eod_data/BSE/JCT_LTD.eod"`
+- `?? "New Database/eod_data/BSE/JD_ORGOCHEM.eod"`
+- `?? "New Database/eod_data/BSE/JENBURKT_PH..eod"`
+- `?? "New Database/eod_data/BSE/JETAIRWAYS.eod"`
+- `?? "New Database/eod_data/BSE/JETFREIGHT.eod"`
+- `?? "New Database/eod_data/BSE/JETINFOTRAN.eod"`
+- `?? "New Database/eod_data/BSE/JETINFRA.eod"`
+- `?? "New Database/eod_data/BSE/JETMALL.eod"`
+- `?? "New Database/eod_data/BSE/JFL.eod"`
+- `?? "New Database/eod_data/BSE/JHAVERI_CRED.eod"`
+- `?? "New Database/eod_data/BSE/JHS_SVEN.eod"`
+- `?? "New Database/eod_data/BSE/JIGAR.eod"`
+- `?? "New Database/eod_data/BSE/JINDALPH.eod"`
+- `?? "New Database/eod_data/BSE/JINDAL_CAP..eod"`
+- `?? "New Database/eod_data/BSE/JINDAL_DRILL.eod"`
+- `?? "New Database/eod_data/BSE/JINDAL_HOTL.eod"`
+- `?? "New Database/eod_data/BSE/JINDAL_POLYF.eod"`
+- `?? "New Database/eod_data/BSE/JINDAL_SAW.eod"`
+- `?? "New Database/eod_data/BSE/JINDAL_STE.eod"`
+- `?? "New Database/eod_data/BSE/JINDAL_WORLD.eod"`
+- `?? "New Database/eod_data/BSE/JIN_POLY_INV.eod"`
+- `?? "New Database/eod_data/BSE/JIOFIN.eod"`
+- `?? "New Database/eod_data/BSE/JISLBNDVR.eod"`
+- `?? "New Database/eod_data/BSE/JITFINFRA.eod"`
+- `?? "New Database/eod_data/BSE/JJ_FINANCE.eod"`
+- `?? "New Database/eod_data/BSE/JKAGRI_GEN.eod"`
+- `?? "New Database/eod_data/BSE/JK_CEMENT.eod"`
+- `?? "New Database/eod_data/BSE/JK_LAKSHMI.eod"`
+- `?? "New Database/eod_data/BSE/JK_PAPER.eod"`
+- `?? "New Database/eod_data/BSE/JK_TYRE_IND.eod"`
+- `?? "New Database/eod_data/BSE/JLHL.eod"`
+- `?? "New Database/eod_data/BSE/JLL.eod"`
+- `?? "New Database/eod_data/BSE/JMDVL.eod"`
+- `?? "New Database/eod_data/BSE/JMFAR300822.eod"`
+- `?? "New Database/eod_data/BSE/JMG_CORP_LTD.eod"`
+- `?? "New Database/eod_data/BSE/JMJFIN.eod"`
+- `?? "New Database/eod_data/BSE/JM_FINANCIAL.eod"`
+- `?? "New Database/eod_data/BSE/JOHNPHARMA.eod"`
+- `?? "New Database/eod_data/BSE/JOINDRE_CAPI.eod"`
+- `?? "New Database/eod_data/BSE/JOINTECA_ED.eod"`
+- `?? "New Database/eod_data/BSE/JONJUA.eod"`
+- `?? "New Database/eod_data/BSE/JOSTS_ENG..eod"`
+- `?? "New Database/eod_data/BSE/JPPOWER.eod"`
+- `?? "New Database/eod_data/BSE/JPT_SECUR..eod"`
+- `?? "New Database/eod_data/BSE/JRELTD.eod"`
+- `?? "New Database/eod_data/BSE/JSHL.eod"`
+- `?? "New Database/eod_data/BSE/JSL.eod"`
+- `?? "New Database/eod_data/BSE/JSL_LTD..eod"`
+- `?? "New Database/eod_data/BSE/JSTL.eod"`
+- `?? "New Database/eod_data/BSE/JSWHL.eod"`
+- `?? "New Database/eod_data/BSE/JSWINFRA.eod"`
+- `?? "New Database/eod_data/BSE/JSWSL.eod"`
+- `?? "New Database/eod_data/BSE/JSW_ENERGY.eod"`
+- `?? "New Database/eod_data/BSE/JTAPARIA.eod"`
+- `?? "New Database/eod_data/BSE/JTEKTINDIA.eod"`
+- `?? "New Database/eod_data/BSE/JTLIND.eod"`
+- `?? "New Database/eod_data/BSE/JUBILNT_IND.eod"`
+- `?? "New Database/eod_data/BSE/JUBLINGREA.eod"`
+- `?? "New Database/eod_data/BSE/JUBLPHARMA.eod"`
+- `?? "New Database/eod_data/BSE/JUBL_FOOD.eod"`
+- `?? "New Database/eod_data/BSE/JULIEN.eod"`
+- `?? "New Database/eod_data/BSE/JUMBO_BAG.eod"`
+- `?? "New Database/eod_data/BSE/JUNIORBEES.eod"`
+- `?? "New Database/eod_data/BSE/JUPITER_INFO.eod"`
+- `?? "New Database/eod_data/BSE/JUSTDIAL.eod"`
+- `?? "New Database/eod_data/BSE/JWL.eod"`
+- `?? "New Database/eod_data/BSE/JYOTHYLAB.eod"`
+- `?? "New Database/eod_data/BSE/JYOTI_LTD..eod"`
+- `?? "New Database/eod_data/BSE/JYOTI_RESINS.eod"`
+- `?? "New Database/eod_data/BSE/JYOTI_STRUCT.eod"`
+- `?? "New Database/eod_data/BSE/J_&_K_BANK.eod"`
+- `?? "New Database/eod_data/BSE/J_KUMAR_INFR.eod"`
+- `?? "New Database/eod_data/BSE/K.P.R._MILL.eod"`
+- `?? "New Database/eod_data/BSE/KAARYAFSL.eod"`
+- `?? "New Database/eod_data/BSE/KABRA_DRUGS.eod"`
+- `?? "New Database/eod_data/BSE/KABRA_EXTR.eod"`
+- `?? "New Database/eod_data/BSE/KABSONS_INDU.eod"`
+- `?? "New Database/eod_data/BSE/KACHCHHMIN.eod"`
+- `?? "New Database/eod_data/BSE/KACL.eod"`
+- `?? "New Database/eod_data/BSE/KAHAN.eod"`
+- `?? "New Database/eod_data/BSE/KAIRA_CAN_CO.eod"`
+- `?? "New Database/eod_data/BSE/KAIZENAGRO.eod"`
+- `?? "New Database/eod_data/BSE/KAJARIA_CER..eod"`
+- `?? "New Database/eod_data/BSE/KAKA.eod"`
+- `?? "New Database/eod_data/BSE/KAKATIYA_CEM.eod"`
+- `?? "New Database/eod_data/BSE/KAKATIYA_TEX.eod"`
+- `?? "New Database/eod_data/BSE/KALAMANDIR.eod"`
+- `?? "New Database/eod_data/BSE/KALLAM.eod"`
+- `?? "New Database/eod_data/BSE/KALYANCAP.eod"`
+- `?? "New Database/eod_data/BSE/KALYANI.eod"`
+- `?? "New Database/eod_data/BSE/KALYANI_FORG.eod"`
+- `?? "New Database/eod_data/BSE/KALYANI_INV.eod"`
+- `?? "New Database/eod_data/BSE/KALYANI_STEL.eod"`
+- `?? "New Database/eod_data/BSE/KALYANKJIL.eod"`
+- `?? "New Database/eod_data/BSE/KAMADGIRI.eod"`
+- `?? "New Database/eod_data/BSE/KAMAHOLDING.eod"`
+- `?? "New Database/eod_data/BSE/KAMAN_HSG.eod"`
+- `?? "New Database/eod_data/BSE/KAMAT_HOTELS.eod"`
+- `?? "New Database/eod_data/BSE/KAMDHENU.eod"`
+- `?? "New Database/eod_data/BSE/KAMOPAINTS.eod"`
+- `?? "New Database/eod_data/BSE/KANANI_IND.eod"`
+- `?? "New Database/eod_data/BSE/KANCHI.eod"`
+- `?? "New Database/eod_data/BSE/KANCOTEA.eod"`
+- `?? "New Database/eod_data/BSE/KANDAGIRI_SP.eod"`
+- `?? "New Database/eod_data/BSE/KANELIND.eod"`
+- `?? "New Database/eod_data/BSE/KANISHK_ST..eod"`
+- `?? "New Database/eod_data/BSE/KANORIA_CHEM.eod"`
+- `?? "New Database/eod_data/BSE/KANPUR_PLAST.eod"`
+- `?? "New Database/eod_data/BSE/KANSAI_NERO.eod"`
+- `?? "New Database/eod_data/BSE/KANUNGO.eod"`
+- `?? "New Database/eod_data/BSE/KAPILRAJ.eod"`
+- `?? "New Database/eod_data/BSE/KAPIL_COTEX.eod"`
+- `?? "New Database/eod_data/BSE/KARAN_WOO-SN.eod"`
+- `?? "New Database/eod_data/BSE/KARMA_ENERG.eod"`
+- `?? "New Database/eod_data/BSE/KARNATAKA_BK.eod"`
+- `?? "New Database/eod_data/BSE/KARNAVATI.eod"`
+- `?? "New Database/eod_data/BSE/KARTIK_INV.eod"`
+- `?? "New Database/eod_data/BSE/KASHYAP.eod"`
+- `?? "New Database/eod_data/BSE/KATARE_SPG..eod"`
+- `?? "New Database/eod_data/BSE/KAUSHAL_INFR.eod"`
+- `?? "New Database/eod_data/BSE/KAVERI_SEED.eod"`
+- `?? "New Database/eod_data/BSE/KAVERI_TELE.eod"`
+- `?? "New Database/eod_data/BSE/KAYA.eod"`
+- `?? "New Database/eod_data/BSE/KAYCEE_IND.eod"`
+- `?? "New Database/eod_data/BSE/KAYNES.eod"`
+- `?? "New Database/eod_data/BSE/KAY_POW_PAP.eod"`
+- `?? "New Database/eod_data/BSE/KBCGLOBAL.eod"`
+- `?? "New Database/eod_data/BSE/KBS_INDIA.eod"`
+- `?? "New Database/eod_data/BSE/KCDGROUP.eod"`
+- `?? "New Database/eod_data/BSE/KCLINFRA.eod"`
+- `?? "New Database/eod_data/BSE/KCP_LTD.eod"`
+- `?? "New Database/eod_data/BSE/KCP_SUGAR_IN.eod"`
+- `?? "New Database/eod_data/BSE/KCS_LTD.eod"`
+- `?? "New Database/eod_data/BSE/KDDL_LTD.eod"`
+- `?? "New Database/eod_data/BSE/KDL.eod"`
+- `?? "New Database/eod_data/BSE/KDLL.eod"`
+- `?? "New Database/eod_data/BSE/KDML.eod"`
+- `?? "New Database/eod_data/BSE/KEC_INTERN.eod"`
+- `?? "New Database/eod_data/BSE/KEEPLEARN.eod"`
+- `?? "New Database/eod_data/BSE/KEERTHI.eod"`
+- `?? "New Database/eod_data/BSE/KEIL.eod"`
+- `?? "New Database/eod_data/BSE/KEI_INDUST..eod"`
+- `?? "New Database/eod_data/BSE/KEL.eod"`
+- `?? "New Database/eod_data/BSE/KELLTONTEC.eod"`
+- `?? "New Database/eod_data/BSE/KELTECH_EN..eod"`
+- `?? "New Database/eod_data/BSE/KEMISTAR.eod"`
+- `?? "New Database/eod_data/BSE/KEMP_&_CO..eod"`
+- `?? "New Database/eod_data/BSE/KENNAMETAL.eod"`
+- `?? "New Database/eod_data/BSE/KENVI.eod"`
+- `?? "New Database/eod_data/BSE/KEN_FIN.SER..eod"`
+- `?? "New Database/eod_data/BSE/KERALA_AYUR.eod"`
+- `?? "New Database/eod_data/BSE/KERNEX_MICRO.eod"`
+- `?? "New Database/eod_data/BSE/KESAR.eod"`
+- `?? "New Database/eod_data/BSE/KESAR_ENT..eod"`
+- `?? "New Database/eod_data/BSE/KESAR_PETRO.eod"`
+- `?? "New Database/eod_data/BSE/KESAR_TERMI.eod"`
+- `?? "New Database/eod_data/BSE/KESORAM_IND.eod"`
+- `?? "New Database/eod_data/BSE/KEWAL_KIRAN.eod"`
+- `?? "New Database/eod_data/BSE/KEYFINSER.eod"`
+- `?? "New Database/eod_data/BSE/KEY_CORP.LTD.eod"`
+- `?? "New Database/eod_data/BSE/KFINTECH.eod"`
+- `?? "New Database/eod_data/BSE/KFL160123B.eod"`
+- `?? "New Database/eod_data/BSE/KFL280923.eod"`
+- `?? "New Database/eod_data/BSE/KFL29MAY20C.eod"`
+- `?? "New Database/eod_data/BSE/KGES.eod"`
+- `?? "New Database/eod_data/BSE/KG_DENIM.eod"`
+- `?? "New Database/eod_data/BSE/KG_PETROCHEM.eod"`
+- `?? "New Database/eod_data/BSE/KHADIM.eod"`
+- `?? "New Database/eod_data/BSE/KHAITAN_CHEM.eod"`
+- `?? "New Database/eod_data/BSE/KHAITAN_INDI.eod"`
+- `?? "New Database/eod_data/BSE/KHANDEL._EXT.eod"`
+- `?? "New Database/eod_data/BSE/KHANDWALA_SE.eod"`
+- `?? "New Database/eod_data/BSE/KHAZANCHI.eod"`
+- `?? "New Database/eod_data/BSE/KHOD.INDIA.eod"`
+- `?? "New Database/eod_data/BSE/KHOOBSURAT.eod"`
+- `?? "New Database/eod_data/BSE/KHYATI_MULTI.eod"`
+- `?? "New Database/eod_data/BSE/KIC_METALIKS.eod"`
+- `?? "New Database/eod_data/BSE/KIDUJA_INDIA.eod"`
+- `?? "New Database/eod_data/BSE/KIFS_FSL.eod"`
+- `?? "New Database/eod_data/BSE/KILBURN_ENGG.eod"`
+- `?? "New Database/eod_data/BSE/KILITCH_DRUG.eod"`
+- `?? "New Database/eod_data/BSE/KIMIABL.eod"`
+- `?? "New Database/eod_data/BSE/KIMS.eod"`
+- `?? "New Database/eod_data/BSE/KINETIC_ENG..eod"`
+- `?? "New Database/eod_data/BSE/KINETIC_TRUS.eod"`
+- `?? "New Database/eod_data/BSE/KINGFA.eod"`
+- `?? "New Database/eod_data/BSE/KINGSINFRA.eod"`
+- `?? "New Database/eod_data/BSE/KIOCL.eod"`
+- `?? "New Database/eod_data/BSE/KIRAN_PRINT.eod"`
+- `?? "New Database/eod_data/BSE/KIRAN_SYNTEX.eod"`
+- `?? "New Database/eod_data/BSE/KIRAN_VYPAR.eod"`
+- `?? "New Database/eod_data/BSE/KIRI_DYES.eod"`
+- `?? "New Database/eod_data/BSE/KIRL.BROS..eod"`
+- `?? "New Database/eod_data/BSE/KIRL.FERROUS.eod"`
+- `?? "New Database/eod_data/BSE/KIRLOIL_ENG.eod"`
+- `?? "New Database/eod_data/BSE/KIRLOSAR_PN.eod"`
+- `?? "New Database/eod_data/BSE/KIRLOSKAR_EL.eod"`
+- `?? "New Database/eod_data/BSE/KIRL_INDUS.eod"`
+- `?? "New Database/eod_data/BSE/KISAN_MOULD..eod"`
+- `?? "New Database/eod_data/BSE/KITEX_GARMEN.eod"`
+- `?? "New Database/eod_data/BSE/KJMCCORP.eod"`
+- `?? "New Database/eod_data/BSE/KJMC_FIN..eod"`
+- `?? "New Database/eod_data/BSE/KKALPANAIND.eod"`
+- `?? "New Database/eod_data/BSE/KKFIN.eod"`
+- `?? "New Database/eod_data/BSE/KKPLASTICK.eod"`
+- `?? "New Database/eod_data/BSE/KKSHL.eod"`
+- `?? "New Database/eod_data/BSE/KLG_CAPITAL.eod"`
+- `?? "New Database/eod_data/BSE/KLIFESTYLE.eod"`
+- `?? "New Database/eod_data/BSE/KLRFM.eod"`
+- `?? "New Database/eod_data/BSE/KMC_SHIL.eod"`
+- `?? "New Database/eod_data/BSE/KMEW.eod"`
+- `?? "New Database/eod_data/BSE/KMF_BUILDERS.eod"`
+- `?? "New Database/eod_data/BSE/KMSMEDI.eod"`
+- `?? "New Database/eod_data/BSE/KM_SUGARMILL.eod"`
+- `?? "New Database/eod_data/BSE/KNR_CONST.eod"`
+- `?? "New Database/eod_data/BSE/KOBO.eod"`
+- `?? "New Database/eod_data/BSE/KOCL.eod"`
+- `?? "New Database/eod_data/BSE/KOHINORFOODS.eod"`
+- `?? "New Database/eod_data/BSE/KOKUYOCMLN.eod"`
+- `?? "New Database/eod_data/BSE/KOLTEPATIL.eod"`
+- `?? "New Database/eod_data/BSE/KONARK_SYN..eod"`
+- `?? "New Database/eod_data/BSE/KONNDOR.eod"`
+- `?? "New Database/eod_data/BSE/KOPRAN_LTD..eod"`
+- `?? "New Database/eod_data/BSE/KORE.eod"`
+- `?? "New Database/eod_data/BSE/KOTAKBKETF.eod"`
+- `?? "New Database/eod_data/BSE/KOTAKGOLDETF.eod"`
+- `?? "New Database/eod_data/BSE/KOTAKNIFTY.eod"`
+- `?? "New Database/eod_data/BSE/KOTAK_MAH.BK.eod"`
+- `?? "New Database/eod_data/BSE/KOTAK_PSU_BK.eod"`
+- `?? "New Database/eod_data/BSE/KOTAK_SENSEX.eod"`
+- `?? "New Database/eod_data/BSE/KOTHARI_FERM.eod"`
+- `?? "New Database/eod_data/BSE/KOTHARI_PROD.eod"`
+- `?? "New Database/eod_data/BSE/KOVAI_MEDI..eod"`
+- `?? "New Database/eod_data/BSE/KPEL.eod"`
+- `?? "New Database/eod_data/BSE/KPIGREEN.eod"`
+- `?? "New Database/eod_data/BSE/KPIL.eod"`
+- `?? "New Database/eod_data/BSE/KPITTECH.eod"`
+- `?? "New Database/eod_data/BSE/KPL.eod"`
+- `?? "New Database/eod_data/BSE/KPT.eod"`
+- `?? "New Database/eod_data/BSE/KRANTI.eod"`
+- `?? "New Database/eod_data/BSE/KRBL_LTD..eod"`
+- `?? "New Database/eod_data/BSE/KREBS_BIOCHM.eod"`
+- `?? "New Database/eod_data/BSE/KREON_FIN.eod"`
+- `?? "New Database/eod_data/BSE/KRETTOSYS.eod"`
+- `?? "New Database/eod_data/BSE/KRIFILIND.eod"`
+- `?? "New Database/eod_data/BSE/KRIINFRA.eod"`
+- `?? "New Database/eod_data/BSE/KRISHNACAP.eod"`
+- `?? "New Database/eod_data/BSE/KRISHNA_VEN.eod"`
+- `?? "New Database/eod_data/BSE/KRITI_INDUS..eod"`
+- `?? "New Database/eod_data/BSE/KRITI_NUTRI.eod"`
+- `?? "New Database/eod_data/BSE/KRRAIL.eod"`
+- `?? "New Database/eod_data/BSE/KRSNAA.eod"`
+- `?? "New Database/eod_data/BSE/KRYPTON_IND.eod"`
+- `?? "New Database/eod_data/BSE/KSB.eod"`
+- `?? "New Database/eod_data/BSE/KSE_LIMITED.eod"`
+- `?? "New Database/eod_data/BSE/KSOLVES.eod"`
+- `?? "New Database/eod_data/BSE/KUANTUM.eod"`
+- `?? "New Database/eod_data/BSE/KUBERJI.eod"`
+- `?? "New Database/eod_data/BSE/KUMBHAT_FIN..eod"`
+- `?? "New Database/eod_data/BSE/KUNSTSTOFFE.eod"`
+- `?? "New Database/eod_data/BSE/KUSHIND.eod"`
+- `?? "New Database/eod_data/BSE/KUWER_INDS..eod"`
+- `?? "New Database/eod_data/BSE/KVFORGE.eod"`
+- `?? "New Database/eod_data/BSE/KZ_LEAS_FIN..eod"`
+- `?? "New Database/eod_data/BSE/L.G.BALKRISH.eod"`
+- `?? "New Database/eod_data/BSE/LA-OPALA_RG.eod"`
+- `?? "New Database/eod_data/BSE/LABELKRAFT.eod"`
+- `?? "New Database/eod_data/BSE/LADDERUP_FIN.eod"`
+- `?? "New Database/eod_data/BSE/LAFFANS_PETR.eod"`
+- `?? "New Database/eod_data/BSE/LAHL.eod"`
+- `?? "New Database/eod_data/BSE/LAHOTI_OVER..eod"`
+- `?? "New Database/eod_data/BSE/LAKHOTIA_POL.eod"`
+- `?? "New Database/eod_data/BSE/LAKSHMI_ELEC.eod"`
+- `?? "New Database/eod_data/BSE/LAKSHMI_MILL.eod"`
+- `?? "New Database/eod_data/BSE/LAKSHMI_PREC.eod"`
+- `?? "New Database/eod_data/BSE/LAL.eod"`
+- `?? "New Database/eod_data/BSE/LALPATHLAB.eod"`
+- `?? "New Database/eod_data/BSE/LAMBODHARA_T.eod"`
+- `?? "New Database/eod_data/BSE/LANCER.eod"`
+- `?? "New Database/eod_data/BSE/LANCOR_HOLDS.eod"`
+- `?? "New Database/eod_data/BSE/LANDMARC_LEI.eod"`
+- `?? "New Database/eod_data/BSE/LANDMARK.eod"`
+- `?? "New Database/eod_data/BSE/LANDMRK_PRO.eod"`
+- `?? "New Database/eod_data/BSE/LARSEN_&_TOU.eod"`
+- `?? "New Database/eod_data/BSE/LASA.eod"`
+- `?? "New Database/eod_data/BSE/LASER_DIAMON.eod"`
+- `?? "New Database/eod_data/BSE/LASTMILE.eod"`
+- `?? "New Database/eod_data/BSE/LATENTVIEW.eod"`
+- `?? "New Database/eod_data/BSE/LATIMMETAL.eod"`
+- `?? "New Database/eod_data/BSE/LAURUSLABS.eod"`
+- `?? "New Database/eod_data/BSE/LAXMIMACH.eod"`
+- `?? "New Database/eod_data/BSE/LAXMIPATI.eod"`
+- `?? "New Database/eod_data/BSE/LAXMI_AUTOLM.eod"`
+- `?? "New Database/eod_data/BSE/LCC_INFOTECH.eod"`
+- `?? "New Database/eod_data/BSE/LEAD_FINANC.eod"`
+- `?? "New Database/eod_data/BSE/LEE&NEE_SOFT.eod"`
+- `?? "New Database/eod_data/BSE/LEHAR.eod"`
+- `?? "New Database/eod_data/BSE/LEHIL.eod"`
+- `?? "New Database/eod_data/BSE/LELAVOIR.eod"`
+- `?? "New Database/eod_data/BSE/LEMONTREE.eod"`
+- `?? "New Database/eod_data/BSE/LERTHAI.eod"`
+- `?? "New Database/eod_data/BSE/LESHAIND.eod"`
+- `?? "New Database/eod_data/BSE/LGB_FORGE.eod"`
+- `?? "New Database/eod_data/BSE/LIBERTY_SHOE.eod"`
+- `?? "New Database/eod_data/BSE/LIBORD_FIN.eod"`
+- `?? "New Database/eod_data/BSE/LIBORD_SEC.eod"`
+- `?? "New Database/eod_data/BSE/LICI.eod"`
+- `?? "New Database/eod_data/BSE/LICMFGOLD.eod"`
+- `?? "New Database/eod_data/BSE/LICNETFN50.eod"`
+- `?? "New Database/eod_data/BSE/LICNETFSEN.eod"`
+- `?? "New Database/eod_data/BSE/LICNFNHGP.eod"`
+- `?? "New Database/eod_data/BSE/LIC_HOUS.FIN.eod"`
+- `?? "New Database/eod_data/BSE/LIKHITHA.eod"`
+- `?? "New Database/eod_data/BSE/LIME_CHEM..eod"`
+- `?? "New Database/eod_data/BSE/LINAKS_MICRO.eod"`
+- `?? "New Database/eod_data/BSE/LINC.eod"`
+- `?? "New Database/eod_data/BSE/LINCOLN_PHAR.eod"`
+- `?? "New Database/eod_data/BSE/LINDEINDIA.eod"`
+- `?? "New Database/eod_data/BSE/LINK_PHARMA.eod"`
+- `?? "New Database/eod_data/BSE/LIPPI_SYSTEM.eod"`
+- `?? "New Database/eod_data/BSE/LIQUID.eod"`
+- `?? "New Database/eod_data/BSE/LIQUIDBEES.eod"`
+- `?? "New Database/eod_data/BSE/LIQUIDETF.eod"`
+- `?? "New Database/eod_data/BSE/LIQUIDSBI.eod"`
+- `?? "New Database/eod_data/BSE/LKPSEC.eod"`
+- `?? "New Database/eod_data/BSE/LKP_FIN.eod"`
+- `?? "New Database/eod_data/BSE/LLFICL.eod"`
+- `?? "New Database/eod_data/BSE/LLOYDSENGG.eod"`
+- `?? "New Database/eod_data/BSE/LLOYDSENT.eod"`
+- `?? "New Database/eod_data/BSE/LLOYDS_MET_E.eod"`
+- `?? "New Database/eod_data/BSE/LNT_FH.eod"`
+- `?? "New Database/eod_data/BSE/LODHA.eod"`
+- `?? "New Database/eod_data/BSE/LOKESH_MACH.eod"`
+- `?? "New Database/eod_data/BSE/LONGVIEW_TEA.eod"`
+- `?? "New Database/eod_data/BSE/LOOKS.eod"`
+- `?? "New Database/eod_data/BSE/LORDSHOTL.eod"`
+- `?? "New Database/eod_data/BSE/LORDS_CHLORO.eod"`
+- `?? "New Database/eod_data/BSE/LOTUS_CHOC.eod"`
+- `?? "New Database/eod_data/BSE/LOVABLE.eod"`
+- `?? "New Database/eod_data/BSE/LOWVOL.eod"`
+- `?? "New Database/eod_data/BSE/LOY.TEX_MILL.eod"`
+- `?? "New Database/eod_data/BSE/LOYAL.eod"`
+- `?? "New Database/eod_data/BSE/LTFOODS.eod"`
+- `?? "New Database/eod_data/BSE/LTIM.eod"`
+- `?? "New Database/eod_data/BSE/LTTS.eod"`
+- `?? "New Database/eod_data/BSE/LUDOLOW_JUTE.eod"`
+- `?? "New Database/eod_data/BSE/LUHARUKA.eod"`
+- `?? "New Database/eod_data/BSE/LUMAX_IND.eod"`
+- `?? "New Database/eod_data/BSE/LUMAX_TECH.eod"`
+- `?? "New Database/eod_data/BSE/LUPIN_LTD..eod"`
+- `?? "New Database/eod_data/BSE/LUXIND.eod"`
+- `?? "New Database/eod_data/BSE/LWS_KNITWEAR.eod"`
+- `?? "New Database/eod_data/BSE/LXCHEM.eod"`
+- `?? "New Database/eod_data/BSE/LYKA_LABS.eod"`
+- `?? "New Database/eod_data/BSE/LYKISLTD.eod"`
+- `?? "New Database/eod_data/BSE/LYPSA_GEMS.eod"`
+- `?? "New Database/eod_data/BSE/M&M_FINANSER.eod"`
+- `?? "New Database/eod_data/BSE/M.M.FORGINGS.eod"`
+- `?? "New Database/eod_data/BSE/M.M.RUBBER.eod"`
+- `?? "New Database/eod_data/BSE/M.P.AGRO_IND.eod"`
+- `?? "New Database/eod_data/BSE/MAAGHADV.eod"`
+- `?? "New Database/eod_data/BSE/MAANALU.eod"`
+- `?? "New Database/eod_data/BSE/MACH.eod"`
+- `?? "New Database/eod_data/BSE/MACHINO_PLAS.eod"`
+- `?? "New Database/eod_data/BSE/MACIND.eod"`
+- `?? "New Database/eod_data/BSE/MACINTR.eod"`
+- `?? "New Database/eod_data/BSE/MAC_CHARLES.eod"`
+- `?? "New Database/eod_data/BSE/MADHAVIPL.eod"`
+- `?? "New Database/eod_data/BSE/MADHAV_MARB..eod"`
+- `?? "New Database/eod_data/BSE/MADHUCON_PRJ.eod"`
+- `?? "New Database/eod_data/BSE/MADHUR_IND.eod"`
+- `?? "New Database/eod_data/BSE/MADHUS.IND..eod"`
+- `?? "New Database/eod_data/BSE/MADHUS.SEC.eod"`
+- `?? "New Database/eod_data/BSE/MADHUVEER.eod"`
+- `?? "New Database/eod_data/BSE/MADRASFERT.eod"`
+- `?? "New Database/eod_data/BSE/MAESTROS_ELE.eod"`
+- `?? "New Database/eod_data/BSE/MAFANG.eod"`
+- `?? "New Database/eod_data/BSE/MAFATLAL_IND.eod"`
+- `?? "New Database/eod_data/BSE/MAFIA.eod"`
+- `?? "New Database/eod_data/BSE/MAGADHSUGAR.eod"`
+- `?? "New Database/eod_data/BSE/MAGNA_ELECTR.eod"`
+- `?? "New Database/eod_data/BSE/MAGNUM_VENT.eod"`
+- `?? "New Database/eod_data/BSE/MAH.RAS.APEX.eod"`
+- `?? "New Database/eod_data/BSE/MAH.SCOOTER.eod"`
+- `?? "New Database/eod_data/BSE/MAH.SEAMLESS.eod"`
+- `?? "New Database/eod_data/BSE/MAHA.RUBTECH.eod"`
+- `?? "New Database/eod_data/BSE/MAHA.TELE.eod"`
+- `?? "New Database/eod_data/BSE/MAHAAN_FOODS.eod"`
+- `?? "New Database/eod_data/BSE/MAHALAXMI_SM.eod"`
+- `?? "New Database/eod_data/BSE/MAHAN_IND..eod"`
+- `?? "New Database/eod_data/BSE/MAHASAGAR_TR.eod"`
+- `?? "New Database/eod_data/BSE/MAHA_CORP.eod"`
+- `?? "New Database/eod_data/BSE/MAHA_STEEL.eod"`
+- `?? "New Database/eod_data/BSE/MAHEPC.eod"`
+- `?? "New Database/eod_data/BSE/MAHESH.eod"`
+- `?? "New Database/eod_data/BSE/MAHINDRALIFE.eod"`
+- `?? "New Database/eod_data/BSE/MAHKTECH.eod"`
+- `?? "New Database/eod_data/BSE/MAHLOG.eod"`
+- `?? "New Database/eod_data/BSE/MAH_&_MAH.eod"`
+- `?? "New Database/eod_data/BSE/MAH_HOLIDAY.eod"`
+- `?? "New Database/eod_data/BSE/MAIDEN.eod"`
+- `?? "New Database/eod_data/BSE/MAITHAN_ALL.eod"`
+- `?? "New Database/eod_data/BSE/MAITRI.eod"`
+- `?? "New Database/eod_data/BSE/MAJESTIC_AUT.eod"`
+- `?? "New Database/eod_data/BSE/MAKEINDIA.eod"`
+- `?? "New Database/eod_data/BSE/MAKERS_LAB..eod"`
+- `?? "New Database/eod_data/BSE/MAL.eod"`
+- `?? "New Database/eod_data/BSE/MALLCOM.eod"`
+- `?? "New Database/eod_data/BSE/MALU_PAPER.eod"`
+- `?? "New Database/eod_data/BSE/MANAKSIA_LTD.eod"`
+- `?? "New Database/eod_data/BSE/MANAKSTELTD.eod"`
+- `?? "New Database/eod_data/BSE/MANALI_PETRO.eod"`
+- `?? "New Database/eod_data/BSE/MANAP_FIN.eod"`
+- `?? "New Database/eod_data/BSE/MANBRO.eod"`
+- `?? "New Database/eod_data/BSE/MANCREDIT.eod"`
+- `?? "New Database/eod_data/BSE/MANGALAM_CEM.eod"`
+- `?? "New Database/eod_data/BSE/MANGALAM_IND.eod"`
+- `?? "New Database/eod_data/BSE/MANGLR.CHEM.eod"`
+- `?? "New Database/eod_data/BSE/MANJEERA.eod"`
+- `?? "New Database/eod_data/BSE/MANKIND.eod"`
+- `?? "New Database/eod_data/BSE/MANOMAY.eod"`
+- `?? "New Database/eod_data/BSE/MANORAMA.eod"`
+- `?? "New Database/eod_data/BSE/MANORG.eod"`
+- `?? "New Database/eod_data/BSE/MANRAJ_HSG.F.eod"`
+- `?? "New Database/eod_data/BSE/MANSI_FINANC.eod"`
+- `?? "New Database/eod_data/BSE/MANUGRAPH_IN.eod"`
+- `?? "New Database/eod_data/BSE/MANYAVAR.eod"`
+- `?? "New Database/eod_data/BSE/MAN_DRUGORG.eod"`
+- `?? "New Database/eod_data/BSE/MAN_INFRA.eod"`
+- `?? "New Database/eod_data/BSE/MAPMYINDIA.eod"`
+- `?? "New Database/eod_data/BSE/MARAL_OVERS.eod"`
+- `?? "New Database/eod_data/BSE/MARATHON_NEX.eod"`
+- `?? "New Database/eod_data/BSE/MARBLE.eod"`
+- `?? "New Database/eod_data/BSE/MARGO_FIN.eod"`
+- `?? "New Database/eod_data/BSE/MARICOLTD.eod"`
+- `?? "New Database/eod_data/BSE/MARIS_SPIN..eod"`
+- `?? "New Database/eod_data/BSE/MARKET_CREAT.eod"`
+- `?? "New Database/eod_data/BSE/MARKOLINES.eod"`
+- `?? "New Database/eod_data/BSE/MARKSANS.eod"`
+- `?? "New Database/eod_data/BSE/MARSONS.eod"`
+- `?? "New Database/eod_data/BSE/MARTIN_BURN.eod"`
+- `?? "New Database/eod_data/BSE/MARUTISUZUK.eod"`
+- `?? "New Database/eod_data/BSE/MARUTI_INFRA.eod"`
+- `?? "New Database/eod_data/BSE/MARUTI_SEC..eod"`
+- `?? "New Database/eod_data/BSE/MASFIN.eod"`
+- `?? "New Database/eod_data/BSE/MASPTOP50.eod"`
+- `?? "New Database/eod_data/BSE/MASTEK_LTD.eod"`
+- `?? "New Database/eod_data/BSE/MASTER_TRUST.eod"`
+- `?? "New Database/eod_data/BSE/MATHER_&_PLA.eod"`
+- `?? "New Database/eod_data/BSE/MATHEW_EASOW.eod"`
+- `?? "New Database/eod_data/BSE/MATRIMONY.eod"`
+- `?? "New Database/eod_data/BSE/MAWANA_SUGAR.eod"`
+- `?? "New Database/eod_data/BSE/MAXESTATES.eod"`
+- `?? "New Database/eod_data/BSE/MAXHEALTH.eod"`
+- `?? "New Database/eod_data/BSE/MAXHEIGHTS.eod"`
+- `?? "New Database/eod_data/BSE/MAXIMUS.eod"`
+- `?? "New Database/eod_data/BSE/MAXINDIA.eod"`
+- `?? "New Database/eod_data/BSE/MAX_ALERT.eod"`
+- `?? "New Database/eod_data/BSE/MAYUKH.eod"`
+- `?? "New Database/eod_data/BSE/MAYUR_FLOOR..eod"`
+- `?? "New Database/eod_data/BSE/MAYUR_LEATHR.eod"`
+- `?? "New Database/eod_data/BSE/MAYUR_UNIQ..eod"`
+- `?? "New Database/eod_data/BSE/MAZDA_LTD.eod"`
+- `?? "New Database/eod_data/BSE/MAZDOCK.eod"`
+- `?? "New Database/eod_data/BSE/MBLINFRA.eod"`
+- `?? "New Database/eod_data/BSE/MBLNCRPS.eod"`
+- `?? "New Database/eod_data/BSE/MCLEOD_RUSSE.eod"`
+- `?? "New Database/eod_data/BSE/MCLOUD.eod"`
+- `?? "New Database/eod_data/BSE/MCLTD.eod"`
+- `?? "New Database/eod_data/BSE/MCNALLYB.eod"`
+- `?? "New Database/eod_data/BSE/MCX_LTD.eod"`
+- `?? "New Database/eod_data/BSE/MEDANTA.eod"`
+- `?? "New Database/eod_data/BSE/MEDIA_MATRIX.eod"`
+- `?? "New Database/eod_data/BSE/MEDIA_ONE.eod"`
+- `?? "New Database/eod_data/BSE/MEDICAMEN_BI.eod"`
+- `?? "New Database/eod_data/BSE/MEDICO.eod"`
+- `?? "New Database/eod_data/BSE/MEDINOVA_DIA.eod"`
+- `?? "New Database/eod_data/BSE/MEDI_CAPS.eod"`
+- `?? "New Database/eod_data/BSE/MEDPLUS.eod"`
+- `?? "New Database/eod_data/BSE/MEERA.eod"`
+- `?? "New Database/eod_data/BSE/MEFCOM_CAPIT.eod"`
+- `?? "New Database/eod_data/BSE/MEGASOFT_LTD.eod"`
+- `?? "New Database/eod_data/BSE/MEGASTAR.eod"`
+- `?? "New Database/eod_data/BSE/MEGA_CORPN..eod"`
+- `?? "New Database/eod_data/BSE/MEGRISOFT.eod"`
+- `?? "New Database/eod_data/BSE/MEHAI.eod"`
+- `?? "New Database/eod_data/BSE/MEHTA_HOUSIN.eod"`
+- `?? "New Database/eod_data/BSE/MEHTA_I.FIN.eod"`
+- `?? "New Database/eod_data/BSE/MEHTA_SECUR..eod"`
+- `?? "New Database/eod_data/BSE/MELSTAR_INFO.eod"`
+- `?? "New Database/eod_data/BSE/MENAMANI.eod"`
+- `?? "New Database/eod_data/BSE/MENON_BEAR..eod"`
+- `?? "New Database/eod_data/BSE/MENON_PISTON.eod"`
+- `?? "New Database/eod_data/BSE/MEP.eod"`
+- `?? "New Database/eod_data/BSE/MERCANTILE.eod"`
+- `?? "New Database/eod_data/BSE/MERCURYEV.eod"`
+- `?? "New Database/eod_data/BSE/MERCURYLAB.eod"`
+- `?? "New Database/eod_data/BSE/MESON.eod"`
+- `?? "New Database/eod_data/BSE/METALFORGE.eod"`
+- `?? "New Database/eod_data/BSE/METAL_COATIN.eod"`
+- `?? "New Database/eod_data/BSE/METROBRAND.eod"`
+- `?? "New Database/eod_data/BSE/METROGLOBL.eod"`
+- `?? "New Database/eod_data/BSE/METROPOLIS.eod"`
+- `?? "New Database/eod_data/BSE/MFL011123.eod"`
+- `?? "New Database/eod_data/BSE/MFL011123A.eod"`
+- `?? "New Database/eod_data/BSE/MFL011123B.eod"`
+- `?? "New Database/eod_data/BSE/MFL011123C.eod"`
+- `?? "New Database/eod_data/BSE/MFL02022023.eod"`
+- `?? "New Database/eod_data/BSE/MFL020223.eod"`
+- `?? "New Database/eod_data/BSE/MFL020523.eod"`
+- `?? "New Database/eod_data/BSE/MFL020523A.eod"`
+- `?? "New Database/eod_data/BSE/MFL020523B.eod"`
+- `?? "New Database/eod_data/BSE/MFL030523.eod"`
+- `?? "New Database/eod_data/BSE/MFL041023.eod"`
+- `?? "New Database/eod_data/BSE/MFL060922.eod"`
+- `?? "New Database/eod_data/BSE/MFL060922A.eod"`
+- `?? "New Database/eod_data/BSE/MFL060922C.eod"`
+- `?? "New Database/eod_data/BSE/MFL100323.eod"`
+- `?? "New Database/eod_data/BSE/MFL200923A.eod"`
+- `?? "New Database/eod_data/BSE/MFL200923B.eod"`
+- `?? "New Database/eod_data/BSE/MFL20923A.eod"`
+- `?? "New Database/eod_data/BSE/MFL20923B.eod"`
+- `?? "New Database/eod_data/BSE/MFL231222.eod"`
+- `?? "New Database/eod_data/BSE/MFL291021.eod"`
+- `?? "New Database/eod_data/BSE/MFL291021A.eod"`
+- `?? "New Database/eod_data/BSE/MFL291021B.eod"`
+- `?? "New Database/eod_data/BSE/MFL29NOV18C.eod"`
+- `?? "New Database/eod_data/BSE/MFL29NOV18D.eod"`
+- `?? "New Database/eod_data/BSE/MFLI24.eod"`
+- `?? "New Database/eod_data/BSE/MFLI24A.eod"`
+- `?? "New Database/eod_data/BSE/MFLI25.eod"`
+- `?? "New Database/eod_data/BSE/MFLI25A.eod"`
+- `?? "New Database/eod_data/BSE/MFLII26.eod"`
+- `?? "New Database/eod_data/BSE/MFLII26B.eod"`
+- `?? "New Database/eod_data/BSE/MFLII27.eod"`
+- `?? "New Database/eod_data/BSE/MFLII27B.eod"`
+- `?? "New Database/eod_data/BSE/MFLIII24.eod"`
+- `?? "New Database/eod_data/BSE/MFLIII25.eod"`
+- `?? "New Database/eod_data/BSE/MFLIII25C.eod"`
+- `?? "New Database/eod_data/BSE/MFLIV24D.eod"`
+- `?? "New Database/eod_data/BSE/MFLIV25.eod"`
+- `?? "New Database/eod_data/BSE/MFLIV26.eod"`
+- `?? "New Database/eod_data/BSE/MFLIV27.eod"`
+- `?? "New Database/eod_data/BSE/MFLOI24.eod"`
+- `?? "New Database/eod_data/BSE/MFLOII25.eod"`
+- `?? "New Database/eod_data/BSE/MFLOIII24.eod"`
+- `?? "New Database/eod_data/BSE/MFLOIV25.eod"`
+- `?? "New Database/eod_data/BSE/MFLOV24.eod"`
+- `?? "New Database/eod_data/BSE/MFLOVI25.eod"`
+- `?? "New Database/eod_data/BSE/MFLTDI25.eod"`
+- `?? "New Database/eod_data/BSE/MFLTDII27.eod"`
+- `?? "New Database/eod_data/BSE/MFLTDIII24.eod"`
+- `?? "New Database/eod_data/BSE/MFLTDVI25.eod"`
+- `?? "New Database/eod_data/BSE/MFLTDVII27.eod"`
+- `?? "New Database/eod_data/BSE/MFLV24.eod"`
+- `?? "New Database/eod_data/BSE/MFLV26E.eod"`
+- `?? "New Database/eod_data/BSE/MFLV27.eod"`
+- `?? "New Database/eod_data/BSE/MFLVI25.eod"`
+- `?? "New Database/eod_data/BSE/MFLVI31F.eod"`
+- `?? "New Database/eod_data/BSE/MFLVI32F.eod"`
+- `?? "New Database/eod_data/BSE/MFLVII24G.eod"`
+- `?? "New Database/eod_data/BSE/MFLVII25G.eod"`
+- `?? "New Database/eod_data/BSE/MFLVII27.eod"`
+- `?? "New Database/eod_data/BSE/MFLVIII26H.eod"`
+- `?? "New Database/eod_data/BSE/MFL_INDIA.eod"`
+- `?? "New Database/eod_data/BSE/MFSINTRCRP.eod"`
+- `?? "New Database/eod_data/BSE/MFSL.eod"`
+- `?? "New Database/eod_data/BSE/MGL.eod"`
+- `?? "New Database/eod_data/BSE/MIC_ELECTRON.eod"`
+- `?? "New Database/eod_data/BSE/MID-DAY_MULT.eod"`
+- `?? "New Database/eod_data/BSE/MIDCAPETF.eod"`
+- `?? "New Database/eod_data/BSE/MIDHANI.eod"`
+- `?? "New Database/eod_data/BSE/MIDWEST_GOLD.eod"`
+- `?? "New Database/eod_data/BSE/MID_EAST_POR.eod"`
+- `?? "New Database/eod_data/BSE/MID_INDIA_IN.eod"`
+- `?? "New Database/eod_data/BSE/MIHIKA.eod"`
+- `?? "New Database/eod_data/BSE/MIL.eod"`
+- `?? "New Database/eod_data/BSE/MILEFUR.eod"`
+- `?? "New Database/eod_data/BSE/MILE_GLOBAL.eod"`
+- `?? "New Database/eod_data/BSE/MILGREY_FIN.eod"`
+- `?? "New Database/eod_data/BSE/MILKFOOD.eod"`
+- `?? "New Database/eod_data/BSE/MILLENNIUM.eod"`
+- `?? "New Database/eod_data/BSE/MINAL_IND.eod"`
+- `?? "New Database/eod_data/BSE/MINAXI_TEXT..eod"`
+- `?? "New Database/eod_data/BSE/MINDACORP.eod"`
+- `?? "New Database/eod_data/BSE/MINDSPACE.eod"`
+- `?? "New Database/eod_data/BSE/MINERAL&METL.eod"`
+- `?? "New Database/eod_data/BSE/MINFY.eod"`
+- `?? "New Database/eod_data/BSE/MINI_DIAMOND.eod"`
+- `?? "New Database/eod_data/BSE/MINOLTA_FIN..eod"`
+- `?? "New Database/eod_data/BSE/MIPCO_SEAM..eod"`
+- `?? "New Database/eod_data/BSE/MIRC_ELECT.eod"`
+- `?? "New Database/eod_data/BSE/MIRZA_INTER.eod"`
+- `?? "New Database/eod_data/BSE/MISHDESIGN.eod"`
+- `?? "New Database/eod_data/BSE/MISHKA.eod"`
+- `?? "New Database/eod_data/BSE/MISHTANN.eod"`
+- `?? "New Database/eod_data/BSE/MISQUITA.eod"`
+- `?? "New Database/eod_data/BSE/MITSHI.eod"`
+- `?? "New Database/eod_data/BSE/MITSU.eod"`
+- `?? "New Database/eod_data/BSE/MIVEN_MACHIN.eod"`
+- `?? "New Database/eod_data/BSE/MKEXIM.eod"`
+- `?? "New Database/eod_data/BSE/MKPL.eod"`
+- `?? "New Database/eod_data/BSE/MKVENTURES.eod"`
+- `?? "New Database/eod_data/BSE/MMFL230522.eod"`
+- `?? "New Database/eod_data/BSE/MMFL23522.eod"`
+- `?? "New Database/eod_data/BSE/MMFSL26A.eod"`
+- `?? "New Database/eod_data/BSE/MMLF.eod"`
+- `?? "New Database/eod_data/BSE/MNIL.eod"`
+- `?? "New Database/eod_data/BSE/MNKALCOLTD.eod"`
+- `?? "New Database/eod_data/BSE/MNKCMILTD.eod"`
+- `?? "New Database/eod_data/BSE/MOD.INSUL..eod"`
+- `?? "New Database/eod_data/BSE/MODELLA_WOOL.eod"`
+- `?? "New Database/eod_data/BSE/MODERN_DAIRI.eod"`
+- `?? "New Database/eod_data/BSE/MODERN_SHARE.eod"`
+- `?? "New Database/eod_data/BSE/MODERN_STEEL.eod"`
+- `?? "New Database/eod_data/BSE/MODINATURAL.eod"`
+- `?? "New Database/eod_data/BSE/MODIPON.eod"`
+- `?? "New Database/eod_data/BSE/MODIS.eod"`
+- `?? "New Database/eod_data/BSE/MODISONLTD.eod"`
+- `?? "New Database/eod_data/BSE/MODI_RUBBER.eod"`
+- `?? "New Database/eod_data/BSE/MODULEX.eod"`
+- `?? "New Database/eod_data/BSE/MOGSEC.eod"`
+- `?? "New Database/eod_data/BSE/MOHEALTH.eod"`
+- `?? "New Database/eod_data/BSE/MOHITE.eod"`
+- `?? "New Database/eod_data/BSE/MOHIT_INDUS..eod"`
+- `?? "New Database/eod_data/BSE/MOHIT_PAPER.eod"`
+- `?? "New Database/eod_data/BSE/MOIL_LTD.eod"`
+- `?? "New Database/eod_data/BSE/MOL.eod"`
+- `?? "New Database/eod_data/BSE/MOLD-TEK_TEC.eod"`
+- `?? "New Database/eod_data/BSE/MOLDTKPACK.eod"`
+- `?? "New Database/eod_data/BSE/MOLOWVOL.eod"`
+- `?? "New Database/eod_data/BSE/MOM100.eod"`
+- `?? "New Database/eod_data/BSE/MOM50.eod"`
+- `?? "New Database/eod_data/BSE/MOMENTUM.eod"`
+- `?? "New Database/eod_data/BSE/MOMOMENTUM.eod"`
+- `?? "New Database/eod_data/BSE/MON100.eod"`
+- `?? "New Database/eod_data/BSE/MONARCH.eod"`
+- `?? "New Database/eod_data/BSE/MONEYBOXX.eod"`
+- `?? "New Database/eod_data/BSE/MONIND.eod"`
+- `?? "New Database/eod_data/BSE/MONOTYPE_IND.eod"`
+- `?? "New Database/eod_data/BSE/MONQ50.eod"`
+- `?? "New Database/eod_data/BSE/MONTECARLO.eod"`
+- `?? "New Database/eod_data/BSE/MOONGIPA_CAP.eod"`
+- `?? "New Database/eod_data/BSE/MOQUALITY.eod"`
+- `?? "New Database/eod_data/BSE/MORARJETEX.eod"`
+- `?? "New Database/eod_data/BSE/MORARKA_FIN..eod"`
+- `?? "New Database/eod_data/BSE/MOREPEN_LAB..eod"`
+- `?? "New Database/eod_data/BSE/MORGAN_CRU.eod"`
+- `?? "New Database/eod_data/BSE/MORGAN_VENT.eod"`
+- `?? "New Database/eod_data/BSE/MOSCHIP.eod"`
+- `?? "New Database/eod_data/BSE/MOTHERSON.eod"`
+- `?? "New Database/eod_data/BSE/MOTILALOFS.eod"`
+- `?? "New Database/eod_data/BSE/MOTOR&GEN.FI.eod"`
+- `?? "New Database/eod_data/BSE/MOVALUE.eod"`
+- `?? "New Database/eod_data/BSE/MPDL.eod"`
+- `?? "New Database/eod_data/BSE/MPHASIS_LTD.eod"`
+- `?? "New Database/eod_data/BSE/MPIL_CORP_L.eod"`
+- `?? "New Database/eod_data/BSE/MPL.eod"`
+- `?? "New Database/eod_data/BSE/MPS_LTD.eod"`
+- `?? "New Database/eod_data/BSE/MRCAGRO.eod"`
+- `?? "New Database/eod_data/BSE/MRF_LTD..eod"`
+- `?? "New Database/eod_data/BSE/MRO-TEK.eod"`
+- `?? "New Database/eod_data/BSE/MRP.eod"`
+- `?? "New Database/eod_data/BSE/MRPL.eod"`
+- `?? "New Database/eod_data/BSE/MSFL31022.eod"`
+- `?? "New Database/eod_data/BSE/MSL.eod"`
+- `?? "New Database/eod_data/BSE/MSP_STEEL.eod"`
+- `?? "New Database/eod_data/BSE/MSR_INDIA.eod"`
+- `?? "New Database/eod_data/BSE/MSTC.eod"`
+- `?? "New Database/eod_data/BSE/MSUMI.eod"`
+- `?? "New Database/eod_data/BSE/MTARTECH.eod"`
+- `?? "New Database/eod_data/BSE/MTPL.eod"`
+- `?? "New Database/eod_data/BSE/MT_EDUCARE.eod"`
+- `?? "New Database/eod_data/BSE/MUDUNURU.eod"`
+- `?? "New Database/eod_data/BSE/MUFIN.eod"`
+- `?? "New Database/eod_data/BSE/MUKAND_LTD..eod"`
+- `?? "New Database/eod_data/BSE/MUKAT_PIPES.eod"`
+- `?? "New Database/eod_data/BSE/MUKESH_BABU.eod"`
+- `?? "New Database/eod_data/BSE/MUKTA.eod"`
+- `?? "New Database/eod_data/BSE/MUKTA_ARTS.eod"`
+- `?? "New Database/eod_data/BSE/MUL.eod"`
+- `?? "New Database/eod_data/BSE/MULLER_&_PHI.eod"`
+- `?? "New Database/eod_data/BSE/MULTI-PURPOS.eod"`
+- `?? "New Database/eod_data/BSE/MULTIBASE_I.eod"`
+- `?? "New Database/eod_data/BSE/MUNAUTO.eod"`
+- `?? "New Database/eod_data/BSE/MUNJAL_SHOWA.eod"`
+- `?? "New Database/eod_data/BSE/MUNOTH_CAP..eod"`
+- `?? "New Database/eod_data/BSE/MUNOTH_FIN..eod"`
+- `?? "New Database/eod_data/BSE/MURD.CERAM.eod"`
+- `?? "New Database/eod_data/BSE/MUTHOOT_CAP.eod"`
+- `?? "New Database/eod_data/BSE/MUTHOOT_FIN.eod"`
+- `?? "New Database/eod_data/BSE/MUZALI.eod"`
+- `?? "New Database/eod_data/BSE/MVGJL.eod"`
+- `?? "New Database/eod_data/BSE/MYSTICELE.eod"`
+- `?? "New Database/eod_data/BSE/MYS_PETRO.eod"`
+- `?? "New Database/eod_data/BSE/N.D.METAL.eod"`
+- `?? "New Database/eod_data/BSE/N.G.IND.LTD..eod"`
+- `?? "New Database/eod_data/BSE/N.R.AGARWAL.eod"`
+- `?? "New Database/eod_data/BSE/NACLIND.eod"`
+- `?? "New Database/eod_data/BSE/NAGAR.AGRITE.eod"`
+- `?? "New Database/eod_data/BSE/NAGARFERT.eod"`
+- `?? "New Database/eod_data/BSE/NAGPUR_POWER.eod"`
+- `?? "New Database/eod_data/BSE/NAGREEKA_EXP.eod"`
+- `?? "New Database/eod_data/BSE/NAGREKA_CAP.eod"`
+- `?? "New Database/eod_data/BSE/NAHAR_CAP.eod"`
+- `?? "New Database/eod_data/BSE/NAHAR_INDUST.eod"`
+- `?? "New Database/eod_data/BSE/NAHAR_POLY.eod"`
+- `?? "New Database/eod_data/BSE/NAHAR_SPG..eod"`
+- `?? "New Database/eod_data/BSE/NAKSH.eod"`
+- `?? "New Database/eod_data/BSE/NALWA_SONS.eod"`
+- `?? "New Database/eod_data/BSE/NAM-INDIA.eod"`
+- `?? "New Database/eod_data/BSE/NAM_SEC.eod"`
+- `?? "New Database/eod_data/BSE/NAPL.eod"`
+- `?? "New Database/eod_data/BSE/NARBADA.eod"`
+- `?? "New Database/eod_data/BSE/NARENDRA_PRO.eod"`
+- `?? "New Database/eod_data/BSE/NARMADA.eod"`
+- `?? "New Database/eod_data/BSE/NARMADA_GEL.eod"`
+- `?? "New Database/eod_data/BSE/NARMADA_MACP.eod"`
+- `?? "New Database/eod_data/BSE/NAT.ALUM.eod"`
+- `?? "New Database/eod_data/BSE/NAT.PEROXIDE.eod"`
+- `?? "New Database/eod_data/BSE/NAT.PLASTIC.eod"`
+- `?? "New Database/eod_data/BSE/NAT.PLYWOOD.eod"`
+- `?? "New Database/eod_data/BSE/NATCO_PHARM.eod"`
+- `?? "New Database/eod_data/BSE/NATFIT.eod"`
+- `?? "New Database/eod_data/BSE/NATHIND.eod"`
+- `?? "New Database/eod_data/BSE/NATH_BIOGEN.eod"`
+- `?? "New Database/eod_data/BSE/NATI._OXYGEN.eod"`
+- `?? "New Database/eod_data/BSE/NATIONAL_FER.eod"`
+- `?? "New Database/eod_data/BSE/NATIONAL_GEN.eod"`
+- `?? "New Database/eod_data/BSE/NATIONAL_STD.eod"`
+- `?? "New Database/eod_data/BSE/NATRAJ_PROTE.eod"`
+- `?? "New Database/eod_data/BSE/NATURAL.eod"`
+- `?? "New Database/eod_data/BSE/NATURAL_CAPS.eod"`
+- `?? "New Database/eod_data/BSE/NATURA_HUE_C.eod"`
+- `?? "New Database/eod_data/BSE/NATURO.eod"`
+- `?? "New Database/eod_data/BSE/NAT_PLASTIC.eod"`
+- `?? "New Database/eod_data/BSE/NAVA.eod"`
+- `?? "New Database/eod_data/BSE/NAVIGANT.eod"`
+- `?? "New Database/eod_data/BSE/NAVINIFTY.eod"`
+- `?? "New Database/eod_data/BSE/NAVIN_FLUORI.eod"`
+- `?? "New Database/eod_data/BSE/NAVKAR.eod"`
+- `?? "New Database/eod_data/BSE/NAVKARCORP.eod"`
+- `?? "New Database/eod_data/BSE/NAVNETEDUL.eod"`
+- `?? "New Database/eod_data/BSE/NAVODAYENT.eod"`
+- `?? "New Database/eod_data/BSE/NAYSAA.eod"`
+- `?? "New Database/eod_data/BSE/NAZARA.eod"`
+- `?? "New Database/eod_data/BSE/NBCC.eod"`
+- `?? "New Database/eod_data/BSE/NBL.eod"`
+- `?? "New Database/eod_data/BSE/NB_FOOT_WEAR.eod"`
+- `?? "New Database/eod_data/BSE/NCAPBULADD.eod"`
+- `?? "New Database/eod_data/BSE/NCC.eod"`
+- `?? "New Database/eod_data/BSE/NCC_BLUE_WAT.eod"`
+- `?? "New Database/eod_data/BSE/NCL_RESEARCH.eod"`
+- `?? "New Database/eod_data/BSE/NDA_SECURIT..eod"`
+- `?? "New Database/eod_data/BSE/NDL.eod"`
+- `?? "New Database/eod_data/BSE/NDLVENTURE.eod"`
+- `?? "New Database/eod_data/BSE/NDRAUTO.eod"`
+- `?? "New Database/eod_data/BSE/NDTV.eod"`
+- `?? "New Database/eod_data/BSE/NECC_LTD.eod"`
+- `?? "New Database/eod_data/BSE/NECTAR_LIFE.eod"`
+- `?? "New Database/eod_data/BSE/NEELAMALAI.eod"`
+- `?? "New Database/eod_data/BSE/NEELKANTH.eod"`
+- `?? "New Database/eod_data/BSE/NEELKANTH_RO.eod"`
+- `?? "New Database/eod_data/BSE/NEERAJ.eod"`
+- `?? "New Database/eod_data/BSE/NEGOTIUM.eod"`
+- `?? "New Database/eod_data/BSE/NEIL.eod"`
+- `?? "New Database/eod_data/BSE/NELCAST.eod"`
+- `?? "New Database/eod_data/BSE/NELCO_LTD..eod"`
+- `?? "New Database/eod_data/BSE/NEOGEM_INDIA.eod"`
+- `?? "New Database/eod_data/BSE/NEOGEN.eod"`
+- `?? "New Database/eod_data/BSE/NEOINFRA.eod"`
+- `?? "New Database/eod_data/BSE/NESCO_LTD.eod"`
+- `?? "New Database/eod_data/BSE/NETLINK_SOLU.eod"`
+- `?? "New Database/eod_data/BSE/NETPIX.eod"`
+- `?? "New Database/eod_data/BSE/NETTLINX_LTD.eod"`
+- `?? "New Database/eod_data/BSE/NETWEB.eod"`
+- `?? "New Database/eod_data/BSE/NEULAND_LAB..eod"`
+- `?? "New Database/eod_data/BSE/NEWGEN.eod"`
+- `?? "New Database/eod_data/BSE/NEWINFRA.eod"`
+- `?? "New Database/eod_data/BSE/NEWLIGHT.eod"`
+- `?? "New Database/eod_data/BSE/NEXT50.eod"`
+- `?? "New Database/eod_data/BSE/NEXUSSURGL.eod"`
+- `?? "New Database/eod_data/BSE/NGIL.eod"`
+- `?? "New Database/eod_data/BSE/NGL_FINE_CHM.eod"`
+- `?? "New Database/eod_data/BSE/NH.eod"`
+- `?? "New Database/eod_data/BSE/NHCFOODS.eod"`
+- `?? "New Database/eod_data/BSE/NHFL15923.eod"`
+- `?? "New Database/eod_data/BSE/NHPC.eod"`
+- `?? "New Database/eod_data/BSE/NIACL.eod"`
+- `?? "New Database/eod_data/BSE/NIBE.eod"`
+- `?? "New Database/eod_data/BSE/NICCO_PARKS.eod"`
+- `?? "New Database/eod_data/BSE/NIDHI_GRANIT.eod"`
+- `?? "New Database/eod_data/BSE/NIDO290422.eod"`
+- `?? "New Database/eod_data/BSE/NIDO29422.eod"`
+- `?? "New Database/eod_data/BSE/NIDO29APR22.eod"`
+- `?? "New Database/eod_data/BSE/NIEHSPD.eod"`
+- `?? "New Database/eod_data/BSE/NIEHSPE.eod"`
+- `?? "New Database/eod_data/BSE/NIEHSPG.eod"`
+- `?? "New Database/eod_data/BSE/NIEHSPH.eod"`
+- `?? "New Database/eod_data/BSE/NIEHSPI.eod"`
+- `?? "New Database/eod_data/BSE/NIEHSPJ.eod"`
+- `?? "New Database/eod_data/BSE/NIEHSPL.eod"`
+- `?? "New Database/eod_data/BSE/NIESSPA.eod"`
+- `?? "New Database/eod_data/BSE/NIESSPC.eod"`
+- `?? "New Database/eod_data/BSE/NIESSPE.eod"`
+- `?? "New Database/eod_data/BSE/NIESSPJ.eod"`
+- `?? "New Database/eod_data/BSE/NIESSPK.eod"`
+- `?? "New Database/eod_data/BSE/NIESSPL.eod"`
+- `?? "New Database/eod_data/BSE/NIESSPM.eod"`
+- `?? "New Database/eod_data/BSE/NIF100BEES.eod"`
+- `?? "New Database/eod_data/BSE/NIFMID150.eod"`
+- `?? "New Database/eod_data/BSE/NIFTYBEES.eod"`
+- `?? "New Database/eod_data/BSE/NIFTYETF.eod"`
+- `?? "New Database/eod_data/BSE/NIFTYQLITY.eod"`
+- `?? "New Database/eod_data/BSE/NIHAR_INFO.eod"`
+- `?? "New Database/eod_data/BSE/NIITMTS.eod"`
+- `?? "New Database/eod_data/BSE/NIIT_LTD..eod"`
+- `?? "New Database/eod_data/BSE/NIKHIL_ADHSV.eod"`
+- `?? "New Database/eod_data/BSE/NIKKI_GLOBAL.eod"`
+- `?? "New Database/eod_data/BSE/NIKSTECH.eod"`
+- `?? "New Database/eod_data/BSE/NILACHAL_REF.eod"`
+- `?? "New Database/eod_data/BSE/NILASPACES.eod"`
+- `?? "New Database/eod_data/BSE/NILA_INFRA..eod"`
+- `?? "New Database/eod_data/BSE/NILE_LTD..eod"`
+- `?? "New Database/eod_data/BSE/NILKAMAL_L.eod"`
+- `?? "New Database/eod_data/BSE/NIMBSPROJ.eod"`
+- `?? "New Database/eod_data/BSE/NIMFHGDP.eod"`
+- `?? "New Database/eod_data/BSE/NINSYS.eod"`
+- `?? "New Database/eod_data/BSE/NIPPOBATRY.eod"`
+- `?? "New Database/eod_data/BSE/NIRAJ_CEMENT.eod"`
+- `?? "New Database/eod_data/BSE/NIRAV_COMMER.eod"`
+- `?? "New Database/eod_data/BSE/NIRLON.eod"`
+- `?? "New Database/eod_data/BSE/NIRMITEE.eod"`
+- `?? "New Database/eod_data/BSE/NITCO_TILES.eod"`
+- `?? "New Database/eod_data/BSE/NITINCAST.eod"`
+- `?? "New Database/eod_data/BSE/NITINSPINNER.eod"`
+- `?? "New Database/eod_data/BSE/NITTA_GELA.eod"`
+- `?? "New Database/eod_data/BSE/NIVAKA.eod"`
+- `?? "New Database/eod_data/BSE/NIYOGIN.eod"`
+- `?? "New Database/eod_data/BSE/NLCINDIA.eod"`
+- `?? "New Database/eod_data/BSE/NLFL.eod"`
+- `?? "New Database/eod_data/BSE/NMDC_LTD.eod"`
+- `?? "New Database/eod_data/BSE/NMSRESRC.eod"`
+- `?? "New Database/eod_data/BSE/NNTL.eod"`
+- `?? "New Database/eod_data/BSE/NOCIL_LTD.eod"`
+- `?? "New Database/eod_data/BSE/NOIDA-TOLL_B.eod"`
+- `?? "New Database/eod_data/BSE/NORBEN_TEA.eod"`
+- `?? "New Database/eod_data/BSE/NORRIS_MEDI..eod"`
+- `?? "New Database/eod_data/BSE/NOUVEAU.eod"`
+- `?? "New Database/eod_data/BSE/NOVARTIS.eod"`
+- `?? "New Database/eod_data/BSE/NOVATEOR.eod"`
+- `?? "New Database/eod_data/BSE/NOVA_IRON&ST.eod"`
+- `?? "New Database/eod_data/BSE/NPR_FINANCE.eod"`
+- `?? "New Database/eod_data/BSE/NRB_BEARINGS.eod"`
+- `?? "New Database/eod_data/BSE/NRB_IND_BEA.eod"`
+- `?? "New Database/eod_data/BSE/NSL.eod"`
+- `?? "New Database/eod_data/BSE/NSLNISP.eod"`
+- `?? "New Database/eod_data/BSE/NTC_INDUST.eod"`
+- `?? "New Database/eod_data/BSE/NTPC_LTD.eod"`
+- `?? "New Database/eod_data/BSE/NTWK_MED_INV.eod"`
+- `?? "New Database/eod_data/BSE/NUCLE.SOFT_E.eod"`
+- `?? "New Database/eod_data/BSE/NURECA.eod"`
+- `?? "New Database/eod_data/BSE/NUTECH_GLOBA.eod"`
+- `?? "New Database/eod_data/BSE/NUTRICIRCLE.eod"`
+- `?? "New Database/eod_data/BSE/NUVAMA.eod"`
+- `?? "New Database/eod_data/BSE/NUVOCO.eod"`
+- `?? "New Database/eod_data/BSE/NUWAY_ORGANI.eod"`
+- `?? "New Database/eod_data/BSE/NVENTURES.eod"`
+- `?? "New Database/eod_data/BSE/NWIL150722.eod"`
+- `?? "New Database/eod_data/BSE/NWIL150722A.eod"`
+- `?? "New Database/eod_data/BSE/NWIL150722B.eod"`
+- `?? "New Database/eod_data/BSE/NXST.eod"`
+- `?? "New Database/eod_data/BSE/NYKAA.eod"`
+- `?? "New Database/eod_data/BSE/NYSSACORP.eod"`
+- `?? "New Database/eod_data/BSE/N_C_L_IND..eod"`
+- `?? "New Database/eod_data/BSE/N_K_INDUST..eod"`
+- `?? "New Database/eod_data/BSE/OAL.eod"`
+- `?? "New Database/eod_data/BSE/OASIS_SECUR..eod"`
+- `?? "New Database/eod_data/BSE/OBCL.eod"`
+- `?? "New Database/eod_data/BSE/OBEROI_REAL.eod"`
+- `?? "New Database/eod_data/BSE/OCTAL.eod"`
+- `?? "New Database/eod_data/BSE/OCTAVE.eod"`
+- `?? "New Database/eod_data/BSE/OCTAVIUSPL.eod"`
+- `?? "New Database/eod_data/BSE/ODYSSEY_CORP.eod"`
+- `?? "New Database/eod_data/BSE/ODYSSEY_TECH.eod"`
+- `?? "New Database/eod_data/BSE/OFSPL060123.eod"`
+- `?? "New Database/eod_data/BSE/OIL_COUNTRY.eod"`
+- `?? "New Database/eod_data/BSE/OIL_INDIA.eod"`
+- `?? "New Database/eod_data/BSE/OIVL.eod"`
+- `?? "New Database/eod_data/BSE/OLATECH.eod"`
+- `?? "New Database/eod_data/BSE/OLECTRA.eod"`
+- `?? "New Database/eod_data/BSE/OLYMPIA_IND..eod"`
+- `?? "New Database/eod_data/BSE/OLYMPIC.eod"`
+- `?? "New Database/eod_data/BSE/OLYMPIC_OIL.eod"`
+- `?? "New Database/eod_data/BSE/OMANSH.eod"`
+- `?? "New Database/eod_data/BSE/OMAXE_LTD.eod"`
+- `?? "New Database/eod_data/BSE/OMAX_AUTOS..eod"`
+- `?? "New Database/eod_data/BSE/OMEGA_INTERA.eod"`
+- `?? "New Database/eod_data/BSE/OMINFRAL.eod"`
+- `?? "New Database/eod_data/BSE/OMKAR_OVERSE.eod"`
+- `?? "New Database/eod_data/BSE/OMKAR_SPC.eod"`
+- `?? "New Database/eod_data/BSE/OMNIPOTENT.eod"`
+- `?? "New Database/eod_data/BSE/OMNITEX_IND..eod"`
+- `?? "New Database/eod_data/BSE/ONEGLOBAL.eod"`
+- `?? "New Database/eod_data/BSE/ONELIFE_CAP.eod"`
+- `?? "New Database/eod_data/BSE/ONGC_CORPN.eod"`
+- `?? "New Database/eod_data/BSE/ONMOBILE.eod"`
+- `?? "New Database/eod_data/BSE/ONTIC.eod"`
+- `?? "New Database/eod_data/BSE/ONWARD_TECHN.eod"`
+- `?? "New Database/eod_data/BSE/OONE.eod"`
+- `?? "New Database/eod_data/BSE/OPCHAINS.eod"`
+- `?? "New Database/eod_data/BSE/OPTIEMUS.eod"`
+- `?? "New Database/eod_data/BSE/OPTIFIN.eod"`
+- `?? "New Database/eod_data/BSE/ORACLE_FIN.eod"`
+- `?? "New Database/eod_data/BSE/ORBIT_EXPORT.eod"`
+- `?? "New Database/eod_data/BSE/ORCHASP.eod"`
+- `?? "New Database/eod_data/BSE/ORCHIDPHAR.eod"`
+- `?? "New Database/eod_data/BSE/ORGANICREC.eod"`
+- `?? "New Database/eod_data/BSE/ORGANIC_COAT.eod"`
+- `?? "New Database/eod_data/BSE/ORICON_ENT.eod"`
+- `?? "New Database/eod_data/BSE/ORIENT.CARB..eod"`
+- `?? "New Database/eod_data/BSE/ORIENTAL.eod"`
+- `?? "New Database/eod_data/BSE/ORIENTBELL.eod"`
+- `?? "New Database/eod_data/BSE/ORIENTCER.eod"`
+- `?? "New Database/eod_data/BSE/ORIENTELEC.eod"`
+- `?? "New Database/eod_data/BSE/ORIENT_BEVER.eod"`
+- `?? "New Database/eod_data/BSE/ORIENT_CEM.eod"`
+- `?? "New Database/eod_data/BSE/ORIENT_HOTEL.eod"`
+- `?? "New Database/eod_data/BSE/ORIENT_PAPER.eod"`
+- `?? "New Database/eod_data/BSE/ORIENT_PRESS.eod"`
+- `?? "New Database/eod_data/BSE/ORIENT_TRADE.eod"`
+- `?? "New Database/eod_data/BSE/ORIRAIL.eod"`
+- `?? "New Database/eod_data/BSE/ORISSA_MINE.eod"`
+- `?? "New Database/eod_data/BSE/OROSMITHS.eod"`
+- `?? "New Database/eod_data/BSE/ORTEL.eod"`
+- `?? "New Database/eod_data/BSE/ORTINLAABS.eod"`
+- `?? "New Database/eod_data/BSE/OSCAR_GLOBAL.eod"`
+- `?? "New Database/eod_data/BSE/OSIAJEE.eod"`
+- `?? "New Database/eod_data/BSE/OSWALGREEN.eod"`
+- `?? "New Database/eod_data/BSE/OSWAL_AGRO..eod"`
+- `?? "New Database/eod_data/BSE/OSWAL_YARNS.eod"`
+- `?? "New Database/eod_data/BSE/OTCO_INTERN..eod"`
+- `?? "New Database/eod_data/BSE/OVOBEL_FOODS.eod"`
+- `?? "New Database/eod_data/BSE/OXYGENTAPH.eod"`
+- `?? "New Database/eod_data/BSE/P.G.FOILS.eod"`
+- `?? "New Database/eod_data/BSE/P.H.CAPITAL.eod"`
+- `?? "New Database/eod_data/BSE/PACE.eod"`
+- `?? "New Database/eod_data/BSE/PACIFIC_IND..eod"`
+- `?? "New Database/eod_data/BSE/PACT.eod"`
+- `?? "New Database/eod_data/BSE/PADAM_COTTON.eod"`
+- `?? "New Database/eod_data/BSE/PADMAIND.eod"`
+- `?? "New Database/eod_data/BSE/PADMALAYA_TE.eod"`
+- `?? "New Database/eod_data/BSE/PADMANABH_AL.eod"`
+- `?? "New Database/eod_data/BSE/PAGE_INDUSTR.eod"`
+- `?? "New Database/eod_data/BSE/PAISALO.eod"`
+- `?? "New Database/eod_data/BSE/PAKKA.eod"`
+- `?? "New Database/eod_data/BSE/PALASHSEC.eod"`
+- `?? "New Database/eod_data/BSE/PALCO.eod"`
+- `?? "New Database/eod_data/BSE/PALMJEWELS.eod"`
+- `?? "New Database/eod_data/BSE/PALRED.eod"`
+- `?? "New Database/eod_data/BSE/PANABYTE.eod"`
+- `?? "New Database/eod_data/BSE/PANACEA_BIOT.eod"`
+- `?? "New Database/eod_data/BSE/PANAFIC.eod"`
+- `?? "New Database/eod_data/BSE/PANAMA_PETRO.eod"`
+- `?? "New Database/eod_data/BSE/PANASON_CAR.eod"`
+- `?? "New Database/eod_data/BSE/PANA_ENERG.eod"`
+- `?? "New Database/eod_data/BSE/PANCH.STEEL.eod"`
+- `?? "New Database/eod_data/BSE/PANCHSHEEL_O.eod"`
+- `?? "New Database/eod_data/BSE/PANJON_LTD..eod"`
+- `?? "New Database/eod_data/BSE/PANKAJPIYUS.eod"`
+- `?? "New Database/eod_data/BSE/PANKAJ_POLY..eod"`
+- `?? "New Database/eod_data/BSE/PANORAMA.eod"`
+- `?? "New Database/eod_data/BSE/PANTH.eod"`
+- `?? "New Database/eod_data/BSE/PANYAM_CEMEN.eod"`
+- `?? "New Database/eod_data/BSE/PAN_ELECTR..eod"`
+- `?? "New Database/eod_data/BSE/PAN_INDIA_C.eod"`
+- `?? "New Database/eod_data/BSE/PAOS.eod"`
+- `?? "New Database/eod_data/BSE/PARA._COSMET.eod"`
+- `?? "New Database/eod_data/BSE/PARADEEP.eod"`
+- `?? "New Database/eod_data/BSE/PARAGMILK.eod"`
+- `?? "New Database/eod_data/BSE/PARAGON_FIN..eod"`
+- `?? "New Database/eod_data/BSE/PARAMOUNT_CO.eod"`
+- `?? "New Database/eod_data/BSE/PARAS.eod"`
+- `?? "New Database/eod_data/BSE/PARAS_PETRO.eod"`
+- `?? "New Database/eod_data/BSE/PARKER_AGRO..eod"`
+- `?? "New Database/eod_data/BSE/PARLEIND.eod"`
+- `?? "New Database/eod_data/BSE/PARMAX.eod"`
+- `?? "New Database/eod_data/BSE/PARNAXLAB.eod"`
+- `?? "New Database/eod_data/BSE/PARSHVA.eod"`
+- `?? "New Database/eod_data/BSE/PARSHWANA.eod"`
+- `?? "New Database/eod_data/BSE/PARSVNATH.eod"`
+- `?? "New Database/eod_data/BSE/PARVATI.eod"`
+- `?? "New Database/eod_data/BSE/PAS.ACRYLON.eod"`
+- `?? "New Database/eod_data/BSE/PASARI_SPIN.eod"`
+- `?? "New Database/eod_data/BSE/PASUPATI_SPG.eod"`
+- `?? "New Database/eod_data/BSE/PATANJALI.eod"`
+- `?? "New Database/eod_data/BSE/PATEL_AIRTEM.eod"`
+- `?? "New Database/eod_data/BSE/PATEL_ENGG..eod"`
+- `?? "New Database/eod_data/BSE/PATIDAR.eod"`
+- `?? "New Database/eod_data/BSE/PATRON.eod"`
+- `?? "New Database/eod_data/BSE/PATSPIN_INDI.eod"`
+- `?? "New Database/eod_data/BSE/PAT_INT_LOG.eod"`
+- `?? "New Database/eod_data/BSE/PAUSHAKLTD.eod"`
+- `?? "New Database/eod_data/BSE/PAVNAIND.eod"`
+- `?? "New Database/eod_data/BSE/PAYTM.eod"`
+- `?? "New Database/eod_data/BSE/PBA_INFRASTR.eod"`
+- `?? "New Database/eod_data/BSE/PBM_POLYTEX.eod"`
+- `?? "New Database/eod_data/BSE/PCBL.eod"`
+- `?? "New Database/eod_data/BSE/PCL.eod"`
+- `?? "New Database/eod_data/BSE/PCS_TECH.eod"`
+- `?? "New Database/eod_data/BSE/PC_JEWELLER.eod"`
+- `?? "New Database/eod_data/BSE/PDMJEPAPER.eod"`
+- `?? "New Database/eod_data/BSE/PDSL.eod"`
+- `?? "New Database/eod_data/BSE/PEARL_POLYME.eod"`
+- `?? "New Database/eod_data/BSE/PECOS.eod"`
+- `?? "New Database/eod_data/BSE/PEETI_SECURT.eod"`
+- `?? "New Database/eod_data/BSE/PEE_CEE_COSM.eod"`
+- `?? "New Database/eod_data/BSE/PEL.eod"`
+- `?? "New Database/eod_data/BSE/PENLAND_LTD.eod"`
+- `?? "New Database/eod_data/BSE/PENNAR_STEEL.eod"`
+- `?? "New Database/eod_data/BSE/PENTOKEY_ORG.eod"`
+- `?? "New Database/eod_data/BSE/PERFECTPAC.eod"`
+- `?? "New Database/eod_data/BSE/PERM_MAGNETS.eod"`
+- `?? "New Database/eod_data/BSE/PERSISTENT.eod"`
+- `?? "New Database/eod_data/BSE/PETRONET_LNG.eod"`
+- `?? "New Database/eod_data/BSE/PFCBS3.eod"`
+- `?? "New Database/eod_data/BSE/PFCBS4.eod"`
+- `?? "New Database/eod_data/BSE/PFCBT1S3.eod"`
+- `?? "New Database/eod_data/BSE/PFIZER_LTD..eod"`
+- `?? "New Database/eod_data/BSE/PFL_INFOTECH.eod"`
+- `?? "New Database/eod_data/BSE/PGCRL.eod"`
+- `?? "New Database/eod_data/BSE/PGHL.eod"`
+- `?? "New Database/eod_data/BSE/PGIL.eod"`
+- `?? "New Database/eod_data/BSE/PGINVIT.eod"`
+- `?? "New Database/eod_data/BSE/PG_ELECTRO.eod"`
+- `?? "New Database/eod_data/BSE/PHARMAIDS_PH.eod"`
+- `?? "New Database/eod_data/BSE/PHARMASIA.eod"`
+- `?? "New Database/eod_data/BSE/PHOENIX_INT..eod"`
+- `?? "New Database/eod_data/BSE/PHOENIX_MILL.eod"`
+- `?? "New Database/eod_data/BSE/PHOENIX_TN.eod"`
+- `?? "New Database/eod_data/BSE/PHOSPHATE.eod"`
+- `?? "New Database/eod_data/BSE/PHOTON_CAP.eod"`
+- `?? "New Database/eod_data/BSE/PHYTOCHEM_I..eod"`
+- `?? "New Database/eod_data/BSE/PICCADILY_AG.eod"`
+- `?? "New Database/eod_data/BSE/PICCADILY_SU.eod"`
+- `?? "New Database/eod_data/BSE/PICTURHOUSE.eod"`
+- `?? "New Database/eod_data/BSE/PIDILITE.eod"`
+- `?? "New Database/eod_data/BSE/PIFL.eod"`
+- `?? "New Database/eod_data/BSE/PIGL.eod"`
+- `?? "New Database/eod_data/BSE/PILANIINVS.eod"`
+- `?? "New Database/eod_data/BSE/PILITA.eod"`
+- `?? "New Database/eod_data/BSE/PIONEER_EMB.eod"`
+- `?? "New Database/eod_data/BSE/PION_INVEST.eod"`
+- `?? "New Database/eod_data/BSE/PITTIENG.eod"`
+- `?? "New Database/eod_data/BSE/PIX_TRANS.eod"`
+- `?? "New Database/eod_data/BSE/PI_INDUS.LTD.eod"`
+- `?? "New Database/eod_data/BSE/PJL.eod"`
+- `?? "New Database/eod_data/BSE/PLASTIBLEND.eod"`
+- `?? "New Database/eod_data/BSE/PLAZACABLE.eod"`
+- `?? "New Database/eod_data/BSE/PMCFIN.eod"`
+- `?? "New Database/eod_data/BSE/PML.eod"`
+- `?? "New Database/eod_data/BSE/PM_TELELINN.eod"`
+- `?? "New Database/eod_data/BSE/PNB13FEB15.eod"`
+- `?? "New Database/eod_data/BSE/PNBHOUSING.eod"`
+- `?? "New Database/eod_data/BSE/PNB_GILTS.eod"`
+- `?? "New Database/eod_data/BSE/PNCINFRA.eod"`
+- `?? "New Database/eod_data/BSE/POBS.eod"`
+- `?? "New Database/eod_data/BSE/POCL.eod"`
+- `?? "New Database/eod_data/BSE/PODDAR.eod"`
+- `?? "New Database/eod_data/BSE/PODDAR_PIGM..eod"`
+- `?? "New Database/eod_data/BSE/POEL.eod"`
+- `?? "New Database/eod_data/BSE/POKARNA_LTD.eod"`
+- `?? "New Database/eod_data/BSE/POLICYBZR.eod"`
+- `?? "New Database/eod_data/BSE/POLO_HOTELS.eod"`
+- `?? "New Database/eod_data/BSE/POLSON_LTD..eod"`
+- `?? "New Database/eod_data/BSE/POLYCAB.eod"`
+- `?? "New Database/eod_data/BSE/POLYCHEM.eod"`
+- `?? "New Database/eod_data/BSE/POLYCON_INT..eod"`
+- `?? "New Database/eod_data/BSE/POLYLINK_POL.eod"`
+- `?? "New Database/eod_data/BSE/POLYMAC.eod"`
+- `?? "New Database/eod_data/BSE/POLYMECH.MCH.eod"`
+- `?? "New Database/eod_data/BSE/POLYPLEX.eod"`
+- `?? "New Database/eod_data/BSE/POLYSPIN.eod"`
+- `?? "New Database/eod_data/BSE/POLY_MEDICUR.eod"`
+- `?? "New Database/eod_data/BSE/POOJA.eod"`
+- `?? "New Database/eod_data/BSE/POOJA_ENT.eod"`
+- `?? "New Database/eod_data/BSE/POONAWALLA.eod"`
+- `?? "New Database/eod_data/BSE/POONA_DAL.eod"`
+- `?? "New Database/eod_data/BSE/POPULAR_EST.eod"`
+- `?? "New Database/eod_data/BSE/PORWAL_AUTO.eod"`
+- `?? "New Database/eod_data/BSE/POWERINDIA.eod"`
+- `?? "New Database/eod_data/BSE/POWERMECH.eod"`
+- `?? "New Database/eod_data/BSE/POWER_FINAN.eod"`
+- `?? "New Database/eod_data/BSE/POWER_GRID.eod"`
+- `?? "New Database/eod_data/BSE/PPAP.eod"`
+- `?? "New Database/eod_data/BSE/PPL.eod"`
+- `?? "New Database/eod_data/BSE/PPLPHARMA.eod"`
+- `?? "New Database/eod_data/BSE/PQIF.eod"`
+- `?? "New Database/eod_data/BSE/PRABHHANS.eod"`
+- `?? "New Database/eod_data/BSE/PRADEEP_MET..eod"`
+- `?? "New Database/eod_data/BSE/PRADHIN.eod"`
+- `?? "New Database/eod_data/BSE/PRAG_BOSIMI.eod"`
+- `?? "New Database/eod_data/BSE/PRAJAY_ENGS..eod"`
+- `?? "New Database/eod_data/BSE/PRAJ_IND.LTD.eod"`
+- `?? "New Database/eod_data/BSE/PRAKASHSTL.eod"`
+- `?? "New Database/eod_data/BSE/PRAKASH_IND..eod"`
+- `?? "New Database/eod_data/BSE/PRASANT_IND..eod"`
+- `?? "New Database/eod_data/BSE/PRATIKSHA_CH.eod"`
+- `?? "New Database/eod_data/BSE/PRATIK_PANEL.eod"`
+- `?? "New Database/eod_data/BSE/PRAVEG.eod"`
+- `?? "New Database/eod_data/BSE/PRAXIS.eod"`
+- `?? "New Database/eod_data/BSE/PRECAM.eod"`
+- `?? "New Database/eod_data/BSE/PRECISION_EL.eod"`
+- `?? "New Database/eod_data/BSE/PRECISION_WR.eod"`
+- `?? "New Database/eod_data/BSE/PRECI_CONTNR.eod"`
+- `?? "New Database/eod_data/BSE/PREM.AU.ELEC.eod"`
+- `?? "New Database/eod_data/BSE/PREMCO_GLOB..eod"`
+- `?? "New Database/eod_data/BSE/PREMIER_CAP..eod"`
+- `?? "New Database/eod_data/BSE/PREMIER_EXPL.eod"`
+- `?? "New Database/eod_data/BSE/PREMIER_LTD.eod"`
+- `?? "New Database/eod_data/BSE/PREMIER_POLY.eod"`
+- `?? "New Database/eod_data/BSE/PREMIER_SYN..eod"`
+- `?? "New Database/eod_data/BSE/PRERNA_INFR.eod"`
+- `?? "New Database/eod_data/BSE/PRESSURE_SEN.eod"`
+- `?? "New Database/eod_data/BSE/PRESTIGE.eod"`
+- `?? "New Database/eod_data/BSE/PREVEST.eod"`
+- `?? "New Database/eod_data/BSE/PRICOLLTD.eod"`
+- `?? "New Database/eod_data/BSE/PRIMA_AGRO_L.eod"`
+- `?? "New Database/eod_data/BSE/PRIMA_IND..eod"`
+- `?? "New Database/eod_data/BSE/PRIMA_PLASTI.eod"`
+- `?? "New Database/eod_data/BSE/PRIMEFRESH.eod"`
+- `?? "New Database/eod_data/BSE/PRIME_FOCUS.eod"`
+- `?? "New Database/eod_data/BSE/PRIME_INDS..eod"`
+- `?? "New Database/eod_data/BSE/PRIME_PROP.eod"`
+- `?? "New Database/eod_data/BSE/PRIME_SECUR..eod"`
+- `?? "New Database/eod_data/BSE/PRIME_URBAN.eod"`
+- `?? "New Database/eod_data/BSE/PRIMO.eod"`
+- `?? "New Database/eod_data/BSE/PRINCEPIPE.eod"`
+- `?? "New Database/eod_data/BSE/PRISMX.eod"`
+- `?? "New Database/eod_data/BSE/PRISM_FINANC.eod"`
+- `?? "New Database/eod_data/BSE/PRISM_MEDI.eod"`
+- `?? "New Database/eod_data/BSE/PRITHVIEXCH.eod"`
+- `?? "New Database/eod_data/BSE/PRITIKAUTO.eod"`
+- `?? "New Database/eod_data/BSE/PRITISHN_COM.eod"`
+- `?? "New Database/eod_data/BSE/PRIVISCL.eod"`
+- `?? "New Database/eod_data/BSE/PRIYA_LTD..eod"`
+- `?? "New Database/eod_data/BSE/PROCAL_ELECT.eod"`
+- `?? "New Database/eod_data/BSE/PROCLB.eod"`
+- `?? "New Database/eod_data/BSE/PROCTER_&GAM.eod"`
+- `?? "New Database/eod_data/BSE/PROGREXV.eod"`
+- `?? "New Database/eod_data/BSE/PROMACT.eod"`
+- `?? "New Database/eod_data/BSE/PROMAX.eod"`
+- `?? "New Database/eod_data/BSE/PROTEAN.eod"`
+- `?? "New Database/eod_data/BSE/PROZONER.eod"`
+- `?? "New Database/eod_data/BSE/PRO_FIN_CAP..eod"`
+- `?? "New Database/eod_data/BSE/PRSMJOHNSN.eod"`
+- `?? "New Database/eod_data/BSE/PRUDENT.eod"`
+- `?? "New Database/eod_data/BSE/PSPPROJECT.eod"`
+- `?? "New Database/eod_data/BSE/PSUBANKICI.eod"`
+- `?? "New Database/eod_data/BSE/PSUBNKBEES.eod"`
+- `?? "New Database/eod_data/BSE/PTCFIN_SER.eod"`
+- `?? "New Database/eod_data/BSE/PTCIL.eod"`
+- `?? "New Database/eod_data/BSE/PTC_INDIA.eod"`
+- `?? "New Database/eod_data/BSE/PTIL.eod"`
+- `?? "New Database/eod_data/BSE/PTL_LTD.eod"`
+- `?? "New Database/eod_data/BSE/PULSAR_INTL..eod"`
+- `?? "New Database/eod_data/BSE/PUN.CHEM.eod"`
+- `?? "New Database/eod_data/BSE/PUN.COMMUNI..eod"`
+- `?? "New Database/eod_data/BSE/PUNJABNSIND.eod"`
+- `?? "New Database/eod_data/BSE/PUNJAB_NATIO.eod"`
+- `?? "New Database/eod_data/BSE/PURAVANKARA.eod"`
+- `?? "New Database/eod_data/BSE/PUROHITCON.eod"`
+- `?? "New Database/eod_data/BSE/PURPLE.eod"`
+- `?? "New Database/eod_data/BSE/PURSHOTTAM.eod"`
+- `?? "New Database/eod_data/BSE/PVP_VENT_LTD.eod"`
+- `?? "New Database/eod_data/BSE/PVRINOX.eod"`
+- `?? "New Database/eod_data/BSE/PVVINFRA.eod"`
+- `?? "New Database/eod_data/BSE/PWASML.eod"`
+- `?? "New Database/eod_data/BSE/PYRAMID.eod"`
+- `?? "New Database/eod_data/BSE/QGO.eod"`
+- `?? "New Database/eod_data/BSE/QNIFTY.eod"`
+- `?? "New Database/eod_data/BSE/QRIL.eod"`
+- `?? "New Database/eod_data/BSE/QUADRANT.eod"`
+- `?? "New Database/eod_data/BSE/QUANTBUILD.eod"`
+- `?? "New Database/eod_data/BSE/QUANTUM_DIG..eod"`
+- `?? "New Database/eod_data/BSE/QUANTUM_GOLD.eod"`
+- `?? "New Database/eod_data/BSE/QUASAR.eod"`
+- `?? "New Database/eod_data/BSE/QUESS.eod"`
+- `?? "New Database/eod_data/BSE/QUESTCAP.eod"`
+- `?? "New Database/eod_data/BSE/QUEST_SOFTEC.eod"`
+- `?? "New Database/eod_data/BSE/QUICKHEAL.eod"`
+- `?? "New Database/eod_data/BSE/QUINT.eod"`
+- `?? "New Database/eod_data/BSE/QUINTEGRA_SO.eod"`
+- `?? "New Database/eod_data/BSE/R.J.SHAH.eod"`
+- `?? "New Database/eod_data/BSE/R.R.SECUR..eod"`
+- `?? "New Database/eod_data/BSE/R.S.SOFTWARE.eod"`
+- `?? "New Database/eod_data/BSE/RAAJMEDISAFE.eod"`
+- `?? "New Database/eod_data/BSE/RAASI_REFRAC.eod"`
+- `?? "New Database/eod_data/BSE/RACE.eod"`
+- `?? "New Database/eod_data/BSE/RACLGEAR.eod"`
+- `?? "New Database/eod_data/BSE/RADAAN_MEDIA.eod"`
+- `?? "New Database/eod_data/BSE/RADHA_MADHAV.eod"`
+- `?? "New Database/eod_data/BSE/RADHE_DEVLOP.eod"`
+- `?? "New Database/eod_data/BSE/RADHIKAJWE.eod"`
+- `?? "New Database/eod_data/BSE/RADIANTCMS.eod"`
+- `?? "New Database/eod_data/BSE/RADICOKHAIT.eod"`
+- `?? "New Database/eod_data/BSE/RADIOCITY.eod"`
+- `?? "New Database/eod_data/BSE/RADIX_IND.eod"`
+- `?? "New Database/eod_data/BSE/RAFL.eod"`
+- `?? "New Database/eod_data/BSE/RAGHUNATH_IN.eod"`
+- `?? "New Database/eod_data/BSE/RAGHUNATH_TO.eod"`
+- `?? "New Database/eod_data/BSE/RAGHUVIR_SYN.eod"`
+- `?? "New Database/eod_data/BSE/RAHUL_MERCH..eod"`
+- `?? "New Database/eod_data/BSE/RAILTEL.eod"`
+- `?? "New Database/eod_data/BSE/RAIN.eod"`
+- `?? "New Database/eod_data/BSE/RAINBOW.eod"`
+- `?? "New Database/eod_data/BSE/RAINBOW_FOUN.eod"`
+- `?? "New Database/eod_data/BSE/RAJ.GASES_LT.eod"`
+- `?? "New Database/eod_data/BSE/RAJ.PETRO.eod"`
+- `?? "New Database/eod_data/BSE/RAJ.TUBE_MFG.eod"`
+- `?? "New Database/eod_data/BSE/RAJAPAMILLS.eod"`
+- `?? "New Database/eod_data/BSE/RAJATH_FINAN.eod"`
+- `?? "New Database/eod_data/BSE/RAJA_BAHADUR.eod"`
+- `?? "New Database/eod_data/BSE/RAJDARSHAN.eod"`
+- `?? "New Database/eod_data/BSE/RAJESH_EXPO..eod"`
+- `?? "New Database/eod_data/BSE/RAJINFRA.eod"`
+- `?? "New Database/eod_data/BSE/RAJKAMAL_SYN.eod"`
+- `?? "New Database/eod_data/BSE/RAJKOTINV.eod"`
+- `?? "New Database/eod_data/BSE/RAJNISH.eod"`
+- `?? "New Database/eod_data/BSE/RAJOO_ENGIN..eod"`
+- `?? "New Database/eod_data/BSE/RAJPUTANA.eod"`
+- `?? "New Database/eod_data/BSE/RAJRAYON.eod"`
+- `?? "New Database/eod_data/BSE/RAJSH.SUGAR.eod"`
+- `?? "New Database/eod_data/BSE/RAJ_GLO_WIR.eod"`
+- `?? "New Database/eod_data/BSE/RAJ_OIL.eod"`
+- `?? "New Database/eod_data/BSE/RAJ_PACKAGIN.eod"`
+- `?? "New Database/eod_data/BSE/RAJ_TELE.eod"`
+- `?? "New Database/eod_data/BSE/RALLIS_INDIA.eod"`
+- `?? "New Database/eod_data/BSE/RAMANEWS.eod"`
+- `?? "New Database/eod_data/BSE/RAMASIGNS.eod"`
+- `?? "New Database/eod_data/BSE/RAMASTEEL.eod"`
+- `?? "New Database/eod_data/BSE/RAMA_PAPER.eod"`
+- `?? "New Database/eod_data/BSE/RAMA_PETRO.eod"`
+- `?? "New Database/eod_data/BSE/RAMA_PHOSPH.eod"`
+- `?? "New Database/eod_data/BSE/RAMA_VISION.eod"`
+- `?? "New Database/eod_data/BSE/RAMCOCEM.eod"`
+- `?? "New Database/eod_data/BSE/RAMCO_INDS..eod"`
+- `?? "New Database/eod_data/BSE/RAMCO_SYSTM.eod"`
+- `?? "New Database/eod_data/BSE/RAMGOPAL_POL.eod"`
+- `?? "New Database/eod_data/BSE/RAMINFO.eod"`
+- `?? "New Database/eod_data/BSE/RAMKY_INFRA.eod"`
+- `?? "New Database/eod_data/BSE/RAMSONS_PROJ.eod"`
+- `?? "New Database/eod_data/BSE/RAM_RAT.WIRE.eod"`
+- `?? "New Database/eod_data/BSE/RANA_SUGARS.eod"`
+- `?? "New Database/eod_data/BSE/RANDER_CORP..eod"`
+- `?? "New Database/eod_data/BSE/RANE_BRAKE.eod"`
+- `?? "New Database/eod_data/BSE/RANE_ENGVL.eod"`
+- `?? "New Database/eod_data/BSE/RANE_HOLDIN.eod"`
+- `?? "New Database/eod_data/BSE/RANE_MADRAS.eod"`
+- `?? "New Database/eod_data/BSE/RANJEET.eod"`
+- `?? "New Database/eod_data/BSE/RAPICUT_CARB.eod"`
+- `?? "New Database/eod_data/BSE/RAP_MEDIA.eod"`
+- `?? "New Database/eod_data/BSE/RASANDIK_ENG.eod"`
+- `?? "New Database/eod_data/BSE/RASHTR.CHEM..eod"`
+- `?? "New Database/eod_data/BSE/RASI_ELECTRO.eod"`
+- `?? "New Database/eod_data/BSE/RAS_RESORTS.eod"`
+- `?? "New Database/eod_data/BSE/RATEGAIN.eod"`
+- `?? "New Database/eod_data/BSE/RATHI_BARS.eod"`
+- `?? "New Database/eod_data/BSE/RATHI_ST.eod"`
+- `?? "New Database/eod_data/BSE/RATNABHUMI.eod"`
+- `?? "New Database/eod_data/BSE/RATNAMNI_MET.eod"`
+- `?? "New Database/eod_data/BSE/RATNAVEER.eod"`
+- `?? "New Database/eod_data/BSE/RAUNAQEPC.eod"`
+- `?? "New Database/eod_data/BSE/RAVALGAON.eod"`
+- `?? "New Database/eod_data/BSE/RAVILEELA_GR.eod"`
+- `?? "New Database/eod_data/BSE/RAVI_KUMAR.eod"`
+- `?? "New Database/eod_data/BSE/RAWEDGE.eod"`
+- `?? "New Database/eod_data/BSE/RAYMED_LABS..eod"`
+- `?? "New Database/eod_data/BSE/RAYMOND.eod"`
+- `?? "New Database/eod_data/BSE/RBA.eod"`
+- `?? "New Database/eod_data/BSE/RBLBANK.eod"`
+- `?? "New Database/eod_data/BSE/RCAN.eod"`
+- `?? "New Database/eod_data/BSE/RCCL.eod"`
+- `?? "New Database/eod_data/BSE/RCC_CEMENTS.eod"`
+- `?? "New Database/eod_data/BSE/RCI_IND.eod"`
+- `?? "New Database/eod_data/BSE/RCL.eod"`
+- `?? "New Database/eod_data/BSE/RDB_RASAYAN.eod"`
+- `?? "New Database/eod_data/BSE/RDB_REALTY.eod"`
+- `?? "New Database/eod_data/BSE/REALECO.eod"`
+- `?? "New Database/eod_data/BSE/RECLTD.eod"`
+- `?? "New Database/eod_data/BSE/REDINGTON.eod"`
+- `?? "New Database/eod_data/BSE/REDTAPE.eod"`
+- `?? "New Database/eod_data/BSE/REETECH.eod"`
+- `?? "New Database/eod_data/BSE/REFEX.eod"`
+- `?? "New Database/eod_data/BSE/REFEXRENEW.eod"`
+- `?? "New Database/eod_data/BSE/REG.CERAMIC.eod"`
+- `?? "New Database/eod_data/BSE/REGENCY.eod"`
+- `?? "New Database/eod_data/BSE/REGENCY_TRUS.eod"`
+- `?? "New Database/eod_data/BSE/REGENTRP.eod"`
+- `?? "New Database/eod_data/BSE/REGIS.eod"`
+- `?? "New Database/eod_data/BSE/REL.CAP..eod"`
+- `?? "New Database/eod_data/BSE/REL.CHEMOTX.eod"`
+- `?? "New Database/eod_data/BSE/RELAXO_FOOT..eod"`
+- `?? "New Database/eod_data/BSE/RELHOME.eod"`
+- `?? "New Database/eod_data/BSE/RELIAB_VEN.eod"`
+- `?? "New Database/eod_data/BSE/RELIANCE.eod"`
+- `?? "New Database/eod_data/BSE/RELICAB.eod"`
+- `?? "New Database/eod_data/BSE/RELIC_TECHNO.eod"`
+- `?? "New Database/eod_data/BSE/RELIGARE_ENT.eod"`
+- `?? "New Database/eod_data/BSE/RELTD.eod"`
+- `?? "New Database/eod_data/BSE/REL_COM_LTD.eod"`
+- `?? "New Database/eod_data/BSE/REL_INDL_INF.eod"`
+- `?? "New Database/eod_data/BSE/REL_INFRA.eod"`
+- `?? "New Database/eod_data/BSE/REMI_EDEL.eod"`
+- `?? "New Database/eod_data/BSE/REMLIFE.eod"`
+- `?? "New Database/eod_data/BSE/REMSONS_IND..eod"`
+- `?? "New Database/eod_data/BSE/RENUKA_SUGAR.eod"`
+- `?? "New Database/eod_data/BSE/REPCO_HOME.eod"`
+- `?? "New Database/eod_data/BSE/REPRO_INDIA.eod"`
+- `?? "New Database/eod_data/BSE/RESGEN.eod"`
+- `?? "New Database/eod_data/BSE/RESONANCE.eod"`
+- `?? "New Database/eod_data/BSE/RESPONS_INF.eod"`
+- `?? "New Database/eod_data/BSE/RESPON_IND.eod"`
+- `?? "New Database/eod_data/BSE/RESTILE_CER..eod"`
+- `?? "New Database/eod_data/BSE/RETINA.eod"`
+- `?? "New Database/eod_data/BSE/REXNORD_ELE..eod"`
+- `?? "New Database/eod_data/BSE/REXSEAL.eod"`
+- `?? "New Database/eod_data/BSE/RFLL.eod"`
+- `?? "New Database/eod_data/BSE/RFSL.eod"`
+- `?? "New Database/eod_data/BSE/RGF.eod"`
+- `?? "New Database/eod_data/BSE/RGL.eod"`
+- `?? "New Database/eod_data/BSE/RGRL.eod"`
+- `?? "New Database/eod_data/BSE/RHETAN.eod"`
+- `?? "New Database/eod_data/BSE/RHIM.eod"`
+- `?? "New Database/eod_data/BSE/RHL.eod"`
+- `?? "New Database/eod_data/BSE/RIBA_TEXTILS.eod"`
+- `?? "New Database/eod_data/BSE/RICHA_IND.eod"`
+- `?? "New Database/eod_data/BSE/RICHIRICH.eod"`
+- `?? "New Database/eod_data/BSE/RICH_UNV.eod"`
+- `?? "New Database/eod_data/BSE/RICO_AUTO.eod"`
+- `?? "New Database/eod_data/BSE/RIDDHICORP.eod"`
+- `?? "New Database/eod_data/BSE/RIDHI_SIDHI.eod"`
+- `?? "New Database/eod_data/BSE/RIR.eod"`
+- `?? "New Database/eod_data/BSE/RISA_INTL.eod"`
+- `?? "New Database/eod_data/BSE/RISHABH.eod"`
+- `?? "New Database/eod_data/BSE/RISHABH_DIGH.eod"`
+- `?? "New Database/eod_data/BSE/RISHABH_YARN.eod"`
+- `?? "New Database/eod_data/BSE/RISHIROOP.eod"`
+- `?? "New Database/eod_data/BSE/RISHITECH.eod"`
+- `?? "New Database/eod_data/BSE/RISHI_LASER.eod"`
+- `?? "New Database/eod_data/BSE/RITCO.eod"`
+- `?? "New Database/eod_data/BSE/RITES.eod"`
+- `?? "New Database/eod_data/BSE/RITESH_INTER.eod"`
+- `?? "New Database/eod_data/BSE/RITHWIKFMS.eod"`
+- `?? "New Database/eod_data/BSE/RIT_PRO_IND.eod"`
+- `?? "New Database/eod_data/BSE/RJ_BIOTECH.eod"`
+- `?? "New Database/eod_data/BSE/RK_FORGINGS.eod"`
+- `?? "New Database/eod_data/BSE/RLFL.eod"`
+- `?? "New Database/eod_data/BSE/RLF_LIMITED..eod"`
+- `?? "New Database/eod_data/BSE/RMC.eod"`
+- `?? "New Database/eod_data/BSE/RNB_DENIMS.eod"`
+- `?? "New Database/eod_data/BSE/ROBU.eod"`
+- `?? "New Database/eod_data/BSE/RODIUM.eod"`
+- `?? "New Database/eod_data/BSE/ROJL.eod"`
+- `?? "New Database/eod_data/BSE/ROLCON_ENGG..eod"`
+- `?? "New Database/eod_data/BSE/ROLEXRINGS.eod"`
+- `?? "New Database/eod_data/BSE/ROLLATAINER.eod"`
+- `?? "New Database/eod_data/BSE/RONI.eod"`
+- `?? "New Database/eod_data/BSE/ROOPA_INDUS.eod"`
+- `?? "New Database/eod_data/BSE/ROSELABS_FIN.eod"`
+- `?? "New Database/eod_data/BSE/ROSE_MERC_LT.eod"`
+- `?? "New Database/eod_data/BSE/ROSSARI.eod"`
+- `?? "New Database/eod_data/BSE/ROSSELL_IND.eod"`
+- `?? "New Database/eod_data/BSE/ROTO_PUMPS.eod"`
+- `?? "New Database/eod_data/BSE/ROUTE.eod"`
+- `?? "New Database/eod_data/BSE/ROYALE_MANOR.eod"`
+- `?? "New Database/eod_data/BSE/ROYALORCH.eod"`
+- `?? "New Database/eod_data/BSE/ROYAL_CUSHIO.eod"`
+- `?? "New Database/eod_data/BSE/ROYAL_IND.eod"`
+- `?? "New Database/eod_data/BSE/RPEL.eod"`
+- `?? "New Database/eod_data/BSE/RPG_LIFESCI.eod"`
+- `?? "New Database/eod_data/BSE/RPOWER.eod"`
+- `?? "New Database/eod_data/BSE/RPP_INFRA.eod"`
+- `?? "New Database/eod_data/BSE/RPSGVENT.eod"`
+- `?? "New Database/eod_data/BSE/RRIL.eod"`
+- `?? "New Database/eod_data/BSE/RRKABEL.eod"`
+- `?? "New Database/eod_data/BSE/RRMETAL.eod"`
+- `?? "New Database/eod_data/BSE/RSC_INT.eod"`
+- `?? "New Database/eod_data/BSE/RSDFIN.eod"`
+- `?? "New Database/eod_data/BSE/RSTL.eod"`
+- `?? "New Database/eod_data/BSE/RSWM_LTD.eod"`
+- `?? "New Database/eod_data/BSE/RSYSTEMINT.eod"`
+- `?? "New Database/eod_data/BSE/RTFL.eod"`
+- `?? "New Database/eod_data/BSE/RTNINDIA.eod"`
+- `?? "New Database/eod_data/BSE/RTNPOWER.eod"`
+- `?? "New Database/eod_data/BSE/RTS_POWER_CO.eod"`
+- `?? "New Database/eod_data/BSE/RUBFILA_INT..eod"`
+- `?? "New Database/eod_data/BSE/RUBY_MILLS.eod"`
+- `?? "New Database/eod_data/BSE/RUCHIRA_PAP.eod"`
+- `?? "New Database/eod_data/BSE/RUCHI_INFRA..eod"`
+- `?? "New Database/eod_data/BSE/RUDRA.eod"`
+- `?? "New Database/eod_data/BSE/RUNGTA_IRRIG.eod"`
+- `?? "New Database/eod_data/BSE/RUPA_&_CO.eod"`
+- `?? "New Database/eod_data/BSE/RUSHIL_DECOR.eod"`
+- `?? "New Database/eod_data/BSE/RUSTOMJEE.eod"`
+- `?? "New Database/eod_data/BSE/RVHL.eod"`
+- `?? "New Database/eod_data/BSE/RVNL.eod"`
+- `?? "New Database/eod_data/BSE/R_R_FINANCE..eod"`
+- `?? "New Database/eod_data/BSE/S&S_POWER_SW.eod"`
+- `?? "New Database/eod_data/BSE/S.A.ENTERPR..eod"`
+- `?? "New Database/eod_data/BSE/S.I.CAPITAL.eod"`
+- `?? "New Database/eod_data/BSE/S.I.PAPER.eod"`
+- `?? "New Database/eod_data/BSE/S.R.INDUS..eod"`
+- `?? "New Database/eod_data/BSE/SAB.eod"`
+- `?? "New Database/eod_data/BSE/SABOO_BROS..eod"`
+- `?? "New Database/eod_data/BSE/SABOO_SODIUM.eod"`
+- `?? "New Database/eod_data/BSE/SACHETA_MET..eod"`
+- `?? "New Database/eod_data/BSE/SADBHAV_ENGG.eod"`
+- `?? "New Database/eod_data/BSE/SADBHIN.eod"`
+- `?? "New Database/eod_data/BSE/SADHANA_NITR.eod"`
+- `?? "New Database/eod_data/BSE/SADHNA.eod"`
+- `?? "New Database/eod_data/BSE/SAFARI_IND..eod"`
+- `?? "New Database/eod_data/BSE/SAFFRON_IND.eod"`
+- `?? "New Database/eod_data/BSE/SAGAR.eod"`
+- `?? "New Database/eod_data/BSE/SAGARPROD.eod"`
+- `?? "New Database/eod_data/BSE/SAGARSOFT.eod"`
+- `?? "New Database/eod_data/BSE/SAGAR_CEM..eod"`
+- `?? "New Database/eod_data/BSE/SAGL.eod"`
+- `?? "New Database/eod_data/BSE/SAH.eod"`
+- `?? "New Database/eod_data/BSE/SAHARA_HOUSG.eod"`
+- `?? "New Database/eod_data/BSE/SAHYA_INDU.eod"`
+- `?? "New Database/eod_data/BSE/SAICOM.eod"`
+- `?? "New Database/eod_data/BSE/SAILANI.eod"`
+- `?? "New Database/eod_data/BSE/SAINIK_FIN..eod"`
+- `?? "New Database/eod_data/BSE/SAINT-GOBAIN.eod"`
+- `?? "New Database/eod_data/BSE/SAI_CAPITAL.eod"`
+- `?? "New Database/eod_data/BSE/SAKSOFT_LTD.eod"`
+- `?? "New Database/eod_data/BSE/SAKTHI_FIN..eod"`
+- `?? "New Database/eod_data/BSE/SAKTHI_SUGAR.eod"`
+- `?? "New Database/eod_data/BSE/SAKUMA_EXPO.eod"`
+- `?? "New Database/eod_data/BSE/SALASAR.eod"`
+- `?? "New Database/eod_data/BSE/SALAUTO.eod"`
+- `?? "New Database/eod_data/BSE/SALEM.eod"`
+- `?? "New Database/eod_data/BSE/SALGUTI_IND.eod"`
+- `?? "New Database/eod_data/BSE/SALONA_COTSP.eod"`
+- `?? "New Database/eod_data/BSE/SALORA_INT..eod"`
+- `?? "New Database/eod_data/BSE/SALSTEEL.eod"`
+- `?? "New Database/eod_data/BSE/SALZER_ELEC.eod"`
+- `?? "New Database/eod_data/BSE/SAMBANDAM_SP.eod"`
+- `?? "New Database/eod_data/BSE/SAMBHAAV_MED.eod"`
+- `?? "New Database/eod_data/BSE/SAMHI.eod"`
+- `?? "New Database/eod_data/BSE/SAMKRG_PIST..eod"`
+- `?? "New Database/eod_data/BSE/SAMOR.eod"`
+- `?? "New Database/eod_data/BSE/SAMPANN.eod"`
+- `?? "New Database/eod_data/BSE/SAMPRE_NUTRI.eod"`
+- `?? "New Database/eod_data/BSE/SAMRATFORG.eod"`
+- `?? "New Database/eod_data/BSE/SAMRAT_PHARM.eod"`
+- `?? "New Database/eod_data/BSE/SAMSRITA.eod"`
+- `?? "New Database/eod_data/BSE/SAMTEX_FASH..eod"`
+- `?? "New Database/eod_data/BSE/SAMYAK_INT.eod"`
+- `?? "New Database/eod_data/BSE/SAM_INDUS..eod"`
+- `?? "New Database/eod_data/BSE/SANBLUE.eod"`
+- `?? "New Database/eod_data/BSE/SANCHAY_FIN..eod"`
+- `?? "New Database/eod_data/BSE/SANCODE.eod"`
+- `?? "New Database/eod_data/BSE/SANCO_TRANS.eod"`
+- `?? "New Database/eod_data/BSE/SANDESH_LTD..eod"`
+- `?? "New Database/eod_data/BSE/SANDHAR.eod"`
+- `?? "New Database/eod_data/BSE/SANDUMA.eod"`
+- `?? "New Database/eod_data/BSE/SANDU_PHARMA.eod"`
+- `?? "New Database/eod_data/BSE/SANGAL_PAPER.eod"`
+- `?? "New Database/eod_data/BSE/SANGAMFIN.eod"`
+- `?? "New Database/eod_data/BSE/SANGAM_INDIA.eod"`
+- `?? "New Database/eod_data/BSE/SANGHI_IND..eod"`
+- `?? "New Database/eod_data/BSE/SANGHVI_MOVE.eod"`
+- `?? "New Database/eod_data/BSE/SANINFRA.eod"`
+- `?? "New Database/eod_data/BSE/SANJIVANI_PA.eod"`
+- `?? "New Database/eod_data/BSE/SANOFI.eod"`
+- `?? "New Database/eod_data/BSE/SANRHEA_TECH.eod"`
+- `?? "New Database/eod_data/BSE/SANSERA.eod"`
+- `?? "New Database/eod_data/BSE/SANTOSH_FINE.eod"`
+- `?? "New Database/eod_data/BSE/SANWARIA.eod"`
+- `?? "New Database/eod_data/BSE/SAPL.eod"`
+- `?? "New Database/eod_data/BSE/SAPPHIRE.eod"`
+- `?? "New Database/eod_data/BSE/SAPPL.eod"`
+- `?? "New Database/eod_data/BSE/SAPTARISHI_A.eod"`
+- `?? "New Database/eod_data/BSE/SARASW.COMM..eod"`
+- `?? "New Database/eod_data/BSE/SARDA_ENMIN.eod"`
+- `?? "New Database/eod_data/BSE/SARDA_PROT..eod"`
+- `?? "New Database/eod_data/BSE/SARLA_PER_F.eod"`
+- `?? "New Database/eod_data/BSE/SARTHAK_INDU.eod"`
+- `?? "New Database/eod_data/BSE/SARUPINDUS.eod"`
+- `?? "New Database/eod_data/BSE/SARVESHWAR.eod"`
+- `?? "New Database/eod_data/BSE/SARVOTTAM.eod"`
+- `?? "New Database/eod_data/BSE/SASKEN.eod"`
+- `?? "New Database/eod_data/BSE/SASTASUNDR.eod"`
+- `?? "New Database/eod_data/BSE/SATCH.eod"`
+- `?? "New Database/eod_data/BSE/SATIA.eod"`
+- `?? "New Database/eod_data/BSE/SATIN.eod"`
+- `?? "New Database/eod_data/BSE/SATPROP_LTD.eod"`
+- `?? "New Database/eod_data/BSE/SAT_IND_LTD.eod"`
+- `?? "New Database/eod_data/BSE/SAUMYA.eod"`
+- `?? "New Database/eod_data/BSE/SAURAS.CEM..eod"`
+- `?? "New Database/eod_data/BSE/SAVANI_FIN..eod"`
+- `?? "New Database/eod_data/BSE/SAVEN_TECHNO.eod"`
+- `?? "New Database/eod_data/BSE/SAVERA_IND.eod"`
+- `?? "New Database/eod_data/BSE/SAWACA_BUSI.eod"`
+- `?? "New Database/eod_data/BSE/SAYAJIIND.eod"`
+- `?? "New Database/eod_data/BSE/SAYAJI_HOTEL.eod"`
+- `?? "New Database/eod_data/BSE/SBC.eod"`
+- `?? "New Database/eod_data/BSE/SBEC_SUGAR.eod"`
+- `?? "New Database/eod_data/BSE/SBEC_SYSTEMS.eod"`
+- `?? "New Database/eod_data/BSE/SBFC.eod"`
+- `?? "New Database/eod_data/BSE/SBFL.eod"`
+- `?? "New Database/eod_data/BSE/SBGLP.eod"`
+- `?? "New Database/eod_data/BSE/SBICARD.eod"`
+- `?? "New Database/eod_data/BSE/SBILIFE.eod"`
+- `?? "New Database/eod_data/BSE/SBISENSEX.eod"`
+- `?? "New Database/eod_data/BSE/SBI_GOLD_ETS.eod"`
+- `?? "New Database/eod_data/BSE/SBLI.eod"`
+- `?? "New Database/eod_data/BSE/SBRANDS.eod"`
+- `?? "New Database/eod_data/BSE/SCAGRO.eod"`
+- `?? "New Database/eod_data/BSE/SCANP_GEOM.eod"`
+- `?? "New Database/eod_data/BSE/SCANSTL.eod"`
+- `?? "New Database/eod_data/BSE/SCBL.eod"`
+- `?? "New Database/eod_data/BSE/SCC.eod"`
+- `?? "New Database/eod_data/BSE/SCFL.eod"`
+- `?? "New Database/eod_data/BSE/SCHAEFFLER.eod"`
+- `?? "New Database/eod_data/BSE/SCHAND.eod"`
+- `?? "New Database/eod_data/BSE/SCHNEIDER.eod"`
+- `?? "New Database/eod_data/BSE/SCL.eod"`
+- `?? "New Database/eod_data/BSE/SCOOBEEDAY.eod"`
+- `?? "New Database/eod_data/BSE/SCOOTERS_IND.eod"`
+- `?? "New Database/eod_data/BSE/SCPL.eod"`
+- `?? "New Database/eod_data/BSE/SCTL.eod"`
+- `?? "New Database/eod_data/BSE/SDC.eod"`
+- `?? "New Database/eod_data/BSE/SDL.eod"`
+- `?? "New Database/eod_data/BSE/SEACOAST.eod"`
+- `?? "New Database/eod_data/BSE/SEALMATIC.eod"`
+- `?? "New Database/eod_data/BSE/SEAMEC_LTD.eod"`
+- `?? "New Database/eod_data/BSE/SEASONS_TEXT.eod"`
+- `?? "New Database/eod_data/BSE/SEATV.eod"`
+- `?? "New Database/eod_data/BSE/SECMARK.eod"`
+- `?? "New Database/eod_data/BSE/SECURCRED.eod"`
+- `?? "New Database/eod_data/BSE/SECURKLOUD.eod"`
+- `?? "New Database/eod_data/BSE/SEIL.eod"`
+- `?? "New Database/eod_data/BSE/SEJAL.eod"`
+- `?? "New Database/eod_data/BSE/SEL.eod"`
+- `?? "New Database/eod_data/BSE/SELAN_EXPLOR.eod"`
+- `?? "New Database/eod_data/BSE/SELLWIN.eod"`
+- `?? "New Database/eod_data/BSE/SEL_MANUF.eod"`
+- `?? "New Database/eod_data/BSE/SEMAC.eod"`
+- `?? "New Database/eod_data/BSE/SEML.eod"`
+- `?? "New Database/eod_data/BSE/SENCO.eod"`
+- `?? "New Database/eod_data/BSE/SENSEXBEES.eod"`
+- `?? "New Database/eod_data/BSE/SENSEXETF.eod"`
+- `?? "New Database/eod_data/BSE/SENTHILINFO.eod"`
+- `?? "New Database/eod_data/BSE/SEPC.eod"`
+- `?? "New Database/eod_data/BSE/SEQUENT.eod"`
+- `?? "New Database/eod_data/BSE/SERA.eod"`
+- `?? "New Database/eod_data/BSE/SERVOTEACH.eod"`
+- `?? "New Database/eod_data/BSE/SESHA.PAPER.eod"`
+- `?? "New Database/eod_data/BSE/SETCO_AUTO.eod"`
+- `?? "New Database/eod_data/BSE/SETFBSE100.eod"`
+- `?? "New Database/eod_data/BSE/SETFNIF50.eod"`
+- `?? "New Database/eod_data/BSE/SETFNIFBK.eod"`
+- `?? "New Database/eod_data/BSE/SETFSN50.eod"`
+- `?? "New Database/eod_data/BSE/SETUINFRA.eod"`
+- `?? "New Database/eod_data/BSE/SEVENHILL.eod"`
+- `?? "New Database/eod_data/BSE/SEYAIND.eod"`
+- `?? "New Database/eod_data/BSE/SFL.eod"`
+- `?? "New Database/eod_data/BSE/SFL180522.eod"`
+- `?? "New Database/eod_data/BSE/SFPIL.eod"`
+- `?? "New Database/eod_data/BSE/SFSL.eod"`
+- `?? "New Database/eod_data/BSE/SGB20151.eod"`
+- `?? "New Database/eod_data/BSE/SGB2016I.eod"`
+- `?? "New Database/eod_data/BSE/SGB2016II.eod"`
+- `?? "New Database/eod_data/BSE/SGB2016IIA.eod"`
+- `?? "New Database/eod_data/BSE/SGB2016IIIA.eod"`
+- `?? "New Database/eod_data/BSE/SGB2016IV.eod"`
+- `?? "New Database/eod_data/BSE/SGBAPR28.eod"`
+- `?? "New Database/eod_data/BSE/SGBAUG24.eod"`
+- `?? "New Database/eod_data/BSE/SGBAUG27.eod"`
+- `?? "New Database/eod_data/BSE/SGBAUG28.eod"`
+- `?? "New Database/eod_data/BSE/SGBAUG29.eod"`
+- `?? "New Database/eod_data/BSE/SGBAUG30.eod"`
+- `?? "New Database/eod_data/BSE/SGBDEC25.eod"`
+- `?? "New Database/eod_data/BSE/SGBDEC25A.eod"`
+- `?? "New Database/eod_data/BSE/SGBDEC25C.eod"`
+- `?? "New Database/eod_data/BSE/SGBDEC27.eod"`
+- `?? "New Database/eod_data/BSE/SGBDEC29.eod"`
+- `?? "New Database/eod_data/BSE/SGBDEC30.eod"`
+- `?? "New Database/eod_data/BSE/SGBFEB27.eod"`
+- `?? "New Database/eod_data/BSE/SGBFEB28.eod"`
+- `?? "New Database/eod_data/BSE/SGBFEB29.eod"`
+- `?? "New Database/eod_data/BSE/SGBJAN26.eod"`
+- `?? "New Database/eod_data/BSE/SGBJAN27.eod"`
+- `?? "New Database/eod_data/BSE/SGBJAN28.eod"`
+- `?? "New Database/eod_data/BSE/SGBJAN29.eod"`
+- `?? "New Database/eod_data/BSE/SGBJAN29A.eod"`
+- `?? "New Database/eod_data/BSE/SGBJAN30.eod"`
+- `?? "New Database/eod_data/BSE/SGBJULY25.eod"`
+- `?? "New Database/eod_data/BSE/SGBJULY27.eod"`
+- `?? "New Database/eod_data/BSE/SGBJULY28.eod"`
+- `?? "New Database/eod_data/BSE/SGBJULY29.eod"`
+- `?? "New Database/eod_data/BSE/SGBJUN28.eod"`
+- `?? "New Database/eod_data/BSE/SGBJUN29A.eod"`
+- `?? "New Database/eod_data/BSE/SGBJUNE27.eod"`
+- `?? "New Database/eod_data/BSE/SGBJUNE29.eod"`
+- `?? "New Database/eod_data/BSE/SGBJUNE30.eod"`
+- `?? "New Database/eod_data/BSE/SGBJUNE31.eod"`
+- `?? "New Database/eod_data/BSE/SGBMAR28.eod"`
+- `?? "New Database/eod_data/BSE/SGBMAR29.eod"`
+- `?? "New Database/eod_data/BSE/SGBMAR31.eod"`
+- `?? "New Database/eod_data/BSE/SGBMARCH30.eod"`
+- `?? "New Database/eod_data/BSE/SGBMAY25.eod"`
+- `?? "New Database/eod_data/BSE/SGBMAY26.eod"`
+- `?? "New Database/eod_data/BSE/SGBMAY28.eod"`
+- `?? "New Database/eod_data/BSE/SGBMAY29.eod"`
+- `?? "New Database/eod_data/BSE/SGBNOV25.eod"`
+- `?? "New Database/eod_data/BSE/SGBNOV25A.eod"`
+- `?? "New Database/eod_data/BSE/SGBNOV25B.eod"`
+- `?? "New Database/eod_data/BSE/SGBNOV25C.eod"`
+- `?? "New Database/eod_data/BSE/SGBNOV26.eod"`
+- `?? "New Database/eod_data/BSE/SGBNOV28.eod"`
+- `?? "New Database/eod_data/BSE/SGBNOV29.eod"`
+- `?? "New Database/eod_data/BSE/SGBOCT25.eod"`
+- `?? "New Database/eod_data/BSE/SGBOCT25A.eod"`
+- `?? "New Database/eod_data/BSE/SGBOCT25B.eod"`
+- `?? "New Database/eod_data/BSE/SGBOCT26.eod"`
+- `?? "New Database/eod_data/BSE/SGBOCT27.eod"`
+- `?? "New Database/eod_data/BSE/SGBOCT27A.eod"`
+- `?? "New Database/eod_data/BSE/SGBOCT28.eod"`
+- `?? "New Database/eod_data/BSE/SGBSEP27.eod"`
+- `?? "New Database/eod_data/BSE/SGBSEP28.eod"`
+- `?? "New Database/eod_data/BSE/SGBSEP29.eod"`
+- `?? "New Database/eod_data/BSE/SGBSEP31.eod"`
+- `?? "New Database/eod_data/BSE/SGFIN.eod"`
+- `?? "New Database/eod_data/BSE/SGFRL.eod"`
+- `?? "New Database/eod_data/BSE/SGIL.eod"`
+- `?? "New Database/eod_data/BSE/SGMART.eod"`
+- `?? "New Database/eod_data/BSE/SGN_TELECOMS.eod"`
+- `?? "New Database/eod_data/BSE/SGRL.eod"`
+- `?? "New Database/eod_data/BSE/SGRLPP.eod"`
+- `?? "New Database/eod_data/BSE/SH.HARI_CHEM.eod"`
+- `?? "New Database/eod_data/BSE/SH.KARTHIK_P.eod"`
+- `?? "New Database/eod_data/BSE/SH.PACETRON..eod"`
+- `?? "New Database/eod_data/BSE/SH.STEEL_WIR.eod"`
+- `?? "New Database/eod_data/BSE/SHAH.eod"`
+- `?? "New Database/eod_data/BSE/SHAHISHIP.eod"`
+- `?? "New Database/eod_data/BSE/SHAHLON.eod"`
+- `?? "New Database/eod_data/BSE/SHAH_ALLOYS.eod"`
+- `?? "New Database/eod_data/BSE/SHAKTI_PUMPS.eod"`
+- `?? "New Database/eod_data/BSE/SHALBY.eod"`
+- `?? "New Database/eod_data/BSE/SHALIB.FINAN.eod"`
+- `?? "New Database/eod_data/BSE/SHALIMAR_PAI.eod"`
+- `?? "New Database/eod_data/BSE/SHALIMAR_PRO.eod"`
+- `?? "New Database/eod_data/BSE/SHALIMAR_WIR.eod"`
+- `?? "New Database/eod_data/BSE/SHAMROCK_IND.eod"`
+- `?? "New Database/eod_data/BSE/SHANGAR.eod"`
+- `?? "New Database/eod_data/BSE/SHANKARA.eod"`
+- `?? "New Database/eod_data/BSE/SHANTAI.eod"`
+- `?? "New Database/eod_data/BSE/SHANTANU_SHE.eod"`
+- `?? "New Database/eod_data/BSE/SHANTHI_GEAR.eod"`
+- `?? "New Database/eod_data/BSE/SHANTIGURU.eod"`
+- `?? "New Database/eod_data/BSE/SHARAT_INDUS.eod"`
+- `?? "New Database/eod_data/BSE/SHARDACROP.eod"`
+- `?? "New Database/eod_data/BSE/SHARDA_ISPAT.eod"`
+- `?? "New Database/eod_data/BSE/SHARDA_MOTOR.eod"`
+- `?? "New Database/eod_data/BSE/SHARDUL_SECU.eod"`
+- `?? "New Database/eod_data/BSE/SHAREINWARR.eod"`
+- `?? "New Database/eod_data/BSE/SHARIABEES.eod"`
+- `?? "New Database/eod_data/BSE/SHARIKA.eod"`
+- `?? "New Database/eod_data/BSE/SHARPLINE.eod"`
+- `?? "New Database/eod_data/BSE/SHARP_INDIA.eod"`
+- `?? "New Database/eod_data/BSE/SHARP_INV.eod"`
+- `?? "New Database/eod_data/BSE/SHASHIJIT.eod"`
+- `?? "New Database/eod_data/BSE/SHA_ENG_PLA.eod"`
+- `?? "New Database/eod_data/BSE/SHBAJRG.eod"`
+- `?? "New Database/eod_data/BSE/SHEETAL_DIAM.eod"`
+- `?? "New Database/eod_data/BSE/SHEKHAWATI.eod"`
+- `?? "New Database/eod_data/BSE/SHELTER.eod"`
+- `?? "New Database/eod_data/BSE/SHEMAROO.eod"`
+- `?? "New Database/eod_data/BSE/SHERVANI_IND.eod"`
+- `?? "New Database/eod_data/BSE/SHESHAINDS.eod"`
+- `?? "New Database/eod_data/BSE/SHETRON_LTD.eod"`
+- `?? "New Database/eod_data/BSE/SHILCHAR_TEC.eod"`
+- `?? "New Database/eod_data/BSE/SHILPA_MEDIC.eod"`
+- `?? "New Database/eod_data/BSE/SHILP_GRAVUR.eod"`
+- `?? "New Database/eod_data/BSE/SHINEFASH.eod"`
+- `?? "New Database/eod_data/BSE/SHIPP.CORPN.eod"`
+- `?? "New Database/eod_data/BSE/SHISHIND.eod"`
+- `?? "New Database/eod_data/BSE/SHIV.BIMETAL.eod"`
+- `?? "New Database/eod_data/BSE/SHIV.SUIT.eod"`
+- `?? "New Database/eod_data/BSE/SHIVA.eod"`
+- `?? "New Database/eod_data/BSE/SHIVAEXPO.eod"`
+- `?? "New Database/eod_data/BSE/SHIVAGRICO.eod"`
+- `?? "New Database/eod_data/BSE/SHIVALIK.eod"`
+- `?? "New Database/eod_data/BSE/SHIVAMILLS.eod"`
+- `?? "New Database/eod_data/BSE/SHIVAM_AUTO.eod"`
+- `?? "New Database/eod_data/BSE/SHIVA_CEMENT.eod"`
+- `?? "New Database/eod_data/BSE/SHIVA_FERT..eod"`
+- `?? "New Database/eod_data/BSE/SHIVA_TEXYAM.eod"`
+- `?? "New Database/eod_data/BSE/SHK.eod"`
+- `?? "New Database/eod_data/BSE/SHOORA.eod"`
+- `?? "New Database/eod_data/BSE/SHOPPER_STOP.eod"`
+- `?? "New Database/eod_data/BSE/SHRAAITECH.eod"`
+- `?? "New Database/eod_data/BSE/SHRADDHA.eod"`
+- `?? "New Database/eod_data/BSE/SHREEGANES.eod"`
+- `?? "New Database/eod_data/BSE/SHREEPUSHK.eod"`
+- `?? "New Database/eod_data/BSE/SHREESEC.eod"`
+- `?? "New Database/eod_data/BSE/SHREESHAY.eod"`
+- `?? "New Database/eod_data/BSE/SHREEVAT.FIN.eod"`
+- `?? "New Database/eod_data/BSE/SHREE_CEMENT.eod"`
+- `?? "New Database/eod_data/BSE/SHREE_GANES..eod"`
+- `?? "New Database/eod_data/BSE/SHREE_KRISHN.eod"`
+- `?? "New Database/eod_data/BSE/SHREE_MFG_CO.eod"`
+- `?? "New Database/eod_data/BSE/SHREE_RAJSYN.eod"`
+- `?? "New Database/eod_data/BSE/SHREE_RAMA.eod"`
+- `?? "New Database/eod_data/BSE/SHREMETAL.eod"`
+- `?? "New Database/eod_data/BSE/SHREYANS_IND.eod"`
+- `?? "New Database/eod_data/BSE/SHREYAS_INTE.eod"`
+- `?? "New Database/eod_data/BSE/SHREY_SH_LOG.eod"`
+- `?? "New Database/eod_data/BSE/SHRICON_IND..eod"`
+- `?? "New Database/eod_data/BSE/SHRIGANG_IND.eod"`
+- `?? "New Database/eod_data/BSE/SHRIRAMPPS.eod"`
+- `?? "New Database/eod_data/BSE/SHRIRAM_ASSE.eod"`
+- `?? "New Database/eod_data/BSE/SHRIRAM_TRAN.eod"`
+- `?? "New Database/eod_data/BSE/SHRISTINFRA.eod"`
+- `?? "New Database/eod_data/BSE/SHRI_DINESH.eod"`
+- `?? "New Database/eod_data/BSE/SHRI_JAGDAMB.eod"`
+- `?? "New Database/eod_data/BSE/SHRI_KRISH.eod"`
+- `?? "New Database/eod_data/BSE/SHRYDUS.eod"`
+- `?? "New Database/eod_data/BSE/SHUBHAM.eod"`
+- `?? "New Database/eod_data/BSE/SHUKRAPHAR.eod"`
+- `?? "New Database/eod_data/BSE/SHUKRA_JEW.eod"`
+- `?? "New Database/eod_data/BSE/SHUKR_BULL.eod"`
+- `?? "New Database/eod_data/BSE/SHYAMAINFO.eod"`
+- `?? "New Database/eod_data/BSE/SHYAMKAM_INV.eod"`
+- `?? "New Database/eod_data/BSE/SHYAMMETL.eod"`
+- `?? "New Database/eod_data/BSE/SHYAM_TELEC..eod"`
+- `?? "New Database/eod_data/BSE/SH_PRECOTED.eod"`
+- `?? "New Database/eod_data/BSE/SIBAR_AUTO.eod"`
+- `?? "New Database/eod_data/BSE/SICAGEN_IND.eod"`
+- `?? "New Database/eod_data/BSE/SICALLOG.eod"`
+- `?? "New Database/eod_data/BSE/SICL.eod"`
+- `?? "New Database/eod_data/BSE/SIDDHA_VEN.eod"`
+- `?? "New Database/eod_data/BSE/SIDDHESW.GAR.eod"`
+- `?? "New Database/eod_data/BSE/SIEL.eod"`
+- `?? "New Database/eod_data/BSE/SIEL_FINANCL.eod"`
+- `?? "New Database/eod_data/BSE/SIEMENS_LTD..eod"`
+- `?? "New Database/eod_data/BSE/SIGACHI.eod"`
+- `?? "New Database/eod_data/BSE/SIGMA.eod"`
+- `?? "New Database/eod_data/BSE/SIGNATURE.eod"`
+- `?? "New Database/eod_data/BSE/SIGNET_IND.eod"`
+- `?? "New Database/eod_data/BSE/SIIL.eod"`
+- `?? "New Database/eod_data/BSE/SIKA_INTER..eod"`
+- `?? "New Database/eod_data/BSE/SIKOZY_REAL.eod"`
+- `?? "New Database/eod_data/BSE/SILICON_VAL..eod"`
+- `?? "New Database/eod_data/BSE/SILVER.eod"`
+- `?? "New Database/eod_data/BSE/SILVERETF.eod"`
+- `?? "New Database/eod_data/BSE/SILVEROAK.eod"`
+- `?? "New Database/eod_data/BSE/SILVERPRL.eod"`
+- `?? "New Database/eod_data/BSE/SILVERTUC.eod"`
+- `?? "New Database/eod_data/BSE/SILVER_OAK.eod"`
+- `?? "New Database/eod_data/BSE/SILVRETF.eod"`
+- `?? "New Database/eod_data/BSE/SIL_INVEST.eod"`
+- `?? "New Database/eod_data/BSE/SIMBHALS.eod"`
+- `?? "New Database/eod_data/BSE/SIMMONDS-MAR.eod"`
+- `?? "New Database/eod_data/BSE/SIMPLEX_CAST.eod"`
+- `?? "New Database/eod_data/BSE/SIMPLEX_MIL.eod"`
+- `?? "New Database/eod_data/BSE/SIMPLEX_PAP.eod"`
+- `?? "New Database/eod_data/BSE/SIMPLEX_REAL.eod"`
+- `?? "New Database/eod_data/BSE/SIMPLX_INFRA.eod"`
+- `?? "New Database/eod_data/BSE/SIMRAN_FARMS.eod"`
+- `?? "New Database/eod_data/BSE/SINCLAIR_HOT.eod"`
+- `?? "New Database/eod_data/BSE/SINDHU_TRADE.eod"`
+- `?? "New Database/eod_data/BSE/SINGER_INDIA.eod"`
+- `?? "New Database/eod_data/BSE/SINNAR_BIDI.eod"`
+- `?? "New Database/eod_data/BSE/SINTEXPLAST.eod"`
+- `?? "New Database/eod_data/BSE/SIPTL.eod"`
+- `?? "New Database/eod_data/BSE/SIRCA.eod"`
+- `?? "New Database/eod_data/BSE/SIR_SHADI_LA.eod"`
+- `?? "New Database/eod_data/BSE/SIS.eod"`
+- `?? "New Database/eod_data/BSE/SISL.eod"`
+- `?? "New Database/eod_data/BSE/SITA_ENTER..eod"`
+- `?? "New Database/eod_data/BSE/SITINET.eod"`
+- `?? "New Database/eod_data/BSE/SIYARAM_SILK.eod"`
+- `?? "New Database/eod_data/BSE/SJS.eod"`
+- `?? "New Database/eod_data/BSE/SJVN.eod"`
+- `?? "New Database/eod_data/BSE/SJ_CORP_LTD.eod"`
+- `?? "New Database/eod_data/BSE/SKCIL.eod"`
+- `?? "New Database/eod_data/BSE/SKF_INDIA.eod"`
+- `?? "New Database/eod_data/BSE/SKIL.eod"`
+- `?? "New Database/eod_data/BSE/SKIPPER.eod"`
+- `?? "New Database/eod_data/BSE/SKL.eod"`
+- `?? "New Database/eod_data/BSE/SKM_EGG_PROD.eod"`
+- `?? "New Database/eod_data/BSE/SKP_SECURE..eod"`
+- `?? "New Database/eod_data/BSE/SKYGOLD.eod"`
+- `?? "New Database/eod_data/BSE/SKYL_MILLAR.eod"`
+- `?? "New Database/eod_data/BSE/SKY_INDUST..eod"`
+- `?? "New Database/eod_data/BSE/SMARTFIN.eod"`
+- `?? "New Database/eod_data/BSE/SMARTLINK.eod"`
+- `?? "New Database/eod_data/BSE/SMAUTO.eod"`
+- `?? "New Database/eod_data/BSE/SMCGLOBAL.eod"`
+- `?? "New Database/eod_data/BSE/SMFIL.eod"`
+- `?? "New Database/eod_data/BSE/SMGOLD.eod"`
+- `?? "New Database/eod_data/BSE/SMIFS_CAPITA.eod"`
+- `?? "New Database/eod_data/BSE/SML.eod"`
+- `?? "New Database/eod_data/BSE/SMLISUZU.eod"`
+- `?? "New Database/eod_data/BSE/SMLT.eod"`
+- `?? "New Database/eod_data/BSE/SMRUTHIORG.eod"`
+- `?? "New Database/eod_data/BSE/SMSLIFE.eod"`
+- `?? "New Database/eod_data/BSE/SMS_PHARMACE.eod"`
+- `?? "New Database/eod_data/BSE/SNIM.eod"`
+- `?? "New Database/eod_data/BSE/SNL_BEARINGS.eod"`
+- `?? "New Database/eod_data/BSE/SNOWMAN.eod"`
+- `?? "New Database/eod_data/BSE/SNXT50BEES.eod"`
+- `?? "New Database/eod_data/BSE/SOBHA.eod"`
+- `?? "New Database/eod_data/BSE/SOFCOM.eod"`
+- `?? "New Database/eod_data/BSE/SOFTBPO_GLOB.eod"`
+- `?? "New Database/eod_data/BSE/SOFTRAK_VENT.eod"`
+- `?? "New Database/eod_data/BSE/SOFTTECH.eod"`
+- `?? "New Database/eod_data/BSE/SOLARA.eod"`
+- `?? "New Database/eod_data/BSE/SOLAR_IND.eod"`
+- `?? "New Database/eod_data/BSE/SOLID_STONE.eod"`
+- `?? "New Database/eod_data/BSE/SOLITAIR_MC.eod"`
+- `?? "New Database/eod_data/BSE/SOMANY_CRAM.eod"`
+- `?? "New Database/eod_data/BSE/SOMA_TEXTILE.eod"`
+- `?? "New Database/eod_data/BSE/SOMDATT_FIN.eod"`
+- `?? "New Database/eod_data/BSE/SOMI_CONVEY.eod"`
+- `?? "New Database/eod_data/BSE/SOM_DISTILL..eod"`
+- `?? "New Database/eod_data/BSE/SONACOMS.eod"`
+- `?? "New Database/eod_data/BSE/SONAL.eod"`
+- `?? "New Database/eod_data/BSE/SONALIS.eod"`
+- `?? "New Database/eod_data/BSE/SONAL_ADHESI.eod"`
+- `?? "New Database/eod_data/BSE/SONATA_SOFT..eod"`
+- `?? "New Database/eod_data/BSE/SOTL.eod"`
+- `?? "New Database/eod_data/BSE/SOURCENTRL.eod"`
+- `?? "New Database/eod_data/BSE/SOUTH.LATEX.eod"`
+- `?? "New Database/eod_data/BSE/SOUTH.MAGNES.eod"`
+- `?? "New Database/eod_data/BSE/SOUTHERNIN.eod"`
+- `?? "New Database/eod_data/BSE/SOUTHWEST.eod"`
+- `?? "New Database/eod_data/BSE/SOUTH_IND.BK.eod"`
+- `?? "New Database/eod_data/BSE/SOVEREIGN_DI.eod"`
+- `?? "New Database/eod_data/BSE/SPACEINCUBA.eod"`
+- `?? "New Database/eod_data/BSE/SPAL.eod"`
+- `?? "New Database/eod_data/BSE/SPANDANA.eod"`
+- `?? "New Database/eod_data/BSE/SPAR.eod"`
+- `?? "New Database/eod_data/BSE/SPECIALITY_R.eod"`
+- `?? "New Database/eod_data/BSE/SPECTRA_IND..eod"`
+- `?? "New Database/eod_data/BSE/SPECTR_FOOD.eod"`
+- `?? "New Database/eod_data/BSE/SPEL_SEMICON.eod"`
+- `?? "New Database/eod_data/BSE/SPENCER.eod"`
+- `?? "New Database/eod_data/BSE/SPENTA_INT..eod"`
+- `?? "New Database/eod_data/BSE/SPENTEX_INDS.eod"`
+- `?? "New Database/eod_data/BSE/SPICEJET_LTD.eod"`
+- `?? "New Database/eod_data/BSE/SPICE_ISLAND.eod"`
+- `?? "New Database/eod_data/BSE/SPITZE.eod"`
+- `?? "New Database/eod_data/BSE/SPL_INDS.eod"`
+- `?? "New Database/eod_data/BSE/SPMLINFRA.eod"`
+- `?? "New Database/eod_data/BSE/SPORTKING.eod"`
+- `?? "New Database/eod_data/BSE/SPRAYKING.eod"`
+- `?? "New Database/eod_data/BSE/SPS.eod"`
+- `?? "New Database/eod_data/BSE/SPS_INTL..eod"`
+- `?? "New Database/eod_data/BSE/SP_CAPITAL.eod"`
+- `?? "New Database/eod_data/BSE/SRD.eod"`
+- `?? "New Database/eod_data/BSE/SREECHEM_RES.eod"`
+- `?? "New Database/eod_data/BSE/SREELEATHER.eod"`
+- `?? "New Database/eod_data/BSE/SREE_JAYA.AU.eod"`
+- `?? "New Database/eod_data/BSE/SREE_RAYALA.eod"`
+- `?? "New Database/eod_data/BSE/SRESTHA.eod"`
+- `?? "New Database/eod_data/BSE/SRF_LIMITED.eod"`
+- `?? "New Database/eod_data/BSE/SRG_HFL.eod"`
+- `?? "New Database/eod_data/BSE/SRI_ADHIKARI.eod"`
+- `?? "New Database/eod_data/BSE/SRI_DIGV_CEM.eod"`
+- `?? "New Database/eod_data/BSE/SRI_KPR_IND.eod"`
+- `?? "New Database/eod_data/BSE/SRI_LAK.SAR..eod"`
+- `?? "New Database/eod_data/BSE/SRI_NACHAMAI.eod"`
+- `?? "New Database/eod_data/BSE/SRI_RAMK.MIL.eod"`
+- `?? "New Database/eod_data/BSE/SRM_ENERGY.eod"`
+- `?? "New Database/eod_data/BSE/SRSOLTD.eod"`
+- `?? "New Database/eod_data/BSE/SRUSTEELS.eod"`
+- `?? "New Database/eod_data/BSE/SSPDL_LTD.eod"`
+- `?? "New Database/eod_data/BSE/SSPNFIN.eod"`
+- `?? "New Database/eod_data/BSE/SSTL.eod"`
+- `?? "New Database/eod_data/BSE/ST.STR.WHEEL.eod"`
+- `?? "New Database/eod_data/BSE/STANROSE_MAF.eod"`
+- `?? "New Database/eod_data/BSE/STAR.eod"`
+- `?? "New Database/eod_data/BSE/STARCEMENT.eod"`
+- `?? "New Database/eod_data/BSE/STARCOM.eod"`
+- `?? "New Database/eod_data/BSE/STARDELTA.eod"`
+- `?? "New Database/eod_data/BSE/STARHEALTH.eod"`
+- `?? "New Database/eod_data/BSE/STARHFL.eod"`
+- `?? "New Database/eod_data/BSE/STARLENT.eod"`
+- `?? "New Database/eod_data/BSE/STARLIT.eod"`
+- `?? "New Database/eod_data/BSE/STARLITE_COM.eod"`
+- `?? "New Database/eod_data/BSE/STARLOG.eod"`
+- `?? "New Database/eod_data/BSE/STARTECK.eod"`
+- `?? "New Database/eod_data/BSE/STAR_PAPER.eod"`
+- `?? "New Database/eod_data/BSE/STATE_BANK.eod"`
+- `?? "New Database/eod_data/BSE/STC_INDIA.eod"`
+- `?? "New Database/eod_data/BSE/STD.BATTERY.eod"`
+- `?? "New Database/eod_data/BSE/STD.CAP.MRKT.eod"`
+- `?? "New Database/eod_data/BSE/STD.INDUST..eod"`
+- `?? "New Database/eod_data/BSE/STD.SURFACT..eod"`
+- `?? "New Database/eod_data/BSE/STD_SHOE.eod"`
+- `?? "New Database/eod_data/BSE/STEELCAST.eod"`
+- `?? "New Database/eod_data/BSE/STEEL_AUTH..eod"`
+- `?? "New Database/eod_data/BSE/STEEL_EXCH.eod"`
+- `?? "New Database/eod_data/BSE/STEL.eod"`
+- `?? "New Database/eod_data/BSE/STELLANT.eod"`
+- `?? "New Database/eod_data/BSE/STELLAR_CAP.eod"`
+- `?? "New Database/eod_data/BSE/STEPHANOTIS.eod"`
+- `?? "New Database/eod_data/BSE/STEP_TWO_COR.eod"`
+- `?? "New Database/eod_data/BSE/STERL.GUARA..eod"`
+- `?? "New Database/eod_data/BSE/STERL.TOOLS.eod"`
+- `?? "New Database/eod_data/BSE/STERPOW.eod"`
+- `?? "New Database/eod_data/BSE/STER_TECH.eod"`
+- `?? "New Database/eod_data/BSE/STL.eod"`
+- `?? "New Database/eod_data/BSE/STL_GLOBAL.eod"`
+- `?? "New Database/eod_data/BSE/STL_STR_INF.eod"`
+- `?? "New Database/eod_data/BSE/STML.eod"`
+- `?? "New Database/eod_data/BSE/STOVAC_IND..eod"`
+- `?? "New Database/eod_data/BSE/STOVEKRAFT.eod"`
+- `?? "New Database/eod_data/BSE/STRATMONT.eod"`
+- `?? "New Database/eod_data/BSE/STR_GRE_WOO.eod"`
+- `?? "New Database/eod_data/BSE/STURDY_INDS.eod"`
+- `?? "New Database/eod_data/BSE/STYRENIX.eod"`
+- `?? "New Database/eod_data/BSE/ST_CORP.eod"`
+- `?? "New Database/eod_data/BSE/SUBEX_LTX.eod"`
+- `?? "New Database/eod_data/BSE/SUBHASH_SILK.eod"`
+- `?? "New Database/eod_data/BSE/SUBROS_LTD..eod"`
+- `?? "New Database/eod_data/BSE/SUDAL_INDUS.eod"`
+- `?? "New Database/eod_data/BSE/SUDARSH.CHEM.eod"`
+- `?? "New Database/eod_data/BSE/SUDARSHAN.eod"`
+- `?? "New Database/eod_data/BSE/SUDEV_IND..eod"`
+- `?? "New Database/eod_data/BSE/SUDITI_IND..eod"`
+- `?? "New Database/eod_data/BSE/SUGAL_DAM.eod"`
+- `?? "New Database/eod_data/BSE/SUJALA.eod"`
+- `?? "New Database/eod_data/BSE/SUKJIT_STRCH.eod"`
+- `?? "New Database/eod_data/BSE/SULA.eod"`
+- `?? "New Database/eod_data/BSE/SULABH_ENG..eod"`
+- `?? "New Database/eod_data/BSE/SUMEDHA_FISC.eod"`
+- `?? "New Database/eod_data/BSE/SUMEET_INDUS.eod"`
+- `?? "New Database/eod_data/BSE/SUMERU_IND.eod"`
+- `?? "New Database/eod_data/BSE/SUMICHEM.eod"`
+- `?? "New Database/eod_data/BSE/SUMMIT_SECU.eod"`
+- `?? "New Database/eod_data/BSE/SUMUKA.eod"`
+- `?? "New Database/eod_data/BSE/SUNCITY_SYNT.eod"`
+- `?? "New Database/eod_data/BSE/SUNDARAMMUL.eod"`
+- `?? "New Database/eod_data/BSE/SUNDARAM_BRK.eod"`
+- `?? "New Database/eod_data/BSE/SUNDARAM_FAS.eod"`
+- `?? "New Database/eod_data/BSE/SUNDARAM_FIN.eod"`
+- `?? "New Database/eod_data/BSE/SUNFLAG_IRON.eod"`
+- `?? "New Database/eod_data/BSE/SUNGOLD_CAP..eod"`
+- `?? "New Database/eod_data/BSE/SUNIL_AGRO_F.eod"`
+- `?? "New Database/eod_data/BSE/SUNIL_HEALTH.eod"`
+- `?? "New Database/eod_data/BSE/SUNIL_INDUS..eod"`
+- `?? "New Database/eod_data/BSE/SUNITATOOL.eod"`
+- `?? "New Database/eod_data/BSE/SUNPHA_ADV.eod"`
+- `?? "New Database/eod_data/BSE/SUNRAJ_DIAM..eod"`
+- `?? "New Database/eod_data/BSE/SUNRETAIL.eod"`
+- `?? "New Database/eod_data/BSE/SUNSHIELD_CH.eod"`
+- `?? "New Database/eod_data/BSE/SUNTECK_REAL.eod"`
+- `?? "New Database/eod_data/BSE/SUN_PHARMA..eod"`
+- `?? "New Database/eod_data/BSE/SUN_TVNET.eod"`
+- `?? "New Database/eod_data/BSE/SUPERIOR.eod"`
+- `?? "New Database/eod_data/BSE/SUPERSHAKT.eod"`
+- `?? "New Database/eod_data/BSE/SUPERTEX_IND.eod"`
+- `?? "New Database/eod_data/BSE/SUPER_BAKERS.eod"`
+- `?? "New Database/eod_data/BSE/SUPER_CROP..eod"`
+- `?? "New Database/eod_data/BSE/SUPER_HOUSE.eod"`
+- `?? "New Database/eod_data/BSE/SUPER_SAL_IN.eod"`
+- `?? "New Database/eod_data/BSE/SUPER_SPIN..eod"`
+- `?? "New Database/eod_data/BSE/SUPER_TANNER.eod"`
+- `?? "New Database/eod_data/BSE/SUPRAJIT_ENG.eod"`
+- `?? "New Database/eod_data/BSE/SUPRAPFSL.eod"`
+- `?? "New Database/eod_data/BSE/SUPRATRE.eod"`
+- `?? "New Database/eod_data/BSE/SUPREME_HO.eod"`
+- `?? "New Database/eod_data/BSE/SUPREME_INFR.eod"`
+- `?? "New Database/eod_data/BSE/SUPREME_PET.eod"`
+- `?? "New Database/eod_data/BSE/SUPREM_IND.eod"`
+- `?? "New Database/eod_data/BSE/SUPRIYA.eod"`
+- `?? "New Database/eod_data/BSE/SURAJ_INDUS..eod"`
+- `?? "New Database/eod_data/BSE/SURAJ_LTD.eod"`
+- `?? "New Database/eod_data/BSE/SURAJ_PRODUC.eod"`
+- `?? "New Database/eod_data/BSE/SURANASOL.eod"`
+- `?? "New Database/eod_data/BSE/SURANATP.eod"`
+- `?? "New Database/eod_data/BSE/SURATRAML.eod"`
+- `?? "New Database/eod_data/BSE/SURYALATA_SP.eod"`
+- `?? "New Database/eod_data/BSE/SURYAMBA_SP.eod"`
+- `?? "New Database/eod_data/BSE/SURYAVA_SPIN.eod"`
+- `?? "New Database/eod_data/BSE/SURYA_ROSHNI.eod"`
+- `?? "New Database/eod_data/BSE/SURYLAK.COTT.eod"`
+- `?? "New Database/eod_data/BSE/SURYODAY.eod"`
+- `?? "New Database/eod_data/BSE/SURYO_FOODS.eod"`
+- `?? "New Database/eod_data/BSE/SUTLEJ_TEXT.eod"`
+- `?? "New Database/eod_data/BSE/SUUMAYA.eod"`
+- `?? "New Database/eod_data/BSE/SUVENPHAR.eod"`
+- `?? "New Database/eod_data/BSE/SUVEN_LIFE_S.eod"`
+- `?? "New Database/eod_data/BSE/SUVIDHAA.eod"`
+- `?? "New Database/eod_data/BSE/SUYOG_TELE.eod"`
+- `?? "New Database/eod_data/BSE/SUZLONENERGY.eod"`
+- `?? "New Database/eod_data/BSE/SVAM_SOFTWAR.eod"`
+- `?? "New Database/eod_data/BSE/SVARAJ_TRAD.eod"`
+- `?? "New Database/eod_data/BSE/SVARTCORP.eod"`
+- `?? "New Database/eod_data/BSE/SVCIND.eod"`
+- `?? "New Database/eod_data/BSE/SVITCH30.eod"`
+- `?? "New Database/eod_data/BSE/SVJ.eod"`
+- `?? "New Database/eod_data/BSE/SVPGLOB.eod"`
+- `?? "New Database/eod_data/BSE/SVRL.eod"`
+- `?? "New Database/eod_data/BSE/SVS.eod"`
+- `?? "New Database/eod_data/BSE/SV_GLOBAL.eod"`
+- `?? "New Database/eod_data/BSE/SWAD.POLYTEX.eod"`
+- `?? "New Database/eod_data/BSE/SWADESHI_IND.eod"`
+- `?? "New Database/eod_data/BSE/SWAGTAM.eod"`
+- `?? "New Database/eod_data/BSE/SWAN_ENG.eod"`
+- `?? "New Database/eod_data/BSE/SWARAJ_ENGIN.eod"`
+- `?? "New Database/eod_data/BSE/SWARNASA.eod"`
+- `?? "New Database/eod_data/BSE/SWARNA_SECUR.eod"`
+- `?? "New Database/eod_data/BSE/SWASTIK_INV.eod"`
+- `?? "New Database/eod_data/BSE/SWASTIK_SAFE.eod"`
+- `?? "New Database/eod_data/BSE/SWASTI_VINAY.eod"`
+- `?? "New Database/eod_data/BSE/SWELECT.eod"`
+- `?? "New Database/eod_data/BSE/SWIL.eod"`
+- `?? "New Database/eod_data/BSE/SWISSMLTRY.eod"`
+- `?? "New Database/eod_data/BSE/SWITCH.TECH..eod"`
+- `?? "New Database/eod_data/BSE/SWOJAS_ENRGY.eod"`
+- `?? "New Database/eod_data/BSE/SWORDEDGE.eod"`
+- `?? "New Database/eod_data/BSE/SWSOLAR.eod"`
+- `?? "New Database/eod_data/BSE/SYBLY_INDS..eod"`
+- `?? "New Database/eod_data/BSE/SYLPH_TECH.eod"`
+- `?? "New Database/eod_data/BSE/SYMBIOX.eod"`
+- `?? "New Database/eod_data/BSE/SYMPHONY.eod"`
+- `?? "New Database/eod_data/BSE/SYNCOM_FORM..eod"`
+- `?? "New Database/eod_data/BSE/SYNGENE.eod"`
+- `?? "New Database/eod_data/BSE/SYNTHIKO_FOI.eod"`
+- `?? "New Database/eod_data/BSE/SYRMA.eod"`
+- `?? "New Database/eod_data/BSE/SYSTAMATIX_C.eod"`
+- `?? "New Database/eod_data/BSE/SYSTEMATIX.eod"`
+- `?? "New Database/eod_data/BSE/T.N.STEEL_TU.eod"`
+- `?? "New Database/eod_data/BSE/T.P.L..eod"`
+- `?? "New Database/eod_data/BSE/T._SPIRITUAL.eod"`
+- `?? "New Database/eod_data/BSE/TAALENT.eod"`
+- `?? "New Database/eod_data/BSE/TAAZAINT.eod"`
+- `?? "New Database/eod_data/BSE/TAHMARENT.eod"`
+- `?? "New Database/eod_data/BSE/TAINWALA_CH..eod"`
+- `?? "New Database/eod_data/BSE/TAI_INDUST..eod"`
+- `?? "New Database/eod_data/BSE/TAJ_GVK_HOTL.eod"`
+- `?? "New Database/eod_data/BSE/TAKE_SOLUT.eod"`
+- `?? "New Database/eod_data/BSE/TALBROSENG.eod"`
+- `?? "New Database/eod_data/BSE/TALBROS_AUTO.eod"`
+- `?? "New Database/eod_data/BSE/TAMBOLIIN.eod"`
+- `?? "New Database/eod_data/BSE/TAMIL.NEWSPR.eod"`
+- `?? "New Database/eod_data/BSE/TAMIL.TELE..eod"`
+- `?? "New Database/eod_data/BSE/TANEJA_AERO..eod"`
+- `?? "New Database/eod_data/BSE/TANFAC_IND..eod"`
+- `?? "New Database/eod_data/BSE/TANLA.eod"`
+- `?? "New Database/eod_data/BSE/TANVI.eod"`
+- `?? "New Database/eod_data/BSE/TARAI_FOODS.eod"`
+- `?? "New Database/eod_data/BSE/TARAPUR_TRA.eod"`
+- `?? "New Database/eod_data/BSE/TARC.eod"`
+- `?? "New Database/eod_data/BSE/TARINI.eod"`
+- `?? "New Database/eod_data/BSE/TARMAT.eod"`
+- `?? "New Database/eod_data/BSE/TARSONS.eod"`
+- `?? "New Database/eod_data/BSE/TASTY_BITE.eod"`
+- `?? "New Database/eod_data/BSE/TATACONSUM.eod"`
+- `?? "New Database/eod_data/BSE/TATAMTRTDVR.eod"`
+- `?? "New Database/eod_data/BSE/TATASTLLP.eod"`
+- `?? "New Database/eod_data/BSE/TATA_CHEM..eod"`
+- `?? "New Database/eod_data/BSE/TATA_COFFEE.eod"`
+- `?? "New Database/eod_data/BSE/TATA_COMM.eod"`
+- `?? "New Database/eod_data/BSE/TATA_ELXSI.eod"`
+- `?? "New Database/eod_data/BSE/TATA_INVEST..eod"`
+- `?? "New Database/eod_data/BSE/TATA_METALIK.eod"`
+- `?? "New Database/eod_data/BSE/TATA_MOTORS.eod"`
+- `?? "New Database/eod_data/BSE/TATA_POWER.eod"`
+- `?? "New Database/eod_data/BSE/TATA_STEEL.eod"`
+- `?? "New Database/eod_data/BSE/TATA_TELESER.eod"`
+- `?? "New Database/eod_data/BSE/TATA_YODOGAW.eod"`
+- `?? "New Database/eod_data/BSE/TATIA_GLOB.eod"`
+- `?? "New Database/eod_data/BSE/TATVA.eod"`
+- `?? "New Database/eod_data/BSE/TAVERNIER.eod"`
+- `?? "New Database/eod_data/BSE/TBZ_LTD.eod"`
+- `?? "New Database/eod_data/BSE/TCC.eod"`
+- `?? "New Database/eod_data/BSE/TCFC_FINANCE.eod"`
+- `?? "New Database/eod_data/BSE/TCIEXP.eod"`
+- `?? "New Database/eod_data/BSE/TCI_FINANCE.eod"`
+- `?? "New Database/eod_data/BSE/TCI_INDUS..eod"`
+- `?? "New Database/eod_data/BSE/TCLCONS.eod"`
+- `?? "New Database/eod_data/BSE/TCNSBRANDS.eod"`
+- `?? "New Database/eod_data/BSE/TCPL_PACK.eod"`
+- `?? "New Database/eod_data/BSE/TCS_LTD..eod"`
+- `?? "New Database/eod_data/BSE/TDSL.eod"`
+- `?? "New Database/eod_data/BSE/TD_POWER.eod"`
+- `?? "New Database/eod_data/BSE/TEAMLEASE.eod"`
+- `?? "New Database/eod_data/BSE/TECH.eod"`
+- `?? "New Database/eod_data/BSE/TECHIN.eod"`
+- `?? "New Database/eod_data/BSE/TECHKGREEN.eod"`
+- `?? "New Database/eod_data/BSE/TECHNOCRAFT.eod"`
+- `?? "New Database/eod_data/BSE/TECHNOE.eod"`
+- `?? "New Database/eod_data/BSE/TECHNOPACK.eod"`
+- `?? "New Database/eod_data/BSE/TECHNVISN.eod"`
+- `?? "New Database/eod_data/BSE/TECH_MAH.eod"`
+- `?? "New Database/eod_data/BSE/TECIL_CHEM..eod"`
+- `?? "New Database/eod_data/BSE/TEESTA_AGRO.eod"`
+- `?? "New Database/eod_data/BSE/TEGA.eod"`
+- `?? "New Database/eod_data/BSE/TEJASNET.eod"`
+- `?? "New Database/eod_data/BSE/TEJASSVI.eod"`
+- `?? "New Database/eod_data/BSE/TEJNAKSH.eod"`
+- `?? "New Database/eod_data/BSE/TELESYS_SOFT.eod"`
+- `?? "New Database/eod_data/BSE/TERAI_TEA_CO.eod"`
+- `?? "New Database/eod_data/BSE/TERASOFTWARE.eod"`
+- `?? "New Database/eod_data/BSE/TEXEL_INDUS..eod"`
+- `?? "New Database/eod_data/BSE/TEXINFRA.eod"`
+- `?? "New Database/eod_data/BSE/TEXMACO_RAIL.eod"`
+- `?? "New Database/eod_data/BSE/TEXMO_PIPES.eod"`
+- `?? "New Database/eod_data/BSE/TGBHOTELS.eod"`
+- `?? "New Database/eod_data/BSE/TGVSL.eod"`
+- `?? "New Database/eod_data/BSE/THACKER.eod"`
+- `?? "New Database/eod_data/BSE/THAKKERS_DEV.eod"`
+- `?? "New Database/eod_data/BSE/THAKRAL_SER.eod"`
+- `?? "New Database/eod_data/BSE/THAMBI_MOD..eod"`
+- `?? "New Database/eod_data/BSE/THANGAMAYIL.eod"`
+- `?? "New Database/eod_data/BSE/THEINVEST.eod"`
+- `?? "New Database/eod_data/BSE/THEMIS_MEDIC.eod"`
+- `?? "New Database/eod_data/BSE/THERMAX.eod"`
+- `?? "New Database/eod_data/BSE/THINKINK.eod"`
+- `?? "New Database/eod_data/BSE/THIRDWAVE_FI.eod"`
+- `?? "New Database/eod_data/BSE/THIRUMALAI.eod"`
+- `?? "New Database/eod_data/BSE/THOMAS_COOK.eod"`
+- `?? "New Database/eod_data/BSE/THYROCARE.eod"`
+- `?? "New Database/eod_data/BSE/TIAANC.eod"`
+- `?? "New Database/eod_data/BSE/TIERRA.eod"`
+- `?? "New Database/eod_data/BSE/TIGER_LOGS.eod"`
+- `?? "New Database/eod_data/BSE/TIHIL.eod"`
+- `?? "New Database/eod_data/BSE/TIINDIA.eod"`
+- `?? "New Database/eod_data/BSE/TIJARIA_PPL.eod"`
+- `?? "New Database/eod_data/BSE/TILAK.eod"`
+- `?? "New Database/eod_data/BSE/TILAKNAG_IND.eod"`
+- `?? "New Database/eod_data/BSE/TIL_LTD..eod"`
+- `?? "New Database/eod_data/BSE/TIMESGREEN.eod"`
+- `?? "New Database/eod_data/BSE/TIMES_GUARAN.eod"`
+- `?? "New Database/eod_data/BSE/TIMEX_GROUP.eod"`
+- `?? "New Database/eod_data/BSE/TIME_TECHNO.eod"`
+- `?? "New Database/eod_data/BSE/TINEAGRO.eod"`
+- `?? "New Database/eod_data/BSE/TINNARUBR.eod"`
+- `?? "New Database/eod_data/BSE/TINNATFL.eod"`
+- `?? "New Database/eod_data/BSE/TINPLATE.eod"`
+- `?? "New Database/eod_data/BSE/TIPSFILMS.eod"`
+- `?? "New Database/eod_data/BSE/TIPSINDUSTR.eod"`
+- `?? "New Database/eod_data/BSE/TIRTH_PLAST.eod"`
+- `?? "New Database/eod_data/BSE/TIRUFOAM.eod"`
+- `?? "New Database/eod_data/BSE/TIRUPATI_SAR.eod"`
+- `?? "New Database/eod_data/BSE/TIRUPATI_STA.eod"`
+- `?? "New Database/eod_data/BSE/TITAANIUM.eod"`
+- `?? "New Database/eod_data/BSE/TITAGARH.eod"`
+- `?? "New Database/eod_data/BSE/TITAN.eod"`
+- `?? "New Database/eod_data/BSE/TITANIN.eod"`
+- `?? "New Database/eod_data/BSE/TITAN_BIOTEC.eod"`
+- `?? "New Database/eod_data/BSE/TITAN_SECUR..eod"`
+- `?? "New Database/eod_data/BSE/TLL.eod"`
+- `?? "New Database/eod_data/BSE/TMB.eod"`
+- `?? "New Database/eod_data/BSE/TOKYO_FINANC.eod"`
+- `?? "New Database/eod_data/BSE/TOKYO_PLAST.eod"`
+- `?? "New Database/eod_data/BSE/TORNT_POWER.eod"`
+- `?? "New Database/eod_data/BSE/TORRENT_PHAR.eod"`
+- `?? "New Database/eod_data/BSE/TOURISM_FINA.eod"`
+- `?? "New Database/eod_data/BSE/TOYAMSL.eod"`
+- `?? "New Database/eod_data/BSE/TPHQ.eod"`
+- `?? "New Database/eod_data/BSE/TPL_PLAST.eod"`
+- `?? "New Database/eod_data/BSE/TPROJECT.eod"`
+- `?? "New Database/eod_data/BSE/TRACXN.eod"`
+- `?? "New Database/eod_data/BSE/TRADEWELL.eod"`
+- `?? "New Database/eod_data/BSE/TRANSCHEM.eod"`
+- `?? "New Database/eod_data/BSE/TRANSCORP_IN.eod"`
+- `?? "New Database/eod_data/BSE/TRANSFREIGHT.eod"`
+- `?? "New Database/eod_data/BSE/TRANSGENE_BI.eod"`
+- `?? "New Database/eod_data/BSE/TRANSGL.FOOD.eod"`
+- `?? "New Database/eod_data/BSE/TRANSPACT.eod"`
+- `?? "New Database/eod_data/BSE/TRANSPEK.eod"`
+- `?? "New Database/eod_data/BSE/TRANSPORT_CO.eod"`
+- `?? "New Database/eod_data/BSE/TRANSVOY.eod"`
+- `?? "New Database/eod_data/BSE/TRANSWARRANT.eod"`
+- `?? "New Database/eod_data/BSE/TRANWAY.eod"`
+- `?? "New Database/eod_data/BSE/TREE_HOUSE.eod"`
+- `?? "New Database/eod_data/BSE/TREJHARA.eod"`
+- `?? "New Database/eod_data/BSE/TREL.eod"`
+- `?? "New Database/eod_data/BSE/TRENT_LTD..eod"`
+- `?? "New Database/eod_data/BSE/TRESCON.eod"`
+- `?? "New Database/eod_data/BSE/TRF_LTD..eod"`
+- `?? "New Database/eod_data/BSE/TRICOMFRU.eod"`
+- `?? "New Database/eod_data/BSE/TRIDENT.eod"`
+- `?? "New Database/eod_data/BSE/TRIGYN_TECH.eod"`
+- `?? "New Database/eod_data/BSE/TRIL.eod"`
+- `?? "New Database/eod_data/BSE/TRIMURTHI.eod"`
+- `?? "New Database/eod_data/BSE/TRINITYLEA.eod"`
+- `?? "New Database/eod_data/BSE/TRIO_MERCAN.eod"`
+- `?? "New Database/eod_data/BSE/TRISHAKTI_EL.eod"`
+- `?? "New Database/eod_data/BSE/TRITON_CORP..eod"`
+- `?? "New Database/eod_data/BSE/TRITON_VALVE.eod"`
+- `?? "New Database/eod_data/BSE/TRIVENITURB.eod"`
+- `?? "New Database/eod_data/BSE/TRIVENI_ENGG.eod"`
+- `?? "New Database/eod_data/BSE/TRIVENI_ENT.eod"`
+- `?? "New Database/eod_data/BSE/TRIVENI_GLAS.eod"`
+- `?? "New Database/eod_data/BSE/TRL.eod"`
+- `?? "New Database/eod_data/BSE/TRU.eod"`
+- `?? "New Database/eod_data/BSE/TSIL.eod"`
+- `?? "New Database/eod_data/BSE/TTFL.eod"`
+- `?? "New Database/eod_data/BSE/TTIENT.eod"`
+- `?? "New Database/eod_data/BSE/TTIL.eod"`
+- `?? "New Database/eod_data/BSE/TTK_HEALTHCA.eod"`
+- `?? "New Database/eod_data/BSE/TTK_PRESTIGE.eod"`
+- `?? "New Database/eod_data/BSE/TT_LTD..eod"`
+- `?? "New Database/eod_data/BSE/TULASEE_BIO-.eod"`
+- `?? "New Database/eod_data/BSE/TULSYAN_NEC.eod"`
+- `?? "New Database/eod_data/BSE/TUNI_TEXTILE.eod"`
+- `?? "New Database/eod_data/BSE/TUTIALKA.eod"`
+- `?? "New Database/eod_data/BSE/TV18BRDCST.eod"`
+- `?? "New Database/eod_data/BSE/TVSELE.eod"`
+- `?? "New Database/eod_data/BSE/TVSHLNCRPS.eod"`
+- `?? "New Database/eod_data/BSE/TVSHLTD.eod"`
+- `?? "New Database/eod_data/BSE/TVSSCS.eod"`
+- `?? "New Database/eod_data/BSE/TVS_MOTOR_L.eod"`
+- `?? "New Database/eod_data/BSE/TVS_SRICHAKR.eod"`
+- `?? "New Database/eod_data/BSE/TVVISION.eod"`
+- `?? "New Database/eod_data/BSE/TV_TODAY.eod"`
+- `?? "New Database/eod_data/BSE/TWINSTAR_SOF.eod"`
+- `?? "New Database/eod_data/BSE/TYCHE_INDS.eod"`
+- `?? "New Database/eod_data/BSE/TYROON_TEA.eod"`
+- `?? "New Database/eod_data/BSE/T_&_I_GLOBAL.eod"`
+- `?? "New Database/eod_data/BSE/T_C_M_LTD..eod"`
+- `?? "New Database/eod_data/BSE/U.P.HOTELS.eod"`
+- `?? "New Database/eod_data/BSE/UCAL.eod"`
+- `?? "New Database/eod_data/BSE/UCIL.eod"`
+- `?? "New Database/eod_data/BSE/UCOBANK.eod"`
+- `?? "New Database/eod_data/BSE/UDAIPUR_CEME.eod"`
+- `?? "New Database/eod_data/BSE/UDAYJEW.eod"`
+- `?? "New Database/eod_data/BSE/UDS.eod"`
+- `?? "New Database/eod_data/BSE/UFLEX_LTD.eod"`
+- `?? "New Database/eod_data/BSE/UFO.eod"`
+- `?? "New Database/eod_data/BSE/UGAR_SUGAR.eod"`
+- `?? "New Database/eod_data/BSE/UGROCAP.eod"`
+- `?? "New Database/eod_data/BSE/UHZAVERI.eod"`
+- `?? "New Database/eod_data/BSE/UJAAS.eod"`
+- `?? "New Database/eod_data/BSE/UJJIVAN.eod"`
+- `?? "New Database/eod_data/BSE/UJJIVANSFB.eod"`
+- `?? "New Database/eod_data/BSE/ULTRACAB.eod"`
+- `?? "New Database/eod_data/BSE/ULTRAMARINE.eod"`
+- `?? "New Database/eod_data/BSE/ULTRATECH_CM.eod"`
+- `?? "New Database/eod_data/BSE/UMAEXPORTS.eod"`
+- `?? "New Database/eod_data/BSE/UMANG_DAIR.eod"`
+- `?? "New Database/eod_data/BSE/UMESL.eod"`
+- `?? "New Database/eod_data/BSE/UMIYA.eod"`
+- `?? "New Database/eod_data/BSE/UNIAUTO.eod"`
+- `?? "New Database/eod_data/BSE/UNICHEM_LAB.eod"`
+- `?? "New Database/eod_data/BSE/UNICK.eod"`
+- `?? "New Database/eod_data/BSE/UNIMODE_OVER.eod"`
+- `?? "New Database/eod_data/BSE/UNION_BANK_L.eod"`
+- `?? "New Database/eod_data/BSE/UNION_QUALIT.eod"`
+- `?? "New Database/eod_data/BSE/UNIPARTS.eod"`
+- `?? "New Database/eod_data/BSE/UNIPHOS_ENT..eod"`
+- `?? "New Database/eod_data/BSE/UNIQUE_ORGAN.eod"`
+- `?? "New Database/eod_data/BSE/UNIROYAL_MAR.eod"`
+- `?? "New Database/eod_data/BSE/UNISHIRE.eod"`
+- `?? "New Database/eod_data/BSE/UNISON.eod"`
+- `?? "New Database/eod_data/BSE/UNISTAR_MULT.eod"`
+- `?? "New Database/eod_data/BSE/UNITD_SPR.eod"`
+- `?? "New Database/eod_data/BSE/UNITECH_INTE.eod"`
+- `?? "New Database/eod_data/BSE/UNITECH_LTD.eod"`
+- `?? "New Database/eod_data/BSE/UNITEDINT.eod"`
+- `?? "New Database/eod_data/BSE/UNITED_BREWA.eod"`
+- `?? "New Database/eod_data/BSE/UNITED_CRED..eod"`
+- `?? "New Database/eod_data/BSE/UNITED_DRILL.eod"`
+- `?? "New Database/eod_data/BSE/UNITED_TEXT..eod"`
+- `?? "New Database/eod_data/BSE/UNIV.CABLE.eod"`
+- `?? "New Database/eod_data/BSE/UNIV.STARCH.eod"`
+- `?? "New Database/eod_data/BSE/UNIVAFOODS.eod"`
+- `?? "New Database/eod_data/BSE/UNIVERSAL_A.eod"`
+- `?? "New Database/eod_data/BSE/UNIVPHOTO.eod"`
+- `?? "New Database/eod_data/BSE/UNIWORTH_LTD.eod"`
+- `?? "New Database/eod_data/BSE/UNI_ABEX.eod"`
+- `?? "New Database/eod_data/BSE/UNI_OFF_AUTO.eod"`
+- `?? "New Database/eod_data/BSE/UNI_ROYAL_IN.eod"`
+- `?? "New Database/eod_data/BSE/UNJHA_FORMUL.eod"`
+- `?? "New Database/eod_data/BSE/UNOMINDA.eod"`
+- `?? "New Database/eod_data/BSE/UPL.eod"`
+- `?? "New Database/eod_data/BSE/UPSURGE_INV..eod"`
+- `?? "New Database/eod_data/BSE/URAVI.eod"`
+- `?? "New Database/eod_data/BSE/URJA_GLOBAL.eod"`
+- `?? "New Database/eod_data/BSE/URSUGAR.eod"`
+- `?? "New Database/eod_data/BSE/USGTECH.eod"`
+- `?? "New Database/eod_data/BSE/USHAKIRAN_FI.eod"`
+- `?? "New Database/eod_data/BSE/USHA_MART.LT.eod"`
+- `?? "New Database/eod_data/BSE/USHDEV_INTNL.eod"`
+- `?? "New Database/eod_data/BSE/USK.eod"`
+- `?? "New Database/eod_data/BSE/UTCRFS2DGR.eod"`
+- `?? "New Database/eod_data/BSE/UTCRFS2DMP.eod"`
+- `?? "New Database/eod_data/BSE/UTCRFS2RQP.eod"`
+- `?? "New Database/eod_data/BSE/UTIAMC.eod"`
+- `?? "New Database/eod_data/BSE/UTIBANKETF.eod"`
+- `?? "New Database/eod_data/BSE/UTINEXT50.eod"`
+- `?? "New Database/eod_data/BSE/UTINIFTETF.eod"`
+- `?? "New Database/eod_data/BSE/UTIQUE.eod"`
+- `?? "New Database/eod_data/BSE/UTISENSETF.eod"`
+- `?? "New Database/eod_data/BSE/UTISXN50.eod"`
+- `?? "New Database/eod_data/BSE/UTI_GOLD_ETF.eod"`
+- `?? "New Database/eod_data/BSE/UTKARSHBNK.eod"`
+- `?? "New Database/eod_data/BSE/UTLINDS.eod"`
+- `?? "New Database/eod_data/BSE/UTTAM_SUGAR.eod"`
+- `?? "New Database/eod_data/BSE/UV_DER_HORST.eod"`
+- `?? "New Database/eod_data/BSE/UYFINCORP.eod"`
+- `?? "New Database/eod_data/BSE/V.B.DESAI.eod"`
+- `?? "New Database/eod_data/BSE/V.R._WOODART.eod"`
+- `?? "New Database/eod_data/BSE/V2RETAIL.eod"`
+- `?? "New Database/eod_data/BSE/VAARAD.eod"`
+- `?? "New Database/eod_data/BSE/VADILAL_ENT.eod"`
+- `?? "New Database/eod_data/BSE/VADILAL_IND.eod"`
+- `?? "New Database/eod_data/BSE/VAIBHAVGBL.eod"`
+- `?? "New Database/eod_data/BSE/VAKRANGEE.eod"`
+- `?? "New Database/eod_data/BSE/VALENCIA.eod"`
+- `?? "New Database/eod_data/BSE/VALIANTLAB.eod"`
+- `?? "New Database/eod_data/BSE/VALIANTORG.eod"`
+- `?? "New Database/eod_data/BSE/VALIANT_COMM.eod"`
+- `?? "New Database/eod_data/BSE/VALLABH_STEL.eod"`
+- `?? "New Database/eod_data/BSE/VALSON_INDUS.eod"`
+- `?? "New Database/eod_data/BSE/VAMA_INDS.eod"`
+- `?? "New Database/eod_data/BSE/VAMSHI_RUBB..eod"`
+- `?? "New Database/eod_data/BSE/VANDANA.eod"`
+- `?? "New Database/eod_data/BSE/VANICOM.eod"`
+- `?? "New Database/eod_data/BSE/VANTABIO.eod"`
+- `?? "New Database/eod_data/BSE/VAPIENTER.eod"`
+- `?? "New Database/eod_data/BSE/VARDHMAN.eod"`
+- `?? "New Database/eod_data/BSE/VARDHMAN_POL.eod"`
+- `?? "New Database/eod_data/BSE/VARDH_TEXT.eod"`
+- `?? "New Database/eod_data/BSE/VARD_HOLDNG.eod"`
+- `?? "New Database/eod_data/BSE/VARIMAN.eod"`
+- `?? "New Database/eod_data/BSE/VARROC.eod"`
+- `?? "New Database/eod_data/BSE/VASCON_ENG.eod"`
+- `?? "New Database/eod_data/BSE/VASUDHAGAM.eod"`
+- `?? "New Database/eod_data/BSE/VASUPRADA.eod"`
+- `?? "New Database/eod_data/BSE/VASWANI_IND.eod"`
+- `?? "New Database/eod_data/BSE/VAS_INFRA.eod"`
+- `?? "New Database/eod_data/BSE/VATECH_WABA.eod"`
+- `?? "New Database/eod_data/BSE/VAX_HSG.FIN..eod"`
+- `?? "New Database/eod_data/BSE/VBC_FERRO.eod"`
+- `?? "New Database/eod_data/BSE/VBIND.eod"`
+- `?? "New Database/eod_data/BSE/VBL.eod"`
+- `?? "New Database/eod_data/BSE/VCU_DATA.eod"`
+- `?? "New Database/eod_data/BSE/VEDANTASSET.eod"`
+- `?? "New Database/eod_data/BSE/VEDAVAAG.eod"`
+- `?? "New Database/eod_data/BSE/VEDL.eod"`
+- `?? "New Database/eod_data/BSE/VEEFIN.eod"`
+- `?? "New Database/eod_data/BSE/VEEJAY_LAKSH.eod"`
+- `?? "New Database/eod_data/BSE/VEERHEALTH.eod"`
+- `?? "New Database/eod_data/BSE/VEERKRUPA.eod"`
+- `?? "New Database/eod_data/BSE/VEER_ENERGY.eod"`
+- `?? "New Database/eod_data/BSE/VEL.eod"`
+- `?? "New Database/eod_data/BSE/VELAN_HOTELS.eod"`
+- `?? "New Database/eod_data/BSE/VELJAN.eod"`
+- `?? "New Database/eod_data/BSE/VENLON_ENTR.eod"`
+- `?? "New Database/eod_data/BSE/VENTURA_TEXL.eod"`
+- `?? "New Database/eod_data/BSE/VENUSPIPES.eod"`
+- `?? "New Database/eod_data/BSE/VENUS_REMEDI.eod"`
+- `?? "New Database/eod_data/BSE/VERANDA.eod"`
+- `?? "New Database/eod_data/BSE/VERITAS.eod"`
+- `?? "New Database/eod_data/BSE/VERTEX_SEC..eod"`
+- `?? "New Database/eod_data/BSE/VESUVIUS_IND.eod"`
+- `?? "New Database/eod_data/BSE/VETO.eod"`
+- `?? "New Database/eod_data/BSE/VFL.eod"`
+- `?? "New Database/eod_data/BSE/VGCL.eod"`
+- `?? "New Database/eod_data/BSE/VGIL.eod"`
+- `?? "New Database/eod_data/BSE/VIAANINDUS.eod"`
+- `?? "New Database/eod_data/BSE/VICTORIA_MIL.eod"`
+- `?? "New Database/eod_data/BSE/VIDHIING.eod"`
+- `?? "New Database/eod_data/BSE/VIDLI.eod"`
+- `?? "New Database/eod_data/BSE/VIJAYA.eod"`
+- `?? "New Database/eod_data/BSE/VIJAY_SOLVEX.eod"`
+- `?? "New Database/eod_data/BSE/VIJAY_TEXTIL.eod"`
+- `?? "New Database/eod_data/BSE/VIKALP_SEC..eod"`
+- `?? "New Database/eod_data/BSE/VIKASECO.eod"`
+- `?? "New Database/eod_data/BSE/VIKASLIFE.eod"`
+- `?? "New Database/eod_data/BSE/VIKASPROP.eod"`
+- `?? "New Database/eod_data/BSE/VIKAS_WSP.eod"`
+- `?? "New Database/eod_data/BSE/VIKRAM_THERM.eod"`
+- `?? "New Database/eod_data/BSE/VIMTA_LABS.eod"`
+- `?? "New Database/eod_data/BSE/VINATI_ORG..eod"`
+- `?? "New Database/eod_data/BSE/VINAYAK_POL.eod"`
+- `?? "New Database/eod_data/BSE/VINCOFE.eod"`
+- `?? "New Database/eod_data/BSE/VINDHYA_TELE.eod"`
+- `?? "New Database/eod_data/BSE/VINEETLAB.eod"`
+- `?? "New Database/eod_data/BSE/VINNY.eod"`
+- `?? "New Database/eod_data/BSE/VINTAGE_SECU.eod"`
+- `?? "New Database/eod_data/BSE/VINTRON_INF..eod"`
+- `?? "New Database/eod_data/BSE/VINYL_CHEM.eod"`
+- `?? "New Database/eod_data/BSE/VINYOFLEX_LT.eod"`
+- `?? "New Database/eod_data/BSE/VIPCLOTHNG.eod"`
+- `?? "New Database/eod_data/BSE/VIPPY_SPIN..eod"`
+- `?? "New Database/eod_data/BSE/VIPULORG.eod"`
+- `?? "New Database/eod_data/BSE/VIPUL_LTD.eod"`
+- `?? "New Database/eod_data/BSE/VIP_INDUS..eod"`
+- `?? "New Database/eod_data/BSE/VIRAT_CRANE.eod"`
+- `?? "New Database/eod_data/BSE/VIRAT_INDUS..eod"`
+- `?? "New Database/eod_data/BSE/VIRGOGLOB.eod"`
+- `?? "New Database/eod_data/BSE/VIRINCHI.eod"`
+- `?? "New Database/eod_data/BSE/VIRTUAL_GLO.eod"`
+- `?? "New Database/eod_data/BSE/VIRYA.eod"`
+- `?? "New Database/eod_data/BSE/VISAGAR_FIN.eod"`
+- `?? "New Database/eod_data/BSE/VISAGAR_POL.eod"`
+- `?? "New Database/eod_data/BSE/VISAKA_IND..eod"`
+- `?? "New Database/eod_data/BSE/VISA_STEEL.eod"`
+- `?? "New Database/eod_data/BSE/VISCO.eod"`
+- `?? "New Database/eod_data/BSE/VISESH_INFO..eod"`
+- `?? "New Database/eod_data/BSE/VISHAL.eod"`
+- `?? "New Database/eod_data/BSE/VISHALBL.eod"`
+- `?? "New Database/eod_data/BSE/VISHNU_CHEM.eod"`
+- `?? "New Database/eod_data/BSE/VISHWARAJ.eod"`
+- `?? "New Database/eod_data/BSE/VISIONCINE.eod"`
+- `?? "New Database/eod_data/BSE/VISION_CORPO.eod"`
+- `?? "New Database/eod_data/BSE/VISTARAMAR.eod"`
+- `?? "New Database/eod_data/BSE/VISTA_PHARMA.eod"`
+- `?? "New Database/eod_data/BSE/VISVEN.eod"`
+- `?? "New Database/eod_data/BSE/VITESSE.eod"`
+- `?? "New Database/eod_data/BSE/VIVAA.eod"`
+- `?? "New Database/eod_data/BSE/VIVANTA.eod"`
+- `?? "New Database/eod_data/BSE/VIVANZA.eod"`
+- `?? "New Database/eod_data/BSE/VIVIDM.eod"`
+- `?? "New Database/eod_data/BSE/VIVID_IND.eod"`
+- `?? "New Database/eod_data/BSE/VIVO_BIO_TEC.eod"`
+- `?? "New Database/eod_data/BSE/VJTFEDU.eod"`
+- `?? "New Database/eod_data/BSE/VKAL.eod"`
+- `?? "New Database/eod_data/BSE/VKJINFRA.eod"`
+- `?? "New Database/eod_data/BSE/VLEGOV.eod"`
+- `?? "New Database/eod_data/BSE/VLS_FINANCE.eod"`
+- `?? "New Database/eod_data/BSE/VMART.eod"`
+- `?? "New Database/eod_data/BSE/VMS_INDUSTR.eod"`
+- `?? "New Database/eod_data/BSE/VOEPL.eod"`
+- `?? "New Database/eod_data/BSE/VOITH_PAPER.eod"`
+- `?? "New Database/eod_data/BSE/VOLTAIR_LEAS.eod"`
+- `?? "New Database/eod_data/BSE/VOLTAMP_TRAN.eod"`
+- `?? "New Database/eod_data/BSE/VOLTAS_LTD.eod"`
+- `?? "New Database/eod_data/BSE/VPL.eod"`
+- `?? "New Database/eod_data/BSE/VPRPL.eod"`
+- `?? "New Database/eod_data/BSE/VRFILMS.eod"`
+- `?? "New Database/eod_data/BSE/VRL.eod"`
+- `?? "New Database/eod_data/BSE/VRLLOG.eod"`
+- `?? "New Database/eod_data/BSE/VSF_PROJ.eod"`
+- `?? "New Database/eod_data/BSE/VSL.eod"`
+- `?? "New Database/eod_data/BSE/VSSL.eod"`
+- `?? "New Database/eod_data/BSE/VST_INDUS..eod"`
+- `?? "New Database/eod_data/BSE/VST_TILLERS.eod"`
+- `?? "New Database/eod_data/BSE/VTM_LTD.eod"`
+- `?? "New Database/eod_data/BSE/VUENOW.eod"`
+- `?? "New Database/eod_data/BSE/VXL_INSTRUM..eod"`
+- `?? "New Database/eod_data/BSE/V_GUARD_IND.eod"`
+- `?? "New Database/eod_data/BSE/W.H.BRADY.eod"`
+- `?? "New Database/eod_data/BSE/W.S.INDUSTR..eod"`
+- `?? "New Database/eod_data/BSE/WAA.eod"`
+- `?? "New Database/eod_data/BSE/WAAREE.eod"`
+- `?? "New Database/eod_data/BSE/WAAREERTL.eod"`
+- `?? "New Database/eod_data/BSE/WAGEND.eod"`
+- `?? "New Database/eod_data/BSE/WALCHANDNGR.eod"`
+- `?? "New Database/eod_data/BSE/WALCHAND_PF.eod"`
+- `?? "New Database/eod_data/BSE/WALLFORT_FIN.eod"`
+- `?? "New Database/eod_data/BSE/WANBURY_LTD.eod"`
+- `?? "New Database/eod_data/BSE/WARDINMOBI.eod"`
+- `?? "New Database/eod_data/BSE/WARDWIZFBL.eod"`
+- `?? "New Database/eod_data/BSE/WARREN_TEA.eod"`
+- `?? "New Database/eod_data/BSE/WATERBASE.eod"`
+- `?? "New Database/eod_data/BSE/WEBELSOLAR.eod"`
+- `?? "New Database/eod_data/BSE/WEIZMANN_LTD.eod"`
+- `?? "New Database/eod_data/BSE/WEL.eod"`
+- `?? "New Database/eod_data/BSE/WELCAST.eod"`
+- `?? "New Database/eod_data/BSE/WELCORP.eod"`
+- `?? "New Database/eod_data/BSE/WELCURE_DRUG.eod"`
+- `?? "New Database/eod_data/BSE/WELENT.eod"`
+- `?? "New Database/eod_data/BSE/WELSPLSOL.eod"`
+- `?? "New Database/eod_data/BSE/WELSPUN_INV.eod"`
+- `?? "New Database/eod_data/BSE/WELTERMAN_I..eod"`
+- `?? "New Database/eod_data/BSE/WEPSOLN.eod"`
+- `?? "New Database/eod_data/BSE/WESTLIFE.eod"`
+- `?? "New Database/eod_data/BSE/WEST_COAS_PA.eod"`
+- `?? "New Database/eod_data/BSE/WEST_LEIRES.eod"`
+- `?? "New Database/eod_data/BSE/WEWIN.eod"`
+- `?? "New Database/eod_data/BSE/WHEELS_INDIA.eod"`
+- `?? "New Database/eod_data/BSE/WHIRLPOOL.eod"`
+- `?? "New Database/eod_data/BSE/WHITEORG.eod"`
+- `?? "New Database/eod_data/BSE/WILLIAM.FIN..eod"`
+- `?? "New Database/eod_data/BSE/WILLIAM.MAGO.eod"`
+- `?? "New Database/eod_data/BSE/WIMSOME_TEXT.eod"`
+- `?? "New Database/eod_data/BSE/WIM_PLAST_LT.eod"`
+- `?? "New Database/eod_data/BSE/WINDLAS.eod"`
+- `?? "New Database/eod_data/BSE/WINDSOR_MACH.eod"`
+- `?? "New Database/eod_data/BSE/WINPRO.eod"`
+- `?? "New Database/eod_data/BSE/WINSOME_BREW.eod"`
+- `?? "New Database/eod_data/BSE/WINSOME_YRN.eod"`
+- `?? "New Database/eod_data/BSE/WIPRO_LTD..eod"`
+- `?? "New Database/eod_data/BSE/WIRES_FABRIK.eod"`
+- `?? "New Database/eod_data/BSE/WITS.eod"`
+- `?? "New Database/eod_data/BSE/WOCKHARDT.eod"`
+- `?? "New Database/eod_data/BSE/WOMEN_NETWOR.eod"`
+- `?? "New Database/eod_data/BSE/WONDERLA.eod"`
+- `?? "New Database/eod_data/BSE/WORL.eod"`
+- `?? "New Database/eod_data/BSE/WORTH_INV.eod"`
+- `?? "New Database/eod_data/BSE/WPIL_LTD..eod"`
+- `?? "New Database/eod_data/BSE/WSFX.eod"`
+- `?? "New Database/eod_data/BSE/WWALUM.eod"`
+- `?? "New Database/eod_data/BSE/XCHANGING.eod"`
+- `?? "New Database/eod_data/BSE/XELPMOC.eod"`
+- `?? "New Database/eod_data/BSE/XTGLOBAL.eod"`
+- `?? "New Database/eod_data/BSE/YAANENT.eod"`
+- `?? "New Database/eod_data/BSE/YAARI.eod"`
+- `?? "New Database/eod_data/BSE/YAMINI_INVES.eod"`
+- `?? "New Database/eod_data/BSE/YARN_SYNDICA.eod"`
+- `?? "New Database/eod_data/BSE/YASHCHEM.eod"`
+- `?? "New Database/eod_data/BSE/YASHINNO.eod"`
+- `?? "New Database/eod_data/BSE/YASHO.eod"`
+- `?? "New Database/eod_data/BSE/YASH_MANAGE..eod"`
+- `?? "New Database/eod_data/BSE/YASH_TRADING.eod"`
+- `?? "New Database/eod_data/BSE/YASRAJ_CONT..eod"`
+- `?? "New Database/eod_data/BSE/YATHARTH.eod"`
+- `?? "New Database/eod_data/BSE/YATRA.eod"`
+- `?? "New Database/eod_data/BSE/YES_BANK.eod"`
+- `?? "New Database/eod_data/BSE/YOGI.eod"`
+- `?? "New Database/eod_data/BSE/YOGI_SUNGWON.eod"`
+- `?? "New Database/eod_data/BSE/YORK_EXPORTS.eod"`
+- `?? "New Database/eod_data/BSE/YSL.eod"`
+- `?? "New Database/eod_data/BSE/YUG.eod"`
+- `?? "New Database/eod_data/BSE/YUKEN_INDIA.eod"`
+- `?? "New Database/eod_data/BSE/YURANUS_INFR.eod"`
+- `?? "New Database/eod_data/BSE/YUVRAAJHPL.eod"`
+- `?? "New Database/eod_data/BSE/ZAGGLE.eod"`
+- `?? "New Database/eod_data/BSE/ZCEFSL25.eod"`
+- `?? "New Database/eod_data/BSE/ZCEFSL26.eod"`
+- `?? "New Database/eod_data/BSE/ZCEFSL28.eod"`
+- `?? "New Database/eod_data/BSE/ZCIHFL25.eod"`
+- `?? "New Database/eod_data/BSE/ZCIHFL25I6.eod"`
+- `?? "New Database/eod_data/BSE/ZCIIFL25.eod"`
+- `?? "New Database/eod_data/BSE/ZCMFL24.eod"`
+- `?? "New Database/eod_data/BSE/ZCMFL25.eod"`
+- `?? "New Database/eod_data/BSE/ZCMFL27B.eod"`
+- `?? "New Database/eod_data/BSE/ZCMFL30.eod"`
+- `?? "New Database/eod_data/BSE/ZCMMFL025.eod"`
+- `?? "New Database/eod_data/BSE/ZCMMFL24.eod"`
+- `?? "New Database/eod_data/BSE/ZCMMFL25.eod"`
+- `?? "New Database/eod_data/BSE/ZCMMFL27.eod"`
+- `?? "New Database/eod_data/BSE/ZCSFL24.eod"`
+- `?? "New Database/eod_data/BSE/ZEAL.eod"`
+- `?? "New Database/eod_data/BSE/ZEEMEDIA.eod"`
+- `?? "New Database/eod_data/BSE/ZEE_ENTER.eod"`
+- `?? "New Database/eod_data/BSE/ZEE_LEARN.eod"`
+- `?? "New Database/eod_data/BSE/ZENITHSTL.eod"`
+- `?? "New Database/eod_data/BSE/ZENITH_EXP..eod"`
+- `?? "New Database/eod_data/BSE/ZENITH_FIBRE.eod"`
+- `?? "New Database/eod_data/BSE/ZENITH_HEALT.eod"`
+- `?? "New Database/eod_data/BSE/ZENLABS.eod"`
+- `?? "New Database/eod_data/BSE/ZENOTECH.eod"`
+- `?? "New Database/eod_data/BSE/ZENSAR_TECH..eod"`
+- `?? "New Database/eod_data/BSE/ZEN_TECH.eod"`
+- `?? "New Database/eod_data/BSE/ZFCVINDIA.eod"`
+- `?? "New Database/eod_data/BSE/ZF_STEERING.eod"`
+- `?? "New Database/eod_data/BSE/ZIMLAB.eod"`
+- `?? "New Database/eod_data/BSE/ZINEMA.eod"`
+- `?? "New Database/eod_data/BSE/ZODIAC.eod"`
+- `?? "New Database/eod_data/BSE/ZODIAC_CLOTH.eod"`
+- `?? "New Database/eod_data/BSE/ZODIAC_JRD.eod"`
+- `?? "New Database/eod_data/BSE/ZODIAC_VEN.eod"`
+- `?? "New Database/eod_data/BSE/ZOMATO.eod"`
+- `?? "New Database/eod_data/BSE/ZUARIIND.eod"`
+- `?? "New Database/eod_data/BSE/ZUARI_AGRO.eod"`
+- `?? "New Database/eod_data/BSE/ZYDUSLIFE.eod"`
+- `?? "New Database/eod_data/BSE/ZYDUS_WELL.eod"`
+- `?? "New Database/manual_import_recovery/sessions/manual-import-20260809T105743.634455Z-10588-0/changes.ndjson"`
+- `?? "New Database/manual_import_recovery/sessions/manual-import-20260809T105743.634455Z-10588-0/manifest.json"`
+- `?? "New Database/manual_import_recovery/sessions/manual-import-20260809T105743.634455Z-10588-0/manifest.json.bak"`
+- `?? "New Database/manual_import_recovery/sessions/manual-import-20260809T110551.544623Z-10588-1/changes.ndjson"`
+- `?? "New Database/manual_import_recovery/sessions/manual-import-20260809T110551.544623Z-10588-1/manifest.json"`
+- `?? "New Database/manual_import_recovery/sessions/manual-import-20260809T110551.544623Z-10588-1/manifest.json.bak"`
+- `?? "New Database/manual_import_recovery/sessions/manual-import-20260809T110804.154265Z-19188-0/changes.ndjson"`
+- `?? "New Database/manual_import_recovery/sessions/manual-import-20260809T110804.154265Z-19188-0/manifest.json"`
+- `?? "New Database/manual_import_recovery/sessions/manual-import-20260809T110804.154265Z-19188-0/manifest.json.bak"`
+- `?? REQUIREMENTS.md`
+- `?? "Sript to remember.txt"`
+- `?? V114F31_PRE/README.md`
+- `?? V114F31_PRE/Run-V1-14F-3-1-Production-Candidate-Aligned-Repair-Preflight.ps1`
+- `?? V114F31_PRE/Test-V1-14F-3-Synthetic-Preflight.py`
+- `?? V114F31_PRE/Validate-V1-14F-3-1-Package.py`
+- `?? V114F31_PRE/__pycache__/Test-V1-14F-3-Synthetic-Preflight.cpython-314.pyc`
+- `?? V114F31_PRE/__pycache__/Validate-V1-14F-3-1-Package.cpython-314.pyc`
+- `?? V114F31_PRE/audit/v114f3/__pycache__/four_row_production_candidate_repair_preflight.cpython-314.pyc`
+- `?? V114F31_PRE/audit/v114f3/four_row_production_candidate_repair_preflight.py`
+- `?? V114F31_PRE/authority/four-row-resolver-replay.json`
+- `?? V114F31_PRE/authority/v1-14f-2-message-construction-evidence.txt`
+- `?? V114F31_PRE/authority/v1-14f-2-reviewed-candidates.json`
+- `?? V114F31_PRE/authority/v1-14f-2-reviewed-preflight-summary.json`
+- `?? V114F31_PRE/authority/v1-14f-2-reviewed-ready-manifest.json`
+- `?? V114F31_PRE/authority/v1-14f-2-reviewed-schema-safety.json`
+- `?? V114F31_PRE/authority/v1-14f-3-1-macro-recursion-compatibility.json`
+- `?? V114F31_PRE/authority/v1-14f-3-production-candidate-aligned-repair-authority.json`
+- `?? V114F31_PRE/docs/changes/2026-08-23_CORPORATE_ACTION_PHASE1_V1_14F_3_1_REPLAY_MACRO_RECURSION_COMPATIBILITY.md`
+- `?? V114F31_PRE/docs/changes/2026-08-23_CORPORATE_ACTION_PHASE1_V1_14F_3_PRODUCTION_CANDIDATE_ALIGNED_REPAIR_DESIGN_PREFLIGHT.md`
+- `?? V114F31_PRE/docs/superpowers/plans/2026-08-23-corporate-action-v1-14f-3-production-candidate-aligned-repair-preflight-plan.md`
+- `?? V114F31_PRE/docs/superpowers/specs/2026-08-23-corporate-action-v1-14f-3-production-candidate-aligned-repair-design.md`
+- `?? V114F31_PRE/package-manifest.json`
+- `?? V114F31_PRE_previous_20260823_171743_117/README.md`
+- `?? V114F31_PRE_previous_20260823_171743_117/Run-V1-14F-3-1-Production-Candidate-Aligned-Repair-Preflight.ps1`
+- `?? V114F31_PRE_previous_20260823_171743_117/Test-V1-14F-3-Synthetic-Preflight.py`
+- `?? V114F31_PRE_previous_20260823_171743_117/Validate-V1-14F-3-1-Package.py`
+- `?? V114F31_PRE_previous_20260823_171743_117/audit/v114f3/four_row_production_candidate_repair_preflight.py`
+- `?? V114F31_PRE_previous_20260823_171743_117/authority/four-row-resolver-replay.json`
+- `?? V114F31_PRE_previous_20260823_171743_117/authority/v1-14f-2-message-construction-evidence.txt`
+- `?? V114F31_PRE_previous_20260823_171743_117/authority/v1-14f-2-reviewed-candidates.json`
+- `?? V114F31_PRE_previous_20260823_171743_117/authority/v1-14f-2-reviewed-preflight-summary.json`
+- `?? V114F31_PRE_previous_20260823_171743_117/authority/v1-14f-2-reviewed-ready-manifest.json`
+- `?? V114F31_PRE_previous_20260823_171743_117/authority/v1-14f-2-reviewed-schema-safety.json`
+- `?? V114F31_PRE_previous_20260823_171743_117/authority/v1-14f-3-1-macro-recursion-compatibility.json`
+- `?? V114F31_PRE_previous_20260823_171743_117/authority/v1-14f-3-production-candidate-aligned-repair-authority.json`
+- `?? V114F31_PRE_previous_20260823_171743_117/docs/changes/2026-08-23_CORPORATE_ACTION_PHASE1_V1_14F_3_1_REPLAY_MACRO_RECURSION_COMPATIBILITY.md`
+- `?? V114F31_PRE_previous_20260823_171743_117/docs/changes/2026-08-23_CORPORATE_ACTION_PHASE1_V1_14F_3_PRODUCTION_CANDIDATE_ALIGNED_REPAIR_DESIGN_PREFLIGHT.md`
+- `?? V114F31_PRE_previous_20260823_171743_117/docs/superpowers/plans/2026-08-23-corporate-action-v1-14f-3-production-candidate-aligned-repair-preflight-plan.md`
+- `?? V114F31_PRE_previous_20260823_171743_117/docs/superpowers/specs/2026-08-23-corporate-action-v1-14f-3-production-candidate-aligned-repair-design.md`
+- `?? V114F31_PRE_previous_20260823_171743_117/package-manifest.json`
+- `?? V114F32_APPLY/README.md`
+- `?? V114F32_APPLY/Run-V114F3-2-Controlled-Apply.ps1`
+- `?? V114F32_APPLY/Run-V114F3-Independent-Post-Audit.ps1`
+- `?? V114F32_APPLY/Validate-V114F3-Controlled-Apply-Package.py`
+- `?? V114F32_APPLY/apply/__pycache__/v114f3_controlled_apply.cpython-314.pyc`
+- `?? V114F32_APPLY/apply/v114f3_controlled_apply.py`
+- `?? V114F32_APPLY/authority/apply-authority.json`
+- `?? V114F32_APPLY/authority/corporate-action-v1-14f-3-preflight-reports.zip`
+- `?? V114F32_APPLY/authority/preflight-candidates.json`
+- `?? V114F32_APPLY/authority/preflight-live-family-before.json`
+- `?? V114F32_APPLY/authority/preflight-mutation-plan.csv`
+- `?? V114F32_APPLY/authority/preflight-protected-table-fingerprints.json`
+- `?? V114F32_APPLY/authority/preflight-ready-manifest.json`
+- `?? V114F32_APPLY/authority/preflight-schema-safety.json`
+- `?? V114F32_APPLY/authority/preflight-summary.json`
+- `?? V114F32_APPLY/authority/production-candidate-replay.json`
+- `?? V114F32_APPLY/authority/v1-14f-3-2-wrapper-count-compatibility.json`
+- `?? V114F32_APPLY/docs/V114F32_WRAPPER_COUNT_COMPATIBILITY.md`
+- `?? V114F32_APPLY/docs/V114F3_APPLY.md`
+- `?? V114F32_APPLY/docs/V114F3_POST_AUDIT.md`
+- `?? V114F32_APPLY/package-manifest.json`
+- `?? V114F32_APPLY/post/__pycache__/v114f3_post_audit.cpython-314.pyc`
+- `?? V114F32_APPLY/post/v114f3_post_audit.py`
+- `?? V114F32_APPLY/tests/__pycache__/test_controlled_apply.cpython-314.pyc`
+- `?? V114F32_APPLY/tests/__pycache__/test_v114f32_wrapper_count_compatibility.cpython-314.pyc`
+- `?? V114F32_APPLY/tests/test_controlled_apply.py`
+- `?? V114F32_APPLY/tests/test_v114f32_wrapper_count_compatibility.py`
+- `?? V114F3_APPLY/README.md`
+- `?? V114F3_APPLY/Run-V114F3-Controlled-Apply.ps1`
+- `?? V114F3_APPLY/Run-V114F3-Independent-Post-Audit.ps1`
+- `?? V114F3_APPLY/Validate-V114F3-Controlled-Apply-Package.py`
+- `?? V114F3_APPLY/apply/v114f3_controlled_apply.py`
+- `?? V114F3_APPLY/authority/apply-authority.json`
+- `?? V114F3_APPLY/authority/corporate-action-v1-14f-3-preflight-reports.zip`
+- `?? V114F3_APPLY/authority/preflight-candidates.json`
+- `?? V114F3_APPLY/authority/preflight-live-family-before.json`
+- `?? V114F3_APPLY/authority/preflight-mutation-plan.csv`
+- `?? V114F3_APPLY/authority/preflight-protected-table-fingerprints.json`
+- `?? V114F3_APPLY/authority/preflight-ready-manifest.json`
+- `?? V114F3_APPLY/authority/preflight-schema-safety.json`
+- `?? V114F3_APPLY/authority/preflight-summary.json`
+- `?? V114F3_APPLY/authority/production-candidate-replay.json`
+- `?? V114F3_APPLY/docs/V114F3_APPLY.md`
+- `?? V114F3_APPLY/docs/V114F3_POST_AUDIT.md`
+- `?? V114F3_APPLY/package-manifest.json`
+- `?? V114F3_APPLY/post/v114f3_post_audit.py`
+- `?? V114F3_APPLY/tests/test_controlled_apply.py`
+- `?? V114F3_PRE/README.md`
+- `?? V114F3_PRE/Run-V1-14F-3-Production-Candidate-Aligned-Repair-Preflight.ps1`
+- `?? V114F3_PRE/Test-V1-14F-3-Synthetic-Preflight.py`
+- `?? V114F3_PRE/Validate-V1-14F-3-Package.py`
+- `?? V114F3_PRE/__pycache__/Test-V1-14F-3-Synthetic-Preflight.cpython-314.pyc`
+- `?? V114F3_PRE/__pycache__/Validate-V1-14F-3-Package.cpython-314.pyc`
+- `?? V114F3_PRE/audit/v114f3/__pycache__/four_row_production_candidate_repair_preflight.cpython-314.pyc`
+- `?? V114F3_PRE/audit/v114f3/four_row_production_candidate_repair_preflight.py`
+- `?? V114F3_PRE/authority/four-row-resolver-replay.json`
+- `?? V114F3_PRE/authority/v1-14f-2-message-construction-evidence.txt`
+- `?? V114F3_PRE/authority/v1-14f-2-reviewed-candidates.json`
+- `?? V114F3_PRE/authority/v1-14f-2-reviewed-preflight-summary.json`
+- `?? V114F3_PRE/authority/v1-14f-2-reviewed-ready-manifest.json`
+- `?? V114F3_PRE/authority/v1-14f-2-reviewed-schema-safety.json`
+- `?? V114F3_PRE/authority/v1-14f-3-production-candidate-aligned-repair-authority.json`
+- `?? V114F3_PRE/docs/changes/2026-08-23_CORPORATE_ACTION_PHASE1_V1_14F_3_PRODUCTION_CANDIDATE_ALIGNED_REPAIR_DESIGN_PREFLIGHT.md`
+- `?? V114F3_PRE/docs/superpowers/plans/2026-08-23-corporate-action-v1-14f-3-production-candidate-aligned-repair-preflight-plan.md`
+- `?? V114F3_PRE/docs/superpowers/specs/2026-08-23-corporate-action-v1-14f-3-production-candidate-aligned-repair-design.md`
+- `?? V114F3_PRE/package-manifest.json`
+- `?? V114G_PRE/README.md`
+- `?? V114G_PRE/Run-V114G-Residual-Identity-Rebaseline-Audit.ps1`
+- `?? V114G_PRE/Validate-V114G-Package.py`
+- `?? V114G_PRE/audit/__pycache__/v114g_residual_identity_rebaseline.cpython-314.pyc`
+- `?? V114G_PRE/audit/v114g_residual_identity_rebaseline.py`
+- `?? V114G_PRE/authority/prior-backward-normalization-summary.json`
+- `?? V114G_PRE/authority/v114f3-post-audit-live-family.json`
+- `?? V114G_PRE/authority/v114f3-post-audit-result.json`
+- `?? V114G_PRE/authority/v114g-authority.json`
+- `?? V114G_PRE/docs/V114G_AUDIT.md`
+- `?? V114G_PRE/package-manifest.json`
+- `?? V114G_PRE/tests/__pycache__/test_v114g_synthetic.cpython-314-pytest-9.1.1.pyc`
+- `?? V114G_PRE/tests/__pycache__/test_v114g_synthetic.cpython-314.pyc`
+- `?? V114G_PRE/tests/test_v114g_synthetic.py`
+- `?? V114H_PRE/README.md`
+- `?? V114H_PRE/Run-V114H-Four-Row-Residual-Symbol-Provenance-Audit.ps1`
+- `?? V114H_PRE/Validate-V114H-Package.py`
+- `?? V114H_PRE/audit/__pycache__/v114h_residual_symbol_provenance.cpython-314.pyc`
+- `?? V114H_PRE/audit/v114h_residual_symbol_provenance.py`
+- `?? V114H_PRE/authority/v114g-four-row-residual-authority.json`
+- `?? V114H_PRE/authority/v114g-reviewed-family-reference.json`
+- `?? V114H_PRE/authority/v114g-reviewed-summary.json`
+- `?? V114H_PRE/authority/v114h-authority.json`
+- `?? V114H_PRE/docs/V114H_AUDIT.md`
+- `?? V114H_PRE/package-manifest.json`
+- `?? V114H_PRE/tests/__pycache__/test_v114h_synthetic.cpython-314-pytest-9.1.1.pyc`
+- `?? V114H_PRE/tests/__pycache__/test_v114h_synthetic.cpython-314.pyc`
+- `?? V114H_PRE/tests/test_v114h_synthetic.py`
+- `?? V114I1_PRE/README.md`
+- `?? V114I1_PRE/Run-V114I1-Raw-NSE-Identity-Classifier-Correction-Audit.ps1`
+- `?? V114I1_PRE/Validate-V114I1-Package.py`
+- `?? V114I1_PRE/audit/__pycache__/v114i1_raw_nse_identity_source.cpython-314.pyc`
+- `?? V114I1_PRE/audit/v114i1_raw_nse_identity_source.py`
+- `?? V114I1_PRE/authority/v114h-reviewed-provenance.json`
+- `?? V114I1_PRE/authority/v114h-reviewed-summary.json`
+- `?? V114I1_PRE/authority/v114i-original-authority.json`
+- `?? V114I1_PRE/authority/v114i-reviewed-cases.json`
+- `?? V114I1_PRE/authority/v114i-reviewed-raw-source-inventory.json`
+- `?? V114I1_PRE/authority/v114i-reviewed-summary.json`
+- `?? V114I1_PRE/authority/v114i-reviewed-target-raw-matches.json`
+- `?? V114I1_PRE/authority/v114i1-authority.json`
+- `?? V114I1_PRE/docs/V114I1_AUDIT.md`
+- `?? V114I1_PRE/package-manifest.json`
+- `?? V114I1_PRE/tests/__pycache__/test_v114i1_classifier_correction.cpython-314-pytest-9.1.1.pyc`
+- `?? V114I1_PRE/tests/__pycache__/test_v114i1_classifier_correction.cpython-314.pyc`
+- `?? V114I1_PRE/tests/test_v114i1_classifier_correction.py`
+- `?? V114I_PRE/README.md`
+- `?? V114I_PRE/Run-V114I-Raw-NSE-Identity-Source-Verification-Audit.ps1`
+- `?? V114I_PRE/Validate-V114I-Package.py`
+- `?? V114I_PRE/audit/__pycache__/v114i_raw_nse_identity_source.cpython-314.pyc`
+- `?? V114I_PRE/audit/v114i_raw_nse_identity_source.py`
+- `?? V114I_PRE/authority/v114h-reviewed-provenance.json`
+- `?? V114I_PRE/authority/v114h-reviewed-summary.json`
+- `?? V114I_PRE/authority/v114i-authority.json`
+- `?? V114I_PRE/docs/V114I_AUDIT.md`
+- `?? V114I_PRE/package-manifest.json`
+- `?? V114I_PRE/tests/__pycache__/test_v114i_raw_source.cpython-314-pytest-9.1.1.pyc`
+- `?? V114I_PRE/tests/__pycache__/test_v114i_raw_source.cpython-314.pyc`
+- `?? V114I_PRE/tests/test_v114i_raw_source.py`
+- `?? V114J_PRE/README.md`
+- `?? V114J_PRE/Run-V114J-Official-NSE-Archive-Provenance-Audit.ps1`
+- `?? V114J_PRE/Validate-V114J-Package.py`
+- `?? V114J_PRE/audit/__pycache__/v114j_official_nse_archive_provenance.cpython-314.pyc`
+- `?? V114J_PRE/audit/v114j_official_nse_archive_provenance.py`
+- `?? V114J_PRE/authority/v114i1-reviewed-database-anchor.json`
+- `?? V114J_PRE/authority/v114i1-reviewed-live-family.json`
+- `?? V114J_PRE/authority/v114i1-reviewed-summary.json`
+- `?? V114J_PRE/authority/v114j-authority.json`
+- `?? V114J_PRE/docs/V114J_AUDIT.md`
+- `?? V114J_PRE/package-manifest.json`
+- `?? V114J_PRE/tests/__pycache__/test_v114j_archive_provenance.cpython-314-pytest-9.1.1.pyc`
+- `?? V114J_PRE/tests/__pycache__/test_v114j_archive_provenance.cpython-314.pyc`
+- `?? V114J_PRE/tests/test_v114j_archive_provenance.py`
+- `?? V114J_PRE/vendor/pypdf_vendor.zip`
+- `?? V114K1_PRE/README.md`
+- `?? V114K1_PRE/Run-V114K1-Three-Row-Production-Candidate-Replay-Preflight.ps1`
+- `?? V114K1_PRE/Validate-V114K1-Package.py`
+- `?? V114K1_PRE/audit/__pycache__/v114k1_repairability_preflight.cpython-314.pyc`
+- `?? V114K1_PRE/audit/v114k1_repairability_preflight.py`
+- `?? V114K1_PRE/authority/v114k-reviewed-authority-revalidation.json`
+- `?? V114K1_PRE/authority/v114k-reviewed-live-family.json`
+- `?? V114K1_PRE/authority/v114k-reviewed-summary.json`
+- `?? V114K1_PRE/authority/v114k-reviewed-three-row-repairability.json`
+- `?? V114K1_PRE/authority/v114k1-authority.json`
+- `?? V114K1_PRE/authority/v114l-reviewed-result.json`
+- `?? V114K1_PRE/authority/v114l-reviewed-source.diff.txt`
+- `?? V114K1_PRE/docs/V114K1_PREFLIGHT.md`
+- `?? V114K1_PRE/package-manifest.json`
+- `?? V114K1_PRE/tests/__pycache__/test_v114k1_rebase.cpython-314-pytest-9.1.1.pyc`
+- `?? V114K1_PRE/tests/__pycache__/test_v114k1_rebase.cpython-314.pyc`
+- `?? V114K1_PRE/tests/test_v114k1_rebase.py`
+- `?? V114K_PRE/README.md`
+- `?? V114K_PRE/Run-V114K-Three-Row-Production-Candidate-Replay-Preflight.ps1`
+- `?? V114K_PRE/Validate-V114K-Package.py`
+- `?? V114K_PRE/audit/__pycache__/v114k_repairability_preflight.cpython-314.pyc`
+- `?? V114K_PRE/audit/v114k_repairability_preflight.py`
+- `?? V114K_PRE/authority/v114j-case-provenance.json`
+- `?? V114K_PRE/authority/v114j-database-anchor.json`
+- `?? V114K_PRE/authority/v114j-family-reference.json`
+- `?? V114K_PRE/authority/v114j-reviewed-summary.json`
+- `?? V114K_PRE/authority/v114k-authority.json`
+- `?? V114K_PRE/docs/V114K_PREFLIGHT.md`
+- `?? V114K_PRE/package-manifest.json`
+- `?? V114K_PRE/tests/__pycache__/test_v114k_preflight.cpython-314-pytest-9.1.1.pyc`
+- `?? V114K_PRE/tests/__pycache__/test_v114k_preflight.cpython-314.pyc`
+- `?? V114K_PRE/tests/test_v114k_preflight.py`
+- `?? V114L_PRE/README.md`
+- `?? V114L_PRE/Run-V114L-Exact-Active-Ambiguous-Inactive-ISIN-TDD-Hardening.ps1`
+- `?? V114L_PRE/Validate-V114L-Package.py`
+- `?? V114L_PRE/authority/v114k-blocked-andhrapap.json`
+- `?? V114L_PRE/authority/v114k-reviewed-production-candidate-replay.json`
+- `?? V114L_PRE/authority/v114k-reviewed-summary.json`
+- `?? V114L_PRE/authority/v114k-reviewed-three-row-repairability.json`
+- `?? V114L_PRE/authority/v114l-authority.json`
+- `?? V114L_PRE/docs/V114L_HARDENING.md`
+- `?? V114L_PRE/package-manifest.json`
+- `?? V114L_PRE/patch/__pycache__/v114l_source_patch.cpython-314.pyc`
+- `?? V114L_PRE/patch/v114l_source_patch.py`
+- `?? V114L_PRE/tests/__pycache__/test_v114l_package.cpython-314-pytest-9.1.1.pyc`
+- `?? V114L_PRE/tests/__pycache__/test_v114l_package.cpython-314.pyc`
+- `?? V114L_PRE/tests/test_v114l_package.py`
+- `?? V114M11_PRE/README.md`
+- `?? V114M11_PRE/Run-V114M11-Three-Row-Controlled-Apply.ps1`
+- `?? V114M11_PRE/Validate-V114M11-Package.py`
+- `?? V114M11_PRE/apply/__pycache__/v114m1_controlled_apply.cpython-314.pyc`
+- `?? V114M11_PRE/apply/v114m1_controlled_apply.py`
+- `?? V114M11_PRE/authority/v114m-apply-plan-material.json`
+- `?? V114M11_PRE/authority/v114m-dedupe-ownership.json`
+- `?? V114M11_PRE/authority/v114m-import-state-fingerprints-before.json`
+- `?? V114M11_PRE/authority/v114m-mutation-plan.json`
+- `?? V114M11_PRE/authority/v114m-preflight-summary.json`
+- `?? V114M11_PRE/authority/v114m-protected-table-fingerprints-before.json`
+- `?? V114M11_PRE/authority/v114m-ready-manifest.json`
+- `?? V114M11_PRE/authority/v114m-schema-safety.json`
+- `?? V114M11_PRE/authority/v114m1-authority.json`
+- `?? V114M11_PRE/authority/v114m11-wrapper-correction.json`
+- `?? V114M11_PRE/docs/V114M11_WRAPPER_CORRECTION.md`
+- `?? V114M11_PRE/docs/V114M1_APPLY.md`
+- `?? V114M11_PRE/package-manifest.json`
+- `?? V114M11_PRE/tests/__pycache__/test_v114m11_wrapper.cpython-314-pytest-9.1.1.pyc`
+- `?? V114M11_PRE/tests/__pycache__/test_v114m11_wrapper.cpython-314.pyc`
+- `?? V114M11_PRE/tests/__pycache__/test_v114m1_apply.cpython-314-pytest-9.1.1.pyc`
+- `?? V114M11_PRE/tests/__pycache__/test_v114m1_apply.cpython-314.pyc`
+- `?? V114M11_PRE/tests/test_v114m11_wrapper.py`
+- `?? V114M11_PRE/tests/test_v114m1_apply.py`
+- `?? V114M1_PRE/README.md`
+- `?? V114M1_PRE/Run-V114M1-Three-Row-Controlled-Apply.ps1`
+- `?? V114M1_PRE/Validate-V114M1-Package.py`
+- `?? V114M1_PRE/apply/__pycache__/v114m1_controlled_apply.cpython-314.pyc`
+- `?? V114M1_PRE/apply/v114m1_controlled_apply.py`
+- `?? V114M1_PRE/authority/v114m-apply-plan-material.json`
+- `?? V114M1_PRE/authority/v114m-dedupe-ownership.json`
+- `?? V114M1_PRE/authority/v114m-import-state-fingerprints-before.json`
+- `?? V114M1_PRE/authority/v114m-mutation-plan.json`
+- `?? V114M1_PRE/authority/v114m-preflight-summary.json`
+- `?? V114M1_PRE/authority/v114m-protected-table-fingerprints-before.json`
+- `?? V114M1_PRE/authority/v114m-ready-manifest.json`
+- `?? V114M1_PRE/authority/v114m-schema-safety.json`
+- `?? V114M1_PRE/authority/v114m1-authority.json`
+- `?? V114M1_PRE/docs/V114M1_APPLY.md`
+- `?? V114M1_PRE/package-manifest.json`
+- `?? V114M1_PRE/tests/__pycache__/test_v114m1_apply.cpython-314-pytest-9.1.1.pyc`
+- `?? V114M1_PRE/tests/__pycache__/test_v114m1_apply.cpython-314.pyc`
+- `?? V114M1_PRE/tests/test_v114m1_apply.py`
+- `?? V114M2_POST/README.md`
+- `?? V114M2_POST/Run-V114M2-Independent-Three-Row-Post-Audit.ps1`
+- `?? V114M2_POST/Validate-V114M2-Package.py`
+- `?? V114M2_POST/audit/__pycache__/v114m2_independent_post_audit.cpython-314.pyc`
+- `?? V114M2_POST/audit/v114m2_independent_post_audit.py`
+- `?? V114M2_POST/authority/aug24-docs-reviewed-result.json`
+- `?? V114M2_POST/authority/aug24-docs-reviewed-safety.json`
+- `?? V114M2_POST/authority/v114m-reviewed-mutation-plan.json`
+- `?? V114M2_POST/authority/v114m-reviewed-protected-tables.json`
+- `?? V114M2_POST/authority/v114m-reviewed-ready-manifest.json`
+- `?? V114M2_POST/authority/v114m-reviewed-schema-safety.json`
+- `?? V114M2_POST/authority/v114m11-reviewed-apply-result.json`
+- `?? V114M2_POST/authority/v114m11-reviewed-import-fingerprints-after.json`
+- `?? V114M2_POST/authority/v114m11-reviewed-live-family-after.json`
+- `?? V114M2_POST/authority/v114m11-reviewed-protected-tables-after.json`
+- `?? V114M2_POST/authority/v114m11-reviewed-schema-safety-after.json`
+- `?? V114M2_POST/authority/v114m11-reviewed-target-rows-after.json`
+- `?? V114M2_POST/authority/v114m2-authority.json`
+- `?? V114M2_POST/docs/V114M2_POST_AUDIT.md`
+- `?? V114M2_POST/package-manifest.json`
+- `?? V114M2_POST/tests/__pycache__/test_v114m2_post_audit.cpython-314-pytest-9.1.1.pyc`
+- `?? V114M2_POST/tests/__pycache__/test_v114m2_post_audit.cpython-314.pyc`
+- `?? V114M2_POST/tests/test_v114m2_post_audit.py`
+- `?? V114M_PRE/README.md`
+- `?? V114M_PRE/Run-V114M-Three-Row-Controlled-Repair-Preflight.ps1`
+- `?? V114M_PRE/Validate-V114M-Package.py`
+- `?? V114M_PRE/audit/__pycache__/v114m_controlled_preflight.cpython-314.pyc`
+- `?? V114M_PRE/audit/v114m_controlled_preflight.py`
+- `?? V114M_PRE/authority/v114k1-reviewed-db-family.json`
+- `?? V114M_PRE/authority/v114k1-reviewed-fingerprints.json`
+- `?? V114M_PRE/authority/v114k1-reviewed-production-replay.json`
+- `?? V114M_PRE/authority/v114k1-reviewed-repairability.json`
+- `?? V114M_PRE/authority/v114k1-reviewed-summary.json`
+- `?? V114M_PRE/authority/v114l-reviewed-result.json`
+- `?? V114M_PRE/authority/v114m-authority.json`
+- `?? V114M_PRE/docs/V114M_PREFLIGHT.md`
+- `?? V114M_PRE/package-manifest.json`
+- `?? V114M_PRE/tests/__pycache__/test_v114m_preflight.cpython-314-pytest-9.1.1.pyc`
+- `?? V114M_PRE/tests/__pycache__/test_v114m_preflight.cpython-314.pyc`
+- `?? V114M_PRE/tests/test_v114m_preflight.py`
+- `?? V114N_PRE/README.md`
+- `?? V114N_PRE/Run-V114N-Post-Repair-Residual-Rebaseline.ps1`
+- `?? V114N_PRE/Validate-V114N-Package.py`
+- `?? V114N_PRE/audit/__pycache__/v114n_residual_rebaseline.cpython-314.pyc`
+- `?? V114N_PRE/audit/v114n_residual_rebaseline.py`
+- `?? V114N_PRE/authority/final-docs-safety-verification.json`
+- `?? V114N_PRE/authority/v114g-summary.json`
+- `?? V114N_PRE/authority/v114l-result.json`
+- `?? V114N_PRE/authority/v114m2-closure-material.json`
+- `?? V114N_PRE/authority/v114m2-summary.json`
+- `?? V114N_PRE/authority/v114n-authority.json`
+- `?? V114N_PRE/docs/V114N_CONTRACT.md`
+- `?? V114N_PRE/package-manifest.json`
+- `?? V114N_PRE/tests/__pycache__/test_v114n_rebaseline.cpython-314-pytest-9.1.1.pyc`
+- `?? V114N_PRE/tests/__pycache__/test_v114n_rebaseline.cpython-314.pyc`
+- `?? V114N_PRE/tests/test_v114n_rebaseline.py`
+- `?? V114O_PRE/README.md`
+- `?? V114O_PRE/Run-V114O-Official-NSE-Historical-Symbol-Provenance-Audit.ps1`
+- `?? V114O_PRE/Validate-V114O-Package.py`
+- `?? V114O_PRE/audit/__pycache__/v114o_official_nse_symbol_provenance.cpython-314.pyc`
+- `?? V114O_PRE/audit/v114o_official_nse_symbol_provenance.py`
+- `?? V114O_PRE/authority/v114n-exact-19-no-symbol-residuals.csv`
+- `?? V114O_PRE/authority/v114n-reviewed-live-family.json`
+- `?? V114O_PRE/authority/v114n-reviewed-summary.json`
+- `?? V114O_PRE/authority/v114o-authority.json`
+- `?? V114O_PRE/docs/V114O_SCOPE.md`
+- `?? V114O_PRE/package-manifest.json`
+- `?? V114O_PRE/tests/__pycache__/test_v114o_audit.cpython-314-pytest-9.1.1.pyc`
+- `?? V114O_PRE/tests/__pycache__/test_v114o_audit.cpython-314.pyc`
+- `?? V114O_PRE/tests/test_v114o_audit.py`
+- `?? V114O_PRE/vendor/pypdf-license/LICENSE`
+- `?? V114O_PRE/vendor/pypdf/__init__.py`
+- `?? V114O_PRE/vendor/pypdf/__pycache__/__init__.cpython-314.pyc`
+- `?? V114O_PRE/vendor/pypdf/__pycache__/_cmap.cpython-314.pyc`
+- `?? V114O_PRE/vendor/pypdf/__pycache__/_doc_common.cpython-314.pyc`
+- `?? V114O_PRE/vendor/pypdf/__pycache__/_encryption.cpython-314.pyc`
+- `?? V114O_PRE/vendor/pypdf/__pycache__/_merger.cpython-314.pyc`
+- `?? V114O_PRE/vendor/pypdf/__pycache__/_page.cpython-314.pyc`
+- `?? V114O_PRE/vendor/pypdf/__pycache__/_page_labels.cpython-314.pyc`
+- `?? V114O_PRE/vendor/pypdf/__pycache__/_protocols.cpython-314.pyc`
+- `?? V114O_PRE/vendor/pypdf/__pycache__/_reader.cpython-314.pyc`
+- `?? V114O_PRE/vendor/pypdf/__pycache__/_utils.cpython-314.pyc`
+- `?? V114O_PRE/vendor/pypdf/__pycache__/_version.cpython-314.pyc`
+- `?? V114O_PRE/vendor/pypdf/__pycache__/_writer.cpython-314.pyc`
+- `?? V114O_PRE/vendor/pypdf/__pycache__/constants.cpython-314.pyc`
+- `?? V114O_PRE/vendor/pypdf/__pycache__/errors.cpython-314.pyc`
+- `?? V114O_PRE/vendor/pypdf/__pycache__/filters.cpython-314.pyc`
+- `?? V114O_PRE/vendor/pypdf/__pycache__/pagerange.cpython-314.pyc`
+- `?? V114O_PRE/vendor/pypdf/__pycache__/papersizes.cpython-314.pyc`
+- `?? V114O_PRE/vendor/pypdf/__pycache__/types.cpython-314.pyc`
+- `?? V114O_PRE/vendor/pypdf/__pycache__/xmp.cpython-314.pyc`
+- `?? V114O_PRE/vendor/pypdf/_cmap.py`
+- `?? V114O_PRE/vendor/pypdf/_codecs/__init__.py`
+- `?? V114O_PRE/vendor/pypdf/_codecs/__pycache__/__init__.cpython-314.pyc`
+- `?? V114O_PRE/vendor/pypdf/_codecs/__pycache__/_codecs.cpython-314.pyc`
+- `?? V114O_PRE/vendor/pypdf/_codecs/__pycache__/adobe_glyphs.cpython-314.pyc`
+- `?? V114O_PRE/vendor/pypdf/_codecs/__pycache__/pdfdoc.cpython-314.pyc`
+- `?? V114O_PRE/vendor/pypdf/_codecs/__pycache__/std.cpython-314.pyc`
+- `?? V114O_PRE/vendor/pypdf/_codecs/__pycache__/symbol.cpython-314.pyc`
+- `?? V114O_PRE/vendor/pypdf/_codecs/__pycache__/zapfding.cpython-314.pyc`
+- `?? V114O_PRE/vendor/pypdf/_codecs/_codecs.py`
+- `?? V114O_PRE/vendor/pypdf/_codecs/adobe_glyphs.py`
+- `?? V114O_PRE/vendor/pypdf/_codecs/pdfdoc.py`
+- `?? V114O_PRE/vendor/pypdf/_codecs/std.py`
+- `?? V114O_PRE/vendor/pypdf/_codecs/symbol.py`
+- `?? V114O_PRE/vendor/pypdf/_codecs/zapfding.py`
+- `?? V114O_PRE/vendor/pypdf/_crypt_providers/__init__.py`
+- `?? V114O_PRE/vendor/pypdf/_crypt_providers/__pycache__/__init__.cpython-314.pyc`
+- `?? V114O_PRE/vendor/pypdf/_crypt_providers/__pycache__/_base.cpython-314.pyc`
+- `?? V114O_PRE/vendor/pypdf/_crypt_providers/__pycache__/_cryptography.cpython-314.pyc`
+- `?? V114O_PRE/vendor/pypdf/_crypt_providers/__pycache__/_fallback.cpython-314.pyc`
+- `?? V114O_PRE/vendor/pypdf/_crypt_providers/__pycache__/_pycryptodome.cpython-314.pyc`
+- `?? V114O_PRE/vendor/pypdf/_crypt_providers/_base.py`
+- `?? V114O_PRE/vendor/pypdf/_crypt_providers/_cryptography.py`
+- `?? V114O_PRE/vendor/pypdf/_crypt_providers/_fallback.py`
+- `?? V114O_PRE/vendor/pypdf/_crypt_providers/_pycryptodome.py`
+- `?? V114O_PRE/vendor/pypdf/_doc_common.py`
+- `?? V114O_PRE/vendor/pypdf/_encryption.py`
+- `?? V114O_PRE/vendor/pypdf/_merger.py`
+- `?? V114O_PRE/vendor/pypdf/_page.py`
+- `?? V114O_PRE/vendor/pypdf/_page_labels.py`
+- `?? V114O_PRE/vendor/pypdf/_protocols.py`
+- `?? V114O_PRE/vendor/pypdf/_reader.py`
+- `?? V114O_PRE/vendor/pypdf/_text_extraction/__init__.py`
+- `?? V114O_PRE/vendor/pypdf/_text_extraction/__pycache__/__init__.cpython-314.pyc`
+- `?? V114O_PRE/vendor/pypdf/_text_extraction/__pycache__/_text_extractor.cpython-314.pyc`
+- `?? V114O_PRE/vendor/pypdf/_text_extraction/_layout_mode/__init__.py`
+- `?? V114O_PRE/vendor/pypdf/_text_extraction/_layout_mode/__pycache__/__init__.cpython-314.pyc`
+- `?? V114O_PRE/vendor/pypdf/_text_extraction/_layout_mode/__pycache__/_fixed_width_page.cpython-314.pyc`
+- `?? V114O_PRE/vendor/pypdf/_text_extraction/_layout_mode/__pycache__/_font.cpython-314.pyc`
+- `?? V114O_PRE/vendor/pypdf/_text_extraction/_layout_mode/__pycache__/_font_widths.cpython-314.pyc`
+- `?? V114O_PRE/vendor/pypdf/_text_extraction/_layout_mode/__pycache__/_text_state_manager.cpython-314.pyc`
+- `?? V114O_PRE/vendor/pypdf/_text_extraction/_layout_mode/__pycache__/_text_state_params.cpython-314.pyc`
+- `?? V114O_PRE/vendor/pypdf/_text_extraction/_layout_mode/_fixed_width_page.py`
+- `?? V114O_PRE/vendor/pypdf/_text_extraction/_layout_mode/_font.py`
+- `?? V114O_PRE/vendor/pypdf/_text_extraction/_layout_mode/_font_widths.py`
+- `?? V114O_PRE/vendor/pypdf/_text_extraction/_layout_mode/_text_state_manager.py`
+- `?? V114O_PRE/vendor/pypdf/_text_extraction/_layout_mode/_text_state_params.py`
+- `?? V114O_PRE/vendor/pypdf/_text_extraction/_text_extractor.py`
+- `?? V114O_PRE/vendor/pypdf/_utils.py`
+- `?? V114O_PRE/vendor/pypdf/_version.py`
+- `?? V114O_PRE/vendor/pypdf/_writer.py`
+- `?? V114O_PRE/vendor/pypdf/_xobj_image_helpers.py`
+- `?? V114O_PRE/vendor/pypdf/annotations/__init__.py`
+- `?? V114O_PRE/vendor/pypdf/annotations/_base.py`
+- `?? V114O_PRE/vendor/pypdf/annotations/_markup_annotations.py`
+- `?? V114O_PRE/vendor/pypdf/annotations/_non_markup_annotations.py`
+- `?? V114O_PRE/vendor/pypdf/constants.py`
+- `?? V114O_PRE/vendor/pypdf/errors.py`
+- `?? V114O_PRE/vendor/pypdf/filters.py`
+- `?? V114O_PRE/vendor/pypdf/generic/__init__.py`
+- `?? V114O_PRE/vendor/pypdf/generic/__pycache__/__init__.cpython-314.pyc`
+- `?? V114O_PRE/vendor/pypdf/generic/__pycache__/_base.cpython-314.pyc`
+- `?? V114O_PRE/vendor/pypdf/generic/__pycache__/_data_structures.cpython-314.pyc`
+- `?? V114O_PRE/vendor/pypdf/generic/__pycache__/_files.cpython-314.pyc`
+- `?? V114O_PRE/vendor/pypdf/generic/__pycache__/_fit.cpython-314.pyc`
+- `?? V114O_PRE/vendor/pypdf/generic/__pycache__/_image_inline.cpython-314.pyc`
+- `?? V114O_PRE/vendor/pypdf/generic/__pycache__/_link.cpython-314.pyc`
+- `?? V114O_PRE/vendor/pypdf/generic/__pycache__/_outline.cpython-314.pyc`
+- `?? V114O_PRE/vendor/pypdf/generic/__pycache__/_rectangle.cpython-314.pyc`
+- `?? V114O_PRE/vendor/pypdf/generic/__pycache__/_utils.cpython-314.pyc`
+- `?? V114O_PRE/vendor/pypdf/generic/__pycache__/_viewerpref.cpython-314.pyc`
+- `?? V114O_PRE/vendor/pypdf/generic/_base.py`
+- `?? V114O_PRE/vendor/pypdf/generic/_data_structures.py`
+- `?? V114O_PRE/vendor/pypdf/generic/_files.py`
+- `?? V114O_PRE/vendor/pypdf/generic/_fit.py`
+- `?? V114O_PRE/vendor/pypdf/generic/_image_inline.py`
+- `?? V114O_PRE/vendor/pypdf/generic/_link.py`
+- `?? V114O_PRE/vendor/pypdf/generic/_outline.py`
+- `?? V114O_PRE/vendor/pypdf/generic/_rectangle.py`
+- `?? V114O_PRE/vendor/pypdf/generic/_utils.py`
+- `?? V114O_PRE/vendor/pypdf/generic/_viewerpref.py`
+- `?? V114O_PRE/vendor/pypdf/pagerange.py`
+- `?? V114O_PRE/vendor/pypdf/papersizes.py`
+- `?? V114O_PRE/vendor/pypdf/py.typed`
+- `?? V114O_PRE/vendor/pypdf/types.py`
+- `?? V114O_PRE/vendor/pypdf/xmp.py`
+- `?? V114P_PRE/README.md`
+- `?? V114P_PRE/Run-V114P-Five-Row-Official-Provenance-Production-Candidate-Replay.ps1`
+- `?? V114P_PRE/Validate-V114P-Package.py`
+- `?? V114P_PRE/audit/__pycache__/v114p_repairability_preflight.cpython-314.pyc`
+- `?? V114P_PRE/audit/v114p_repairability_preflight.py`
+- `?? V114P_PRE/authority/v114o-reviewed-foreign-key-check.json`
+- `?? V114P_PRE/authority/v114o-reviewed-live-family.json`
+- `?? V114P_PRE/authority/v114o-reviewed-row-provenance.json`
+- `?? V114P_PRE/authority/v114o-reviewed-source-capture.json`
+- `?? V114P_PRE/authority/v114o-reviewed-summary.json`
+- `?? V114P_PRE/authority/v114p-authority.json`
+- `?? V114P_PRE/docs/V114P_CONTRACT.md`
+- `?? V114P_PRE/package-manifest.json`
+- `?? V114P_PRE/tests/__pycache__/test_v114p_preflight.cpython-314-pytest-9.1.1.pyc`
+- `?? V114P_PRE/tests/__pycache__/test_v114p_preflight.cpython-314.pyc`
+- `?? V114P_PRE/tests/test_v114p_preflight.py`
+- `?? c2cda7fc-ad75-4015-87f0-40f51e3b0810.zip`
+- `?? c7897bb7-53fa-4825-b7cb-0692550ad58b.zip`
+- `?? chart-pattern-files.zip`
+- `?? chart_patterns_deep_audit.md`
+- `?? docs/2026-08-25_0025_IST_BANANAPATTERNS_SOURCE_SPECIFIC_READ_ONLY_AUDIT.md`
+- `?? docs/Chart_Pattern_Fix_Architecture_Guide_v1.md`
+- `?? "docs/Eod Charting Platform Audit 03 08 2026.md"`
+- `?? docs/architecture/01_SYSTEM_OVERVIEW.md`
+- `?? docs/architecture/02_DATA_ENGINE.md`
+- `?? docs/architecture/03_IPC_AND_STREAMING.md`
+- `?? docs/architecture/04_CANVAS_RENDERING.md`
+- `?? docs/architecture/05_INTRADAY_ROADMAP.md`
+- `?? docs/archive/APP_VERSION_BUILD_METADATA_REPORT.md`
+- `?? docs/archive/BHAVCOPY_INLINE_LOG_SCROLL_REPORT.md`
+- `?? docs/archive/BHAVCOPY_SYMBOL_BATCHED_IMPORT_REPORT.md`
+- `?? docs/archive/CHART_SCROLLBAR_VIEWPORT_SYNC_REGRESSION_AUDIT.md`
+- `?? docs/archive/CHART_TYPES_FOUNDATION_REPORT.md`
+- `?? docs/archive/CHART_VISUAL_AREA_BOUNDS_CLIPPING_AUDIT.md`
+- `?? docs/archive/CLAUDE_HANDOFF_PROMPT_EOD_CHARTING_PLATFORM.md`
+- `?? docs/archive/COMPACT_INDICATOR_LABEL_CONSISTENCY_REPORT.md`
+- `?? docs/archive/CSV_IMPORT_BATCH_PROGRESS_OPTIMIZATION_REPORT.md`
+- `?? docs/archive/CURRENT_ARCHITECTURE_STRUCTURE_EOD_CHARTING_PLATFORM.md`
+- `?? docs/archive/CURRENT_BUILD_AUDIT_EOD_CHARTING_PLATFORM.md`
+- `?? docs/archive/CUSTOM_FORMULA_ENGINE_MVP_REPORT.md`
+- `?? docs/archive/CUSTOM_POINTER_SCROLLBAR_DESIGN_AUDIT.md`
+- `?? docs/archive/CV1_CHART_VIEWPORT_RESTORE_AUDIT_20260517.md`
+- `?? docs/archive/DBSAVE1_ACTIVE_DATABASE_SAVE_AUDIT_20260517.md`
+- `?? docs/archive/DRAWING_FIBONACCI_FOUNDATION_PASS_REPORT.md`
+- `?? docs/archive/FULL_ZOOM_OUT_VIEWPORT_FIX_REPORT.md`
+- `?? docs/archive/FUTURE_PROMPT_README_EOD_CHARTING_PLATFORM.md`
+- `?? docs/archive/FUTURE_TV_CHART_UI_IMPLEMENTATION_NOTES_20260524.md`
+- `?? docs/archive/HIDE_AUTO_SCALE_BADGE_REPORT.md`
+- `?? docs/archive/HISTORICAL_CORPORATE_ACTIONS_BACKFILL_PHASE_PLAN.md`
+- `?? docs/archive/HISTORICAL_CORPORATE_ACTIONS_SOURCE_SPIKE_REPORT.md`
+- `?? docs/archive/INDICATOR_PANE_LEGEND_IN_PLOT_TV_STYLE_REPORT.md`
+- `?? docs/archive/INDICATOR_PANE_PADDING_CONTROLS_VISIBILITY_REPORT.md`
+- `?? docs/archive/LC_A2_CHART_CLIPPING_FIX.patch`
+- `?? docs/archive/LC_A2_CHART_CLIPPING_FIX_REPORT.backup.md`
+- `?? docs/archive/LC_A2_CHART_CLIPPING_FIX_REPORT.md`
+- `?? docs/archive/LIGHTWEIGHT_CHARTS_VISUAL_AREA_AUDIT.md`
+- `?? docs/archive/MENU_RESTRUCTURING_PHASE_PLAN_EOD_CHARTING_PLATFORM.md`
+- `?? docs/archive/NEXT_SMALL_IMPLEMENTATION_PHASES_20260517.md`
+- `?? docs/archive/NSE_INDEX_HISTORY_API_REPORT.md`
+- `?? docs/archive/PANE_LEGEND_STATUS_LINE_AUDIT.md`
+- `?? docs/archive/PANE_LEGEND_STATUS_LINE_PHASE2B_AXIS_LABEL_REPORT.md`
+- `?? docs/archive/PANE_LEGEND_STATUS_LINE_PHASE2C_HOVER_ZONE_REPORT.md`
+- `?? docs/archive/PANE_LEGEND_STATUS_LINE_PHASE2_REPORT.md`
+- `?? docs/archive/PANE_LEGEND_STATUS_LINE_PHASE3A_TV_STYLE_LEGEND_AUDIT.md`
+- `?? docs/archive/POP1_POPUP_MODAL_SYSTEM_AUDIT.md`
+- `?? docs/archive/POP2_FLOATING_WINDOW_FOUNDATION_REPORT.md`
+- `?? docs/archive/POP3B_SETTINGS_FLOATING_WINDOW_MIGRATION_REPORT.md`
+- `?? docs/archive/POP3_FAQ_FLOATING_WINDOW_MIGRATION_REPORT.md`
+- `?? docs/archive/POP4A_DATABASE_TOOLS_FLOATING_WINDOW_AUDIT.md`
+- `?? docs/archive/POP4B1A_DATABASE_TOOLS_CLOSE_OVERLAY_AUDIT.md`
+- `?? docs/archive/POP4B1B_DATABASE_TOOLS_CLOSE_OVERLAY_FIX_REPORT.md`
+- `?? docs/archive/POP4B_DATABASE_TOOLS_FLOATING_WINDOW_MIGRATION_REPORT.md`
+- `?? docs/archive/PRICE_LEGEND_GAP_VERTICAL_INDICATORS_REPORT.md`
+- `?? docs/archive/PRICE_PANE_LEGEND_IN_PLOT_TV_STYLE_REPORT.md`
+- `?? docs/archive/QE2_F2_QUOTE_DELETE_CHART_REFRESH_AUDIT.md`
+- `?? docs/archive/QE2_QUOTE_EDITOR_DELETE_AUDIT.md`
+- `?? docs/archive/QE3_A_BHAVCOPY_CHART_REFRESH_AUDIT.md`
+- `?? docs/archive/QE3_C_NSE_INDEX_ALREADY_DOWNLOADED_AUDIT.md`
+- `?? docs/archive/QUOTE_EDITOR_PHASE_A_ALL_SYMBOLS_SINGLE_DATE_REPORT.md`
+- `?? docs/archive/SCALE_LABEL_SETTINGS_REFINEMENTS_REPORT.md`
+- `?? docs/archive/SCALE_LABEL_SETTINGS_TV_STYLE_REPORT.md`
+- `?? docs/archive/SCALE_MENU_INDICATOR_PADDING_REPORT.md`
+- `?? docs/archive/SCROLLBAR_GUARD_USER_INTERACTION_FIX_REPORT.md`
+- `?? docs/archive/SCROLLBAR_GUARD_USER_INTERACTION_FIX_REPORT.not-final.md`
+- `?? docs/archive/SCROLLBAR_NATIVE_GUARD_PARTIAL_FIX_NOT_FINAL.patch`
+- `?? docs/archive/SCROLLBAR_SHEET_VIEWPORT_SYNC_REPORT.md`
+- `?? docs/archive/SCROLLBAR_TRACE_DIAGNOSTICS_REPORT.md`
+- `?? docs/archive/SCROLLBAR_VIEWPORT_DEPENDENCY_FIX_FAILED.patch`
+- `?? docs/archive/SCROLLBAR_VIEWPORT_DEPENDENCY_FIX_REPORT.md`
+- `?? docs/archive/SCROLLBAR_VISUAL_POLISH_REPORT.md`
+- `?? docs/archive/SESSION_LOG_20260511.md`
+- `?? docs/archive/SESSION_LOG_20260511_PERFORMANCE.md`
+- `?? docs/archive/SESSION_LOG_20260513_BINARY.md`
+- `?? docs/archive/SESSION_LOG_20260513_INTEGRATION.md`
+- `?? docs/archive/SESSION_LOG_20260514_PHASE3A.md`
+- `?? docs/archive/SESSION_LOG_20260514_PHASE3B2.md`
+- `?? docs/archive/SESSION_LOG_20260515_3_PHASE4B2_UI.md`
+- `?? docs/archive/SESSION_LOG_20260515_PHASE4B4_QA.md`
+- `?? docs/archive/SESSION_LOG_20260515_PHASE4C1_AUDIT.md`
+- `?? docs/archive/SESSION_LOG_20260515_PHASE4C2_AUDIT.md`
+- `?? docs/archive/SESSION_LOG_20260515_PHASE4C3.md`
+- `?? docs/archive/SESSION_LOG_20260516_PHASE4C4_4C6.md`
+- `?? docs/archive/SESSION_LOG_20260516_PHASE4C8_4C9B.md`
+- `?? docs/archive/SESSION_LOG_20260516_PHASE4C9C_CORRECTION_4C9D.md`
+- `?? docs/archive/SESSION_LOG_20260517_5_DBSAVE2_QA_SCROLLBAR_FIX.md`
+- `?? docs/archive/SESSION_LOG_20260518_POP4B_STABILITY.md`
+- `?? docs/archive/SESSION_LOG_20260521_INDICATOR_SETTINGS_PORTAL_FIX.md`
+- `?? docs/archive/SRC1_BHAVCOPY_SOURCE_URL_AUDIT_20260518.md`
+- `?? docs/archive/STABILITY_S1A_MAIN_THREAD_BLOCKING_AUDIT.md`
+- `?? docs/archive/STABILITY_S1D_E_QUOTE_EDIT_DELETE_AUDIT.md`
+- `?? docs/archive/STABILITY_S1D_HEAVY_MUTATORS_AUDIT.md`
+- `?? docs/archive/STABILITY_S1E_FINAL_QA_REPORT.md`
+- `?? docs/archive/THEME_IMPLEMENTATION_PLAN_20260524.md`
+- `?? docs/archive/W1B_ALREADY_IMPORTED_WATCHLIST_AUDIT_20260518.md`
+- `?? "docs/changes 05-08-2026.zip"`
+- `?? docs/changes/2026-08-04_1122_IST_MARKET_MOVERS.patch`
+- `?? docs/changes/2026-08-04_1122_IST_MARKET_MOVERS_FILE_MANIFEST.txt`
+- `?? docs/changes/2026-08-04_1122_IST_MARKET_MOVERS_IMPLEMENTATION.md`
+- `?? docs/changes/2026-08-04_1122_IST_MARKET_MOVERS_VALIDATION.txt`
+- `?? docs/changes/2026-08-04_1324_IST_MARKET_MOVERS_WINDOWS_VALIDATION.txt`
+- `?? docs/changes/2026-08-04_1358_IST_MARKET_MOVERS_WINDOWS_VALIDATION_CONTINUED.txt`
+- `?? docs/changes/2026-08-04_1617_IST_MARKET_MOVERS_UI_FIX.md`
+- `?? docs/changes/2026-08-04_1617_IST_MARKET_MOVERS_UI_FIX.patch`
+- `?? docs/changes/2026-08-04_1617_IST_MARKET_MOVERS_UI_FIX_GIT_STATUS.txt`
+- `?? docs/changes/2026-08-04_1617_IST_MARKET_MOVERS_UI_FIX_VALIDATION.txt`
+- `?? docs/changes/2026-08-04_1724_IST_TAURI_VERSION_ALIGNMENT.md`
+- `?? docs/changes/2026-08-04_2315_IST_MANUAL_BACKGROUND_MARKET_SCAN_V1_VALIDATION.txt`
+- `?? docs/changes/2026-08-04_2357_IST_MANUAL_BACKGROUND_MARKET_SCAN_V1.md`
+- `?? docs/changes/2026-08-04_2357_IST_MANUAL_BACKGROUND_MARKET_SCAN_V1.patch`
+- `?? docs/changes/2026-08-04_2357_IST_MANUAL_BACKGROUND_MARKET_SCAN_V1_FILE_MANIFEST.txt`
+- `?? docs/changes/2026-08-04_2357_IST_MANUAL_BACKGROUND_MARKET_SCAN_V1_GIT_STATUS.txt`
+- `?? docs/changes/2026-08-04_2357_IST_MANUAL_BACKGROUND_MARKET_SCAN_V1_VALIDATION.txt`
+- `?? docs/changes/2026-08-05_0205_IST_PORTABLE_BUILD_PIPELINE_FIX.md`
+- `?? docs/changes/2026-08-05_0213_IST_ACCIDENTAL_E_DRIVE_COPY_CANDIDATES.csv`
+- `?? docs/changes/2026-08-05_0220_IST_ACCIDENTAL_E_DRIVE_COPY_QUARANTINE_MANIFEST.csv`
+- `?? docs/changes/2026-08-05_1233_IST_ROOT_CARGO_TARGET_ALIGNMENT.md`
+- `?? docs/changes/2026-08-05_1323_IST_LEGACY_SRC_TAURI_TARGET_QUARANTINE.md`
+- `?? docs/changes/2026-08-05_1504_IST_CANONICAL_DOCUMENTATION_RECONCILIATION.md`
+- `?? docs/changes/2026-08-05_1617_IST_SOURCE_SNAPSHOT_DOCUMENTATION_FINALIZATION.md`
+- `?? docs/changes/2026-08-05_1640_IST_SOURCE_SNAPSHOT_V3_EVIDENCE_INCLUSION.md`
+- `?? docs/changes/2026-08-05_1718_IST_DNN_TREND_PLUGIN_FOUNDATION.md`
+- `?? docs/changes/2026-08-05_1803_IST_SYNCED_CROSSHAIR_TEST_EXPECTATION_FIX.md`
+- `?? docs/changes/2026-08-05_1825_IST_DNN_TREND_PLUGIN_FINAL_VALIDATION.md`
+- `?? docs/changes/2026-08-05_1918_IST_PRECOMPUTED_DNN_PREDICTION_ADAPTER_V1.md`
+- `?? docs/changes/2026-08-05_1918_IST_PRECOMPUTED_DNN_PREDICTION_ADAPTER_V1_FILE_MANIFEST.txt`
+- `?? docs/changes/2026-08-05_1918_IST_PRECOMPUTED_DNN_PREDICTION_ADAPTER_V1_VALIDATION.txt`
+- `?? docs/changes/2026-08-05_2230_IST_DNN_RESEARCH_DATASET_EXPORT_V1.md`
+- `?? docs/changes/2026-08-05_2230_IST_DNN_RESEARCH_DATASET_EXPORT_V1_FILE_MANIFEST.txt`
+- `?? docs/changes/2026-08-05_2230_IST_DNN_RESEARCH_DATASET_EXPORT_V1_VALIDATION.txt`
+- `?? docs/changes/2026-08-05_2327_IST_DNN_RESEARCH_EXPORT_RUST_LIFETIME_FIX.md`
+- `?? docs/changes/2026-08-08_0116_IST_BHAVCOPY_BINARY_WRITE_DIAGNOSTICS_V1.md`
+- `?? docs/changes/2026-08-08_1642_IST_BSE_HISTORICAL_EQUITY_COMPATIBILITY_V1.md`
+- `?? docs/changes/2026-08-08_1720_IST_BSE_HISTORICAL_EQUITY_COMPATIBILITY_V2.md`
+- `?? docs/changes/2026-08-08_1820_IST_BHAVCOPY_PROVIDER_COMPATIBILITY_AND_DOWNLOAD_PATH_V1.md`
+- `?? docs/changes/2026-08-08_1916_IST_BHAVCOPY_PREFILTER_ROW_PARITY_DIAGNOSTICS_V1.md`
+- `?? docs/changes/2026-08-09_0048_IST_MANUAL_IMPORT_BINARY_DIAGNOSTICS_V1.md`
+- `?? docs/changes/2026-08-09_0215_IST_APPEND_NEWEST_SINGLE_FINAL_SYNC_V1.md`
+- `?? docs/changes/2026-08-09_0234_IST_APPEND_NEWEST_SINGLE_FINAL_SYNC_V1_1_TEST_ALIGNMENT.md`
+- `?? docs/changes/2026-08-09_1104_IST_BHAVCOPY_BINARY_WORKERS_4_EXPERIMENT_V1.md`
+- `?? docs/changes/2026-08-09_1240_IST_BHAVCOPY_RECOVERABLE_DURABILITY_CONTRACT_V1.md`
+- `?? docs/changes/2026-08-09_1247_IST_BHAVCOPY_RECOVERY_INFRASTRUCTURE_PHASE2B_V1.md`
+- `?? docs/changes/2026-08-09_1418_IST_QUOTE_DELETE_ORPHAN_SYMBOL_PRUNE_V1.md`
+- `?? docs/changes/2026-08-09_1450_IST_MANUAL_IMPORT_RECOVERY_SESSIONS_V1.md`
+- `?? docs/changes/2026-08-09_1702_IST_MANUAL_IMPORT_RECOVERY_HISTORY_V1_2.md`
+- `?? docs/changes/2026-08-09_2110_IST_BHAVCOPY_RECOVERY_HARDENING_PHASE2B_1_V1.md`
+- `?? docs/changes/2026-08-09_2323_IST_BHAVCOPY_APPEND_NEWEST_BUFFERED_DURABILITY_PHASE2C_V1.md`
+- `?? docs/changes/2026-08-10_0145_IST_BHAVCOPY_COMPACT_PROGRESS_UI_FIX_V1.md`
+- `?? docs/changes/2026-08-10_1212_IST_BHAVCOPY_FINAL_ACCEPTANCE_AND_DOCUMENTATION_RECONCILIATION.md`
+- `?? docs/changes/2026-08-10_1235_IST_FINAL_DOCUMENTATION_AUDIT_V2.md`
+- `?? docs/changes/2026-08-10_1336_IST_INDICATOR_CACHE_ISOLATION_AND_INVALIDATION_V1.md`
+- `?? docs/changes/2026-08-10_1539_IST_DRAWING_TOOLS_PHASE_D1_SAFE_LINES_AND_MEASUREMENTS_V1.md`
+- `?? docs/changes/2026-08-10_1631_IST_DRAWING_TOOLS_PHASE_D1_1_RUNTIME_ACCEPTANCE_FIXES_V1.md`
+- `?? docs/changes/2026-08-10_1716_IST_DRAWING_TOOLS_PHASE_D2_ADVANCED_ONE_TWO_ANCHOR_GEOMETRY_V1.md`
+- `?? docs/changes/2026-08-10_1730_IST_DRAWING_TOOLS_PHASE_D2_INSTALLER_BACKUP_STATUS_FIX_V1.md`
+- `?? docs/changes/2026-08-10_1905_IST_DRAWING_TOOLS_PHASE_D2_1_SCOPED_DRAWINGS_AND_SHARED_PROPERTIES_V1.md`
+- `?? docs/changes/2026-08-10_1956_IST_DRAWING_TOOLS_PHASE_D2_1_1_RENDERER_EXHAUSTIVENESS_TYPECHECK_FIX_V1.md`
+- `?? docs/changes/2026-08-10_2320_IST_DRAWING_TOOLS_PHASE_D3A_MULTI_ANCHOR_FOUNDATION_V1.md`
+- `?? docs/changes/2026-08-10_2342_IST_DRAWING_TOOLS_PHASE_D3A_INSTALLER_BACKUP_SCOPE_FIX_V1.md`
+- `?? docs/changes/2026-08-10_BSE_INDEX_LITERAL_DATE_URL_FIX_V1.md`
+- `?? docs/changes/2026-08-11_0018_IST_DRAWING_TOOL_NAME_ONLY_TOOLTIPS_V1.md`
+- `?? docs/changes/2026-08-11_0126_IST_DRAWING_TOOLS_PHASE_D3B_PITCHFORKS_AND_ADVANCED_FIBONACCI_V2.md`
+- `?? docs/changes/2026-08-11_0230_IST_DRAWING_LEVEL_LABEL_READABILITY_AND_PLACEMENT_D3B_1_V1.md`
+- `?? docs/changes/2026-08-11_1015_IST_DRAWING_PROPERTIES_TITLES_AND_LEFT_LABEL_PLACEMENT_D3B_2_V1.md`
+- `?? docs/changes/2026-08-11_1030_IST_DRAWING_TOOLS_PHASE_D3C_POSITION_AND_PROJECTION_V1.md`
+- `?? docs/changes/2026-08-11_1046_IST_DRAWING_TOOL_DOCK_GROUPED_UI_V1.md`
+- `?? docs/changes/2026-08-11_1225_IST_DRAWING_D3C_1_FIB_LABEL_AND_POSITION_ANNOTATION_CLEANUP_V1.md`
+- `?? docs/changes/2026-08-11_1316_IST_SETTINGS_S1_UNIFIED_STYLE_FOUNDATION_V1.md`
+- `?? docs/changes/2026-08-11_1356_IST_SETTINGS_S2_1_ADVANCED_DRAWING_STYLE_REGRESSION_CHANNELS_V1.md`
+- `?? docs/changes/2026-08-11_1430_IST_SETTINGS_S2_2_ADVANCED_DRAWING_STYLE_PITCHFORK_FAMILY_V1.md`
+- `?? docs/changes/2026-08-11_1512_IST_SETTINGS_S2_3_ADVANCED_DRAWING_STYLE_FIBONACCI_GANN_V1.md`
+- `?? docs/changes/2026-08-11_1640_IST_SETTINGS_S2_3_1_TRADINGVIEW_UX_VISUAL_ACCEPTANCE_CORRECTIONS_V1.md`
+- `?? docs/changes/2026-08-11_1658_IST_SETTINGS_S2_3_1_V1_1_VALIDATION_CONTRACT_CORRECTION.md`
+- `?? docs/changes/2026-08-12_0204_IST_F1B_LINEAR_TIME_FIBONACCI_FIDELITY_V1.md`
+- `?? docs/changes/2026-08-12_1211_IST_F1B_1_FIB_RETRACEMENT_PROJECTION_AUTOSCALE_FIX_V1.md`
+- `?? docs/changes/2026-08-12_1403_IST_F1B_2_FIB_RETRACEMENT_SPAN_OUTSIDE_LABEL_FIX_V1.md`
+- `?? docs/changes/2026-08-12_1435_IST_F1B_3_RETRACEMENT_TRENDFIB_LABEL_PARITY_FIX_V1.md`
+- `?? docs/changes/2026-08-12_1538_IST_F1B_4_RETRACEMENT_LEVEL_ORIENTATION_FIX_V1.md`
+- `?? docs/changes/2026-08-12_1705_IST_F1B_5_RETRACEMENT_TREND_FIB_PLOT_STYLE_PARITY_V1.md`
+- `?? docs/changes/2026-08-12_2102_IST_BHAVCOPY_INTERRUPTED_CHECKPOINT_RESUME_FIX_V1.md`
+- `?? docs/changes/2026-08-12_2353_IST_BHAVCOPY_PHASE2D_BACKGROUND_CHECKPOINT_V1.md`
+- `?? docs/changes/2026-08-12_F1C_1_FIB_CIRCLES_TRADINGVIEW_FIDELITY_V1.md`
+- `?? docs/changes/2026-08-12_F1C_2_FIB_SPEED_RESISTANCE_ARCS_TRADINGVIEW_FIDELITY_V1.md`
+- `?? docs/changes/2026-08-13_0030_IST_BHAVCOPY_UPDATE_SAME_DAY_CUTOFF_V1.md`
+- `?? docs/changes/2026-08-13_0232_IST_BHAVCOPY_CALENDAR_SAFETY_V1_1.md`
+- `?? docs/changes/2026-08-13_1305_IST_BHAVCOPY_PREFILTER_RANGE_SCAN_V1.md`
+- `?? docs/changes/2026-08-13_1555_IST_BHAVCOPY_BSE_INDEX_CANDIDATE_CLASSIFICATION_V1_1.md`
+- `?? docs/changes/2026-08-13_1658_IST_BHAVCOPY_FINAL_DOCUMENTATION_RECONCILIATION_V3.md`
+- `?? docs/changes/2026-08-13_2105_IST_FIBONACCI_FINAL_DOCUMENTATION_RECONCILIATION_V1.md`
+- `?? docs/changes/2026-08-13_2315_IST_CHART_PATTERNS_PARITY_V1.md`
+- `?? docs/changes/2026-08-13_2350_IST_CHART_PATTERNS_AUTO_PLOT_V1.md`
+- `?? docs/changes/2026-08-14_0046_IST_CORPORATE_ACTION_CA1_SPLIT_BONUS_IMPLEMENTATION_PLAN_V1.md`
+- `?? docs/changes/2026-08-14_0134_IST_CORPORATE_ACTION_SPLIT_BONUS_REVIEW_VALIDATION_V1.md`
+- `?? docs/changes/2026-08-14_0158_IST_CORPORATE_ACTION_PHASE1_RUST_LIFETIME_FIX_V1_1.md`
+- `?? docs/changes/2026-08-14_0243_IST_CORPORATE_ACTION_PHASE1_ISIN_EXCEPTION_TEST_FIX_V1_2.md`
+- `?? docs/changes/2026-08-14_1441_IST_CORPORATE_ACTION_PHASE1_BULK_APPROVAL_UX_FIX_V1_3.md`
+- `?? docs/changes/2026-08-14_1646_IST_CORPORATE_ACTION_PHASE1_APPROVE_ALL_READY_UX_V1_4.md`
+- `?? docs/changes/2026-08-14_1715_IST_INDICATOR_HYBRID_DIALOG_AND_FLOATING_WINDOWS_V1.md`
+- `?? docs/changes/2026-08-14_1850_IST_CORPORATE_ACTION_PHASE1_REVIEW_IDENTITY_WORKBENCH_UX_V1_5_1.md`
+- `?? docs/changes/2026-08-14_2036_IST_CORPORATE_ACTION_PHASE1_BULK_IDENTITY_RECOMMENDATIONS_V1_6.md`
+- `?? docs/changes/2026-08-15_1158_IST_CORPORATE_ACTION_PHASE1_SAME_DATE_COMPOUND_SPLIT_BONUS_VALIDATION_V1_7.md`
+- `?? docs/changes/2026-08-15_1320_IST_CORPORATE_ACTION_PHASE1_COMPOUND_SCANNER_FIXTURE_COMPATIBILITY_V1_7_1.md`
+- `?? docs/changes/2026-08-15_1323_IST_COMMAND_PALETTE_OVERLAY_AND_KEY_DISMISSAL_FIX.md`
+- `?? docs/changes/2026-08-15_1705_IST_CORPORATE_ACTION_PHASE1_COMPOUND_PRICE_EVIDENCE_UI_V1_7_2.md`
+- `?? docs/changes/2026-08-15_1905_IST_CORPORATE_ACTION_PHASE1_COMPOUND_RESIDUAL_PERCENTAGE_FIX_V1_7_3.md`
+- `?? docs/changes/2026-08-16_1410_IST_BSE_OFFICIAL_WATCHLIST_EXPANSION_AND_AUDIT_FIXES_V1.md`
+- `?? docs/changes/2026-08-16_1645_IST_BSE_STOCKS_BY_SECTOR_AND_UNIVERSE_REFRESH_SCRIPT_V1.md`
+- `?? docs/changes/2026-08-16_CHART_RUNTIME_STATIC_PARTITION_W1_4.md`
+- `?? docs/changes/2026-08-16_CORPORATE_ACTION_PHASE1_CONTROLLED_HISTORICAL_ISIN_BOOTSTRAP_V1_9_2.md`
+- `?? docs/changes/2026-08-16_CORPORATE_ACTION_PHASE1_CONTROLLED_HISTORICAL_ISIN_BOOTSTRAP_V1_9_2_2_RUST_LIFETIME_FIX.md`
+- `?? docs/changes/2026-08-16_CORPORATE_ACTION_PHASE1_CONTROLLED_HISTORICAL_ISIN_BOOTSTRAP_V1_9_2_3_REPORTING_RECOVERY_FIX.md`
+- `?? docs/changes/2026-08-16_OFFICIAL_WATCHLISTS_LAZY_DATA_W1_3.md`
+- `?? docs/changes/2026-08-16_OFFICIAL_WATCHLISTS_LAZY_DATA_W1_3_1_TYPECHECK_FIX.md`
+- `?? docs/changes/2026-08-16_RUST_WARNING_HYGIENE_W1_1.md`
+- `?? docs/changes/2026-08-16_VITE_ESM_CONFIG_W1_2.md`
+- `?? docs/changes/2026-08-17_CANONICAL_DOCUMENTATION_RECONCILIATION.md`
+- `?? docs/changes/2026-08-17_CHART_CANVAS_STATIC_EXTRACTION_W1_4_B1.md`
+- `?? docs/changes/2026-08-17_CHART_RUNTIME_STATIC_PARTITION_W1_4_1_TEST_TYPECHECK_FIX.md`
+- `?? docs/changes/2026-08-18_CORPORATE_ACTION_PHASE1_V1_12_1_FINAL_IDENTITY_AUDIT_CLOSEOUT.md`
+- `?? docs/changes/2026-08-18_CORPORATE_ACTION_PHASE1_V1_13B_1_1_WINDOWS_VALIDATION_TEMPFILE_CLEANUP_FIX.md`
+- `?? docs/changes/2026-08-18_CORPORATE_ACTION_PHASE1_V1_13B_1_2_CSV_REPORTING_PROJECTION_FIX.md`
+- `?? docs/changes/2026-08-18_CORPORATE_ACTION_PHASE1_V1_13B_1_3_CANONICAL_MUTATION_ORDER_REGRESSION_FIX.md`
+- `?? docs/changes/2026-08-18_CORPORATE_ACTION_PHASE1_V1_13B_1_SIX_ROW_HISTORICAL_ISIN_REPAIR_IMPLEMENTATION.md`
+- `?? docs/changes/2026-08-18_CORPORATE_ACTION_PHASE1_V1_13B_1_SIX_ROW_SCOPE_REVISION_DESIGN_LOCK.md`
+- `?? docs/changes/2026-08-18_CORPORATE_ACTION_PHASE1_V1_13C_1_1_APPLY_GATE_MARKER_COMPATIBILITY_FIX.md`
+- `?? docs/changes/2026-08-18_CORPORATE_ACTION_PHASE1_V1_13C_1_INDEPENDENT_POST_AUDIT.md`
+- `?? docs/changes/2026-08-19_2327_IST_DNN_RESEARCH_EXPORT_FOLDER_PERSISTENCE.md`
+- `?? docs/changes/2026-08-19_CORPORATE_ACTION_PHASE1_V1_13_FINAL_DOCUMENTATION_EVIDENCE_RECONCILIATION.md`
+- `?? docs/changes/2026-08-19_CORPORATE_ACTION_PHASE1_V1_14E_1_IMPLEMENTATION_PLAN_LOCK.md`
+- `?? docs/changes/2026-08-19_CORPORATE_ACTION_PHASE1_V1_14E_2_FOCUSED_RUSTFMT_VALIDATION_COMPATIBILITY.md`
+- `?? docs/changes/2026-08-19_CORPORATE_ACTION_PHASE1_V1_14E_3_RUST_COMPILE_COMPATIBILITY.md`
+- `?? docs/changes/2026-08-19_CORPORATE_ACTION_PHASE1_V1_14E_HISTORICAL_EVENT_IDENTITY_RESOLUTION_DESIGN_LOCK.md`
+- `?? docs/changes/2026-08-19_CORPORATE_ACTION_PHASE1_V1_14E_SOURCE_IMPLEMENTATION.md`
+- `?? docs/changes/2026-08-20_0030_IST_EOD_BINARY_STATE_INDEX_STORAGE_ARCHITECTURE_V1_1_INFRASTRUCTURE.md`
+- `?? docs/changes/2026-08-20_1130_IST_EOD_BINARY_STATE_INDEX_STORAGE_ARCHITECTURE_V1_2_SHADOW_VALIDATION.md`
+- `?? docs/changes/2026-08-20_1915_IST_EOD_BINARY_STATE_INDEX_STORAGE_ARCHITECTURE_V1_3_BASELINE_FAST_PATH_REV2.md`
+- `?? docs/changes/2026-08-21_0045_IST_EOD_BINARY_STATE_INDEX_STORAGE_ARCHITECTURE_V1_4_APPEND_NEWEST_FAST_CLASSIFICATION.md`
+- `?? docs/changes/2026-08-21_0240_IST_QUOTE_EDITOR_EXCHANGE_FILTER_AUDIT_LOGGING.md`
+- `?? docs/changes/2026-08-21_1425_IST_QUOTE_EDITOR_DISPLAY_ALL_LOAD_COUNT_PATCH_REV2.md`
+- `?? docs/changes/2026-08-22_2114_IST_STORAGE_QUOTE_EDITOR_WARNING_CLEANUP_CLOSEOUT.md`
+- `?? docs/changes/2026-08-24_1833_IST_V1_14T_ORDINARY_CORPORATE_ACTION_EQUIVALENT_DEDUPE_HARDENING.md`
+- `?? docs/changes/2026-08-24_2329_IST_BOOTSTRAP_SEED_DEFAULTS_TEST_FIXTURE_REPAIR.md`
+- `?? docs/changes/2026-08-24_CORPORATE_ACTION_V1_14L_TO_V1_14M_1_1_CONTROLLED_REPAIR.md`
+- `?? docs/changes/2026-08-24_CORPORATE_ACTION_V1_14M_2_INDEPENDENT_POST_AUDIT_CLOSURE.md`
+- `?? docs/changes/2026-08-25_0025_IST_V1_14V_EXACT_LIVE_FIVE_PAIR_CONSOLIDATION_PREFLIGHT.md`
+- `?? docs/changes/2026-08-25_0110_IST_V1_14W_FIVE_PAIR_CONSOLIDATION_MAINTENANCE_TDD.md`
+- `?? docs/changes/2026-08-25_0155_IST_V1_14W_FIVE_PAIR_CONSOLIDATION_MAINTENANCE_IMPLEMENTATION.md`
+- `?? docs/changes/2026-08-25_0929_IST_V1_14W_STACK_SAFE_HASH_AND_PRIVATE_COPY_DRY_RUN.md`
+- `?? docs/changes/2026-08-25_1131_IST_V1_14X_CONTROLLED_LIVE_APPLY_TDD.md`
+- `?? docs/changes/2026-08-25_1222_IST_V1_14X_CONTROLLED_LIVE_APPLY_IMPLEMENTATION.md`
+- `?? docs/changes/2026-08-25_1256_IST_V1_14X_CONTROLLED_LIVE_APPLY.md`
+- `?? docs/changes/2026-08-25_1446_IST_V1_14X_PORTABLE_WINDOWS_REBUILD_VALIDATION.md`
+- `?? docs/changes/2026-08-25_1621_IST_V1_7A_PARALLEL_TEST_ISOLATION_FIX.md`
+- `?? docs/changes/2026-08-25_1927_IST_V1_14Y_APPROVED_VALIDATION_HYDRATION_FIX.md`
+- `?? docs/changes/2026-08-26_0015_IST_V1_14Y_APPROVED_VALIDATION_HYDRATION_R5_VALIDATION.md`
+- `?? docs/changes/2026-08-26_0112_IST_V1_14Y_APPROVED_VALIDATION_HYDRATION_R6_COMPLETION.md`
+- `?? docs/changes/2026-08-26_1301_IST_V1_14Y_PORTABLE_AND_MANUAL_SMOKE_CLOSEOUT.md`
+- `?? docs/changes/2026-08-26_1309_IST_VITEST_TMP_TEST_DISCOVERY_HYGIENE.md`
+- `?? docs/changes/2026-08-26_1540_IST_V1_14AB_PRIVATE_VALIDATOR_REPLAY_REPORTING_RECOVERY.md`
+- `?? docs/changes/2026-08-26_1910_IST_V1_14AD_COMPOUND_EQUIVALENT_EVENT_DEDUPE.md`
+- `?? docs/changes/2026-08-27_1145_IST_V1_14AD_PORTABLE_BUILD_AND_MANUAL_SMOKE.md`
+- `?? docs/changes/2026-08-27_1311_IST_V1_14AD_FRESH_PORTABLE_REBUILD.md`
+- `?? docs/changes/2026-08-28_1121_IST_V1_14AD_FINAL_CLOSEOUT.md`
+- `?? docs/changes/evidence/2026-08-18-corporate-action-v1-13b-1-six-row-authority.json`
+- `?? docs/changes/evidence/2026-08-18-corporate-action-v1-13c-1-post-audit-ready.json`
+- `?? docs/changes/evidence/2026-08-19-corporate-action-v1-13-final-closeout.json`
+- `?? docs/changes/evidence/2026-08-19-corporate-action-v1-14e-design-authority.json`
+- `?? docs/changes/evidence/2026-08-19-corporate-action-v1-14e-implementation-plan-basis.json`
+- `?? "docs/plans/2026-08-25_0025_IST_BANANAPATTERNS_SOURCE_SPECIFIC_READ_ONLY_AUDIT (1).md"`
+- `?? docs/plans/EOD_CHART_MACOS_M0_READ_ONLY_AUDIT_2026-08-25_IST.md`
+- `?? docs/plans/drawing-tools/00_MASTER_DRAWING_TOOLS_EXPANSION_PLAN.md`
+- `?? docs/plans/drawing-tools/01_PHASE_D1_SAFE_LINES_AND_MEASUREMENTS.md`
+- `?? docs/plans/drawing-tools/02_PHASE_D2_ADVANCED_ONE_TWO_ANCHOR_GEOMETRY.md`
+- `?? docs/plans/drawing-tools/03_PHASE_D3_GENERALIZED_MULTI_ANCHOR_INFRASTRUCTURE.md`
+- `?? docs/plans/drawing-tools/04_PHASE_D4_FREEFORM_AND_ANNOTATIONS.md`
+- `?? docs/plans/drawing-tools/05_PHASE_D5_SPECIALIZED_DATA_HEAVY_TOOLS.md`
+- `?? docs/plans/drawing-tools/06_DRAWING_TOOL_GAP_MATRIX.md`
+- `?? docs/plans/drawing-tools/07_VALIDATION_AND_ACCEPTANCE_CONTRACT.md`
+- `?? docs/plans/drawing-tools/08_REFERENCE_SETTINGS_UI_AUDIT.md`
+- `?? docs/plans/drawing-tools/README.md`
+- `?? docs/superpowers/plans/2026-08-15-corporate-action-v1-7-3-compound-residual-percentage-fix-plan.md`
+- `?? docs/superpowers/plans/2026-08-16-chart-runtime-static-partition-w1-4-plan.md`
+- `?? docs/superpowers/plans/2026-08-16-corporate-action-v1-9-1-historical-isin-evidence-bootstrap-audit-plan.md`
+- `?? docs/superpowers/plans/2026-08-16-corporate-action-v1-9-2-3-reporting-recovery-fix-plan.md`
+- `?? docs/superpowers/plans/2026-08-16-corporate-action-v1-9-2-controlled-historical-isin-bootstrap-plan.md`
+- `?? docs/superpowers/plans/2026-08-16-corporate-action-v1-9-bulk-historical-identity-resolution-audit-plan.md`
+- `?? docs/superpowers/plans/2026-08-16-official-watchlists-lazy-data-w1-3-plan.md`
+- `?? docs/superpowers/plans/2026-08-16-rust-warning-hygiene-w1-1-plan.md`
+- `?? docs/superpowers/plans/2026-08-16-vite-esm-config-w1-2-plan.md`
+- `?? docs/superpowers/plans/2026-08-17-canonical-documentation-reconciliation-plan.md`
+- `?? docs/superpowers/plans/2026-08-17-chart-canvas-static-extraction-w1-4-b1-plan.md`
+- `?? docs/superpowers/plans/2026-08-17-corporate-action-phase1-controlled-ready-approval-v1-11-plan.md`
+- `?? docs/superpowers/plans/2026-08-17-corporate-action-phase1-current-state-audit-v1-10-plan.md`
+- `?? docs/superpowers/plans/2026-08-17-corporate-action-phase1-identity-residual-deep-audit-v1-12-plan.md`
+- `?? docs/superpowers/plans/2026-08-18-corporate-action-v1-12-1-documentation-reconciliation-plan.md`
+- `?? docs/superpowers/plans/2026-08-18-corporate-action-v1-13b-1-six-row-historical-isin-repair-plan.md`
+- `?? docs/superpowers/plans/2026-08-18-corporate-action-v1-13c-1-independent-post-audit-plan.md`
+- `?? docs/superpowers/plans/2026-08-19-corporate-action-v1-14e-historical-event-identity-resolution-implementation.md`
+- `?? docs/superpowers/plans/2026-08-19-eod-binary-state-index-storage-architecture-v1-implementation-plan.md`
+- `?? docs/superpowers/specs/2026-08-15-corporate-action-v1-7-3-compound-residual-percentage-fix-design.md`
+- `?? docs/superpowers/specs/2026-08-16-chart-runtime-static-partition-w1-4-design.md`
+- `?? docs/superpowers/specs/2026-08-16-corporate-action-v1-9-1-historical-isin-evidence-bootstrap-audit-design.md`
+- `?? docs/superpowers/specs/2026-08-16-corporate-action-v1-9-2-controlled-historical-isin-bootstrap-design.md`
+- `?? docs/superpowers/specs/2026-08-16-corporate-action-v1-9-bulk-historical-identity-resolution-audit-design.md`
+- `?? docs/superpowers/specs/2026-08-16-official-watchlists-lazy-data-w1-3-design.md`
+- `?? docs/superpowers/specs/2026-08-17-canonical-documentation-reconciliation-design.md`
+- `?? docs/superpowers/specs/2026-08-17-chart-canvas-static-extraction-w1-4-b1-design.md`
+- `?? docs/superpowers/specs/2026-08-17-chart-canvas-static-extraction-w1-4-b1-plan.md`
+- `?? docs/superpowers/specs/2026-08-17-corporate-action-phase1-controlled-ready-approval-v1-11-design.md`
+- `?? docs/superpowers/specs/2026-08-17-corporate-action-phase1-current-state-audit-v1-10-design.md`
+- `?? docs/superpowers/specs/2026-08-17-corporate-action-phase1-identity-residual-deep-audit-v1-12-design.md`
+- `?? docs/superpowers/specs/2026-08-18-corporate-action-v1-12-1-documentation-reconciliation-design.md`
+- `?? docs/superpowers/specs/2026-08-18-corporate-action-v1-13b-1-six-row-historical-isin-repair-design.md`
+- `?? docs/superpowers/specs/2026-08-18-corporate-action-v1-13c-1-independent-post-audit-design.md`
+- `?? docs/superpowers/specs/2026-08-19-corporate-action-v1-14e-historical-event-identity-resolution-design.md`
+- `?? docs/superpowers/specs/2026-08-19-eod-binary-state-index-storage-architecture-v1-design.md`
+- `?? docs/superpowers/specs/2026-08-19-eod-binary-state-index-storage-architecture-v1-implementation-plan.md`
+- `?? docs/superpowers/specs/README.md`
+- `?? docs/superpowers/specs/SHA256SUMS.txt`
+- `?? fib_retracement_audit.md`
+- `?? platform_architecture_docs.zip`
+- `?? resources/dnn-trend/README.md`
+- `?? resources/dnn-trend/dnn-research-dataset-v1-manifest.schema.json`
+- `?? resources/dnn-trend/dnn-trend-predictions-v1.schema.json`
+- `?? resources/dnn-trend/sample-precomputed-predictions-v1.json`
+- `?? scripts/Create-EOD-Source-Code-Snapshot-v3.ps1`
+- `?? scripts/refresh-sector-universe.mjs`
+- `?? scripts/split-official-watchlist-data.mjs`
+- `?? src-tauri-shell/src/bhavcopy_recovery.rs`
+- `?? src-tauri-shell/src/database/corporate_action_imports/controlled_identity_repair.rs`
+- `?? src-tauri-shell/src/database/corporate_action_imports/event_identity_authority.rs`
+- `?? src-tauri-shell/src/database/corporate_action_imports/event_identity_maintenance.rs`
+- `?? src-tauri-shell/src/database/corporate_action_imports/event_identity_resolution.rs`
+- `?? src-tauri-shell/src/database/corporate_action_imports/five_pair_consolidation.rs`
+- `?? src-tauri-shell/src/database/corporate_action_imports/five_pair_consolidation_apply.rs`
+- `?? src-tauri-shell/src/database/corporate_action_imports/historical_isin_bootstrap.rs`
+- `?? src-tauri-shell/src/database/corporate_action_imports/v114ad_tests.rs`
+- `?? src-tauri-shell/src/database/corporate_action_imports/v114e_event_identity_authority.json`
+- `?? src-tauri-shell/src/database/corporate_action_imports/v114t_tests.rs`
+- `?? src-tauri-shell/src/database/corporate_action_imports/v114w_tests.rs`
+- `?? src-tauri-shell/src/database/corporate_action_imports/v114x_tests.rs`
+- `?? src-tauri-shell/src/database/corporate_action_imports/v114y_tests.rs`
+- `?? src-tauri-shell/src/database/daily_market_snapshot.rs`
+- `?? src-tauri-shell/src/database/dnn_research_export.rs`
+- `?? src-tauri-shell/src/database/eod_binary_state.rs`
+- `?? src-tauri-shell/src/database/eod_binary_state/tests.rs`
+- `?? src-tauri-shell/src/manual_import_recovery.rs`
+- `?? src-tauri-shell/src/plugin_data.rs`
+- `?? src/components/DrawingToolGroups.ts`
+- `?? src/components/FavoriteToolsToolbar.tsx`
+- `?? src/components/__tests__/ChartToolDockTooltips.test.ts`
+- `?? src/components/__tests__/DrawingToolGroups.test.ts`
+- `?? src/components/__tests__/OfficialWatchlistImportDialog.sourceContract.test.ts`
+- `?? src/components/common/FloatingDialogShell.tsx`
+- `?? src/components/common/__tests__/useDraggableFloatingWindow.test.ts`
+- `?? src/components/common/useDraggableFloatingWindow.ts`
+- `?? src/components/drawings/FibonacciLevelEditor.tsx`
+- `?? src/engine/DrawingAdvancedGeometry.ts`
+- `?? src/engine/DrawingCapabilities.ts`
+- `?? src/engine/DrawingD3BGeometry.ts`
+- `?? src/engine/DrawingD3CGeometry.ts`
+- `?? src/engine/DrawingF1BAutoscale.ts`
+- `?? src/engine/DrawingF1BGeometry.ts`
+- `?? src/engine/DrawingF1BRuntime.ts`
+- `?? src/engine/DrawingF1CGeometry.ts`
+- `?? src/engine/DrawingF1DGeometry.ts`
+- `?? src/engine/DrawingF1EGeometry.ts`
+- `?? src/engine/DrawingFibonacciContracts.ts`
+- `?? src/engine/DrawingFibonacciDefaults.ts`
+- `?? src/engine/DrawingFibonacciGeometry.ts`
+- `?? src/engine/DrawingFibonacciMigration.ts`
+- `?? src/engine/DrawingGeometry.ts`
+- `?? src/engine/DrawingLabelLayout.ts`
+- `?? src/engine/DrawingMetadata.ts`
+- `?? src/engine/DrawingMultiAnchorGeometry.ts`
+- `?? src/engine/DrawingStyleSchema.ts`
+- `?? src/engine/UnifiedStyleContracts.ts`
+- `?? src/engine/__tests__/CandlestickPatterns.test.ts`
+- `?? src/engine/__tests__/DrawingAdvancedGeometry.test.ts`
+- `?? src/engine/__tests__/DrawingCapabilities.test.ts`
+- `?? src/engine/__tests__/DrawingD1Contracts.test.ts`
+- `?? src/engine/__tests__/DrawingD2Contracts.test.ts`
+- `?? src/engine/__tests__/DrawingD3AContracts.test.ts`
+- `?? src/engine/__tests__/DrawingD3B2Contracts.test.ts`
+- `?? src/engine/__tests__/DrawingD3BContracts.test.ts`
+- `?? src/engine/__tests__/DrawingD3BGeometry.test.ts`
+- `?? src/engine/__tests__/DrawingD3C1Contracts.test.ts`
+- `?? src/engine/__tests__/DrawingD3CContracts.test.ts`
+- `?? src/engine/__tests__/DrawingD3CGeometry.test.ts`
+- `?? src/engine/__tests__/DrawingF1ACoordinatesContracts.test.ts`
+- `?? src/engine/__tests__/DrawingF1B1Autoscale.test.ts`
+- `?? src/engine/__tests__/DrawingF1B1Contracts.test.ts`
+- `?? src/engine/__tests__/DrawingF1B1Projection.test.ts`
+- `?? src/engine/__tests__/DrawingF1B2Contracts.test.ts`
+- `?? src/engine/__tests__/DrawingF1B4Orientation.test.ts`
+- `?? src/engine/__tests__/DrawingF1B5PlotStyle.test.ts`
+- `?? src/engine/__tests__/DrawingF1BContracts.test.ts`
+- `?? src/engine/__tests__/DrawingF1BGeometry.test.ts`
+- `?? src/engine/__tests__/DrawingF1BRuntime.test.ts`
+- `?? src/engine/__tests__/DrawingF1C1Contracts.test.ts`
+- `?? src/engine/__tests__/DrawingF1C2Contracts.test.ts`
+- `?? src/engine/__tests__/DrawingF1C2Geometry.test.ts`
+- `?? src/engine/__tests__/DrawingF1C3Contracts.test.ts`
+- `?? src/engine/__tests__/DrawingF1C3Geometry.test.ts`
+- `?? src/engine/__tests__/DrawingF1CGeometry.test.ts`
+- `?? src/engine/__tests__/DrawingF1DContracts.test.ts`
+- `?? src/engine/__tests__/DrawingF1DGeometry.test.ts`
+- `?? src/engine/__tests__/DrawingF1EGeometry.test.ts`
+- `?? src/engine/__tests__/DrawingFibonacciFoundation.test.ts`
+- `?? src/engine/__tests__/DrawingGeometry.test.ts`
+- `?? src/engine/__tests__/DrawingLabelLayout.test.ts`
+- `?? src/engine/__tests__/DrawingMultiAnchorGeometry.test.ts`
+- `?? src/engine/__tests__/DrawingS21Contracts.test.ts`
+- `?? src/engine/__tests__/DrawingS22Contracts.test.ts`
+- `?? src/engine/__tests__/DrawingS231Contracts.test.ts`
+- `?? src/engine/__tests__/DrawingS23Contracts.test.ts`
+- `?? src/engine/__tests__/DrawingStyleSchema.test.ts`
+- `?? src/engine/__tests__/DrawingWorkspaceCompatibility.test.ts`
+- `?? src/engine/__tests__/IndicatorsBatch1.test.ts`
+- `?? src/engine/__tests__/IndicatorsBatch2.test.ts`
+- `?? src/engine/__tests__/IndicatorsBatch3.test.ts`
+- `?? src/engine/__tests__/IndicatorsBatch4.test.ts`
+- `?? src/engine/__tests__/IndicatorsBatch5.test.ts`
+- `?? src/engine/__tests__/IndicatorsCache.test.ts`
+- `?? src/engine/__tests__/IndicatorsCommunity.test.ts`
+- `?? src/engine/__tests__/IndicatorsCommunityBatch2.test.ts`
+- `?? src/engine/__tests__/IndicatorsStochastic.test.ts`
+- `?? src/engine/__tests__/IndicatorsSupertrend.test.ts`
+- `?? src/engine/__tests__/UnifiedStyleContracts.test.ts`
+- `?? src/engine/__tests__/ViteChartChunkPartition.test.ts`
+- `?? src/engine/candlestick/candleProps.ts`
+- `?? src/engine/candlestick/definitions.ts`
+- `?? src/engine/candlestick/index.ts`
+- `?? src/features/candlestick/__tests__/candlestickSettingsService.test.ts`
+- `?? src/features/candlestick/candlestickSettingsService.ts`
+- `?? src/features/charts/__tests__/chartInstrumentDrawingScopes.test.ts`
+- `?? src/features/charts/__tests__/drawingLockProtection.test.ts`
+- `?? src/features/charts/__tests__/drawingScopeService.test.ts`
+- `?? src/features/charts/__tests__/drawingTimeframeAnchorService.test.ts`
+- `?? src/features/charts/drawingScopeService.ts`
+- `?? src/features/charts/drawingTimeframeAnchorService.ts`
+- `?? src/features/corporateActions/__tests__/corporateActionBulkApproval.test.ts`
+- `?? src/features/corporateActions/__tests__/corporateActionCompoundValidation.test.ts`
+- `?? src/features/corporateActions/__tests__/corporateActionEventIdentityPresentation.test.ts`
+- `?? src/features/corporateActions/__tests__/corporateActionIdentityRecommendations.test.ts`
+- `?? src/features/corporateActions/__tests__/corporateActionValidation.test.ts`
+- `?? src/features/corporateActions/corporateActionBulkApproval.ts`
+- `?? src/features/corporateActions/corporateActionCompoundValidation.ts`
+- `?? src/features/corporateActions/corporateActionDate.ts`
+- `?? src/features/corporateActions/corporateActionEventIdentityPresentation.ts`
+- `?? src/features/corporateActions/corporateActionIdentityRecommendations.ts`
+- `?? src/features/corporateActions/corporateActionValidation.ts`
+- `?? src/features/drawings/__tests__/drawingTemplates.test.ts`
+- `?? src/features/drawings/drawingTemplates.ts`
+- `?? src/features/marketMovers/MarketMoverRow.tsx`
+- `?? src/features/marketMovers/MarketMoversFullView.tsx`
+- `?? src/features/marketMovers/MarketMoversPanel.tsx`
+- `?? src/features/marketMovers/__tests__/marketMoversSnapshotService.test.ts`
+- `?? src/features/marketMovers/__tests__/marketMoversStore.test.ts`
+- `?? src/features/marketMovers/marketMoversSnapshot.worker.ts`
+- `?? src/features/marketMovers/marketMoversSnapshotService.ts`
+- `?? src/features/marketMovers/marketMoversSnapshotWorkerClient.ts`
+- `?? src/features/marketMovers/marketMoversStore.ts`
+- `?? src/features/marketMovers/marketMoversStyles.ts`
+- `?? src/features/marketMovers/marketMoversTypes.ts`
+- `?? src/features/marketMovers/useDailyMarketMovers.ts`
+- `?? src/features/quoteEditor/__tests__/quoteEditorExchangeScope.test.ts`
+- `?? src/features/quoteEditor/quoteEditorExchangeScope.ts`
+- `?? src/features/watchlists/__tests__/officialWatchlistDataSplit.test.ts`
+- `?? src/features/watchlists/__tests__/officialWatchlistDialogSourceState.test.ts`
+- `?? src/features/watchlists/__tests__/officialWatchlistLazyLoader.test.ts`
+- `?? src/features/watchlists/__tests__/officialWatchlistProviders.test.ts`
+- `?? src/features/watchlists/bseSectorUniverseWatchlistData.generated.ts`
+- `?? src/features/watchlists/generated/officialWatchlistBseIndices.generated.ts`
+- `?? src/features/watchlists/generated/officialWatchlistBseSectors.generated.ts`
+- `?? src/features/watchlists/generated/officialWatchlistCatalog.generated.ts`
+- `?? src/features/watchlists/generated/officialWatchlistNseIndices.generated.ts`
+- `?? src/features/watchlists/generated/officialWatchlistNseSectors.generated.ts`
+- `?? src/features/watchlists/officialWatchlistDialogSourceState.ts`
+- `?? src/features/watchlists/officialWatchlistLazyLoader.ts`
+- `?? src/indicators/__tests__/indicatorCatalogSubcategories.test.ts`
+- `?? src/indicators/base.ts`
+- `?? src/indicators/community/alpha-trend.ts`
+- `?? src/indicators/community/chandelier-exit.ts`
+- `?? src/indicators/community/cm-vix-fix.ts`
+- `?? src/indicators/community/donchian-trend-ribbon.ts`
+- `?? src/indicators/community/fvg-positioning-average.ts`
+- `?? src/indicators/community/half-trend.ts`
+- `?? src/indicators/community/linear-regression-channel.ts`
+- `?? src/indicators/community/market-cipher-b.ts`
+- `?? src/indicators/community/order-blocks-signals.ts`
+- `?? src/indicators/community/qqe-mod.ts`
+- `?? src/indicators/community/range-filter-dw.ts`
+- `?? src/indicators/community/ripster-ema-clouds.ts`
+- `?? src/indicators/community/squeeze-momentum.ts`
+- `?? src/indicators/community/ssl-channel.ts`
+- `?? src/indicators/community/supertrend-ai-clustering.ts`
+- `?? src/indicators/community/trendlines-with-breaks.ts`
+- `?? src/indicators/community/ut-bot.ts`
+- `?? src/indicators/community/volume-flow-indicator.ts`
+- `?? src/indicators/community/waddah-attar-explosion.ts`
+- `?? src/indicators/community/wavetrend.ts`
+- `?? src/indicators/index.ts`
+- `?? src/indicators/registry.ts`
+- `?? src/indicators/standard/momentum/apo.ts`
+- `?? src/indicators/standard/momentum/awesome-oscillator.ts`
+- `?? src/indicators/standard/momentum/cci.ts`
+- `?? src/indicators/standard/momentum/cmo.ts`
+- `?? src/indicators/standard/momentum/connors-rsi.ts`
+- `?? src/indicators/standard/momentum/coppock.ts`
+- `?? src/indicators/standard/momentum/dpo.ts`
+- `?? src/indicators/standard/momentum/fisher-transform.ts`
+- `?? src/indicators/standard/momentum/macd.ts`
+- `?? src/indicators/standard/momentum/momentum.ts`
+- `?? src/indicators/standard/momentum/ppo.ts`
+- `?? src/indicators/standard/momentum/prings-special-k.ts`
+- `?? src/indicators/standard/momentum/rank-correlation-index.ts`
+- `?? src/indicators/standard/momentum/rci-ribbon.ts`
+- `?? src/indicators/standard/momentum/roc.ts`
+- `?? src/indicators/standard/momentum/rsi.ts`
+- `?? src/indicators/standard/momentum/rvi.ts`
+- `?? src/indicators/standard/momentum/smi-ergodic-oscillator.ts`
+- `?? src/indicators/standard/momentum/smi-ergodic.ts`
+- `?? src/indicators/standard/momentum/stoch-rsi.ts`
+- `?? src/indicators/standard/momentum/stoch.ts`
+- `?? src/indicators/standard/momentum/trix.ts`
+- `?? src/indicators/standard/momentum/tsi.ts`
+- `?? src/indicators/standard/momentum/ultimate-oscillator.ts`
+- `?? src/indicators/standard/momentum/williams-r.ts`
+- `?? src/indicators/standard/momentum/woodies-cci.ts`
+- `?? src/indicators/standard/moving-averages/alma.ts`
+- `?? src/indicators/standard/moving-averages/dema.ts`
+- `?? src/indicators/standard/moving-averages/ema.ts`
+- `?? src/indicators/standard/moving-averages/hma.ts`
+- `?? src/indicators/standard/moving-averages/kama.ts`
+- `?? src/indicators/standard/moving-averages/lsma.ts`
+- `?? src/indicators/standard/moving-averages/ma-cross.ts`
+- `?? src/indicators/standard/moving-averages/ma-ribbon.ts`
+- `?? src/indicators/standard/moving-averages/mcginley-dynamic.ts`
+- `?? src/indicators/standard/moving-averages/price-transforms.ts`
+- `?? src/indicators/standard/moving-averages/sma.ts`
+- `?? src/indicators/standard/moving-averages/tema.ts`
+- `?? src/indicators/standard/moving-averages/twap.ts`
+- `?? src/indicators/standard/moving-averages/vwma.ts`
+- `?? src/indicators/standard/moving-averages/wema.ts`
+- `?? src/indicators/standard/moving-averages/wma.ts`
+- `?? src/indicators/standard/special/auto-key-levels.ts`
+- `?? src/indicators/standard/special/auto-trend.ts`
+- `?? src/indicators/standard/special/cpr.ts`
+- `?? src/indicators/standard/special/custom.ts`
+- `?? src/indicators/standard/special/fractals.ts`
+- `?? src/indicators/standard/special/pattern.ts`
+- `?? src/indicators/standard/special/zigzag.ts`
+- `?? src/indicators/standard/trend/adx.ts`
+- `?? src/indicators/standard/trend/alligator.ts`
+- `?? src/indicators/standard/trend/aroon.ts`
+- `?? src/indicators/standard/trend/elder-ray.ts`
+- `?? src/indicators/standard/trend/ichimoku.ts`
+- `?? src/indicators/standard/trend/kst.ts`
+- `?? src/indicators/standard/trend/psar.ts`
+- `?? src/indicators/standard/trend/supertrend.ts`
+- `?? src/indicators/standard/trend/trend-strength.ts`
+- `?? src/indicators/standard/trend/vortex.ts`
+- `?? src/indicators/standard/volatility/adr.ts`
+- `?? src/indicators/standard/volatility/atr.ts`
+- `?? src/indicators/standard/volatility/bb-percent-b.ts`
+- `?? src/indicators/standard/volatility/bb-width.ts`
+- `?? src/indicators/standard/volatility/bbtrend.ts`
+- `?? src/indicators/standard/volatility/bollinger.ts`
+- `?? src/indicators/standard/volatility/chande-kroll-stop.ts`
+- `?? src/indicators/standard/volatility/chop-zone.ts`
+- `?? src/indicators/standard/volatility/choppiness.ts`
+- `?? src/indicators/standard/volatility/donchian.ts`
+- `?? src/indicators/standard/volatility/envelope.ts`
+- `?? src/indicators/standard/volatility/historical-volatility.ts`
+- `?? src/indicators/standard/volatility/keltner.ts`
+- `?? src/indicators/standard/volatility/mass-index.ts`
+- `?? src/indicators/standard/volatility/relative-volatility-index.ts`
+- `?? src/indicators/standard/volatility/standard-deviation.ts`
+- `?? src/indicators/standard/volatility/ulcer-index.ts`
+- `?? src/indicators/standard/volatility/volatility-stop.ts`
+- `?? src/indicators/standard/volume/avwap.ts`
+- `?? src/indicators/standard/volume/bop.ts`
+- `?? src/indicators/standard/volume/chaikin-oscillator.ts`
+- `?? src/indicators/standard/volume/cmf.ts`
+- `?? src/indicators/standard/volume/cumulative-volume-delta.ts`
+- `?? src/indicators/standard/volume/ease-of-movement.ts`
+- `?? src/indicators/standard/volume/elder-force.ts`
+- `?? src/indicators/standard/volume/klinger.ts`
+- `?? src/indicators/standard/volume/mfi.ts`
+- `?? src/indicators/standard/volume/net-volume.ts`
+- `?? src/indicators/standard/volume/nvi.ts`
+- `?? src/indicators/standard/volume/obv.ts`
+- `?? src/indicators/standard/volume/pvi.ts`
+- `?? src/indicators/standard/volume/pvt.ts`
+- `?? src/indicators/standard/volume/rvol.ts`
+- `?? src/indicators/standard/volume/up-down-volume.ts`
+- `?? src/indicators/standard/volume/volume-delta.ts`
+- `?? src/indicators/standard/volume/volume-oscillator.ts`
+- `?? src/indicators/standard/volume/vwap.ts`
+- `?? src/plugins/forecast/dnnTrend/DnnTrendPredictionPanel.tsx`
+- `?? src/plugins/forecast/dnnTrend/__tests__/dnnResearchDatasetExportService.test.ts`
+- `?? src/plugins/forecast/dnnTrend/__tests__/featureBuilder.test.ts`
+- `?? src/plugins/forecast/dnnTrend/__tests__/pluginConfiguration.test.ts`
+- `?? src/plugins/forecast/dnnTrend/__tests__/precomputedPredictionSource.test.ts`
+- `?? src/plugins/forecast/dnnTrend/__tests__/predictionService.test.ts`
+- `?? src/plugins/forecast/dnnTrend/dnnResearchDatasetExportService.ts`
+- `?? src/plugins/forecast/dnnTrend/dnnTrendPlugin.ts`
+- `?? src/plugins/forecast/dnnTrend/featureBuilder.ts`
+- `?? src/plugins/forecast/dnnTrend/index.ts`
+- `?? src/plugins/forecast/dnnTrend/inferenceProvider.ts`
+- `?? src/plugins/forecast/dnnTrend/mockInferenceProvider.ts`
+- `?? src/plugins/forecast/dnnTrend/pluginConfiguration.ts`
+- `?? src/plugins/forecast/dnnTrend/precomputedInferenceProvider.ts`
+- `?? src/plugins/forecast/dnnTrend/precomputedPredictionFileService.ts`
+- `?? src/plugins/forecast/dnnTrend/precomputedPredictionSource.ts`
+- `?? src/plugins/forecast/dnnTrend/predictionCache.ts`
+- `?? src/plugins/forecast/dnnTrend/predictionService.ts`
+- `?? src/plugins/forecast/dnnTrend/predictionValidation.ts`
+- `?? src/plugins/forecast/dnnTrend/types.ts`
+- `?? tmp/V1_12_External_Evidence_Research_Batch10_NO_CANDIDATE_Final17_2026-08-17_2004_IST/SHA256.txt`
+- `?? tmp/V1_12_External_Evidence_Research_Batch10_NO_CANDIDATE_Final17_2026-08-17_2004_IST/batch10-summary.txt`
+- `?? tmp/V1_12_External_Evidence_Research_Batch10_NO_CANDIDATE_Final17_2026-08-17_2004_IST/evidence-catalog-batch10.csv`
+- `?? tmp/V1_12_External_Evidence_Research_Batch10_NO_CANDIDATE_Final17_2026-08-17_2004_IST/evidence-catalog-batch10.json`
+- `?? tmp/V1_12_External_Evidence_Research_Batch10_NO_CANDIDATE_Final17_2026-08-17_2004_IST/no-candidate-final-ledger-batch10.csv`
+- `?? tmp/V1_12_External_Evidence_Research_Batch2_2026-08-17_1643_IST/SHA256.txt`
+- `?? tmp/V1_12_External_Evidence_Research_Batch2_2026-08-17_1643_IST/evidence-catalog-batch2.csv`
+- `?? tmp/V1_12_External_Evidence_Research_Batch2_2026-08-17_1643_IST/evidence-catalog-batch2.json`
+- `?? tmp/V1_12_External_Evidence_Research_Batch2_2026-08-17_1643_IST/research-ledger-batch2.csv`
+- `?? tmp/V1_12_External_Evidence_Research_Batch3_2026-08-17_1723_IST/SHA256.txt`
+- `?? tmp/V1_12_External_Evidence_Research_Batch3_2026-08-17_1723_IST/evidence-catalog-batch3.csv`
+- `?? tmp/V1_12_External_Evidence_Research_Batch3_2026-08-17_1723_IST/evidence-catalog-batch3.json`
+- `?? tmp/V1_12_External_Evidence_Research_Batch3_2026-08-17_1723_IST/research-ledger-batch3.csv`
+- `?? tmp/V1_12_External_Evidence_Research_Batch4_2026-08-17_1742_IST/SHA256.txt`
+- `?? tmp/V1_12_External_Evidence_Research_Batch4_2026-08-17_1742_IST/batch4-summary.txt`
+- `?? tmp/V1_12_External_Evidence_Research_Batch4_2026-08-17_1742_IST/evidence-catalog-batch4.csv`
+- `?? tmp/V1_12_External_Evidence_Research_Batch4_2026-08-17_1742_IST/evidence-catalog-batch4.json`
+- `?? tmp/V1_12_External_Evidence_Research_Batch4_2026-08-17_1742_IST/research-ledger-batch4.csv`
+- `?? tmp/V1_12_External_Evidence_Research_Batch5_Conflicting_ISIN_2026-08-17_1758_IST/SHA256.txt`
+- `?? tmp/V1_12_External_Evidence_Research_Batch5_Conflicting_ISIN_2026-08-17_1758_IST/batch5-summary.txt`
+- `?? tmp/V1_12_External_Evidence_Research_Batch5_Conflicting_ISIN_2026-08-17_1758_IST/conflict-research-ledger-batch5.csv`
+- `?? tmp/V1_12_External_Evidence_Research_Batch5_Conflicting_ISIN_2026-08-17_1758_IST/evidence-catalog-batch5.csv`
+- `?? tmp/V1_12_External_Evidence_Research_Batch5_Conflicting_ISIN_2026-08-17_1758_IST/evidence-catalog-batch5.json`
+- `?? tmp/V1_12_External_Evidence_Research_Batch6_Company_Identity_Mismatch_2026-08-17_1818_IST/SHA256.txt`
+- `?? tmp/V1_12_External_Evidence_Research_Batch6_Company_Identity_Mismatch_2026-08-17_1818_IST/batch6-summary.txt`
+- `?? tmp/V1_12_External_Evidence_Research_Batch6_Company_Identity_Mismatch_2026-08-17_1818_IST/company-identity-research-ledger-batch6.csv`
+- `?? tmp/V1_12_External_Evidence_Research_Batch6_Company_Identity_Mismatch_2026-08-17_1818_IST/evidence-catalog-batch6.csv`
+- `?? tmp/V1_12_External_Evidence_Research_Batch6_Company_Identity_Mismatch_2026-08-17_1818_IST/evidence-catalog-batch6.json`
+- `?? tmp/V1_12_External_Evidence_Research_Batch7_NO_CANDIDATE_Successors_2026-08-17_1834_IST/SHA256.txt`
+- `?? tmp/V1_12_External_Evidence_Research_Batch7_NO_CANDIDATE_Successors_2026-08-17_1834_IST/batch7-summary.txt`
+- `?? tmp/V1_12_External_Evidence_Research_Batch7_NO_CANDIDATE_Successors_2026-08-17_1834_IST/evidence-catalog-batch7.csv`
+- `?? tmp/V1_12_External_Evidence_Research_Batch7_NO_CANDIDATE_Successors_2026-08-17_1834_IST/evidence-catalog-batch7.json`
+- `?? tmp/V1_12_External_Evidence_Research_Batch7_NO_CANDIDATE_Successors_2026-08-17_1834_IST/no-candidate-research-ledger-batch7.csv`
+- `?? tmp/V1_12_External_Evidence_Research_Batch8_NO_CANDIDATE_Repeated_Identities_2026-08-17_1845_IST/SHA256.txt`
+- `?? tmp/V1_12_External_Evidence_Research_Batch8_NO_CANDIDATE_Repeated_Identities_2026-08-17_1845_IST/batch8-summary.txt`
+- `?? tmp/V1_12_External_Evidence_Research_Batch8_NO_CANDIDATE_Repeated_Identities_2026-08-17_1845_IST/evidence-catalog-batch8.csv`
+- `?? tmp/V1_12_External_Evidence_Research_Batch8_NO_CANDIDATE_Repeated_Identities_2026-08-17_1845_IST/evidence-catalog-batch8.json`
+- `?? tmp/V1_12_External_Evidence_Research_Batch8_NO_CANDIDATE_Repeated_Identities_2026-08-17_1845_IST/no-candidate-repeated-identity-ledger-batch8.csv`
+- `?? tmp/V1_12_External_Evidence_Research_Batch9_NO_CANDIDATE_Legacy_Distressed_2026-08-17_1946_IST/SHA256.txt`
+- `?? tmp/V1_12_External_Evidence_Research_Batch9_NO_CANDIDATE_Legacy_Distressed_2026-08-17_1946_IST/batch9-summary.txt`
+- `?? tmp/V1_12_External_Evidence_Research_Batch9_NO_CANDIDATE_Legacy_Distressed_2026-08-17_1946_IST/evidence-catalog-batch9.csv`
+- `?? tmp/V1_12_External_Evidence_Research_Batch9_NO_CANDIDATE_Legacy_Distressed_2026-08-17_1946_IST/evidence-catalog-batch9.json`
+- `?? tmp/V1_12_External_Evidence_Research_Batch9_NO_CANDIDATE_Legacy_Distressed_2026-08-17_1946_IST/no-candidate-legacy-distressed-ledger-batch9.csv`
+- `?? tmp/aug24-corporate-action-docs_20260824_024349_426/aug24-corporate-action-canonical-documentation-update-reports.zip`
+- `?? tmp/aug24-corporate-action-docs_20260824_024349_426/reports/aug24-ca-docs-backup-manifest.json`
+- `?? tmp/aug24-corporate-action-docs_20260824_024349_426/reports/aug24-ca-docs-file-hashes.json`
+- `?? tmp/aug24-corporate-action-docs_20260824_024349_426/reports/aug24-ca-docs-safety-verification.json`
+- `?? tmp/aug24-corporate-action-docs_20260824_024349_426/reports/aug24-ca-docs-update-result.json`
+- `?? tmp/aug24-corporate-action-final-docs_20260824_123530_968/aug24-corporate-action-final-canonical-documentation-closure-reports.zip`
+- `?? tmp/aug24-corporate-action-final-docs_20260824_123530_968/reports/aug24-ca-final-docs-backup-manifest.json`
+- `?? tmp/aug24-corporate-action-final-docs_20260824_123530_968/reports/aug24-ca-final-docs-file-hashes.json`
+- `?? tmp/aug24-corporate-action-final-docs_20260824_123530_968/reports/aug24-ca-final-docs-safety-verification.json`
+- `?? tmp/aug24-corporate-action-final-docs_20260824_123530_968/reports/aug24-ca-final-docs-update-result.json`
+- `?? tmp/bhavcopy-bse-index-candidate-classification-v1-1-backup_20260813_161050/bhavcopy.rs`
+- `?? tmp/bhavcopy-calendar-safety-v1-1-backup_20260813_023139/src-tauri-shell/src/bhavcopy.rs`
+- `?? tmp/bhavcopy-checkpoint-resume-fix-v1-backup_20260812_223057/src-tauri-shell/src/bhavcopy.rs`
+- `?? tmp/bhavcopy-checkpoint-resume-fix-v1-backup_20260812_223057/src-tauri-shell/src/bhavcopy_recovery.rs`
+- `?? tmp/bhavcopy-compact-progress-ui-backup_20260810_014947/src/components/BhavcopyDownloadWindow.tsx`
+- `?? tmp/bhavcopy-compact-progress-ui-backup_20260810_014947/src/components/StatusBar.tsx`
+- `?? tmp/bhavcopy-current-vs-20260813-174517.diff`
+- `?? tmp/bhavcopy-final-doc-reconciliation-v3-backup_20260813_172200/AGENTS.md`
+- `?? tmp/bhavcopy-final-doc-reconciliation-v3-backup_20260813_172200/ARCHITECTURE_CURRENT_EOD_CHARTING_PLATFORM.md`
+- `?? tmp/bhavcopy-final-doc-reconciliation-v3-backup_20260813_172200/FEATURE_STATUS_MATRIX_EOD_CHARTING_PLATFORM.md`
+- `?? tmp/bhavcopy-final-doc-reconciliation-v3-backup_20260813_172200/FILE_INVENTORY.md`
+- `?? tmp/bhavcopy-final-doc-reconciliation-v3-backup_20260813_172200/HANDOFF.md`
+- `?? tmp/bhavcopy-final-doc-reconciliation-v3-backup_20260813_172200/PROJECT_STATE_EOD_CHARTING_PLATFORM.md`
+- `?? tmp/bhavcopy-final-doc-reconciliation-v3-backup_20260813_172200/README.md`
+- `?? tmp/bhavcopy-final-doc-reconciliation-v3-backup_20260813_172200/REQUIREMENTS.md`
+- `?? tmp/bhavcopy-multidate-symbol-batching-audit-v1_20260819_194528.zip`
+- `?? tmp/bhavcopy-multidate-symbol-batching-audit-v1_20260819_194528/AUDIT_MANIFEST.txt`
+- `?? tmp/bhavcopy-multidate-symbol-batching-audit-v1_20260819_194528/BHAVCOPY_BATCHING_EXCERPTS.txt`
+- `?? tmp/bhavcopy-multidate-symbol-batching-audit-v1_20260819_194528/BHAVCOPY_BATCHING_MATCHES.txt`
+- `?? tmp/bhavcopy-multidate-symbol-batching-audit-v1_20260819_194528/BINARY_EOD_WRITER_EXCERPTS.txt`
+- `?? tmp/bhavcopy-multidate-symbol-batching-audit-v1_20260819_194528/BINARY_WRITER_CALLSITES.csv`
+- `?? tmp/bhavcopy-multidate-symbol-batching-audit-v1_20260819_194528/RECOVERY_EXCERPTS.txt`
+- `?? tmp/bhavcopy-multidate-symbol-batching-audit-v1_20260819_194528/SUMMARY.txt`
+- `?? tmp/bhavcopy-phase2d-background-checkpoint-v1-backup_20260813_000314/src-tauri-shell/src/bhavcopy.rs`
+- `?? tmp/bhavcopy-phase2d-background-checkpoint-v1-backup_20260813_000314/src-tauri-shell/src/bhavcopy_recovery.rs`
+- `?? tmp/bhavcopy-prefilter-range-scan-v1-backup_20260813_131020/bhavcopy.rs`
+- `?? tmp/bhavcopy-prefilter-reconcile-audit-v1_20260813_124908/Bhavcopy-Prefilter-Reconcile-Audit.txt`
+- `?? tmp/bhavcopy-recovery-phase2b1-backup_20260809_223521/FILE_INVENTORY.md`
+- `?? tmp/bhavcopy-recovery-phase2b1-backup_20260809_223521/docs/changes/2026-08-09_1418_IST_QUOTE_DELETE_ORPHAN_SYMBOL_PRUNE_V1.md`
+- `?? tmp/bhavcopy-recovery-phase2b1-backup_20260809_223521/src-tauri-shell/src/bhavcopy.rs`
+- `?? tmp/bhavcopy-recovery-phase2b1-backup_20260809_223521/src-tauri-shell/src/bhavcopy_recovery.rs`
+- `?? tmp/bhavcopy-recovery-phase2c-backup_20260809_233711/ARCHITECTURE_CURRENT_EOD_CHARTING_PLATFORM.md`
+- `?? tmp/bhavcopy-recovery-phase2c-backup_20260809_233711/FILE_INVENTORY.md`
+- `?? tmp/bhavcopy-recovery-phase2c-backup_20260809_233711/src-tauri-shell/src/bhavcopy.rs`
+- `?? tmp/bhavcopy-recovery-phase2c-backup_20260809_233711/src-tauri-shell/src/bhavcopy_recovery.rs`
+- `?? tmp/bhavcopy-recovery-phase2c-backup_20260809_233711/src-tauri-shell/src/database/binary_eod.rs`
+- `?? tmp/bhavcopy-update-same-day-cutoff-v1-backup_20260813_003254/src-tauri-shell/src/bhavcopy.rs`
+- `?? tmp/bse-index-literal-date-url-fix-backup_20260810_025726/bhavcopy.rs`
+- `?? tmp/chart-runtime-w1-4-1-test-backup_20260817_003131/ViteChartChunkPartition.test.ts.bak`
+- `?? tmp/chart-runtime-w1-4-1-test-backup_20260817_003131/ViteChartChunkPartition.test.ts.bak.sha256`
+- `?? tmp/corporate-action-backward-normalization-audit_20260820_003039_347/audit_backward_normalization.py`
+- `?? tmp/corporate-action-backward-normalization-audit_20260820_003039_347/corporate-action-backward-normalization-reports.zip`
+- `?? tmp/corporate-action-backward-normalization-audit_20260820_003039_347/reports/anchor-checks.json`
+- `?? tmp/corporate-action-backward-normalization-audit_20260820_003039_347/reports/backward-normalization-summary.json`
+- `?? tmp/corporate-action-backward-normalization-audit_20260820_003039_347/reports/backward-normalization-universe.csv`
+- `?? tmp/corporate-action-backward-normalization-audit_20260820_003039_347/reports/classification-counts.csv`
+- `?? tmp/corporate-action-backward-normalization-audit_20260820_003039_347/reports/critical-action-type-counts.csv`
+- `?? tmp/corporate-action-backward-normalization-audit_20260820_003039_347/reports/critical-current-source-rewritten-to-old.csv`
+- `?? tmp/corporate-action-backward-normalization-audit_20260820_003039_347/reports/critical-symbol-pair-counts.csv`
+- `?? tmp/corporate-action-backward-normalization-audit_20260820_003039_347/reports/foreign-key-check.json`
+- `?? tmp/corporate-action-backward-normalization-audit_20260820_003039_347/reports/live-family-after.json`
+- `?? tmp/corporate-action-backward-normalization-audit_20260820_003039_347/reports/live-family-before.json`
+- `?? tmp/corporate-action-backward-normalization-audit_20260820_003039_347/reports/review-status-counts.csv`
+- `?? tmp/corporate-action-backward-normalization-audit_20260820_003039_347/reports/suspected-isin-driven-backward-matches.csv`
+- `?? tmp/corporate-action-backward-normalization-audit_20260820_003039_347/reports/symbol-mismatches.csv`
+- `?? tmp/corporate-action-backward-normalization-audit_20260820_003039_347/snapshot/market-data.sqlite3-shm`
+- `?? tmp/corporate-action-backward-normalization-audit_20260820_003039_347/snapshot/market-data.sqlite3-wal`
+- `?? tmp/corporate-action-current-state-audit_20260817_123325.zip`
+- `?? tmp/corporate-action-current-state-audit_20260817_123325/historical-input-verification.json`
+- `?? tmp/corporate-action-current-state-audit_20260817_123325/reports/audit-manifest.json`
+- `?? tmp/corporate-action-current-state-audit_20260817_123325/reports/corporate-action-all-types-health-summary.csv`
+- `?? tmp/corporate-action-current-state-audit_20260817_123325/reports/corporate-action-current-state-audit-summary.txt`
+- `?? tmp/corporate-action-current-state-audit_20260817_123325/reports/corporate-action-historical-reconciliation.csv`
+- `?? tmp/corporate-action-current-state-audit_20260817_123325/reports/corporate-action-split-bonus-deep-audit.csv`
+- `?? tmp/corporate-action-current-state-audit_20260817_123325/reports/corporate-action-split-bonus-deep-audit.json`
+- `?? tmp/corporate-action-current-state-audit_20260817_123325/run-context.json`
+- `?? tmp/corporate-action-current-state-audit_20260817_123325/snapshot/market-data.sqlite3-shm`
+- `?? tmp/corporate-action-current-state-audit_20260817_123325/snapshot/market-data.sqlite3-wal`
+- `?? tmp/corporate-action-current-state-audit_20260817_123325/source-sentinel-manifest.json`
+- `?? tmp/corporate-action-four-row-resolver-replay_20260823_033321_486/corporate-action-four-row-resolver-replay-reports.zip`
+- `?? tmp/corporate-action-four-row-resolver-replay_20260823_033321_486/corporate_action_imports.rs.before-replay`
+- `?? tmp/corporate-action-four-row-resolver-replay_20260823_033321_486/reports/four-row-resolver-replay.json`
+- `?? tmp/corporate-action-four-row-resolver-replay_20260823_033321_486/reports/live-family-after.json`
+- `?? tmp/corporate-action-four-row-resolver-replay_20260823_033321_486/reports/live-family-before.json`
+- `?? tmp/corporate-action-four-row-resolver-replay_20260823_033321_486/reports/snapshot-family.json`
+- `?? tmp/corporate-action-four-row-resolver-replay_20260823_033321_486/snapshot/market-data.sqlite3-shm`
+- `?? tmp/corporate-action-four-row-resolver-replay_20260823_033321_486/snapshot/market-data.sqlite3-wal`
+- `?? tmp/corporate-action-identity-audit_20260816_020709.zip`
+- `?? tmp/corporate-action-identity-audit_20260816_020709/identity-resolution-audit-summary.txt`
+- `?? tmp/corporate-action-identity-audit_20260816_020709/identity-resolution-audit.csv`
+- `?? tmp/corporate-action-identity-audit_20260816_020709/identity-resolution-audit.json`
+- `?? tmp/corporate-action-identity-audit_20260816_020709/strict-safe-candidates.csv`
+- `?? tmp/corporate-action-isin-bootstrap-audit_20260816_120625.zip`
+- `?? tmp/corporate-action-isin-bootstrap-audit_20260816_120625/bootstrap-safe-candidates.csv`
+- `?? tmp/corporate-action-isin-bootstrap-audit_20260816_120625/historical-isin-bootstrap-audit-summary.txt`
+- `?? tmp/corporate-action-isin-bootstrap-audit_20260816_120625/historical-isin-bootstrap-audit.csv`
+- `?? tmp/corporate-action-isin-bootstrap-audit_20260816_120625/historical-isin-bootstrap-audit.json`
+- `?? tmp/corporate-action-nse-backward-normalization-green-rebased_20260823_020448_443/corporate_action_imports.rs.before-green-rebased`
+- `?? tmp/corporate-action-nse-backward-normalization-red_20260820_010802_326/corporate_action_imports.rs.before-red-test`
+- `?? tmp/corporate-action-phase1-backup_20260814_014527/src-tauri-shell/src/database.rs`
+- `?? tmp/corporate-action-phase1-backup_20260814_014527/src-tauri-shell/src/database/corporate_action_imports.rs`
+- `?? tmp/corporate-action-phase1-backup_20260814_014527/src-tauri-shell/src/database/eod_data.rs`
+- `?? tmp/corporate-action-phase1-backup_20260814_014527/src-tauri-shell/src/main.rs`
+- `?? tmp/corporate-action-phase1-backup_20260814_014527/src/components/DatabaseToolsDialogs.tsx`
+- `?? tmp/corporate-action-phase1-backup_20260814_014527/src/platform/tauriDesktop.ts`
+- `?? tmp/corporate-action-phase1-backup_20260814_014527/src/platform/types.ts`
+- `?? tmp/corporate-action-phase1-backup_20260814_014527/src/types/desktop.ts`
+- `?? tmp/corporate-action-phase1-v1-1-backup_20260814_021508/src-tauri-shell/src/database/corporate_action_imports.rs`
+- `?? tmp/corporate-action-phase1-v1-2-backup_20260814_100742/src-tauri-shell/src/database/corporate_action_imports.rs`
+- `?? tmp/corporate-action-phase1-v1-3-backup_20260814_145037/src/components/DatabaseToolsDialogs.tsx`
+- `?? tmp/corporate-action-phase1-v1-4-backup_20260814_165315/src/components/DatabaseToolsDialogs.tsx`
+- `?? tmp/corporate-action-phase1-v1-4-backup_20260814_165315/src/features/corporateActions/__tests__/corporateActionBulkApproval.test.ts`
+- `?? tmp/corporate-action-phase1-v1-4-backup_20260814_165315/src/features/corporateActions/corporateActionBulkApproval.ts`
+- `?? tmp/corporate-action-phase1-v1-5-1-backup_20260814_190009/src/components/DatabaseToolsDialogs.tsx`
+- `?? tmp/corporate-action-phase1-v1-5-backup_20260814_184716/src/components/DatabaseToolsDialogs.tsx`
+- `?? tmp/corporate-action-phase1-v1-6-backup_20260814_212322/src-tauri-shell/src/database.rs`
+- `?? tmp/corporate-action-phase1-v1-6-backup_20260814_212322/src-tauri-shell/src/database/corporate_action_imports.rs`
+- `?? tmp/corporate-action-phase1-v1-6-backup_20260814_212322/src-tauri-shell/src/main.rs`
+- `?? tmp/corporate-action-phase1-v1-6-backup_20260814_212322/src/components/DatabaseToolsDialogs.tsx`
+- `?? tmp/corporate-action-phase1-v1-6-backup_20260814_212322/src/platform/tauriDesktop.ts`
+- `?? tmp/corporate-action-phase1-v1-6-backup_20260814_212322/src/platform/types.ts`
+- `?? tmp/corporate-action-phase1-v1-6-backup_20260814_212322/src/types/desktop.ts`
+- `?? tmp/corporate-action-phase1-v1-7-1-backup_20260815_133604/src-tauri-shell/src/database/corporate_action_imports.rs`
+- `?? tmp/corporate-action-phase1-v1-7-2-backup_20260815_170007/src/components/DatabaseToolsDialogs.tsx`
+- `?? tmp/corporate-action-phase1-v1-7-2-backup_20260815_170007/src/features/corporateActions/__tests__/corporateActionCompoundValidation.test.ts`
+- `?? tmp/corporate-action-phase1-v1-7-2-backup_20260815_170007/src/features/corporateActions/corporateActionCompoundValidation.ts`
+- `?? tmp/corporate-action-phase1-v1-7-3-1-backup_20260815_194557/src/features/corporateActions/__tests__/corporateActionCompoundValidation.test.ts`
+- `?? tmp/corporate-action-phase1-v1-7-3-1-backup_20260815_194557/src/features/corporateActions/corporateActionCompoundValidation.ts`
+- `?? tmp/corporate-action-phase1-v1-7-backup_20260815_125543/src-tauri-shell/src/database/corporate_action_imports.rs`
+- `?? tmp/corporate-action-phase1-v1-7-backup_20260815_125543/src/components/DatabaseToolsDialogs.tsx`
+- `?? tmp/corporate-action-post-red-source-drift_20260823_015149_812/compare_source.py`
+- `?? tmp/corporate-action-post-red-source-drift_20260823_015149_812/corporate_action_imports.current.rs`
+- `?? tmp/corporate-action-post-red-source-drift_20260823_015149_812/corporate_action_imports.expected-post-red.rs`
+- `?? tmp/corporate-action-post-red-source-drift_20260823_015149_812/expected-post-red-vs-current.diff.txt`
+- `?? tmp/corporate-action-post-red-source-drift_20260823_015149_812/source-drift-summary.json`
+- `?? tmp/corporate-action-review-audit_20260816_012113.zip`
+- `?? tmp/corporate-action-review-audit_20260816_012113/corporate-action-review-audit-summary.txt`
+- `?? tmp/corporate-action-review-audit_20260816_012113/corporate-action-review-audit.csv`
+- `?? tmp/corporate-action-review-audit_20260816_012113/corporate-action-review-audit.json`
+- `?? tmp/corporate-action-v1-11-post_20260817_142146/source-sentinel-manifest.json`
+- `?? tmp/corporate-action-v1-11-post_20260817_142307.zip`
+- `?? tmp/corporate-action-v1-11-post_20260817_142307/reports/v1-11-post-approval-manifest.json`
+- `?? tmp/corporate-action-v1-11-post_20260817_142307/reports/v1-11-post-approval-reconciliation.csv`
+- `?? tmp/corporate-action-v1-11-post_20260817_142307/reports/v1-11-post-approval-summary.txt`
+- `?? tmp/corporate-action-v1-11-post_20260817_142307/run-context.json`
+- `?? tmp/corporate-action-v1-11-post_20260817_142307/snapshot/market-data.sqlite3-shm`
+- `?? tmp/corporate-action-v1-11-post_20260817_142307/snapshot/market-data.sqlite3-wal`
+- `?? tmp/corporate-action-v1-11-post_20260817_142307/source-sentinel-manifest.json`
+- `?? tmp/corporate-action-v1-11-post_20260817_142307/work/internal-v110-reports/audit-manifest.json`
+- `?? tmp/corporate-action-v1-11-post_20260817_142307/work/internal-v110-reports/corporate-action-all-types-health-summary.csv`
+- `?? tmp/corporate-action-v1-11-post_20260817_142307/work/internal-v110-reports/corporate-action-current-state-audit-summary.txt`
+- `?? tmp/corporate-action-v1-11-post_20260817_142307/work/internal-v110-reports/corporate-action-historical-reconciliation.csv`
+- `?? tmp/corporate-action-v1-11-post_20260817_142307/work/internal-v110-reports/corporate-action-split-bonus-deep-audit.csv`
+- `?? tmp/corporate-action-v1-11-post_20260817_142307/work/internal-v110-reports/corporate-action-split-bonus-deep-audit.json`
+- `?? tmp/corporate-action-v1-11-post_20260817_142307/work/internal-v110-run-context.json`
+- `?? tmp/corporate-action-v1-11-preapproval-backup_20260817_135756/market-data.sqlite3-shm`
+- `?? tmp/corporate-action-v1-11-preapproval-backup_20260817_135756/market-data.sqlite3-wal`
+- `?? tmp/corporate-action-v1-11-preapproval-backup_20260817_135756/v1-11-preapproval-backup-manifest.json`
+- `?? tmp/corporate-action-v1-11-preflight_20260817_134945/source-sentinel-manifest.json`
+- `?? tmp/corporate-action-v1-11-preflight_20260817_135637/reports/v1-11-authorized-ready-set.csv`
+- `?? tmp/corporate-action-v1-11-preflight_20260817_135637/reports/v1-11-preflight-manifest.json`
+- `?? tmp/corporate-action-v1-11-preflight_20260817_135637/reports/v1-11-preflight-summary.txt`
+- `?? tmp/corporate-action-v1-11-preflight_20260817_135637/run-context.json`
+- `?? tmp/corporate-action-v1-11-preflight_20260817_135637/snapshot/market-data.sqlite3-shm`
+- `?? tmp/corporate-action-v1-11-preflight_20260817_135637/snapshot/market-data.sqlite3-wal`
+- `?? tmp/corporate-action-v1-11-preflight_20260817_135637/source-sentinel-manifest.json`
+- `?? tmp/corporate-action-v1-11-preflight_20260817_135637/work/internal-v110-reports/audit-manifest.json`
+- `?? tmp/corporate-action-v1-11-preflight_20260817_135637/work/internal-v110-reports/corporate-action-all-types-health-summary.csv`
+- `?? tmp/corporate-action-v1-11-preflight_20260817_135637/work/internal-v110-reports/corporate-action-current-state-audit-summary.txt`
+- `?? tmp/corporate-action-v1-11-preflight_20260817_135637/work/internal-v110-reports/corporate-action-historical-reconciliation.csv`
+- `?? tmp/corporate-action-v1-11-preflight_20260817_135637/work/internal-v110-reports/corporate-action-split-bonus-deep-audit.csv`
+- `?? tmp/corporate-action-v1-11-preflight_20260817_135637/work/internal-v110-reports/corporate-action-split-bonus-deep-audit.json`
+- `?? tmp/corporate-action-v1-11-preflight_20260817_135637/work/internal-v110-run-context.json`
+- `?? tmp/corporate-action-v1-11-preflight_20260817_135637/write-window.json`
+- `?? tmp/corporate-action-v1-12-1-final_20260818_011520_117.zip`
+- `?? tmp/corporate-action-v1-12-1-final_20260818_011520_117/reports/audit-manifest.json`
+- `?? tmp/corporate-action-v1-12-1-final_20260818_011520_117/reports/v1-12-conflict-detail.csv`
+- `?? tmp/corporate-action-v1-12-1-final_20260818_011520_117/reports/v1-12-external-evidence-catalog.json`
+- `?? tmp/corporate-action-v1-12-1-final_20260818_011520_117/reports/v1-12-external-evidence-coverage.csv`
+- `?? tmp/corporate-action-v1-12-1-final_20260818_011520_117/reports/v1-12-external-evidence-requests.csv`
+- `?? tmp/corporate-action-v1-12-1-final_20260818_011520_117/reports/v1-12-identity-chain-detail.csv`
+- `?? tmp/corporate-action-v1-12-1-final_20260818_011520_117/reports/v1-12-identity-residual-deep-audit.csv`
+- `?? tmp/corporate-action-v1-12-1-final_20260818_011520_117/reports/v1-12-identity-residual-deep-audit.json`
+- `?? tmp/corporate-action-v1-12-1-final_20260818_011520_117/reports/v1-12-identity-residual-summary.txt`
+- `?? tmp/corporate-action-v1-12-1-final_20260818_011520_117/reports/v1-12-local-evidence-findings.csv`
+- `?? tmp/corporate-action-v1-12-1-final_20260818_011520_117/reports/v1-12-manual-review-candidates.csv`
+- `?? tmp/corporate-action-v1-12-1-final_20260818_011520_117/reports/v1-12-safe-future-write-candidates.csv`
+- `?? tmp/corporate-action-v1-12-external-evidence-bundle_20260817/EOD_Chart_Corporate_Action_Phase1_V1_12_External_Evidence_Bundle_2026-08-17_2043_IST/BUNDLE_SHA256.txt`
+- `?? tmp/corporate-action-v1-12-external-evidence-bundle_20260817/EOD_Chart_Corporate_Action_Phase1_V1_12_External_Evidence_Bundle_2026-08-17_2043_IST/README.txt`
+- `?? tmp/corporate-action-v1-12-external-evidence-bundle_20260817/EOD_Chart_Corporate_Action_Phase1_V1_12_External_Evidence_Bundle_2026-08-17_2043_IST/batch-inputs/batch01/SHA256.txt`
+- `?? tmp/corporate-action-v1-12-external-evidence-bundle_20260817/EOD_Chart_Corporate_Action_Phase1_V1_12_External_Evidence_Bundle_2026-08-17_2043_IST/batch-inputs/batch01/evidence-catalog-batch1.csv`
+- `?? tmp/corporate-action-v1-12-external-evidence-bundle_20260817/EOD_Chart_Corporate_Action_Phase1_V1_12_External_Evidence_Bundle_2026-08-17_2043_IST/batch-inputs/batch01/evidence-catalog-batch1.json`
+- `?? tmp/corporate-action-v1-12-external-evidence-bundle_20260817/EOD_Chart_Corporate_Action_Phase1_V1_12_External_Evidence_Bundle_2026-08-17_2043_IST/batch-inputs/source-zips/V1_12_External_Evidence_Research_Batch10_NO_CANDIDATE_Final17_2026-08-17_2004_IST.zip`
+- `?? tmp/corporate-action-v1-12-external-evidence-bundle_20260817/EOD_Chart_Corporate_Action_Phase1_V1_12_External_Evidence_Bundle_2026-08-17_2043_IST/batch-inputs/source-zips/V1_12_External_Evidence_Research_Batch10_NO_CANDIDATE_Final17_2026-08-17_2004_IST_2.zip`
+- `?? tmp/corporate-action-v1-12-external-evidence-bundle_20260817/EOD_Chart_Corporate_Action_Phase1_V1_12_External_Evidence_Bundle_2026-08-17_2043_IST/batch-inputs/source-zips/V1_12_External_Evidence_Research_Batch2_2026-08-17_1643_IST.zip`
+- `?? tmp/corporate-action-v1-12-external-evidence-bundle_20260817/EOD_Chart_Corporate_Action_Phase1_V1_12_External_Evidence_Bundle_2026-08-17_2043_IST/batch-inputs/source-zips/V1_12_External_Evidence_Research_Batch3_2026-08-17_1723_IST.zip`
+- `?? tmp/corporate-action-v1-12-external-evidence-bundle_20260817/EOD_Chart_Corporate_Action_Phase1_V1_12_External_Evidence_Bundle_2026-08-17_2043_IST/batch-inputs/source-zips/V1_12_External_Evidence_Research_Batch4_2026-08-17_1742_IST.zip`
+- `?? tmp/corporate-action-v1-12-external-evidence-bundle_20260817/EOD_Chart_Corporate_Action_Phase1_V1_12_External_Evidence_Bundle_2026-08-17_2043_IST/batch-inputs/source-zips/V1_12_External_Evidence_Research_Batch5_Conflicting_ISIN_2026-08-17_1758_IST.zip`
+- `?? tmp/corporate-action-v1-12-external-evidence-bundle_20260817/EOD_Chart_Corporate_Action_Phase1_V1_12_External_Evidence_Bundle_2026-08-17_2043_IST/batch-inputs/source-zips/V1_12_External_Evidence_Research_Batch6_Company_Identity_Mismatch_2026-08-17_1818_IST.zip`
+- `?? tmp/corporate-action-v1-12-external-evidence-bundle_20260817/EOD_Chart_Corporate_Action_Phase1_V1_12_External_Evidence_Bundle_2026-08-17_2043_IST/batch-inputs/source-zips/V1_12_External_Evidence_Research_Batch7_NO_CANDIDATE_Successors_2026-08-17_1834_IST.zip`
+- `?? tmp/corporate-action-v1-12-external-evidence-bundle_20260817/EOD_Chart_Corporate_Action_Phase1_V1_12_External_Evidence_Bundle_2026-08-17_2043_IST/batch-inputs/source-zips/V1_12_External_Evidence_Research_Batch8_NO_CANDIDATE_Repeated_Identities_2026-08-17_1845_IST.zip`
+- `?? tmp/corporate-action-v1-12-external-evidence-bundle_20260817/EOD_Chart_Corporate_Action_Phase1_V1_12_External_Evidence_Bundle_2026-08-17_2043_IST/batch-inputs/source-zips/V1_12_External_Evidence_Research_Batch9_NO_CANDIDATE_Legacy_Distressed_2026-08-17_1946_IST.zip`
+- `?? tmp/corporate-action-v1-12-external-evidence-bundle_20260817/EOD_Chart_Corporate_Action_Phase1_V1_12_External_Evidence_Bundle_2026-08-17_2043_IST/external-evidence-manifest.json`
+- `?? tmp/corporate-action-v1-12-external-evidence-bundle_20260817/EOD_Chart_Corporate_Action_Phase1_V1_12_External_Evidence_Bundle_2026-08-17_2043_IST/pass1-authority/pass1-audit-manifest.json`
+- `?? tmp/corporate-action-v1-12-external-evidence-bundle_20260817/EOD_Chart_Corporate_Action_Phase1_V1_12_External_Evidence_Bundle_2026-08-17_2043_IST/pass1-authority/v1-12-external-evidence-requests.csv`
+- `?? tmp/corporate-action-v1-12-external-evidence-bundle_20260817/EOD_Chart_Corporate_Action_Phase1_V1_12_External_Evidence_Bundle_2026-08-17_2043_IST/v1-12-external-evidence-catalog.csv`
+- `?? tmp/corporate-action-v1-12-external-evidence-bundle_20260817/EOD_Chart_Corporate_Action_Phase1_V1_12_External_Evidence_Bundle_2026-08-17_2043_IST/v1-12-external-evidence-catalog.json`
+- `?? tmp/corporate-action-v1-12-external-evidence-bundle_20260817/EOD_Chart_Corporate_Action_Phase1_V1_12_External_Evidence_Bundle_2026-08-17_2043_IST/v1-12-external-evidence-coverage.csv`
+- `?? tmp/corporate-action-v1-12-external-evidence-bundle_20260817/EOD_Chart_Corporate_Action_Phase1_V1_12_External_Evidence_Bundle_2026-08-17_2043_IST/v1-12-external-evidence-research-ledger.csv`
+- `?? tmp/corporate-action-v1-12-final-direct_20260818_004806_360/reports/audit-manifest.json`
+- `?? tmp/corporate-action-v1-12-final-direct_20260818_004806_360/reports/v1-12-conflict-detail.csv`
+- `?? tmp/corporate-action-v1-12-final-direct_20260818_004806_360/reports/v1-12-external-evidence-catalog.json`
+- `?? tmp/corporate-action-v1-12-final-direct_20260818_004806_360/reports/v1-12-external-evidence-coverage.csv`
+- `?? tmp/corporate-action-v1-12-final-direct_20260818_004806_360/reports/v1-12-external-evidence-requests.csv`
+- `?? tmp/corporate-action-v1-12-final-direct_20260818_004806_360/reports/v1-12-identity-chain-detail.csv`
+- `?? tmp/corporate-action-v1-12-final-direct_20260818_004806_360/reports/v1-12-identity-residual-deep-audit.csv`
+- `?? tmp/corporate-action-v1-12-final-direct_20260818_004806_360/reports/v1-12-identity-residual-deep-audit.json`
+- `?? tmp/corporate-action-v1-12-final-direct_20260818_004806_360/reports/v1-12-identity-residual-summary.txt`
+- `?? tmp/corporate-action-v1-12-final-direct_20260818_004806_360/reports/v1-12-local-evidence-findings.csv`
+- `?? tmp/corporate-action-v1-12-final-direct_20260818_004806_360/reports/v1-12-manual-review-candidates.csv`
+- `?? tmp/corporate-action-v1-12-final-direct_20260818_004806_360/reports/v1-12-safe-future-write-candidates.csv`
+- `?? tmp/corporate-action-v1-12-pass1_20260817_160148.zip`
+- `?? tmp/corporate-action-v1-12-pass1_20260817_160148/reports/audit-manifest.json`
+- `?? tmp/corporate-action-v1-12-pass1_20260817_160148/reports/v1-12-conflict-detail.csv`
+- `?? tmp/corporate-action-v1-12-pass1_20260817_160148/reports/v1-12-external-evidence-requests.csv`
+- `?? tmp/corporate-action-v1-12-pass1_20260817_160148/reports/v1-12-identity-chain-detail.csv`
+- `?? tmp/corporate-action-v1-12-pass1_20260817_160148/reports/v1-12-identity-residual-deep-audit.csv`
+- `?? tmp/corporate-action-v1-12-pass1_20260817_160148/reports/v1-12-identity-residual-deep-audit.json`
+- `?? tmp/corporate-action-v1-12-pass1_20260817_160148/reports/v1-12-identity-residual-summary.txt`
+- `?? tmp/corporate-action-v1-12-pass1_20260817_160148/reports/v1-12-local-evidence-findings.csv`
+- `?? tmp/corporate-action-v1-12-pass1_20260817_160148/run-context.json`
+- `?? tmp/corporate-action-v1-12-pass1_20260817_160148/snapshot/market-data.sqlite3-shm`
+- `?? tmp/corporate-action-v1-12-pass1_20260817_160148/snapshot/market-data.sqlite3-wal`
+- `?? tmp/corporate-action-v1-12-pass1_20260817_160148/source-sentinel-manifest.json`
+- `?? tmp/corporate-action-v1-12-pass1_20260817_160148/work/internal-v110-reports/audit-manifest.json`
+- `?? tmp/corporate-action-v1-12-pass1_20260817_160148/work/internal-v110-reports/corporate-action-all-types-health-summary.csv`
+- `?? tmp/corporate-action-v1-12-pass1_20260817_160148/work/internal-v110-reports/corporate-action-current-state-audit-summary.txt`
+- `?? tmp/corporate-action-v1-12-pass1_20260817_160148/work/internal-v110-reports/corporate-action-historical-reconciliation.csv`
+- `?? tmp/corporate-action-v1-12-pass1_20260817_160148/work/internal-v110-reports/corporate-action-split-bonus-deep-audit.csv`
+- `?? tmp/corporate-action-v1-12-pass1_20260817_160148/work/internal-v110-reports/corporate-action-split-bonus-deep-audit.json`
+- `?? tmp/corporate-action-v1-12-pass1_20260817_160148/work/internal-v110-run-context.json`
+- `?? tmp/corporate-action-v1-12-pass1_20260818_004434/reports/audit-manifest.json`
+- `?? tmp/corporate-action-v1-12-pass1_20260818_004434/reports/v1-12-conflict-detail.csv`
+- `?? tmp/corporate-action-v1-12-pass1_20260818_004434/reports/v1-12-external-evidence-requests.csv`
+- `?? tmp/corporate-action-v1-12-pass1_20260818_004434/reports/v1-12-identity-chain-detail.csv`
+- `?? tmp/corporate-action-v1-12-pass1_20260818_004434/reports/v1-12-identity-residual-deep-audit.csv`
+- `?? tmp/corporate-action-v1-12-pass1_20260818_004434/reports/v1-12-identity-residual-deep-audit.json`
+- `?? tmp/corporate-action-v1-12-pass1_20260818_004434/reports/v1-12-identity-residual-summary.txt`
+- `?? tmp/corporate-action-v1-12-pass1_20260818_004434/reports/v1-12-local-evidence-findings.csv`
+- `?? tmp/corporate-action-v1-12-pass1_20260818_004434/run-context.json`
+- `?? tmp/corporate-action-v1-12-pass1_20260818_004434/snapshot/market-data.sqlite3-shm`
+- `?? tmp/corporate-action-v1-12-pass1_20260818_004434/snapshot/market-data.sqlite3-wal`
+- `?? tmp/corporate-action-v1-12-pass1_20260818_004434/source-sentinel-manifest.json`
+- `?? tmp/corporate-action-v1-12-pass1_20260818_004434/work/internal-v110-reports/audit-manifest.json`
+- `?? tmp/corporate-action-v1-12-pass1_20260818_004434/work/internal-v110-reports/corporate-action-all-types-health-summary.csv`
+- `?? tmp/corporate-action-v1-12-pass1_20260818_004434/work/internal-v110-reports/corporate-action-current-state-audit-summary.txt`
+- `?? tmp/corporate-action-v1-12-pass1_20260818_004434/work/internal-v110-reports/corporate-action-historical-reconciliation.csv`
+- `?? tmp/corporate-action-v1-12-pass1_20260818_004434/work/internal-v110-reports/corporate-action-split-bonus-deep-audit.csv`
+- `?? tmp/corporate-action-v1-12-pass1_20260818_004434/work/internal-v110-reports/corporate-action-split-bonus-deep-audit.json`
+- `?? tmp/corporate-action-v1-12-pass1_20260818_004434/work/internal-v110-run-context.json`
+- `?? tmp/corporate-action-v1-13a-preview_20260818_102638_150.zip`
+- `?? tmp/corporate-action-v1-13a-preview_20260818_102638_150/reports/snapshot/market-data.sqlite3-shm`
+- `?? tmp/corporate-action-v1-13a-preview_20260818_102638_150/reports/snapshot/market-data.sqlite3-wal`
+- `?? tmp/corporate-action-v1-13a-preview_20260818_102638_150/reports/v1-13a-authorized-candidates.csv`
+- `?? tmp/corporate-action-v1-13a-preview_20260818_102638_150/reports/v1-13a-blocked-candidates.csv`
+- `?? tmp/corporate-action-v1-13a-preview_20260818_102638_150/reports/v1-13a-db-family-before.json`
+- `?? tmp/corporate-action-v1-13a-preview_20260818_102638_150/reports/v1-13a-mutation-plan.csv`
+- `?? tmp/corporate-action-v1-13a-preview_20260818_102638_150/reports/v1-13a-preview-summary.json`
+- `?? tmp/corporate-action-v1-13a-preview_20260818_102638_150/reports/v1-13a-preview-verification.json`
+- `?? tmp/corporate-action-v1-13a-preview_20260818_102638_150/reports/v1-13a-protected-table-fingerprints-before.json`
+- `?? tmp/corporate-action-v1-13a-preview_20260818_102638_150/reports/v1-13a-ready-manifest.json`
+- `?? tmp/corporate-action-v1-13b-1-apply_20260818_170635_303/reports/v1-13b-1-apply-result.json`
+- `?? tmp/corporate-action-v1-13b-1-apply_20260818_170635_303/reports/v1-13b-1-backup-manifest-used.json`
+- `?? tmp/corporate-action-v1-13b-1-preflight_20260818_144646_557.zip`
+- `?? tmp/corporate-action-v1-13b-1-preflight_20260818_144646_557/reports/snapshot/market-data.sqlite3-shm`
+- `?? tmp/corporate-action-v1-13b-1-preflight_20260818_144646_557/reports/snapshot/market-data.sqlite3-wal`
+- `?? tmp/corporate-action-v1-13b-1-preflight_20260818_144646_557/reports/v1-13b-1-db-family-before.json`
+- `?? tmp/corporate-action-v1-13b-1-preflight_20260818_144646_557/reports/v1-13b-1-mutation-plan.csv`
+- `?? tmp/corporate-action-v1-13b-1-preflight_20260818_144646_557/reports/v1-13b-1-preflight-candidates.csv`
+- `?? tmp/corporate-action-v1-13b-1-preflight_20260818_144646_557/reports/v1-13b-1-preflight-summary.json`
+- `?? tmp/corporate-action-v1-13b-1-preflight_20260818_144646_557/reports/v1-13b-1-preflight-verification.json`
+- `?? tmp/corporate-action-v1-13b-1-preflight_20260818_144646_557/reports/v1-13b-1-protected-table-fingerprints-before.json`
+- `?? tmp/corporate-action-v1-13b-1-preflight_20260818_144646_557/reports/v1-13b-1-ready-manifest.json`
+- `?? tmp/corporate-action-v1-13b-1-preflight_20260818_162347_468/reports/snapshot/market-data.sqlite3-shm`
+- `?? tmp/corporate-action-v1-13b-1-preflight_20260818_162347_468/reports/snapshot/market-data.sqlite3-wal`
+- `?? tmp/corporate-action-v1-13b-1-preflight_20260818_162347_468/reports/v1-13b-1-db-family-before.json`
+- `?? tmp/corporate-action-v1-13b-1-preflight_20260818_162347_468/reports/v1-13b-1-mutation-plan.csv`
+- `?? tmp/corporate-action-v1-13b-1-preflight_20260818_162347_468/reports/v1-13b-1-preflight-candidates.csv`
+- `?? tmp/corporate-action-v1-13b-1-preflight_20260818_162347_468/reports/v1-13b-1-preflight-summary.json`
+- `?? tmp/corporate-action-v1-13b-1-preflight_20260818_162347_468/reports/v1-13b-1-preflight-verification.json`
+- `?? tmp/corporate-action-v1-13b-1-preflight_20260818_162347_468/reports/v1-13b-1-protected-table-fingerprints-before.json`
+- `?? tmp/corporate-action-v1-13b-1-preflight_20260818_162347_468/reports/v1-13b-1-ready-manifest.json`
+- `?? tmp/corporate-action-v1-13c-1-2-1-post-audit_20260819_003421_289/reports/post-snapshot/market-data.sqlite3-shm`
+- `?? tmp/corporate-action-v1-13c-1-2-1-post-audit_20260819_003421_289/reports/post-snapshot/market-data.sqlite3-wal`
+- `?? tmp/corporate-action-v1-13c-1-2-1-post-audit_20260819_003421_289/reports/preflight-baseline-copy/market-data.sqlite3-shm`
+- `?? tmp/corporate-action-v1-13c-1-2-1-post-audit_20260819_003421_289/reports/preflight-baseline-copy/market-data.sqlite3-wal`
+- `?? tmp/corporate-action-v1-13c-1-2-1-post-audit_20260819_003421_289/reports/v1-13c-1-2-1-post-audit-verification.json`
+- `?? tmp/corporate-action-v1-13c-1-2-1-post-audit_20260819_003421_289/reports/v1-13c-1-authorized-mutations.csv`
+- `?? tmp/corporate-action-v1-13c-1-2-1-post-audit_20260819_003421_289/reports/v1-13c-1-identity-recheck.csv`
+- `?? tmp/corporate-action-v1-13c-1-2-1-post-audit_20260819_003421_289/reports/v1-13c-1-post-audit-summary.json`
+- `?? tmp/corporate-action-v1-13c-1-2-1-post-audit_20260819_003421_289/reports/v1-13c-1-table-comparison.json`
+- `?? tmp/corporate-action-v1-13c-1-2-post-audit_20260819_001653_901/reports/preflight-baseline-copy/market-data.sqlite3-shm`
+- `?? tmp/corporate-action-v1-13c-1-2-post-audit_20260819_001653_901/reports/preflight-baseline-copy/market-data.sqlite3-wal`
+- `?? tmp/corporate-action-v1-14a-protected-eight_20260819_005422_054/reports/snapshot/market-data.sqlite3-shm`
+- `?? tmp/corporate-action-v1-14a-protected-eight_20260819_005422_054/reports/snapshot/market-data.sqlite3-wal`
+- `?? tmp/corporate-action-v1-14a-protected-eight_20260819_005422_054/reports/v1-14a-db-family.json`
+- `?? tmp/corporate-action-v1-14a-protected-eight_20260819_005422_054/reports/v1-14a-db-family.zip`
+- `?? tmp/corporate-action-v1-14a-protected-eight_20260819_005422_054/reports/v1-14a-protected-eight-classification.csv`
+- `?? tmp/corporate-action-v1-14a-protected-eight_20260819_005422_054/reports/v1-14a-protected-eight-evidence.json`
+- `?? tmp/corporate-action-v1-14a-protected-eight_20260819_005422_054/reports/v1-14a-protected-eight-summary.json`
+- `?? tmp/corporate-action-v1-14aa-approved-nonmatched-audit_20260826_134027_017/private-snapshot/live-shm-forensic-copy.bin`
+- `?? tmp/corporate-action-v1-14aa-approved-nonmatched-audit_20260826_134027_017/private-snapshot/market-data.sqlite3-shm`
+- `?? tmp/corporate-action-v1-14aa-approved-nonmatched-audit_20260826_134027_017/private-snapshot/market-data.sqlite3-wal`
+- `?? tmp/corporate-action-v1-14aa-approved-nonmatched-audit_20260826_134027_017/reports/v1-14aa-approved-nonmatched-forensic-audit.json`
+- `?? tmp/corporate-action-v1-14aa-approved-nonmatched-audit_20260826_134027_017/reports/v1-14aa-approved-nonmatched-rows.csv`
+- `?? tmp/corporate-action-v1-14aa-approved-nonmatched-audit_20260826_134027_017/reports/v1-14aa-live-family-after.json`
+- `?? tmp/corporate-action-v1-14aa-approved-nonmatched-audit_20260826_134027_017/reports/v1-14aa-live-family-before.json`
+- `?? tmp/corporate-action-v1-14aa-approved-nonmatched-audit_20260826_134027_017/reports/v1-14aa-post-gate-review-priority.csv`
+- `?? tmp/corporate-action-v1-14aa-approved-nonmatched-audit_20260826_134027_017/reports/v1-14aa-state.txt`
+- `?? tmp/corporate-action-v1-14aa-approved-nonmatched-audit_20260826_134027_017/reports/v1-14aa-summary.txt`
+- `?? tmp/corporate-action-v1-14aa-approved-nonmatched-audit_20260826_134027_017/v1-14aa-approved-nonmatched-forensic-audit-reports.zip`
+- `?? tmp/corporate-action-v1-14ab-a-validator-storage-preflight_20260826_135735_439/reports/01-current-validator-source-context.txt`
+- `?? tmp/corporate-action-v1-14ab-a-validator-storage-preflight_20260826_140112_664/reports/01-current-validator-source-context.txt`
+- `?? tmp/corporate-action-v1-14ab-a-validator-storage-preflight_20260826_140527_497/private-snapshot/live-shm-forensic-copy.bin`
+- `?? tmp/corporate-action-v1-14ab-a-validator-storage-preflight_20260826_140527_497/private-snapshot/market-data.sqlite3-shm`
+- `?? tmp/corporate-action-v1-14ab-a-validator-storage-preflight_20260826_140527_497/private-snapshot/market-data.sqlite3-wal`
+- `?? tmp/corporate-action-v1-14ab-a-validator-storage-preflight_20260826_140527_497/reports/01-current-validator-source-context.txt`
+- `?? tmp/corporate-action-v1-14ab-a-validator-storage-preflight_20260826_140527_497/reports/02-scan-candidate-storage-token-lines.txt`
+- `?? tmp/corporate-action-v1-14ab-a-validator-storage-preflight_20260826_140527_497/reports/03-v1-14aa-cohort-authority.json`
+- `?? tmp/corporate-action-v1-14ab-a-validator-storage-preflight_20260826_140527_497/reports/04-private-sqlite-price-storage-preflight.json`
+- `?? tmp/corporate-action-v1-14ab-a-validator-storage-preflight_20260826_140527_497/reports/05-live-binary-eod-inventory.json`
+- `?? tmp/corporate-action-v1-14ab-a-validator-storage-preflight_20260826_140527_497/reports/06-v1-14ab-a-summary.txt`
+- `?? tmp/corporate-action-v1-14ab-a-validator-storage-preflight_20260826_140527_497/reports/v1-14ab-a-state.txt`
+- `?? tmp/corporate-action-v1-14ab-a-validator-storage-preflight_20260826_140527_497/v1-14ab-a-validator-storage-source-preflight-reports.zip`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/3IINFOTECH.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/3PLAND.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/AARVEEDEN.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/ABB.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/ACE.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/ACUTAAS.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/ADANIENT.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/ADANIPORTS.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/ADSL.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/ADVANIHOTR.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/AEGISLOG.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/AGCNET.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/AHCL.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/AHLEAST.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/AIAENG.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/AICHAMP.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/AJRINFRA.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/ALCHEMIST.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/ALEMBICLTD.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/ALICON.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/ALPSINDUS.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/AMJLAND.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/ANANTRAJ.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/ANSALAPI.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/ANTELOPUS.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/APARINDS.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/APOLLOTYRE.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/APTECH.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/ARE&M.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/AROGRANITE.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/ASHAPURMIN.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/ASIANELEC.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/ASTRAMICRO.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/ASTRAZEN.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/ATLANTAA.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/AURIGROW.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/AUSTRAL.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/AVANTI.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/BAJAJ-AUTO.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/BAJAJCON.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/BAJAJELEC.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/BANCOINDIA.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/BANKRAJAS.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/BATLIBOI.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/BESTAGRO.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/BHAGYNAGAR.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/BIOCON.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/BIRLACOT.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/BIRLAMONEY.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/BIRLAPOWER.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/BLUESTARCO.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/BORORENEW.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/BOSCHCHASY.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/BSE.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/BSOFT.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/BSTRANSCOM.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/CASTEXTECH.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/CASTROL.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/CCAVENUE.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/CCCL.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/CEMPRO.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/CENTURYPLY.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/CERA.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/CGPOWER.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/CINEVISTA.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/CIPLA.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/CLASSIC.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/COHANCE.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/COMPUAGE.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/CORALHUB.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/COSMOFIRST.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/COUNCODOS.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/CUB.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/CYIENT.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/DABUR.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/DCHL.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/DELPHIFX.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/DELTACORP.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/DEWANHOUS.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/DHARAN.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/DIVISLAB.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/DOLPHINOFF.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/DVL.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/EASTSILK.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/EASUNREYRL.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/ECLERX.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/EDUCOMP.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/EIHOTEL.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/EKC.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/ELECTCAST.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/ELGIEQUIP.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/EMCO.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/EPL.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/ESSENTIA.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/EVINIX.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/EXIDEIND.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/FAGBEARING.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/FCSSOFT.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/FEL.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/FINCABLES.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/GAIL.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/GANDHITUBE.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/GANESHHOU.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/GATECH.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/GDL.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/GEMINI.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/GEODESIC.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/GEOJITFSL.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/GFLLIMITED.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/GILLANDERS.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/GISOLUTION.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/GLENMARK.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/GMDCLTD.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/GMRAIRPORT.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/GODREJCP.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/GODREJIND.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/GOKEX.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/GOKUL.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/GRAPHITE.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/GUJAPOLLO.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/GUJNRECOKE.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/GUJRATGAS.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/GULFPETRO.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/GVKPIL.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/GVPTECH.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/GVT&D.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/HBLENGINE.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/HCC.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/HCLTECH.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/HDIL.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/HERCULES.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/HINDDORROL.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/HINDNATGLS.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/HIRECT.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/HITECHGEAR.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/HOPFL.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/HSCL.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/HTMEDIA.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/HUHTAMAKI.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/ICSA.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/IIFL.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/INDHOTEL.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/INFY.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/IOC.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/ISWARMEDIC.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/ITC.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/IVC.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/IVRCLAH.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/IVRCLINFRA.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/JAGRAN.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/JINDALPOLY.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/JINDALSTEL.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/JINDLFERRO.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/JINDRILL.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/JKLAKSHMI.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/JPASSOCIAT.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/JTEKTINDIA.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/JYOTHYLAB.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/JYOTISTRUC.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/KEI.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/KERNEX.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/KGL.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/KIL.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/KIRLOSOIL.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/KMSUGAR.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/KOKUYOCMLN.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/KOTAKBANK.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/KPIL.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/KSBPUMPS.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/KSOILS.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/KWALITY.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/LAKSHVILAS.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/LANDSMILL.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/LINCPEN.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/LITL.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/LT.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/M&M.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/MADHUCON.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/MAHSEAMLES.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/MALCO.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/MANINDS.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/MARICO.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/MARKSANS.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/METKORE.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/MFSL.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/MIC.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/MIRZAINT.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/MMFL.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/MMFSL.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/MOHOTAIND.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/MOSERBAER.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/MOTHERSON.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/MOTILALOFS.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/MUNJALSHOW.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/MURLIIND.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/NANDAN.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/NANDANEXIM.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/NAVNETEDUL.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/NBVENTURES.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/NCC.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/NECLIFE.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/NIITTECH.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/NMDC.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/NORTHGATE.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/NRBBEARING.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/NTPC.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/NUCLEUS.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/NUTEK.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/OPTOCIRCUI.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/ORBITCORP.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/ORIENTCER.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/ORIENTPPR.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/PANORAMUNI.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/PARACABLES.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/PDPL.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/PDSMFL.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/PENINLAND.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/PHOENIXLTD.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/PIDILITIND.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/PILIND.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/PITTIENG.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/POLYPLEX.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/POONAWALLA.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/PRAJIND.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/PROVOGUE.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/PUNJLLOYD.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/RAIN.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/RAINBOWPAP.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/RATNAMANI.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/RECLTD.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/REIAGROLTD.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/REISIXTEN.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/RELIANCE.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/RENUKA.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/RJL.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/RNBDENIMS.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/ROLTA.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/RPOWER.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/RUCHISOYA.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/SAKUMA.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/SANWARIA.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/SARVESHWAR.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/SATYAMCOMP.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/SAVERA.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/SCI.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/SCICI.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/SECURKLOUD.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/SEINV.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/SETUINFRA.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/SHAH.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/SHEKHAWATI.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/SHREEASHTA.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/SHRENIK.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/SIEMENS.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/SIGNETIND.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/SILVERTUC.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/SIMPLEXINF.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/STCINDIA.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/SUBROS.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/SUNCLAYTON.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/SUNDARMFIN.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/SUNDRMFAST.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/SUPERSPIN.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/SURANAVEL.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/SUZLON.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/SWANCORP.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/SWELECTES.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/TAKE.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/TANLA.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/TARIL.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/TATACONSUM.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/TATASTLBSL.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/TCI.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/TCS.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/TEXINFRA.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/THOMASCOOK.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/TI.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/TIMETECHNO.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/TIPSMUSIC.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/TIRUPATIFL.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/TITAGARH.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/TMPV.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/TRICOM.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/TUBEINVEST.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/TV-18.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/TV18BRDCST.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/TVSHLTD.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/UJAAS.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/UNITDSPR.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/UNITECH.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/UNITY.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/UNIWESTBNK.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/UNOMINDA.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/UPL.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/USHAMART.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/UTIUS64-CI.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/VAIBHAVGEM.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/VAISHALI.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/VAKRANGEE.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/VALECHAENG.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/VASWANI.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/VEEDOL.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/VIKASECO.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/VISHALRET.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/VITARACHEM.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/VOLTAS.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/WEIZFOREX.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/WELSPUNLIV.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/WINSOMYARN.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/WIPRO.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/WSTCSTPAPR.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/ZANDUREALT.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/ZEEL.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/ZENITHSTL.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/ZODIACLOTH.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/eod_data/NSE/ZYDUSLIFE.eod`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/live-shm-forensic-copy.bin`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/market-data.sqlite3-shm`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/private-database/market-data.sqlite3-wal`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/reports/01-live-family-before.json`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/reports/02-private-family-before-replay.json`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/reports/03-required-binary-eod-copy-manifest.json`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/reports/04-replay-import-ids.json`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/reports/05-temporary-rust-test.txt`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/reports/07-current-validator-replay.json`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/reports/08-current-validator-reconciliation.csv`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/reports/09-current-validator-reconciliation-summary.json`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/reports/10-current-validator-reconciliation-summary.txt`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/reports/11-private-family-after-replay.json`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/reports/12-live-family-after.json`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/reports/13-reporting-recovery-root-cause.txt`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/reports/v1-14ab-b-state.txt`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/source-backup/corporate_action_imports.rs.before-v1-14ab-b`
+- `?? tmp/corporate-action-v1-14ab-b-current-validator-replay_20260826_142433_688/v1-14ab-b-r2-current-validator-replay-complete-reports.zip`
+- `?? tmp/corporate-action-v1-14ac-17-review-forensic-audit_20260826_161715_164/private-snapshot/market-data.sqlite3-shm`
+- `?? tmp/corporate-action-v1-14ac-17-review-forensic-audit_20260826_161715_164/private-snapshot/market-data.sqlite3-wal`
+- `?? tmp/corporate-action-v1-14ac-17-review-forensic-audit_20260826_161715_164/reports/01-live-family-before.json`
+- `?? tmp/corporate-action-v1-14ac-17-review-forensic-audit_20260826_161715_164/reports/02-v114ab-private-source-before.json`
+- `?? tmp/corporate-action-v1-14ac-17-review-forensic-audit_20260826_161715_164/reports/03-v114ac-private-family-before.json`
+- `?? tmp/corporate-action-v1-14ac-17-review-forensic-audit_20260826_161715_164/reports/04-v1-14ac-17-review-forensic-audit.json`
+- `?? tmp/corporate-action-v1-14ac-17-review-forensic-audit_20260826_161715_164/reports/05-v1-14ac-17-review-rows.csv`
+- `?? tmp/corporate-action-v1-14ac-17-review-forensic-audit_20260826_161715_164/reports/06-v1-14ac-compound-context-verification.json`
+- `?? tmp/corporate-action-v1-14ac-17-review-forensic-audit_20260826_161715_164/reports/07-v1-14ac-summary.txt`
+- `?? tmp/corporate-action-v1-14ac-17-review-forensic-audit_20260826_163012_752/private-snapshot/market-data.sqlite3-shm`
+- `?? tmp/corporate-action-v1-14ac-17-review-forensic-audit_20260826_163012_752/private-snapshot/market-data.sqlite3-wal`
+- `?? tmp/corporate-action-v1-14ac-17-review-forensic-audit_20260826_163012_752/reports/01-live-family-before.json`
+- `?? tmp/corporate-action-v1-14ac-17-review-forensic-audit_20260826_163012_752/reports/02-v114ab-private-source-before.json`
+- `?? tmp/corporate-action-v1-14ac-17-review-forensic-audit_20260826_163012_752/reports/03-v114ac-private-family-before.json`
+- `?? tmp/corporate-action-v1-14ac-17-review-forensic-audit_20260826_163012_752/reports/04-v1-14ac-17-review-forensic-audit.json`
+- `?? tmp/corporate-action-v1-14ac-17-review-forensic-audit_20260826_163012_752/reports/05-v1-14ac-17-review-rows.csv`
+- `?? tmp/corporate-action-v1-14ac-17-review-forensic-audit_20260826_163012_752/reports/06-v1-14ac-compound-context-verification.json`
+- `?? tmp/corporate-action-v1-14ac-17-review-forensic-audit_20260826_163012_752/reports/07-v1-14ac-summary.txt`
+- `?? tmp/corporate-action-v1-14ac-17-review-forensic-audit_20260826_163012_752/reports/08-v1-14ac-classification-method.txt`
+- `?? tmp/corporate-action-v1-14ac-17-review-forensic-audit_20260826_163012_752/reports/09-v114ac-private-family-after.json`
+- `?? tmp/corporate-action-v1-14ac-17-review-forensic-audit_20260826_163012_752/reports/10-v114ab-private-source-after.json`
+- `?? tmp/corporate-action-v1-14ac-17-review-forensic-audit_20260826_163012_752/reports/11-live-family-after.json`
+- `?? tmp/corporate-action-v1-14ac-17-review-forensic-audit_20260826_163012_752/reports/v1-14ac-state.txt`
+- `?? tmp/corporate-action-v1-14ac-17-review-forensic-audit_20260826_163012_752/v1-14ac-17-review-forensic-audit-reports.zip`
+- `?? tmp/corporate-action-v1-14ac-17-review-forensic-audit_20260826_170431_596/private-snapshot/market-data.sqlite3-shm`
+- `?? tmp/corporate-action-v1-14ac-17-review-forensic-audit_20260826_170431_596/private-snapshot/market-data.sqlite3-wal`
+- `?? tmp/corporate-action-v1-14ac-17-review-forensic-audit_20260826_170431_596/reports/01-live-family-before.json`
+- `?? tmp/corporate-action-v1-14ac-17-review-forensic-audit_20260826_170431_596/reports/02-v114ab-private-source-before.json`
+- `?? tmp/corporate-action-v1-14ac-17-review-forensic-audit_20260826_170431_596/reports/03-v114ac-private-family-before.json`
+- `?? tmp/corporate-action-v1-14ac-17-review-forensic-audit_20260826_170431_596/reports/04-v1-14ac-17-review-forensic-audit.json`
+- `?? tmp/corporate-action-v1-14ac-17-review-forensic-audit_20260826_170431_596/reports/05-v1-14ac-17-review-rows.csv`
+- `?? tmp/corporate-action-v1-14ac-17-review-forensic-audit_20260826_170431_596/reports/06-v1-14ac-compound-context-verification.json`
+- `?? tmp/corporate-action-v1-14ac-17-review-forensic-audit_20260826_170431_596/reports/07-v1-14ac-summary.txt`
+- `?? tmp/corporate-action-v1-14ac-17-review-forensic-audit_20260826_170431_596/reports/08-v1-14ac-classification-method.txt`
+- `?? tmp/corporate-action-v1-14ac-17-review-forensic-audit_20260826_170431_596/reports/09-v114ac-private-family-after.json`
+- `?? tmp/corporate-action-v1-14ac-17-review-forensic-audit_20260826_170431_596/reports/10-v114ab-private-source-after.json`
+- `?? tmp/corporate-action-v1-14ac-17-review-forensic-audit_20260826_170431_596/reports/11-live-family-after.json`
+- `?? tmp/corporate-action-v1-14ac-17-review-forensic-audit_20260826_170431_596/reports/12-v1-14ac-r1-wrapper-root-cause.txt`
+- `?? tmp/corporate-action-v1-14ac-17-review-forensic-audit_20260826_170431_596/reports/13-v1-14ac-artifact-manifest.json`
+- `?? tmp/corporate-action-v1-14ac-17-review-forensic-audit_20260826_170431_596/reports/v1-14ac-state.txt`
+- `?? tmp/corporate-action-v1-14ac-17-review-forensic-audit_20260826_170431_596/v1-14ac-r1-17-review-forensic-audit-complete-reports.zip`
+- `?? tmp/corporate-action-v1-14ad-a-r1-three-alias-compound-defect-confirmation_20260826_181146_096/reports/01-authority.json`
+- `?? tmp/corporate-action-v1-14ad-a-r1-three-alias-compound-defect-confirmation_20260826_181146_096/reports/02-current-source-contract.txt`
+- `?? tmp/corporate-action-v1-14ad-a-r1-three-alias-compound-defect-confirmation_20260826_181146_096/reports/03-three-pair-defect-confirmation.json`
+- `?? tmp/corporate-action-v1-14ad-a-r1-three-alias-compound-defect-confirmation_20260826_181146_096/reports/04-three-pair-defect-confirmation.csv`
+- `?? tmp/corporate-action-v1-14ad-a-r1-three-alias-compound-defect-confirmation_20260826_181146_096/reports/05-v1-14ad-a-summary.txt`
+- `?? tmp/corporate-action-v1-14ad-a-r1-three-alias-compound-defect-confirmation_20260826_181146_096/reports/06-v1-14ad-a-safety.txt`
+- `?? tmp/corporate-action-v1-14ad-a-r1-three-alias-compound-defect-confirmation_20260826_181146_096/reports/v1-14ad-a-state.txt`
+- `?? tmp/corporate-action-v1-14ad-a-r1-three-alias-compound-defect-confirmation_20260826_181146_096/v1-14ad-a-r1-three-alias-compound-defect-confirmation-reports.zip`
+- `?? tmp/corporate-action-v1-14ad-b1-r1-compound-equivalent-event-dedupe_20260826_191051_600/reports/01-live-family-before.json`
+- `?? tmp/corporate-action-v1-14ad-b1-r1-compound-equivalent-event-dedupe_20260826_191051_600/reports/02-source-before.txt`
+- `?? tmp/corporate-action-v1-14ad-b1-r1-compound-equivalent-event-dedupe_20260826_191051_600/reports/10-source-after.txt`
+- `?? tmp/corporate-action-v1-14ad-b1-r1-compound-equivalent-event-dedupe_20260826_191051_600/reports/11-live-family-after.json`
+- `?? tmp/corporate-action-v1-14ad-b1-r1-compound-equivalent-event-dedupe_20260826_191051_600/reports/12-v114ad-tests.rs`
+- `?? tmp/corporate-action-v1-14ad-b1-r1-compound-equivalent-event-dedupe_20260826_191051_600/reports/v1-14ad-b1-state.txt`
+- `?? tmp/corporate-action-v1-14ad-b1-r1-compound-equivalent-event-dedupe_20260826_191051_600/rollback/corporate_action_imports.rs.pre-v114ad-b1`
+- `?? tmp/corporate-action-v1-14ad-b1-r1-compound-equivalent-event-dedupe_20260826_191051_600/v1-14ad-b1-r1-source-tdd-validation-reports.zip`
+- `?? tmp/corporate-action-v1-14ad-b1-r1-compound-equivalent-event-dedupe_20260826_191051_600/v1-14ad-b1-r3-corrected-source-tdd-validation-reports.zip`
+- `?? tmp/corporate-action-v1-14ad-b2-private-three-case-replay_20260826_210113_502/private-database/eod_data/NSE/AGCNET.eod`
+- `?? tmp/corporate-action-v1-14ad-b2-private-three-case-replay_20260826_210113_502/private-database/eod_data/NSE/KSBPUMPS.eod`
+- `?? tmp/corporate-action-v1-14ad-b2-private-three-case-replay_20260826_210113_502/private-database/eod_data/NSE/NBVENTURES.eod`
+- `?? tmp/corporate-action-v1-14ad-b2-private-three-case-replay_20260826_210113_502/private-database/market-data.sqlite3-wal`
+- `?? tmp/corporate-action-v1-14ad-b2-private-three-case-replay_20260826_210113_502/reports/01-live-family-before.json`
+- `?? tmp/corporate-action-v1-14ad-b2-private-three-case-replay_20260826_210113_502/reports/02-ab-private-source-before.json`
+- `?? tmp/corporate-action-v1-14ad-b2-private-three-case-replay_20260826_210113_502/reports/03-b2-private-family-before.json`
+- `?? tmp/corporate-action-v1-14ad-b2-private-three-case-replay_20260826_210113_502/reports/04-exact-three-eod-manifest.json`
+- `?? tmp/corporate-action-v1-14ad-b2-private-three-case-replay_20260826_210113_502/reports/05-v114ac-three-case-baseline.json`
+- `?? tmp/corporate-action-v1-14ad-b2-private-three-case-replay_20260826_210113_502/reports/06-temporary-rust-test.txt`
+- `?? tmp/corporate-action-v1-14ad-b2-private-three-case-replay_20260826_210113_502/v114ad_tests.rs.pre-b2`
+- `?? tmp/corporate-action-v1-14ad-b2-r1-private-three-case-replay_20260826_230514_786/private-database/eod_data/NSE/AGCNET.eod`
+- `?? tmp/corporate-action-v1-14ad-b2-r1-private-three-case-replay_20260826_230514_786/private-database/eod_data/NSE/KSBPUMPS.eod`
+- `?? tmp/corporate-action-v1-14ad-b2-r1-private-three-case-replay_20260826_230514_786/private-database/eod_data/NSE/NBVENTURES.eod`
+- `?? tmp/corporate-action-v1-14ad-b2-r1-private-three-case-replay_20260826_230514_786/private-database/market-data.sqlite3-shm`
+- `?? tmp/corporate-action-v1-14ad-b2-r1-private-three-case-replay_20260826_230514_786/private-database/market-data.sqlite3-wal`
+- `?? tmp/corporate-action-v1-14ad-b2-r1-private-three-case-replay_20260826_230514_786/reports/01-live-family-before.json`
+- `?? tmp/corporate-action-v1-14ad-b2-r1-private-three-case-replay_20260826_230514_786/reports/02-ab-private-source-before.json`
+- `?? tmp/corporate-action-v1-14ad-b2-r1-private-three-case-replay_20260826_230514_786/reports/03-b2-private-family-before.json`
+- `?? tmp/corporate-action-v1-14ad-b2-r1-private-three-case-replay_20260826_230514_786/reports/04-exact-three-eod-manifest.json`
+- `?? tmp/corporate-action-v1-14ad-b2-r1-private-three-case-replay_20260826_230514_786/reports/05-v114ac-three-case-baseline.json`
+- `?? tmp/corporate-action-v1-14ad-b2-r1-private-three-case-replay_20260826_230514_786/reports/06-temporary-rust-test.txt`
+- `?? tmp/corporate-action-v1-14ad-b2-r1-private-three-case-replay_20260826_230514_786/reports/08-current-validator-three-case-replay.json`
+- `?? tmp/corporate-action-v1-14ad-b2-r1-private-three-case-replay_20260826_230514_786/reports/09-three-case-reconciliation.csv`
+- `?? tmp/corporate-action-v1-14ad-b2-r1-private-three-case-replay_20260826_230514_786/reports/10-three-case-reconciliation.json`
+- `?? tmp/corporate-action-v1-14ad-b2-r1-private-three-case-replay_20260826_230514_786/reports/11-b2-private-family-after.json`
+- `?? tmp/corporate-action-v1-14ad-b2-r1-private-three-case-replay_20260826_230514_786/reports/12-ab-private-source-after.json`
+- `?? tmp/corporate-action-v1-14ad-b2-r1-private-three-case-replay_20260826_230514_786/reports/13-live-family-after.json`
+- `?? tmp/corporate-action-v1-14ad-b2-r1-private-three-case-replay_20260826_230514_786/reports/14-b2-r2-reporting-root-cause.txt`
+- `?? tmp/corporate-action-v1-14ad-b2-r1-private-three-case-replay_20260826_230514_786/reports/15-v1-14ad-b2-r2-summary.txt`
+- `?? tmp/corporate-action-v1-14ad-b2-r1-private-three-case-replay_20260826_230514_786/reports/v1-14ad-b2-state.txt`
+- `?? tmp/corporate-action-v1-14ad-b2-r1-private-three-case-replay_20260826_230514_786/v1-14ad-b2-r2-private-three-case-replay-complete-reports.zip`
+- `?? tmp/corporate-action-v1-14ad-b2-r1-private-three-case-replay_20260826_230514_786/v114ad_tests.rs.pre-b2`
+- `?? tmp/corporate-action-v1-14ad-c1-portable-validation_20260827_000626_162/reports/01-build-contract-before.json`
+- `?? tmp/corporate-action-v1-14ad-c1-portable-validation_20260827_000626_162/reports/02-live-family-before.json`
+- `?? tmp/corporate-action-v1-14ad-c1-portable-validation_20260827_000626_162/rollback/build-info.json.pre-v114ad-c1`
+- `?? tmp/corporate-action-v1-14ad-c1-r1-portable-validation_20260827_001535_365/reports/01-build-contract-before.json`
+- `?? tmp/corporate-action-v1-14ad-c1-r1-portable-validation_20260827_001535_365/reports/02-live-family-before.json`
+- `?? tmp/corporate-action-v1-14ad-c1-r1-portable-validation_20260827_001535_365/rollback/build-info.json.pre-v114ad-c1`
+- `?? tmp/corporate-action-v1-14ad-c1-r3-portable-validation_20260827_005218_026/manual-smoke-private/eod_data/NSE/AGCNET.eod`
+- `?? tmp/corporate-action-v1-14ad-c1-r3-portable-validation_20260827_005218_026/manual-smoke-private/eod_data/NSE/KSBPUMPS.eod`
+- `?? tmp/corporate-action-v1-14ad-c1-r3-portable-validation_20260827_005218_026/manual-smoke-private/eod_data/NSE/NBVENTURES.eod`
+- `?? tmp/corporate-action-v1-14ad-c1-r3-portable-validation_20260827_005218_026/manual-smoke-private/market-data.sqlite3-wal`
+- `?? tmp/corporate-action-v1-14ad-c1-r3-portable-validation_20260827_005218_026/reports/01-build-contract-before.json`
+- `?? tmp/corporate-action-v1-14ad-c1-r3-portable-validation_20260827_005218_026/reports/02-live-family-before.json`
+- `?? tmp/corporate-action-v1-14ad-c1-r3-portable-validation_20260827_005218_026/reports/06-stale-cargo-root-cause.txt`
+- `?? tmp/corporate-action-v1-14ad-c1-r3-portable-validation_20260827_005218_026/reports/14-release-build-info.json`
+- `?? tmp/corporate-action-v1-14ad-c1-r3-portable-validation_20260827_005218_026/reports/15-portable-manifest.json`
+- `?? tmp/corporate-action-v1-14ad-c1-r3-portable-validation_20260827_005218_026/reports/16-portable-identity.txt`
+- `?? tmp/corporate-action-v1-14ad-c1-r3-portable-validation_20260827_005218_026/rollback/build-info.json.pre-v114ad-c1-r3`
+- `?? tmp/corporate-action-v1-14ad-c1-r7-manual-smoke-recovery_20260827_114532_430/manual-smoke-private/eod_data/NSE/AGCNET.eod`
+- `?? tmp/corporate-action-v1-14ad-c1-r7-manual-smoke-recovery_20260827_114532_430/manual-smoke-private/eod_data/NSE/BHARATRAS.eod`
+- `?? tmp/corporate-action-v1-14ad-c1-r7-manual-smoke-recovery_20260827_114532_430/manual-smoke-private/eod_data/NSE/FCL.eod`
+- `?? tmp/corporate-action-v1-14ad-c1-r7-manual-smoke-recovery_20260827_114532_430/manual-smoke-private/eod_data/NSE/KSBPUMPS.eod`
+- `?? tmp/corporate-action-v1-14ad-c1-r7-manual-smoke-recovery_20260827_114532_430/manual-smoke-private/eod_data/NSE/NBVENTURES.eod`
+- `?? tmp/corporate-action-v1-14ad-c1-r7-manual-smoke-recovery_20260827_114532_430/manual-smoke-private/market-data.sqlite3-wal`
+- `?? tmp/corporate-action-v1-14ad-c1-r7-manual-smoke-recovery_20260827_114532_430/reports/02-five-eod-manifest.json`
+- `?? tmp/corporate-action-v1-14ad-c1-r7-manual-smoke-recovery_20260827_114532_430/reports/03-manual-db-before.json`
+- `?? tmp/corporate-action-v1-14ad-c1-r7-manual-smoke-recovery_20260827_114532_430/reports/04-control-source-identities.json`
+- `?? tmp/corporate-action-v1-14ad-c1-r7-manual-smoke-recovery_20260827_114532_430/reports/05-live-before.json`
+- `?? tmp/corporate-action-v1-14ad-c1-r7-manual-smoke-recovery_20260827_114532_430/reports/06-live-after.json`
+- `?? tmp/corporate-action-v1-14ad-c1-r7-manual-smoke-recovery_20260827_114532_430/reports/16-root-cause.txt`
+- `?? tmp/corporate-action-v1-14ad-c1-r7-manual-smoke-recovery_20260827_114532_430/reports/17-MANUAL-SMOKE-CHECKLIST.txt`
+- `?? tmp/corporate-action-v1-14ad-c1-r7-manual-smoke-recovery_20260827_114532_430/reports/v1-14ad-c1-r7-state.txt`
+- `?? tmp/corporate-action-v1-14ad-c1-r7-manual-smoke-recovery_20260827_114532_430/v1-14ad-c1-r7-portable-validation-and-manual-smoke-staging-reports.zip`
+- `?? tmp/corporate-action-v1-14ad-c1-r8-fresh-portable-rebuild_20260827_131153_016/reports/01-build-info-before-restore.json`
+- `?? tmp/corporate-action-v1-14ad-c1-r8-fresh-portable-rebuild_20260827_131153_016/reports/02-build-info-diff-before-restore.txt`
+- `?? tmp/corporate-action-v1-14ad-c1-r8-fresh-portable-rebuild_20260827_131153_016/reports/03-build-info-after-restore.json`
+- `?? tmp/corporate-action-v1-14ad-c1-r8-fresh-portable-rebuild_20260827_131153_016/reports/04-final-git-status.txt`
+- `?? tmp/corporate-action-v1-14ad-c1-r8-fresh-portable-rebuild_20260827_131153_016/reports/05-fresh-portable-identity.txt`
+- `?? tmp/corporate-action-v1-14ad-c1-r8-fresh-portable-rebuild_20260827_131153_016/v1-14ad-c1-r8-fresh-portable-rebuild-hygiene-reports.zip`
+- `?? tmp/corporate-action-v1-14ad-c2-r1-live-drift-forensic_20260828_022659_124/current-live-private-copy/market-data.sqlite3-shm`
+- `?? tmp/corporate-action-v1-14ad-c2-r1-live-drift-forensic_20260828_022659_124/current-live-private-copy/market-data.sqlite3-wal`
+- `?? tmp/corporate-action-v1-14ad-c2-r1-live-drift-forensic_20260828_022659_124/old-r7-private-copy/market-data.sqlite3-shm`
+- `?? tmp/corporate-action-v1-14ad-c2-r1-live-drift-forensic_20260828_022659_124/old-r7-private-copy/market-data.sqlite3-wal`
+- `?? tmp/corporate-action-v1-14ad-c2-r1-live-drift-forensic_20260828_022659_124/reports/01-r7-live-family.json`
+- `?? tmp/corporate-action-v1-14ad-c2-r1-live-drift-forensic_20260828_022659_124/reports/02-current-live-family-before-copy.json`
+- `?? tmp/corporate-action-v1-14ad-c2-r1-live-drift-forensic_20260828_022659_124/reports/03-baseline-source.txt`
+- `?? tmp/corporate-action-v1-14ad-c2-r1-live-drift-forensic_20260828_022659_124/reports/04-current-live-family-after-copy.json`
+- `?? tmp/corporate-action-v1-14ad-c2-r1-live-drift-forensic_20260828_022659_124/reports/05-logical-drift-forensic.json`
+- `?? tmp/corporate-action-v1-14ad-c2-r1-live-drift-forensic_20260828_022659_124/reports/06-table-fingerprint-diff.csv`
+- `?? tmp/corporate-action-v1-14ad-c2-r1-live-drift-forensic_20260828_022659_124/reports/07-private-forensic-extractor.py`
+- `?? tmp/corporate-action-v1-14ad-c2-r1-live-drift-forensic_20260828_022659_124/reports/08-current-live-family-after-analysis.json`
+- `?? tmp/corporate-action-v1-14ad-c2-r1-live-drift-forensic_20260828_022659_124/reports/09-summary.txt`
+- `?? tmp/corporate-action-v1-14ad-c2-r1-live-drift-forensic_20260828_022659_124/reports/v1-14ad-c2-r1-state.txt`
+- `?? tmp/corporate-action-v1-14ad-c2-r1-live-drift-forensic_20260828_022659_124/v1-14ad-c2-r1-live-drift-forensic-reports.zip`
+- `?? tmp/corporate-action-v1-14ad-c2-r2-r1-corrected-provenance_20260828_101325_656/current-work/market-data.sqlite3-shm`
+- `?? tmp/corporate-action-v1-14ad-c2-r2-r1-corrected-provenance_20260828_101325_656/current-work/market-data.sqlite3-wal`
+- `?? tmp/corporate-action-v1-14ad-c2-r2-r1-corrected-provenance_20260828_101325_656/old-work/market-data.sqlite3-shm`
+- `?? tmp/corporate-action-v1-14ad-c2-r2-r1-corrected-provenance_20260828_101325_656/old-work/market-data.sqlite3-wal`
+- `?? tmp/corporate-action-v1-14ad-c2-r2-r1-corrected-provenance_20260828_101325_656/reports/01-corrected-provenance-forensic.json`
+- `?? tmp/corporate-action-v1-14ad-c2-r2-r1-corrected-provenance_20260828_101325_656/reports/02-corrected-provenance-extractor.py`
+- `?? tmp/corporate-action-v1-14ad-c2-r2-r1-corrected-provenance_20260828_101325_656/reports/03-corrected-provenance-report.md`
+- `?? tmp/corporate-action-v1-14ad-c2-r2-r1-corrected-provenance_20260828_101325_656/reports/v1-14ad-c2-r2-r1-state.txt`
+- `?? tmp/corporate-action-v1-14ad-c2-r2-r1-corrected-provenance_20260828_101325_656/v1-14ad-c2-r2-r1-corrected-provenance-forensic-reports.zip`
+- `?? tmp/corporate-action-v1-14ad-c2-r2-targeted-provenance_20260828_095250_094/current-private-work/market-data.sqlite3-shm`
+- `?? tmp/corporate-action-v1-14ad-c2-r2-targeted-provenance_20260828_095250_094/current-private-work/market-data.sqlite3-wal`
+- `?? tmp/corporate-action-v1-14ad-c2-r2-targeted-provenance_20260828_095250_094/old-r7-private-work/market-data.sqlite3-shm`
+- `?? tmp/corporate-action-v1-14ad-c2-r2-targeted-provenance_20260828_095250_094/old-r7-private-work/market-data.sqlite3-wal`
+- `?? tmp/corporate-action-v1-14ad-c2-r2-targeted-provenance_20260828_095250_094/reports/01-targeted-provenance-audit.json`
+- `?? tmp/corporate-action-v1-14ad-c2-r2-targeted-provenance_20260828_095250_094/reports/02-scan-results-runs-27-30.csv`
+- `?? tmp/corporate-action-v1-14ad-c2-r2-targeted-provenance_20260828_095250_094/reports/03-settings-diff.csv`
+- `?? tmp/corporate-action-v1-14ad-c2-r2-targeted-provenance_20260828_095250_094/reports/04-targeted-provenance-extractor.py`
+- `?? tmp/corporate-action-v1-14ad-c2-r2-targeted-provenance_20260828_095250_094/reports/05-targeted-provenance-report.md`
+- `?? tmp/corporate-action-v1-14ad-c2-r2-targeted-provenance_20260828_095250_094/reports/v1-14ad-c2-r2-state.txt`
+- `?? tmp/corporate-action-v1-14ad-c2-r2-targeted-provenance_20260828_095250_094/v1-14ad-c2-r2-targeted-provenance-audit-reports.zip`
+- `?? tmp/corporate-action-v1-14ad-c2-r3-final-closeout_20260828_112142_599/reports/01-final-authority-manifest.json`
+- `?? tmp/corporate-action-v1-14ad-c2-r3-final-closeout_20260828_112142_599/reports/02-live-family-before.json`
+- `?? tmp/corporate-action-v1-14ad-c2-r3-final-closeout_20260828_112142_599/reports/03-manual-smoke-and-corrected-evidence.txt`
+- `?? tmp/corporate-action-v1-14ad-c2-r3-final-closeout_20260828_112142_599/reports/04-forensic-chain-summary.md`
+- `?? tmp/corporate-action-v1-14ad-c2-r3-final-closeout_20260828_112142_599/reports/05-r2-r1-corrected-state.txt`
+- `?? tmp/corporate-action-v1-14ad-c2-r3-final-closeout_20260828_112142_599/reports/06-r2-r1-corrected-report.md`
+- `?? tmp/corporate-action-v1-14ad-c2-r3-final-closeout_20260828_112142_599/reports/07-final-git-status.txt`
+- `?? tmp/corporate-action-v1-14ad-c2-r3-final-closeout_20260828_112142_599/reports/08-live-family-after.json`
+- `?? tmp/corporate-action-v1-14ad-c2-r3-final-closeout_20260828_112142_599/reports/v1-14ad-c2-r3-state.txt`
+- `?? tmp/corporate-action-v1-14ad-c2-r3-final-closeout_20260828_112142_599/v1-14ad-c2-r3-final-closeout-reports.zip`
+- `?? tmp/corporate-action-v1-14b-event-time-identity_20260819_012118_954/reports/snapshot/market-data.sqlite3-shm`
+- `?? tmp/corporate-action-v1-14b-event-time-identity_20260819_012118_954/reports/snapshot/market-data.sqlite3-wal`
+- `?? tmp/corporate-action-v1-14b-event-time-identity_20260819_012118_954/reports/v1-14b-candidate-universe.csv`
+- `?? tmp/corporate-action-v1-14b-event-time-identity_20260819_012118_954/reports/v1-14b-candidate-universe.zip`
+- `?? tmp/corporate-action-v1-14b-event-time-identity_20260819_012118_954/reports/v1-14b-db-family.json`
+- `?? tmp/corporate-action-v1-14b-event-time-identity_20260819_012118_954/reports/v1-14b-event-time-identity-classification.csv`
+- `?? tmp/corporate-action-v1-14b-event-time-identity_20260819_012118_954/reports/v1-14b-event-time-identity-evidence.json`
+- `?? tmp/corporate-action-v1-14b-event-time-identity_20260819_012118_954/reports/v1-14b-event-time-identity-summary.json`
+- `?? tmp/corporate-action-v1-14c-normalized-symbol-chains_20260819_013607_197/reports/v1-14c-normalized-symbol-chain-events.csv`
+- `?? tmp/corporate-action-v1-14c-normalized-symbol-chains_20260819_013607_197/reports/v1-14c-normalized-symbol-chain-evidence.json`
+- `?? tmp/corporate-action-v1-14c-normalized-symbol-chains_20260819_013607_197/reports/v1-14c-normalized-symbol-chain-summary.json`
+- `?? tmp/corporate-action-v1-14c-normalized-symbol-chains_20260819_013607_197/reports/v1-14c-normalized-symbol-chains.csv`
+- `?? tmp/corporate-action-v1-14c-normalized-symbol-chains_20260819_013607_197/reports/v1-14c-normalized-symbol-chains.zip`
+- `?? tmp/corporate-action-v1-14c-normalized-symbol-chains_20260819_013607_197/reports/v1-14c-source-provenance.json`
+- `?? tmp/corporate-action-v1-14d-1-raw-nse-identity-source_20260819_015801_079/reports/v1-14d-1-raw-nse-identity-chain-verification.csv`
+- `?? tmp/corporate-action-v1-14d-1-raw-nse-identity-source_20260819_015801_079/reports/v1-14d-1-raw-nse-identity-source-evidence.json`
+- `?? tmp/corporate-action-v1-14d-1-raw-nse-identity-source_20260819_015801_079/reports/v1-14d-1-raw-nse-identity-source-provenance.json`
+- `?? tmp/corporate-action-v1-14d-1-raw-nse-identity-source_20260819_015801_079/reports/v1-14d-1-raw-nse-identity-source-summary.json`
+- `?? tmp/corporate-action-v1-14d-1-raw-nse-identity-source_20260819_015801_079/reports/v1-14d-1-raw-nse-identity-source-summary.zip`
+- `?? tmp/corporate-action-v1-14e-apply_20260819_123205_326/reports/v1-14e-apply-result.json`
+- `?? tmp/corporate-action-v1-14e-apply_20260819_123205_326/reports/v1-14e-backup-manifest-used.json`
+- `?? tmp/corporate-action-v1-14e-post-audit_20260819_124140_066/reports/v1-14e-post-audit-summary.json`
+- `?? tmp/corporate-action-v1-14e-post-audit_20260819_124140_066/reports/v1-14e-protected-table-fingerprints-after.json`
+- `?? tmp/corporate-action-v1-14e-post-audit_20260819_124140_066/reports/v1-14e-resolution-verification.csv`
+- `?? tmp/corporate-action-v1-14e-post-audit_20260819_124140_066/snapshot/market-data.sqlite3-shm`
+- `?? tmp/corporate-action-v1-14e-post-audit_20260819_124140_066/snapshot/market-data.sqlite3-wal`
+- `?? tmp/corporate-action-v1-14e-preflight_20260819_112056_766/reports/v1-14e-candidates.csv`
+- `?? tmp/corporate-action-v1-14e-preflight_20260819_112056_766/reports/v1-14e-db-family-before.json`
+- `?? tmp/corporate-action-v1-14e-preflight_20260819_112056_766/reports/v1-14e-preflight-summary.json`
+- `?? tmp/corporate-action-v1-14e-preflight_20260819_112056_766/reports/v1-14e-preflight-summary.zip`
+- `?? tmp/corporate-action-v1-14e-preflight_20260819_112056_766/reports/v1-14e-protected-table-fingerprints-before.json`
+- `?? tmp/corporate-action-v1-14e-preflight_20260819_112056_766/reports/v1-14e-ready-manifest.json`
+- `?? tmp/corporate-action-v1-14e-preflight_20260819_112056_766/reports/v1-14e-resolution-plan.csv`
+- `?? tmp/corporate-action-v1-14e-preflight_20260819_112056_766/snapshot/market-data.sqlite3-shm`
+- `?? tmp/corporate-action-v1-14e-preflight_20260819_112056_766/snapshot/market-data.sqlite3-wal`
+- `?? tmp/corporate-action-v1-14e-two-row-forensic_20260819_232211_480/reports/live-family-after.json`
+- `?? tmp/corporate-action-v1-14e-two-row-forensic_20260819_232211_480/reports/live-family-before.json`
+- `?? tmp/corporate-action-v1-14e-two-row-forensic_20260819_232211_480/reports/related-corporate-action-records.json`
+- `?? tmp/corporate-action-v1-14e-two-row-forensic_20260819_232211_480/reports/related-identity-history.json`
+- `?? tmp/corporate-action-v1-14e-two-row-forensic_20260819_232211_480/reports/related-instruments.json`
+- `?? tmp/corporate-action-v1-14e-two-row-forensic_20260819_232211_480/reports/related-isin-history.json`
+- `?? tmp/corporate-action-v1-14e-two-row-forensic_20260819_232211_480/reports/relevant-schema.json`
+- `?? tmp/corporate-action-v1-14e-two-row-forensic_20260819_232211_480/reports/target-imports.json`
+- `?? tmp/corporate-action-v1-14e-two-row-forensic_20260819_232211_480/snapshot/market-data.sqlite3-shm`
+- `?? tmp/corporate-action-v1-14e-two-row-forensic_20260819_232211_480/snapshot/market-data.sqlite3-wal`
+- `?? tmp/corporate-action-v1-14f-1-preflight_20260823_130926_369/corporate-action-v1-14f-1-preflight-reports.zip`
+- `?? tmp/corporate-action-v1-14f-1-preflight_20260823_130926_369/reports/live-family-after.json`
+- `?? tmp/corporate-action-v1-14f-1-preflight_20260823_130926_369/reports/live-family-before.json`
+- `?? tmp/corporate-action-v1-14f-1-preflight_20260823_130926_369/reports/snapshot-family.json`
+- `?? tmp/corporate-action-v1-14f-1-preflight_20260823_130926_369/reports/v1-14f-foreign-key-check.json`
+- `?? tmp/corporate-action-v1-14f-1-preflight_20260823_130926_369/reports/v1-14f-four-row-repair-blockers.csv`
+- `?? tmp/corporate-action-v1-14f-1-preflight_20260823_130926_369/reports/v1-14f-four-row-repair-candidates.csv`
+- `?? tmp/corporate-action-v1-14f-1-preflight_20260823_130926_369/reports/v1-14f-four-row-repair-candidates.json`
+- `?? tmp/corporate-action-v1-14f-1-preflight_20260823_130926_369/reports/v1-14f-four-row-repair-mutation-plan.csv`
+- `?? tmp/corporate-action-v1-14f-1-preflight_20260823_130926_369/reports/v1-14f-four-row-repair-preflight-summary.json`
+- `?? tmp/corporate-action-v1-14f-1-preflight_20260823_130926_369/reports/v1-14f-four-row-repair-ready-manifest.json`
+- `?? tmp/corporate-action-v1-14f-1-preflight_20260823_130926_369/reports/v1-14f-protected-table-fingerprints-before.json`
+- `?? tmp/corporate-action-v1-14f-1-preflight_20260823_130926_369/snapshot/market-data.sqlite3-shm`
+- `?? tmp/corporate-action-v1-14f-1-preflight_20260823_130926_369/snapshot/market-data.sqlite3-wal`
+- `?? tmp/corporate-action-v1-14f-2-preflight_20260823_145457_866/corporate-action-v1-14f-2-preflight-reports.zip`
+- `?? tmp/corporate-action-v1-14f-2-preflight_20260823_145457_866/reports/live-family-after.json`
+- `?? tmp/corporate-action-v1-14f-2-preflight_20260823_145457_866/reports/live-family-before.json`
+- `?? tmp/corporate-action-v1-14f-2-preflight_20260823_145457_866/reports/snapshot-family.json`
+- `?? tmp/corporate-action-v1-14f-2-preflight_20260823_145457_866/reports/v1-14f-2-foreign-key-check.json`
+- `?? tmp/corporate-action-v1-14f-2-preflight_20260823_145457_866/reports/v1-14f-2-four-row-repair-blockers.csv`
+- `?? tmp/corporate-action-v1-14f-2-preflight_20260823_145457_866/reports/v1-14f-2-four-row-repair-candidates.csv`
+- `?? tmp/corporate-action-v1-14f-2-preflight_20260823_145457_866/reports/v1-14f-2-four-row-repair-candidates.json`
+- `?? tmp/corporate-action-v1-14f-2-preflight_20260823_145457_866/reports/v1-14f-2-four-row-repair-mutation-plan.csv`
+- `?? tmp/corporate-action-v1-14f-2-preflight_20260823_145457_866/reports/v1-14f-2-four-row-repair-preflight-summary.json`
+- `?? tmp/corporate-action-v1-14f-2-preflight_20260823_145457_866/reports/v1-14f-2-four-row-repair-ready-manifest.json`
+- `?? tmp/corporate-action-v1-14f-2-preflight_20260823_145457_866/reports/v1-14f-2-protected-table-fingerprints-before.json`
+- `?? tmp/corporate-action-v1-14f-2-preflight_20260823_145457_866/reports/v1-14f-2-schema-safety.json`
+- `?? tmp/corporate-action-v1-14f-2-preflight_20260823_145457_866/snapshot/market-data.sqlite3-shm`
+- `?? tmp/corporate-action-v1-14f-2-preflight_20260823_145457_866/snapshot/market-data.sqlite3-wal`
+- `?? tmp/corporate-action-v1-14f-3-apply_20260823_191826_760/corporate-action-v1-14f-3-apply-reports.zip`
+- `?? tmp/corporate-action-v1-14f-3-apply_20260823_191826_760/reports/backup-family.json`
+- `?? tmp/corporate-action-v1-14f-3-apply_20260823_191826_760/reports/live-family-after-apply.json`
+- `?? tmp/corporate-action-v1-14f-3-apply_20260823_191826_760/reports/live-family-before.json`
+- `?? tmp/corporate-action-v1-14f-3-apply_20260823_191826_760/reports/v1-14f-3-apply-result.json`
+- `?? tmp/corporate-action-v1-14f-3-apply_20260823_191826_760/reports/v1-14f-3-apply-wrapper-summary.json`
+- `?? tmp/corporate-action-v1-14f-3-apply_20260823_191826_760/reports/v1-14f-3-backup-manifest-used.json`
+- `?? tmp/corporate-action-v1-14f-3-post-audit_20260823_193822_540/after-snapshot/market-data.sqlite3-shm`
+- `?? tmp/corporate-action-v1-14f-3-post-audit_20260823_193822_540/after-snapshot/market-data.sqlite3-wal`
+- `?? tmp/corporate-action-v1-14f-3-post-audit_20260823_193822_540/before-snapshot/market-data.sqlite3-shm`
+- `?? tmp/corporate-action-v1-14f-3-post-audit_20260823_193822_540/before-snapshot/market-data.sqlite3-wal`
+- `?? tmp/corporate-action-v1-14f-3-post-audit_20260823_193822_540/corporate-action-v1-14f-3-post-audit-reports.zip`
+- `?? tmp/corporate-action-v1-14f-3-post-audit_20260823_193822_540/reports/live-family-after-post-audit.json`
+- `?? tmp/corporate-action-v1-14f-3-post-audit_20260823_193822_540/reports/live-family-before-post-audit.json`
+- `?? tmp/corporate-action-v1-14f-3-post-audit_20260823_193822_540/reports/v1-14f-3-post-audit-result.json`
+- `?? tmp/corporate-action-v1-14f-3-preflight_20260823_164335_162/corporate_action_imports.rs.before-v114f3-production-candidate-replay`
+- `?? tmp/corporate-action-v1-14f-3-preflight_20260823_164335_162/reports/live-family-before.json`
+- `?? tmp/corporate-action-v1-14f-3-preflight_20260823_164335_162/reports/snapshot-family.json`
+- `?? tmp/corporate-action-v1-14f-3-preflight_20260823_164335_162/snapshot/market-data.sqlite3-shm`
+- `?? tmp/corporate-action-v1-14f-3-preflight_20260823_164335_162/snapshot/market-data.sqlite3-wal`
+- `?? tmp/corporate-action-v1-14f-3-preflight_20260823_171757_268/corporate-action-v1-14f-3-preflight-reports.zip`
+- `?? tmp/corporate-action-v1-14f-3-preflight_20260823_171757_268/corporate_action_imports.rs.before-v114f3-production-candidate-replay`
+- `?? tmp/corporate-action-v1-14f-3-preflight_20260823_171757_268/reports/four-row-production-candidate-replay.json`
+- `?? tmp/corporate-action-v1-14f-3-preflight_20260823_171757_268/reports/live-family-after.json`
+- `?? tmp/corporate-action-v1-14f-3-preflight_20260823_171757_268/reports/live-family-before.json`
+- `?? tmp/corporate-action-v1-14f-3-preflight_20260823_171757_268/reports/snapshot-family.json`
+- `?? tmp/corporate-action-v1-14f-3-preflight_20260823_171757_268/reports/v1-14f-3-foreign-key-check.json`
+- `?? tmp/corporate-action-v1-14f-3-preflight_20260823_171757_268/reports/v1-14f-3-four-row-repair-blockers.csv`
+- `?? tmp/corporate-action-v1-14f-3-preflight_20260823_171757_268/reports/v1-14f-3-four-row-repair-candidates.csv`
+- `?? tmp/corporate-action-v1-14f-3-preflight_20260823_171757_268/reports/v1-14f-3-four-row-repair-candidates.json`
+- `?? tmp/corporate-action-v1-14f-3-preflight_20260823_171757_268/reports/v1-14f-3-four-row-repair-mutation-plan.csv`
+- `?? tmp/corporate-action-v1-14f-3-preflight_20260823_171757_268/reports/v1-14f-3-four-row-repair-preflight-summary.json`
+- `?? tmp/corporate-action-v1-14f-3-preflight_20260823_171757_268/reports/v1-14f-3-four-row-repair-ready-manifest.json`
+- `?? tmp/corporate-action-v1-14f-3-preflight_20260823_171757_268/reports/v1-14f-3-protected-table-fingerprints-before.json`
+- `?? tmp/corporate-action-v1-14f-3-preflight_20260823_171757_268/reports/v1-14f-3-schema-safety.json`
+- `?? tmp/corporate-action-v1-14f-3-preflight_20260823_171757_268/snapshot/market-data.sqlite3-shm`
+- `?? tmp/corporate-action-v1-14f-3-preflight_20260823_171757_268/snapshot/market-data.sqlite3-wal`
+- `?? tmp/corporate-action-v1-14f-preflight_20260823_104013_183/corporate-action-v1-14f-preflight-reports.zip`
+- `?? tmp/corporate-action-v1-14f-preflight_20260823_104013_183/reports/live-family-after.json`
+- `?? tmp/corporate-action-v1-14f-preflight_20260823_104013_183/reports/live-family-before.json`
+- `?? tmp/corporate-action-v1-14f-preflight_20260823_104013_183/reports/snapshot-family.json`
+- `?? tmp/corporate-action-v1-14f-preflight_20260823_104013_183/snapshot/market-data.sqlite3-shm`
+- `?? tmp/corporate-action-v1-14f-preflight_20260823_104013_183/snapshot/market-data.sqlite3-wal`
+- `?? tmp/corporate-action-v1-14g-rebaseline_20260823_223743_891/corporate-action-v1-14g-residual-rebaseline-reports.zip`
+- `?? tmp/corporate-action-v1-14g-rebaseline_20260823_223743_891/reports/live-family-after.json`
+- `?? tmp/corporate-action-v1-14g-rebaseline_20260823_223743_891/reports/live-family-before.json`
+- `?? tmp/corporate-action-v1-14g-rebaseline_20260823_223743_891/reports/snapshot-family.json`
+- `?? tmp/corporate-action-v1-14g-rebaseline_20260823_223743_891/reports/v1-14g-classification-counts.csv`
+- `?? tmp/corporate-action-v1-14g-rebaseline_20260823_223743_891/reports/v1-14g-current-source-rewritten-to-old.csv`
+- `?? tmp/corporate-action-v1-14g-rebaseline_20260823_223743_891/reports/v1-14g-family-reference.json`
+- `?? tmp/corporate-action-v1-14g-rebaseline_20260823_223743_891/reports/v1-14g-foreign-key-check.json`
+- `?? tmp/corporate-action-v1-14g-rebaseline_20260823_223743_891/reports/v1-14g-isin-linked-no-chain.csv`
+- `?? tmp/corporate-action-v1-14g-rebaseline_20260823_223743_891/reports/v1-14g-no-exact-source-symbol-evidence.csv`
+- `?? tmp/corporate-action-v1-14g-rebaseline_20260823_223743_891/reports/v1-14g-repaired-anchor-checks.json`
+- `?? tmp/corporate-action-v1-14g-rebaseline_20260823_223743_891/reports/v1-14g-residual-rows.csv`
+- `?? tmp/corporate-action-v1-14g-rebaseline_20260823_223743_891/reports/v1-14g-source-old-normalized-current.csv`
+- `?? tmp/corporate-action-v1-14g-rebaseline_20260823_223743_891/reports/v1-14g-summary.json`
+- `?? tmp/corporate-action-v1-14g-rebaseline_20260823_223743_891/reports/v1-14g-suspected-isin-backward-matches.csv`
+- `?? tmp/corporate-action-v1-14g-rebaseline_20260823_223743_891/reports/v1-14g-unapproved-nse-universe.csv`
+- `?? tmp/corporate-action-v1-14g-rebaseline_20260823_223743_891/snapshot/market-data.sqlite3-shm`
+- `?? tmp/corporate-action-v1-14g-rebaseline_20260823_223743_891/snapshot/market-data.sqlite3-wal`
+- `?? tmp/corporate-action-v1-14h-provenance_20260823_232727_909/corporate-action-v1-14h-four-row-provenance-reports.zip`
+- `?? tmp/corporate-action-v1-14h-provenance_20260823_232727_909/reports/live-family-after.json`
+- `?? tmp/corporate-action-v1-14h-provenance_20260823_232727_909/reports/live-family-before.json`
+- `?? tmp/corporate-action-v1-14h-provenance_20260823_232727_909/reports/snapshot-family.json`
+- `?? tmp/corporate-action-v1-14h-provenance_20260823_232727_909/reports/v1-14h-exact-nse-api-evidence.json`
+- `?? tmp/corporate-action-v1-14h-provenance_20260823_232727_909/reports/v1-14h-family-reference.json`
+- `?? tmp/corporate-action-v1-14h-provenance_20260823_232727_909/reports/v1-14h-foreign-key-check.json`
+- `?? tmp/corporate-action-v1-14h-provenance_20260823_232727_909/reports/v1-14h-four-row-provenance.csv`
+- `?? tmp/corporate-action-v1-14h-provenance_20260823_232727_909/reports/v1-14h-four-row-provenance.json`
+- `?? tmp/corporate-action-v1-14h-provenance_20260823_232727_909/reports/v1-14h-relevant-identity-history.json`
+- `?? tmp/corporate-action-v1-14h-provenance_20260823_232727_909/reports/v1-14h-relevant-instruments.json`
+- `?? tmp/corporate-action-v1-14h-provenance_20260823_232727_909/reports/v1-14h-relevant-isin-history.json`
+- `?? tmp/corporate-action-v1-14h-provenance_20260823_232727_909/reports/v1-14h-schema.json`
+- `?? tmp/corporate-action-v1-14h-provenance_20260823_232727_909/reports/v1-14h-summary.json`
+- `?? tmp/corporate-action-v1-14h-provenance_20260823_232727_909/snapshot/market-data.sqlite3-shm`
+- `?? tmp/corporate-action-v1-14h-provenance_20260823_232727_909/snapshot/market-data.sqlite3-wal`
+- `?? tmp/corporate-action-v1-14i-1-classifier-correction_20260824_001150_343/corporate-action-v1-14i-1-exact-directional-raw-source-reports.zip`
+- `?? tmp/corporate-action-v1-14i-1-classifier-correction_20260824_001150_343/reports/live-family-after.json`
+- `?? tmp/corporate-action-v1-14i-1-classifier-correction_20260824_001150_343/reports/live-family-before.json`
+- `?? tmp/corporate-action-v1-14i-1-classifier-correction_20260824_001150_343/reports/snapshot-family.json`
+- `?? tmp/corporate-action-v1-14i-1-classifier-correction_20260824_001150_343/reports/v1-14i-1-case-classifications.csv`
+- `?? tmp/corporate-action-v1-14i-1-classifier-correction_20260824_001150_343/reports/v1-14i-1-cases.json`
+- `?? tmp/corporate-action-v1-14i-1-classifier-correction_20260824_001150_343/reports/v1-14i-1-database-anchor.json`
+- `?? tmp/corporate-action-v1-14i-1-classifier-correction_20260824_001150_343/reports/v1-14i-1-parse-errors.json`
+- `?? tmp/corporate-action-v1-14i-1-classifier-correction_20260824_001150_343/reports/v1-14i-1-raw-source-inventory-after.json`
+- `?? tmp/corporate-action-v1-14i-1-classifier-correction_20260824_001150_343/reports/v1-14i-1-raw-source-inventory-before.json`
+- `?? tmp/corporate-action-v1-14i-1-classifier-correction_20260824_001150_343/reports/v1-14i-1-source-inventory.csv`
+- `?? tmp/corporate-action-v1-14i-1-classifier-correction_20260824_001150_343/reports/v1-14i-1-summary.json`
+- `?? tmp/corporate-action-v1-14i-1-classifier-correction_20260824_001150_343/reports/v1-14i-1-target-raw-matches.json`
+- `?? tmp/corporate-action-v1-14i-1-classifier-correction_20260824_001150_343/snapshot/market-data.sqlite3-shm`
+- `?? tmp/corporate-action-v1-14i-1-classifier-correction_20260824_001150_343/snapshot/market-data.sqlite3-wal`
+- `?? tmp/corporate-action-v1-14i-raw-source-audit_20260823_235604_104/corporate-action-v1-14i-raw-nse-identity-source-reports.zip`
+- `?? tmp/corporate-action-v1-14i-raw-source-audit_20260823_235604_104/reports/live-family-after.json`
+- `?? tmp/corporate-action-v1-14i-raw-source-audit_20260823_235604_104/reports/live-family-before.json`
+- `?? tmp/corporate-action-v1-14i-raw-source-audit_20260823_235604_104/reports/snapshot-family.json`
+- `?? tmp/corporate-action-v1-14i-raw-source-audit_20260823_235604_104/reports/v1-14i-case-classifications.csv`
+- `?? tmp/corporate-action-v1-14i-raw-source-audit_20260823_235604_104/reports/v1-14i-cases.json`
+- `?? tmp/corporate-action-v1-14i-raw-source-audit_20260823_235604_104/reports/v1-14i-database-anchor.json`
+- `?? tmp/corporate-action-v1-14i-raw-source-audit_20260823_235604_104/reports/v1-14i-parse-errors.json`
+- `?? tmp/corporate-action-v1-14i-raw-source-audit_20260823_235604_104/reports/v1-14i-raw-source-inventory-after.json`
+- `?? tmp/corporate-action-v1-14i-raw-source-audit_20260823_235604_104/reports/v1-14i-raw-source-inventory-before.json`
+- `?? tmp/corporate-action-v1-14i-raw-source-audit_20260823_235604_104/reports/v1-14i-source-inventory.csv`
+- `?? tmp/corporate-action-v1-14i-raw-source-audit_20260823_235604_104/reports/v1-14i-summary.json`
+- `?? tmp/corporate-action-v1-14i-raw-source-audit_20260823_235604_104/reports/v1-14i-target-raw-matches.json`
+- `?? tmp/corporate-action-v1-14i-raw-source-audit_20260823_235604_104/snapshot/market-data.sqlite3-shm`
+- `?? tmp/corporate-action-v1-14i-raw-source-audit_20260823_235604_104/snapshot/market-data.sqlite3-wal`
+- `?? tmp/corporate-action-v1-14j-official-archive_20260824_003043_039/corporate-action-v1-14j-official-nse-archive-provenance-reports.zip`
+- `?? tmp/corporate-action-v1-14j-official-archive_20260824_003043_039/reports/live-family-after.json`
+- `?? tmp/corporate-action-v1-14j-official-archive_20260824_003043_039/reports/live-family-before.json`
+- `?? tmp/corporate-action-v1-14j-official-archive_20260824_003043_039/reports/official-nse-archive-evidence/andhrapap_isin_change_20240904.pdf`
+- `?? tmp/corporate-action-v1-14j-official-archive_20260824_003043_039/reports/official-nse-archive-evidence/andhrapap_isin_change_20240904.txt`
+- `?? tmp/corporate-action-v1-14j-official-archive_20260824_003043_039/reports/official-nse-archive-evidence/andhrapap_old_20240719.pdf`
+- `?? tmp/corporate-action-v1-14j-official-archive_20260824_003043_039/reports/official-nse-archive-evidence/andhrapap_old_20240719.txt`
+- `?? tmp/corporate-action-v1-14j-official-archive_20260824_003043_039/reports/official-nse-archive-evidence/andhrapap_split_20240822.pdf`
+- `?? tmp/corporate-action-v1-14j-official-archive_20260824_003043_039/reports/official-nse-archive-evidence/andhrapap_split_20240822.txt`
+- `?? tmp/corporate-action-v1-14j-official-archive_20260824_003043_039/reports/official-nse-archive-evidence/avanti_new_20150410.html`
+- `?? tmp/corporate-action-v1-14j-official-archive_20260824_003043_039/reports/official-nse-archive-evidence/avanti_new_20150410.txt`
+- `?? tmp/corporate-action-v1-14j-official-archive_20260824_003043_039/reports/official-nse-archive-evidence/avanti_old_20100106.html`
+- `?? tmp/corporate-action-v1-14j-official-archive_20260824_003043_039/reports/official-nse-archive-evidence/avanti_old_20100106.txt`
+- `?? tmp/corporate-action-v1-14j-official-archive_20260824_003043_039/reports/official-nse-archive-evidence/pds_new_20220323.pdf`
+- `?? tmp/corporate-action-v1-14j-official-archive_20260824_003043_039/reports/official-nse-archive-evidence/pds_new_20220323.txt`
+- `?? tmp/corporate-action-v1-14j-official-archive_20260824_003043_039/reports/official-nse-archive-evidence/pds_old_20220314.pdf`
+- `?? tmp/corporate-action-v1-14j-official-archive_20260824_003043_039/reports/official-nse-archive-evidence/pds_old_20220314.txt`
+- `?? tmp/corporate-action-v1-14j-official-archive_20260824_003043_039/reports/snapshot-family.json`
+- `?? tmp/corporate-action-v1-14j-official-archive_20260824_003043_039/reports/v1-14j-case-provenance.json`
+- `?? tmp/corporate-action-v1-14j-official-archive_20260824_003043_039/reports/v1-14j-database-anchor.json`
+- `?? tmp/corporate-action-v1-14j-official-archive_20260824_003043_039/reports/v1-14j-family-reference.json`
+- `?? tmp/corporate-action-v1-14j-official-archive_20260824_003043_039/reports/v1-14j-fetch-errors.json`
+- `?? tmp/corporate-action-v1-14j-official-archive_20260824_003043_039/reports/v1-14j-official-source-capture.json`
+- `?? tmp/corporate-action-v1-14j-official-archive_20260824_003043_039/reports/v1-14j-summary.json`
+- `?? tmp/corporate-action-v1-14j-official-archive_20260824_003043_039/snapshot/market-data.sqlite3-shm`
+- `?? tmp/corporate-action-v1-14j-official-archive_20260824_003043_039/snapshot/market-data.sqlite3-wal`
+- `?? tmp/corporate-action-v1-14k-1-repairability_20260824_015828_826/corporate-action-v1-14k-1-three-row-production-candidate-repairability-reports.zip`
+- `?? tmp/corporate-action-v1-14k-1-repairability_20260824_015828_826/corporate_action_imports.rs.before-v114k1-replay`
+- `?? tmp/corporate-action-v1-14k-1-repairability_20260824_015828_826/reports/live-family-after.json`
+- `?? tmp/corporate-action-v1-14k-1-repairability_20260824_015828_826/reports/live-family-before.json`
+- `?? tmp/corporate-action-v1-14k-1-repairability_20260824_015828_826/reports/snapshot-family.json`
+- `?? tmp/corporate-action-v1-14k-1-repairability_20260824_015828_826/reports/v1-14k-1-authority-revalidation.json`
+- `?? tmp/corporate-action-v1-14k-1-repairability_20260824_015828_826/reports/v1-14k-1-blockers.csv`
+- `?? tmp/corporate-action-v1-14k-1-repairability_20260824_015828_826/reports/v1-14k-1-fingerprints.json`
+- `?? tmp/corporate-action-v1-14k-1-repairability_20260824_015828_826/reports/v1-14k-1-foreign-key-check.json`
+- `?? tmp/corporate-action-v1-14k-1-repairability_20260824_015828_826/reports/v1-14k-1-production-candidate-replay.json`
+- `?? tmp/corporate-action-v1-14k-1-repairability_20260824_015828_826/reports/v1-14k-1-summary.json`
+- `?? tmp/corporate-action-v1-14k-1-repairability_20260824_015828_826/reports/v1-14k-1-three-row-repairability.csv`
+- `?? tmp/corporate-action-v1-14k-1-repairability_20260824_015828_826/reports/v1-14k-1-three-row-repairability.json`
+- `?? tmp/corporate-action-v1-14k-1-repairability_20260824_015828_826/snapshot/market-data.sqlite3-shm`
+- `?? tmp/corporate-action-v1-14k-1-repairability_20260824_015828_826/snapshot/market-data.sqlite3-wal`
+- `?? tmp/corporate-action-v1-14k-repairability_20260824_010100_110/corporate-action-v1-14k-three-row-production-candidate-repairability-reports.zip`
+- `?? tmp/corporate-action-v1-14k-repairability_20260824_010100_110/corporate_action_imports.rs.before-v114k-replay`
+- `?? tmp/corporate-action-v1-14k-repairability_20260824_010100_110/reports/live-family-after.json`
+- `?? tmp/corporate-action-v1-14k-repairability_20260824_010100_110/reports/live-family-before.json`
+- `?? tmp/corporate-action-v1-14k-repairability_20260824_010100_110/reports/snapshot-family.json`
+- `?? tmp/corporate-action-v1-14k-repairability_20260824_010100_110/reports/v1-14k-authority-revalidation.json`
+- `?? tmp/corporate-action-v1-14k-repairability_20260824_010100_110/reports/v1-14k-blockers.csv`
+- `?? tmp/corporate-action-v1-14k-repairability_20260824_010100_110/reports/v1-14k-family-reference.json`
+- `?? tmp/corporate-action-v1-14k-repairability_20260824_010100_110/reports/v1-14k-fingerprints.json`
+- `?? tmp/corporate-action-v1-14k-repairability_20260824_010100_110/reports/v1-14k-foreign-key-check.json`
+- `?? tmp/corporate-action-v1-14k-repairability_20260824_010100_110/reports/v1-14k-production-candidate-replay.json`
+- `?? tmp/corporate-action-v1-14k-repairability_20260824_010100_110/reports/v1-14k-summary.json`
+- `?? tmp/corporate-action-v1-14k-repairability_20260824_010100_110/reports/v1-14k-three-row-repairability.csv`
+- `?? tmp/corporate-action-v1-14k-repairability_20260824_010100_110/reports/v1-14k-three-row-repairability.json`
+- `?? tmp/corporate-action-v1-14k-repairability_20260824_010100_110/snapshot/market-data.sqlite3-shm`
+- `?? tmp/corporate-action-v1-14k-repairability_20260824_010100_110/snapshot/market-data.sqlite3-wal`
+- `?? tmp/corporate-action-v1-14l-source-hardening_20260824_012623_063/corporate-action-v1-14l-source-hardening-reports.zip`
+- `?? tmp/corporate-action-v1-14l-source-hardening_20260824_012623_063/reports/v1-14l-result.json`
+- `?? tmp/corporate-action-v1-14l-source-hardening_20260824_012623_063/reports/v1-14l-source.diff.txt`
+- `?? tmp/corporate-action-v1-14m-1-1-apply_20260824_023033_492/corporate-action-v1-14m-1-1-three-row-controlled-apply-reports.zip`
+- `?? tmp/corporate-action-v1-14m-1-1-apply_20260824_023033_492/reports/live-family-after-apply.json`
+- `?? tmp/corporate-action-v1-14m-1-1-apply_20260824_023033_492/reports/live-family-before-apply.json`
+- `?? tmp/corporate-action-v1-14m-1-1-apply_20260824_023033_492/reports/v1-14m-1-apply-result.json`
+- `?? tmp/corporate-action-v1-14m-1-1-apply_20260824_023033_492/reports/v1-14m-1-backup-manifest.json`
+- `?? tmp/corporate-action-v1-14m-1-1-apply_20260824_023033_492/reports/v1-14m-1-foreign-key-check.json`
+- `?? tmp/corporate-action-v1-14m-1-1-apply_20260824_023033_492/reports/v1-14m-1-import-state-fingerprints-after.json`
+- `?? tmp/corporate-action-v1-14m-1-1-apply_20260824_023033_492/reports/v1-14m-1-protected-table-fingerprints-after.json`
+- `?? tmp/corporate-action-v1-14m-1-1-apply_20260824_023033_492/reports/v1-14m-1-schema-safety-after.json`
+- `?? tmp/corporate-action-v1-14m-1-1-apply_20260824_023033_492/reports/v1-14m-1-target-rows-after.json`
+- `?? tmp/corporate-action-v1-14m-2-independent-post-audit_20260824_115552_996/corporate-action-v1-14m-2-independent-three-row-post-audit-reports.zip`
+- `?? tmp/corporate-action-v1-14m-2-independent-post-audit_20260824_115552_996/reports/live-family-after.json`
+- `?? tmp/corporate-action-v1-14m-2-independent-post-audit_20260824_115552_996/reports/live-family-before.json`
+- `?? tmp/corporate-action-v1-14m-2-independent-post-audit_20260824_115552_996/reports/snapshot-family.json`
+- `?? tmp/corporate-action-v1-14m-2-independent-post-audit_20260824_115552_996/reports/v1-14m-2-closure-material.json`
+- `?? tmp/corporate-action-v1-14m-2-independent-post-audit_20260824_115552_996/reports/v1-14m-2-dedupe-post-state.csv`
+- `?? tmp/corporate-action-v1-14m-2-independent-post-audit_20260824_115552_996/reports/v1-14m-2-dedupe-post-state.json`
+- `?? tmp/corporate-action-v1-14m-2-independent-post-audit_20260824_115552_996/reports/v1-14m-2-foreign-key-check.json`
+- `?? tmp/corporate-action-v1-14m-2-independent-post-audit_20260824_115552_996/reports/v1-14m-2-gates.json`
+- `?? tmp/corporate-action-v1-14m-2-independent-post-audit_20260824_115552_996/reports/v1-14m-2-import-state-fingerprints.json`
+- `?? tmp/corporate-action-v1-14m-2-independent-post-audit_20260824_115552_996/reports/v1-14m-2-protected-table-fingerprints.json`
+- `?? tmp/corporate-action-v1-14m-2-independent-post-audit_20260824_115552_996/reports/v1-14m-2-schema-safety.json`
+- `?? tmp/corporate-action-v1-14m-2-independent-post-audit_20260824_115552_996/reports/v1-14m-2-summary.json`
+- `?? tmp/corporate-action-v1-14m-2-independent-post-audit_20260824_115552_996/reports/v1-14m-2-target-evidence.json`
+- `?? tmp/corporate-action-v1-14m-2-independent-post-audit_20260824_115552_996/reports/v1-14m-2-target-rows.json`
+- `?? tmp/corporate-action-v1-14m-2-independent-post-audit_20260824_115552_996/snapshot/market-data.sqlite3-shm`
+- `?? tmp/corporate-action-v1-14m-2-independent-post-audit_20260824_115552_996/snapshot/market-data.sqlite3-wal`
+- `?? tmp/corporate-action-v1-14m-controlled-preflight_20260824_021455_825/corporate-action-v1-14m-three-row-controlled-repair-preflight-reports.zip`
+- `?? tmp/corporate-action-v1-14m-controlled-preflight_20260824_021455_825/reports/live-family-after.json`
+- `?? tmp/corporate-action-v1-14m-controlled-preflight_20260824_021455_825/reports/live-family-before.json`
+- `?? tmp/corporate-action-v1-14m-controlled-preflight_20260824_021455_825/reports/snapshot-family.json`
+- `?? tmp/corporate-action-v1-14m-controlled-preflight_20260824_021455_825/reports/v1-14m-apply-plan-material.json`
+- `?? tmp/corporate-action-v1-14m-controlled-preflight_20260824_021455_825/reports/v1-14m-dedupe-ownership.json`
+- `?? tmp/corporate-action-v1-14m-controlled-preflight_20260824_021455_825/reports/v1-14m-foreign-key-check.json`
+- `?? tmp/corporate-action-v1-14m-controlled-preflight_20260824_021455_825/reports/v1-14m-import-state-fingerprints-before.json`
+- `?? tmp/corporate-action-v1-14m-controlled-preflight_20260824_021455_825/reports/v1-14m-mutation-plan.csv`
+- `?? tmp/corporate-action-v1-14m-controlled-preflight_20260824_021455_825/reports/v1-14m-mutation-plan.json`
+- `?? tmp/corporate-action-v1-14m-controlled-preflight_20260824_021455_825/reports/v1-14m-preflight-summary.json`
+- `?? tmp/corporate-action-v1-14m-controlled-preflight_20260824_021455_825/reports/v1-14m-protected-table-fingerprints-before.json`
+- `?? tmp/corporate-action-v1-14m-controlled-preflight_20260824_021455_825/reports/v1-14m-ready-manifest.json`
+- `?? tmp/corporate-action-v1-14m-controlled-preflight_20260824_021455_825/reports/v1-14m-schema-safety.json`
+- `?? tmp/corporate-action-v1-14m-controlled-preflight_20260824_021455_825/snapshot/market-data.sqlite3-shm`
+- `?? tmp/corporate-action-v1-14m-controlled-preflight_20260824_021455_825/snapshot/market-data.sqlite3-wal`
+- `?? tmp/corporate-action-v1-14n-rebaseline_20260824_141757_782/corporate-action-v1-14n-post-repair-residual-rebaseline-reports.zip`
+- `?? tmp/corporate-action-v1-14n-rebaseline_20260824_141757_782/reports/live-family-after.json`
+- `?? tmp/corporate-action-v1-14n-rebaseline_20260824_141757_782/reports/live-family-before.json`
+- `?? tmp/corporate-action-v1-14n-rebaseline_20260824_141757_782/reports/snapshot-family.json`
+- `?? tmp/corporate-action-v1-14n-rebaseline_20260824_141757_782/reports/v1-14n-anchor-checks.json`
+- `?? tmp/corporate-action-v1-14n-rebaseline_20260824_141757_782/reports/v1-14n-classification-counts.csv`
+- `?? tmp/corporate-action-v1-14n-rebaseline_20260824_141757_782/reports/v1-14n-foreign-key-check.json`
+- `?? tmp/corporate-action-v1-14n-rebaseline_20260824_141757_782/reports/v1-14n-isin-linked-no-chain.csv`
+- `?? tmp/corporate-action-v1-14n-rebaseline_20260824_141757_782/reports/v1-14n-no-exact-source-symbol-evidence.csv`
+- `?? tmp/corporate-action-v1-14n-rebaseline_20260824_141757_782/reports/v1-14n-residual-rows.csv`
+- `?? tmp/corporate-action-v1-14n-rebaseline_20260824_141757_782/reports/v1-14n-source-old-normalized-current.csv`
+- `?? tmp/corporate-action-v1-14n-rebaseline_20260824_141757_782/reports/v1-14n-summary.json`
+- `?? tmp/corporate-action-v1-14n-rebaseline_20260824_141757_782/reports/v1-14n-unapproved-nse-universe.csv`
+- `?? tmp/corporate-action-v1-14n-rebaseline_20260824_141757_782/snapshot/market-data.sqlite3-shm`
+- `?? tmp/corporate-action-v1-14n-rebaseline_20260824_141757_782/snapshot/market-data.sqlite3-wal`
+- `?? tmp/corporate-action-v1-14o-official-symbol-provenance_20260824_144512_161/corporate-action-v1-14o-official-nse-historical-symbol-provenance-reports.zip`
+- `?? tmp/corporate-action-v1-14o-official-symbol-provenance_20260824_144512_161/reports/live-family-after.json`
+- `?? tmp/corporate-action-v1-14o-official-symbol-provenance_20260824_144512_161/reports/live-family-before.json`
+- `?? tmp/corporate-action-v1-14o-official-symbol-provenance_20260824_144512_161/reports/official-nse-archive-evidence/andhrapap_20210702.pdf`
+- `?? tmp/corporate-action-v1-14o-official-symbol-provenance_20260824_144512_161/reports/official-nse-archive-evidence/andhrapap_20210702.txt`
+- `?? tmp/corporate-action-v1-14o-official-symbol-provenance_20260824_144512_161/reports/official-nse-archive-evidence/andhrapap_2022_list.pdf`
+- `?? tmp/corporate-action-v1-14o-official-symbol-provenance_20260824_144512_161/reports/official-nse-archive-evidence/andhrapap_2022_list.txt`
+- `?? tmp/corporate-action-v1-14o-official-symbol-provenance_20260824_144512_161/reports/official-nse-archive-evidence/andhrapap_2025_current.html`
+- `?? tmp/corporate-action-v1-14o-official-symbol-provenance_20260824_144512_161/reports/official-nse-archive-evidence/andhrapap_2025_current.txt`
+- `?? tmp/corporate-action-v1-14o-official-symbol-provenance_20260824_144512_161/reports/official-nse-archive-evidence/andhrapap_isin_20240904.pdf`
+- `?? tmp/corporate-action-v1-14o-official-symbol-provenance_20260824_144512_161/reports/official-nse-archive-evidence/andhrapap_isin_20240904.txt`
+- `?? tmp/corporate-action-v1-14o-official-symbol-provenance_20260824_144512_161/reports/official-nse-archive-evidence/andhrapap_split_20240822.pdf`
+- `?? tmp/corporate-action-v1-14o-official-symbol-provenance_20260824_144512_161/reports/official-nse-archive-evidence/andhrapap_split_20240822.txt`
+- `?? tmp/corporate-action-v1-14o-official-symbol-provenance_20260824_144512_161/reports/official-nse-archive-evidence/appaper_20100406.html`
+- `?? tmp/corporate-action-v1-14o-official-symbol-provenance_20260824_144512_161/reports/official-nse-archive-evidence/appaper_20100406.txt`
+- `?? tmp/corporate-action-v1-14o-official-symbol-provenance_20260824_144512_161/reports/official-nse-archive-evidence/dtil_2025_current.html`
+- `?? tmp/corporate-action-v1-14o-official-symbol-provenance_20260824_144512_161/reports/official-nse-archive-evidence/dtil_2025_current.txt`
+- `?? tmp/corporate-action-v1-14o-official-symbol-provenance_20260824_144512_161/reports/official-nse-archive-evidence/dtil_old_20080109.html`
+- `?? tmp/corporate-action-v1-14o-official-symbol-provenance_20260824_144512_161/reports/official-nse-archive-evidence/dtil_old_20080109.txt`
+- `?? tmp/corporate-action-v1-14o-official-symbol-provenance_20260824_144512_161/reports/official-nse-archive-evidence/dvl_2023_24.pdf`
+- `?? tmp/corporate-action-v1-14o-official-symbol-provenance_20260824_144512_161/reports/official-nse-archive-evidence/dvl_2023_24.txt`
+- `?? tmp/corporate-action-v1-14o-official-symbol-provenance_20260824_144512_161/reports/official-nse-archive-evidence/ipappm_20191230.pdf`
+- `?? tmp/corporate-action-v1-14o-official-symbol-provenance_20260824_144512_161/reports/official-nse-archive-evidence/ipappm_20191230.txt`
+- `?? tmp/corporate-action-v1-14o-official-symbol-provenance_20260824_144512_161/reports/snapshot-family.json`
+- `?? tmp/corporate-action-v1-14o-official-symbol-provenance_20260824_144512_161/reports/v1-14o-foreign-key-check.json`
+- `?? tmp/corporate-action-v1-14o-official-symbol-provenance_20260824_144512_161/reports/v1-14o-official-source-capture.json`
+- `?? tmp/corporate-action-v1-14o-official-symbol-provenance_20260824_144512_161/reports/v1-14o-row-provenance.csv`
+- `?? tmp/corporate-action-v1-14o-official-symbol-provenance_20260824_144512_161/reports/v1-14o-row-provenance.json`
+- `?? tmp/corporate-action-v1-14o-official-symbol-provenance_20260824_144512_161/reports/v1-14o-summary.json`
+- `?? tmp/corporate-action-v1-14o-official-symbol-provenance_20260824_144512_161/snapshot/market-data.sqlite3-shm`
+- `?? tmp/corporate-action-v1-14o-official-symbol-provenance_20260824_144512_161/snapshot/market-data.sqlite3-wal`
+- `?? tmp/corporate-action-v1-14p-five-row-replay_20260824_153345_758/corporate-action-v1-14p-five-row-official-provenance-production-candidate-replay-reports.zip`
+- `?? tmp/corporate-action-v1-14p-five-row-replay_20260824_153345_758/corporate_action_imports.rs.before-v114p-replay`
+- `?? tmp/corporate-action-v1-14p-five-row-replay_20260824_153345_758/reports/live-family-after.json`
+- `?? tmp/corporate-action-v1-14p-five-row-replay_20260824_153345_758/reports/live-family-before.json`
+- `?? tmp/corporate-action-v1-14p-five-row-replay_20260824_153345_758/reports/snapshot-family.json`
+- `?? tmp/corporate-action-v1-14p-five-row-replay_20260824_153345_758/reports/v1-14p-current-target-rows.json`
+- `?? tmp/corporate-action-v1-14p-five-row-replay_20260824_153345_758/reports/v1-14p-dedupe-conflicts.json`
+- `?? tmp/corporate-action-v1-14p-five-row-replay_20260824_153345_758/reports/v1-14p-five-row-repairability.csv`
+- `?? tmp/corporate-action-v1-14p-five-row-replay_20260824_153345_758/reports/v1-14p-five-row-repairability.json`
+- `?? tmp/corporate-action-v1-14p-five-row-replay_20260824_153345_758/reports/v1-14p-foreign-key-check.json`
+- `?? tmp/corporate-action-v1-14p-five-row-replay_20260824_153345_758/reports/v1-14p-production-candidate-replay.json`
+- `?? tmp/corporate-action-v1-14p-five-row-replay_20260824_153345_758/reports/v1-14p-summary.json`
+- `?? tmp/corporate-action-v1-14p-five-row-replay_20260824_153345_758/reports/v1-14q-five-target-owner-forensic-extraction-r1.json`
+- `?? tmp/corporate-action-v1-14p-five-row-replay_20260824_153345_758/reports/v1-14r-evidence-preserving-repair-plan-dry-run.json`
+- `?? tmp/corporate-action-v1-14p-five-row-replay_20260824_153345_758/reports/v1-14r-source-contract-snippets.txt`
+- `?? tmp/corporate-action-v1-14p-five-row-replay_20260824_153345_758/reports/v1-14s-current-source-durable-dedupe-contract.txt`
+- `?? tmp/corporate-action-v1-14p-five-row-replay_20260824_153345_758/reports/v1-14t-ordinary-ingestion-implementation-preflight.txt`
+- `?? tmp/corporate-action-v1-14p-five-row-replay_20260824_153345_758/snapshot/market-data.sqlite3-shm`
+- `?? tmp/corporate-action-v1-14p-five-row-replay_20260824_153345_758/snapshot/market-data.sqlite3-wal`
+- `?? tmp/corporate-action-v1-14t-ordinary-equivalent-dedupe_20260824_183351_460.zip`
+- `?? tmp/corporate-action-v1-14t-ordinary-equivalent-dedupe_20260824_183351_460/reports/v1-14t-stage1-state.txt`
+- `?? tmp/corporate-action-v1-14t-ordinary-equivalent-dedupe_20260824_183351_460/reports/v1-14t-stage3a-bootstrap-failure-inspection.txt`
+- `?? tmp/corporate-action-v1-14t-ordinary-equivalent-dedupe_20260824_183351_460/reports/v1-14t-stage3b-r1-final-state.txt`
+- `?? tmp/corporate-action-v1-14t-ordinary-equivalent-dedupe_20260824_183351_460/source-before-stage3b-r1/bootstrap.rs`
+- `?? tmp/corporate-action-v1-14t-ordinary-equivalent-dedupe_20260824_183351_460/source-before-stage3b/bootstrap.rs`
+- `?? tmp/corporate-action-v1-14t-ordinary-equivalent-dedupe_20260824_183351_460/source-before/corporate_action_imports.rs`
+- `?? tmp/corporate-action-v1-14u-five-pair-consolidation-simulation_20260825_000200_861/reports/corporate-action-v1-14u-five-pair-consolidation-simulation-reports.zip`
+- `?? tmp/corporate-action-v1-14u-five-pair-consolidation-simulation_20260825_000200_861/reports/v1-14u-five-pair-consolidation-simulation-summary.txt`
+- `?? tmp/corporate-action-v1-14u-five-pair-consolidation-simulation_20260825_000200_861/reports/v1-14u-five-pair-consolidation-simulation.json`
+- `?? tmp/corporate-action-v1-14u-five-pair-consolidation-simulation_20260825_000200_861/reports/v1-14u-wrapper-state.txt`
+- `?? tmp/corporate-action-v1-14v-exact-live-five-pair-preflight_20260825_002503_887/reports/corporate-action-v1-14v-exact-live-five-pair-preflight-reports.zip`
+- `?? tmp/corporate-action-v1-14v-exact-live-five-pair-preflight_20260825_002503_887/reports/live-family-after.json`
+- `?? tmp/corporate-action-v1-14v-exact-live-five-pair-preflight_20260825_002503_887/reports/live-family-before.json`
+- `?? tmp/corporate-action-v1-14v-exact-live-five-pair-preflight_20260825_002503_887/reports/v1-14v-exact-live-five-pair-preflight-manifest.json`
+- `?? tmp/corporate-action-v1-14v-exact-live-five-pair-preflight_20260825_002503_887/reports/v1-14v-exact-live-five-pair-preflight-summary.txt`
+- `?? tmp/corporate-action-v1-14v-exact-live-five-pair-preflight_20260825_002503_887/reports/v1-14v-exact-live-five-pair-preflight.json`
+- `?? tmp/corporate-action-v1-14v-exact-live-five-pair-preflight_20260825_002503_887/reports/v1-14v-wrapper-final-state.json`
+- `?? tmp/corporate-action-v1-14v-exact-live-five-pair-preflight_20260825_002503_887/snapshot/market-data.sqlite3-shm`
+- `?? tmp/corporate-action-v1-14v-exact-live-five-pair-preflight_20260825_002503_887/snapshot/market-data.sqlite3-wal`
+- `?? tmp/corporate-action-v1-14w-c2-serial-validation_20260825_023730_893/private-current-live-snapshot/market-data.sqlite3-wal`
+- `?? tmp/corporate-action-v1-14w-c2-serial-validation_20260825_023730_893/reports/live-family-before.json`
+- `?? tmp/corporate-action-v1-14w-c3-stack-safe-validation_20260825_092900_689/reports/corporate-action-v1-14w-c3-serial-regression-and-private-copy-dry-run-reports.zip`
+- `?? tmp/corporate-action-v1-14w-c3-stack-safe-validation_20260825_092900_689/reports/live-family-after.json`
+- `?? tmp/corporate-action-v1-14w-c3-stack-safe-validation_20260825_092900_689/reports/live-family-before.json`
+- `?? tmp/corporate-action-v1-14w-c3-stack-safe-validation_20260825_092900_689/reports/private-copy-dry-run/v1-14w-dry-run-apply-plan-manifest.json`
+- `?? tmp/corporate-action-v1-14w-c3-stack-safe-validation_20260825_092900_689/reports/private-copy-dry-run/v1-14w-dry-run-result.json`
+- `?? tmp/corporate-action-v1-14w-c3-stack-safe-validation_20260825_092900_689/reports/private-copy-dry-run/v1-14w-dry-run-summary.txt`
+- `?? tmp/corporate-action-v1-14w-c3-stack-safe-validation_20260825_092900_689/reports/v1-14w-c3-final-state.txt`
+- `?? tmp/corporate-action-v1-14w-c3-stack-safe-validation_20260825_092900_689/source-before-stack-safe-fix/five_pair_consolidation.rs`
+- `?? tmp/corporate-action-v1-14w-c3-stack-safe-validation_20260825_092900_689/source-before-stack-safe-fix/v114w_tests.rs`
+- `?? tmp/corporate-action-v1-14w-targeted-green_20260825_015528_335/reports/v1-14w-b-state.txt`
+- `?? tmp/corporate-action-v1-14w-targeted-green_20260825_015528_335/source-before-stage-b/corporate_action_imports.rs`
+- `?? tmp/corporate-action-v1-14w-targeted-green_20260825_015528_335/source-before-stage-b/database.rs`
+- `?? tmp/corporate-action-v1-14w-targeted-green_20260825_015528_335/source-before-stage-b/main.rs`
+- `?? tmp/corporate-action-v1-14w-tdd-red_20260825_011021_641/reports/v1-14w-a-state.txt`
+- `?? tmp/corporate-action-v1-14w-tdd-red_20260825_011021_641/source-before/corporate_action_imports.rs`
+- `?? tmp/corporate-action-v1-14x-live-apply_20260825_125653_162/reports/corporate-action-v1-14x-live-apply-reports.zip`
+- `?? tmp/corporate-action-v1-14x-live-apply_20260825_125653_162/reports/live-apply-output/v1-14x-live-apply-result.json`
+- `?? tmp/corporate-action-v1-14x-live-apply_20260825_125653_162/reports/v1-14x-c-live-family-after.json`
+- `?? tmp/corporate-action-v1-14x-live-apply_20260825_125653_162/reports/v1-14x-c-live-family-before.json`
+- `?? tmp/corporate-action-v1-14x-live-apply_20260825_125653_162/reports/v1-14x-c-private-post-audit.json`
+- `?? tmp/corporate-action-v1-14x-live-apply_20260825_125653_162/reports/v1-14x-c-state.txt`
+- `?? tmp/corporate-action-v1-14x-live-apply_20260825_125653_162/v1_14x_private_post_audit.py`
+- `?? tmp/corporate-action-v1-14x-targeted-green_20260825_122233_662/reports.zip`
+- `?? tmp/corporate-action-v1-14x-targeted-green_20260825_122233_662/reports/v1-14x-b-state.txt`
+- `?? tmp/corporate-action-v1-14x-targeted-green_20260825_122233_662/source-before/corporate_action_imports.rs`
+- `?? tmp/corporate-action-v1-14x-targeted-green_20260825_122233_662/source-before/database.rs`
+- `?? tmp/corporate-action-v1-14x-targeted-green_20260825_122233_662/source-before/five_pair_consolidation.rs`
+- `?? tmp/corporate-action-v1-14x-targeted-green_20260825_122233_662/source-before/main.rs`
+- `?? tmp/corporate-action-v1-14x-tdd-red_20260825_112440_304/source-before/corporate_action_imports.rs`
+- `?? tmp/corporate-action-v1-14x-tdd-red_20260825_113114_339/reports/v1-14x-a-state.txt`
+- `?? tmp/corporate-action-v1-14x-tdd-red_20260825_113114_339/source-before/corporate_action_imports.rs`
+- `?? tmp/corporate-action-v1-14y-approved-validation-audit_20260825_175358_328/private-snapshot/live-shm-forensic-copy.bin`
+- `?? tmp/corporate-action-v1-14y-approved-validation-audit_20260825_175358_328/private-snapshot/market-data.sqlite3-shm`
+- `?? tmp/corporate-action-v1-14y-approved-validation-audit_20260825_175358_328/private-snapshot/market-data.sqlite3-wal`
+- `?? tmp/corporate-action-v1-14y-approved-validation-audit_20260825_175358_328/reports/v1-14y-approved-split-bonus-latest-official-scans.csv`
+- `?? tmp/corporate-action-v1-14y-approved-validation-audit_20260825_175358_328/reports/v1-14y-approved-split-bonus-validation-audit.json`
+- `?? tmp/corporate-action-v1-14y-approved-validation-audit_20260825_175358_328/reports/v1-14y-approved-tab-ui-context.txt`
+- `?? tmp/corporate-action-v1-14y-approved-validation-audit_20260825_175358_328/reports/v1-14y-backend-validation-contract.txt`
+- `?? tmp/corporate-action-v1-14y-approved-validation-audit_20260825_175358_328/reports/v1-14y-frontend-validation-contract.txt`
+- `?? tmp/corporate-action-v1-14y-approved-validation-audit_20260825_175358_328/reports/v1-14y-live-family-after.json`
+- `?? tmp/corporate-action-v1-14y-approved-validation-audit_20260825_175358_328/reports/v1-14y-live-family-before.json`
+- `?? tmp/corporate-action-v1-14y-approved-validation-audit_20260825_175358_328/reports/v1-14y-state.txt`
+- `?? tmp/corporate-action-v1-14y-approved-validation-audit_20260825_175358_328/reports/v1-14y-summary.txt`
+- `?? tmp/corporate-action-v1-14y-approved-validation-audit_20260825_175358_328/v1-14y-approved-validation-consistency-audit-reports.zip`
+- `?? tmp/corporate-action-v1-14y-approved-validation-hydration-r3_20260825_235423_690/post-red-source-before-r3/src-tauri-shell/src/database.rs`
+- `?? tmp/corporate-action-v1-14y-approved-validation-hydration-r3_20260825_235423_690/post-red-source-before-r3/src-tauri-shell/src/database/corporate_action_imports.rs`
+- `?? tmp/corporate-action-v1-14y-approved-validation-hydration-r3_20260825_235423_690/post-red-source-before-r3/src-tauri-shell/src/database/corporate_action_imports/v114y_tests.rs`
+- `?? tmp/corporate-action-v1-14y-approved-validation-hydration-r3_20260825_235423_690/post-red-source-before-r3/src/components/DatabaseToolsDialogs.tsx`
+- `?? tmp/corporate-action-v1-14y-approved-validation-hydration-r3_20260825_235423_690/post-red-source-before-r3/src/types/desktop.ts`
+- `?? tmp/corporate-action-v1-14y-approved-validation-hydration-r3_20260825_235423_690/reports/v1-14y-b-r3-state.txt`
+- `?? tmp/corporate-action-v1-14y-approved-validation-hydration-r4_20260826_000629_740/post-red-source-before-r4/src-tauri-shell/src/database.rs`
+- `?? tmp/corporate-action-v1-14y-approved-validation-hydration-r4_20260826_000629_740/post-red-source-before-r4/src-tauri-shell/src/database/corporate_action_imports.rs`
+- `?? tmp/corporate-action-v1-14y-approved-validation-hydration-r4_20260826_000629_740/post-red-source-before-r4/src-tauri-shell/src/database/corporate_action_imports/v114y_tests.rs`
+- `?? tmp/corporate-action-v1-14y-approved-validation-hydration-r4_20260826_000629_740/post-red-source-before-r4/src/components/DatabaseToolsDialogs.tsx`
+- `?? tmp/corporate-action-v1-14y-approved-validation-hydration-r4_20260826_000629_740/post-red-source-before-r4/src/types/desktop.ts`
+- `?? tmp/corporate-action-v1-14y-approved-validation-hydration-r4_20260826_000629_740/reports/v1-14y-b-r4-state.txt`
+- `?? tmp/corporate-action-v1-14y-approved-validation-hydration-r5_20260826_001507_077/reports/v1-14y-b-r5-state.txt`
+- `?? tmp/corporate-action-v1-14y-approved-validation-hydration-r6_20260826_011242_267/reports/v1-14y-b-r6-state.txt`
+- `?? tmp/corporate-action-v1-14y-approved-validation-hydration-r6_20260826_011242_267/v1-14y-b-r6-source-only-validation-reports.zip`
+- `?? tmp/corporate-action-v1-14y-approved-validation-hydration_20260825_192729_589/reports/v1-14y-b-state.txt`
+- `?? tmp/corporate-action-v1-14y-approved-validation-hydration_20260825_192729_589/source-before/src-tauri-shell/src/database.rs`
+- `?? tmp/corporate-action-v1-14y-approved-validation-hydration_20260825_192729_589/source-before/src-tauri-shell/src/database/corporate_action_imports.rs`
+- `?? tmp/corporate-action-v1-14y-approved-validation-hydration_20260825_192729_589/source-before/src/components/DatabaseToolsDialogs.tsx`
+- `?? tmp/corporate-action-v1-14y-approved-validation-hydration_20260825_192729_589/source-before/src/types/desktop.ts`
+- `?? tmp/corporate-action-v1-9-2-3-reporting-fix-source-backup_20260816_160354/src-tauri-shell/src/database/corporate_action_imports/historical_isin_bootstrap.rs`
+- `?? tmp/corporate-action-v1-9-2-apply_20260816_151440.zip`
+- `?? tmp/corporate-action-v1-9-2-apply_20260816_151440/historical-isin-bootstrap-apply-imports.csv`
+- `?? tmp/corporate-action-v1-9-2-apply_20260816_151440/historical-isin-bootstrap-apply-summary.txt`
+- `?? tmp/corporate-action-v1-9-2-apply_20260816_151440/historical-isin-bootstrap-apply-tuples.csv`
+- `?? tmp/corporate-action-v1-9-2-preapply-backup_20260816_151438/database.json`
+- `?? tmp/corporate-action-v1-9-2-preapply-backup_20260816_151438/market-data.sqlite3-shm`
+- `?? tmp/corporate-action-v1-9-2-preapply-backup_20260816_151438/market-data.sqlite3-wal`
+- `?? tmp/corporate-action-v1-9-2-preview_20260816_145246.zip`
+- `?? tmp/corporate-action-v1-9-2-preview_20260816_145246/historical-isin-bootstrap-preview-manifest.json`
+- `?? tmp/corporate-action-v1-9-2-preview_20260816_145246/historical-isin-bootstrap-preview-summary.txt`
+- `?? tmp/corporate-action-v1-9-2-preview_20260816_145246/historical-isin-bootstrap-preview.csv`
+- `?? tmp/corporate-action-v1-9-2-preview_20260816_145246/historical-isin-bootstrap-preview.json`
+- `?? tmp/corporate-action-v1-9-2-preview_20260816_154908.zip`
+- `?? tmp/corporate-action-v1-9-2-preview_20260816_154908/historical-isin-bootstrap-preview-manifest.json`
+- `?? tmp/corporate-action-v1-9-2-preview_20260816_154908/historical-isin-bootstrap-preview-summary.txt`
+- `?? tmp/corporate-action-v1-9-2-preview_20260816_154908/historical-isin-bootstrap-preview.csv`
+- `?? tmp/corporate-action-v1-9-2-preview_20260816_154908/historical-isin-bootstrap-preview.json`
+- `?? tmp/corporate-action-v1-9-2-source-backup_20260816_141941/src-tauri-shell/src/database.rs`
+- `?? tmp/corporate-action-v1-9-2-source-backup_20260816_141941/src-tauri-shell/src/database/corporate_action_imports.rs`
+- `?? tmp/corporate-action-v1-9-2-source-backup_20260816_141941/src-tauri-shell/src/database/instrument_mutations.rs`
+- `?? tmp/corporate-action-v1-9-2-source-backup_20260816_141941/src-tauri-shell/src/main.rs`
+- `?? tmp/corporate-action-v1-9-2-source-backup_20260816_142819/src-tauri-shell/src/database/corporate_action_imports/historical_isin_bootstrap.rs`
+- `?? tmp/eod-full-integrity-audit_20260820_025715.zip`
+- `?? tmp/eod-full-integrity-audit_20260820_025715/EOD_INTEGRITY_ANOMALIES.csv`
+- `?? tmp/eod-full-integrity-audit_20260820_025715/SUMMARY.txt`
+- `?? tmp/eod-six-file-tail-forensic-audit_20260820_022957.zip`
+- `?? tmp/eod-six-file-tail-forensic-audit_20260820_022957/ALL_RECORDS.csv`
+- `?? tmp/eod-six-file-tail-forensic-audit_20260820_022957/FILE_SUMMARY.csv`
+- `?? tmp/eod-six-file-tail-forensic-audit_20260820_022957/TAIL_CONTEXT.csv`
+- `?? tmp/eod-structural-integrity-audit_20260820_020622.zip`
+- `?? tmp/eod-structural-integrity-audit_20260820_020622/STRUCTURAL_MISMATCHES.csv`
+- `?? tmp/eod-structural-integrity-audit_20260820_020622/SUMMARY.txt`
+- `?? tmp/fibonacci-final-doc-reconciliation-v1-backup_20260813_210840/AGENTS.md`
+- `?? tmp/fibonacci-final-doc-reconciliation-v1-backup_20260813_210840/ARCHITECTURE_CURRENT_EOD_CHARTING_PLATFORM.md`
+- `?? tmp/fibonacci-final-doc-reconciliation-v1-backup_20260813_210840/FEATURE_STATUS_MATRIX_EOD_CHARTING_PLATFORM.md`
+- `?? tmp/fibonacci-final-doc-reconciliation-v1-backup_20260813_210840/FILE_INVENTORY.md`
+- `?? tmp/fibonacci-final-doc-reconciliation-v1-backup_20260813_210840/HANDOFF.md`
+- `?? tmp/fibonacci-final-doc-reconciliation-v1-backup_20260813_210840/PROJECT_STATE_EOD_CHARTING_PLATFORM.md`
+- `?? tmp/fibonacci-final-doc-reconciliation-v1-backup_20260813_210840/README.md`
+- `?? tmp/fibonacci-final-doc-reconciliation-v1-backup_20260813_210840/REQUIREMENTS.md`
+- `?? tmp/final-doc-audit-v2-backup_20260810_125029/AGENTS.md`
+- `?? tmp/final-doc-audit-v2-backup_20260810_125029/ARCHITECTURE_CURRENT_EOD_CHARTING_PLATFORM.md`
+- `?? tmp/final-doc-audit-v2-backup_20260810_125029/FEATURE_STATUS_MATRIX_EOD_CHARTING_PLATFORM.md`
+- `?? tmp/final-doc-audit-v2-backup_20260810_125029/FILE_INVENTORY.md`
+- `?? tmp/final-doc-audit-v2-backup_20260810_125029/HANDOFF.md`
+- `?? tmp/final-doc-audit-v2-backup_20260810_125029/PROJECT_STATE_EOD_CHARTING_PLATFORM.md`
+- `?? tmp/final-doc-audit-v2-backup_20260810_125029/README.md`
+- `?? tmp/final-doc-audit-v2-backup_20260810_125029/REQUIREMENTS.md`
+- `?? tmp/final-doc-audit-v2-backup_20260810_125029/docs/changes/2026-08-09_1240_IST_BHAVCOPY_RECOVERABLE_DURABILITY_CONTRACT_V1.md`
+- `?? tmp/final-doc-audit-v2-backup_20260810_125029/docs/changes/2026-08-10_1212_IST_BHAVCOPY_FINAL_ACCEPTANCE_AND_DOCUMENTATION_RECONCILIATION.md`
+- `?? tmp/final-doc-audit-v2-backup_20260810_125029/scripts/check-doc-references.ps1`
+- `?? tmp/manual-import-recovery-v1-backup_20260809_152717/FILE_INVENTORY.md`
+- `?? tmp/manual-import-recovery-v1-backup_20260809_152717/src-tauri-shell/src/database.rs`
+- `?? tmp/manual-import-recovery-v1-backup_20260809_152717/src-tauri-shell/src/database/quotes.rs`
+- `?? tmp/manual-import-recovery-v1-backup_20260809_152717/src-tauri-shell/src/imports.rs`
+- `?? tmp/manual-import-recovery-v1-backup_20260809_152717/src-tauri-shell/src/main.rs`
+- `?? tmp/manual-import-recovery-v1-backup_20260809_152717/src/components/DatabaseToolsDialogs.tsx`
+- `?? tmp/manual-import-recovery-v1-backup_20260809_152717/src/components/ImportCsvDialog.tsx`
+- `?? tmp/manual-import-recovery-v1-backup_20260809_152717/src/platform/tauriDesktop.ts`
+- `?? tmp/manual-import-recovery-v1-backup_20260809_152717/src/platform/types.ts`
+- `?? tmp/manual-import-recovery-v1-backup_20260809_152717/src/types/desktop.ts`
+- `?? tmp/manual-import-recovery-v1_1-backup_20260809_154304/src-tauri-shell/src/manual_import_recovery.rs`
+- `?? tmp/manual-import-recovery-v1_2-history-backup_20260809_172516/src-tauri-shell/src/imports.rs`
+- `?? tmp/manual-import-recovery-v1_2-history-backup_20260809_172516/src-tauri-shell/src/main.rs`
+- `?? tmp/manual-import-recovery-v1_2-history-backup_20260809_172516/src-tauri-shell/src/manual_import_recovery.rs`
+- `?? tmp/manual-import-recovery-v1_2-history-backup_20260809_172516/src/components/ImportCsvDialog.tsx`
+- `?? tmp/manual-import-recovery-v1_2-history-backup_20260809_172516/src/platform/tauriDesktop.ts`
+- `?? tmp/manual-import-recovery-v1_2-history-backup_20260809_172516/src/platform/types.ts`
+- `?? tmp/manual-import-recovery-v1_2-history-backup_20260809_172516/src/types/desktop.ts`
+- `?? tmp/manual-import-recovery-v1_2_1-typecheck-backup_20260809_201622/src/components/ImportCsvDialog.tsx`
+- `?? tmp/official-watchlists-w1-3-1-typecheck-backup_20260816_223101/src/features/watchlists/__tests__/officialWatchlistDataSplit.test.ts.bak`
+- `?? tmp/official-watchlists-w1-3-1-typecheck-backup_20260816_223101/src/features/watchlists/__tests__/officialWatchlistDataSplit.test.ts.bak.sha256`
+- `?? tmp/operator-scripts/V1.14AA-Read-Only-Approved-NonMatched-Split-Bonus-Forensic-Audit.ps1`
+- `?? tmp/operator-scripts/V1.14AB-A-R1-Read-Only-Current-Validator-Storage-Source-Preflight.ps1`
+- `?? tmp/operator-scripts/V1.14AB-A-Read-Only-Current-Validator-Storage-Source-Preflight.ps1`
+- `?? tmp/operator-scripts/V1.14AB-B-Private-Current-Production-Validator-Replay.ps1`
+- `?? tmp/operator-scripts/V1.14T-Stage1-Apply-Source-Patch.ps1`
+- `?? tmp/operator-scripts/V1.14T-Stage3B-R1-Repair-Bootstrap-Test-Fixture.ps1`
+- `?? tmp/operator-scripts/V1.14T-Stage3B-Repair-Bootstrap-Test-Fixture.ps1`
+- `?? tmp/operator-scripts/V1.14W-A-Install-And-Run-TDD-RED.ps1`
+- `?? tmp/operator-scripts/V1.14W-B-Apply-Rust-Maintenance-And-Run-Targeted-GREEN.ps1`
+- `?? tmp/operator-scripts/V1.14W-C-Full-Regression-And-Private-Copy-Dry-Run.ps1`
+- `?? tmp/operator-scripts/V1.14W-C2-Serial-Regression-And-Private-Copy-Dry-Run.ps1`
+- `?? tmp/operator-scripts/V1.14W-C3-Fix-Stack-Overflow-And-Complete-Private-Copy-Validation.ps1`
+- `?? tmp/operator-scripts/V1.14X-A-Install-And-Run-Live-Apply-TDD-RED.ps1`
+- `?? tmp/operator-scripts/V1.14X-A-R1-Install-And-Run-Live-Apply-TDD-RED.ps1`
+- `?? tmp/operator-scripts/V1.14X-B-Apply-Live-Apply-Implementation-And-Run-GREEN.ps1`
+- `?? tmp/operator-scripts/V1.14X-C-Create-Backup-Run-Live-Apply-And-Audit.ps1`
+- `?? tmp/operator-scripts/V1.14X-Preflight-Capture-Exact-Post-C3-Source.ps1`
+- `?? tmp/operator-scripts/V1.14Y-A-Capture-Exact-Current-Frontend-API-Source.ps1`
+- `?? tmp/operator-scripts/V1.14Y-A-R1-Capture-Exact-Current-Frontend-API-Source.ps1`
+- `?? tmp/operator-scripts/V1.14Y-B-R1-Capture-Failed-RED-State.ps1`
+- `?? tmp/operator-scripts/V1.14Y-B-R2-Capture-Post-RED-State.ps1`
+- `?? tmp/operator-scripts/V1.14Y-B-R3-Resume-Post-RED-Implement-UI-And-Validate.ps1`
+- `?? tmp/operator-scripts/V1.14Y-B-R4-Resume-Post-RED-Apply-Exact-Frontend-And-Validate.ps1`
+- `?? tmp/operator-scripts/V1.14Y-B-R5-Validate-Whitespace-Equivalent-Frontend-And-Regressions.ps1`
+- `?? tmp/operator-scripts/V1.14Y-B-R6-Complete-Validation-Excluding-Tmp-Test-Copies.ps1`
+- `?? tmp/operator-scripts/V1.14Y-B-TDD-Implement-Approved-Validation-Hydration-And-Validate.ps1`
+- `?? tmp/operator-scripts/V1.14Y-C-Finalize-Portable-Manual-Smoke-Closeout-Report.ps1`
+- `?? tmp/operator-scripts/V1.14Y-C-R1-Finalize-Portable-Manual-Smoke-Closeout-Report.ps1`
+- `?? tmp/operator-scripts/V1.14Y-Read-Only-Approved-Split-Bonus-Validation-Consistency-Audit.ps1`
+- `?? tmp/operator-scripts/V1.14Z-TDD-Fix-Vitest-Tmp-Test-Discovery-And-Validate.ps1`
+- `?? tmp/operator-scripts/V1.7A-P1-Capture-Parallel-Test-Isolation-Root-Cause.ps1`
+- `?? tmp/operator-scripts/V1.7A-P2-TDD-Fix-Thread-Local-Sync-Probe-And-Validate.ps1`
+- `?? tmp/operator-scripts/w1-3-2-bundle-report_20260816_225112.txt`
+- `?? tmp/operator-scripts/w1-4-1-bundle-report_20260817_003132.txt`
+- `?? tmp/operator-scripts/w1-4-b1-bundle-report_20260817_010615.txt`
+- `?? tmp/phase6n_2023_evidence_preview_20260803_200631/market-data.sqlite3-shm`
+- `?? tmp/phase6n_2023_evidence_preview_20260803_200631/market-data.sqlite3-wal`
+- `?? tmp/phase6n_2023_evidence_preview_20260803_204734/market-data.sqlite3-shm`
+- `?? tmp/phase6n_2023_evidence_preview_20260803_204734/market-data.sqlite3-wal`
+- `?? tmp/phase6n_2023_evidence_preview_20260803_204734/preview-32.json`
+- `?? tmp/post-bhavcopy-docs-reconciliation-backup_20260810_122924/AGENTS.md`
+- `?? tmp/post-bhavcopy-docs-reconciliation-backup_20260810_122924/ARCHITECTURE_CURRENT_EOD_CHARTING_PLATFORM.md`
+- `?? tmp/post-bhavcopy-docs-reconciliation-backup_20260810_122924/FEATURE_STATUS_MATRIX_EOD_CHARTING_PLATFORM.md`
+- `?? tmp/post-bhavcopy-docs-reconciliation-backup_20260810_122924/FILE_INVENTORY.md`
+- `?? tmp/post-bhavcopy-docs-reconciliation-backup_20260810_122924/HANDOFF.md`
+- `?? tmp/post-bhavcopy-docs-reconciliation-backup_20260810_122924/PROJECT_STATE_EOD_CHARTING_PLATFORM.md`
+- `?? tmp/post-bhavcopy-docs-reconciliation-backup_20260810_122924/README.md`
+- `?? tmp/post-bhavcopy-docs-reconciliation-backup_20260810_122924/REQUIREMENTS.md`
+- `?? tmp/post-bhavcopy-docs-reconciliation-backup_20260810_122924/docs/changes/2026-08-09_1702_IST_MANUAL_IMPORT_RECOVERY_HISTORY_V1_2.md`
+- `?? tmp/post-bhavcopy-docs-reconciliation-backup_20260810_122924/docs/changes/2026-08-09_2110_IST_BHAVCOPY_RECOVERY_HARDENING_PHASE2B_1_V1.md`
+- `?? tmp/post-bhavcopy-docs-reconciliation-backup_20260810_122924/docs/changes/2026-08-09_2323_IST_BHAVCOPY_APPEND_NEWEST_BUFFERED_DURABILITY_PHASE2C_V1.md`
+- `?? tmp/post-bhavcopy-docs-reconciliation-backup_20260810_122924/docs/changes/2026-08-10_0145_IST_BHAVCOPY_COMPACT_PROGRESS_UI_FIX_V1.md`
+- `?? tmp/post-bhavcopy-docs-reconciliation-backup_20260810_122924/docs/changes/2026-08-10_BSE_INDEX_LITERAL_DATE_URL_FIX_V1.md`
+- `?? tmp/quote-editor-display-all-load-count-rev2-current-source_20260821_141706.zip`
+- `?? tmp/quote-editor-display-all-load-count-rev2-current-source_20260821_141706/AGENTS.md`
+- `?? tmp/quote-editor-display-all-load-count-rev2-current-source_20260821_141706/PREFLIGHT.txt`
+- `?? tmp/quote-editor-display-all-load-count-rev2-current-source_20260821_141706/SOURCE_MANIFEST.csv`
+- `?? tmp/quote-editor-display-all-load-count-rev2-current-source_20260821_141706/package.json`
+- `?? tmp/quote-editor-display-all-load-count-rev2-current-source_20260821_141706/src/components/DatabaseToolsDialogs.tsx`
+- `?? tmp/quote-editor-display-all-load-count-rev2-current-source_20260821_141706/src/features/quoteEditor/__tests__/quoteEditorExchangeScope.test.ts`
+- `?? tmp/quote-editor-display-all-load-count-rev2-current-source_20260821_141706/src/features/quoteEditor/quoteEditorExchangeScope.ts`
+- `?? tmp/quote-editor-exchange-filter-audit-preflight_20260821_020824.zip`
+- `?? tmp/quote-editor-exchange-filter-audit-preflight_20260821_020824/AGENTS.md`
+- `?? tmp/quote-editor-exchange-filter-audit-preflight_20260821_020824/DISCOVERY_REPORT.txt`
+- `?? tmp/quote-editor-exchange-filter-audit-preflight_20260821_020824/SOURCE_MANIFEST.csv`
+- `?? tmp/quote-editor-exchange-filter-audit-preflight_20260821_020824/package.json`
+- `?? tmp/quote-editor-exchange-filter-audit-preflight_20260821_020824/src-tauri-shell/Cargo.lock`
+- `?? tmp/quote-editor-exchange-filter-audit-preflight_20260821_020824/src-tauri-shell/Cargo.toml`
+- `?? tmp/quote-editor-exchange-filter-audit-preflight_20260821_020824/src-tauri-shell/src/bhavcopy.rs`
+- `?? tmp/quote-editor-exchange-filter-audit-preflight_20260821_020824/src-tauri-shell/src/database.rs`
+- `?? tmp/quote-editor-exchange-filter-audit-preflight_20260821_020824/src-tauri-shell/src/database/binary_eod.rs`
+- `?? tmp/quote-editor-exchange-filter-audit-preflight_20260821_020824/src-tauri-shell/src/database/bootstrap.rs`
+- `?? tmp/quote-editor-exchange-filter-audit-preflight_20260821_020824/src-tauri-shell/src/database/eod_binary_state.rs`
+- `?? tmp/quote-editor-exchange-filter-audit-preflight_20260821_020824/src-tauri-shell/src/database/instrument_mutations.rs`
+- `?? tmp/quote-editor-exchange-filter-audit-preflight_20260821_020824/src-tauri-shell/src/database/quotes.rs`
+- `?? tmp/quote-editor-exchange-filter-audit-preflight_20260821_020824/src-tauri-shell/src/database/watchlists.rs`
+- `?? tmp/quote-editor-exchange-filter-audit-preflight_20260821_020824/src-tauri-shell/src/main.rs`
+- `?? tmp/quote-editor-exchange-filter-audit-preflight_20260821_020824/src-tauri-shell/src/manual_import_recovery.rs`
+- `?? tmp/quote-editor-exchange-filter-audit-preflight_20260821_020824/src/components/CommandPalette.tsx`
+- `?? tmp/quote-editor-exchange-filter-audit-preflight_20260821_020824/src/components/DatabaseToolsDialogs.tsx`
+- `?? tmp/quote-editor-exchange-filter-audit-preflight_20260821_020824/src/components/FAQDialog.tsx`
+- `?? tmp/quote-editor-exchange-filter-audit-preflight_20260821_020824/src/components/Sidebar.tsx`
+- `?? tmp/quote-editor-exchange-filter-audit-preflight_20260821_020824/src/features/watchlists/__tests__/officialWatchlistDataSplit.test.ts`
+- `?? tmp/quote-editor-exchange-filter-audit-preflight_20260821_020824/src/platform/tauriDesktop.ts`
+- `?? tmp/quote-editor-exchange-filter-audit-preflight_20260821_020824/src/platform/types.ts`
+- `?? tmp/quote-editor-exchange-filter-audit-preflight_20260821_020824/src/types/desktop.ts`
+- `?? "tmp/storage-architecture-audit-v1_20260819_162141 (2).zip"`
+- `?? tmp/storage-architecture-audit-v1_20260819_162141.zip`
+- `?? tmp/storage-architecture-audit-v1_20260819_162141/AUDIT_MANIFEST.txt`
+- `?? tmp/storage-architecture-audit-v1_20260819_162141/DISK_STORAGE_INFO.txt`
+- `?? tmp/storage-architecture-audit-v1_20260819_162141/EOD_LAYOUT.csv`
+- `?? tmp/storage-architecture-audit-v1_20260819_162141/EOD_READ_BENCHMARK_DETAIL.csv`
+- `?? tmp/storage-architecture-audit-v1_20260819_162141/EOD_READ_BENCHMARK_SUMMARY.csv`
+- `?? tmp/storage-architecture-audit-v1_20260819_162141/EOD_RECENT_FILES.csv`
+- `?? tmp/storage-architecture-audit-v1_20260819_162141/EXCERPT_bhavcopy.rs.txt`
+- `?? tmp/storage-architecture-audit-v1_20260819_162141/EXCERPT_bhavcopy_recovery.rs.txt`
+- `?? tmp/storage-architecture-audit-v1_20260819_162141/EXCERPT_binary_eod.rs.txt`
+- `?? tmp/storage-architecture-audit-v1_20260819_162141/EXCERPT_corporate_action_imports.rs.txt`
+- `?? tmp/storage-architecture-audit-v1_20260819_162141/EXCERPT_imports.rs.txt`
+- `?? tmp/storage-architecture-audit-v1_20260819_162141/EXCERPT_quotes.rs.txt`
+- `?? tmp/storage-architecture-audit-v1_20260819_162141/SOURCE_ARCHITECTURE_MATCHES.csv`
+- `?? tmp/storage-architecture-audit-v1_20260819_162141/SOURCE_IDENTITY.csv`
+- `?? tmp/storage-architecture-audit-v1_20260819_162141/SUMMARY.txt`
+- `?? tmp/storage-architecture-v1-1-source-preflight_20260820_002754.zip`
+- `?? tmp/storage-architecture-v1-1-source-preflight_20260820_002754/AGENTS.md`
+- `?? tmp/storage-architecture-v1-1-source-preflight_20260820_002754/PREFLIGHT.txt`
+- `?? tmp/storage-architecture-v1-1-source-preflight_20260820_002754/SOURCE_MANIFEST.csv`
+- `?? tmp/storage-architecture-v1-1-source-preflight_20260820_002754/package.json`
+- `?? tmp/storage-architecture-v1-1-source-preflight_20260820_002754/scripts/validate-change.ps1`
+- `?? tmp/storage-architecture-v1-1-source-preflight_20260820_002754/src-tauri-shell/Cargo.lock`
+- `?? tmp/storage-architecture-v1-1-source-preflight_20260820_002754/src-tauri-shell/Cargo.toml`
+- `?? tmp/storage-architecture-v1-1-source-preflight_20260820_002754/src-tauri-shell/src/database.rs`
+- `?? tmp/storage-architecture-v1-1-source-preflight_20260820_002754/src-tauri-shell/src/database/binary_eod.rs`
+- `?? tmp/storage-architecture-v1-1-source-preflight_20260820_002754/src-tauri-shell/src/database/bootstrap.rs`
+- `?? tmp/storage-architecture-v1-1-source-preflight_20260820_002754/src-tauri-shell/src/database/eod_data.rs`
+- `?? tmp/storage-architecture-v1-1-source-preflight_20260820_002754/src-tauri-shell/src/database/settings.rs`
+- `?? tmp/storage-architecture-v1-2-shadow-source-preflight_20260820_111420.zip`
+- `?? tmp/storage-architecture-v1-2-shadow-source-preflight_20260820_111420/AGENTS.md`
+- `?? tmp/storage-architecture-v1-2-shadow-source-preflight_20260820_111420/PREFLIGHT.txt`
+- `?? tmp/storage-architecture-v1-2-shadow-source-preflight_20260820_111420/SOURCE_MANIFEST.csv`
+- `?? tmp/storage-architecture-v1-2-shadow-source-preflight_20260820_111420/package.json`
+- `?? tmp/storage-architecture-v1-2-shadow-source-preflight_20260820_111420/src-tauri-shell/Cargo.lock`
+- `?? tmp/storage-architecture-v1-2-shadow-source-preflight_20260820_111420/src-tauri-shell/Cargo.toml`
+- `?? tmp/storage-architecture-v1-2-shadow-source-preflight_20260820_111420/src-tauri-shell/src/bhavcopy.rs`
+- `?? tmp/storage-architecture-v1-2-shadow-source-preflight_20260820_111420/src-tauri-shell/src/database.rs`
+- `?? tmp/storage-architecture-v1-2-shadow-source-preflight_20260820_111420/src-tauri-shell/src/database/binary_eod.rs`
+- `?? tmp/storage-architecture-v1-2-shadow-source-preflight_20260820_111420/src-tauri-shell/src/database/eod_binary_state.rs`
+- `?? tmp/storage-architecture-v1-2-shadow-source-preflight_20260820_111420/src-tauri-shell/src/database/eod_binary_state/tests.rs`
+- `?? tmp/v1-14ad-source-preservation-preflight_20260828_135917_308/reports/01-git-status-full.txt`
+- `?? tmp/v1-14ad-source-preservation-preflight_20260828_135917_308/reports/02-git-diff-name-status.txt`
+- `?? tmp/v1-14ad-source-preservation-preflight_20260828_135917_308/reports/03-git-diff-stat.txt`
+- `?? tmp/v1-14ad-source-preservation-preflight_20260828_135917_308/reports/04-git-cached-name-status.txt`
+- `?? tmp/v1-14ad-source-preservation-preflight_20260828_135917_308/reports/05-git-cached-diff-stat.txt`
+- `?? tmp/v1-14ad-source-preservation-preflight_20260828_135917_308/reports/06-core-candidate-status.txt`
+- `?? tmp/v1-14ad-source-preservation-preflight_20260828_135917_308/reports/07-core-tracked-working-tree.patch`
+- `?? tmp/v1-14w-source-capture_20260825_005956/SOURCE_MANIFEST.json`
+- `?? tmp/v1-14w-source-capture_20260825_005956/src-tauri-shell/Cargo.toml`
+- `?? tmp/v1-14w-source-capture_20260825_005956/src-tauri-shell/src/database.rs`
+- `?? tmp/v1-14w-source-capture_20260825_005956/src-tauri-shell/src/database/bootstrap.rs`
+- `?? tmp/v1-14w-source-capture_20260825_005956/src-tauri-shell/src/database/corporate_action_imports.rs`
+- `?? tmp/v1-14w-source-capture_20260825_005956/src-tauri-shell/src/database/corporate_action_imports/controlled_identity_repair.rs`
+- `?? tmp/v1-14w-source-capture_20260825_005956/src-tauri-shell/src/database/corporate_action_imports/event_identity_maintenance.rs`
+- `?? tmp/v1-14w-source-capture_20260825_005956/src-tauri-shell/src/database/corporate_action_imports/historical_isin_bootstrap.rs`
+- `?? tmp/v1-14w-source-capture_20260825_005956/src-tauri-shell/src/database/corporate_action_imports/v114t_tests.rs`
+- `?? tmp/v1-14w-source-capture_20260825_005956/src-tauri-shell/src/main.rs`
+- `?? tmp/v1-14x-post-c3-source-capture_20260825_111347/V1_14X_CAPTURE_MANIFEST.json`
+- `?? tmp/v1-14x-post-c3-source-capture_20260825_111347/src-tauri-shell/Cargo.toml`
+- `?? tmp/v1-14x-post-c3-source-capture_20260825_111347/src-tauri-shell/src/database.rs`
+- `?? tmp/v1-14x-post-c3-source-capture_20260825_111347/src-tauri-shell/src/database/bootstrap.rs`
+- `?? tmp/v1-14x-post-c3-source-capture_20260825_111347/src-tauri-shell/src/database/corporate_action_imports.rs`
+- `?? tmp/v1-14x-post-c3-source-capture_20260825_111347/src-tauri-shell/src/database/corporate_action_imports/controlled_identity_repair.rs`
+- `?? tmp/v1-14x-post-c3-source-capture_20260825_111347/src-tauri-shell/src/database/corporate_action_imports/event_identity_maintenance.rs`
+- `?? tmp/v1-14x-post-c3-source-capture_20260825_111347/src-tauri-shell/src/database/corporate_action_imports/five_pair_consolidation.rs`
+- `?? tmp/v1-14x-post-c3-source-capture_20260825_111347/src-tauri-shell/src/database/corporate_action_imports/historical_isin_bootstrap.rs`
+- `?? tmp/v1-14x-post-c3-source-capture_20260825_111347/src-tauri-shell/src/database/corporate_action_imports/v114t_tests.rs`
+- `?? tmp/v1-14x-post-c3-source-capture_20260825_111347/src-tauri-shell/src/database/corporate_action_imports/v114w_tests.rs`
+- `?? tmp/v1-14x-post-c3-source-capture_20260825_111347/src-tauri-shell/src/main.rs`
+- `?? tmp/v1-14x-post-c3-source-capture_20260825_111347/v1-14w-c3-authority/v1-14w-c3-final-state.txt`
+- `?? tmp/v1-14x-post-c3-source-capture_20260825_111347/v1-14w-c3-authority/v1-14w-dry-run-apply-plan-manifest.json`
+- `?? tmp/v1-14x-post-c3-source-capture_20260825_111347/v1-14w-c3-authority/v1-14w-dry-run-result.json`
+- `?? tmp/v1-14y-a-current-source-capture_20260825_185228/payload/package.json`
+- `?? tmp/v1-14y-a-current-source-capture_20260825_185228/payload/src-tauri-shell/src/database.rs`
+- `?? tmp/v1-14y-a-current-source-capture_20260825_185228/payload/src-tauri-shell/src/database/binary_eod.rs`
+- `?? tmp/v1-14y-a-current-source-capture_20260825_185228/payload/src-tauri-shell/src/database/corporate_action_imports.rs`
+- `?? tmp/v1-14y-a-current-source-capture_20260825_185228/payload/src-tauri-shell/src/main.rs`
+- `?? tmp/v1-14y-a-current-source-capture_20260825_185228/payload/src/components/DatabaseToolsDialogs.tsx`
+- `?? tmp/v1-14y-a-current-source-capture_20260825_185228/payload/src/features/corporateActions/__tests__/corporateActionBulkApproval.test.ts`
+- `?? tmp/v1-14y-a-current-source-capture_20260825_185228/payload/src/features/corporateActions/__tests__/corporateActionCompoundValidation.test.ts`
+- `?? tmp/v1-14y-a-current-source-capture_20260825_185228/payload/src/features/corporateActions/__tests__/corporateActionEventIdentityPresentation.test.ts`
+- `?? tmp/v1-14y-a-current-source-capture_20260825_185228/payload/src/features/corporateActions/__tests__/corporateActionIdentityRecommendations.test.ts`
+- `?? tmp/v1-14y-a-current-source-capture_20260825_185228/payload/src/features/corporateActions/__tests__/corporateActionValidation.test.ts`
+- `?? tmp/v1-14y-a-current-source-capture_20260825_185228/payload/src/features/corporateActions/corporateActionBulkApproval.ts`
+- `?? tmp/v1-14y-a-current-source-capture_20260825_185228/payload/src/features/corporateActions/corporateActionCompoundValidation.ts`
+- `?? tmp/v1-14y-a-current-source-capture_20260825_185228/payload/src/features/corporateActions/corporateActionDate.ts`
+- `?? tmp/v1-14y-a-current-source-capture_20260825_185228/payload/src/features/corporateActions/corporateActionEventIdentityPresentation.ts`
+- `?? tmp/v1-14y-a-current-source-capture_20260825_185228/payload/src/features/corporateActions/corporateActionIdentityRecommendations.ts`
+- `?? tmp/v1-14y-a-current-source-capture_20260825_185228/payload/src/features/corporateActions/corporateActionValidation.ts`
+- `?? tmp/v1-14y-a-current-source-capture_20260825_185228/payload/src/platform/index.ts`
+- `?? tmp/v1-14y-a-current-source-capture_20260825_185228/payload/src/platform/tauriDesktop.ts`
+- `?? tmp/v1-14y-a-current-source-capture_20260825_185228/payload/src/platform/types.ts`
+- `?? tmp/v1-14y-a-current-source-capture_20260825_185228/payload/src/types/desktop.ts`
+- `?? tmp/v1-14y-a-current-source-capture_20260825_185228/payload/tsconfig.json`
+- `?? tmp/v1-14y-a-current-source-capture_20260825_185228/payload/vite.config.mts`
+- `?? tmp/v1-14y-a-current-source-capture_20260825_185228/payload/vitest.config.ts`
+- `?? tmp/v1-14y-a-current-source-capture_20260825_185228/reports/v1-14y-a-api-discovery.txt`
+- `?? tmp/v1-14y-a-current-source-capture_20260825_185228/reports/v1-14y-a-current-source-manifest.json`
+- `?? tmp/v1-14y-b-r2-post-red-state-capture_20260825_234706_741/payload/V1.14Y-B-TDD-Implement-Approved-Validation-Hydration-And-Validate.ps1`
+- `?? tmp/v1-14y-b-r2-post-red-state-capture_20260825_234706_741/payload/package.json`
+- `?? tmp/v1-14y-b-r2-post-red-state-capture_20260825_234706_741/payload/src-tauri-shell/src/database.rs`
+- `?? tmp/v1-14y-b-r2-post-red-state-capture_20260825_234706_741/payload/src-tauri-shell/src/database/binary_eod.rs`
+- `?? tmp/v1-14y-b-r2-post-red-state-capture_20260825_234706_741/payload/src-tauri-shell/src/database/corporate_action_imports.rs`
+- `?? tmp/v1-14y-b-r2-post-red-state-capture_20260825_234706_741/payload/src-tauri-shell/src/database/corporate_action_imports/v114y_tests.rs`
+- `?? tmp/v1-14y-b-r2-post-red-state-capture_20260825_234706_741/payload/src-tauri-shell/src/main.rs`
+- `?? tmp/v1-14y-b-r2-post-red-state-capture_20260825_234706_741/payload/src/components/DatabaseToolsDialogs.tsx`
+- `?? tmp/v1-14y-b-r2-post-red-state-capture_20260825_234706_741/payload/src/features/corporateActions/corporateActionValidation.ts`
+- `?? tmp/v1-14y-b-r2-post-red-state-capture_20260825_234706_741/payload/src/platform/index.ts`
+- `?? tmp/v1-14y-b-r2-post-red-state-capture_20260825_234706_741/payload/src/platform/tauriDesktop.ts`
+- `?? tmp/v1-14y-b-r2-post-red-state-capture_20260825_234706_741/payload/src/platform/types.ts`
+- `?? tmp/v1-14y-b-r2-post-red-state-capture_20260825_234706_741/payload/src/types/desktop.ts`
+- `?? tmp/v1-14y-b-r2-post-red-state-capture_20260825_234706_741/payload/tmp-runs/corporate-action-v1-14y-approved-validation-audit_20260825_175358_328/reports/v1-14y-approved-split-bonus-validation-audit.json`
+- `?? tmp/v1-14y-b-r2-post-red-state-capture_20260825_234706_741/payload/tmp-runs/corporate-action-v1-14y-approved-validation-audit_20260825_175358_328/reports/v1-14y-approved-tab-ui-context.txt`
+- `?? tmp/v1-14y-b-r2-post-red-state-capture_20260825_234706_741/payload/tmp-runs/corporate-action-v1-14y-approved-validation-audit_20260825_175358_328/reports/v1-14y-backend-validation-contract.txt`
+- `?? tmp/v1-14y-b-r2-post-red-state-capture_20260825_234706_741/payload/tmp-runs/corporate-action-v1-14y-approved-validation-audit_20260825_175358_328/reports/v1-14y-frontend-validation-contract.txt`
+- `?? tmp/v1-14y-b-r2-post-red-state-capture_20260825_234706_741/payload/tmp-runs/corporate-action-v1-14y-approved-validation-audit_20260825_175358_328/reports/v1-14y-live-family-after.json`
+- `?? tmp/v1-14y-b-r2-post-red-state-capture_20260825_234706_741/payload/tmp-runs/corporate-action-v1-14y-approved-validation-audit_20260825_175358_328/reports/v1-14y-live-family-before.json`
+- `?? tmp/v1-14y-b-r2-post-red-state-capture_20260825_234706_741/payload/tmp-runs/corporate-action-v1-14y-approved-validation-audit_20260825_175358_328/reports/v1-14y-state.txt`
+- `?? tmp/v1-14y-b-r2-post-red-state-capture_20260825_234706_741/payload/tmp-runs/corporate-action-v1-14y-approved-validation-audit_20260825_175358_328/reports/v1-14y-summary.txt`
+- `?? tmp/v1-14y-b-r2-post-red-state-capture_20260825_234706_741/payload/tmp-runs/corporate-action-v1-14y-approved-validation-hydration_20260825_192729_589/reports/v1-14y-b-state.txt`
+- `?? tmp/v1-14y-b-r2-post-red-state-capture_20260825_234706_741/payload/tmp-runs/v1-14y-a-current-source-capture_20260825_185228/payload/package.json`
+- `?? tmp/v1-14y-b-r2-post-red-state-capture_20260825_234706_741/payload/tmp-runs/v1-14y-a-current-source-capture_20260825_185228/payload/tsconfig.json`
+- `?? tmp/v1-14y-b-r2-post-red-state-capture_20260825_234706_741/payload/tmp-runs/v1-14y-a-current-source-capture_20260825_185228/reports/v1-14y-a-api-discovery.txt`
+- `?? tmp/v1-14y-b-r2-post-red-state-capture_20260825_234706_741/payload/tmp-runs/v1-14y-a-current-source-capture_20260825_185228/reports/v1-14y-a-current-source-manifest.json`
+- `?? tmp/v1-14y-b-r2-post-red-state-capture_20260825_234706_741/reports/v1-14y-b-r2-failure-context.txt`
+- `?? tmp/v1-14y-b-r2-post-red-state-capture_20260825_234706_741/reports/v1-14y-b-r2-key-state.txt`
+- `?? tmp/v1-14y-b-r2-post-red-state-capture_20260825_234706_741/reports/v1-14y-b-r2-manifest.json`
+- `?? tmp/v1-2-shadow-runtime-prestate.txt`
+- `?? tmp/v1-3-rev2-exact-current-source_20260820_190927.zip`
+- `?? tmp/v1-3-rev2-exact-current-source_20260820_190927/src-tauri-shell/Cargo.toml`
+- `?? tmp/v1-3-rev2-exact-current-source_20260820_190927/src-tauri-shell/src/bhavcopy.rs`
+- `?? tmp/v1-3-rev2-exact-current-source_20260820_190927/src-tauri-shell/src/database.rs`
+- `?? tmp/v1-3-rev2-exact-current-source_20260820_190927/src-tauri-shell/src/database/binary_eod.rs`
+- `?? tmp/v1-3-rev2-exact-current-source_20260820_190927/src-tauri-shell/src/database/eod_binary_state.rs`
+- `?? tmp/v1-3-rev2-exact-current-source_20260820_190927/src-tauri-shell/src/database/eod_binary_state/tests.rs`
+- `?? tmp/v1-4-append-newest-fast-classification-source-preflight_20260821_001542.zip`
+- `?? tmp/v1-4-append-newest-fast-classification-source-preflight_20260821_001542/AGENTS.md`
+- `?? tmp/v1-4-append-newest-fast-classification-source-preflight_20260821_001542/PREFLIGHT.txt`
+- `?? tmp/v1-4-append-newest-fast-classification-source-preflight_20260821_001542/SOURCE_MANIFEST.csv`
+- `?? tmp/v1-4-append-newest-fast-classification-source-preflight_20260821_001542/package.json`
+- `?? tmp/v1-4-append-newest-fast-classification-source-preflight_20260821_001542/scripts/create-project-backup.ps1`
+- `?? tmp/v1-4-append-newest-fast-classification-source-preflight_20260821_001542/scripts/validate-change.ps1`
+- `?? tmp/v1-4-append-newest-fast-classification-source-preflight_20260821_001542/src-tauri-shell/Cargo.lock`
+- `?? tmp/v1-4-append-newest-fast-classification-source-preflight_20260821_001542/src-tauri-shell/Cargo.toml`
+- `?? tmp/v1-4-append-newest-fast-classification-source-preflight_20260821_001542/src-tauri-shell/src/bhavcopy.rs`
+- `?? tmp/v1-4-append-newest-fast-classification-source-preflight_20260821_001542/src-tauri-shell/src/database.rs`
+- `?? tmp/v1-4-append-newest-fast-classification-source-preflight_20260821_001542/src-tauri-shell/src/database/binary_eod.rs`
+- `?? tmp/v1-4-append-newest-fast-classification-source-preflight_20260821_001542/src-tauri-shell/src/database/eod_binary_state.rs`
+- `?? tmp/v1-4-append-newest-fast-classification-source-preflight_20260821_001542/src-tauri-shell/src/database/eod_binary_state/tests.rs`
+- `?? tmp/v1-5-current-quotes-source_20260821_205359.zip`
+- `?? tmp/v1-5-current-quotes-source_20260821_205359/quotes.rs`
+- `?? tmp/v1-7a-parallel-isolation-root-cause_20260825_153025_661/reports/V1_7A_P1_CAPTURE_MANIFEST.json`
+- `?? tmp/v1-7a-parallel-isolation-root-cause_20260825_153025_661/reports/v1-7a-diagnostic-results.json`
+- `?? tmp/v1-7a-parallel-isolation-root-cause_20260825_153025_661/reports/v1-7a-diagnostic-summary.txt`
+- `?? tmp/v1-7a-parallel-isolation-root-cause_20260825_153025_661/reports/v1-7a-source-inspection.txt`
+- `?? tmp/v1-7a-parallel-isolation-root-cause_20260825_153025_661/reports/v1-7a-source-manifest.json`
+- `?? tmp/v1-7a-parallel-isolation-root-cause_20260825_153025_661/source/src-tauri-shell/Cargo.toml`
+- `?? tmp/v1-7a-parallel-isolation-root-cause_20260825_153025_661/source/src-tauri-shell/src/bhavcopy.rs`
+- `?? tmp/v1-7a-parallel-isolation-root-cause_20260825_153025_661/source/src-tauri-shell/src/bhavcopy_recovery.rs`
+- `?? tmp/v1-7a-parallel-isolation-root-cause_20260825_153025_661/source/src-tauri-shell/src/database.rs`
+- `?? tmp/v1-7a-parallel-isolation-root-cause_20260825_153025_661/source/src-tauri-shell/src/database/binary_eod.rs`
+- `?? tmp/v1-7a-parallel-isolation-root-cause_20260825_153025_661/source/src-tauri-shell/src/main.rs`
+- `?? tmp/v1-7a-parallel-test-isolation-fix_20260825_162156_793/reports/v1-7a-p2-state.txt`
+- `?? tmp/v1-7a-parallel-test-isolation-fix_20260825_162156_793/reports/v1-7a-p2-thread-local-test-probe-fix-reports.zip`
+- `?? tmp/v1-7a-parallel-test-isolation-fix_20260825_162156_793/source-before/binary_eod.rs`
+- `?? tmp/vitest-tmp-discovery-hygiene_20260826_130951_021/reports/test-config-inventory.txt`
+- `?? tmp/vitest-tmp-discovery-hygiene_20260826_130951_021/reports/vitest-tmp-discovery-hygiene-state.txt`
+- `?? tmp/vitest-tmp-discovery-hygiene_20260826_130951_021/source-before/package.json`
+- `?? tmp/vitest-tmp-discovery-hygiene_20260826_130951_021/vitest-tmp-discovery-hygiene-reports.zip`
+- `?? vite.config.mts`
+
+## Behavior deliberately preserved
+
+- No source/config/test mutation.
+- No Git staging or commit.
+- No reset/restore/checkout.
+- No build/test rerun.
+- No SQLite/database access.
+
+## Risks / interpretation
+
+- package.json is not automatically attributable to V1.14AD; the known test-script delta originated from the earlier tmp-test-discovery hygiene work.
+- corporate_action_imports.rs may contain cumulative accepted changes from multiple Corporate Action phases. If cumulative markers are present, staging the whole file as a V1.14AD-only commit would misattribute history.
+- v114ad_tests.rs is an exact untracked V1.14AD-specific candidate, but committing it without the corresponding production source delta would produce an incomplete logical commit.
+- Because the repository contains substantial accumulated working-tree history, no broad git add is permitted.
+
+## Recommended next step
+
+Upload the preflight reports ZIP. Review the exact two tracked patches and attribution JSON before deciding between: (A) a cumulative accepted-state commit, or (B) a carefully separated V1.14AD patch/commit. Do not stage anything before that review.
+
+**git add is intentionally not executed.**
+
+**git commit is intentionally not executed.**
+
+## Status
+
+**V1_14AD_GIT_ONLY_COMMIT_ATTRIBUTION_PREFLIGHT_R3_COMPLETE**

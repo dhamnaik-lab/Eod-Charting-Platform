@@ -1,0 +1,61 @@
+{
+  "schemaVersion": 1,
+  "version": "V1.14E",
+  "status": "DESIGN_AUTHORITY_LOCKED",
+  "implementationStatus": "NOT_IMPLEMENTED",
+  "mutationAuthorization": "NONE",
+  "basis": {
+    "v114d1Run": "corporate-action-v1-14d-1-raw-nse-identity-source_20260819_015801_079",
+    "v114d1Status": "SOURCE_VERIFICATION_COMPLETE",
+    "v114d1ReportSha256": {
+      "v1-14d-1-raw-nse-identity-chain-verification.csv": "8da7d601bf4b0bc3f92aa273ba36a64a8bcb6464d719eafde9b2b2bd28bf927c",
+      "v1-14d-1-raw-nse-identity-source-evidence.json": "d5a072eb85d7398556641e82a1a507daf63d82e56882ae663e094293f3ece1b2",
+      "v1-14d-1-raw-nse-identity-source-provenance.json": "aae6e490d15421c37cf2f0fe60084bac0a98f75f46204cbd92ecd2ff5fe016fe",
+      "v1-14d-1-raw-nse-identity-source-summary.json": "d193465a66949580d8b8dce4aa0d0221b3941391195dd2c25cf5150854537a77"
+    },
+    "chainCount": 44,
+    "eventCount": 184,
+    "exactRawMatches": 44,
+    "rawMismatches": 0,
+    "rawMissing": 0,
+    "sourceProvenanceComplete": true,
+    "rawIdentitySource": "E:\\TA Projects\\Corporate Actions Raw\\NSE\\Identity\\SymbolChanges\\nse_identity_symbol_changes.csv",
+    "rawIdentitySourceSha256": "921bd8679e7dff909b12efd152fe64b91a26b124976e919f120a2de1db3221e6",
+    "rawIdentitySourceBytes": 66836,
+    "rawIdentitySchemaMode": "HEADERLESS_NSE_4_COLUMN",
+    "rawIdentityParsedRows": 1030
+  },
+  "lockedDesignDecisions": {
+    "preserveRawCorporateActionImportSymbol": true,
+    "preserveRawCorporateActionImportIsin": true,
+    "recommendedStorage": "DEDICATED_CORPORATE_ACTION_EVENT_IDENTITY_RESOLUTION_TABLE",
+    "doNotUseDecisionLogAsCanonicalResolutionState": true,
+    "firstTrancheResolutionDimension": "EVENT_TIME_SYMBOL_ONLY",
+    "eventIsinMayBeNull": true,
+    "doNotFabricateEventIsinFromSymbolTransition": true,
+    "approvalRemainsSeparate": true,
+    "quickResolveNotImplicit": true,
+    "eventMustPrecedeVerifiedTransition": true,
+    "genericAutoDiscoveryDuringApply": false,
+    "writeTrancheHardBoundToReviewed184": true
+  },
+  "firstWritableTranche": {
+    "authorizedImports": 184,
+    "verifiedChains": 44,
+    "scope": "exact V1.14C API_SYMBOL_NORMALIZED_TO_CURRENT events represented by V1.14D.1 exact source matches",
+    "authorizationMechanism": "future Preview manifest + per-import deterministic resolution fingerprint; not this design artifact"
+  },
+  "explicitExclusions": [
+    "successor/restructure cases",
+    "missing historical-symbol evidence",
+    "ambiguous event-time identity",
+    "rows not in the exact reviewed 184-event authority",
+    "Corporate Action approval",
+    "Quick Resolve as an automatic side effect",
+    "historical ISIN invention or overwrite",
+    "raw import symbol/ISIN rewrite",
+    "raw EOD mutation",
+    "adjustment-factor mutation"
+  ],
+  "designAuthorityFingerprint": "c1d118d3eaa6d4b75c32c3bfa5ed9e538fa2d25e0a84436957c708a8da181c6b"
+}

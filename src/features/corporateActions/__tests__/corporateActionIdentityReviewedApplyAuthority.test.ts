@@ -1,0 +1,123 @@
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
+import { describe, expect, it } from 'vitest';
+
+const DATABASE_TOOLS_PATH = resolve(process.cwd(), 'src/components/DatabaseToolsDialogs.tsx');
+const DESKTOP_TYPES_PATH = resolve(process.cwd(), 'src/types/desktop.ts');
+const TAURI_DESKTOP_PATH = resolve(process.cwd(), 'src/platform/tauriDesktop.ts');
+const DATABASE_RS_PATH = resolve(process.cwd(), 'src-tauri-shell/src/database.rs');
+const NSE_BACKEND_PATH = resolve(process.cwd(), 'src-tauri-shell/src/database/nse_identity_imports.rs');
+
+function read(path: string): string {
+  return readFileSync(path, 'utf8');
+}
+
+function sliceBetween(source: string, startMarker: string, endMarker: string): string {
+  const start = source.indexOf(startMarker);
+  expect(start, `Missing start marker: ${startMarker}`).toBeGreaterThanOrEqual(0);
+  const end = source.indexOf(endMarker, start + startMarker.length);
+  expect(end, `Missing end marker after ${startMarker}: ${endMarker}`).toBeGreaterThan(start);
+  return source.slice(start, end);
+}
+
+describe('Identity I3 NSE reviewed-preview apply authority', () => {
+  it('requires an apply-specific expected plan SHA and returns the preview plan SHA', () => {
+    const desktopTypes = read(DESKTOP_TYPES_PATH);
+    const databaseRs = read(DATABASE_RS_PATH);
+    const tauriDesktop = read(TAURI_DESKTOP_PATH);
+
+    expect(desktopTypes).toContain('export interface NseCurrentUniverseApplyInput extends NseCurrentUniverseSyncInput');
+    expect(desktopTypes).toContain('expectedPlanSha256: string');
+    expect(desktopTypes).toContain('planSha256: string');
+    expect(desktopTypes).toContain(
+      'applyNseCurrentUniverseSync(input: NseCurrentUniverseApplyInput): Promise<NseCurrentUniverseSyncResult>',
+    );
+
+    expect(databaseRs).toContain('pub struct NseCurrentUniverseApplyInput');
+    expect(databaseRs).toContain('pub expected_plan_sha256: String');
+    expect(databaseRs).toContain('pub plan_sha256: String');
+
+    expect(tauriDesktop).toContain("tauriInvoke('apply_nse_current_universe_sync', { input })");
+  });
+
+  it('fingerprints the backend plan and rejects stale reviewed apply before the write helper', () => {
+    const backend = read(NSE_BACKEND_PATH);
+    const reviewedApply = sliceBetween(
+      backend,
+      'fn apply_nse_current_universe_sync_reviewed_internal(',
+      'fn normalize_archive_root',
+    );
+
+    expect(backend).toContain('NSE_CURRENT_UNIVERSE_SYNC_PLAN_V1');
+    expect(backend).toContain('NSE reviewed preview is stale because the source or database state changed. Preview again before applying.');
+    expect(backend).toContain('fn nse_current_universe_plan_sha256(');
+    expect(backend).toContain('fn normalize_expected_nse_plan_sha256(');
+
+    const compareIndex = reviewedApply.indexOf('if expected != plan_sha256');
+    const writeIndex = reviewedApply.indexOf('apply_nse_current_universe_sync_plan(connection, &plan)?');
+    expect(compareIndex).toBeGreaterThanOrEqual(0);
+    expect(writeIndex).toBeGreaterThan(compareIndex);
+  });
+
+  it('stores reviewed NSE authority and sends its SHA only when the current context still matches', () => {
+    const source = read(DATABASE_TOOLS_PATH);
+    const preview = sliceBetween(source, 'const previewCurrentUniverseSync = async', 'const refreshNseIdentitySources');
+    const apply = sliceBetween(source, 'const applyCurrentUniverseSync = async', 'const downloadBseCurrentUniverseMaster');
+    const readiness = sliceBetween(source, 'const identitySelectedSourceReady', 'const identitySelectedPreview');
+
+    expect(source).toContain('type NseReviewedApplyAuthority = {');
+    expect(source).toContain('nseReviewedApplyAuthority');
+    expect(preview).toContain('setNseReviewedApplyAuthority(null)');
+    expect(preview).toContain('planSha256: result.planSha256');
+    expect(preview).toContain('activeDatabasePath: previewDatabasePath');
+
+    expect(apply).toContain("Preview the current NSE changes again before applying.");
+    expect(apply).toContain('expectedPlanSha256: reviewedAuthority.planSha256');
+    expect(apply).toContain('setNseReviewedApplyAuthority(null)');
+
+    expect(readiness).toContain('const nseReviewedApplyReady = Boolean(');
+    expect(readiness).toContain('currentUniverseSyncResult.planSha256');
+    expect(readiness).toContain('nseReviewedApplyAuthority.activeDatabasePath === activeDatabasePath');
+    expect(readiness).toContain("identityExchange === 'NSE' ? nseReviewedApplyReady : identitySelectedSourceReady");
+  });
+
+  it('invalidates NSE reviewed authority on every approved context transition', () => {
+    const source = read(DATABASE_TOOLS_PATH);
+    const exchange = sliceBetween(source, 'const selectIdentityExchange', 'const selectIdentitySourceMode');
+    const sourceMode = sliceBetween(source, 'const selectIdentitySourceMode', 'const browseNseIdentityArchiveRoot');
+    const browse = sliceBetween(source, 'const browseNseIdentityArchiveRoot', 'const browseBseMasterFile');
+    const refresh = sliceBetween(source, 'const refreshNseIdentitySources', 'const updateOfficialSourceUrl');
+    const historical = sliceBetween(source, 'const previewNseHistoricalIdentityArchive', 'const previewCurrentUniverseSync');
+    const identity = sliceBetween(source, 'const renderIdentityTab = () => (', 'const renderImportsTab');
+
+    const databaseChangeEffect = sliceBetween(
+      source,
+      'setLastSuccessfulOfficialFetch(readCorporateActionNormalLastFetch(activeDatabasePath));',
+      'registerWindow({',
+    );
+    expect(databaseChangeEffect).toContain('setNseReviewedApplyAuthority(null)');
+    expect(databaseChangeEffect).toContain('[activeDatabasePath]');
+    expect(exchange).toContain('setNseReviewedApplyAuthority(null)');
+    expect(sourceMode).toContain('setNseReviewedApplyAuthority(null)');
+    expect(browse).toContain('setNseReviewedApplyAuthority(null)');
+    expect(refresh).toContain('setNseReviewedApplyAuthority(null)');
+    expect(historical).toContain('setNseReviewedApplyAuthority(null)');
+
+    const manualNseStart = identity.indexOf('value={identityArchiveRoot}');
+    const manualNseEnd = identity.indexOf('placeholder="E:\\TA Projects\\Corporate Actions Raw"', manualNseStart);
+    expect(manualNseStart).toBeGreaterThanOrEqual(0);
+    expect(manualNseEnd).toBeGreaterThan(manualNseStart);
+    expect(identity.slice(manualNseStart, manualNseEnd)).toContain('setNseReviewedApplyAuthority(null)');
+
+    expect(identity).toContain('disabled={busy || !hasDatabase || !identitySelectedApplyReady}');
+  });
+
+  it('preserves the BSE apply dispatcher while changing NSE acceptance only', () => {
+    const source = read(DATABASE_TOOLS_PATH);
+    const dispatch = sliceBetween(source, 'const applySelectedIdentitySource = async () => {', 'const loadOfficialImports');
+
+    expect(dispatch).toContain('await applyCurrentUniverseSync(identityArchiveRoot)');
+    expect(dispatch).toContain('await applyCurrentUniverseSync()');
+    expect(dispatch).toContain('await applyBseCurrentUniverseSync()');
+  });
+});
