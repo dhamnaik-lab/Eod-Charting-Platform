@@ -127,7 +127,26 @@ Authoritative V2-P0 documents:
 - `docs/architecture/EOD2_PRICE_STREAM_STORAGE_SPEC_R1.md`
 - `docs/architecture/SECURITY_IDENTITY_V2_MIGRATION_AND_COMPATIBILITY_R1.md`
 - `docs/plans/SECURITY_LISTING_PRICE_STREAM_V2_IMPLEMENTATION_PLAN_R1.md`
-- `docs/architecture/decisions/ADR-001-security-listing-price-stream-identity.md` through `ADR-006-corporate-action-security-boundary.md`
+- `docs/architecture/decisions/ADR-001-security-listing-price-stream-identity.md` through `docs/architecture/decisions/ADR-006-corporate-action-security-boundary.md`
 
 Evidence binding: 2026-09-06 source snapshot SHA-256 `1E45A2F8CF8D0C69ABA1E4813B46018EA57ED72A8D9F0191DAA1F0F2056539A0`; R2 evidence ZIP SHA-256 `0992F1DDBA3CA33181FB916020D1738761AB5000D127DD037A8A3AF96E557DF5`; R3 evidence ZIP SHA-256 `403E75701DA18EBB662E8D600192F83EF7019E12BE1F59F512E8ADFC176548E4`.
 <!-- V2-P0-SECURITY-LISTING-PRICE-STREAM:END -->
+
+<!-- CA-R1A-2026-09-24:BEGIN -->
+## Corporate Action Reconciliation R1-A
+
+| Capability | Status | Boundary |
+|---|---|---|
+| Backend reconciliation preflight | **CLOSED / CURRENT** | Read-only diagnostic/preflight owner |
+| Reconciliation panel | **CLOSED / CURRENT** | Diagnostic selection independent of approval checkboxes |
+| CSV export | **CLOSED / CURRENT** | Reconciliation-table export only |
+| Tab-separated TXT export | **CLOSED / CURRENT** | Reconciliation-table export only |
+| 112-row accounting | **112/112 PASS** | 10 repair candidates / 43 classification review / 59 evidence blocked |
+| R1-A repair execution | **0 / NOT AUTHORIZED** | Proposal only |
+| R1-A CA approval writes | **0 / NOT AUTHORIZED** | Existing approval authority preserved |
+| Database completeness | **false** | Historical coverage NOT_ASSESSED |
+| R1-B deterministic repair/TDD | **NOT STARTED** | First class: date-valid historical-symbol reconciliation |
+| R1-C controlled TEST-DB apply | **NOT STARTED** | Separately gated after R1-B |
+
+Authority: `docs/superpowers/specs/2026-09-24-corporate-action-reconciliation-r1a-current-authority.md`.
+<!-- CA-R1A-2026-09-24:END -->

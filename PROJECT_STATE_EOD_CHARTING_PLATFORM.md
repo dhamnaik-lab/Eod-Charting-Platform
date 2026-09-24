@@ -3586,3 +3586,21 @@ Authoritative V2-P0 documents:
 
 Evidence binding: 2026-09-06 source snapshot SHA-256 `1E45A2F8CF8D0C69ABA1E4813B46018EA57ED72A8D9F0191DAA1F0F2056539A0`; R2 evidence ZIP SHA-256 `0992F1DDBA3CA33181FB916020D1738761AB5000D127DD037A8A3AF96E557DF5`; R3 evidence ZIP SHA-256 `403E75701DA18EBB662E8D600192F83EF7019E12BE1F59F512E8ADFC176548E4`.
 <!-- V2-P0-SECURITY-LISTING-PRICE-STREAM:END -->
+
+<!-- CA-R1A-2026-09-24:BEGIN -->
+## Corporate Actions — R1-A reconciliation current state (24 September 2026)
+
+- R1-A source implementation and copy-local real-cohort acceptance are **CLOSED / CURRENT**.
+- Accepted evidence SHA-256: `E730F28CCD592FA0FB2A4A32118EA1A150B83E35E9188B9B415A3FC02443B2DA`.
+- Fresh Snapshot V3 authority: `Eod Charting Platform Source Code 2026-09-24_201002_IST.zip`, SHA-256 `B4C3E9AB71B79B2E3F9B0A703E43EF68F56B0DC89B655244BBC606634AF03719`.
+- Live source inventory: **569**; protected source: **563**.
+- R1-A added the backend read-only reconciliation preflight, diagnostic panel integration, CSV export and tab-separated TXT export.
+- Current 112-row result: `REPAIR_CANDIDATE=10`, `CLASSIFICATION_REVIEW=43`, `EVIDENCE_BLOCKED=59`.
+- `databaseComplete=false`; historical `coverageCertification=NOT_ASSESSED`.
+- R1-A executed **0 repairs** and **0 approvals**.
+- Existing Auto-Approval Safe V1, manual approval, `PENDING_ISIN_MISMATCH`, AUTO-ID1, 20MICRONS, duplicate protection and raw-price adjustment-on-read remain preserved.
+- R1-B deterministic repair/TDD is **NOT STARTED**.
+- R1-C controlled TEST-DB apply/portable acceptance is **NOT STARTED**.
+
+Current authority document: `docs/superpowers/specs/2026-09-24-corporate-action-reconciliation-r1a-current-authority.md`.
+<!-- CA-R1A-2026-09-24:END -->

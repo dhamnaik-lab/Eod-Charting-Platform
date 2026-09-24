@@ -248,6 +248,9 @@ export function getTauriDesktopApi(): DesktopApi | null {
     listCorporateActionEventIdentities: async (input) => {
       return tauriInvoke('list_corporate_action_event_identities', { input });
     },
+    previewSplitBonusReconciliation: async (input) => {
+      return tauriInvoke('preview_split_bonus_reconciliation', { input });
+    },
     previewCorporateActionRepairs: async (input) => {
       return tauriInvoke('preview_corporate_action_repairs', { input });
     },

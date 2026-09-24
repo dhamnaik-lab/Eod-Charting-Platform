@@ -288,7 +288,7 @@ pub(super) fn list_repair_preview_evidence(
     Ok(rows)
 }
 
-fn grade_repair_preview_evidence(
+pub(super) fn grade_repair_preview_evidence(
     source_identity: &CorporateActionRepairSourceIdentity,
     evidence: &[CorporateActionRepairEvidenceRecord],
 ) -> String {

@@ -847,3 +847,32 @@ fn get_or_load_cached_db_stats(app: &AppHandle, folder_path: &Path) -> AppResult
 
     Ok(Some(stats))
 }
+
+// R1-A: no registry read/repair, connection initialization or cache mutation.
+pub(crate) fn peek_active_database_folder_read_only(app: &AppHandle) -> AppResult<Option<PathBuf>> {
+    let Some(state) = app.try_state::<ActiveDatabaseConnectionState>() else { return Ok(None); };
+    peek_cached_folder_only(&state)
+}
+
+fn peek_cached_folder_only(state: &ActiveDatabaseConnectionState) -> AppResult<Option<PathBuf>> {
+    let cached = state.cached.lock().map_err(|_| "Cached database context lock is poisoned.".to_string())?;
+    Ok(cached.as_ref().map(|entry| entry.folder_path.clone()))
+}
+
+#[cfg(test)]
+mod r1a_context_tests {
+    use super::*;
+    #[test]
+    fn r1a_context_peek_never_initializes_or_repairs_registry() {
+        let state = ActiveDatabaseConnectionState::new();
+        assert!(peek_cached_folder_only(&state).unwrap().is_none());
+        assert!(state.cached.lock().unwrap().is_none());
+    }
+    #[test]
+    fn r1a_context_peek_preserves_cached_connection_and_folder() {
+        let connection = Connection::open_in_memory().unwrap();
+        let state = ActiveDatabaseConnectionState { cached: Mutex::new(Some(CachedDatabaseConnection { folder_path: PathBuf::from("E:/TEST"), connection, db_stats_cache: None })) };
+        assert_eq!(peek_cached_folder_only(&state).unwrap(),Some(PathBuf::from("E:/TEST")));
+        assert!(state.cached.lock().unwrap().as_ref().unwrap().connection.is_autocommit());
+    }
+}

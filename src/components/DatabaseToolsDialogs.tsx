@@ -1,3 +1,4 @@
+import { CorporateActionReconciliationPanel } from '@/features/corporateActions/reconciliation/CorporateActionReconciliationPanel';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   getDesktopApi,
@@ -1429,6 +1430,7 @@ function CorporateActionDialog({
 }) {
   const api = getDesktopApi();
   const CORPORATE_ACTIONS_WINDOW_ID = 'corporate-actions';
+  const [reconciliationOpen, setReconciliationOpen] = useState(false);
 
   const registerWindow = useWindowStore((state) => state.registerWindow);
   const openWindow = useWindowStore((state) => state.openWindow);
@@ -5620,6 +5622,20 @@ function CorporateActionDialog({
           Historical Backfill
         </button>
       </div>
+      {activeOfficialImportSection === 'review' ? (
+        <div style={{ padding: '4px 0' }}>
+          <button type="button" style={modalButtonStyle} disabled={busy || !hasDatabase} onClick={() => setReconciliationOpen(true)}>
+            Reconciliation preview / Export CSV-TXT
+          </button>
+          {reconciliationOpen && api ? <CorporateActionReconciliationPanel
+            api={api} databasePath={activeDatabasePath}
+            importIds={visibleImportRows.map((row) => row.id)}
+            generation={officialPreparationGenerationRef.current}
+            scopeRevision={importRows}
+            onClose={() => setReconciliationOpen(false)}
+          /> : null}
+        </div>
+      ) : null}
       {activeOfficialImportSection === 'review' && officialTaskProgress && !compactPendingReview ? (
         <OfficialImportTaskStatus progress={officialTaskProgress} canCancel={officialCanCancelPreparation}
           onCancel={() => { officialCancelPreparationRef.current = true; setOfficialCanCancelPreparation(false); }} />

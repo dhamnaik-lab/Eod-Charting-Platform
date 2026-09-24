@@ -51,7 +51,7 @@ Authoritative V2-P0 documents:
 - `docs/architecture/EOD2_PRICE_STREAM_STORAGE_SPEC_R1.md`
 - `docs/architecture/SECURITY_IDENTITY_V2_MIGRATION_AND_COMPATIBILITY_R1.md`
 - `docs/plans/SECURITY_LISTING_PRICE_STREAM_V2_IMPLEMENTATION_PLAN_R1.md`
-- `docs/architecture/decisions/ADR-001-security-listing-price-stream-identity.md` through `ADR-006-corporate-action-security-boundary.md`
+- `docs/architecture/decisions/ADR-001-security-listing-price-stream-identity.md` through `docs/architecture/decisions/ADR-006-corporate-action-security-boundary.md`
 
 Evidence binding: 2026-09-06 source snapshot SHA-256 `1E45A2F8CF8D0C69ABA1E4813B46018EA57ED72A8D9F0191DAA1F0F2056539A0`; R2 evidence ZIP SHA-256 `0992F1DDBA3CA33181FB916020D1738761AB5000D127DD037A8A3AF96E557DF5`; R3 evidence ZIP SHA-256 `403E75701DA18EBB662E8D600192F83EF7019E12BE1F59F512E8ADFC176548E4`.
 <!-- V2-P0-SECURITY-LISTING-PRICE-STREAM:END -->
@@ -96,7 +96,7 @@ Read `docs\CURRENT_WORK_STATUS.md` for exact evidence, parent-baseline questions
 
 ### Current blocker
 
-Latest operator: `V1.14AD-Controlled-CA-Staging-Preflight-R1A-R2.ps1`  
+Latest external operator (not retained in the clean source tree): V1.14AD-Controlled-CA-Staging-Preflight-R1A-R2.ps1
 SHA-256: `F30C8E8755B4FCE31DDCF000B368EA8E14E938D601E2AF96FC046CF270703CAD`
 
 The R1A-R2 run reached strict staged-whitespace GREEN and raw-stage verification logic, then failed at the final helper result emission:
@@ -447,3 +447,24 @@ The authorized six-row V1.13B-1 historical-ISIN repair is closed at `FULL_SUCCES
 Start a new read-only classification/design phase for the eight protected imports only. Do not reuse or rerun the closed six-row Apply. Keep successor/restructure cases separate from stale-association cases and from missing historical-symbol evidence.
 <!-- V1.13-FINAL-CLOSEOUT:END -->
 
+
+<!-- CA-R1A-2026-09-24:BEGIN -->
+## Corporate Actions — Reconciliation R1-A current handoff (24 September 2026)
+
+Current authority: `docs/superpowers/specs/2026-09-24-corporate-action-reconciliation-r1a-current-authority.md`.
+
+- Fresh source snapshot: `Eod Charting Platform Source Code 2026-09-24_201002_IST.zip`
+- Snapshot SHA-256: `B4C3E9AB71B79B2E3F9B0A703E43EF68F56B0DC89B655244BBC606634AF03719`
+- Accepted live source: **569**
+- Protected source: **563**
+- R1-A source + copy-local acceptance: **CLOSED / CURRENT**
+- 112-row accounting: **112/112**
+- R1-A repair writes: **0**
+- R1-A CA approvals: **0**
+- R1-B deterministic repairs/TDD: **NOT STARTED**
+- R1-C controlled TEST-DB apply/portable acceptance: **NOT STARTED**
+
+Exact next bounded task: R1-B date-valid historical-symbol evidence reconciliation, beginning with imports 819, 19896 and 22888 as fixtures for one general evidence-backed rule. Do not hard-code symbol exceptions and do not broaden into price-data/no-active-candidate repair classes in the first slice.
+
+Read next: `docs/superpowers/specs/2026-09-24-corporate-action-new-chat-handoff-after-r1a.md`.
+<!-- CA-R1A-2026-09-24:END -->

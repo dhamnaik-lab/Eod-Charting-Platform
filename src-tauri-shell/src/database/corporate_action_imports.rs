@@ -8,6 +8,8 @@ mod five_pair_consolidation_apply;
 mod historical_isin_bootstrap;
 mod historical_isin_transition;
 mod repair_preview;
+mod reconciliation_preflight;
+pub use reconciliation_preflight::{CorporateActionReconciliationPreflightInput, CorporateActionReconciliationPreflightResult, CorporateActionReconciliationPreflightRow, CorporateActionReconciliationBlocker};
 
 use chrono::{Duration as ChronoDuration, NaiveDate};
 use reqwest::blocking::Client;
@@ -13971,4 +13973,13 @@ mod tests {
         assert!(verify_import_lookup_database(active.path(),"").is_err());
     }
 
+}
+
+// R1-A command wrapper only: the dedicated coordinator owns its read transaction.
+#[tauri::command]
+pub async fn preview_split_bonus_reconciliation(
+    app: AppHandle,
+    input: CorporateActionReconciliationPreflightInput,
+) -> AppResult<CorporateActionReconciliationPreflightResult> {
+    reconciliation_preflight::preview_split_bonus_reconciliation_internal(app, input).await
 }

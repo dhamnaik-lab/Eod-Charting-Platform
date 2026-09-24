@@ -1157,6 +1157,7 @@ fn main() {
             get_corporate_action_imports_by_ids,
             list_corporate_action_event_identities,
             preview_corporate_action_repairs,
+            preview_split_bonus_reconciliation,
             approve_corporate_action_import,
             approve_corporate_action_import_with_isin_mismatch,
             approve_corporate_action_import_with_price_validation_exception,

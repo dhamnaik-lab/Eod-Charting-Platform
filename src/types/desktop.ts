@@ -1821,6 +1821,7 @@ export interface DesktopBridgeApi {
   listCorporateActionEventIdentities(
     input: CorporateActionEventIdentityListInput,
   ): Promise<CorporateActionEventIdentityListResult>;
+  previewSplitBonusReconciliation(input: CorporateActionReconciliationPreflightInput): Promise<CorporateActionReconciliationPreflightResult>;
   previewCorporateActionRepairs(
     input: CorporateActionRepairPreviewInput,
   ): Promise<CorporateActionRepairPreviewResult>;
@@ -1916,4 +1917,172 @@ declare global {
   interface Window {
     __EOD_CHART_TEST__?: EodChartTestBridge;
   }
+}
+
+// R1-A read-only diagnostic contract. No mutation authority.
+export interface CorporateActionReconciliationPreflightInput {
+  importIds: number[];
+  expectedDatabasePath: string;
+  requestToken: string;
+}
+
+export type R1ACheckState = 'PASS' | 'BLOCKED' | 'NOT_EVALUATED' | 'ERROR';
+export type R1AOutcome =
+  | 'ALREADY_LINKED_REVIEW'
+  | 'READY_FOR_EXISTING_APPROVAL_RECHECK'
+  | 'REPAIR_CANDIDATE'
+  | 'EVIDENCE_BLOCKED'
+  | 'DEFERRED_SCOPE'
+  | 'CLASSIFICATION_REVIEW'
+  | 'MISSING_IMPORT'
+  | 'PREPARATION_ERROR';
+
+export interface R1AEvidenceReference {
+  owner: string;               // Existing module/function owner, not a permission.
+  kind: string;                // E.g. IMPORT, ISIN_HISTORY, EVENT_IDENTITY, SCAN.
+  recordId: number | null;
+  fingerprint: string | null;
+}
+
+export interface CorporateActionReconciliationBlocker {
+  code: string;                // One of the Design R1 section 8 codes.
+  stage: 'REQUEST' | 'SCOPE' | 'IDENTITY' | 'TERMS' | 'CANONICAL' | 'PRICE' | 'POLICY';
+  severity: 'BLOCKING' | 'WARNING' | 'INFORMATION';
+  message: string;
+  evidence: R1AEvidenceReference[];
+  nextOperation: string;       // Descriptive owner operation; never executed here.
+  retryableReadOnly: boolean;
+}
+
+export interface R1ACandidate {
+  symbol: string;
+  exchange: string;
+  isin: string | null;
+  isActive: boolean;
+  evidence: R1AEvidenceReference[];
+}
+
+export interface R1ARepairPlanItem {
+  operation: string;
+  owner: string;
+  availability:
+    | 'EXISTING_OWNER_REQUIRES_SEPARATE_EXECUTION'
+    | 'CANDIDATE_REQUIRES_R1B_PROOF'
+    | 'NEEDS_EXTERNAL_EVIDENCE'
+    | 'NEEDS_SEPARATE_DATA_REPAIR'
+    | 'NO_SAFE_REPAIR_ESTABLISHED';
+  prerequisites: string[];
+  evidence: R1AEvidenceReference[];
+  executed: false;
+}
+
+export interface CorporateActionReconciliationPreflightRow {
+  importId: number;
+  exists: boolean;
+  exchange: string | null;
+  symbol: string | null;
+  actionType: string | null;
+  exDate: string | null;
+  recordDate: string | null;
+  purposeRaw: string | null;
+  rowFingerprint: string;      // Missing-row sentinel also has a deterministic digest.
+  storedState: {
+    reviewStatus: string | null;
+    parseStatus: string | null;
+    approvedCorporateActionId: number | null;
+  };
+  identity: {
+    rawSymbol: string | null;
+    rawIsin: string | null;
+    eventSymbol: string | null;
+    eventIsin: string | null;
+    candidates: R1ACandidate[];
+    proofState: R1ACheckState;
+    proofOwner: string | null;
+    proofDescription: string | null;
+    evidence: R1AEvidenceReference[];
+  };
+  classification: {
+    state: 'ORDINARY_SPLIT' | 'ORDINARY_BONUS' | 'SUPPORTED_COMPOUND_REVIEW'
+      | 'OTHER_SECURITY_REVIEW' | 'CONFLICT' | 'UNPARSED' | 'OUTSIDE_REQUEST_SCOPE';
+    storedShareFactor: number | null;
+    proposedShareFactor: number | null;
+    proposedPriceFactor: number | null;
+    proposalOnly: true;
+  };
+  canonical: {
+    state: 'NONE' | 'CANDIDATE_ONLY' | 'OWNER_MATCH_REQUIRES_RECHECK'
+      | 'MULTIPLE_OR_CONFLICTING' | 'LINKED_RECORD_PRESENT';
+    linkedId: number | null;
+    ownerMatchCandidateId: number | null;
+    candidateIds: number[];
+    evidence: R1AEvidenceReference[];
+  };
+  price: {
+    scanId: number | null;
+    scanRunId: number | null;
+    scannedAt: string | null;
+    scanStatus: string | null;
+    confidence: number | null;
+    expectedFactor: number | null;
+    previousTradeDate: string | null;
+    exTradeDate: string | null;
+    previousClose: number | null;
+    exOpen: number | null;
+    exClose: number | null;
+    rowFingerprintCheck: R1ACheckState;
+    compoundFingerprintCheck: R1ACheckState;
+    rawPriceRevalidation: 'NOT_RUN'; // V1 has no new price scan execution path.
+  };
+  ordinaryReadiness: {
+    state: 'READY_FOR_WRITER_RECHECK' | 'BLOCKED' | 'ALREADY_LINKED' | 'NOT_EVALUATED' | 'ERROR';
+    message: string;
+  };
+  safeV1: {
+    policyVersion: 'AUTO_APPROVAL_SAFE_V1';
+    state: 'ELIGIBLE_AT_READ_SNAPSHOT' | 'INELIGIBLE' | 'ALREADY_APPROVED' | 'NOT_EVALUATED' | 'ERROR';
+    reason: string | null;
+    evidence: R1AEvidenceReference[];
+  };
+  blockers: CorporateActionReconciliationBlocker[];
+  repairPlan: R1ARepairPlanItem[];
+  outcome: R1AOutcome;
+  blocksInScopeCompleteness: boolean | null;
+}
+
+export interface CorporateActionReconciliationPreflightResult {
+  version: 'CA_RECONCILIATION_PREFLIGHT_V1';
+  status: 'COMPLETE' | 'PARTIAL' | 'REJECTED';
+  requestToken: string;
+  generatedAt: string;           // ISO-8601 with timezone.
+  databaseContext: {
+    canonicalDatabasePath: string;
+    databaseFileIdentity: string;
+    schemaFingerprint: string;
+    readContext: 'CONSISTENT_READ_TRANSACTION' | 'REJECTED_BEFORE_READ';
+    selectionSource: 'EXISTING_CACHED_ACTIVE_FOLDER';
+    buildIdentity: string;
+  } | null;
+  selection: {
+    requestedCount: number;
+    uniqueCount: number;
+    duplicateCount: number;
+    uniqueImportIds: number[];
+    idSetFingerprint: string | null;
+  };
+  fingerprint: string | null;
+  readOnly: true;
+  executedRepairs: 0;
+  approvalWrites: 0;
+  rows: CorporateActionReconciliationPreflightRow[];
+  globalBlockers: CorporateActionReconciliationBlocker[];
+  summary: {
+    accountedFor: number;
+    outcomeCounts: Record<R1AOutcome, number>;
+    inScopeBlockedRows: number;
+    applicabilityUnknownRows: number;
+    deferredRows: number;
+    coverageCertification: 'NOT_ASSESSED';
+    databaseComplete: false;
+  };
 }

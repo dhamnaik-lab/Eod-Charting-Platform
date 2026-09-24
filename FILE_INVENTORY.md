@@ -403,4 +403,29 @@ V1.12.1 is a read-only closeout and authorizes no write by itself. V1.13 remains
 
 ### Snapshot note
 
-The August 22 snapshot baseline was 721 files. This plugin adds **5 new files** to `src/plugins/analysis/gannPriceTime/`. The next clean source snapshot is expected to contain **≥726 files** (721 base + 1 CA closeout record + 1 Gann changes report + 5 Gann source files = 728, absent other changes). The `docs/changes/` count also increases by 1 (`2026-09-14_0112_IST_GANN_PRICE_TIME_PLUGIN_IMPLEMENTATION.md`).
+The August 22 snapshot baseline was 721 files. This plugin adds **5 new files** to `src/plugins/analysis/gannPriceTime/`. The next clean source snapshot is expected to contain **≥726 files** (721 base + 1 CA closeout record + 1 Gann changes report + 5 Gann source files = 728, absent other changes). The `docs/changes/` count also increases by 1 (`docs/changes/2026-09-14_0112_IST_GANN_PRICE_TIME_PLUGIN_IMPLEMENTATION.md`).
+
+<!-- CA-R1A-2026-09-24:BEGIN -->
+## 29. Corporate Action Reconciliation R1-A source files (24 September 2026)
+
+Accepted live `src + src-tauri-shell` inventory: **569**. Protected source authority: **563**.
+
+### Added by R1-A
+
+| Path | Role |
+|---|---|
+| `src-tauri-shell/src/database/corporate_action_imports/reconciliation_preflight.rs` | Backend read-only reconciliation preflight |
+| `src-tauri-shell/src/database/corporate_action_imports/reconciliation_preflight/tests.rs` | R1-A Rust preflight/copy-local contract tests |
+| `src/features/corporateActions/reconciliation/CorporateActionReconciliationPanel.tsx` | Thin reconciliation diagnostic panel |
+| `src/features/corporateActions/reconciliation/corporateActionReconciliationPreflight.ts` | Renderer-side preflight adapter/model |
+| `src/features/corporateActions/reconciliation/corporateActionReconciliationExport.ts` | CSV + tab-separated TXT reconciliation export |
+| `src/features/corporateActions/__tests__/corporateActionReconciliationPreflight.test.ts` | Renderer preflight tests |
+| `src/features/corporateActions/__tests__/corporateActionReconciliationPanel.test.tsx` | Panel behavior tests |
+| `src/features/corporateActions/__tests__/corporateActionReconciliationExport.test.ts` | Export tests |
+
+### Modified integration owners
+
+`src-tauri-shell/src/database.rs`, `src-tauri-shell/src/database/connection_registry.rs`, `src-tauri-shell/src/database/corporate_action_imports.rs`, `src-tauri-shell/src/database/corporate_action_imports/repair_preview.rs`, `src-tauri-shell/src/main.rs`, `src/components/DatabaseToolsDialogs.tsx`, `src/platform/tauriDesktop.ts`, `src/platform/types.ts`, and `src/types/desktop.ts`.
+
+Current authority: `docs/superpowers/specs/2026-09-24-corporate-action-reconciliation-r1a-current-authority.md`.
+<!-- CA-R1A-2026-09-24:END -->

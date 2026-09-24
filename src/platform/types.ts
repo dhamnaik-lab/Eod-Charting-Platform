@@ -1,6 +1,9 @@
 import type { AppInfo, DesktopBridgeApi } from '@/types/desktop';
 
 export type {
+  CorporateActionReconciliationPreflightInput, CorporateActionReconciliationPreflightResult,
+  CorporateActionReconciliationPreflightRow, CorporateActionReconciliationBlocker,
+  R1ACheckState, R1AOutcome, R1AEvidenceReference, R1ACandidate, R1ARepairPlanItem,
   AppInfo,
   AppProfileSettingsPayload,
   AppProfileSettingsSaveInput,
@@ -289,6 +292,7 @@ export type DesktopApi = Pick<
   | 'getCorporateActionImportsByIds'
   | 'listCorporateActionEventIdentities'
   | 'previewCorporateActionRepairs'
+  | 'previewSplitBonusReconciliation'
   | 'approveCorporateActionImport'
   | 'approveCorporateActionImportWithIsinMismatch'
   | 'approveCorporateActionImportWithPriceValidationException'
