@@ -1,5 +1,5 @@
 import { format, parseISO } from 'date-fns';
-import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import type { InstrumentKey, InstrumentSummary } from '@/platform';
 import { getDesktopApi } from '@/platform';
 import { ChartEngine, computeChartLayout, PRICE_AXIS_HEADER_HEIGHT, SHARED_AXIS_WIDTH } from '@/engine/ChartEngine';
@@ -60,6 +60,7 @@ import {
 } from '@/features/charts/chartScreenshotService';
 import { drawScreenshotPriceLegend } from '@/features/charts/chartScreenshotLegendRenderer';
 import { DEFAULT_CHART_VALUE_LABEL_SETTINGS } from '@/engine/valueLabelSettings';
+import { useChartDisplaySync } from '@/features/charts/useChartDisplaySync';
 import { ChartContextMenu, type ChartContextMenuState } from './ChartContextMenu';
 import { ChartSettingsDialog } from './ChartSettingsDialog';
 import { ChartSettingsMenu, resolveChartSettingsMenuWidth } from './ChartSettingsMenu';
@@ -151,6 +152,7 @@ export function ChartCanvas({
   const handledScreenshotRequestRef = useRef(
     useUiStore.getState().chartScreenshotRequest?.requestCount ?? 0,
   );
+  const latestHoverBarDateRef = useRef<string | null>(null);
   const [gannPluginEnabled, setGannPluginEnabled] = useState(false);
   const setHoverBar = useChartStore((state) => state.setHoverBar);
   const syncViewport = useChartStore((state) => state.syncViewport);
@@ -165,6 +167,7 @@ export function ChartCanvas({
   const activeDrawingTool = useUiStore((state) => state.activeDrawingTool);
   const magnetEnabled = useUiStore((state) => state.magnetEnabled);
   const currentTheme = useUiStore((state) => state.currentTheme);
+  const customChartColors = useUiStore((state) => state.customChartColors);
   const chartScreenshotRequest = useUiStore((state) => state.chartScreenshotRequest);
   const setDrawingTool = useUiStore((state) => state.setDrawingTool);
   const selectDrawing = useChartStore((state) => state.selectDrawing);
@@ -281,6 +284,10 @@ export function ChartCanvas({
   const visualSettings = useMemo(
     () => normalizeChartVisualSettings(tabVisualSettings ?? DEFAULT_CHART_VISUAL_SETTINGS),
     [tabVisualSettings],
+  );
+  const chartTheme = useMemo(
+    () => getChartTheme(currentTheme, customChartColors ?? undefined),
+    [currentTheme, customChartColors],
   );
   const paneIndicators = useMemo(
     () => overlays.filter((indicator) => indicator.placement === 'pane'),
@@ -780,7 +787,7 @@ export function ChartCanvas({
       timeframe,
       chartType,
       leftAxisWidth: showLeftAxis ? SHARED_AXIS_WIDTH : 0,
-      theme: getChartTheme(currentTheme),
+      theme: chartTheme,
       visualSettings,
     });
     engineRef.current = engine;
@@ -793,7 +800,12 @@ export function ChartCanvas({
             ? event.crosshair.barIndex
             : null;
         setLegendBarIndex((current) => (current === nextLegendBarIndex ? current : nextLegendBarIndex));
-        setHoverBar(event.crosshair?.bar ?? null);
+        const nextHoverBar = event.crosshair?.visible ? event.crosshair.bar ?? null : null;
+        const nextDate = nextHoverBar?.date ?? null;
+        if (latestHoverBarDateRef.current !== nextDate) {
+          latestHoverBarDateRef.current = nextDate;
+          setHoverBar(nextHoverBar);
+        }
         if (event.crosshair?.visible && event.crosshair.bar?.date) {
           if (useUiStore.getState().crosshairSyncEnabled) {
             setSyncedCrosshairDate(event.crosshair.bar.date);
@@ -871,16 +883,34 @@ export function ChartCanvas({
 
   useEffect(() => {
     const engine = engineRef.current;
-    engine?.setSymbol(instrument);
-    engine?.loadBars(bars);
-    engine?.setViewport(latestViewportRef.current);
-    engine?.setEvents(visibleEvents);
-    engine?.setCompareOverlays(compareOverlays);
-    engine?.setOverlays(overlays);
-    engine?.setDrawings(renderDrawings);
-    engine?.setVolumeProfileConfig({ enabled: volumeProfileEnabled, bucketCount: 24, alignment: 'right' });
-    engine?.setSignalRules(signalRules);
-  }, [instrument, bars, compareOverlays, renderDrawings, overlays, visibleEvents, volumeProfileEnabled, signalRules]);
+    if (!engine) return;
+    engine.setSymbol(instrument);
+    engine.loadBars(bars);
+    engine.setViewport(latestViewportRef.current);
+  }, [instrument, bars]);
+
+  useEffect(() => {
+    engineRef.current?.setDrawings(renderDrawings);
+  }, [renderDrawings]);
+
+  useEffect(() => {
+    engineRef.current?.setOverlays(overlays);
+  }, [overlays]);
+
+  useEffect(() => {
+    engineRef.current?.setEvents(visibleEvents);
+  }, [visibleEvents]);
+
+  useEffect(() => {
+    engineRef.current?.setCompareOverlays(compareOverlays);
+  }, [compareOverlays]);
+
+  useEffect(() => {
+    const engine = engineRef.current;
+    if (!engine) return;
+    engine.setVolumeProfileConfig({ enabled: volumeProfileEnabled, bucketCount: 24, alignment: 'right' });
+    engine.setSignalRules(signalRules);
+  }, [volumeProfileEnabled, signalRules]);
 
   // Gann Price-Time overlay — registered as a canvas callback on the engine
   useEffect(() => {
@@ -987,54 +1017,24 @@ export function ChartCanvas({
     engineRef.current?.setPaneScaleOverrides(paneScaleOverrides);
   }, [paneScaleOverrides]);
 
-  useEffect(() => {
-    engineRef.current?.setLogScale(logScale);
-  }, [logScale]);
-
-  useEffect(() => {
-    engineRef.current?.setShowVolume(showVolume);
-  }, [showVolume]);
-
-  useEffect(() => {
-    engineRef.current?.setInvertPriceScale(invertPriceScale);
-  }, [invertPriceScale]);
-
-  useEffect(() => {
-    engineRef.current?.setValueLabelSettings(valueLabelSettings);
-  }, [valueLabelSettings]);
-
-  useEffect(() => {
-    engineRef.current?.setLeftAxisWidth(showLeftAxis ? SHARED_AXIS_WIDTH : 0);
-  }, [showLeftAxis]);
-
-  useEffect(() => {
-    engineRef.current?.setFutureMarginMode(futureMarginMode);
-  }, [futureMarginMode]);
-
-  useEffect(() => {
-    engineRef.current?.setTimeframe(timeframe);
-  }, [timeframe]);
-
-  useEffect(() => {
-    engineRef.current?.setChartType(chartType);
-  }, [chartType]);
-
-  useEffect(() => {
-    engineRef.current?.setTheme(getChartTheme(currentTheme));
-  }, [currentTheme]);
-
-  useEffect(() => {
-    engineRef.current?.setVisualSettings(visualSettings);
-  }, [visualSettings]);
+  useChartDisplaySync(engineRef.current, {
+    theme: chartTheme,
+    visualSettings,
+    timeframe,
+    chartType,
+    showVolume,
+    logScale,
+    invertPriceScale,
+    valueLabelSettings,
+    showLeftAxis,
+    futureMarginMode,
+    magnetEnabled,
+  });
 
   useEffect(() => {
     setChartSettingsOpen(false);
     setChartSettingsDialogOpen(false);
   }, [instrument?.exchange, instrument?.symbol]);
-
-  useEffect(() => {
-    engineRef.current?.setMagnetEnabled(magnetEnabled);
-  }, [magnetEnabled]);
 
   useEffect(() => {
     if (!chartViewportRef.current) {
@@ -1536,6 +1536,140 @@ export function ChartCanvas({
     window.addEventListener('mouseup', onUp);
   };
 
+  const handleChartKeyDown = useCallback(
+    (event: KeyboardEvent | React.KeyboardEvent) => {
+      if (event.defaultPrevented || isEditableKeyboardTarget(event.target)) {
+        return;
+      }
+
+      if (!event.metaKey && !event.ctrlKey && !event.altKey) {
+        const lowerKey = event.key.toLowerCase();
+        if (lowerKey === 'x') {
+          event.preventDefault();
+          setDrawingTool(activeDrawingTool === 'crosshair' ? 'cursor' : 'crosshair');
+          clearTransientDrawingUi();
+          return;
+        }
+        if (lowerKey === 'h') {
+          event.preventDefault();
+          togglePrimaryDrawingTool('hline');
+          return;
+        }
+        if (lowerKey === 'v') {
+          event.preventDefault();
+          togglePrimaryDrawingTool('vline');
+          return;
+        }
+        if (lowerKey === 'l') {
+          event.preventDefault();
+          togglePrimaryDrawingTool('trendline');
+          return;
+        }
+        if (lowerKey === 'c') {
+          event.preventDefault();
+          setDrawingTool('cursor');
+          clearTransientDrawingUi();
+          return;
+        }
+      }
+      if (event.key === 'ArrowUp') {
+        event.preventDefault();
+        navigateSymbol('prev');
+        return;
+      }
+      if (event.key === 'ArrowDown') {
+        event.preventDefault();
+        navigateSymbol('next');
+        return;
+      }
+      if (event.key === 'ArrowLeft') {
+        event.preventDefault();
+        nudgeViewport(-Math.max(1, Math.round(visibleSpan * 0.15)));
+        return;
+      }
+      if (event.key === 'ArrowRight') {
+        event.preventDefault();
+        nudgeViewport(Math.max(1, Math.round(visibleSpan * 0.15)));
+        return;
+      }
+      if (event.key === '+' || event.key === '=') {
+        event.preventDefault();
+        zoomViewportByFactor(ZOOM_BUTTON_STEP);
+        return;
+      }
+      if (event.key === '-') {
+        event.preventDefault();
+        zoomViewportByFactor(1 / ZOOM_BUTTON_STEP);
+        return;
+      }
+      if (event.key === '0' || event.key === 'Home') {
+        event.preventDefault();
+        resetViewport();
+        return;
+      }
+      if (event.key === 'End') {
+        event.preventDefault();
+        scrollToViewportStart(maxScrollStart);
+        return;
+      }
+      if (event.key === 'Delete' || event.key === 'Backspace') {
+        event.preventDefault();
+        if (event.shiftKey) {
+          clearDrawings();
+          if (scannerChartOverlay) {
+            clearScannerChartOverlay();
+            clearTransientDrawingUi();
+          }
+          return;
+        }
+        if (selectedDrawingId) {
+          deleteDrawingOrScannerOverlay(selectedDrawingId);
+        }
+        return;
+      }
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        setDrawingTool('cursor');
+        clearTransientDrawingUi();
+        return;
+      }
+    },
+    [
+      activeDrawingTool,
+      setDrawingTool,
+      clearTransientDrawingUi,
+      togglePrimaryDrawingTool,
+      navigateSymbol,
+      nudgeViewport,
+      visibleSpan,
+      zoomViewportByFactor,
+      resetViewport,
+      scrollToViewportStart,
+      maxScrollStart,
+      clearDrawings,
+      scannerChartOverlay,
+      clearScannerChartOverlay,
+      selectedDrawingId,
+      deleteDrawingOrScannerOverlay,
+    ],
+  );
+
+  useEffect(() => {
+    const isActiveTab = !tabId || tabId === activeChartTabId;
+    if (!isActiveTab) {
+      return;
+    }
+
+    const onGlobalKeyDown = (event: KeyboardEvent) => {
+      handleChartKeyDown(event);
+    };
+
+    window.addEventListener('keydown', onGlobalKeyDown);
+    return () => {
+      window.removeEventListener('keydown', onGlobalKeyDown);
+    };
+  }, [tabId, activeChartTabId, handleChartKeyDown]);
+
   return (
     <div style={chartWrapStyle}>
       <div
@@ -1566,11 +1700,22 @@ export function ChartCanvas({
           const localY = event.clientY - rect.top;
           if (isWithinPriceScaleZone(localX, localY, rect.width, layout.priceHeight, layout.axisWidth, layout.leftAxisWidth)) {
             setDrawingContextMenu(null);
-            setAxisSettingsAnchorTop(clampAxisSettingsTop(localY, layout.priceHeight));
-            setAxisSettingsAnchorBottom(null);
-            setAxisSettingsAnchorOffset(8);
-            setAxisSettingsDirection('down');
             const side = (layout.leftAxisWidth > 0 && localX <= layout.leftAxisWidth) ? 'left' : 'right';
+            const offset = (side === 'left' ? layout.leftAxisWidth : layout.axisWidth) + 8;
+            const availableDown = layout.priceHeight - localY;
+            const availableUp = localY;
+            const openUp = availableDown < 380 && availableUp > availableDown;
+
+            if (openUp) {
+              setAxisSettingsAnchorBottom(Math.max(PRICE_AXIS_HEADER_HEIGHT + 4, rect.height - localY));
+              setAxisSettingsAnchorTop(0);
+              setAxisSettingsDirection('up');
+            } else {
+              setAxisSettingsAnchorTop(clampAxisSettingsTop(localY, layout.priceHeight));
+              setAxisSettingsAnchorBottom(null);
+              setAxisSettingsDirection('down');
+            }
+            setAxisSettingsAnchorOffset(offset);
             setSettingsSide(side);
             setChartSettingsOpen(true);
             return;
@@ -1599,6 +1744,7 @@ export function ChartCanvas({
           });
         }}
         onMouseDownCapture={(event) => {
+          chartViewportRef.current?.focus();
           const rect = chartViewportRef.current?.getBoundingClientRect();
           if (!rect) {
             return;
@@ -1607,6 +1753,9 @@ export function ChartCanvas({
             x: event.clientX - rect.left,
             y: event.clientY - rect.top,
           };
+        }}
+        onPointerDownCapture={() => {
+          chartViewportRef.current?.focus();
         }}
         onDoubleClick={(event) => {
           if (activeDrawingTool !== 'cursor') {
@@ -1659,90 +1808,7 @@ export function ChartCanvas({
           }
         }}
         tabIndex={0}
-        onKeyDown={(event) => {
-          if (isEditableKeyboardTarget(event.target)) {
-            return;
-          }
-
-          if (!event.metaKey && !event.ctrlKey && !event.altKey) {
-            const lowerKey = event.key.toLowerCase();
-            if (lowerKey === 'h') {
-              event.preventDefault();
-              togglePrimaryDrawingTool('hline');
-              return;
-            }
-            if (lowerKey === 'v') {
-              event.preventDefault();
-              togglePrimaryDrawingTool('vline');
-              return;
-            }
-            if (lowerKey === 'l') {
-              event.preventDefault();
-              togglePrimaryDrawingTool('trendline');
-              return;
-            }
-            if (lowerKey === 'c') {
-              event.preventDefault();
-              setDrawingTool('cursor');
-              clearTransientDrawingUi();
-              return;
-            }
-          }
-          if (event.key === 'ArrowUp') {
-            event.preventDefault();
-            navigateSymbol('prev');
-            return;
-          }
-          if (event.key === 'ArrowDown') {
-            event.preventDefault();
-            navigateSymbol('next');
-            return;
-          }
-          if (event.key === 'ArrowLeft') {
-            event.preventDefault();
-            nudgeViewport(-Math.max(1, Math.round(visibleSpan * 0.15)));
-          }
-          if (event.key === 'ArrowRight') {
-            event.preventDefault();
-            nudgeViewport(Math.max(1, Math.round(visibleSpan * 0.15)));
-          }
-          if (event.key === '+' || event.key === '=') {
-            event.preventDefault();
-            zoomViewportByFactor(ZOOM_BUTTON_STEP);
-          }
-          if (event.key === '-') {
-            event.preventDefault();
-            zoomViewportByFactor(1 / ZOOM_BUTTON_STEP);
-          }
-          if (event.key === '0' || event.key === 'Home') {
-            event.preventDefault();
-            resetViewport();
-          }
-          if (event.key === 'End') {
-            event.preventDefault();
-            scrollToViewportStart(maxScrollStart);
-          }
-          if (event.key === 'Delete' || event.key === 'Backspace') {
-            event.preventDefault();
-            if (event.shiftKey) {
-              clearDrawings();
-              if (scannerChartOverlay) {
-                clearScannerChartOverlay();
-                clearTransientDrawingUi();
-              }
-              return;
-            }
-            if (selectedDrawingId) {
-              deleteDrawingOrScannerOverlay(selectedDrawingId);
-            }
-            return;
-          }
-          if (event.key === 'Escape') {
-            event.preventDefault();
-            setDrawingTool('cursor');
-            clearTransientDrawingUi();
-          }
-        }}
+        onKeyDown={handleChartKeyDown}
       >
         <div ref={containerRef} style={{ width: '100%', height: '100%', position: 'relative', background: 'var(--chart-bg)' }} />
         {inlineTextEditor ? (
@@ -2788,7 +2854,13 @@ function isEditableKeyboardTarget(target: EventTarget | null): boolean {
   }
 
   const tagName = target.tagName.toLowerCase();
-  return target.isContentEditable || tagName === 'input' || tagName === 'textarea' || tagName === 'select';
+  return (
+    target.isContentEditable ||
+    tagName === 'input' ||
+    tagName === 'textarea' ||
+    tagName === 'select' ||
+    Boolean(target.closest?.('[role="dialog"] input, [role="dialog"] textarea, [role="dialog"] select'))
+  );
 }
 
 function clampAxisSettingsTop(localY: number, priceHeight: number): number {
