@@ -742,8 +742,8 @@ export interface HeatmapConfig {
 
 export interface ChartEngineConfig {
   symbol?: string;
-  theme?: ChartTheme;
-  visualSettings?: ChartVisualSettings;
+  theme: ChartTheme;
+  visualSettings: ChartVisualSettings;
   axisWidth?: number;
   leftAxisWidth?: number;
   leftAxisMode?: 'percentage' | 'absolute' | 'custom';

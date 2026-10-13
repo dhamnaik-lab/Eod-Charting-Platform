@@ -271,6 +271,7 @@ export class ChartEngine {
   private pendingChannelBase: { paneId: ChartPaneId; startIndex: number; startPrice: number; endIndex: number; endPrice: number } | null = null;
   private pendingMultiAnchors: { paneId: ChartPaneId; anchors: DrawingAnchor[] } | null = null;
   private isDirty = true;
+  private isOverlayDirty = true;
   private cachedRenderState: RenderState | null = null;
   private cachedRenderStateWidth = 0;
   private cachedRenderStateHeight = 0;
@@ -366,10 +367,10 @@ export class ChartEngine {
     this.markDirty();
   }
 
-  constructor(container: HTMLDivElement, config: ChartEngineConfig = {}) {
+  constructor(container: HTMLDivElement, config: ChartEngineConfig) {
     this.container = container;
     this.symbol = config.symbol ?? '';
-    this.baseTheme = config.theme ?? DARK_THEME;
+    this.baseTheme = config.theme;
     this.visualSettings = normalizeChartVisualSettings(config.visualSettings);
     this.theme = resolveChartTheme(this.baseTheme, this.visualSettings);
     this.axisWidth = config.axisWidth ?? SHARED_AXIS_WIDTH;
@@ -772,6 +773,7 @@ export class ChartEngine {
       if (this.drawingTool !== 'cursor') {
         this.markDirty();
       }
+      this.markOverlayDirty();
     };
 
     const onMouseDown = (event: MouseEvent) => {
@@ -867,6 +869,7 @@ export class ChartEngine {
       this.drawingDragState = null;
       this.axisDragState = null;
       this.overlayCanvas.style.cursor = resolvePointerCursor(this.drawingTool);
+      this.markOverlayDirty();
     };
 
     const onMouseLeave = () => {
@@ -877,6 +880,7 @@ export class ChartEngine {
       this.fibCircleShiftPreview = null;
       this.overlayCanvas.style.cursor = resolvePointerCursor(this.drawingTool);
       this.emit({ type: 'crosshairMove', crosshair: this.crosshair });
+      this.markOverlayDirty();
     };
 
     const onWheel = (event: WheelEvent) => {
@@ -1043,8 +1047,12 @@ export class ChartEngine {
       if (this.isDirty) {
         this.renderBase();
         this.isDirty = false;
+        this.isOverlayDirty = true;
       }
-      this.renderOverlay();
+      if (this.isOverlayDirty) {
+        this.renderOverlay();
+        this.isOverlayDirty = false;
+      }
       this.rafId = requestAnimationFrame(tick);
     };
 
@@ -1593,7 +1601,8 @@ export class ChartEngine {
     const shouldDrawCrosshair =
       this.visualSettings.crosshairVisible &&
       this.crosshair.visible &&
-      this.drawingTool !== 'cursor';
+      this.drawingTool !== 'cursor' &&
+      this.drawingTool !== 'hline';
 
     if (shouldDrawCrosshair) {
       drawCrosshair(
@@ -1755,7 +1764,12 @@ export class ChartEngine {
 
   private markDirty(): void {
     this.isDirty = true;
+    this.isOverlayDirty = true;
     this.clearCachedRenderState();
+  }
+
+  public markOverlayDirty(): void {
+    this.isOverlayDirty = true;
   }
 
   private getCachedOrFreshRenderState(width: number, height: number): RenderState {
@@ -2490,6 +2504,7 @@ export class ChartEngine {
     const changePct = referenceClose !== 0 ? (change / referenceClose) * 100 : 0;
     const closeColor = change >= 0 ? this.theme.candleUp : this.theme.candleDown;
 
+    tokens.push({ text: bar.date, color: '#dce8f4', gapAfter: 12 });
     tokens.push({ text: 'O', color: '#91a8bd', gapAfter: 4 });
     tokens.push({ text: formatPrice(bar.open), color: '#dce8f4', gapAfter: 10 });
     tokens.push({ text: 'H', color: '#91a8bd', gapAfter: 4 });
@@ -2567,6 +2582,7 @@ export class ChartEngine {
     const changePct = referenceClose !== 0 ? (change / referenceClose) * 100 : 0;
     const closeColor = change >= 0 ? this.theme.candleUp : this.theme.candleDown;
 
+    tokens.push({ text: bar.date, color: '#dce8f4', gapAfter: 12 });
     tokens.push({ text: 'O', color: neutralColor, gapAfter: 4 });
     tokens.push({ text: formatPrice(bar.open), color: closeColor, gapAfter: 10 });
     tokens.push({ text: 'H', color: neutralColor, gapAfter: 4 });
@@ -4816,10 +4832,21 @@ export function resolveChartTheme(baseTheme: ChartTheme, settings: ChartVisualSe
       settings.backgroundColor === DEFAULT_CHART_VISUAL_SETTINGS.backgroundColor
         ? baseTheme.background
         : settings.backgroundColor,
-    gridLine: settings.gridVisible ? settings.gridColor : 'rgba(0, 0, 0, 0)',
-    gridLineMajor: settings.gridVisible ? settings.gridMajorColor : 'rgba(0, 0, 0, 0)',
+    gridLine: settings.gridVisible
+      ? (settings.gridColor === DEFAULT_CHART_VISUAL_SETTINGS.gridColor
+          ? baseTheme.gridLine
+          : settings.gridColor)
+      : 'rgba(0, 0, 0, 0)',
+    gridLineMajor: settings.gridVisible
+      ? (settings.gridMajorColor === DEFAULT_CHART_VISUAL_SETTINGS.gridMajorColor
+          ? baseTheme.gridLineMajor
+          : settings.gridMajorColor)
+      : 'rgba(0, 0, 0, 0)',
     sessionHighlight: settings.gridVisible ? baseTheme.sessionHighlight : undefined,
-    crosshair: settings.crosshairColor,
+    crosshair:
+      settings.crosshairColor === DEFAULT_CHART_VISUAL_SETTINGS.crosshairColor
+        ? baseTheme.crosshair
+        : settings.crosshairColor,
     renkoUp: settings.renkoUpColor,
     renkoDown: settings.renkoDownColor,
     renkoWickUp: settings.renkoWickUpColor,
