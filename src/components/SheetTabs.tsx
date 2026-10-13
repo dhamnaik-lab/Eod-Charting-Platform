@@ -29,11 +29,19 @@ export function SheetTabs({ tabId, inline = false }: SheetTabsProps) {
     activateChartTab(tabId);
   };
 
+function formatSheetLabel(name: string): string {
+  const match = /^Sheet\s*(\d+)$/i.exec(name);
+  if (match) {
+    return match[1];
+  }
+  return name;
+}
+
   const handleNewSheet = () => {
     const num = sheets.length + 1;
     setSheetDialog({
       mode: 'create',
-      value: `Sheet${num}`,
+      value: `${num}`,
     });
   };
 
@@ -101,7 +109,7 @@ export function SheetTabs({ tabId, inline = false }: SheetTabsProps) {
               onDoubleClick={() => handleRename(sheet)}
               title="Double-click to rename. Click to load."
             >
-              <span style={sheetLabelStyle(sheet.id === activeSheetId, inline)}>{sheet.name}</span>
+              <span style={sheetLabelStyle(sheet.id === activeSheetId, inline)}>{formatSheetLabel(sheet.name)}</span>
               <button
                 type="button"
                 style={sheetCloseBtnStyle(inline)}
@@ -254,11 +262,12 @@ function sheetTabStyle(active: boolean, inline: boolean): CSSProperties {
   return {
     display: 'flex',
     alignItems: 'center',
-    gap: 6,
-    minWidth: 84,
+    justifyContent: 'center',
+    gap: inline ? 4 : 6,
+    minWidth: inline ? 32 : 44,
     maxWidth: 164,
     height: inline ? 22 : 28,
-    padding: inline ? '0 10px' : '0 12px',
+    padding: inline ? '0 6px' : '0 10px',
     background: active ? 'var(--chart-bg)' : 'var(--control-bg)',
     border: active ? '1px solid var(--accent)' : '1px solid var(--border)',
     borderBottom: inline
@@ -279,20 +288,20 @@ function sheetTabStyle(active: boolean, inline: boolean): CSSProperties {
 function sheetLabelStyle(active: boolean, inline: boolean): CSSProperties {
   return {
     color: active ? 'var(--text)' : 'var(--text-dim)',
-    fontSize: inline ? 9 : 10,
+    fontSize: inline ? 12 : 13,
     fontWeight: active ? 700 : 600,
     whiteSpace: 'nowrap',
     overflow: 'hidden',
     textOverflow: 'ellipsis',
-    flex: 1,
-    lineHeight: 1.15,
+    lineHeight: 1,
+    textAlign: 'center',
   };
 }
 
 function sheetCloseBtnStyle(inline: boolean): CSSProperties {
   return {
-    width: inline ? 14 : 16,
-    height: inline ? 14 : 16,
+    width: inline ? 12 : 14,
+    height: inline ? 12 : 14,
     border: 'none',
     background: 'transparent',
     color: 'var(--text-mute)',
@@ -302,12 +311,16 @@ function sheetCloseBtnStyle(inline: boolean): CSSProperties {
     lineHeight: 1,
     padding: 0,
     flex: '0 0 auto',
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    opacity: 0.65,
   };
 }
 
 function newSheetBtnStyle(inline: boolean): CSSProperties {
   return {
-    minWidth: inline ? 24 : 28,
+    minWidth: inline ? 22 : 28,
     height: inline ? 22 : 28,
     border: '1px solid var(--border)',
     background: 'var(--control-bg)',
@@ -315,11 +328,14 @@ function newSheetBtnStyle(inline: boolean): CSSProperties {
     borderRadius: inline ? 'var(--control-radius)' : '7px 7px 0 0',
     cursor: 'pointer',
     flex: '0 0 auto',
-    fontSize: inline ? 13 : 16,
+    fontSize: inline ? 14 : 16,
     fontWeight: 600,
     lineHeight: 1,
-    padding: inline ? '0 8px' : '0 10px',
+    padding: inline ? '0 6px' : '0 10px',
     marginBottom: inline ? 0 : -1,
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
   };
 }
 

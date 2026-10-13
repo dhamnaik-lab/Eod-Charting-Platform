@@ -1744,6 +1744,9 @@ export function ChartCanvas({
           });
         }}
         onMouseDownCapture={(event) => {
+          if (tabId && tabId !== activeChartTabId) {
+            activateChartTab(tabId);
+          }
           chartViewportRef.current?.focus();
           const rect = chartViewportRef.current?.getBoundingClientRect();
           if (!rect) {

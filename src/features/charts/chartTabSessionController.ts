@@ -92,10 +92,29 @@ export function createChartTabSessionController(
   };
 
   return {
-    setLayoutMode: (mode) =>
+    setLayoutMode: (mode) => {
       deps.setState((state) => ({
         ...updateActiveTab(state, (tab) => ({ ...tab, layoutMode: mode })),
-      })),
+      }));
+      if (mode !== 'single') {
+        const state = deps.getState();
+        const unhydratedTabIds = state.chartTabs
+          .filter(
+            (tab) =>
+              (tab.requestedInstrument ?? tab.instrument) &&
+              shouldHydrateChartTab(
+                tab,
+                state.adjustedMode,
+                state.includeDividendAdjustments,
+                state.includeRightsAdjustments,
+              ),
+          )
+          .map((tab) => tab.id);
+        if (unhydratedTabIds.length > 0) {
+          queueSequentialTabHydration(unhydratedTabIds);
+        }
+      }
+    },
     saveCurrentAsSheet: (tabId, name) => {
       const nextState = buildSaveCurrentAsSheetState(deps.getState().chartTabs, tabId, name);
       if (!nextState) {

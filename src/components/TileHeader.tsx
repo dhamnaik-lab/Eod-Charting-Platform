@@ -1,15 +1,12 @@
 import type { ChartTabState } from '@/store/chartStoreTypes';
 import { useChartStore } from '@/store/chartStore';
 
-type Tf = 'D' | 'W' | 'M' | 'Q' | 'Y';
-const TF_ORDER: Tf[] = ['D', 'W', 'M', 'Q', 'Y'];
-
 interface TileHeaderProps {
   tab: ChartTabState;
+  isActive?: boolean;
 }
 
-export function TileHeader({ tab }: TileHeaderProps) {
-  const setTimeframe = useChartStore((state) => state.setTimeframe);
+export function TileHeader({ tab, isActive = false }: TileHeaderProps) {
   const activateChartTab = useChartStore((state) => state.activateChartTab);
   const hoverBar = tab.hoverBar ?? null;
   const latestBar = tab.displayBars[tab.displayBars.length - 1] ?? null;
@@ -24,8 +21,9 @@ export function TileHeader({ tab }: TileHeaderProps) {
   const isUp = (change ?? 0) >= 0;
 
   return (
-    <div style={tileHeaderStyle} onClick={() => activateChartTab(tab.id)}>
+    <div style={tileHeaderStyle(isActive)} onClick={() => activateChartTab(tab.id)}>
       <div style={{ ...tileGroupStyle, ...tileIdentityGroupStyle }}>
+        {isActive ? <span style={activeDotStyle} title="Active Chart" /> : null}
         <span style={tileSymbolStyle}>{symbol}</span>
         <span style={tileBadgeStyle}>{exchange}</span>
       </div>
@@ -36,37 +34,30 @@ export function TileHeader({ tab }: TileHeaderProps) {
           {change === null ? '--' : `${formatSigned(change)} (${formatSigned(changePct ?? 0)}%)`}
         </span>
       </div>
-
-      <div style={{ ...tileGroupStyle, ...tileTfGroupStyle }}>
-        {TF_ORDER.map((tf) => (
-          <button
-            key={tf}
-            type="button"
-            style={tileTfBtnStyle(tab.timeframe === tf)}
-            onClick={(event) => {
-              event.stopPropagation();
-              activateChartTab(tab.id);
-              setTimeframe(tf);
-            }}
-            title={`Switch to ${tf}`}
-          >
-            {tf}
-          </button>
-        ))}
-      </div>
     </div>
   );
 }
 
-const tileHeaderStyle: React.CSSProperties = {
-  display: 'flex',
-  alignItems: 'center',
-  gap: 6,
-  padding: '3px 6px',
-  background: 'var(--bg2)',
-  borderBottom: '1px solid var(--border)',
-  minHeight: 31,
-  cursor: 'pointer',
+function tileHeaderStyle(isActive: boolean): React.CSSProperties {
+  return {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 6,
+    padding: '3px 8px',
+    background: isActive ? 'var(--control-bg)' : 'var(--bg2)',
+    borderBottom: isActive ? '1px solid var(--accent)' : '1px solid var(--border)',
+    minHeight: 28,
+    cursor: 'pointer',
+  };
+}
+
+const activeDotStyle: React.CSSProperties = {
+  width: 6,
+  height: 6,
+  borderRadius: '50%',
+  background: 'var(--accent)',
+  flexShrink: 0,
+  display: 'inline-block',
 };
 
 const tileGroupStyle: React.CSSProperties = {
@@ -125,26 +116,6 @@ const tileChangeStyle = (up: boolean): React.CSSProperties => ({
   whiteSpace: 'nowrap',
   overflow: 'hidden',
   textOverflow: 'ellipsis',
-});
-
-const tileTfGroupStyle: React.CSSProperties = {
-  flexShrink: 0,
-  padding: '2px',
-  gap: 2,
-};
-
-const tileTfBtnStyle = (active: boolean): React.CSSProperties => ({
-  minWidth: 20,
-  height: 18,
-  border: active ? '1px solid var(--accent)' : '1px solid transparent',
-  borderRadius: 4,
-  fontSize: 9.5,
-  fontWeight: 800,
-  cursor: 'pointer',
-  background: active ? 'var(--accent-soft)' : 'transparent',
-  color: active ? 'var(--text)' : 'var(--text-mute)',
-  padding: '0 4px',
-  lineHeight: '16px',
 });
 
 function formatSigned(value: number): string {

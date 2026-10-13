@@ -1,5 +1,118 @@
 # FILE_INVENTORY
 
+## October 13 Layout Mode Persistent Chrome & Timeframe Cleanup Inventory Update
+
+<!-- LAYOUT-MODE-PERSISTENT-CHROME-AND-TF-CLEANUP-OCT13-INVENTORY -->
+
+> **Layout Mode Persistent Chrome, Right Tool Dock & Timeframe Cleanup — 13 October 2026.**  
+> Uncoupled `<Toolbar />` and `<ChartToolDock />` from single-mode branches to keep the top Header dock and right Tool dock permanently visible across all layout modes. Removed redundant timeframe button groups from individual tile headers, added active chart focus ring/glow, click-to-activate, and eager tab hydration. All validation gates passed (`typecheck:renderer` 0 errors, 100/100 chart tests passed).
+
+### Added Files
+- `docs/changes/2026-10-13_2035_IST_LAYOUT_MODE_PERSISTENT_CHROME_AND_TIMEFRAME_CLEANUP.md` — Full execution and architecture report.
+
+### Modified Files
+- `src/RootApp.tsx` — Unlocked `<Toolbar />` to stay permanently docked at the top in all layout modes; wrapped workspace row so `<ChartToolDock />` is permanently available on the right rail; updated `tileCellStyle(isActive)` with blue focus border and glow; wired tile click activation.
+- `src/components/TileHeader.tsx` — Removed redundant `D W M Q Y` timeframe buttons; added active accent dot indicator to the active tile.
+- `src/components/ChartCanvas.tsx` — Added tab activation on canvas `onMouseDownCapture`.
+- `src/features/charts/chartTabSessionController.ts` — Eagerly hydrates visible tabs upon switching to tiled layout mode.
+- `HANDOFF.md`, `PROJECT_STATE_EOD_CHARTING_PLATFORM.md`, `FILE_INVENTORY.md` — Canonical documentation updated.
+
+## October 13 SheetTabs Numeric Sizing & Deprecated Theme Removal Inventory Update
+
+<!-- SHEET-TABS-AND-THEME-REMOVAL-OCT13-INVENTORY -->
+
+> **SheetTabs Numeric Sizing, Typography Polish & Deprecated Theme Cleanup — 13 October 2026.**  
+> Formatted default sheet names (`Sheet 1` -> `1`), compacted chip minWidth to 32px, boosted font to 12px bold, and completely removed 3 deprecated themes (`bloomberg-pro`, `orderflow-dark`, `terminal-pro-dark`). All validation gates passed (`typecheck:renderer` 0 errors, 164/164 test suites passed).
+
+### Modified Files
+- `src/components/SheetTabs.tsx` — Numeric sheet formatting (`formatSheetLabel`), compact 32px minWidth, 12px bold font, proportional close and add buttons.
+- `src/features/app/themeService.ts` — Removed `bloomberg-pro`, `orderflow-dark`, and `terminal-pro-dark` definitions.
+- `src/styles/global.css` — Removed deprecated CSS theme blocks.
+
+## October 13 Light Theme Grid Line & Crosshair Preservation Inventory Update
+
+<!-- LIGHT-THEME-GRID-FIX-OCT13-INVENTORY -->
+
+> **Light Theme Grid Line & Crosshair Preservation Fix — 13 October 2026.**  
+> Guarded against global dark default fallbacks (`#1e2a3a` for grid, `#5588aa` for crosshair) in `getChartTheme`, preserving native subtle light grid lines and crosshair on light themes. All validation gates passed (`typecheck:renderer` 0 errors, Vitest passed).
+
+### Added Files
+- `docs/changes/2026-10-13_1525_IST_LIGHT_THEME_GRID_LINE_PRESERVATION_FIX.md` — Technical report for light theme grid and crosshair preservation.
+
+### Modified Files
+- `src/features/app/themeService.ts` — Theme-aware default grid/crosshair fallback preservation.
+- `src/engine/__tests__/ChartTheme.test.ts` — Added unit test for light theme grid line preservation.
+
+## October 13 Code Protection & Display Sync Architectural Hardening Inventory Update
+
+<!-- CODE-PROTECTION-AND-DISPLAY-SYNC-OCT13-INVENTORY -->
+
+> **Code Protection, Strict TypeScript Interface Locks & Display Sync Isolation — 13 October 2026.**  
+> Eliminated silent unwiring and collateral damage by requiring `theme` & `visualSettings` in `ChartEngineConfig`, adding automated theme regression tests, and isolating display state synchronization into `useChartDisplaySync`. All validation gates passed (`typecheck:renderer` 0 errors, 1,042/1,042 tests passed).
+
+### Added Files
+- `src/features/charts/useChartDisplaySync.ts` — Dedicated, strictly-typed display synchronization hook requiring all display settings.
+- `docs/changes/2026-10-13_1430_IST_CODE_PROTECTION_AND_DISPLAY_SYNC_HARDENING.md` — Full architectural hardening and anti-regression report.
+
+### Modified Files
+- `src/engine/types.ts` — Made `theme: ChartTheme` and `visualSettings: ChartVisualSettings` strictly mandatory in `ChartEngineConfig`.
+- `src/engine/ChartEngine.ts` — Constructor requires config object without empty-object fallback (`config: ChartEngineConfig = {}` &rarr; `config: ChartEngineConfig`).
+- `src/engine/__tests__/ChartTheme.test.ts` — Added unit test ensuring custom candle, wick, and volume colors survive `resolveChartTheme` untouched.
+- `src/components/ChartCanvas.tsx` — Replaced 11 loose `useEffect` blocks with a single type-checked `useChartDisplaySync` invocation.
+- `HANDOFF.md`, `PROJECT_STATE_EOD_CHARTING_PLATFORM.md`, `FILE_INVENTORY.md` — Canonical documentation updated.
+
+## October 13 Dedicated Symbol Search & Workflow Enhancements Inventory Update
+
+<!-- DEDICATED-SYMBOL-SEARCH-OCT13-INVENTORY -->
+
+> **Dedicated Symbol Search, SQLite Search Controller Wiring & Floating Window Ergonomics — 13 October 2026.**  
+> High-speed instrument search triggered via single-key `S`, exchange filters (`All`, `NSE`, `BSE`), recent symbols fallback, fixed stable dimensions (580px × 480px), and modeless window dragging. All validation gates passed (`typecheck:renderer` 0 errors, Vitest passed).
+
+### Added Files
+- `docs/changes/2026-10-13_1145_IST_NUMERIC_SHEETS_TF_DOCK_ZOOM_RESET_COLLAPSIBLE_FAVORITES_AND_S_KEY_SEARCH.md` — Technical report for numeric sheets, timeframe dock, auto zoom reset, and collapsible favorites.
+- `docs/changes/2026-10-13_1225_IST_DEDICATED_SYMBOL_SEARCH_AND_SEARCH_CONTROLLER_FIX.md` — Full execution and validation report for dedicated symbol search, search controller bug fix, and draggable floating window geometry.
+
+### Modified Files
+- `src/features/charts/chartSearchController.ts` — Synchronously updates `searchQuery` state before SQLite queries to fix silent drop of search results.
+- `src/store/uiStore.ts` — Added `commandPaletteMode: 'all' | 'symbol'`, mode-aware open/toggle handlers, and custom chart color setter.
+- `src/components/CommandPalette.tsx` — Implemented single-key `S` hotkey, pure symbol list rendering, exchange pills, series badges, recently viewed symbols fallback, fixed 580px × 480px geometry, and header dragging via `useDraggableFloatingWindow`.
+- `src/components/SheetTabs.tsx` — Numeric sheet naming (`1, 2...`) with user title preservation.
+- `src/features/workspace/workspacePersistence.ts` — Numeric fallback default for persisted sheets.
+- `src/components/ChartHeader.tsx` — Removed `TF` label and expanded hover tooltips to full timeframe names (`Daily`, `Weekly`, etc.).
+- `src/components/TileHeader.tsx` — Updated timeframe tooltips to full names.
+- `src/features/charts/chartTabStateMutationService.ts` — Viewport auto zoom reset (`createDefaultViewport`) across timeframe switches.
+- `src/components/Sidebar.tsx` — Collapsible Favorites section with persistent state.
+- `src/components/KeyboardShortcutsDialog.tsx` — Documented `S` symbol search shortcut.
+- `HANDOFF.md`, `PROJECT_STATE_EOD_CHARTING_PLATFORM.md`, `README.md`, `FILE_INVENTORY.md` — Canonical documentation updated.
+
+## October 12 Technical and UX Audit (Phases 1, 2, and 3) Inventory Update
+
+<!-- TECHNICAL-AND-UX-AUDIT-OCT12-INVENTORY -->
+
+> **Technical and UX Audit Phases 1, 2, and 3 Closure — 12 October 2026.**  
+> Execution of performance optimizations, UI modernization (left rail tool dock, 24px/11px status bar, 4-cluster toolbar), and formal plugin architecture with fault-isolated `PluginHost`. All validation gates passed (typecheck 0 errors, 21/21 Vitest tests, production Vite build in 5.10s).
+
+### Added Files
+- `src/plugins/pluginHost.ts` — `PluginHost` managing registration, lifecycle execution, fault isolation, and logging.
+- `src/plugins/__tests__/pluginHost.test.ts` — Comprehensive unit test suite for `PluginHost`.
+- `docs/changes/2026-10-12_2245_IST_TECHNICAL_AND_UX_AUDIT_PHASES_1_2_3_COMPLETION.md` — Full execution and validation report.
+
+### Modified Files
+- `package.json` — Removed dead packages (`axios`, `unzip-stream`, `@types/unzip-stream`).
+- `src/engine/ChartEngine.ts` — Added `isOverlayDirty` flag to throttle idle canvas overlay loop.
+- `src/features/charts/chartTabStateMutationService.ts` — Memoized hover bar mutation.
+- `src/store/chartStore.ts` — Preserved tab array identity on hover to stop re-render cascades.
+- `src/components/ChartCanvas.tsx` — Split mega-effect into targeted hooks; added hover date deduplication ref.
+- `src/RootApp.tsx` — Reordered layout for left-rail `ChartToolDock`.
+- `src/components/ChartToolDock.tsx` — Aligned border and flyout offsets for left rail ergonomics.
+- `src/components/StatusBar.tsx` — Redesigned with 24px height, 11px typography, and status dot/mono badges.
+- `src/components/Toolbar.tsx` — Harmonized heights to 24–26px; organized into 4 distinct functional clusters.
+- `src/components/ChartHeader.tsx` — Defragmented inline timeframes and removed duplicate box styling.
+- `src/plugins/types.ts` — Added `PluginContext`, `ChartPluginLifecycle`, `PluginRuntimeInfo`, `PluginLogEntry`.
+- `src/plugins/registry.ts` — Bound singleton `pluginHost` while preserving backward compatibility.
+- `src/plugins/analysis/gannPriceTime/gannPlugin.ts` — Attached standard lifecycle hooks.
+- `HANDOFF.md`, `PROJECT_STATE_EOD_CHARTING_PLATFORM.md`, `ARCHITECTURE_CURRENT_EOD_CHARTING_PLATFORM.md`, `FILE_INVENTORY.md` — Canonical documentation updated.
+
 ## August 24 Corporate Action final closure checkpoint
 
 <!-- CA-V1.14M.2-AUG24-CANONICAL-CLOSURE -->

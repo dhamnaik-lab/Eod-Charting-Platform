@@ -15,7 +15,11 @@ import { getActiveChartTab, useChartStore } from '@/store/chartStore';
 import { useUiStore } from '@/store/uiStore';
 import { useWorkspaceStore } from '@/store/workspaceStore';
 import { useBhavcopyStore } from '@/store/bhavcopyStore';
-import { readAppSettings } from '@/features/app/appSettingsService';
+import {
+  readAppSettings,
+  subscribeAppSettingsChanges,
+  type AppSettings,
+} from '@/features/app/appSettingsService';
 import { applyAppTheme } from '@/features/app/themeService';
 
 const LazyDatabaseToolsDialogs = lazy(async () => ({
@@ -81,6 +85,7 @@ export default function RootApp() {
   const init = useChartStore((state) => state.init);
   const uiFlags = useUiStore((state) => state.uiFlags);
   const setCurrentTheme = useUiStore((state) => state.setCurrentTheme);
+  const setCustomChartColors = useUiStore((state) => state.setCustomChartColors);
   const importDialogOpen = useUiStore((state) => state.importDialog.open);
   const bhavcopyWindowOpen = useUiStore((state) => state.bhavcopyWindowOpen);
   const closeBhavcopyWindow = useUiStore((state) => state.closeBhavcopyWindow);
@@ -110,6 +115,7 @@ export default function RootApp() {
   );
   const chartTabs = useChartStore((state) => state.chartTabs);
   const activeChartTabId = useChartStore((state) => state.activeChartTabId);
+  const activateChartTab = useChartStore((state) => state.activateChartTab);
   const isLoadingBars = useChartStore((state) => state.isLoadingBars);
   const sidebarWidth = useWorkspaceStore((state) => state.sidebarWidth);
   const setSidebarWidth = useWorkspaceStore((state) => state.setSidebarWidth);
@@ -138,20 +144,42 @@ export default function RootApp() {
   useEffect(() => {
     let cancelled = false;
 
-    void readAppSettings().then((settings) => {
+    const applyAppSettingsToUi = (settings: AppSettings) => {
+      setCurrentTheme(settings.theme);
+      applyAppTheme(settings.theme);
+      setCustomChartColors({
+        candleUp: settings.candleUpColor,
+        candleDown: settings.candleDownColor,
+        wickUp: settings.candleUpColor,
+        wickDown: settings.candleDownColor,
+        gridLine: settings.gridColor,
+        crosshair: settings.crosshairColor,
+      });
+    };
+
+    const unsubscribe = subscribeAppSettingsChanges((settings) => {
       if (cancelled) {
         return;
       }
-      setCurrentTheme(settings.theme);
-      applyAppTheme(settings.theme);
-    }).catch(() => {
-      // Keep the default in-memory theme if application-profile settings are unavailable.
+      applyAppSettingsToUi(settings);
     });
+
+    void readAppSettings()
+      .then((settings) => {
+        if (cancelled) {
+          return;
+        }
+        applyAppSettingsToUi(settings);
+      })
+      .catch(() => {
+        // Keep the default in-memory theme if application-profile settings are unavailable.
+      });
 
     return () => {
       cancelled = true;
+      unsubscribe();
     };
-  }, [setCurrentTheme]);
+  }, [setCurrentTheme, setCustomChartColors]);
 
   useEffect(() => {
     let cancelled = false;
@@ -288,46 +316,55 @@ export default function RootApp() {
           }}
         >
           <ChartTabs />
-          {layoutMode === 'single' ? (
-            <div style={chartChromeStyle}>
-              <Toolbar />
-            </div>
-          ) : null}
+          <div style={chartChromeStyle}>
+            <Toolbar />
+          </div>
           <div style={chartWorkspaceShellStyle}>
-            {layoutMode !== 'single' ? (
-              <div style={getTileGridStyle(layoutMode)}>
-                {chartTabs.map((tab) => (
-                  <div key={tab.id} style={tileCellStyle}>
-                    <TileHeader tab={tab} />
-                    <ChartCanvas
-                      tabId={tab.id}
-                      instrument={tab.instrument ?? null}
-                      instrumentMeta={tab.instrumentMeta ?? null}
-                      bars={tab.displayBars ?? []}
-                      chartType={tab.chartType ?? 'candles'}
-                      renkoBrickSize={tab.renkoBrickSize}
-                      renkoSettings={tab.renkoSettings}
-                      visualSettings={tab.visualSettings}
-                      events={tab.events ?? []}
-                      compareOverlays={tab.compareOverlays ?? []}
-                      overlays={tab.indicators ?? []}
-                      drawings={tab.drawings ?? []}
-                      selectedDrawingId={tab.selectedDrawingId ?? null}
-                      indicatorPaneHeight={tab.indicatorPaneHeight ?? 104}
-                      indicatorPaneHeights={tab.indicatorPaneHeights ?? {}}
-                      collapsedIndicatorPanes={tab.collapsedIndicatorPanes ?? {}}
-                    paneScaleOverrides={tab.paneScaleOverrides ?? {}}
-                    viewport={tab.viewport ?? { startIndex: 0, endIndex: 0 }}
-                    scannerChartOverlay={isScannerOverlayForTab(scannerChartOverlay, tab.instrument) ? scannerChartOverlay : null}
-                    loading={isLoadingBars && tab.id === activeChartTabId}
-                    bottomBarStartContent={<SheetTabs tabId={tab.id} inline />}
-                  />
+            <div style={chartContentRowStyle}>
+              <div style={chartContentColumnStyle}>
+                {layoutMode !== 'single' ? (
+                  <div style={getTileGridStyle(layoutMode)}>
+                    {chartTabs.map((tab) => {
+                      const isActive = tab.id === activeChartTabId;
+                      return (
+                        <div
+                          key={tab.id}
+                          style={tileCellStyle(isActive)}
+                          onClickCapture={() => {
+                            if (tab.id !== activeChartTabId) {
+                              activateChartTab(tab.id);
+                            }
+                          }}
+                        >
+                          <TileHeader tab={tab} isActive={isActive} />
+                          <ChartCanvas
+                            tabId={tab.id}
+                            instrument={tab.instrument ?? null}
+                            instrumentMeta={tab.instrumentMeta ?? null}
+                            bars={tab.displayBars ?? []}
+                            chartType={tab.chartType ?? 'candles'}
+                            renkoBrickSize={tab.renkoBrickSize}
+                            renkoSettings={tab.renkoSettings}
+                            visualSettings={tab.visualSettings}
+                            events={tab.events ?? []}
+                            compareOverlays={tab.compareOverlays ?? []}
+                            overlays={tab.indicators ?? []}
+                            drawings={tab.drawings ?? []}
+                            selectedDrawingId={tab.selectedDrawingId ?? null}
+                            indicatorPaneHeight={tab.indicatorPaneHeight ?? 104}
+                            indicatorPaneHeights={tab.indicatorPaneHeights ?? {}}
+                            collapsedIndicatorPanes={tab.collapsedIndicatorPanes ?? {}}
+                            paneScaleOverrides={tab.paneScaleOverrides ?? {}}
+                            viewport={tab.viewport ?? { startIndex: 0, endIndex: 0 }}
+                            scannerChartOverlay={isScannerOverlayForTab(scannerChartOverlay, tab.instrument) ? scannerChartOverlay : null}
+                            loading={isLoadingBars && tab.id === activeChartTabId}
+                            bottomBarStartContent={<SheetTabs tabId={tab.id} inline />}
+                          />
+                        </div>
+                      );
+                    })}
                   </div>
-                ))}
-              </div>
-            ) : (
-              <div style={chartContentRowStyle}>
-                <div style={chartContentColumnStyle}>
+                ) : (
                   <ChartCanvas
                     tabId={activeTab?.id ?? null}
                     instrument={activeTab?.instrument ?? null}
@@ -351,10 +388,10 @@ export default function RootApp() {
                     loading={isLoadingBars}
                     bottomBarStartContent={activeTab?.id ? <SheetTabs tabId={activeTab.id} inline /> : null}
                   />
-                </div>
-                <ChartToolDock />
+                )}
               </div>
-            )}
+              <ChartToolDock />
+            </div>
           </div>
         </main>
       </div>
@@ -562,15 +599,18 @@ function getTileGridStyle(mode: string): React.CSSProperties {
   }
 }
 
-const tileCellStyle: React.CSSProperties = {
-  display: 'flex',
-  flexDirection: 'column',
-  minWidth: 0,
-  minHeight: 0,
-  overflow: 'hidden',
-  border: '1px solid var(--border)',
-  background: 'var(--chart-bg)',
-};
+function tileCellStyle(isActive: boolean): React.CSSProperties {
+  return {
+    display: 'flex',
+    flexDirection: 'column',
+    minWidth: 0,
+    minHeight: 0,
+    overflow: 'hidden',
+    border: isActive ? '1px solid var(--accent)' : '1px solid var(--border)',
+    boxShadow: isActive ? 'inset 0 0 0 1px var(--accent-soft)' : 'none',
+    background: 'var(--chart-bg)',
+  };
+}
 
 const chartChromeStyle: React.CSSProperties = {
   display: 'flex',
