@@ -17,23 +17,76 @@ export function StatusBar() {
     return () => window.clearInterval(timer);
   }, []);
 
+  const dbName = isDatabaseTransitioning
+    ? (databaseTransitionMessage ?? 'Opening DB...')
+    : snapshot?.dbStats?.dbName ?? (snapshot?.activeDatabasePath ? 'Loading DB...' : 'No DB');
+
+  const dbStatusColor = isDatabaseTransitioning
+    ? '#f59e0b'
+    : snapshot?.dbStats?.dbName
+      ? 'var(--green)'
+      : 'var(--text-mute)';
+
   return (
     <div style={statusBarStyle}>
-      <span>
-        {isDatabaseTransitioning
-          ? (databaseTransitionMessage ?? 'Opening DB...')
-          : snapshot?.dbStats?.dbName ?? (snapshot?.activeDatabasePath ? 'Loading DB...' : 'No DB')}
+      <span style={badgeStyle}>
+        <span style={{ ...dotStyle, background: dbStatusColor }} />
+        <span style={{ fontWeight: 600, color: 'var(--text)' }}>{dbName}</span>
       </span>
-      <span>
-        Range {snapshot?.dbStats?.dateFrom ?? '-'} - {snapshot?.dbStats?.dateTo ?? '-'}
+
+      <span style={badgeStyle}>
+        <span style={{ color: 'var(--text-dim)', fontSize: 10 }}>Range</span>
+        <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--text)', fontSize: 10.5 }}>
+          {snapshot?.dbStats?.dateFrom ?? '-'} – {snapshot?.dbStats?.dateTo ?? '-'}
+        </span>
       </span>
-      {importProgress.running ? <span>Import {importProgress.progress}% {importProgress.message}</span> : null}
-      {downloadProgress.running ? <span>Download {downloadProgress.progress}%</span> : null}
-      {downloadProgress.error ? <span style={{ color: 'var(--red)' }}>Download Error: {downloadProgress.error}</span> : null}
-      <span style={{ marginLeft: 'auto' }}>
-        {activeTab?.instrument ? `${activeTab.instrument.exchange}:${activeTab.instrument.symbol}` : 'No Symbol'} | {activeTab?.visibleBarCount ?? 0} bars
-      </span>
-      <span>{clock.toLocaleTimeString('en-IN', { hour12: false })}</span>
+
+      {importProgress.running ? (
+        <span style={progressBadgeStyle}>
+          Import {importProgress.progress}% {importProgress.message}
+        </span>
+      ) : null}
+
+      {downloadProgress.running ? (
+        <span style={progressBadgeStyle}>
+          Download {downloadProgress.progress}%
+        </span>
+      ) : null}
+
+      {downloadProgress.error ? (
+        <span style={errorBadgeStyle}>
+          Download Error: {downloadProgress.error}
+        </span>
+      ) : null}
+
+      <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 6 }}>
+        {activeTab?.instrument ? (
+          <span style={badgeStyle}>
+            <span style={exchangeTagStyle}>{activeTab.instrument.exchange}</span>
+            <span style={{ fontWeight: 600, color: 'var(--text)', fontFamily: 'var(--font-mono)' }}>
+              {activeTab.instrument.symbol}
+            </span>
+          </span>
+        ) : (
+          <span style={badgeStyle}>
+            <span style={{ color: 'var(--text-dim)' }}>No Symbol</span>
+          </span>
+        )}
+
+        <span style={badgeStyle}>
+          <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--text)' }}>
+            {activeTab?.visibleBarCount ?? 0}
+          </span>
+          <span style={{ color: 'var(--text-dim)', fontSize: 10 }}>bars</span>
+        </span>
+
+        <span style={badgeStyle}>
+          <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--text)' }}>
+            {clock.toLocaleTimeString('en-IN', { hour12: false })}
+          </span>
+          <span style={{ fontSize: 9.5, color: 'var(--text-mute)', fontWeight: 600 }}>IST</span>
+        </span>
+      </div>
     </div>
   );
 }
@@ -41,13 +94,57 @@ export function StatusBar() {
 const statusBarStyle: React.CSSProperties = {
   display: 'flex',
   alignItems: 'center',
-  gap: 10,
-  height: 20,
+  gap: 6,
+  height: 24,
   padding: '0 8px',
   borderTop: '1px solid var(--border)',
   background: 'var(--bg2)',
   color: 'var(--text-dim)',
-  fontSize: 9,
+  fontSize: 11,
   overflow: 'hidden',
   whiteSpace: 'nowrap',
+};
+
+const badgeStyle: React.CSSProperties = {
+  display: 'inline-flex',
+  alignItems: 'center',
+  gap: 5,
+  padding: '1px 6px',
+  borderRadius: 3,
+  border: '1px solid var(--border)',
+  background: 'var(--bg3)',
+  lineHeight: '18px',
+};
+
+const dotStyle: React.CSSProperties = {
+  width: 6,
+  height: 6,
+  borderRadius: '50%',
+  flexShrink: 0,
+};
+
+const exchangeTagStyle: React.CSSProperties = {
+  padding: '0 3px',
+  borderRadius: 2,
+  background: 'var(--accent-soft)',
+  color: 'var(--accent)',
+  fontSize: 9.5,
+  fontWeight: 700,
+  lineHeight: '14px',
+};
+
+const progressBadgeStyle: React.CSSProperties = {
+  ...badgeStyle,
+  borderColor: 'var(--accent)',
+  background: 'var(--accent-faint)',
+  color: 'var(--accent)',
+  fontSize: 10.5,
+};
+
+const errorBadgeStyle: React.CSSProperties = {
+  ...badgeStyle,
+  borderColor: 'var(--red)',
+  background: 'rgba(239, 68, 68, 0.1)',
+  color: 'var(--red)',
+  fontSize: 10.5,
 };

@@ -522,7 +522,7 @@ function sanitizePersistedSheet(value: unknown, index: number): PersistedSheet |
 
   return {
     id: typeof value.id === 'string' && value.id ? value.id : crypto.randomUUID(),
-    name: typeof value.name === 'string' && value.name.trim() ? value.name : `Sheet${index}`,
+    name: typeof value.name === 'string' && value.name.trim() ? value.name : `${index}`,
     createdAt: typeof value.createdAt === 'string' ? value.createdAt : new Date().toISOString(),
     workspace,
   };

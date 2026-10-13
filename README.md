@@ -1,5 +1,31 @@
 # EOD Charting Platform
 
+## Dedicated Symbol Search & Workflow Enhancements — October 13, 2026
+
+<!-- DEDICATED-SYMBOL-SEARCH-OCT13-README -->
+
+> **Dedicated Symbol Search, SQLite Search Controller Wiring & Floating Window Ergonomics — 13 October 2026.**  
+> High-speed instrument search triggered via single-key `S`, exchange filters (`All`, `NSE`, `BSE`), recent symbols fallback, fixed stable dimensions (580px × 480px), and modeless window dragging. All validation gates passed (`typecheck:renderer` 0 errors, Vitest passed).
+
+### Highlights
+- **SQLite Search Controller Fix:** Corrected asynchronous query synchronization in `chartSearchController.ts` so SQLite search results match the active query state.
+- **Dedicated Symbol Search (`S` Hotkey):** Single keypress opens focused instrument search; displays security series badges (`EQ`, `BE`, `SM`); falls back to recently viewed symbols on empty search query for instant `S` &rarr; `↓` &rarr; `Enter` symbol switching.
+- **Floating Window Ergonomics:** Fixed 580px × 480px panel geometry with `flex: 1` auto-scrolling results list; draggable window header bar with localStorage position memory via `useDraggableFloatingWindow`.
+- **Full Report:** `docs/changes/2026-10-13_1225_IST_DEDICATED_SYMBOL_SEARCH_AND_SEARCH_CONTROLLER_FIX.md`.
+
+## Technical and UX Audit — October 12, 2026
+
+<!-- TECHNICAL-AND-UX-AUDIT-OCT12-README -->
+
+> **Technical and UX Audit Phases 1, 2, and 3 Closure — 12 October 2026.**  
+> Execution of performance optimizations, UI modernization (left-rail tool dock, 24px/11px status bar, 4-cluster toolbar), and formal plugin architecture with fault-isolated `PluginHost`. All validation gates passed (`typecheck:renderer` 0 errors, 21/21 Vitest tests, production Vite build in 5.10s).
+
+### Highlights
+- **Performance:** Pruned dead dependencies (`axios`, `unzip-stream`); introduced `isOverlayDirty` in `ChartEngine.ts` to stop 60–144Hz idle redraws; memoized tab hover bar mutations in `chartStore.ts` to eliminate React re-render cascades; split mega-effects in `ChartCanvas.tsx`.
+- **UI Modernization:** Moved `ChartToolDock` to the left rail with rightward flyouts; modernized `StatusBar.tsx` to 24px height and 11px font with high-contrast mono badges; streamlined `Toolbar.tsx` into 4 distinct functional clusters with 24–26px button heights.
+- **Formal Plugin Architecture:** Created `PluginHost` (`src/plugins/pluginHost.ts`) with formal lifecycle hooks (`init`, `destroy`, `onBarsUpdated`, `onInstrumentChanged`) and error-boundary sandboxing so faulty plugins cannot crash the chart canvas. Bound built-in plugins through singleton `pluginHost` in `src/plugins/registry.ts`.
+- **Report & Evidence:** Full report at `docs/changes/2026-10-12_2245_IST_TECHNICAL_AND_UX_AUDIT_PHASES_1_2_3_COMPLETION.md`.
+
 ## Corporate Actions — August 24 three-row repair closure
 
 <!-- CA-V1.14M.2-AUG24-CANONICAL-CLOSURE -->

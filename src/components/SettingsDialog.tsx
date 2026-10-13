@@ -20,6 +20,7 @@ import {
   type DatabaseDefaultPriceMode,
 } from '@/features/workspace/databaseSettingsService';
 import { FloatingWindow } from '@/components/FloatingWindow';
+import { ColorToolboxRow } from '@/components/common/ColorToolbox';
 import {
   DNN_TREND_PLUGIN_ID,
 } from '@/plugins/forecast/dnnTrend/dnnTrendPlugin';
@@ -124,6 +125,7 @@ export function SettingsDialog() {
   const onClose = useUiStore((state) => state.closeSettingsDialog);
   const openBinaryEodParity = useUiStore((state) => state.openBinaryEodParity);
   const setCurrentTheme = useUiStore((state) => state.setCurrentTheme);
+  const setCustomChartColors = useUiStore((state) => state.setCustomChartColors);
   const activeDatabasePath = useChartStore((state) => state.snapshot?.activeDatabasePath ?? null);
   const chartTabs = useChartStore((state) => state.chartTabs);
   const activeChartTabId = useChartStore((state) => state.activeChartTabId);
@@ -281,6 +283,14 @@ export function SettingsDialog() {
       }
       setCurrentTheme(settings.theme);
       applyAppTheme(settings.theme);
+      setCustomChartColors({
+        candleUp: settings.candleUpColor,
+        candleDown: settings.candleDownColor,
+        wickUp: settings.candleUpColor,
+        wickDown: settings.candleDownColor,
+        gridLine: settings.gridColor,
+        crosshair: settings.crosshairColor,
+      });
       setLoadedTheme(settings.theme);
       const databasePriceModeChanged =
         activeDatabasePath && loadedDatabaseDefaultPriceMode !== databaseDefaultPriceMode;
@@ -767,75 +777,29 @@ export function SettingsDialog() {
         {activeSection === 'chart-colors' && (
         <div style={sectionStyle}>
           <div style={sectionTitleStyle}>Chart Colors</div>
-          <div style={gridStyle}>
-            <div style={fieldStyle}>
-              <label style={labelStyle}>Candle Up</label>
-              <div style={colorInputWrapperStyle}>
-                <input
-                  type="color"
-                  style={colorInputStyle}
-                  value={settings.candleUpColor}
-                  onChange={(e) => setSettings({ ...settings, candleUpColor: e.target.value })}
-                />
-                <input
-                  type="text"
-                  style={colorTextStyle}
-                  value={settings.candleUpColor}
-                  onChange={(e) => setSettings({ ...settings, candleUpColor: e.target.value })}
-                />
-              </div>
-            </div>
-            <div style={fieldStyle}>
-              <label style={labelStyle}>Candle Down</label>
-              <div style={colorInputWrapperStyle}>
-                <input
-                  type="color"
-                  style={colorInputStyle}
-                  value={settings.candleDownColor}
-                  onChange={(e) => setSettings({ ...settings, candleDownColor: e.target.value })}
-                />
-                <input
-                  type="text"
-                  style={colorTextStyle}
-                  value={settings.candleDownColor}
-                  onChange={(e) => setSettings({ ...settings, candleDownColor: e.target.value })}
-                />
-              </div>
-            </div>
-            <div style={fieldStyle}>
-              <label style={labelStyle}>Grid Lines</label>
-              <div style={colorInputWrapperStyle}>
-                <input
-                  type="color"
-                  style={colorInputStyle}
-                  value={settings.gridColor}
-                  onChange={(e) => setSettings({ ...settings, gridColor: e.target.value })}
-                />
-                <input
-                  type="text"
-                  style={colorTextStyle}
-                  value={settings.gridColor}
-                  onChange={(e) => setSettings({ ...settings, gridColor: e.target.value })}
-                />
-              </div>
-            </div>
-            <div style={fieldStyle}>
-              <label style={labelStyle}>Crosshair</label>
-              <div style={colorInputWrapperStyle}>
-                <input
-                  type="color"
-                  style={colorInputStyle}
-                  value={settings.crosshairColor}
-                  onChange={(e) => setSettings({ ...settings, crosshairColor: e.target.value })}
-                />
-                <input
-                  type="text"
-                  style={colorTextStyle}
-                  value={settings.crosshairColor}
-                  onChange={(e) => setSettings({ ...settings, crosshairColor: e.target.value })}
-                />
-              </div>
-            </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12, maxWidth: 440 }}>
+            <ColorToolboxRow
+              label="Candle Up"
+              value={settings.candleUpColor}
+              onChange={(candleUpColor) => setSettings({ ...settings, candleUpColor })}
+            />
+            <ColorToolboxRow
+              label="Candle Down"
+              value={settings.candleDownColor}
+              onChange={(candleDownColor) => setSettings({ ...settings, candleDownColor })}
+            />
+            <ColorToolboxRow
+              label="Grid Lines"
+              value={settings.gridColor}
+              allowAlpha
+              onChange={(gridColor) => setSettings({ ...settings, gridColor })}
+            />
+            <ColorToolboxRow
+              label="Crosshair"
+              value={settings.crosshairColor}
+              allowAlpha
+              onChange={(crosshairColor) => setSettings({ ...settings, crosshairColor })}
+            />
           </div>
         </div>
         )}
@@ -1005,32 +969,6 @@ const pathRowStyle: React.CSSProperties = {
 
 const pathInputStyle: React.CSSProperties = {
   minWidth: 0,
-};
-
-const colorInputWrapperStyle: React.CSSProperties = {
-  display: 'flex',
-  gap: 8,
-};
-
-const colorInputStyle: React.CSSProperties = {
-  width: 36,
-  height: 36,
-  padding: 0,
-  border: '1px solid var(--border2)',
-  borderRadius: 4,
-  background: 'transparent',
-  cursor: 'pointer',
-};
-
-const colorTextStyle: React.CSSProperties = {
-  flex: 1,
-  background: 'var(--bg3)',
-  border: '1px solid var(--border2)',
-  borderRadius: 4,
-  padding: '0 12px',
-  color: 'var(--text)',
-  fontSize: 13,
-  fontFamily: 'monospace',
 };
 
 const pluginListStyle: React.CSSProperties = {

@@ -207,7 +207,9 @@ function updateActiveTab(
   updater: (tab: ChartTabState) => ChartTabState,
 ): Pick<ChartStoreState, 'chartTabs'> {
   return {
-    chartTabs: state.chartTabs.map((tab) => (tab.id === state.activeChartTabId ? updater(tab) : tab)),
+    chartTabs: state.chartTabs.some((tab) => tab.id === state.activeChartTabId && updater(tab) !== tab)
+      ? state.chartTabs.map((tab) => (tab.id === state.activeChartTabId ? updater(tab) : tab))
+      : state.chartTabs,
   };
 }
 

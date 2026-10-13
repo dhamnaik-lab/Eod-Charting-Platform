@@ -148,7 +148,7 @@ describe('chartTabStateMutationService timeframe viewport preservation', () => {
     expect(dailyTab.viewport.endIndex).toBeGreaterThanOrEqual(rawBars.length);
   });
 
-  it('preserves historical date location across timeframe change without snapping to newest date', () => {
+  it('resets viewport zoom to default right-aligned range across timeframe change', () => {
     const rawBars = Array.from({ length: 500 }, (_, i) => {
       const date = new Date(Date.UTC(2024, 0, 1) + i * 86400000).toISOString().slice(0, 10);
       return {
@@ -162,7 +162,7 @@ describe('chartTabStateMutationService timeframe viewport preservation', () => {
       };
     });
 
-    // Scrolled back to historical period (indices 100 to 140 in April/May 2024)
+    // Scrolled back to historical period or zoomed in
     const tab = {
       ...createBlankChartTab(1),
       rawBars,
@@ -172,17 +172,14 @@ describe('chartTabStateMutationService timeframe viewport preservation', () => {
     };
 
     const weeklyTab = applyTimeframeToTab(tab, 'W');
-    // It should NOT snap to the newest bar (index 70+ in weekly)
-    expect(weeklyTab.viewport.endIndex).toBeLessThan(weeklyTab.displayBars.length);
-    // The date at the center should match the original period (approx April/May 2024)
-    const weeklyCenterBar = weeklyTab.displayBars[Math.round((weeklyTab.viewport.startIndex + weeklyTab.viewport.endIndex) / 2)];
-    expect(weeklyCenterBar.date.startsWith('2024-04') || weeklyCenterBar.date.startsWith('2024-05')).toBe(true);
+    // Resets zoom to default viewport for weekly bars
+    expect(weeklyTab.viewport.endIndex).toBeGreaterThanOrEqual(weeklyTab.displayBars.length);
+    expect(weeklyTab.visibleBarCount).toBe(Math.min(weeklyTab.displayBars.length, 120));
 
     const dailyAgainTab = applyTimeframeToTab(weeklyTab, 'D');
-    // Switching back should restore historical center
-    const dailyCenterBar = dailyAgainTab.displayBars[Math.round((dailyAgainTab.viewport.startIndex + dailyAgainTab.viewport.endIndex) / 2)];
-    expect(dailyCenterBar.date.startsWith('2024-04') || dailyCenterBar.date.startsWith('2024-05')).toBe(true);
-    expect(dailyAgainTab.viewport.endIndex).toBeLessThan(rawBars.length);
+    // Resets zoom to default viewport for daily bars (120 bars)
+    expect(dailyAgainTab.viewport.endIndex).toBeGreaterThanOrEqual(rawBars.length);
+    expect(dailyAgainTab.visibleBarCount).toBe(120);
   });
 });
 

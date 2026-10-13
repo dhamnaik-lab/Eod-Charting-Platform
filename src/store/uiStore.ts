@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { DrawingTool } from '@/engine/types';
+import type { DrawingTool, ChartTheme } from '@/engine/types';
 import type { AppThemeId } from '@/features/app/themeService';
 import { DEFAULT_APP_THEME_ID } from '@/features/app/themeService';
 import type { OfficialWatchlistSourceId } from '@/features/watchlists/officialWatchlistProviders';
@@ -142,6 +142,7 @@ interface UiStoreState {
   importDialog: ImportDialogState;
   officialWatchlistImportDialog: OfficialWatchlistImportDialogState;
   currentTheme: AppThemeId;
+  customChartColors: Partial<ChartTheme> | null;
   compareDialogOpen: boolean;
   customFormulaDialogOpen: boolean;
   chartScreenshotRequest: ChartScreenshotRequest | null;
@@ -182,6 +183,7 @@ interface UiStoreState {
   aboutDialogOpen: boolean;
   aboutOpenRequestCount: number;
   commandPaletteOpen: boolean;
+  commandPaletteMode: 'all' | 'symbol';
   signalSettingsDialogOpen: boolean;
   signalRules: import('@/engine/types').ChartSignalRule[];
   openSignalSettingsDialog: () => void;
@@ -207,6 +209,7 @@ interface UiStoreState {
   toggleOhlcvBar: () => void;
   toggleStatusBar: () => void;
   setCurrentTheme: (theme: AppThemeId) => void;
+  setCustomChartColors: (colors: Partial<ChartTheme> | null) => void;
   openImportDialog: (filePaths?: string[] | null) => void;
   closeImportDialog: () => void;
   openOfficialWatchlistImportDialog: (sourceId?: OfficialWatchlistSourceId | null) => void;
@@ -258,8 +261,8 @@ interface UiStoreState {
   openCustomFormulaDialog: () => void;
   closeCustomFormulaDialog: () => void;
   requestChartScreenshot: (action: ChartScreenshotAction) => void;
-  setCommandPaletteOpen: (open: boolean) => void;
-  toggleCommandPalette: () => void;
+  setCommandPaletteOpen: (open: boolean, mode?: 'all' | 'symbol') => void;
+  toggleCommandPalette: (mode?: 'all' | 'symbol') => void;
   setDrawingTool: (tool: DrawingTool) => void;
   setMagnetEnabled: (enabled: boolean) => void;
   toggleMagnet: () => void;
@@ -297,6 +300,7 @@ export const useUiStore = create<UiStoreState>((set, get) => ({
   importDialog: createInitialImportDialog(),
   officialWatchlistImportDialog: createInitialOfficialWatchlistImportDialog(),
   currentTheme: DEFAULT_APP_THEME_ID,
+  customChartColors: null,
   compareDialogOpen: false,
   customFormulaDialogOpen: false,
   chartScreenshotRequest: null,
@@ -338,6 +342,7 @@ export const useUiStore = create<UiStoreState>((set, get) => ({
   aboutDialogOpen: false,
   aboutOpenRequestCount: 0,
   commandPaletteOpen: false,
+  commandPaletteMode: 'all',
   signalSettingsDialogOpen: false,
   signalRules: [],
   openSignalSettingsDialog: () => set({ signalSettingsDialogOpen: true }),
@@ -358,6 +363,7 @@ export const useUiStore = create<UiStoreState>((set, get) => ({
   toggleStatusBar: () =>
     set((state) => ({ uiFlags: { ...state.uiFlags, statusBarVisible: !state.uiFlags.statusBarVisible } })),
   setCurrentTheme: (theme) => set({ currentTheme: theme }),
+  setCustomChartColors: (colors) => set({ customChartColors: colors }),
   openImportDialog: (filePaths) =>
     set((state) => ({
       importDialog: {
@@ -497,8 +503,16 @@ export const useUiStore = create<UiStoreState>((set, get) => ({
         requestCount: (state.chartScreenshotRequest?.requestCount ?? 0) + 1,
       },
     })),
-  setCommandPaletteOpen: (open) => set({ commandPaletteOpen: open }),
-  toggleCommandPalette: () => set((state) => ({ commandPaletteOpen: !state.commandPaletteOpen })),
+  setCommandPaletteOpen: (open, mode = 'all') =>
+    set({
+      commandPaletteOpen: open,
+      commandPaletteMode: mode,
+    }),
+  toggleCommandPalette: (mode = 'all') =>
+    set((state) => ({
+      commandPaletteOpen: !state.commandPaletteOpen,
+      commandPaletteMode: mode,
+    })),
   setDrawingTool: (tool) =>
     set({
       activeDrawingTool: tool,

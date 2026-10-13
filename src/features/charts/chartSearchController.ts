@@ -36,7 +36,12 @@ export function createChartSearchController(
   const runSearch = async (query: string) => {
     const requestId = ++latestSearchRequestId;
     const requestedDatabasePath = deps.getState().snapshot?.activeDatabasePath ?? null;
-    const results = await searchChartSymbols(requestedDatabasePath, query);
+    deps.setState({ searchQuery: query });
+    if (!query.trim()) {
+      deps.setState(buildEmptySearchResultsState());
+      return;
+    }
+    const results = await searchChartSymbols(requestedDatabasePath, query.trim());
     const state = deps.getState();
     if (requestId !== latestSearchRequestId) {
       return;

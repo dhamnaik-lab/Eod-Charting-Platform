@@ -25,6 +25,7 @@ import {
   type EodAlertRule,
 } from '@/features/alerts/eodAlerts';
 import { readAppSettings, writeAppSettings, type AppSettings } from '@/features/app/appSettingsService';
+import { ColorToolbox } from '@/components/common/ColorToolbox';
 
 type SettingsSection = 'Symbol' | 'Status line' | 'Scales and lines' | 'Canvas' | 'Alerts' | 'Events';
 
@@ -808,7 +809,6 @@ function ToggleRow({ label, checked, onChange }: { label: string; checked: boole
 function ColorEditRow({
   label,
   value,
-  borderColor,
   onChange,
 }: {
   label: string;
@@ -819,44 +819,15 @@ function ColorEditRow({
   return (
     <div style={colorPreviewRowStyle}>
       <span>{label}</span>
-      <label style={colorEditControlStyle}>
-        <span style={colorSwatchStyle(value, borderColor)} />
-        <span style={colorChooseTextStyle}>Choose</span>
-        <input
-          type="color"
-          value={toColorInputValue(value)}
-          onChange={(event) => onChange(event.target.value)}
-          style={colorInputStyle}
-          aria-label={`${label} color`}
-        />
-      </label>
+      <ColorToolbox
+        value={value}
+        onChange={onChange}
+        label={label}
+        allowAlpha={true}
+        ariaLabel={`${label} color`}
+      />
     </div>
   );
-}
-
-function toColorInputValue(color: string): string {
-  const trimmed = color.trim();
-  const hexMatch = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.exec(trimmed);
-  if (hexMatch) {
-    const hex = hexMatch[1];
-    if (hex.length === 3) {
-      return `#${hex[0]}${hex[0]}${hex[1]}${hex[1]}${hex[2]}${hex[2]}`.toLowerCase();
-    }
-    return `#${hex}`.toLowerCase();
-  }
-
-  const rgbMatch = /^rgba?\(\s*(\d{1,3})\s*,\s*(\d{1,3})\s*,\s*(\d{1,3})/i.exec(trimmed);
-  if (rgbMatch) {
-    return `#${toHexByte(rgbMatch[1])}${toHexByte(rgbMatch[2])}${toHexByte(rgbMatch[3])}`;
-  }
-
-  return '#000000';
-}
-
-function toHexByte(value: string): string {
-  return Math.max(0, Math.min(255, Number(value) || 0))
-    .toString(16)
-    .padStart(2, '0');
 }
 
 function ActionRow({
@@ -1147,46 +1118,6 @@ const colorPreviewRowStyle: CSSProperties = {
   color: 'var(--text)',
   fontSize: 13,
   fontWeight: 700,
-};
-
-const colorEditControlStyle: CSSProperties = {
-  display: 'flex',
-  alignItems: 'center',
-  gap: 10,
-  position: 'relative',
-  minWidth: 0,
-  width: 'fit-content',
-  minHeight: 30,
-  padding: '0 12px 0 7px',
-  border: '1px solid var(--border)',
-  borderRadius: 6,
-  background: 'var(--control-bg)',
-  color: 'var(--text)',
-  cursor: 'pointer',
-};
-
-const colorSwatchStyle = (color: string, borderColor?: string): CSSProperties => ({
-  width: 34,
-  flex: '0 0 34px',
-  height: 24,
-  borderRadius: 6,
-  border: `1px solid ${borderColor ?? 'var(--border2)'}`,
-  background: color,
-});
-
-const colorInputStyle: CSSProperties = {
-  position: 'absolute',
-  inset: 0,
-  width: '100%',
-  height: '100%',
-  opacity: 0,
-  cursor: 'pointer',
-};
-
-const colorChooseTextStyle: CSSProperties = {
-  fontSize: 12,
-  fontWeight: 600,
-  color: 'var(--text2)',
 };
 
 const alertHelpStyle: CSSProperties = {

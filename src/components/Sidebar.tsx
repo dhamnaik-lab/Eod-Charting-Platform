@@ -291,6 +291,7 @@ function collectSeriesForExchange(items: InstrumentSummary[], exchange: SymbolEx
 const SIDEBAR_RAIL_WIDTH = 34;
 const VIRTUAL_ROW_HEIGHT = 30;
 const SIDEBAR_COLLAPSED_SUBCATS_KEY = 'eod-chart.sidebar.collapsed-subcategories.v1';
+const SIDEBAR_COLLAPSED_FAVORITES_KEY = 'eod-chart.sidebar.collapsed-favorites.v1';
 
 function readStoredCollapsedSubcategories(): Record<string, boolean> {
   if (typeof window === 'undefined') return {};
@@ -299,6 +300,15 @@ function readStoredCollapsedSubcategories(): Record<string, boolean> {
     return raw ? JSON.parse(raw) : {};
   } catch {
     return {};
+  }
+}
+
+function readStoredFavoritesCollapsed(): boolean {
+  if (typeof window === 'undefined') return false;
+  try {
+    return window.localStorage.getItem(SIDEBAR_COLLAPSED_FAVORITES_KEY) === 'true';
+  } catch {
+    return false;
   }
 }
 
@@ -733,6 +743,24 @@ export function Sidebar({ width, collapsed, pinned, onToggleCollapse, onTogglePi
   const [collapsedSubcategories, setCollapsedSubcategories] = useState<Record<string, boolean>>(() =>
     readStoredCollapsedSubcategories(),
   );
+
+  const [favoritesCollapsed, setFavoritesCollapsed] = useState<boolean>(() =>
+    readStoredFavoritesCollapsed(),
+  );
+
+  const toggleFavoritesCollapse = () => {
+    setFavoritesCollapsed((prev) => {
+      const next = !prev;
+      if (typeof window !== 'undefined') {
+        try {
+          window.localStorage.setItem(SIDEBAR_COLLAPSED_FAVORITES_KEY, String(next));
+        } catch {
+          // ignore
+        }
+      }
+      return next;
+    });
+  };
 
   const toggleSubcategoryCollapse = (subcategoryId: string) => {
     setCollapsedSubcategories((prev) => {
@@ -1667,13 +1695,23 @@ export function Sidebar({ width, collapsed, pinned, onToggleCollapse, onTogglePi
               <div className="chart-native-scrollbar" style={denseListStyle}>
                 {favoriteIndicators.length > 0 && !indicatorQuery.trim() ? (
                   <div style={{ marginBottom: 8 }}>
-                    <div style={mainPlacementHeaderStyle}>
-                      <span>★ Favorites</span>
+                    <button
+                      type="button"
+                      style={subgroupHeaderButtonStyle}
+                      onClick={toggleFavoritesCollapse}
+                      title={favoritesCollapsed ? 'Expand Favorites' : 'Collapse Favorites'}
+                    >
+                      <span style={{ fontSize: 9, width: 10, color: 'var(--accent)', userSelect: 'none' }}>
+                        {favoritesCollapsed ? '►' : '▼'}
+                      </span>
+                      <span style={{ flex: 1, fontWeight: 600 }}>★ Favorites</span>
                       <span style={subgroupCountBadgeStyle}>{favoriteIndicators.length}</span>
-                    </div>
-                    <div style={{ paddingLeft: 4, marginTop: 2 }}>
-                      {favoriteIndicators.map((item) => renderIndicatorRow(item))}
-                    </div>
+                    </button>
+                    {!favoritesCollapsed ? (
+                      <div style={{ paddingLeft: 4, marginTop: 2 }}>
+                        {favoriteIndicators.map((item) => renderIndicatorRow(item))}
+                      </div>
+                    ) : null}
                     <div style={railDividerStyle} />
                   </div>
                 ) : null}

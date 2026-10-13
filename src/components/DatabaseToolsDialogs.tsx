@@ -4,6 +4,7 @@ import {
   getDesktopApi,
   type BseCurrentUniverseSyncResult,
   type CorporateActionInput,
+  type CorporateActionAutoApprovalResult,
   type CorporateActionEventIdentity,
   type CorporateActionImportActionType,
   type CorporateActionImportResolutionHint,
@@ -88,6 +89,11 @@ import {
   loadCorporateActionImportRows,
   prepareCorporateActionPendingImports,
 } from '@/features/corporateActions/legacy/corporateActionImportOperations';
+import { buildCorporateActionDividendPreparedScope } from '@/features/corporateActions/legacy/corporateActionDividendPreparedScope';
+import {
+  evaluateCorporateActionDividendPreparedScopeBatches,
+  type CorporateActionDividendPreparedScopeOutcomeState,
+} from '@/features/corporateActions/legacy/corporateActionDividendPreparedScopeOrchestration';
 import {
   IDENTITY_RECOVERY_DOCUMENTS,
   type IdentityRecoveryDocument,
@@ -1574,7 +1580,17 @@ function CorporateActionDialog({
   const [importIdentityHints, setImportIdentityHints] = useState<Record<number, CorporateActionImportResolutionHint>>({});
   const [officialPreparationComplete, setOfficialPreparationComplete] = useState(false);
   const [officialPreparationErrors, setOfficialPreparationErrors] = useState<Record<number, string>>({});
+  // Presentation only: never use Safe-V2 skips to decide manual Apply eligibility.
+  const [officialAutoApproval, setOfficialAutoApproval] = useState<{
+    databasePath: string | null;
+    generation: number;
+    result: CorporateActionAutoApprovalResult;
+  } | null>(null);
+  // Current-cycle Dividend evaluation is read-only presentation evidence, never manual Apply or write authority.
+  const [officialDividendPreparedScopeOutcome, setOfficialDividendPreparedScopeOutcome] =
+    useState<CorporateActionDividendPreparedScopeOutcomeState | null>(null);
   const [officialReviewSymbolFilter, setOfficialReviewSymbolFilter] = useState('ALL');
+  const [officialSafeV2SkippedOnly, setOfficialSafeV2SkippedOnly] = useState(false);
   const [expandedOfficialGroupKeys, setExpandedOfficialGroupKeys] = useState<Set<string>>(() => new Set());
   const [officialApprovalConfirmation, setOfficialApprovalConfirmation] = useState<{
     mode: 'selected' | 'all-ready';
@@ -1589,6 +1605,35 @@ function CorporateActionDialog({
   const officialCancelPreparationRef = useRef(false);
   const [officialCanCancelPreparation, setOfficialCanCancelPreparation] = useState(false);
   const [officialTaskProgress, setOfficialTaskProgress] = useState<OfficialImportTaskProgress | null>(null);
+  const currentOfficialAutoApproval = officialAutoApproval && !busy && officialPreparationComplete &&
+    officialAutoApproval.databasePath === activeDatabasePath &&
+    officialAutoApproval.generation === officialPreparationGenerationRef.current
+      ? officialAutoApproval.result : null;
+  const currentOfficialDividendPreparedScopeOutcome = officialDividendPreparedScopeOutcome && !busy && officialPreparationComplete &&
+    officialDividendPreparedScopeOutcome.databasePath === activeDatabasePath &&
+    officialDividendPreparedScopeOutcome.generation === officialPreparationGenerationRef.current
+      ? officialDividendPreparedScopeOutcome : null;
+  const officialDividendPreparedScopeDispositionByImportId = useMemo(() => {
+    const dispositions = new Map<
+      number,
+      CorporateActionDividendPreparedScopeOutcomeState['result']['dispositions'][number]
+    >();
+    for (const disposition of currentOfficialDividendPreparedScopeOutcome?.result.dispositions ?? []) {
+      dispositions.set(disposition.importId, disposition);
+    }
+    return dispositions;
+  }, [currentOfficialDividendPreparedScopeOutcome]);
+  const officialAutoApprovalSkippedReasons = useMemo(() => {
+    const reasons = new Map<number, string>();
+    for (const disposition of currentOfficialAutoApproval?.dispositions ?? []) {
+      if (disposition.disposition === 'SKIPPED') reasons.set(disposition.importId, disposition.reason);
+    }
+    return reasons;
+  }, [currentOfficialAutoApproval]);
+  useEffect(() => {
+    if (!currentOfficialAutoApproval && officialSafeV2SkippedOnly) setOfficialSafeV2SkippedOnly(false);
+  }, [currentOfficialAutoApproval, officialSafeV2SkippedOnly]);
+  const officialSafeV2SkippedFocusActive = activeOfficialImportView === 'review' && officialSafeV2SkippedOnly && currentOfficialAutoApproval != null;
 
   const [issueOnlyOneActiveFilter, setIssueOnlyOneActiveFilter] = useState(false);
   const [issueOnlyMultipleActiveFilter, setIssueOnlyMultipleActiveFilter] = useState(false);
@@ -1647,6 +1692,8 @@ function CorporateActionDialog({
     setBusy(false);
     setCorporateProgress({ progress: 0, message: '' });
     setOfficialPreparationComplete(false);
+    setOfficialAutoApproval(null);
+    setOfficialDividendPreparedScopeOutcome(null);
     setOfficialPreparationErrors({});
     setOfficialApprovalConfirmation(null);
     setSelectedImportIds(new Set());
@@ -1742,6 +1789,8 @@ function CorporateActionDialog({
 
   const handleClose = () => {
     officialPreparationGenerationRef.current += 1;
+    setOfficialAutoApproval(null);
+    setOfficialDividendPreparedScopeOutcome(null);
     closeWindow(CORPORATE_ACTIONS_WINDOW_ID);
     onClose();
   };
@@ -1757,6 +1806,8 @@ function CorporateActionDialog({
   const showingApprovedImports = activeOfficialImportView === 'approved';
 
   const setLoadedImportRows = (rows: CorporateActionImportRow[]) => {
+    setOfficialAutoApproval(null);
+    setOfficialDividendPreparedScopeOutcome(null);
     setImportRows(rows);
     setSelectedImportIds((selectedIds) => {
       const loadedIds = new Set(rows.map((row) => row.id));
@@ -1852,6 +1903,7 @@ function CorporateActionDialog({
     return importRows.filter((row) => {
       if (!effectiveImportActionTypes.includes(row.actionType)) return false;
       if (normalizedImportSearchQuery && !matchesCorporateImportSearch(row, normalizedImportSearchQuery)) return false;
+      if (officialSafeV2SkippedFocusActive && !officialAutoApprovalSkippedReasons.has(row.id)) return false;
       if (showingApprovedImports || officialReviewSymbolFilter === 'ALL') return true;
       return officialImportGroupKey(row) === officialReviewSymbolFilter;
     });
@@ -1860,6 +1912,8 @@ function CorporateActionDialog({
     normalizedImportSearchQuery,
     officialReviewSymbolFilter,
     effectiveImportActionTypes,
+    officialSafeV2SkippedFocusActive,
+    officialAutoApprovalSkippedReasons,
     showingApprovedImports,
   ]);
 
@@ -2886,6 +2940,8 @@ function CorporateActionDialog({
     setBusy(true);
     setOfficialCanCancelPreparation(true);
     setOfficialPreparationComplete(false);
+    setOfficialAutoApproval(null);
+    setOfficialDividendPreparedScopeOutcome(null);
     setOfficialPreparationErrors({});
     setOfficialApprovalConfirmation(null);
     setSelectedImportIds(new Set());
@@ -2902,6 +2958,7 @@ function CorporateActionDialog({
       });
       if (!shouldContinue()) return;
       setLoadedImportRows(result.rows);
+      setOfficialAutoApproval(result.autoApproval ? { databasePath, generation, result: result.autoApproval } : null);
       setImportIdentityHints(result.identityHints);
       mergeOfficialValidationRows(result.validationRows, result.validationImportIds);
       const rowErrors: Record<number, string> = {};
@@ -2913,12 +2970,43 @@ function CorporateActionDialog({
       setStatus(result.message);
       setOfficialTaskProgress({stage: result.complete ? 'complete' : 'stopped',completed: result.rows.length,
         total: result.rows.length,message:result.message,startedAt,endedAt:Date.now()});
+      if (result.complete && databasePath && shouldContinue()) {
+        try {
+          const preparedScope = await buildCorporateActionDividendPreparedScope({
+            rows: result.rows,
+            cycle: { generation, expectedDatabasePath: databasePath },
+            currentGeneration: officialPreparationGenerationRef.current,
+            currentDatabasePath: useChartStore.getState().snapshot?.activeDatabasePath ?? '',
+            complete: result.complete,
+            cancelled: officialCancelPreparationRef.current,
+          });
+          if (!shouldContinue()) return;
+          if (preparedScope.status === 'READY' && preparedScope.scope.importIds.length > 0) {
+            const evaluation = await evaluateCorporateActionDividendPreparedScopeBatches({
+              api,
+              scope: preparedScope.scope,
+              getCurrentGeneration: () => officialPreparationGenerationRef.current,
+              getCurrentDatabasePath: () => useChartStore.getState().snapshot?.activeDatabasePath ?? null,
+              isCancelled: () => officialCancelPreparationRef.current,
+            });
+            if (!shouldContinue() || evaluation.status === 'STALE') return;
+            if (evaluation.status === 'OUTCOME') {
+              setOfficialDividendPreparedScopeOutcome(evaluation.outcome);
+            }
+          }
+        } catch {
+          if (!shouldContinue()) return;
+          // P3B is read-only diagnostics. It never changes preparation status or manual Apply readiness.
+        }
+      }
     } catch(error) {
       if (!isCurrent()) return;
       const message = officialCancelPreparationRef.current
-        ? 'Preparation cancelled after the current check. Completed matching/check metadata may already be saved, and an in-flight Auto-Approval Safe V1 batch may already have approved eligible Split/Bonus rows. Load & Prepare again to refresh the authoritative queue before any manual Apply.'
+        ? 'Preparation cancelled after the current check. Completed matching/check metadata may already be saved, and an in-flight Auto-Approval Safe V2 batch may already have approved eligible Split/Bonus rows. Load & Prepare again to refresh the authoritative queue before any manual Apply.'
         : getErrorMessage(error, 'Could not prepare pending imports.');
       setOfficialPreparationComplete(false);
+      setOfficialAutoApproval(null);
+      setOfficialDividendPreparedScopeOutcome(null);
       setStatus(message);
       setOfficialTaskProgress((current) => current ? {...current,stage:'stopped',message,endedAt:Date.now()} : null);
     } finally {
@@ -3833,6 +3921,8 @@ function CorporateActionDialog({
   const confirmOfficialImportApproval = async () => {
     if (!api || !officialApprovalConfirmation || officialOperationRunningRef.current) return;
     const confirmation = officialApprovalConfirmation;
+    setOfficialAutoApproval(null);
+    setOfficialDividendPreparedScopeOutcome(null);
     const shouldContinue = () => officialPreparationGenerationRef.current === confirmation.generation &&
       useChartStore.getState().snapshot?.activeDatabasePath === confirmation.databasePath;
     if (!shouldContinue()) {
@@ -3861,6 +3951,8 @@ function CorporateActionDialog({
       if (!shouldContinue()) return;
       setOfficialApprovalConfirmation(null);
       setOfficialPreparationComplete(false);
+      setOfficialAutoApproval(null);
+      setOfficialDividendPreparedScopeOutcome(null);
       const message = getErrorMessage(error, 'The reviewed actions changed. Load & Prepare again.');
       setStatus(message);
       setOfficialTaskProgress((current) => current ? {...current,stage:'stopped',message,endedAt:Date.now()} : null);
@@ -5432,7 +5524,7 @@ function CorporateActionDialog({
                   setCurrentUniverseSyncResult(null);
                 }}
                 style={identityCompactInputStyle}
-                placeholder="E:\TA Projects\Corporate Actions Raw"
+                placeholder="Select NSE archive root"
               />
               <button
                 type="button"
@@ -5706,6 +5798,23 @@ function CorporateActionDialog({
                   ))}
                 </select>
               </label>
+              <label
+                style={corporateImportFilterCheckboxStyle}
+                title="Show only rows skipped by Safe V2 in the current completed preparation. This does not change manual Apply eligibility."
+              >
+                <input
+                  type="checkbox"
+                  aria-label="Safe V2 skipped focus"
+                  checked={officialSafeV2SkippedOnly}
+                  onChange={(event) => {
+                    setOfficialSafeV2SkippedOnly(event.target.checked);
+                    setSelectedImportIds(new Set());
+                    setOfficialApprovalConfirmation(null);
+                  }}
+                  disabled={busy || currentOfficialAutoApproval == null || officialAutoApprovalSkippedReasons.size === 0}
+                />
+                <span>Safe V2 skipped ({officialAutoApprovalSkippedReasons.size})</span>
+              </label>
               <div style={pendingCompactSearchStyle}>
                 <span style={utilityFieldLabelStyle}>Find:</span>
                 <input
@@ -5748,6 +5857,8 @@ function CorporateActionDialog({
                     {pendingCompactMessage}
                   </div>
                 )}
+                <OfficialSafeV2OutcomeSummary result={currentOfficialAutoApproval} />
+                <OfficialDividendPreparedScopeOutcomeSummary outcome={currentOfficialDividendPreparedScopeOutcome} />
               </div>
             </div>
           </div>
@@ -6181,6 +6292,12 @@ function CorporateActionDialog({
                               <span style={corporateEvidenceSourceCellStyle}>
                                 <strong>{statusLabel}</strong>
                                 {officialPreparationErrors[row.id] ? <span style={corporateIssueHintTextStyle}>{officialPreparationErrors[row.id]}</span> : null}
+                                {!officialPreparationErrors[row.id] ? (
+                                  <OfficialSafeV2SkippedReason reason={officialAutoApprovalSkippedReasons.get(row.id)} />
+                                ) : null}
+                                <OfficialDividendPreparedScopeDispositionDetails
+                                  disposition={officialDividendPreparedScopeDispositionByImportId.get(row.id)}
+                                />
                               </span>
                               <span style={corporateCellStyle}>
                                 {needsIdentityDecision ? (
@@ -8700,6 +8817,8 @@ const pendingCompactCountsStyle: React.CSSProperties = {
 
 const pendingCompactStatusPresentationStyle: React.CSSProperties = {
   display: 'flex',
+  flexDirection: 'column',
+  gap: 4,
   flex: '1 1 480px',
   minWidth: 0,
 };
@@ -9961,6 +10080,69 @@ function corporateResolveCandidateStyle(active: boolean): React.CSSProperties {
   };
 }
 
+
+// These are current-cycle, backend-returned outcomes, not reconstructed eligibility.
+function OfficialSafeV2OutcomeSummary({ result }: { result: CorporateActionAutoApprovalResult | null }) {
+  if (!result) return null;
+  return (
+    <div aria-label="Safe V2 outcome summary" style={{ ...corporateIssueHintTextStyle, whiteSpace: 'normal' }}>
+      Safe V2: requested {result.requested} · eligible {result.eligible} · approved/linked {result.autoApproved + result.linkedExisting} · already approved {result.alreadyApproved} · skipped {result.skipped} · failed {result.failed}
+    </div>
+  );
+}
+
+function OfficialSafeV2SkippedReason({ reason }: { reason: string | undefined }) {
+  if (!reason) return null;
+  return (
+    <span style={{ ...corporateIssueHintTextStyle, whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>
+      Safe V2 left for manual review: {reason}
+    </span>
+  );
+}
+
+function OfficialDividendPreparedScopeOutcomeSummary({
+  outcome,
+}: {
+  outcome: CorporateActionDividendPreparedScopeOutcomeState | null;
+}) {
+  if (!outcome) return null;
+  const { result } = outcome;
+  return (
+    <div
+      aria-label="Dividend R1 read-only outcome summary"
+      style={{ ...corporateIssueHintTextStyle, whiteSpace: 'normal', overflowWrap: 'anywhere' }}
+    >
+      Dividend R1 read-only — NOT APPROVED: requested {result.requested} · eligible {result.eligible} (read-only, not approved) · ineligible {result.ineligible} · already approved {result.alreadyApproved} · stale {result.staleScope} · missing {result.missing} · failed {result.failed} · batches {result.completedBatchCount}/{result.batchCount} · {result.complete ? 'complete' : 'incomplete'}
+      {result.operationalError ? <> · issue: {result.operationalError}</> : null}
+    </div>
+  );
+}
+
+function OfficialDividendPreparedScopeDispositionDetails({
+  disposition,
+}: {
+  disposition: CorporateActionDividendPreparedScopeOutcomeState['result']['dispositions'][number] | undefined;
+}) {
+  if (!disposition) return null;
+  const dispositionLabel = disposition.disposition === 'ELIGIBLE'
+    ? 'ELIGIBLE (READ-ONLY, NOT APPROVED)'
+    : disposition.disposition;
+  const evidence = disposition.evidence;
+  return (
+    <span
+      aria-label={`Dividend R1 read-only disposition ${disposition.importId}`}
+      style={{ ...corporateIssueHintTextStyle, display: 'flex', flexDirection: 'column', gap: 2, whiteSpace: 'normal', overflowWrap: 'anywhere' }}
+    >
+      <span>Dividend R1 read-only — {dispositionLabel}: {disposition.reason}</span>
+      {evidence ? (
+        <>
+          <span>Evidence: cash {formatCorporatePrice(evidence.cashAmount)} · previous close {formatCorporatePrice(evidence.previousClose)} on {evidence.previousTradeDate} · factor {evidence.computedFactor.toFixed(8)}</span>
+          <span>Identity: {evidence.identityProof} · official evidence {evidence.officialEvidenceId}{evidence.sourceLocator ? ` · source ${evidence.sourceLocator}` : ''}</span>
+        </>
+      ) : null}
+    </span>
+  );
+}
 
 type OfficialImportTaskProgress = (CorporateActionPendingPreparationProgress | OfficialImportOperationProgress) & {
   startedAt: number;

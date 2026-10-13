@@ -5,6 +5,7 @@ import {
   normalizeCustomFormulaInput,
   validateCustomFormulaDefinition,
 } from '@/modules/formulaEngine/customFormulaEngine';
+import { ColorToolbox } from './common/ColorToolbox';
 
 type CustomFormulaIndicator = Extract<OverlayIndicator, { kind: 'CUSTOM' }>;
 
@@ -95,15 +96,14 @@ export function CustomFormulaDialog({
               </select>
             </label>
 
-            <label style={fieldStyle}>
+            <div style={fieldStyle}>
               <span>Primary Color</span>
-              <input
-                type="color"
+              <ColorToolbox
                 value={draft.color}
-                onChange={(event) => setDraft((state) => ({ ...state, color: event.target.value }))}
-                style={colorInputStyle}
+                onChange={(color) => setDraft((state) => ({ ...state, color }))}
+                ariaLabel="Primary color"
               />
-            </label>
+            </div>
           </div>
 
           <label style={formulaFieldStyle}>
@@ -291,16 +291,6 @@ const textInputStyle: React.CSSProperties = {
 
 const selectFieldStyle: React.CSSProperties = {
   ...textInputStyle,
-};
-
-const colorInputStyle: React.CSSProperties = {
-  width: 52,
-  height: 32,
-  padding: 0,
-  border: '1px solid var(--border)',
-  borderRadius: 6,
-  background: 'var(--control-bg)',
-  cursor: 'pointer',
 };
 
 const textareaStyle: React.CSSProperties = {

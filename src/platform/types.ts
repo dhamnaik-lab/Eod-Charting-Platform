@@ -42,6 +42,11 @@ export type {
   CorporateActionAutoApprovalDisposition,
   CorporateActionAutoApprovalInput,
   CorporateActionAutoApprovalResult,
+  CorporateActionDividendPreparedScopeEvaluationDisposition,
+  CorporateActionDividendPreparedScopeEvaluationDispositionCode,
+  CorporateActionDividendPreparedScopeEvaluationEvidence,
+  CorporateActionDividendPreparedScopeEvaluationInput,
+  CorporateActionDividendPreparedScopeEvaluationResult,
   CorporateActionImportApprovalInput,
   CorporateActionImportApprovalResult,
   CorporateActionImportBulkApprovalInput,
@@ -298,6 +303,7 @@ export type DesktopApi = Pick<
   | 'approveCorporateActionImportWithPriceValidationException'
   | 'approveCorporateActionImports'
   | 'autoApproveCorporateActionImports'
+  | 'evaluateSimpleCashDividendPreparedScope'
   | 'approveRecommendedCorporateActionIsinMismatches'
   | 'recheckCorporateActionImports'
   | 'listCorporateActionImportResolutionHints'

@@ -4,6 +4,7 @@ import { getIndicatorCatalogItemByKind } from '@/indicators/catalog';
 import { SUPPORTED_PATTERNS } from '@/engine/Patterns';
 import { saveCandlestickSettings } from '@/features/candlestick/candlestickSettingsService';
 import { useDraggableFloatingWindow } from './common/useDraggableFloatingWindow';
+import { ColorToolbox } from './common/ColorToolbox';
 
 interface IndicatorSettingsDialogProps {
   indicator: OverlayIndicator;
@@ -1516,10 +1517,10 @@ function ColorField({
   onChange: (value: string) => void;
 }) {
   return (
-    <label style={fieldStyle}>
+    <div style={fieldStyle}>
       <span>{label}</span>
-      <input type="color" value={value} onChange={(event) => onChange(event.target.value)} style={colorInputStyle} />
-    </label>
+      <ColorToolbox value={value} onChange={onChange} allowAlpha={true} ariaLabel={label} />
+    </div>
   );
 }
 
@@ -1908,16 +1909,6 @@ const inputStyle: React.CSSProperties = {
   color: 'var(--text)',
   padding: '0 8px',
   outline: 'none',
-};
-
-const colorInputStyle: React.CSSProperties = {
-  width: 48,
-  height: 30,
-  padding: 0,
-  border: '1px solid var(--border2)',
-  borderRadius: 4,
-  background: 'var(--control-bg)',
-  cursor: 'pointer',
 };
 
 const selectFieldStyle: React.CSSProperties = {

@@ -1,8 +1,9 @@
-﻿import { useEffect, useState, type CSSProperties } from 'react';
+import { useEffect, useState, type CSSProperties } from 'react';
 import type { ChartSignalRule, OverlayIndicator, SignalConditionType, SignalMarkerPosition, SignalMarkerShape, SignalTarget } from '@/engine/types';
 import { getIndicatorCatalogItemByKind } from '@/indicators/catalog';
 import { useWindowStore } from '@/store/windowStore';
 import { FloatingWindow } from '@/components/FloatingWindow';
+import { ColorToolbox } from '@/components/common/ColorToolbox';
 
 const SIGNAL_SETTINGS_WINDOW_ID = 'signal-settings-dialog';
 
@@ -290,15 +291,14 @@ function RuleEditorForm({
           </select>
         </label>
 
-        <label style={fieldStyle}>
+        <div style={fieldStyle}>
           <span>Color</span>
-          <input
-            type="color"
+          <ColorToolbox
             value={draft.color ?? '#22c55e'}
-            onChange={(e) => setDraft((p) => ({ ...p, color: e.target.value }))}
-            style={{ width: '100%', height: 32, padding: 0, border: 'none', background: 'none' }}
+            onChange={(color) => setDraft((p) => ({ ...p, color }))}
+            ariaLabel="Signal color"
           />
-        </label>
+        </div>
 
         <label style={fieldStyle}>
           <span>Position</span>

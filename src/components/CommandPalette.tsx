@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import type { InstrumentSummary } from '@/platform';
 import { useChartStore } from '@/store/chartStore';
 import { getUiStoreState, useUiStore } from '@/store/uiStore';
+import { useDraggableFloatingWindow } from './common/useDraggableFloatingWindow';
 
 interface SearchResult {
   type: 'command' | 'symbol';
@@ -50,23 +51,74 @@ const PALETTE_COMMANDS: PaletteCommand[] = [
   { name: 'About Platform',               category: 'Help',        icon: 'ℹ️', action: () => getUiStoreState().openAboutDialog() },
 ];
 
+const RECENT_SYMBOLS_STORAGE_KEY = 'eod-chart.sidebar.recentlyViewedSymbols.v1';
+
+function readStoredRecentSymbols(): InstrumentSummary[] {
+  if (typeof window === 'undefined') return [];
+  try {
+    const raw = window.localStorage.getItem(RECENT_SYMBOLS_STORAGE_KEY);
+    return raw ? (JSON.parse(raw) as InstrumentSummary[]) : [];
+  } catch {
+    return [];
+  }
+}
+
+function appendRecentSymbol(symbol: InstrumentSummary): void {
+  if (typeof window === 'undefined') return;
+  try {
+    const raw = window.localStorage.getItem(RECENT_SYMBOLS_STORAGE_KEY);
+    const prev: InstrumentSummary[] = raw ? JSON.parse(raw) : [];
+    const next = [symbol, ...prev.filter((item) => !(item.symbol === symbol.symbol && item.exchange === symbol.exchange))].slice(0, 10);
+    window.localStorage.setItem(RECENT_SYMBOLS_STORAGE_KEY, JSON.stringify(next));
+  } catch {}
+}
+
+function isEditableKeyboardTarget(target: EventTarget | null): boolean {
+  if (!target || !(target instanceof HTMLElement)) {
+    return false;
+  }
+  return (
+    target.tagName === 'INPUT' ||
+    target.tagName === 'TEXTAREA' ||
+    target.tagName === 'SELECT' ||
+    target.isContentEditable ||
+    Boolean(target.closest('[role="dialog"] input, [role="dialog"] textarea, [contenteditable="true"]'))
+  );
+}
+
+const DIALOG_WIDTH = 580;
+const DIALOG_HEIGHT = 480;
+
 export function CommandPalette() {
   const open = useUiStore((state) => state.commandPaletteOpen);
+  const mode = useUiStore((state) => state.commandPaletteMode);
   const setOpen = useUiStore((state) => state.setCommandPaletteOpen);
   const searchResults = useChartStore((state) => state.searchResults ?? []);
   const runSearch = useChartStore((state) => state.runSearch);
   const clearSearch = useChartStore((state) => state.clearSearch);
   const loadInstrument = useChartStore((state) => state.loadInstrument);
 
+  const { position, handlePointerDown, isDragging } = useDraggableFloatingWindow({
+    storageKey: 'eod-chart.command-palette.position.v1',
+    width: DIALOG_WIDTH,
+    height: DIALOG_HEIGHT,
+  });
+
   const [query, setQuery] = useState('');
+  const [exchangeFilter, setExchangeFilter] = useState<'all' | 'NSE' | 'BSE'>('all');
+  const [recentSymbols, setRecentSymbols] = useState<InstrumentSummary[]>([]);
   const [selectedIndex, setSelectedIndex] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
   const itemRefs = useRef<Array<HTMLButtonElement | null>>([]);
+
+  const isSymbolMode = mode === 'symbol';
 
   useEffect(() => {
     if (open) {
       setQuery('');
       setSelectedIndex(0);
+      setExchangeFilter('all');
+      setRecentSymbols(readStoredRecentSymbols());
       itemRefs.current = [];
       clearSearch();
       const timer = setTimeout(() => inputRef.current?.focus(), 50);
@@ -82,20 +134,35 @@ export function CommandPalette() {
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
         e.preventDefault();
-        getUiStoreState().toggleCommandPalette();
+        getUiStoreState().toggleCommandPalette('all');
+        return;
+      }
+
+      if (
+        e.key.toLowerCase() === 's' &&
+        !e.ctrlKey &&
+        !e.metaKey &&
+        !e.altKey &&
+        !getUiStoreState().commandPaletteOpen &&
+        !isEditableKeyboardTarget(e.target)
+      ) {
+        e.preventDefault();
+        getUiStoreState().setCommandPaletteOpen(true, 'symbol');
         return;
       }
 
       if (
         e.key === '/' &&
+        !e.ctrlKey &&
+        !e.metaKey &&
+        !e.altKey &&
         !getUiStoreState().commandPaletteOpen &&
-        !['INPUT', 'TEXTAREA', 'SELECT'].includes((e.target as HTMLElement)?.tagName) &&
-        !(e.target as HTMLElement)?.isContentEditable
+        !isEditableKeyboardTarget(e.target)
       ) {
         e.preventDefault();
-        getUiStoreState().setCommandPaletteOpen(true);
+        getUiStoreState().setCommandPaletteOpen(true, 'all');
         return;
       }
 
@@ -123,13 +190,15 @@ export function CommandPalette() {
 
   const normalizedQuery = query.trim().toLowerCase();
 
-  const filteredPaletteCommands = normalizedQuery.length === 0
-    ? PALETTE_COMMANDS
-    : PALETTE_COMMANDS.filter(
-        (cmd) =>
-          cmd.name.toLowerCase().includes(normalizedQuery) ||
-          cmd.category.toLowerCase().includes(normalizedQuery),
-      );
+  const filteredPaletteCommands = isSymbolMode
+    ? []
+    : normalizedQuery.length === 0
+      ? PALETTE_COMMANDS
+      : PALETTE_COMMANDS.filter(
+          (cmd) =>
+            cmd.name.toLowerCase().includes(normalizedQuery) ||
+            cmd.category.toLowerCase().includes(normalizedQuery),
+        );
 
   const commands: SearchResult[] = filteredPaletteCommands.map((cmd) => ({
     type: 'command' as const,
@@ -139,20 +208,35 @@ export function CommandPalette() {
     action: cmd.action,
   }));
 
-  const symbolResults: SearchResult[] = (searchResults ?? []).slice(0, 10).map((result) => ({
+  let rawSymbols: InstrumentSummary[] = [];
+  let isRecentList = false;
+
+  if (isSymbolMode && query.trim().length === 0) {
+    rawSymbols = recentSymbols;
+    isRecentList = true;
+  } else {
+    rawSymbols = searchResults ?? [];
+  }
+
+  if (exchangeFilter !== 'all') {
+    rawSymbols = rawSymbols.filter((s) => s.exchange.toUpperCase() === exchangeFilter);
+  }
+
+  const symbolResults: SearchResult[] = rawSymbols.slice(0, isSymbolMode ? 35 : 10).map((result) => ({
     type: 'symbol',
     name: `${result.symbol} - ${result.exchange}`,
-    category: result.exchange,
-    icon: '📊',
+    category: isRecentList ? `${result.exchange} • Recent` : result.exchange,
+    icon: isRecentList ? '🕒' : '📊',
     description: result.name || '',
     symbol: result,
     action: () => {
+      appendRecentSymbol(result);
       void loadInstrument({ symbol: result.symbol, exchange: result.exchange }, result);
       setOpen(false);
     },
   }));
 
-  const allResults = [...symbolResults, ...commands];
+  const allResults = isSymbolMode ? symbolResults : [...symbolResults, ...commands];
 
   const handleSelect = (index: number) => {
     if (allResults[index]) {
@@ -165,6 +249,10 @@ export function CommandPalette() {
     if (e.key === 'Escape') {
       e.preventDefault();
       setOpen(false);
+    } else if (e.key === 'Tab' && isSymbolMode) {
+      e.preventDefault();
+      setExchangeFilter((prev) => (prev === 'all' ? 'NSE' : prev === 'NSE' ? 'BSE' : 'all'));
+      setSelectedIndex(0);
     } else if (e.key === 'ArrowDown') {
       e.preventDefault();
       setSelectedIndex((prev) => Math.min(prev + 1, Math.max(0, allResults.length - 1)));
@@ -179,29 +267,68 @@ export function CommandPalette() {
 
   return (
     <div style={overlayStyle} onMouseDown={() => setOpen(false)}>
-      <div style={panelStyle} onMouseDown={(e) => e.stopPropagation()}>
+      <div
+        style={{
+          ...panelStyle,
+          left: position.x,
+          top: position.y,
+          cursor: isDragging ? 'grabbing' : 'default',
+        }}
+        onMouseDown={(e) => e.stopPropagation()}
+      >
         {/* Header Titlebar */}
-        <div style={headerStyle}>
+        <div
+          style={{
+            ...headerStyle,
+            cursor: isDragging ? 'grabbing' : 'grab',
+          }}
+          onPointerDown={handlePointerDown}
+          title="Click and drag to move window anywhere on chart"
+        >
           <div style={headerTitleGroupStyle}>
-            <span style={headerIconStyle}>🔍</span>
+            <span style={headerIconStyle}>{isSymbolMode ? '📈' : '🔍'}</span>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-              <span style={headerTitleStyle}>Command Palette</span>
-              <span style={headerSubtitleStyle}>Search symbols or launch platform commands</span>
+              <span style={headerTitleStyle}>{isSymbolMode ? 'Symbol Search' : 'Command Palette'}</span>
+              <span style={headerSubtitleStyle}>
+                {isSymbolMode
+                  ? 'Fast ticker search across NSE & BSE instruments'
+                  : 'Search symbols or launch platform commands'}
+              </span>
             </div>
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <span style={escBadgeStyle}>ESC</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }} onPointerDown={(e) => e.stopPropagation()}>
             <button
               type="button"
               style={closeButtonStyle}
               onClick={() => setOpen(false)}
-              title="Close Command Palette (Esc)"
+              title="Close (Esc)"
               aria-label="Close"
             >
               ✕
             </button>
           </div>
         </div>
+
+        {/* Exchange Filter Pills for Symbol Mode */}
+        {isSymbolMode ? (
+          <div style={filterPillsContainerStyle}>
+            <span style={filterPillsLabelStyle}>Filter:</span>
+            {(['all', 'NSE', 'BSE'] as const).map((ex) => (
+              <button
+                key={ex}
+                type="button"
+                style={filterPillButtonStyle(exchangeFilter === ex)}
+                onClick={() => {
+                  setExchangeFilter(ex);
+                  setSelectedIndex(0);
+                  inputRef.current?.focus();
+                }}
+              >
+                {ex === 'all' ? 'All Exchanges' : ex}
+              </button>
+            ))}
+          </div>
+        ) : null}
 
         {/* Search Input Box */}
         <div style={inputContainerStyle}>
@@ -214,7 +341,11 @@ export function CommandPalette() {
               setSelectedIndex(0);
             }}
             onKeyDown={handleInputKeyDown}
-            placeholder="Type a stock symbol or command name... (e.g. TCS, Scanner, Settings)"
+            placeholder={
+              isSymbolMode
+                ? 'Type symbol ticker or company name... (e.g. RELIANCE, TCS, INFY)'
+                : 'Type a stock symbol or command name... (e.g. TCS, Scanner, Settings)'
+            }
             style={inputStyle}
             autoFocus
           />
@@ -236,6 +367,9 @@ export function CommandPalette() {
 
         {/* Results List */}
         <div style={listStyle}>
+          {isSymbolMode && isRecentList && allResults.length > 0 ? (
+            <div style={sectionDividerHeaderStyle}>Recently Viewed Symbols</div>
+          ) : null}
           {allResults.length > 0 ? (
             allResults.map((item, i) => {
               const isSelected = i === selectedIndex;
@@ -260,6 +394,9 @@ export function CommandPalette() {
                       <span style={{ ...itemNameStyle, color: isSelected ? 'var(--text)' : 'var(--text)' }}>
                         {item.type === 'symbol' ? item.symbol?.symbol : item.name}
                       </span>
+                      {item.symbol?.series ? (
+                        <span style={seriesBadgeStyle}>{item.symbol.series}</span>
+                      ) : null}
                       {item.category ? (
                         <span
                           style={{
@@ -286,22 +423,31 @@ export function CommandPalette() {
           ) : query.trim().length > 0 ? (
             <div style={noResultsStyle}>
               <span style={{ fontSize: 20 }}>🔍</span>
-              <span>No symbols or commands found matching "{query}"</span>
+              <span>
+                {isSymbolMode
+                  ? `No symbols found matching "${query}"${exchangeFilter !== 'all' ? ` in ${exchangeFilter}` : ''}`
+                  : `No symbols or commands found matching "${query}"`}
+              </span>
             </div>
           ) : (
-            <div style={hintStyle}>Start typing to search stocks, indices, or platform commands...</div>
+            <div style={hintStyle}>
+              {isSymbolMode
+                ? 'Type to search all instruments across NSE and BSE...'
+                : 'Start typing to search stocks, indices, or platform commands...'}
+            </div>
           )}
         </div>
 
         {/* Footer Bar */}
         <div style={footerStyle}>
           <div style={footerShortcutsStyle}>
+            {isSymbolMode ? <span><kbd style={kbdStyle}>Tab</kbd> Filter Exchange</span> : null}
             <span><kbd style={kbdStyle}>↑</kbd><kbd style={kbdStyle}>↓</kbd> Navigate</span>
             <span><kbd style={kbdStyle}>↵</kbd> Select</span>
             <span><kbd style={kbdStyle}>Esc</kbd> Close</span>
           </div>
           <span style={footerMetaStyle}>
-            {allResults.length} {allResults.length === 1 ? 'item' : 'items'} available
+            {allResults.length} {allResults.length === 1 ? (isSymbolMode ? 'symbol' : 'item') : (isSymbolMode ? 'symbols' : 'items')} available
           </span>
         </div>
       </div>
@@ -316,20 +462,15 @@ export function CommandPalette() {
 const overlayStyle: React.CSSProperties = {
   position: 'fixed',
   inset: 0,
-  display: 'flex',
-  justifyContent: 'center',
-  alignItems: 'flex-start',
-  paddingTop: '64px',
-  paddingLeft: '16px',
-  paddingRight: '16px',
   background: 'rgba(0, 0, 0, 0.25)',
   backdropFilter: 'none',
   zIndex: 1000,
 };
 
 const panelStyle: React.CSSProperties = {
-  width: '100%',
-  maxWidth: 580,
+  position: 'fixed',
+  width: `min(${DIALOG_WIDTH}px, calc(100vw - 32px))`,
+  height: `min(${DIALOG_HEIGHT}px, calc(100vh - 60px))`,
   background: 'var(--bg2)',
   border: '1px solid var(--border2)',
   borderRadius: 10,
@@ -337,7 +478,7 @@ const panelStyle: React.CSSProperties = {
   overflow: 'hidden',
   display: 'flex',
   flexDirection: 'column',
-  maxHeight: 'calc(100vh - 120px)',
+  zIndex: 1001,
 };
 
 const headerStyle: React.CSSProperties = {
@@ -347,6 +488,7 @@ const headerStyle: React.CSSProperties = {
   padding: '10px 14px',
   background: 'var(--bg3)',
   borderBottom: '1px solid var(--border)',
+  userSelect: 'none',
 };
 
 const headerTitleGroupStyle: React.CSSProperties = {
@@ -368,17 +510,6 @@ const headerTitleStyle: React.CSSProperties = {
 const headerSubtitleStyle: React.CSSProperties = {
   fontSize: 11,
   color: 'var(--text-mute)',
-};
-
-const escBadgeStyle: React.CSSProperties = {
-  fontSize: 10,
-  fontWeight: 600,
-  padding: '2px 5px',
-  borderRadius: 3,
-  background: 'var(--bg2)',
-  border: '1px solid var(--border)',
-  color: 'var(--text-dim)',
-  fontFamily: 'var(--font-mono)',
 };
 
 const closeButtonStyle: React.CSSProperties = {
@@ -429,9 +560,9 @@ const clearQueryButtonStyle: React.CSSProperties = {
 };
 
 const listStyle: React.CSSProperties = {
+  flex: 1,
   display: 'flex',
   flexDirection: 'column',
-  maxHeight: 380,
   overflowY: 'auto',
   padding: '4px 0',
 };
@@ -548,4 +679,51 @@ const kbdStyle: React.CSSProperties = {
   fontFamily: 'var(--font-mono)',
   fontSize: 10,
   marginRight: 4,
+};
+
+const filterPillsContainerStyle: React.CSSProperties = {
+  display: 'flex',
+  alignItems: 'center',
+  gap: 6,
+  padding: '6px 14px',
+  background: 'var(--bg3)',
+  borderBottom: '1px solid var(--border)',
+};
+
+const filterPillsLabelStyle: React.CSSProperties = {
+  fontSize: 11,
+  color: 'var(--text-mute)',
+  marginRight: 2,
+};
+
+const filterPillButtonStyle = (active: boolean): React.CSSProperties => ({
+  fontSize: 11,
+  fontWeight: active ? 600 : 400,
+  padding: '2px 8px',
+  borderRadius: 4,
+  border: active ? '1px solid var(--accent)' : '1px solid var(--border)',
+  background: active ? 'var(--accent-faint)' : 'transparent',
+  color: active ? 'var(--accent-strong)' : 'var(--text-dim)',
+  cursor: 'pointer',
+  transition: 'all 0.1s ease',
+});
+
+const sectionDividerHeaderStyle: React.CSSProperties = {
+  fontSize: 10,
+  fontWeight: 600,
+  textTransform: 'uppercase',
+  letterSpacing: '0.5px',
+  color: 'var(--text-mute)',
+  padding: '6px 14px 2px 14px',
+};
+
+const seriesBadgeStyle: React.CSSProperties = {
+  fontSize: 10,
+  fontWeight: 500,
+  padding: '1px 4px',
+  borderRadius: 3,
+  background: 'var(--bg3)',
+  border: '1px solid var(--border)',
+  color: 'var(--text-dim)',
+  fontFamily: 'var(--font-mono)',
 };

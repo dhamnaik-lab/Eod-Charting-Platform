@@ -109,12 +109,7 @@ export function applyTimeframeToTab(
     tab.renkoBrickSize,
     tab.renkoSettings,
   );
-  const viewport = remapViewportAcrossTimeframe(
-    tab.viewport,
-    tab.displayBars,
-    displayBars,
-    tab.futureMarginMode,
-  );
+  const viewport = createDefaultViewport(displayBars.length, tab.futureMarginMode);
   const drawings = remapDrawingsAcrossTimeframe(tab.drawings, tab.displayBars, displayBars);
   return {
     ...tab,
@@ -524,6 +519,12 @@ export function setTabHoverBar(
   tab: ChartTabState,
   bar: OHLCBar | null,
 ): ChartTabState {
+  if (tab.hoverBar === bar) {
+    return tab;
+  }
+  if (tab.hoverBar && bar && tab.hoverBar.date === bar.date && tab.hoverBar.close === bar.close) {
+    return tab;
+  }
   return {
     ...tab,
     hoverBar: bar,

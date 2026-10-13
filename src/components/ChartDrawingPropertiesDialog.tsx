@@ -12,6 +12,7 @@ import {
   applyDrawingTemplate,
   type DrawingTemplate,
 } from '@/features/drawings/drawingTemplates';
+import { ColorToolbox } from './common/ColorToolbox';
 
 export interface DrawingPropertiesState {
   drawingId: string;
@@ -1139,133 +1140,22 @@ function PropertyColorPicker({
   ariaLabel,
   disabled = false,
   popupAlign = 'left',
-  actionButtonStyle,
 }: {
   color: string;
   onChange: (color: string) => void;
   ariaLabel: string;
   disabled?: boolean;
   popupAlign?: 'left' | 'right';
-  actionButtonStyle: CSSProperties;
-}) {
-  const pickerRef = useRef<HTMLDivElement | null>(null);
-  const [open, setOpen] = useState(false);
-  const [draftColor, setDraftColor] = useState(toHexColor(color));
-
-  useEffect(() => {
-    if (!open) setDraftColor(toHexColor(color));
-  }, [color, open]);
-
-  useEffect(() => {
-    if (!open) return;
-    const handlePointerDown = (event: PointerEvent) => {
-      if (!pickerRef.current?.contains(event.target as Node)) setOpen(false);
-    };
-    window.addEventListener('pointerdown', handlePointerDown, true);
-    return () => window.removeEventListener('pointerdown', handlePointerDown, true);
-  }, [open]);
-
-  return (
-    <div ref={pickerRef} style={colorPickerWrapStyle}>
-      <button
-        type="button"
-        disabled={disabled}
-        style={{ ...colorButtonStyle(color), opacity: disabled ? 0.45 : 1, cursor: disabled ? 'not-allowed' : 'pointer' }}
-        onClick={() => {
-          if (disabled) return;
-          setDraftColor(toHexColor(color));
-          setOpen((value) => !value);
-        }}
-        aria-label={ariaLabel}
-        title={disabled ? 'Color editing is disabled.' : undefined}
-      />
-      {open && !disabled ? (
-        <ColorPickerPopup
-          color={draftColor}
-          onChange={(nextColor) => {
-            setDraftColor(nextColor);
-            onChange(nextColor);
-          }}
-          onClose={() => setOpen(false)}
-          align={popupAlign}
-          actionButtonStyle={actionButtonStyle}
-        />
-      ) : null}
-    </div>
-  );
-}
-
-function ColorPickerPopup({
-  color,
-  onChange,
-  onClose,
-  align = 'left',
-  actionButtonStyle,
-}: {
-  color: string;
-  onChange: (color: string) => void;
-  onClose: () => void;
-  align?: 'left' | 'right';
-  actionButtonStyle: CSSProperties;
-}) {
-  const rgb = hexToRgb(color);
-  return (
-    <div
-      style={align === 'right' ? { ...colorPickerPopupStyle, left: 'auto', right: 0 } : colorPickerPopupStyle}
-      onPointerDown={(event) => event.stopPropagation()}
-    >
-      <div style={colorPreviewStripStyle}>
-        <span style={colorPreviewLargeStyle(color)} />
-        <span style={colorValueStyle}>{color.toUpperCase()}</span>
-      </div>
-      <div style={presetGridStyle}>
-        {DRAWING_COLOR_PRESETS.map((preset) => (
-          <button
-            key={preset}
-            type="button"
-            style={presetSwatchStyle(preset, preset.toLowerCase() === color.toLowerCase())}
-            onClick={() => onChange(preset)}
-            aria-label={`Use ${preset}`}
-          />
-        ))}
-      </div>
-      <ColorSlider label="R" value={rgb.red} onChange={(red) => onChange(rgbToHex({ ...rgb, red }))} />
-      <ColorSlider label="G" value={rgb.green} onChange={(green) => onChange(rgbToHex({ ...rgb, green }))} />
-      <ColorSlider label="B" value={rgb.blue} onChange={(blue) => onChange(rgbToHex({ ...rgb, blue }))} />
-      <div style={colorPickerFooterStyle}>
-        <span style={{ color: 'var(--text-dim)', fontSize: 10, marginRight: 'auto' }}>
-          Color is applied when Drawing Properties is saved.
-        </span>
-        <button type="button" style={{ ...actionButtonStyle, minWidth: 62 }} onClick={onClose}>
-          Close
-        </button>
-      </div>
-    </div>
-  );
-}
-
-function ColorSlider({
-  label,
-  value,
-  onChange,
-}: {
-  label: string;
-  value: number;
-  onChange: (value: number) => void;
+  actionButtonStyle?: CSSProperties;
 }) {
   return (
-    <label style={colorSliderRowStyle}>
-      <span>{label}</span>
-      <input
-        type="range"
-        min="0"
-        max="255"
-        value={value}
-        onChange={(event) => onChange(clampByte(event.target.value))}
-        style={colorSliderStyle}
-      />
-      <span style={colorSliderValueStyle}>{value}</span>
-    </label>
+    <ColorToolbox
+      value={color}
+      onChange={onChange}
+      disabled={disabled}
+      align={popupAlign}
+      ariaLabel={ariaLabel}
+    />
   );
 }
 
@@ -1644,95 +1534,6 @@ const colorPickerWrapStyle: CSSProperties = {
   width: 'fit-content',
 };
 
-const colorButtonStyle = (color: string): CSSProperties => ({
-  width: 48,
-  height: 30,
-  padding: 0,
-  border: '1px solid var(--border2)',
-  borderRadius: 4,
-  background: toHexColor(color),
-  cursor: 'pointer',
-  boxShadow: 'inset 0 0 0 3px var(--control-bg)',
-});
-
-const colorPickerPopupStyle: CSSProperties = {
-  position: 'absolute',
-  top: 36,
-  left: 0,
-  width: 252,
-  display: 'flex',
-  flexDirection: 'column',
-  gap: 10,
-  padding: 10,
-  border: '1px solid var(--border2)',
-  borderRadius: 6,
-  background: 'var(--bg2)',
-  boxShadow: 'var(--shadow-lg)',
-  zIndex: 25,
-};
-
-const colorPreviewStripStyle: CSSProperties = {
-  display: 'flex',
-  alignItems: 'center',
-  gap: 10,
-};
-
-const colorPreviewLargeStyle = (color: string): CSSProperties => ({
-  width: 34,
-  height: 24,
-  border: '1px solid var(--border2)',
-  borderRadius: 4,
-  background: color,
-});
-
-const colorValueStyle: CSSProperties = {
-  color: 'var(--text)',
-  fontSize: 12,
-  fontWeight: 700,
-};
-
-const presetGridStyle: CSSProperties = {
-  display: 'grid',
-  gridTemplateColumns: 'repeat(8, 22px)',
-  gap: 6,
-};
-
-const presetSwatchStyle = (color: string, active: boolean): CSSProperties => ({
-  width: 22,
-  height: 22,
-  border: `2px solid ${active ? 'var(--accent)' : 'var(--border2)'}`,
-  borderRadius: 4,
-  background: color,
-  cursor: 'pointer',
-  padding: 0,
-});
-
-const colorSliderRowStyle: CSSProperties = {
-  display: 'grid',
-  gridTemplateColumns: '18px 1fr 34px',
-  alignItems: 'center',
-  gap: 8,
-  color: 'var(--text-dim)',
-  fontSize: 11,
-};
-
-const colorSliderStyle: CSSProperties = {
-  width: '100%',
-  accentColor: 'var(--accent)',
-};
-
-const colorSliderValueStyle: CSSProperties = {
-  color: 'var(--text)',
-  textAlign: 'right',
-  fontVariantNumeric: 'tabular-nums',
-};
-
-const colorPickerFooterStyle: CSSProperties = {
-  display: 'flex',
-  justifyContent: 'flex-end',
-  gap: 8,
-};
-
 const propertiesHintStyle: CSSProperties = {
   color: 'var(--text-dim)',
   fontSize: 11,
@@ -1749,29 +1550,3 @@ const propertiesFooterStyle: CSSProperties = {
   background: 'var(--bg2)',
 };
 
-const DRAWING_COLOR_PRESETS = [
-  '#ffffff',
-  '#cbd5e1',
-  '#64748b',
-  '#111827',
-  '#ef4444',
-  '#f97316',
-  '#f59e0b',
-  '#eab308',
-  '#84cc16',
-  '#22c55e',
-  '#14b8a6',
-  '#06b6d4',
-  '#0ea5e9',
-  '#3b82f6',
-  '#8b5cf6',
-  '#d946ef',
-  '#f43f5e',
-  '#a855f7',
-  '#38bdf8',
-  '#4ade80',
-  '#facc15',
-  '#fb7185',
-  '#94a3b8',
-  '#020617',
-];

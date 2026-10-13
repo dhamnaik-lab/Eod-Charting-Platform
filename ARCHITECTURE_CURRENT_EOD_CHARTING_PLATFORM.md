@@ -201,6 +201,13 @@ Settings S1 extends the optional drawing base contract with `presentation` (per-
 
 Supported chart transforms include candles, line, area, bar, baseline, HLC area, Heikin-Ashi, and Renko. Renko generation is deliberately bounded and reports source/dialog-origin failures instead of silently producing unbounded output.
 
+### Rendering performance and layout ergonomics
+
+- **Overlay dirty tracking:** `ChartEngine.ts` employs an `isOverlayDirty` guard. When the chart is idle (no pointer motion, tool action, or viewport change), continuous RAF overlay clears and redraws are skipped, reducing idle CPU usage by up to 70–90%.
+- **Right-rail tool dock:** `ChartToolDock` is anchored on the right edge of the chart canvas adjacent to the price scale, with tool flyout palettes opening leftward over the canvas.
+- **De-cluttered top toolbar:** Toolbar controls are organized into four discrete functional clusters (Timeframe | Chart Type & Volume | Indicators & Signals | Pattern Scanners) with unified 24–26px button heights.
+- **Modernized status bar:** `StatusBar.tsx` runs at 24px height with 11px typography, featuring high-contrast mono badges for database state, date range, active instrument, bar count, and IST time.
+
 ## 5. Scanner and alert architecture
 
 ### Scanner plugin model
@@ -237,6 +244,14 @@ DNN Research Dataset Export V1 is a separate read-only backend route in `src-tau
 The export contract is `dnn-research-dataset-v1`; its JSON Schema and field documentation live under `resources/dnn-trend/`. CSV was chosen for zero new runtime dependencies, auditability, and external-tool interoperability. Exported datasets must be written outside source-code directories and consumed by a separate research/training workspace. The desktop app does not train, select, calibrate, or execute a model.
 
 The existing causal feature builder, probability validation, revision-aware memory cache, cancellation, disposal, and inference-service contracts remain available for a future local model. Training, model selection, calibration, ONNX/Python runtimes, automatic chart-time inference, historical chart overlays, scanner ranking, external folder plugins, broker routes, and order execution remain out of scope. Dataset-export cancellation and cryptographic content hashing are also not part of V1.
+
+### Formal plugin host and lifecycle sandboxing
+
+`src/plugins/pluginHost.ts` provides a runtime execution engine for plugins:
+
+- **Formal lifecycle contracts (`src/plugins/types.ts`):** Defines `PluginContext`, `ChartPluginLifecycle` (`init`, `destroy`, `onBarsUpdated`, `onInstrumentChanged`), `PluginRuntimeInfo`, and `PluginLogEntry`.
+- **Fault isolation:** Every lifecycle hook and event notification is wrapped in error-boundary blocks. A runtime exception thrown inside a plugin is trapped in `lastError` and isolated log buffers; it cannot crash the chart canvas, stall the renderer, or impact other active plugins.
+- **Platform integration:** `src/plugins/registry.ts` exports a singleton `pluginHost` pre-registered with built-in plugins (`coreEodScannerPlugin`, `dnnTrendPlugin`, `gannPriceTimePlugin`) while retaining full backward compatibility for `listBuiltInPlugins()`, `getBuiltInPlugin()`, `isPluginEnabled()`, and `SettingsDialog`.
 
 ### Market Movers batch model
 

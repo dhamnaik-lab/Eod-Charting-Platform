@@ -269,6 +269,9 @@ export function getTauriDesktopApi(): DesktopApi | null {
     autoApproveCorporateActionImports: async (input) => {
       return tauriInvoke('auto_approve_corporate_action_imports', { input });
     },
+    evaluateSimpleCashDividendPreparedScope: async (input) => {
+      return tauriInvoke('evaluate_simple_cash_dividend_prepared_scope', { input });
+    },
     approveRecommendedCorporateActionIsinMismatches: async (input) => {
       return tauriInvoke('approve_recommended_corporate_action_isin_mismatches', { input });
     },

@@ -13,12 +13,21 @@ interface ShortcutItem {
 
 const WORKSPACE_SHORTCUTS: ShortcutItem[] = [
   {
-    keys: 'Ctrl+K',
+    keys: 'S',
+    action: 'Search symbols (Command Palette)',
+  },
+  {
+    keys: 'Ctrl+K / /',
     action: 'Open the command palette',
   },
 ];
 
 const CHART_SHORTCUTS: ShortcutItem[] = [
+  {
+    keys: 'X',
+    action: 'Toggle Crosshair',
+    note: 'Requires chart focus.',
+  },
   {
     keys: 'H',
     action: 'Select Horizontal Line',

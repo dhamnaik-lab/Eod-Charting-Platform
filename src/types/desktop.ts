@@ -336,6 +336,11 @@ export interface CorporateActionAutoApprovalInput {
   expectedDatabasePath: string;
 }
 
+export interface CorporateActionDividendPreparedScopeEvaluationInput {
+  importIds: number[];
+  expectedDatabasePath: string;
+}
+
 export interface CorporateActionImportBulkRecheckInput {
   importIds: number[];
 }
@@ -1234,6 +1239,51 @@ export interface CorporateActionAutoApprovalResult {
   message: string;
 }
 
+export interface CorporateActionDividendPreparedScopeEvaluationEvidence {
+  identityProof: string;
+  officialEvidenceId: number;
+  evidenceCapturedAt: string;
+  sourceLocator: string | null;
+  cashAmount: number;
+  previousTradeDate: string;
+  previousClose: number;
+  computedFactor: number;
+}
+
+export type CorporateActionDividendPreparedScopeEvaluationDispositionCode =
+  | 'ELIGIBLE'
+  | 'INELIGIBLE'
+  | 'ALREADY_APPROVED'
+  | 'STALE_SCOPE'
+  | 'MISSING'
+  | 'FAILED';
+
+export interface CorporateActionDividendPreparedScopeEvaluationDisposition {
+  importId: number;
+  disposition: CorporateActionDividendPreparedScopeEvaluationDispositionCode;
+  reason: string;
+  currentActionType: string | null;
+  currentParseStatus: string | null;
+  currentReviewStatus: string | null;
+  evidence: CorporateActionDividendPreparedScopeEvaluationEvidence | null;
+}
+
+export interface CorporateActionDividendPreparedScopeEvaluationResult {
+  requested: number;
+  eligible: number;
+  ineligible: number;
+  alreadyApproved: number;
+  staleScope: number;
+  missing: number;
+  failed: number;
+  dispositions: CorporateActionDividendPreparedScopeEvaluationDisposition[];
+  policyVersion: string;
+  scopeVersion: string;
+  scopeFingerprint: string;
+  complete: boolean;
+  message: string;
+}
+
 export interface CorporateActionImportResolveResult {
   importRecord: CorporateActionImportRow;
   message: string;
@@ -1834,6 +1884,9 @@ export interface DesktopBridgeApi {
   ): Promise<CorporateActionImportApprovalResult>;
   approveCorporateActionImports(input: CorporateActionImportBulkApprovalInput): Promise<CorporateActionImportBulkApprovalResult>;
   autoApproveCorporateActionImports(input: CorporateActionAutoApprovalInput): Promise<CorporateActionAutoApprovalResult>;
+  evaluateSimpleCashDividendPreparedScope(
+    input: CorporateActionDividendPreparedScopeEvaluationInput,
+  ): Promise<CorporateActionDividendPreparedScopeEvaluationResult>;
   approveRecommendedCorporateActionIsinMismatches(
     input: CorporateActionImportBulkApprovalInput,
   ): Promise<CorporateActionImportBulkApprovalResult>;
@@ -2039,7 +2092,7 @@ export interface CorporateActionReconciliationPreflightRow {
     message: string;
   };
   safeV1: {
-    policyVersion: 'AUTO_APPROVAL_SAFE_V1';
+    policyVersion: 'AUTO_APPROVAL_SAFE_V2';
     state: 'ELIGIBLE_AT_READ_SNAPSHOT' | 'INELIGIBLE' | 'ALREADY_APPROVED' | 'NOT_EVALUATED' | 'ERROR';
     reason: string | null;
     evidence: R1AEvidenceReference[];

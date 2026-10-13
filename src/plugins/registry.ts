@@ -2,21 +2,24 @@ import type { PluginEnabledMap, RegisteredPlugin } from '@/plugins/types';
 import { coreEodScannerPlugin } from '@/plugins/scanner/scannerPlugin';
 import { dnnTrendPlugin } from '@/plugins/forecast/dnnTrend/dnnTrendPlugin';
 import { gannPriceTimePlugin } from '@/plugins/analysis/gannPriceTime/gannPlugin';
+import { PluginHost } from '@/plugins/pluginHost';
 
 export const EXTERNAL_PLUGIN_SUPPORT_LABEL = 'External plugins: planned, disabled';
 
-const BUILT_IN_PLUGINS: RegisteredPlugin[] = [
+export const BUILT_IN_PLUGINS: RegisteredPlugin[] = [
   coreEodScannerPlugin,
   dnnTrendPlugin,
   gannPriceTimePlugin,
 ];
 
+export const pluginHost = new PluginHost(BUILT_IN_PLUGINS);
+
 export function listBuiltInPlugins(): RegisteredPlugin[] {
-  return BUILT_IN_PLUGINS;
+  return pluginHost.listPlugins();
 }
 
 export function getBuiltInPlugin(pluginId: string): RegisteredPlugin | null {
-  return BUILT_IN_PLUGINS.find((plugin) => plugin.manifest.id === pluginId) ?? null;
+  return pluginHost.getPlugin(pluginId);
 }
 
 export function isPluginEnabled(pluginId: string, enabledMap: PluginEnabledMap | null | undefined): boolean {

@@ -549,6 +549,7 @@ function buildPriceSummary(
   return {
     title,
     segments: [
+      { text: bar.date, color: "var(--legend-text)", muted: false },
       { text: "O", color: "var(--legend-muted)", muted: true },
       { text: formatPrice(bar.open, 2, 2), color: closeColor },
       { text: "H", color: "var(--legend-muted)", muted: true },

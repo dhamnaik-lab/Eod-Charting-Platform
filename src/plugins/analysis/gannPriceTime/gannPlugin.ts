@@ -36,4 +36,12 @@ export const gannPriceTimePlugin: RegisteredPlugin = {
       'no-db-writes',
     ],
   },
+  lifecycle: {
+    init(context) {
+      context.log('info', 'Gann Price-Time plugin initialized.');
+    },
+    destroy() {
+      // Teardown
+    },
+  },
 };

@@ -237,10 +237,12 @@ export function Toolbar() {
           >
             Volume
           </button>
+        </div>
+        <div style={toolbarClusterStyle}>
           <button
             type="button"
             onClick={openIndicatorPicker}
-            style={{ ...actionButtonStyle, minWidth: 92 }}
+            style={{ ...actionButtonStyle, minWidth: 80 }}
             title="Search and add indicators"
           >
             Indicators
@@ -248,7 +250,7 @@ export function Toolbar() {
           <button
             type="button"
             onClick={openAlertManager}
-            style={{ ...actionButtonStyle, minWidth: 60 }}
+            style={{ ...actionButtonStyle, minWidth: 52 }}
             title="Open Alert Manager"
           >
             Alerts
@@ -256,16 +258,18 @@ export function Toolbar() {
           <button
             type="button"
             onClick={openSignalSettingsDialog}
-            style={{ ...(signalRules.length > 0 ? activeActionButtonStyle : actionButtonStyle), minWidth: 64 }}
+            style={{ ...(signalRules.length > 0 ? activeActionButtonStyle : actionButtonStyle), minWidth: 58 }}
             title="Configure Visual Crossover Signals & Alerts"
           >
             Signals{signalRules.length > 0 ? ` (${signalRules.length})` : ''}
           </button>
+        </div>
+        <div style={toolbarClusterStyle}>
           <button
             type="button"
             onClick={handleRunChartPatternScan}
             disabled={chartPatternScanRunning}
-            style={{ ...(isChartPatternActive ? activeActionButtonStyle : actionButtonStyle), minWidth: 112, opacity: chartPatternScanRunning ? 0.65 : 1 }}
+            style={{ ...(isChartPatternActive ? activeActionButtonStyle : actionButtonStyle), minWidth: 104, opacity: chartPatternScanRunning ? 0.65 : 1 }}
             title={isChartPatternActive ? 'Remove chart patterns from chart' : 'Scan the active chart for chart patterns'}
           >
             {chartPatternScanRunning ? 'Scanning...' : 'Chart Patterns'}
@@ -273,7 +277,7 @@ export function Toolbar() {
           <button
             type="button"
             onClick={handleToggleCandlestickPatterns}
-            style={{ ...(candlestickPatternIndicator ? activeActionButtonStyle : actionButtonStyle), minWidth: 72 }}
+            style={{ ...(candlestickPatternIndicator ? activeActionButtonStyle : actionButtonStyle), minWidth: 64 }}
             title={candlestickPatternIndicator ? 'Remove candlestick patterns from chart' : 'Scan and plot candlestick patterns on chart'}
           >
             Candles
@@ -503,8 +507,8 @@ const toolbarStyle: React.CSSProperties = {
   display: 'flex',
   alignItems: 'center',
   gap: 8,
-  padding: '3px 8px 6px',
-  minHeight: 28,
+  padding: '4px 8px',
+  minHeight: 32,
   borderTop: '1px solid var(--border)',
   background: 'transparent',
   flexWrap: 'nowrap',
@@ -531,12 +535,12 @@ const screenshotControlStyle: React.CSSProperties = {
 
 const screenshotButtonStyle = (open: boolean): React.CSSProperties => ({
   ...actionButtonStyle,
-  height: 26,
-  minWidth: 30,
+  height: 24,
+  minWidth: 28,
   padding: '0 6px',
-  fontSize: 14,
-  borderColor: open ? 'var(--accent)' : actionButtonStyle.borderColor,
-  background: open ? 'var(--accent-muted)' : actionButtonStyle.background,
+  fontSize: 13,
+  borderColor: open ? 'var(--accent)' : 'var(--border2)',
+  background: open ? 'var(--accent-soft)' : 'var(--bg3)',
 });
 
 const screenshotMenuStyle: React.CSSProperties = {
@@ -567,25 +571,30 @@ const screenshotMenuItemStyle: React.CSSProperties = {
 const toolbarClusterStyle: React.CSSProperties = {
   display: 'inline-flex',
   alignItems: 'center',
-  gap: 4,
-  padding: '2px',
-  borderRadius: 'var(--panel-radius)',
+  gap: 3,
+  padding: '2px 4px',
+  borderRadius: 'var(--control-radius)',
   border: '1px solid var(--border)',
   background: 'var(--bg2)',
   boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.03)',
 };
 
 const actionButtonStyle: React.CSSProperties = {
-  height: 22,
+  height: 24,
   minWidth: 24,
   padding: '0 8px',
   border: '1px solid var(--border2)',
   background: 'var(--bg3)',
   color: 'var(--text)',
-  borderRadius: 'var(--control-radius)',
+  borderRadius: 'calc(var(--control-radius) - 1px)',
   cursor: 'pointer',
-  fontSize: 'var(--compact-font-size)',
-  fontWeight: 700,
+  fontSize: 11,
+  fontWeight: 600,
+  lineHeight: '22px',
+  display: 'inline-flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  transition: 'background 0.15s, border-color 0.15s, color 0.15s',
 };
 
 const activeActionButtonStyle: React.CSSProperties = {
@@ -596,14 +605,15 @@ const activeActionButtonStyle: React.CSSProperties = {
 };
 
 const toolbarSelectStyle: React.CSSProperties = {
-  height: 22,
+  height: 24,
   minWidth: 86,
-  padding: '0 22px 0 8px',
+  padding: '0 20px 0 8px',
   border: '1px solid var(--border2)',
   background: 'var(--bg3)',
   color: 'var(--text)',
-  borderRadius: 'var(--control-radius)',
-  fontSize: 'var(--compact-font-size)',
-  fontWeight: 700,
+  borderRadius: 'calc(var(--control-radius) - 1px)',
+  fontSize: 11,
+  fontWeight: 600,
   outline: 'none',
+  cursor: 'pointer',
 };
