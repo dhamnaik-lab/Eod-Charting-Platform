@@ -1,5 +1,21 @@
 # Current Handoff
 
+<!-- UI-MODERNIZATION-CHECKPOINT-2026-10-13:BEGIN -->
+## Completed — UI Modernization, Dedicated Symbol Search, Color Toolbox & Ergonomics Commit (2026-10-13 23:25 IST)
+
+**Classification:** `GIT_CHECKPOINT__VALIDATION_PASSED`  
+**Commit:** `0e444c5`  
+**Checkpoint Tag:** `checkpoint-ui-modernization-complete`  
+**Scope:** Staged and committed all completed UI modernization, dedicated symbol search, unified color toolbox, plugin host, and workspace ergonomics enhancements from today's work, leaving dirty Corporate Actions files intact.
+
+### Summary of Staged & Committed Scope:
+- Dedicated Symbol Search (`CommandPalette.tsx`, `chartSearchController.ts`) with `S` hotkey and synchronous state persistence.
+- Unified Color Toolbox (`ColorToolbox.tsx`, `colorUtils.ts`, 8 dialog consumers).
+- Plugin Host architecture and sandbox fault isolation (`pluginHost.ts`, `gannPlugin.ts`, `registry.ts`).
+- Workspace ergonomics: auto zoom reset across timeframes, numeric sheet persistence, collapsible Favorites category in sidebar, compact status bar, and toolbar cluster grouping.
+- Associated documentation reports in `docs/changes/`.
+<!-- UI-MODERNIZATION-CHECKPOINT-2026-10-13:END -->
+
 <!-- LAYOUT-MODE-PERSISTENT-CHROME-AND-TF-CLEANUP-2026-10-13:BEGIN -->
 ## Completed — Layout Mode Persistent Chrome, Right Tool Dock & Timeframe Cleanup (2026-10-13 20:35 IST)
 
