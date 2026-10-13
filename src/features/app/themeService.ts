@@ -49,8 +49,67 @@ export function applyAppTheme(themeId: AppThemeId): void {
   document.documentElement.dataset.theme = themeId;
 }
 
-export function getChartTheme(themeId: AppThemeId): ChartTheme {
-  return CHART_THEMES[themeId];
+function hexToRgba(hex: string, alpha: number): string | null {
+  const clean = hex.replace('#', '').trim();
+  if (clean.length === 3) {
+    const r = parseInt(clean[0] + clean[0], 16);
+    const g = parseInt(clean[1] + clean[1], 16);
+    const b = parseInt(clean[2] + clean[2], 16);
+    if (!Number.isNaN(r) && !Number.isNaN(g) && !Number.isNaN(b)) {
+      return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+    }
+  }
+  if (clean.length === 6) {
+    const r = parseInt(clean.slice(0, 2), 16);
+    const g = parseInt(clean.slice(2, 4), 16);
+    const b = parseInt(clean.slice(4, 6), 16);
+    if (!Number.isNaN(r) && !Number.isNaN(g) && !Number.isNaN(b)) {
+      return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+    }
+  }
+  return null;
+}
+
+export function getChartTheme(themeId: AppThemeId, customColors?: Partial<ChartTheme>): ChartTheme {
+  const base = CHART_THEMES[themeId] ?? CHART_THEMES[DEFAULT_APP_THEME_ID];
+  if (!customColors) {
+    return base;
+  }
+  const filteredCustom = Object.fromEntries(
+    Object.entries(customColors).filter(([_, v]) => v !== undefined && v !== null && v !== ''),
+  );
+
+  const candleUp = filteredCustom.candleUp as string | undefined;
+  const candleDown = filteredCustom.candleDown as string | undefined;
+
+  const customGrid = filteredCustom.gridLine as string | undefined;
+  const isDefaultDarkGrid =
+    customGrid === '#1e2a3a' ||
+    customGrid === 'rgba(78, 101, 128, 0.18)';
+  const gridLine = customGrid && !isDefaultDarkGrid ? customGrid : base.gridLine;
+
+  const customCrosshair = filteredCustom.crosshair as string | undefined;
+  const isDefaultDarkCrosshair =
+    customCrosshair === '#5588aa' ||
+    customCrosshair === '#60a5fa';
+  const crosshair = customCrosshair && !isDefaultDarkCrosshair ? customCrosshair : base.crosshair;
+
+  return {
+    ...base,
+    ...filteredCustom,
+    gridLine,
+    crosshair,
+    wickUp: (filteredCustom.wickUp as string | undefined) ?? candleUp ?? base.wickUp,
+    wickDown: (filteredCustom.wickDown as string | undefined) ?? candleDown ?? base.wickDown,
+    volumeUp:
+      (filteredCustom.volumeUp as string | undefined) ??
+      (candleUp ? hexToRgba(candleUp, 0.24) : null) ??
+      base.volumeUp,
+    volumeDown:
+      (filteredCustom.volumeDown as string | undefined) ??
+      (candleDown ? hexToRgba(candleDown, 0.24) : null) ??
+      base.volumeDown,
+  };
 }
 
 const CHART_THEMES: Record<AppThemeId, ChartTheme> = {

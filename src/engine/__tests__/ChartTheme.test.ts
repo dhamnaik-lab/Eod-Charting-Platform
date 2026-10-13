@@ -75,5 +75,20 @@ describe('getChartTheme with custom colors', () => {
     expect(resolved.volumeUp).toBe('rgba(0, 255, 170, 0.24)');
     expect(resolved.volumeDown).toBe('rgba(255, 0, 85, 0.24)');
   });
+
+  it('preserves native theme grid and crosshair on light themes when dark default settings are passed', () => {
+    const lightTheme = getChartTheme('classic-light', {
+      candleUp: '#00ffaa',
+      candleDown: '#ff0055',
+      gridLine: '#1e2a3a', // global dark default from AppSettings
+      crosshair: '#5588aa', // global dark default from AppSettings
+    });
+    // Must NOT be overridden with dark #1e2a3a on classic-light
+    expect(lightTheme.gridLine).toBe('rgba(203, 213, 225, 0.35)');
+    expect(lightTheme.crosshair).toBe('#2563eb');
+    expect(lightTheme.candleUp).toBe('#00ffaa');
+    expect(lightTheme.candleDown).toBe('#ff0055');
+  });
 });
+
 
