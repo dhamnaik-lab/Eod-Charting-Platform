@@ -1,20 +1,26 @@
 use crate::database::{
     AppResult, CorporateActionAutoApprovalDisposition, CorporateActionAutoApprovalInput,
-    CorporateActionAutoApprovalResult, CorporateActionImportRow,
+    CorporateActionAutoApprovalResult, CorporateActionImportApprovalResult,
+    CorporateActionImportRow,
 };
+use chrono::NaiveDate;
 use rusqlite::{params, Connection, OptionalExtension};
+use sha2::{Digest, Sha256};
 use std::collections::HashSet;
 use std::path::Path;
 
+use super::simple_cash_dividend_evidence::{
+    revalidate_simple_cash_dividend_evidence, SimpleCashDividendEvidence,
+};
 use super::{
-    approve_corporate_action_import_without_transaction, get_import_row,
-    is_split_bonus_validation_current, list_resolution_suggestions_for_import_row,
+    approve_corporate_action_import_without_transaction, find_existing_corporate_action,
+    get_import_row, is_split_bonus_validation_current, list_resolution_suggestions_for_import_row,
     load_latest_official_split_bonus_validation, record_corporate_action_import_decision,
-    strict_quick_resolve_proof, validate_exact_import_lookup_ids,
+    strict_quick_resolve_proof, validate_exact_import_lookup_ids, verify_import_lookup_database,
     CorporateActionQuickResolveProof,
 };
 
-pub(super) const AUTO_APPROVAL_POLICY_VERSION: &str = "AUTO_APPROVAL_SAFE_V1";
+pub(super) const AUTO_APPROVAL_POLICY_VERSION: &str = "AUTO_APPROVAL_SAFE_V2";
 const AUTO_APPROVAL_MAX_ITEMS: usize = 100;
 const AUTO_APPROVAL_MIN_CONFIDENCE: f64 = 0.95;
 const MACHINE_DECISION_TYPES: [&str; 3] = [
@@ -29,12 +35,19 @@ const FORBIDDEN_DECISION_TYPES: [&str; 3] = [
 ];
 
 #[derive(Clone, Debug, PartialEq)]
+pub(super) enum ActionApprovalBasis {
+    SplitBonusScan {
+        scan_id: i64,
+        scan_timestamp: String,
+        confidence: f64,
+        expected_factor: f64,
+    },
+}
+
+#[derive(Clone, Debug, PartialEq)]
 pub(super) struct AutoApprovalEvidence {
     pub identity_proof: String,
-    pub scan_id: i64,
-    pub scan_timestamp: String,
-    pub confidence: f64,
-    pub expected_factor: f64,
+    pub basis: ActionApprovalBasis,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -42,6 +55,142 @@ pub(super) enum AutoApprovalEligibility {
     Eligible(AutoApprovalEvidence),
     Ineligible(String),
     AlreadyApproved,
+}
+
+pub(super) const SIMPLE_CASH_DIVIDEND_POLICY_VERSION: &str =
+    "AUTO_APPROVAL_SIMPLE_CASH_DIVIDEND_R1";
+const DIVIDEND_MAX_PREV_TRADE_GAP_DAYS: i64 = 7;
+
+#[derive(Clone, Debug, PartialEq)]
+pub(super) struct SimpleCashDividendPolicyEvidence {
+    pub(super) identity_proof: String,
+    pub(super) official_evidence_id: i64,
+    pub(super) evidence_captured_at: String,
+    pub(super) source_locator: Option<String>,
+    pub(super) cash_amount: f64,
+    pub(super) previous_trade_date: String,
+    pub(super) previous_close: f64,
+    pub(super) computed_factor: f64,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub(super) enum SimpleCashDividendPolicyEligibility {
+    Eligible(SimpleCashDividendPolicyEvidence),
+    Ineligible(String),
+    AlreadyApproved,
+}
+
+pub(super) const SIMPLE_CASH_DIVIDEND_PREPARED_SCOPE_VERSION: &str =
+    "CA_DIVIDEND_PREPARED_SCOPE_R1";
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub(super) struct SimpleCashDividendPreparedScopeInput {
+    pub(super) import_ids: Vec<i64>,
+    pub(super) expected_database_path: String,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub(super) struct SimpleCashDividendPreparedScopeDisposition {
+    pub(super) import_id: i64,
+    pub(super) disposition: String,
+    pub(super) reason: String,
+    pub(super) current_action_type: Option<String>,
+    pub(super) current_parse_status: Option<String>,
+    pub(super) current_review_status: Option<String>,
+    pub(super) evidence: Option<SimpleCashDividendPolicyEvidence>,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub(super) struct SimpleCashDividendPreparedScopeResult {
+    pub(super) requested: u32,
+    pub(super) eligible: u32,
+    pub(super) ineligible: u32,
+    pub(super) already_approved: u32,
+    pub(super) stale_scope: u32,
+    pub(super) missing: u32,
+    pub(super) failed: u32,
+    pub(super) dispositions: Vec<SimpleCashDividendPreparedScopeDisposition>,
+    pub(super) policy_version: String,
+    pub(super) scope_fingerprint: String,
+    pub(super) complete: bool,
+    pub(super) message: String,
+}
+
+pub(super) const SIMPLE_CASH_DIVIDEND_WRITE_STAGE_VERSION: &str = "CA_DIVIDEND_WRITE_STAGE_R1";
+pub(super) const SIMPLE_CASH_DIVIDEND_DECISION_TYPE: &str = SIMPLE_CASH_DIVIDEND_POLICY_VERSION;
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub(super) struct SimpleCashDividendWriteStageInput {
+    pub(super) import_ids: Vec<i64>,
+    pub(super) expected_database_path: String,
+    pub(super) expected_policy_version: String,
+    pub(super) expected_scope_version: String,
+    pub(super) expected_write_stage_version: String,
+    pub(super) expected_scope_fingerprint: String,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub(super) struct SimpleCashDividendWriteStageDisposition {
+    pub(super) import_id: i64,
+    pub(super) disposition: String,
+    pub(super) reason: String,
+    pub(super) corporate_action_id: Option<i64>,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub(super) struct SimpleCashDividendWriteStageResult {
+    pub(super) requested: u32,
+    pub(super) revalidated_eligible: u32,
+    pub(super) auto_approved: u32,
+    pub(super) ineligible: u32,
+    pub(super) already_approved: u32,
+    pub(super) stale_scope: u32,
+    pub(super) missing: u32,
+    pub(super) failed: u32,
+    pub(super) dispositions: Vec<SimpleCashDividendWriteStageDisposition>,
+    pub(super) policy_version: String,
+    pub(super) scope_version: String,
+    pub(super) write_stage_version: String,
+    pub(super) scope_fingerprint: String,
+    pub(super) complete: bool,
+    pub(super) message: String,
+}
+
+fn normalize_prepared_scope_database_path(value: &str) -> String {
+    let mut normalized = value.trim().replace('/', "\\").to_lowercase();
+    while normalized.ends_with('\\')
+        && !(normalized.len() == 3
+            && normalized.as_bytes().get(1) == Some(&b':')
+            && normalized.as_bytes().get(2) == Some(&b'\\'))
+    {
+        normalized.pop();
+    }
+    normalized
+}
+
+fn simple_cash_dividend_prepared_scope_fingerprint(
+    expected_database_path: &str,
+    import_ids: &[i64],
+) -> String {
+    let normalized_database_path = normalize_prepared_scope_database_path(expected_database_path);
+    let mut normalized_ids = import_ids.to_vec();
+    normalized_ids.sort_unstable();
+    let ids = normalized_ids
+        .iter()
+        .map(i64::to_string)
+        .collect::<Vec<_>>()
+        .join(",");
+    let material =
+        format!("{SIMPLE_CASH_DIVIDEND_PREPARED_SCOPE_VERSION}\n{normalized_database_path}\n{ids}");
+    let digest = Sha256::digest(material.as_bytes());
+    digest.iter().map(|byte| format!("{:02X}", *byte)).collect()
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+struct OfficialSimpleCashDividendEvidence {
+    id: i64,
+    captured_at: String,
+    source_locator: Option<String>,
 }
 
 fn normalized(value: &str) -> String {
@@ -96,6 +245,62 @@ fn has_forbidden_decision(connection: &Connection, import_id: i64) -> AppResult<
     Ok(count > 0)
 }
 
+fn has_legacy_manual_raw_event_identity_conflict(
+    connection: &Connection,
+    import_row: &CorporateActionImportRow,
+) -> AppResult<bool> {
+    let Some(ex_date) = import_row.ex_date.as_deref() else {
+        return Ok(false);
+    };
+    let Some(resolved_isin) = import_row.isin.as_deref() else {
+        return Ok(false);
+    };
+
+    let manual_message = import_row
+        .message
+        .as_deref()
+        .map(normalized)
+        .map(|message| message.contains("MANUALLY RESOLVED"))
+        .unwrap_or(false);
+
+    let mut statement = connection
+        .prepare(
+            "
+              SELECT isin_seen, note
+              FROM corporate_action_import_evidence
+              WHERE import_id = ?
+                AND event_date_seen = ?
+                AND isin_seen IS NOT NULL
+                AND TRIM(isin_seen) <> ''
+              ORDER BY id
+            ",
+        )
+        .map_err(|error| error.to_string())?;
+    let rows = statement
+        .query_map(params![import_row.id, ex_date], |row| {
+            Ok((row.get::<_, String>(0)?, row.get::<_, Option<String>>(1)?))
+        })
+        .map_err(|error| error.to_string())?
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|error| error.to_string())?;
+
+    for (isin_seen, note) in rows {
+        let legacy_backfill = note
+            .as_deref()
+            .map(normalized)
+            .map(|text| {
+                text.contains("BACKFILLED FROM AN EXISTING CORPORATE_ACTION_IMPORTS ROW")
+            })
+            .unwrap_or(false);
+        if normalized(isin_seen.as_str()) != normalized(resolved_isin)
+            && (manual_message || legacy_backfill)
+        {
+            return Ok(true);
+        }
+    }
+    Ok(false)
+}
+
 #[derive(Clone, Debug)]
 struct MachineDecision {
     decision_type: String,
@@ -134,54 +339,71 @@ fn load_latest_machine_decision(
         .map_err(|error| error.to_string())
 }
 
-fn has_same_date_split_bonus_peer(
+fn effective_event_identity_key(
+    connection: &Connection,
+    import_id: i64,
+) -> AppResult<Option<String>> {
+    let identity = super::event_identity_resolution::load_effective_event_identity(connection, import_id)?;
+    if let Some(symbol) = identity
+        .event_symbol
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+    {
+        return Ok(Some(format!("SYMBOL:{}", normalized(symbol))));
+    }
+    Ok(identity
+        .event_isin
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(|isin| format!("ISIN:{}", normalized(isin))))
+}
+
+fn same_date_automatic_exclusion_peer(
     connection: &Connection,
     import_row: &CorporateActionImportRow,
-) -> AppResult<bool> {
+) -> AppResult<Option<String>> {
     let Some(ex_date) = import_row.ex_date.as_deref() else {
-        return Ok(false);
+        return Ok(None);
     };
-    let Some(symbol) = import_row.symbol.as_deref() else {
-        return Ok(false);
+    let Some(current_key) = effective_event_identity_key(connection, import_row.id)? else {
+        return Ok(None);
     };
     let mut statement = connection
         .prepare(
             "
-              SELECT id
+              SELECT id, action_type
               FROM corporate_action_imports
               WHERE exchange = ?
                 AND ex_date = ?
                 AND id <> ?
-                AND action_type IN ('SPLIT', 'BONUS')
-                AND parse_status = 'PARSED'
+                AND action_type IN ('SPLIT', 'BONUS', 'DIVIDEND', 'RIGHTS', 'DEMERGER')
                 AND review_status <> 'REJECTED'
-                AND factor IS NOT NULL
-                AND factor > 0
               ORDER BY id
             ",
         )
         .map_err(|error| error.to_string())?;
-    let peer_ids = statement
-        .query_map(
-            params![import_row.exchange, ex_date, import_row.id],
-            |row| row.get::<_, i64>(0),
-        )
+    let peers = statement
+        .query_map(params![import_row.exchange, ex_date, import_row.id], |row| {
+            Ok((row.get::<_, i64>(0)?, row.get::<_, String>(1)?))
+        })
         .map_err(|error| error.to_string())?
         .collect::<Result<Vec<_>, _>>()
         .map_err(|error| error.to_string())?;
 
-    for peer_id in peer_ids {
-        let peer = get_import_row(connection, peer_id)?;
-        if peer.symbol.as_deref() == Some(symbol) {
-            return Ok(true);
+    for (peer_id, action_type) in peers {
+        if effective_event_identity_key(connection, peer_id)?.as_deref() == Some(current_key.as_str()) {
+            return Ok(Some(action_type));
         }
     }
-    Ok(false)
+    Ok(None)
 }
 
 fn machine_identity_proof(
     connection: &Connection,
     import_row: &CorporateActionImportRow,
+    block_exact_active_current: bool,
 ) -> AppResult<Option<String>> {
     let Some(symbol) = import_row.symbol.as_deref() else {
         return Ok(None);
@@ -195,7 +417,7 @@ fn machine_identity_proof(
     };
 
     if let (Some(raw_isin), Some(current_isin)) = (import_row.isin.as_deref(), active_isin.as_deref()) {
-        if normalized(raw_isin) == normalized(current_isin) {
+        if normalized(raw_isin) == normalized(current_isin) && !block_exact_active_current {
             return Ok(Some("EXACT_ACTIVE_CURRENT_IDENTITY".to_string()));
         }
     }
@@ -238,6 +460,900 @@ fn machine_identity_proof(
         return Ok(None);
     }
     Ok(Some(decision.decision_type))
+}
+
+fn load_exact_simple_cash_dividend_official_evidence(
+    connection: &Connection,
+    import_row: &CorporateActionImportRow,
+) -> AppResult<Option<OfficialSimpleCashDividendEvidence>> {
+    let Some(ex_date) = import_row.ex_date.as_deref() else {
+        return Ok(None);
+    };
+    let mut statement = connection
+        .prepare(
+            "
+              SELECT id, captured_at, source_locator, raw_reference
+              FROM corporate_action_import_evidence
+              WHERE import_id = ?
+                AND source_code = 'NSE_API'
+                AND action_type_seen = 'DIVIDEND'
+                AND event_date_seen = ?
+              ORDER BY id
+            ",
+        )
+        .map_err(|error| error.to_string())?;
+    let rows = statement
+        .query_map(params![import_row.id, ex_date], |row| {
+            Ok((
+                row.get::<_, i64>(0)?,
+                row.get::<_, String>(1)?,
+                row.get::<_, Option<String>>(2)?,
+                row.get::<_, Option<String>>(3)?,
+            ))
+        })
+        .map_err(|error| error.to_string())?
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|error| error.to_string())?;
+
+    let matching = rows
+        .into_iter()
+        .filter_map(|(id, captured_at, source_locator, raw_reference)| {
+            let raw_reference = raw_reference?;
+            let payload = serde_json::from_str::<serde_json::Value>(&raw_reference).ok()?;
+            let purpose_matches = payload
+                .get("purposeRaw")
+                .and_then(serde_json::Value::as_str)
+                == Some(import_row.purpose_raw.as_str());
+            let ex_date_matches =
+                payload.get("exDate").and_then(serde_json::Value::as_str) == Some(ex_date);
+            if !purpose_matches || !ex_date_matches || captured_at.trim().is_empty() {
+                return None;
+            }
+            Some(OfficialSimpleCashDividendEvidence {
+                id,
+                captured_at,
+                source_locator,
+            })
+        })
+        .collect::<Vec<_>>();
+    if matching.len() != 1 {
+        return Ok(None);
+    }
+    Ok(matching.into_iter().next())
+}
+
+fn parse_simple_cash_dividend_policy_date(value: &str, label: &str) -> Result<NaiveDate, String> {
+    NaiveDate::parse_from_str(value, "%Y-%m-%d")
+        .map_err(|_| format!("Dividend R1 requires a valid {label} YYYY-MM-DD date."))
+}
+
+fn dividend_basis_policy_ineligibility(error: &str) -> Option<String> {
+    match error {
+        "No local previous trading-day close was found before the effective date."
+        | "Dividend amount must be smaller than the local previous close."
+        | "Dividend adjustment produced a non-positive ex-basis price." => Some(format!(
+            "Dividend R1 requires a usable local previous-close basis: {error}"
+        )),
+        _ => None,
+    }
+}
+
+pub(super) fn evaluate_simple_cash_dividend_policy_r1(
+    connection: &Connection,
+    folder_path: &Path,
+    import_id: i64,
+) -> AppResult<SimpleCashDividendPolicyEligibility> {
+    let import_row = get_import_row(connection, import_id)?;
+    if import_row.approved_corporate_action_id.is_some() || import_row.review_status == "APPROVED" {
+        return Ok(SimpleCashDividendPolicyEligibility::AlreadyApproved);
+    }
+    if import_row.exchange != "NSE" {
+        return Ok(SimpleCashDividendPolicyEligibility::Ineligible(
+            "Dividend R1 is NSE-only.".to_string(),
+        ));
+    }
+    if import_row.source != "NSE_API" {
+        return Ok(SimpleCashDividendPolicyEligibility::Ineligible(
+            "Dividend R1 requires source NSE_API.".to_string(),
+        ));
+    }
+    if import_row.action_type != "DIVIDEND" {
+        return Ok(SimpleCashDividendPolicyEligibility::Ineligible(
+            "Dividend R1 accepts DIVIDEND rows only.".to_string(),
+        ));
+    }
+    if import_row.parse_status != "PARSED" {
+        return Ok(SimpleCashDividendPolicyEligibility::Ineligible(
+            "Dividend R1 requires PARSED imports.".to_string(),
+        ));
+    }
+    if import_row.review_status != "PENDING" {
+        return Ok(SimpleCashDividendPolicyEligibility::Ineligible(format!(
+            "Dividend R1 requires ordinary PENDING review status; found {}.",
+            import_row.review_status
+        )));
+    }
+    let Some(symbol) = import_row
+        .symbol
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+    else {
+        return Ok(SimpleCashDividendPolicyEligibility::Ineligible(
+            "Dividend R1 requires a resolved symbol.".to_string(),
+        ));
+    };
+    let Some(ex_date_text) = import_row
+        .ex_date
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+    else {
+        return Ok(SimpleCashDividendPolicyEligibility::Ineligible(
+            "Dividend R1 requires the official ex-date.".to_string(),
+        ));
+    };
+    let ex_date = match parse_simple_cash_dividend_policy_date(ex_date_text, "official ex-date") {
+        Ok(value) => value,
+        Err(reason) => {
+            return Ok(SimpleCashDividendPolicyEligibility::Ineligible(reason));
+        }
+    };
+
+    let Some(cash_amount) = import_row
+        .cash_amount
+        .filter(|value| value.is_finite() && *value > 0.0)
+    else {
+        return Ok(SimpleCashDividendPolicyEligibility::Ineligible(
+            "Dividend R1 requires a finite positive stored cash amount.".to_string(),
+        ));
+    };
+    if import_row.factor.is_some()
+        || import_row.price_factor.is_some()
+        || import_row.ratio_num.is_some()
+        || import_row.ratio_den.is_some()
+        || import_row.old_face_value.is_some()
+        || import_row.new_face_value.is_some()
+    {
+        return Ok(SimpleCashDividendPolicyEligibility::Ineligible(
+            "Dividend R1 requires cash-only stored semantics with no factor, price-factor, ratio, or face-value fields.".to_string(),
+        ));
+    }
+
+    match revalidate_simple_cash_dividend_evidence(&import_row.purpose_raw, Some(cash_amount)) {
+        SimpleCashDividendEvidence::EligibleSimpleCash(amount) if amount == cash_amount => {}
+        _ => {
+            return Ok(SimpleCashDividendPolicyEligibility::Ineligible(
+                "Dividend R1 simple-cash classifier did not confirm the stored cash amount."
+                    .to_string(),
+            ));
+        }
+    }
+
+    let Some(official_evidence) =
+        load_exact_simple_cash_dividend_official_evidence(connection, &import_row)?
+    else {
+        return Ok(SimpleCashDividendPolicyEligibility::Ineligible(
+            "Dividend R1 requires exactly one exact persisted NSE_API official-source witness."
+                .to_string(),
+        ));
+    };
+
+    if has_forbidden_decision(connection, import_row.id)? {
+        return Ok(SimpleCashDividendPolicyEligibility::Ineligible(
+            "Manual or exceptional approval provenance is excluded from Dividend R1.".to_string(),
+        ));
+    }
+    let legacy_manual_raw_event_conflict =
+        has_legacy_manual_raw_event_identity_conflict(connection, &import_row)?;
+    let Some(identity_proof) =
+        machine_identity_proof(connection, &import_row, legacy_manual_raw_event_conflict)?
+    else {
+        let reason = if legacy_manual_raw_event_conflict {
+            "Legacy/manual resolved identity has conflicting raw event identity evidence and no machine-verifiable event-time identity proof for Dividend R1.".to_string()
+        } else {
+            "No current machine-proven identity satisfies Dividend R1.".to_string()
+        };
+        return Ok(SimpleCashDividendPolicyEligibility::Ineligible(reason));
+    };
+
+    if let Some(peer_action_type) = same_date_automatic_exclusion_peer(connection, &import_row)? {
+        return Ok(SimpleCashDividendPolicyEligibility::Ineligible(format!(
+            "Same-date automatic-exclusion {} peer is excluded from Dividend R1.",
+            peer_action_type
+        )));
+    }
+
+    if find_existing_corporate_action(connection, &import_row)?.is_some() {
+        return Ok(SimpleCashDividendPolicyEligibility::Ineligible(
+            "Dividend R1 requires manual reconciliation when a matching canonical Corporate Action already exists.".to_string(),
+        ));
+    }
+
+    let Some(context) = crate::database::eod_data::resolve_instrument_context(
+        connection,
+        symbol,
+        import_row.exchange.as_str(),
+    )?
+    else {
+        return Ok(SimpleCashDividendPolicyEligibility::Ineligible(
+            "Dividend R1 requires a current resolved instrument context.".to_string(),
+        ));
+    };
+    let basis = match crate::database::instrument_mutations::load_dividend_adjustment_basis(
+        connection,
+        Some(folder_path),
+        &context,
+        ex_date_text,
+        Some(cash_amount),
+    ) {
+        Ok(value) => value,
+        Err(error) => {
+            if let Some(reason) = dividend_basis_policy_ineligibility(&error) {
+                return Ok(SimpleCashDividendPolicyEligibility::Ineligible(reason));
+            }
+            return Err(error);
+        }
+    };
+    let previous_trade_date = match parse_simple_cash_dividend_policy_date(
+        &basis.previous_trade_date,
+        "previous trade date",
+    ) {
+        Ok(value) => value,
+        Err(reason) => {
+            return Ok(SimpleCashDividendPolicyEligibility::Ineligible(reason));
+        }
+    };
+    let gap_days = ex_date
+        .signed_duration_since(previous_trade_date)
+        .num_days();
+    if !(1..=DIVIDEND_MAX_PREV_TRADE_GAP_DAYS).contains(&gap_days) {
+        return Ok(SimpleCashDividendPolicyEligibility::Ineligible(format!(
+            "Dividend R1 requires the previous trade date within {} calendar days before the ex-date; found {} day(s).",
+            DIVIDEND_MAX_PREV_TRADE_GAP_DAYS, gap_days
+        )));
+    }
+    if !basis.previous_close.is_finite()
+        || basis.previous_close <= 0.0
+        || basis.cash_amount != cash_amount
+        || cash_amount >= basis.previous_close
+        || !basis.computed_factor.is_finite()
+        || basis.computed_factor <= 1.0
+        || (basis.computed_factor - 1.0).abs() < f64::EPSILON
+    {
+        return Ok(SimpleCashDividendPolicyEligibility::Ineligible(
+            "Dividend R1 local previous-close basis is not valid for autonomous eligibility."
+                .to_string(),
+        ));
+    }
+
+    Ok(SimpleCashDividendPolicyEligibility::Eligible(
+        SimpleCashDividendPolicyEvidence {
+            identity_proof,
+            official_evidence_id: official_evidence.id,
+            evidence_captured_at: official_evidence.captured_at,
+            source_locator: official_evidence.source_locator,
+            cash_amount,
+            previous_trade_date: basis.previous_trade_date,
+            previous_close: basis.previous_close,
+            computed_factor: basis.computed_factor,
+        },
+    ))
+}
+
+pub(super) fn evaluate_simple_cash_dividend_prepared_scope_in_connection(
+    connection: &Connection,
+    folder_path: &Path,
+    input: &SimpleCashDividendPreparedScopeInput,
+) -> AppResult<SimpleCashDividendPreparedScopeResult> {
+    validate_exact_import_lookup_ids(&input.import_ids)?;
+    verify_import_lookup_database(folder_path, &input.expected_database_path)?;
+
+    let mut import_ids = input.import_ids.clone();
+    import_ids.sort_unstable();
+    let scope_fingerprint = simple_cash_dividend_prepared_scope_fingerprint(
+        input.expected_database_path.as_str(),
+        &import_ids,
+    );
+
+    let mut eligible = 0_u32;
+    let mut ineligible = 0_u32;
+    let mut already_approved = 0_u32;
+    let mut stale_scope = 0_u32;
+    let mut missing = 0_u32;
+    let mut failed = 0_u32;
+    let mut dispositions = Vec::with_capacity(import_ids.len());
+
+    for import_id in import_ids.iter().copied() {
+        let exists = connection
+            .query_row(
+                "SELECT EXISTS(SELECT 1 FROM corporate_action_imports WHERE id = ?)",
+                params![import_id],
+                |row| row.get::<_, i64>(0),
+            )
+            .map_err(|error| error.to_string())?
+            != 0;
+        if !exists {
+            missing += 1;
+            dispositions.push(SimpleCashDividendPreparedScopeDisposition {
+                import_id,
+                disposition: "MISSING".to_string(),
+                reason: "Prepared-scope import ID no longer exists; no policy evaluation or write was performed.".to_string(),
+                current_action_type: None,
+                current_parse_status: None,
+                current_review_status: None,
+                evidence: None,
+            });
+            continue;
+        }
+
+        let import_row = get_import_row(connection, import_id)?;
+        let current_action_type = Some(import_row.action_type.clone());
+        let current_parse_status = Some(import_row.parse_status.clone());
+        let current_review_status = Some(import_row.review_status.clone());
+
+        if import_row.approved_corporate_action_id.is_some()
+            || import_row.review_status == "APPROVED"
+        {
+            already_approved += 1;
+            dispositions.push(SimpleCashDividendPreparedScopeDisposition {
+                import_id,
+                disposition: "ALREADY_APPROVED".to_string(),
+                reason:
+                    "Prepared-scope row is already approved; no autonomous write was performed."
+                        .to_string(),
+                current_action_type,
+                current_parse_status,
+                current_review_status,
+                evidence: None,
+            });
+            continue;
+        }
+
+        if import_row.action_type != "DIVIDEND"
+            || import_row.parse_status != "PARSED"
+            || import_row.review_status != "PENDING"
+        {
+            stale_scope += 1;
+            dispositions.push(SimpleCashDividendPreparedScopeDisposition {
+                import_id,
+                disposition: "STALE_SCOPE".to_string(),
+                reason: format!(
+                    "Prepared-scope row is no longer DIVIDEND + PARSED + PENDING; found {} + {} + {}.",
+                    import_row.action_type, import_row.parse_status, import_row.review_status
+                ),
+                current_action_type,
+                current_parse_status,
+                current_review_status,
+                evidence: None,
+            });
+            continue;
+        }
+
+        match evaluate_simple_cash_dividend_policy_r1(connection, folder_path, import_id) {
+            Ok(SimpleCashDividendPolicyEligibility::Eligible(evidence)) => {
+                eligible += 1;
+                dispositions.push(SimpleCashDividendPreparedScopeDisposition {
+                    import_id,
+                    disposition: "ELIGIBLE".to_string(),
+                    reason: format!(
+                        "Eligible under {SIMPLE_CASH_DIVIDEND_POLICY_VERSION}; this read-only scope stage performed no write."
+                    ),
+                    current_action_type,
+                    current_parse_status,
+                    current_review_status,
+                    evidence: Some(evidence),
+                });
+            }
+            Ok(SimpleCashDividendPolicyEligibility::Ineligible(reason)) => {
+                ineligible += 1;
+                dispositions.push(SimpleCashDividendPreparedScopeDisposition {
+                    import_id,
+                    disposition: "INELIGIBLE".to_string(),
+                    reason,
+                    current_action_type,
+                    current_parse_status,
+                    current_review_status,
+                    evidence: None,
+                });
+            }
+            Ok(SimpleCashDividendPolicyEligibility::AlreadyApproved) => {
+                already_approved += 1;
+                dispositions.push(SimpleCashDividendPreparedScopeDisposition {
+                    import_id,
+                    disposition: "ALREADY_APPROVED".to_string(),
+                    reason: "Dividend R1 evaluator reported the row already approved; no autonomous write was performed.".to_string(),
+                    current_action_type,
+                    current_parse_status,
+                    current_review_status,
+                    evidence: None,
+                });
+            }
+            Err(error) => {
+                failed += 1;
+                dispositions.push(SimpleCashDividendPreparedScopeDisposition {
+                    import_id,
+                    disposition: "FAILED".to_string(),
+                    reason: error,
+                    current_action_type,
+                    current_parse_status,
+                    current_review_status,
+                    evidence: None,
+                });
+            }
+        }
+    }
+
+    let requested = import_ids.len() as u32;
+    let complete = failed == 0;
+    Ok(SimpleCashDividendPreparedScopeResult {
+        requested,
+        eligible,
+        ineligible,
+        already_approved,
+        stale_scope,
+        missing,
+        failed,
+        dispositions,
+        policy_version: SIMPLE_CASH_DIVIDEND_POLICY_VERSION.to_string(),
+        scope_fingerprint,
+        complete,
+        message: format!(
+            "Dividend prepared-scope R1 read-only evaluation reviewed {requested} row(s): {eligible} eligible, {ineligible} ineligible, {already_approved} already approved, {stale_scope} stale scope, {missing} missing, {failed} failed. No Corporate Action or decision write was performed."
+        ),
+    })
+}
+
+pub(super) fn validate_simple_cash_dividend_write_stage_input(
+    folder_path: &Path,
+    input: &SimpleCashDividendWriteStageInput,
+) -> AppResult<(Vec<i64>, String)> {
+    validate_exact_import_lookup_ids(&input.import_ids)?;
+    verify_import_lookup_database(folder_path, &input.expected_database_path)?;
+    if input.expected_policy_version != SIMPLE_CASH_DIVIDEND_POLICY_VERSION {
+        return Err(format!(
+            "Dividend write-stage policy version mismatch: expected {SIMPLE_CASH_DIVIDEND_POLICY_VERSION}."
+        ));
+    }
+    if input.expected_scope_version != SIMPLE_CASH_DIVIDEND_PREPARED_SCOPE_VERSION {
+        return Err(format!(
+            "Dividend write-stage prepared-scope version mismatch: expected {SIMPLE_CASH_DIVIDEND_PREPARED_SCOPE_VERSION}."
+        ));
+    }
+    if input.expected_write_stage_version != SIMPLE_CASH_DIVIDEND_WRITE_STAGE_VERSION {
+        return Err(format!(
+            "Dividend write-stage protocol version mismatch: expected {SIMPLE_CASH_DIVIDEND_WRITE_STAGE_VERSION}."
+        ));
+    }
+
+    let mut import_ids = input.import_ids.clone();
+    import_ids.sort_unstable();
+    let scope_fingerprint = simple_cash_dividend_prepared_scope_fingerprint(
+        input.expected_database_path.as_str(),
+        &import_ids,
+    );
+    if input.expected_scope_fingerprint != scope_fingerprint {
+        return Err(
+            "Dividend write-stage scope fingerprint mismatch. Load & Prepare again.".to_string(),
+        );
+    }
+    Ok((import_ids, scope_fingerprint))
+}
+
+fn simple_cash_dividend_write_stage_audit_reason(
+    import_row: &CorporateActionImportRow,
+    evidence: &SimpleCashDividendPolicyEvidence,
+    input: &SimpleCashDividendWriteStageInput,
+    scope_fingerprint: &str,
+    corporate_action_id: i64,
+) -> String {
+    format!(
+        "policy={}; writeStageVersion={}; preparedScopeVersion={}; scopeFingerprint={}; importId={}; databaseContext={}; exchange={}; symbol={}; isin={}; actionType={}; exDate={}; cashAmount={:.12}; identityProof={}; officialEvidenceId={}; evidenceCapturedAt={}; sourceLocator={}; previousTradeDate={}; previousClose={:.12}; computedFactor={:.12}; canonicalCorporateActionId={}",
+        SIMPLE_CASH_DIVIDEND_POLICY_VERSION,
+        SIMPLE_CASH_DIVIDEND_WRITE_STAGE_VERSION,
+        SIMPLE_CASH_DIVIDEND_PREPARED_SCOPE_VERSION,
+        scope_fingerprint,
+        import_row.id,
+        input.expected_database_path,
+        import_row.exchange,
+        import_row.symbol.as_deref().unwrap_or_default(),
+        import_row.isin.as_deref().unwrap_or_default(),
+        import_row.action_type,
+        import_row.ex_date.as_deref().unwrap_or_default(),
+        evidence.cash_amount,
+        evidence.identity_proof,
+        evidence.official_evidence_id,
+        evidence.evidence_captured_at,
+        evidence.source_locator.as_deref().unwrap_or_default(),
+        evidence.previous_trade_date,
+        evidence.previous_close,
+        evidence.computed_factor,
+        corporate_action_id,
+    )
+}
+
+fn verify_simple_cash_dividend_write_result(
+    connection: &Connection,
+    previous: &CorporateActionImportRow,
+    result: &CorporateActionImportApprovalResult,
+    evidence: &SimpleCashDividendPolicyEvidence,
+) -> AppResult<i64> {
+    let approved = result.approved_record.as_ref().ok_or_else(|| {
+        "Dividend R1 write invariant failed: ordinary writer returned linked-existing/no new canonical action after fresh eligibility."
+            .to_string()
+    })?;
+    if approved.stored_record_id <= 0 {
+        return Err(
+            "Dividend R1 write invariant failed: ordinary writer returned an invalid canonical action ID."
+                .to_string(),
+        );
+    }
+    if approved.action_type != "DIVIDEND" {
+        return Err(format!(
+            "Dividend R1 write invariant failed: ordinary writer returned action type {}.",
+            approved.action_type
+        ));
+    }
+    let expected_symbol = previous.symbol.as_deref().ok_or_else(|| {
+        "Dividend R1 write invariant failed: current symbol is missing.".to_string()
+    })?;
+    let expected_ex_date = previous
+        .ex_date
+        .as_deref()
+        .ok_or_else(|| "Dividend R1 write invariant failed: ex-date is missing.".to_string())?;
+    if approved.exchange != previous.exchange
+        || approved.current_symbol != expected_symbol
+        || approved.effective_date != expected_ex_date
+    {
+        return Err(
+            "Dividend R1 write invariant failed: writer result identity/date does not match the freshly revalidated import."
+                .to_string(),
+        );
+    }
+    if approved.factor != Some(evidence.computed_factor) {
+        return Err(
+            "Dividend R1 write invariant failed: writer factor does not match the fresh policy evidence factor."
+                .to_string(),
+        );
+    }
+    if result.import_record.id != previous.id
+        || result.import_record.review_status != "APPROVED"
+        || result.import_record.approved_corporate_action_id != Some(approved.stored_record_id)
+    {
+        return Err(
+            "Dividend R1 write invariant failed: final import row is not APPROVED and linked to the exact new canonical action."
+                .to_string(),
+        );
+    }
+
+    let canonical = connection
+        .query_row(
+            "\n              SELECT symbol, exchange, isin, effective_date, action_type, cash_amount, factor\n              FROM corporate_actions\n              WHERE id = ?\n            ",
+            params![approved.stored_record_id],
+            |row| {
+                Ok((
+                    row.get::<_, String>(0)?,
+                    row.get::<_, String>(1)?,
+                    row.get::<_, Option<String>>(2)?,
+                    row.get::<_, String>(3)?,
+                    row.get::<_, String>(4)?,
+                    row.get::<_, Option<f64>>(5)?,
+                    row.get::<_, Option<f64>>(6)?,
+                ))
+            },
+        )
+        .optional()
+        .map_err(|error| error.to_string())?
+        .ok_or_else(|| {
+            "Dividend R1 write invariant failed: resulting canonical action could not be reloaded."
+                .to_string()
+        })?;
+    if canonical.0 != expected_symbol
+        || canonical.1 != previous.exchange
+        || canonical.2 != previous.isin
+        || canonical.3 != expected_ex_date
+        || canonical.4 != "DIVIDEND"
+        || canonical.5 != Some(evidence.cash_amount)
+        || canonical.6 != Some(evidence.computed_factor)
+    {
+        return Err(
+            "Dividend R1 write invariant failed: persisted canonical Dividend does not match the freshly revalidated import/evidence."
+                .to_string(),
+        );
+    }
+    Ok(approved.stored_record_id)
+}
+
+fn execute_simple_cash_dividend_write_stage_with_ops<W, A>(
+    connection: &Connection,
+    folder_path: &Path,
+    input: &SimpleCashDividendWriteStageInput,
+    writer: W,
+    audit: A,
+) -> AppResult<SimpleCashDividendWriteStageResult>
+where
+    W: Fn(&Connection, &Path, i64) -> AppResult<CorporateActionImportApprovalResult>,
+    A: Fn(&Connection, &CorporateActionImportRow, &CorporateActionImportRow, &str) -> AppResult<()>,
+{
+    let (import_ids, scope_fingerprint) =
+        validate_simple_cash_dividend_write_stage_input(folder_path, input)?;
+    let mut revalidated_eligible = 0_u32;
+    let mut auto_approved = 0_u32;
+    let mut ineligible = 0_u32;
+    let mut already_approved = 0_u32;
+    let mut stale_scope = 0_u32;
+    let mut missing = 0_u32;
+    let mut failed = 0_u32;
+    let mut dispositions = Vec::with_capacity(import_ids.len());
+
+    for import_id in import_ids.iter().copied() {
+        let exists = connection
+            .query_row(
+                "SELECT EXISTS(SELECT 1 FROM corporate_action_imports WHERE id = ?)",
+                params![import_id],
+                |row| row.get::<_, i64>(0),
+            )
+            .map_err(|error| error.to_string())?
+            != 0;
+        if !exists {
+            missing += 1;
+            dispositions.push(SimpleCashDividendWriteStageDisposition {
+                import_id,
+                disposition: "MISSING".to_string(),
+                reason:
+                    "Prepared-scope import ID no longer exists; no autonomous write was performed."
+                        .to_string(),
+                corporate_action_id: None,
+            });
+            continue;
+        }
+
+        let current = get_import_row(connection, import_id)?;
+        if current.approved_corporate_action_id.is_some() || current.review_status == "APPROVED" {
+            already_approved += 1;
+            dispositions.push(SimpleCashDividendWriteStageDisposition {
+                import_id,
+                disposition: "ALREADY_APPROVED".to_string(),
+                reason:
+                    "Current import is already approved; no second autonomous write was performed."
+                        .to_string(),
+                corporate_action_id: current.approved_corporate_action_id,
+            });
+            continue;
+        }
+        if current.action_type != "DIVIDEND"
+            || current.parse_status != "PARSED"
+            || current.review_status != "PENDING"
+        {
+            stale_scope += 1;
+            dispositions.push(SimpleCashDividendWriteStageDisposition {
+                import_id,
+                disposition: "STALE_SCOPE".to_string(),
+                reason: format!(
+                    "Prepared-scope row is no longer DIVIDEND + PARSED + PENDING; found {} + {} + {}.",
+                    current.action_type, current.parse_status, current.review_status
+                ),
+                corporate_action_id: current.approved_corporate_action_id,
+            });
+            continue;
+        }
+
+        let evidence = match evaluate_simple_cash_dividend_policy_r1(
+            connection,
+            folder_path,
+            import_id,
+        ) {
+            Ok(SimpleCashDividendPolicyEligibility::Eligible(evidence)) => evidence,
+            Ok(SimpleCashDividendPolicyEligibility::Ineligible(reason)) => {
+                ineligible += 1;
+                dispositions.push(SimpleCashDividendWriteStageDisposition {
+                    import_id,
+                    disposition: "INELIGIBLE".to_string(),
+                    reason,
+                    corporate_action_id: None,
+                });
+                continue;
+            }
+            Ok(SimpleCashDividendPolicyEligibility::AlreadyApproved) => {
+                already_approved += 1;
+                let row = get_import_row(connection, import_id)?;
+                dispositions.push(SimpleCashDividendWriteStageDisposition {
+                    import_id,
+                    disposition: "ALREADY_APPROVED".to_string(),
+                    reason: "Dividend R1 fresh evaluator reported the import already approved; no write was performed."
+                        .to_string(),
+                    corporate_action_id: row.approved_corporate_action_id,
+                });
+                continue;
+            }
+            Err(error) => {
+                failed += 1;
+                dispositions.push(SimpleCashDividendWriteStageDisposition {
+                    import_id,
+                    disposition: "FAILED".to_string(),
+                    reason: error,
+                    corporate_action_id: None,
+                });
+                continue;
+            }
+        };
+        revalidated_eligible += 1;
+
+        connection
+            .execute_batch("SAVEPOINT corporate_action_dividend_r1_item")
+            .map_err(|error| error.to_string())?;
+        let item_result = (|| -> AppResult<(i64, String)> {
+            let previous = get_import_row(connection, import_id)?;
+            let result = writer(connection, folder_path, import_id)?;
+            let corporate_action_id = verify_simple_cash_dividend_write_result(
+                connection, &previous, &result, &evidence,
+            )?;
+            let reason = simple_cash_dividend_write_stage_audit_reason(
+                &previous,
+                &evidence,
+                input,
+                &scope_fingerprint,
+                corporate_action_id,
+            );
+            audit(connection, &previous, &result.import_record, &reason)?;
+            Ok((corporate_action_id, reason))
+        })();
+
+        match item_result {
+            Ok((corporate_action_id, reason)) => {
+                connection
+                    .execute_batch("RELEASE SAVEPOINT corporate_action_dividend_r1_item")
+                    .map_err(|error| error.to_string())?;
+                auto_approved += 1;
+                dispositions.push(SimpleCashDividendWriteStageDisposition {
+                    import_id,
+                    disposition: "AUTO_APPROVED".to_string(),
+                    reason,
+                    corporate_action_id: Some(corporate_action_id),
+                });
+            }
+            Err(error) => {
+                connection
+                    .execute_batch(
+                        "ROLLBACK TO SAVEPOINT corporate_action_dividend_r1_item; \
+                         RELEASE SAVEPOINT corporate_action_dividend_r1_item",
+                    )
+                    .map_err(|rollback_error| {
+                        format!(
+                            "Could not rollback failed Dividend R1 write-stage item {}: {}",
+                            import_id, rollback_error
+                        )
+                    })?;
+                failed += 1;
+                dispositions.push(SimpleCashDividendWriteStageDisposition {
+                    import_id,
+                    disposition: "FAILED".to_string(),
+                    reason: error,
+                    corporate_action_id: None,
+                });
+            }
+        }
+    }
+
+    let requested = import_ids.len() as u32;
+    let complete = failed == 0;
+    Ok(SimpleCashDividendWriteStageResult {
+        requested,
+        revalidated_eligible,
+        auto_approved,
+        ineligible,
+        already_approved,
+        stale_scope,
+        missing,
+        failed,
+        dispositions,
+        policy_version: SIMPLE_CASH_DIVIDEND_POLICY_VERSION.to_string(),
+        scope_version: SIMPLE_CASH_DIVIDEND_PREPARED_SCOPE_VERSION.to_string(),
+        write_stage_version: SIMPLE_CASH_DIVIDEND_WRITE_STAGE_VERSION.to_string(),
+        scope_fingerprint,
+        complete,
+        message: format!(
+            "Dividend write-stage R1 reviewed {requested} scoped row(s): {revalidated_eligible} freshly eligible, {auto_approved} auto-approved, {ineligible} ineligible, {already_approved} already approved, {stale_scope} stale scope, {missing} missing, {failed} failed. P3C eligibility was not used as write authority."
+        ),
+    })
+}
+
+pub(super) fn execute_simple_cash_dividend_write_stage_in_connection(
+    connection: &Connection,
+    folder_path: &Path,
+    input: &SimpleCashDividendWriteStageInput,
+) -> AppResult<SimpleCashDividendWriteStageResult> {
+    execute_simple_cash_dividend_write_stage_with_ops(
+        connection,
+        folder_path,
+        input,
+        |connection, folder_path, import_id| {
+            approve_corporate_action_import_without_transaction(
+                connection,
+                folder_path,
+                import_id,
+                false,
+                false,
+            )
+        },
+        |connection, previous, resolved, reason| {
+            record_corporate_action_import_decision(
+                connection,
+                previous,
+                resolved,
+                SIMPLE_CASH_DIVIDEND_DECISION_TYPE,
+                reason,
+            )
+        },
+    )
+}
+
+const AUTO_APPROVAL_NEAR_UNITY_MARGIN: f64 = 0.40;
+const AUTO_APPROVAL_MAX_EX_DATE_GAP_DAYS: i64 = 7;
+
+fn parse_policy_date(value: &str, label: &str) -> Result<NaiveDate, String> {
+    NaiveDate::parse_from_str(value, "%Y-%m-%d")
+        .map_err(|_| format!("Safe V2 requires a valid {label} YYYY-MM-DD date."))
+}
+
+fn split_bonus_scan_basis(
+    import_row: &CorporateActionImportRow,
+    validation: &crate::database::CorporateActionScanResultRow,
+    confidence: f64,
+    expected_factor: f64,
+) -> Result<ActionApprovalBasis, String> {
+    if !confidence.is_finite() || !expected_factor.is_finite() || expected_factor <= 0.0 {
+        return Err("Safe V2 requires finite positive Split/Bonus validation evidence.".to_string());
+    }
+
+    let Some(ex_date_text) = import_row.ex_date.as_deref() else {
+        return Err("Safe V2 requires the official ex-date.".to_string());
+    };
+    let Some(ex_trade_date_text) = validation.ex_trade_date.as_deref() else {
+        return Err("Safe V2 requires an explicit ex-side trade date.".to_string());
+    };
+    let ex_date = parse_policy_date(ex_date_text, "official ex-date")?;
+    let ex_trade_date = parse_policy_date(ex_trade_date_text, "ex-side trade")?;
+    let gap_days = ex_trade_date.signed_duration_since(ex_date).num_days();
+    if !(0..=AUTO_APPROVAL_MAX_EX_DATE_GAP_DAYS).contains(&gap_days) {
+        return Err(format!(
+            "Safe V2 requires ex-side price evidence within {} calendar days of the official ex-date; found {} day(s).",
+            AUTO_APPROVAL_MAX_EX_DATE_GAP_DAYS, gap_days
+        ));
+    }
+
+    let mut observed_factor: Option<f64> = None;
+    for value in [validation.actual_open_factor, validation.actual_close_factor]
+        .into_iter()
+        .flatten()
+    {
+        if !value.is_finite() || value <= 0.0 {
+            continue;
+        }
+        observed_factor = Some(match observed_factor {
+            Some(current)
+                if (current - expected_factor).abs() <= (value - expected_factor).abs() => current,
+            _ => value,
+        });
+    }
+    let Some(observed_factor) = observed_factor else {
+        return Err("Safe V2 requires a finite positive observed Split/Bonus price factor.".to_string());
+    };
+
+    let allowed_distance = AUTO_APPROVAL_NEAR_UNITY_MARGIN * (expected_factor - 1.0).abs();
+    if (observed_factor - expected_factor).abs() > allowed_distance {
+        return Err(format!(
+            "Safe V2 near-unity discriminator failed: observed factor {:.12}, expected factor {:.12}, k={:.2}.",
+            observed_factor, expected_factor, AUTO_APPROVAL_NEAR_UNITY_MARGIN
+        ));
+    }
+
+    Ok(ActionApprovalBasis::SplitBonusScan {
+        scan_id: validation.id,
+        scan_timestamp: validation.scanned_at.clone(),
+        confidence,
+        expected_factor,
+    })
 }
 
 pub(super) fn evaluate_auto_approval_r1(
@@ -283,16 +1399,30 @@ pub(super) fn evaluate_auto_approval_r1(
                 .to_string(),
         ));
     }
-    let Some(identity_proof) = machine_identity_proof(connection, &import_row)? else {
-        return Ok(AutoApprovalEligibility::Ineligible(
-            "No current machine-proven identity satisfies R1.".to_string(),
-        ));
+    let legacy_manual_raw_event_conflict =
+        has_legacy_manual_raw_event_identity_conflict(connection, &import_row)?;
+    let Some(identity_proof) = machine_identity_proof(
+        connection,
+        &import_row,
+        legacy_manual_raw_event_conflict,
+    )? else {
+        let reason = if legacy_manual_raw_event_conflict {
+            "Legacy/manual resolved identity has conflicting raw event identity evidence and no machine-verifiable event-time identity proof.".to_string()
+        } else {
+            "No current machine-proven identity satisfies R1.".to_string()
+        };
+        return Ok(AutoApprovalEligibility::Ineligible(reason));
     };
-    if has_same_date_split_bonus_peer(connection, &import_row)? {
-        return Ok(AutoApprovalEligibility::Ineligible(
-            "Same-date compound Split/Bonus rows are excluded from R1 auto-approval."
-                .to_string(),
-        ));
+    if let Some(peer_action_type) = same_date_automatic_exclusion_peer(connection, &import_row)? {
+        let reason = if matches!(peer_action_type.as_str(), "SPLIT" | "BONUS") {
+            "Same-date compound Split/Bonus rows are excluded from Safe V2 auto-approval.".to_string()
+        } else {
+            format!(
+                "Same-date cross-action {} peer is excluded from Safe V2 auto-approval.",
+                peer_action_type
+            )
+        };
+        return Ok(AutoApprovalEligibility::Ineligible(reason));
     }
 
     let Some(validation) = load_latest_official_split_bonus_validation(connection, import_row.id)? else {
@@ -324,16 +1454,17 @@ pub(super) fn evaluate_auto_approval_r1(
     }
     let Some(expected_factor) = validation.expected_factor else {
         return Ok(AutoApprovalEligibility::Ineligible(
-            "R1 requires the current validation factor.".to_string(),
+            "Safe V2 requires the current validation factor.".to_string(),
         ));
+    };
+    let basis = match split_bonus_scan_basis(&import_row, &validation, confidence, expected_factor) {
+        Ok(basis) => basis,
+        Err(reason) => return Ok(AutoApprovalEligibility::Ineligible(reason)),
     };
 
     Ok(AutoApprovalEligibility::Eligible(AutoApprovalEvidence {
         identity_proof,
-        scan_id: validation.id,
-        scan_timestamp: validation.scanned_at,
-        confidence,
-        expected_factor,
+        basis,
     }))
 }
 
@@ -343,23 +1474,32 @@ fn audit_reason(
     database_context: &str,
     corporate_action_id: i64,
 ) -> String {
-    format!(
-        "policy={}; importId={}; exchange={}; symbol={}; actionType={}; exDate={}; factor={:.12}; identityProof={}; scanId={}; scanTimestamp={}; scanStatus=MATCHED; confidence={:.6}; expectedFactor={:.12}; databaseContext={}; canonicalCorporateActionId={}",
-        AUTO_APPROVAL_POLICY_VERSION,
-        import_row.id,
-        import_row.exchange,
-        import_row.symbol.as_deref().unwrap_or_default(),
-        import_row.action_type,
-        import_row.ex_date.as_deref().unwrap_or_default(),
-        import_row.factor.unwrap_or_default(),
-        evidence.identity_proof,
-        evidence.scan_id,
-        evidence.scan_timestamp,
-        evidence.confidence,
-        evidence.expected_factor,
-        database_context,
-        corporate_action_id,
-    )
+    match &evidence.basis {
+        ActionApprovalBasis::SplitBonusScan {
+            scan_id,
+            scan_timestamp,
+            confidence,
+            expected_factor,
+        } => format!(
+            "policy={}; importId={}; exchange={}; symbol={}; actionType={}; exDate={}; factor={:.12}; identityProof={}; basis=SplitBonusScan; scanId={}; scanTimestamp={}; scanStatus=MATCHED; confidence={:.6}; expectedFactor={:.12}; nearUnityK={:.2}; maxExDateGapDays={}; databaseContext={}; canonicalCorporateActionId={}",
+            AUTO_APPROVAL_POLICY_VERSION,
+            import_row.id,
+            import_row.exchange,
+            import_row.symbol.as_deref().unwrap_or_default(),
+            import_row.action_type,
+            import_row.ex_date.as_deref().unwrap_or_default(),
+            import_row.factor.unwrap_or_default(),
+            evidence.identity_proof,
+            scan_id,
+            scan_timestamp,
+            confidence,
+            expected_factor,
+            AUTO_APPROVAL_NEAR_UNITY_MARGIN,
+            AUTO_APPROVAL_MAX_EX_DATE_GAP_DAYS,
+            database_context,
+            corporate_action_id
+        ),
+    }
 }
 
 pub(super) fn auto_approve_corporate_action_imports_in_connection(
@@ -521,10 +1661,13 @@ pub(super) fn auto_approve_corporate_action_imports_in_connection(
         dispositions,
         policy_version: AUTO_APPROVAL_POLICY_VERSION.to_string(),
         message: format!(
-            "Auto-Approval Safe V1 reviewed {requested} prepared row(s): {auto_approved} newly approved, {linked_existing} linked existing, {already_approved} already approved, {skipped} skipped, {failed} failed. Manual approval remains available for eligible manual-review rows."
+            "Auto-Approval Safe V2 reviewed {requested} prepared row(s): {auto_approved} newly approved, {linked_existing} linked existing, {already_approved} already approved, {skipped} skipped, {failed} failed. Manual approval remains available for eligible manual-review rows."
         ),
     })
 }
+
+#[cfg(test)]
+mod write_stage_tests;
 
 #[cfg(test)]
 mod tests {
@@ -541,7 +1684,9 @@ mod tests {
                   isin TEXT,
                   name TEXT,
                   is_active INTEGER NOT NULL DEFAULT 1,
-                  series TEXT
+                  series TEXT,
+                  sector TEXT,
+                  industry TEXT
                 );
                 CREATE TABLE instrument_identity_history (
                   id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -680,6 +1825,18 @@ mod tests {
                   updated_at TEXT,
                   applied_at TEXT
                 );
+                CREATE TABLE eod_prices (
+                  symbol TEXT NOT NULL,
+                  exchange TEXT NOT NULL,
+                  date TEXT NOT NULL,
+                  open REAL NOT NULL,
+                  high REAL NOT NULL,
+                  low REAL NOT NULL,
+                  close REAL NOT NULL,
+                  prev_close REAL,
+                  volume INTEGER NOT NULL DEFAULT 0,
+                  open_interest INTEGER NOT NULL DEFAULT 0
+                );
                 INSERT INTO instruments(symbol, exchange, isin, name, is_active, series)
                 VALUES ('TEST', 'NSE', 'INEAUTO01001', 'Test Limited', 1, 'EQ');
                 ",
@@ -700,6 +1857,30 @@ mod tests {
     }
 
     fn insert_scan(connection: &Connection, import_id: i64, status: &str, confidence: Option<f64>, factor: f64) {
+        insert_scan_window(
+            connection,
+            import_id,
+            status,
+            confidence,
+            factor,
+            "2026-08-14",
+            Some(factor),
+            Some(factor),
+        );
+    }
+
+
+
+    fn insert_scan_window(
+        connection: &Connection,
+        import_id: i64,
+        status: &str,
+        confidence: Option<f64>,
+        factor: f64,
+        ex_trade_date: &str,
+        actual_open_factor: Option<f64>,
+        actual_close_factor: Option<f64>,
+    ) {
         connection.execute(
             "INSERT INTO scan_runs(scope, action_types, started_at, completed_at, status, total_results)
              VALUES ('official_imports','SPLIT,BONUS','2026-08-14T00:00:00Z','2026-08-14T00:00:01Z','COMPLETED',1)", [],
@@ -708,10 +1889,206 @@ mod tests {
         connection.execute(
             "INSERT INTO corporate_action_scan_results(
               scan_run_id, corporate_action_import_id, symbol, exchange, scan_status,
-              prev_trade_date, ex_trade_date, expected_factor, confidence, message, scanned_at
-             ) VALUES (?, ?, 'TEST', 'NSE', ?, '2026-08-13', '2026-08-14', ?, ?, 'fixture', '2026-08-14T00:00:01Z')",
-            params![run_id, import_id, status, factor, confidence],
+              prev_trade_date, ex_trade_date, expected_factor, actual_open_factor,
+              actual_close_factor, confidence, message, scanned_at
+             ) VALUES (?, ?, 'TEST', 'NSE', ?, '2026-08-13', ?, ?, ?, ?, ?, 'fixture', '2026-08-14T00:00:01Z')",
+            params![run_id, import_id, status, ex_trade_date, factor, actual_open_factor, actual_close_factor, confidence],
         ).unwrap();
+    }
+
+    fn split_bonus_basis(evidence: &AutoApprovalEvidence) -> (i64, &str, f64, f64) {
+        match &evidence.basis {
+            ActionApprovalBasis::SplitBonusScan { scan_id, scan_timestamp, confidence, expected_factor } =>
+                (*scan_id, scan_timestamp.as_str(), *confidence, *expected_factor),
+        }
+    }
+
+    fn dividend_policy_folder() -> std::path::PathBuf {
+        std::env::temp_dir().join("eod-dividend-policy-r1-no-binary-fixture")
+    }
+
+    fn insert_simple_cash_dividend_import(
+        connection: &Connection,
+        id: i64,
+        source: &str,
+        review_status: &str,
+        purpose_raw: &str,
+        ex_date: &str,
+        cash_amount: f64,
+    ) {
+        connection
+            .execute(
+                "INSERT INTO corporate_action_imports (
+                   id, dedupe_key, exchange, source, symbol, isin, company_name, purpose_raw, ex_date,
+                   action_type, cash_amount, parse_status, review_status
+                 ) VALUES (?, ?, 'NSE', ?, 'TEST', 'INEAUTO01001', 'Test Limited', ?, ?,
+                   'DIVIDEND', ?, 'PARSED', ?)",
+                params![
+                    id,
+                    format!("dividend-row-{id}"),
+                    source,
+                    purpose_raw,
+                    ex_date,
+                    cash_amount,
+                    review_status
+                ],
+            )
+            .unwrap();
+    }
+
+    fn insert_exact_dividend_official_evidence(
+        connection: &Connection,
+        import_id: i64,
+        purpose_raw: &str,
+        ex_date: &str,
+    ) {
+        let raw_reference = super::super::build_import_evidence_raw_reference(
+            Some("TEST"),
+            Some("INEAUTO01001"),
+            None,
+            Some("Test Limited"),
+            purpose_raw,
+            Some(ex_date),
+            None,
+        )
+        .unwrap();
+        connection
+            .execute(
+                "INSERT INTO corporate_action_import_evidence(
+                   import_id, source_code, source_locator, captured_at, symbol_seen, isin_seen,
+                   company_name_seen, action_type_seen, event_date_seen, factor_seen, raw_reference, note
+                 ) VALUES (?, 'NSE_API', 'fixture://nse-api', '2026-08-10T10:00:00Z', 'TEST',
+                   'INEAUTO01001', 'Test Limited', 'DIVIDEND', ?, NULL, ?, 'fixture')",
+                params![import_id, ex_date, raw_reference],
+            )
+            .unwrap();
+    }
+
+    fn insert_dividend_previous_close(connection: &Connection, date: &str, close: f64) {
+        connection
+            .execute(
+                "INSERT INTO eod_prices(
+                   symbol, exchange, date, open, high, low, close, prev_close, volume, open_interest
+                 ) VALUES ('TEST','NSE',?, ?, ?, ?, ?, NULL, 1000, 0)",
+                params![date, close, close, close, close],
+            )
+            .unwrap();
+    }
+
+    fn prepared_scope_folder() -> std::path::PathBuf {
+        let folder = std::env::temp_dir().join(format!(
+            "eod-dividend-prepared-scope-r1-{}",
+            std::process::id()
+        ));
+        std::fs::create_dir_all(&folder).unwrap();
+        folder.canonicalize().unwrap()
+    }
+
+    fn prepared_scope_input(
+        folder: &std::path::Path,
+        import_ids: Vec<i64>,
+    ) -> SimpleCashDividendPreparedScopeInput {
+        SimpleCashDividendPreparedScopeInput {
+            import_ids,
+            expected_database_path: folder.to_string_lossy().to_string(),
+        }
+    }
+
+    fn eligible_dividend_fixture() -> Connection {
+        let connection = fixture();
+        let purpose = "Interim Dividend - Rs. 5 per share";
+        insert_simple_cash_dividend_import(
+            &connection,
+            1,
+            "NSE_API",
+            "PENDING",
+            purpose,
+            "2026-08-14",
+            5.0,
+        );
+        insert_exact_dividend_official_evidence(&connection, 1, purpose, "2026-08-14");
+        insert_dividend_previous_close(&connection, "2026-08-13", 100.0);
+        connection
+    }
+
+    fn expect_dividend_eligible(connection: &Connection) -> SimpleCashDividendPolicyEvidence {
+        match evaluate_simple_cash_dividend_policy_r1(connection, &dividend_policy_folder(), 1)
+            .unwrap()
+        {
+            SimpleCashDividendPolicyEligibility::Eligible(evidence) => evidence,
+            other => panic!("expected eligible Dividend R1 policy result, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn phase5b_safe_v2_well_separated_split_remains_eligible_with_typed_scan_basis() {
+        let connection=fixture();
+        insert_import(&connection,1,"SPLIT","PENDING");
+        insert_scan(&connection,1,"MATCHED",Some(0.99),2.0);
+        let evidence=expect_eligible(&connection,1);
+        let (_, _, confidence, expected_factor)=split_bonus_basis(&evidence);
+        assert_eq!(confidence,0.99);
+        assert_eq!(expected_factor,2.0);
+        assert_eq!(AUTO_APPROVAL_POLICY_VERSION,"AUTO_APPROVAL_SAFE_V2");
+    }
+
+    #[test]
+    fn phase5b_safe_v2_near_unity_no_move_bonus_fails_closed() {
+        let connection=fixture();
+        insert_import(&connection,1,"BONUS","PENDING");
+        connection.execute("UPDATE corporate_action_imports SET factor=1.05 WHERE id=1",[]).unwrap();
+        let confidence=1.0-(0.05_f64/1.05_f64);
+        insert_scan_window(&connection,1,"MATCHED",Some(confidence),1.05,"2026-08-14",Some(1.0),Some(1.0));
+        assert!(matches!(evaluate_auto_approval_r1(&connection,1).unwrap(),AutoApprovalEligibility::Ineligible(reason) if reason.contains("near-unity")));
+    }
+
+    #[test]
+    fn phase5b_safe_v2_near_unity_bonus_close_to_expected_remains_eligible() {
+        let connection=fixture();
+        insert_import(&connection,1,"BONUS","PENDING");
+        connection.execute("UPDATE corporate_action_imports SET factor=1.05 WHERE id=1",[]).unwrap();
+        let confidence=1.0-(0.01_f64/1.05_f64);
+        insert_scan_window(&connection,1,"MATCHED",Some(confidence),1.05,"2026-08-14",Some(1.04),Some(1.04));
+        expect_eligible(&connection,1);
+    }
+
+    #[test]
+    fn phase5b_safe_v2_seven_day_ex_gap_passes_and_eight_day_gap_fails() {
+        let seven=fixture();insert_import(&seven,1,"SPLIT","PENDING");
+        insert_scan_window(&seven,1,"MATCHED",Some(0.99),2.0,"2026-08-21",Some(2.0),Some(2.0));
+        expect_eligible(&seven,1);
+
+        let eight=fixture();insert_import(&eight,1,"SPLIT","PENDING");
+        insert_scan_window(&eight,1,"MATCHED",Some(0.99),2.0,"2026-08-22",Some(2.0),Some(2.0));
+        assert!(matches!(evaluate_auto_approval_r1(&eight,1).unwrap(),AutoApprovalEligibility::Ineligible(reason) if reason.contains("7 calendar days") || reason.contains("8 day")));
+    }
+
+    #[test]
+    fn phase5b_safe_v2_same_date_dividend_peer_blocks_split() {
+        let connection=fixture();insert_import(&connection,1,"SPLIT","PENDING");insert_scan(&connection,1,"MATCHED",Some(0.99),2.0);
+        insert_import(&connection,2,"DIVIDEND","PENDING");
+        assert!(matches!(evaluate_auto_approval_r1(&connection,1).unwrap(),AutoApprovalEligibility::Ineligible(reason) if reason.contains("cross-action") && reason.contains("DIVIDEND")));
+    }
+
+    #[test]
+    fn phase5b_safe_v2_different_date_dividend_peer_does_not_block_split() {
+        let connection=fixture();insert_import(&connection,1,"SPLIT","PENDING");insert_scan(&connection,1,"MATCHED",Some(0.99),2.0);
+        insert_import(&connection,2,"DIVIDEND","PENDING");
+        connection.execute("UPDATE corporate_action_imports SET ex_date='2026-08-15' WHERE id=2",[]).unwrap();
+        expect_eligible(&connection,1);
+    }
+
+    #[test]
+    fn phase5b_safe_v2_nonfinite_observed_factor_fails_closed() {
+        let connection=fixture();insert_import(&connection,1,"SPLIT","PENDING");
+        insert_scan_window(&connection,1,"MATCHED",Some(0.99),2.0,"2026-08-14",Some(f64::NAN),Some(f64::INFINITY));
+        assert!(matches!(evaluate_auto_approval_r1(&connection,1).unwrap(),AutoApprovalEligibility::Ineligible(reason) if reason.contains("finite positive observed")));
+    }
+
+    #[test]
+    fn phase5b_safe_v2_split_bonus_peer_keeps_compound_reason() {
+        let connection=fixture();insert_import(&connection,1,"SPLIT","PENDING");insert_scan(&connection,1,"MATCHED",Some(0.99),2.0);insert_import(&connection,2,"BONUS","PENDING");
+        assert!(matches!(evaluate_auto_approval_r1(&connection,1).unwrap(),AutoApprovalEligibility::Ineligible(reason) if reason.contains("compound")));
     }
 
     fn expect_eligible(connection: &Connection, id: i64) -> AutoApprovalEvidence {
@@ -726,7 +2103,7 @@ mod tests {
         let connection=fixture(); insert_import(&connection,1,"SPLIT","PENDING"); insert_scan(&connection,1,"MATCHED",Some(0.95),2.0);
         let evidence=expect_eligible(&connection,1);
         assert_eq!(evidence.identity_proof,"EXACT_ACTIVE_CURRENT_IDENTITY");
-        assert_eq!(evidence.confidence,0.95);
+        assert_eq!(split_bonus_basis(&evidence).2,0.95);
     }
 
     #[test]
@@ -802,6 +2179,124 @@ mod tests {
         assert!(matches!(evaluate_auto_approval_r1(&connection,1).unwrap(),AutoApprovalEligibility::Ineligible(reason) if reason.contains("stale")));
     }
 
+
+    fn r1b4_insert_event_evidence(
+        connection: &Connection,
+        import_id: i64,
+        isin_seen: &str,
+        note: &str,
+    ) {
+        connection
+            .execute(
+                "INSERT INTO corporate_action_import_evidence(
+                   import_id, source_code, source_locator, captured_at,
+                   symbol_seen, isin_seen, company_name_seen, action_type_seen,
+                   event_date_seen, factor_seen, raw_reference, note
+                 ) VALUES (?1,'NSE_API','r1b4-fixture','2026-08-14T00:00:00Z',
+                   'TEST',?2,'Test Limited','SPLIT','2026-08-14',2.0,'{}',?3)",
+                params![import_id, isin_seen, note],
+            )
+            .unwrap();
+    }
+
+    #[test]
+    fn r1b4_ordinary_exact_current_without_raw_conflict_remains_eligible() {
+        let connection = fixture();
+        insert_import(&connection, 1, "SPLIT", "PENDING");
+        insert_scan(&connection, 1, "MATCHED", Some(0.99), 2.0);
+
+        let evidence = expect_eligible(&connection, 1);
+
+        assert_eq!(evidence.identity_proof, "EXACT_ACTIVE_CURRENT_IDENTITY");
+        assert_eq!(split_bonus_basis(&evidence).2, 0.99);
+    }
+
+    #[test]
+    fn r1b4_legacy_row_with_matching_raw_event_isin_remains_eligible() {
+        let connection = fixture();
+        insert_import(&connection, 1, "SPLIT", "PENDING");
+        insert_scan(&connection, 1, "MATCHED", Some(0.99), 2.0);
+        connection
+            .execute(
+                "UPDATE corporate_action_imports SET message='Manually resolved this official row to NSE:TEST.' WHERE id=1",
+                [],
+            )
+            .unwrap();
+        r1b4_insert_event_evidence(
+            &connection,
+            1,
+            "INEAUTO01001",
+            "Backfilled from an existing corporate_action_imports row. Older builds did not retain full raw source payloads separately.",
+        );
+
+        let evidence = expect_eligible(&connection, 1);
+
+        assert_eq!(evidence.identity_proof, "EXACT_ACTIVE_CURRENT_IDENTITY");
+    }
+
+    #[test]
+    fn r1b4_verified_quick_resolution_remains_eligible() {
+        let connection = fixture();
+        insert_import(&connection, 1, "SPLIT", "PENDING");
+        insert_scan(&connection, 1, "MATCHED", Some(0.99), 2.0);
+        connection
+            .execute(
+                "UPDATE corporate_action_imports SET isin='INEHIST01001' WHERE id=1",
+                [],
+            )
+            .unwrap();
+        r1b4_insert_event_evidence(
+            &connection,
+            1,
+            "INEHIST01001",
+            "Backfilled from an existing corporate_action_imports row. Older builds did not retain full raw source payloads separately.",
+        );
+        connection
+            .execute(
+                "INSERT INTO instrument_isin_history(exchange,symbol,isin,effective_date,source)
+                 VALUES ('NSE','TEST','INEHIST01001','2026-08-14','fixture')",
+                [],
+            )
+            .unwrap();
+        connection
+            .execute(
+                "INSERT INTO corporate_action_import_decisions(
+                   import_id,decision_type,resolved_symbol,resolved_exchange,resolved_isin,reason
+                 ) VALUES (1,'VERIFIED_QUICK_RESOLUTION','TEST','NSE','INEHIST01001','fixture')",
+                [],
+            )
+            .unwrap();
+
+        let evidence = expect_eligible(&connection, 1);
+
+        assert_eq!(evidence.identity_proof, "VERIFIED_QUICK_RESOLUTION");
+    }
+
+    #[test]
+    fn r1b4_legacy_manual_raw_event_isin_conflict_fails_closed() {
+        let connection = fixture();
+        insert_import(&connection, 1, "SPLIT", "PENDING");
+        insert_scan(&connection, 1, "MATCHED", Some(0.99), 2.0);
+        connection
+            .execute(
+                "UPDATE corporate_action_imports SET message='Manually resolved this official row to NSE:TEST.' WHERE id=1",
+                [],
+            )
+            .unwrap();
+        r1b4_insert_event_evidence(
+            &connection,
+            1,
+            "INELEGACY01019",
+            "Backfilled from an existing corporate_action_imports row. Older builds did not retain full raw source payloads separately.",
+        );
+
+        assert!(matches!(
+            evaluate_auto_approval_r1(&connection, 1).unwrap(),
+            AutoApprovalEligibility::Ineligible(reason)
+                if reason.contains("raw event identity") || reason.contains("legacy/manual")
+        ));
+    }
+
     #[test]
     fn auto_approval_r1_links_existing_and_records_safe_audit_without_touching_out_of_scope_row() {
         let connection=fixture();
@@ -815,5 +2310,698 @@ mod tests {
         let row2=get_import_row(&connection,2).unwrap(); assert_eq!(row2.review_status,"PENDING"); assert!(row2.approved_corporate_action_id.is_none());
         let audit:(String,String)=connection.query_row("SELECT decision_type,reason FROM corporate_action_import_decisions WHERE import_id=1 ORDER BY id DESC LIMIT 1",[],|r|Ok((r.get(0)?,r.get(1)?))).unwrap();
         assert_eq!(audit.0,AUTO_APPROVAL_POLICY_VERSION); assert!(audit.1.contains("confidence=0.990000")); assert!(audit.1.contains("canonicalCorporateActionId="));
+    }
+
+    #[test]
+    fn dividend_policy_r1_accepts_exact_nse_api_simple_cash_with_current_identity_and_fresh_basis()
+    {
+        let connection = eligible_dividend_fixture();
+        let evidence = expect_dividend_eligible(&connection);
+
+        assert_eq!(
+            SIMPLE_CASH_DIVIDEND_POLICY_VERSION,
+            "AUTO_APPROVAL_SIMPLE_CASH_DIVIDEND_R1"
+        );
+        assert_eq!(evidence.identity_proof, "EXACT_ACTIVE_CURRENT_IDENTITY");
+        assert_eq!(evidence.official_evidence_id, 1);
+        assert_eq!(evidence.evidence_captured_at, "2026-08-10T10:00:00Z");
+        assert_eq!(
+            evidence.source_locator.as_deref(),
+            Some("fixture://nse-api")
+        );
+        assert_eq!(evidence.cash_amount, 5.0);
+        assert_eq!(evidence.previous_trade_date, "2026-08-13");
+        assert_eq!(evidence.previous_close, 100.0);
+        assert_eq!(evidence.computed_factor, 100.0 / 95.0);
+    }
+
+    #[test]
+    fn dividend_policy_r1_is_nse_only() {
+        let connection = eligible_dividend_fixture();
+        connection
+            .execute(
+                "UPDATE corporate_action_imports SET exchange='BSE' WHERE id=1",
+                [],
+            )
+            .unwrap();
+        assert!(matches!(
+            evaluate_simple_cash_dividend_policy_r1(&connection, &dividend_policy_folder(), 1).unwrap(),
+            SimpleCashDividendPolicyEligibility::Ineligible(reason) if reason.contains("NSE-only")
+        ));
+    }
+
+    #[test]
+    fn dividend_policy_r1_requires_nse_api_source() {
+        let connection = eligible_dividend_fixture();
+        connection
+            .execute(
+                "UPDATE corporate_action_imports SET source='NSE_CSV' WHERE id=1",
+                [],
+            )
+            .unwrap();
+        assert!(matches!(
+            evaluate_simple_cash_dividend_policy_r1(&connection, &dividend_policy_folder(), 1).unwrap(),
+            SimpleCashDividendPolicyEligibility::Ineligible(reason) if reason.contains("NSE_API")
+        ));
+    }
+
+    #[test]
+    fn dividend_policy_r1_requires_dividend_parsed_pending_and_resolved_state() {
+        for (sql, expected) in [
+            (
+                "UPDATE corporate_action_imports SET action_type='RIGHTS' WHERE id=1",
+                "DIVIDEND",
+            ),
+            (
+                "UPDATE corporate_action_imports SET parse_status='NEEDS_REVIEW' WHERE id=1",
+                "PARSED",
+            ),
+            (
+                "UPDATE corporate_action_imports SET review_status='UNRESOLVED' WHERE id=1",
+                "PENDING",
+            ),
+            (
+                "UPDATE corporate_action_imports SET symbol=NULL WHERE id=1",
+                "resolved symbol",
+            ),
+            (
+                "UPDATE corporate_action_imports SET ex_date=NULL WHERE id=1",
+                "ex-date",
+            ),
+        ] {
+            let connection = eligible_dividend_fixture();
+            connection.execute(sql, []).unwrap();
+            assert!(
+                matches!(
+                    evaluate_simple_cash_dividend_policy_r1(&connection, &dividend_policy_folder(), 1).unwrap(),
+                    SimpleCashDividendPolicyEligibility::Ineligible(reason) if reason.contains(expected)
+                ),
+                "{sql}"
+            );
+        }
+    }
+
+    #[test]
+    fn dividend_policy_r1_requires_valid_ex_date() {
+        let connection = eligible_dividend_fixture();
+        connection
+            .execute(
+                "UPDATE corporate_action_imports SET ex_date='2026-99-99' WHERE id=1",
+                [],
+            )
+            .unwrap();
+        assert!(matches!(
+            evaluate_simple_cash_dividend_policy_r1(&connection, &dividend_policy_folder(), 1).unwrap(),
+            SimpleCashDividendPolicyEligibility::Ineligible(reason) if reason.contains("valid official ex-date")
+        ));
+    }
+
+    #[test]
+    fn dividend_policy_r1_requires_cash_only_stored_semantics() {
+        for column in [
+            "factor",
+            "price_factor",
+            "ratio_num",
+            "ratio_den",
+            "old_face_value",
+            "new_face_value",
+        ] {
+            let connection = eligible_dividend_fixture();
+            connection
+                .execute(
+                    &format!("UPDATE corporate_action_imports SET {column}=2 WHERE id=1"),
+                    [],
+                )
+                .unwrap();
+            assert!(
+                matches!(
+                    evaluate_simple_cash_dividend_policy_r1(&connection, &dividend_policy_folder(), 1).unwrap(),
+                    SimpleCashDividendPolicyEligibility::Ineligible(reason) if reason.contains("cash-only stored semantics")
+                ),
+                "{column}"
+            );
+        }
+    }
+
+    #[test]
+    fn dividend_policy_r1_requires_positive_cash_and_classifier_exact_match() {
+        let invalid_cash = eligible_dividend_fixture();
+        invalid_cash
+            .execute(
+                "UPDATE corporate_action_imports SET cash_amount=0 WHERE id=1",
+                [],
+            )
+            .unwrap();
+        assert!(matches!(
+            evaluate_simple_cash_dividend_policy_r1(&invalid_cash, &dividend_policy_folder(), 1).unwrap(),
+            SimpleCashDividendPolicyEligibility::Ineligible(reason) if reason.contains("finite positive")
+        ));
+
+        let mismatch = eligible_dividend_fixture();
+        mismatch
+            .execute(
+                "UPDATE corporate_action_imports SET cash_amount=6 WHERE id=1",
+                [],
+            )
+            .unwrap();
+        assert!(matches!(
+            evaluate_simple_cash_dividend_policy_r1(&mismatch, &dividend_policy_folder(), 1).unwrap(),
+            SimpleCashDividendPolicyEligibility::Ineligible(reason) if reason.contains("classifier")
+        ));
+
+        let complex = eligible_dividend_fixture();
+        complex.execute(
+            "UPDATE corporate_action_imports SET purpose_raw='Special Dividend Rs 5 per share' WHERE id=1",
+            [],
+        ).unwrap();
+        assert!(matches!(
+            evaluate_simple_cash_dividend_policy_r1(&complex, &dividend_policy_folder(), 1).unwrap(),
+            SimpleCashDividendPolicyEligibility::Ineligible(reason) if reason.contains("classifier")
+        ));
+    }
+
+    #[test]
+    fn dividend_policy_r1_requires_exact_unique_nse_api_official_witness() {
+        let missing = eligible_dividend_fixture();
+        missing
+            .execute(
+                "DELETE FROM corporate_action_import_evidence WHERE import_id=1",
+                [],
+            )
+            .unwrap();
+        assert!(matches!(
+            evaluate_simple_cash_dividend_policy_r1(&missing, &dividend_policy_folder(), 1).unwrap(),
+            SimpleCashDividendPolicyEligibility::Ineligible(reason) if reason.contains("exactly one exact persisted NSE_API")
+        ));
+
+        let mismatched = eligible_dividend_fixture();
+        mismatched.execute(
+            r#"UPDATE corporate_action_import_evidence SET raw_reference='{"purposeRaw":"Dividend Rs 6 per share","exDate":"2026-08-14"}' WHERE import_id=1"#,
+            [],
+        ).unwrap();
+        assert!(matches!(
+            evaluate_simple_cash_dividend_policy_r1(&mismatched, &dividend_policy_folder(), 1).unwrap(),
+            SimpleCashDividendPolicyEligibility::Ineligible(reason) if reason.contains("exactly one exact persisted NSE_API")
+        ));
+
+        let duplicate = eligible_dividend_fixture();
+        let raw: String = duplicate
+            .query_row(
+                "SELECT raw_reference FROM corporate_action_import_evidence WHERE import_id=1",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        duplicate.execute(
+            "INSERT INTO corporate_action_import_evidence(
+               import_id,source_code,source_locator,captured_at,symbol_seen,isin_seen,company_name_seen,
+               action_type_seen,event_date_seen,factor_seen,raw_reference,note
+             ) VALUES (1,'NSE_API','fixture://duplicate','2026-08-10T11:00:00Z','TEST','INEAUTO01001',
+               'Test Limited','DIVIDEND','2026-08-14',NULL,?,'duplicate')",
+            params![raw],
+        ).unwrap();
+        assert!(matches!(
+            evaluate_simple_cash_dividend_policy_r1(&duplicate, &dividend_policy_folder(), 1).unwrap(),
+            SimpleCashDividendPolicyEligibility::Ineligible(reason) if reason.contains("exactly one exact persisted NSE_API")
+        ));
+    }
+
+    #[test]
+    fn dividend_policy_r1_rejects_manual_and_exception_provenance() {
+        for decision_type in FORBIDDEN_DECISION_TYPES {
+            let connection = eligible_dividend_fixture();
+            connection.execute(
+                "INSERT INTO corporate_action_import_decisions(import_id,decision_type,reason) VALUES (1,?,'fixture')",
+                params![decision_type],
+            ).unwrap();
+            assert!(
+                matches!(
+                    evaluate_simple_cash_dividend_policy_r1(&connection, &dividend_policy_folder(), 1).unwrap(),
+                    SimpleCashDividendPolicyEligibility::Ineligible(reason) if reason.contains("Manual") || reason.contains("exceptional")
+                ),
+                "{decision_type}"
+            );
+        }
+    }
+
+    #[test]
+    fn dividend_policy_r1_requires_current_machine_identity() {
+        let connection = eligible_dividend_fixture();
+        connection
+            .execute(
+                "UPDATE corporate_action_imports SET isin='INEHIST01001' WHERE id=1",
+                [],
+            )
+            .unwrap();
+        assert!(matches!(
+            evaluate_simple_cash_dividend_policy_r1(&connection, &dividend_policy_folder(), 1).unwrap(),
+            SimpleCashDividendPolicyEligibility::Ineligible(reason) if reason.contains("machine-proven identity")
+        ));
+    }
+
+    #[test]
+    fn dividend_policy_r1_accepts_revalidated_verified_quick_resolution() {
+        let connection = eligible_dividend_fixture();
+        connection
+            .execute(
+                "UPDATE corporate_action_imports SET isin='INEHIST01001' WHERE id=1",
+                [],
+            )
+            .unwrap();
+        connection.execute(
+            "UPDATE corporate_action_import_evidence SET isin_seen='INEHIST01001' WHERE import_id=1",
+            [],
+        ).unwrap();
+        connection
+            .execute(
+                "INSERT INTO instrument_isin_history(exchange,symbol,isin,effective_date,source)
+             VALUES ('NSE','TEST','INEHIST01001','2026-08-14','fixture')",
+                [],
+            )
+            .unwrap();
+        connection
+            .execute(
+                "INSERT INTO corporate_action_import_decisions(
+               import_id,decision_type,resolved_symbol,resolved_exchange,resolved_isin,reason
+             ) VALUES (1,'VERIFIED_QUICK_RESOLUTION','TEST','NSE','INEHIST01001','fixture')",
+                [],
+            )
+            .unwrap();
+
+        let evidence = expect_dividend_eligible(&connection);
+        assert_eq!(evidence.identity_proof, "VERIFIED_QUICK_RESOLUTION");
+    }
+
+    #[test]
+    fn dividend_policy_r1_rejects_same_date_peer_for_effective_identity() {
+        let connection = eligible_dividend_fixture();
+        insert_import(&connection, 2, "SPLIT", "PENDING");
+        assert!(matches!(
+            evaluate_simple_cash_dividend_policy_r1(&connection, &dividend_policy_folder(), 1).unwrap(),
+            SimpleCashDividendPolicyEligibility::Ineligible(reason) if reason.contains("Same-date") && reason.contains("SPLIT")
+        ));
+    }
+
+    #[test]
+    fn dividend_policy_r1_rejects_matching_existing_canonical_action() {
+        let connection = eligible_dividend_fixture();
+        connection
+            .execute(
+                "INSERT INTO corporate_actions(
+               symbol,exchange,isin,effective_date,action_type,factor,cash_amount,adjust_volume
+             ) VALUES ('TEST','NSE','INEAUTO01001','2026-08-14','DIVIDEND',1.0526315789473684,5,0)",
+                [],
+            )
+            .unwrap();
+        assert!(matches!(
+            evaluate_simple_cash_dividend_policy_r1(&connection, &dividend_policy_folder(), 1).unwrap(),
+            SimpleCashDividendPolicyEligibility::Ineligible(reason) if reason.contains("manual reconciliation")
+        ));
+    }
+
+    #[test]
+    fn dividend_policy_r1_requires_local_previous_close_basis() {
+        let connection = eligible_dividend_fixture();
+        connection.execute("DELETE FROM eod_prices", []).unwrap();
+        assert!(matches!(
+            evaluate_simple_cash_dividend_policy_r1(&connection, &dividend_policy_folder(), 1).unwrap(),
+            SimpleCashDividendPolicyEligibility::Ineligible(reason) if reason.contains("previous-close basis")
+        ));
+    }
+
+    #[test]
+    fn dividend_policy_r1_requires_previous_trade_within_seven_calendar_days() {
+        let connection = eligible_dividend_fixture();
+        connection.execute("DELETE FROM eod_prices", []).unwrap();
+        insert_dividend_previous_close(&connection, "2026-08-06", 100.0);
+        assert!(matches!(
+            evaluate_simple_cash_dividend_policy_r1(&connection, &dividend_policy_folder(), 1).unwrap(),
+            SimpleCashDividendPolicyEligibility::Ineligible(reason) if reason.contains("7 calendar days") && reason.contains("8 day")
+        ));
+    }
+
+    #[test]
+    fn dividend_policy_r1_rejects_cash_not_smaller_than_previous_close() {
+        let connection = fixture();
+        let purpose = "Dividend Rs 100 per share";
+        insert_simple_cash_dividend_import(
+            &connection,
+            1,
+            "NSE_API",
+            "PENDING",
+            purpose,
+            "2026-08-14",
+            100.0,
+        );
+        insert_exact_dividend_official_evidence(&connection, 1, purpose, "2026-08-14");
+        insert_dividend_previous_close(&connection, "2026-08-13", 100.0);
+        assert!(matches!(
+            evaluate_simple_cash_dividend_policy_r1(&connection, &dividend_policy_folder(), 1).unwrap(),
+            SimpleCashDividendPolicyEligibility::Ineligible(reason) if reason.contains("previous-close basis")
+        ));
+    }
+
+    #[test]
+    fn dividend_policy_r1_returns_already_approved_without_policy_write() {
+        let connection = eligible_dividend_fixture();
+        connection
+            .execute(
+                "UPDATE corporate_action_imports SET approved_corporate_action_id=77 WHERE id=1",
+                [],
+            )
+            .unwrap();
+        assert_eq!(
+            evaluate_simple_cash_dividend_policy_r1(&connection, &dividend_policy_folder(), 1)
+                .unwrap(),
+            SimpleCashDividendPolicyEligibility::AlreadyApproved
+        );
+    }
+
+    #[test]
+    fn dividend_policy_r1_evaluator_is_read_only() {
+        let connection = eligible_dividend_fixture();
+        let before_actions: i64 = connection
+            .query_row("SELECT COUNT(*) FROM corporate_actions", [], |row| {
+                row.get(0)
+            })
+            .unwrap();
+        let before_decisions: i64 = connection
+            .query_row(
+                "SELECT COUNT(*) FROM corporate_action_import_decisions",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        let before_status: (String, Option<i64>) = connection.query_row(
+            "SELECT review_status,approved_corporate_action_id FROM corporate_action_imports WHERE id=1",
+            [],
+            |row| Ok((row.get(0)?, row.get(1)?)),
+        ).unwrap();
+
+        let _ = expect_dividend_eligible(&connection);
+
+        let after_actions: i64 = connection
+            .query_row("SELECT COUNT(*) FROM corporate_actions", [], |row| {
+                row.get(0)
+            })
+            .unwrap();
+        let after_decisions: i64 = connection
+            .query_row(
+                "SELECT COUNT(*) FROM corporate_action_import_decisions",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        let after_status: (String, Option<i64>) = connection.query_row(
+            "SELECT review_status,approved_corporate_action_id FROM corporate_action_imports WHERE id=1",
+            [],
+            |row| Ok((row.get(0)?, row.get(1)?)),
+        ).unwrap();
+        assert_eq!(after_actions, before_actions);
+        assert_eq!(after_decisions, before_decisions);
+        assert_eq!(after_status, before_status);
+    }
+
+    #[test]
+    fn dividend_prepared_scope_r1_returns_eligible_with_full_policy_evidence() {
+        let connection = eligible_dividend_fixture();
+        let folder = prepared_scope_folder();
+        let result = evaluate_simple_cash_dividend_prepared_scope_in_connection(
+            &connection,
+            &folder,
+            &prepared_scope_input(&folder, vec![1]),
+        )
+        .unwrap();
+        assert_eq!(result.requested, 1);
+        assert_eq!(result.eligible, 1);
+        assert_eq!(result.ineligible, 0);
+        assert_eq!(result.failed, 0);
+        assert!(result.complete);
+        assert_eq!(result.policy_version, SIMPLE_CASH_DIVIDEND_POLICY_VERSION);
+        assert_eq!(result.dispositions[0].disposition, "ELIGIBLE");
+        let evidence = result.dispositions[0].evidence.as_ref().unwrap();
+        assert_eq!(evidence.cash_amount, 5.0);
+        assert_eq!(evidence.previous_trade_date, "2026-08-13");
+        assert_eq!(evidence.previous_close, 100.0);
+        assert!(evidence.computed_factor > 1.0);
+    }
+
+    #[test]
+    fn dividend_prepared_scope_r1_preserves_policy_ineligible_reason() {
+        let connection = eligible_dividend_fixture();
+        connection
+            .execute(
+                "UPDATE corporate_action_imports SET source='NSE_CSV' WHERE id=1",
+                [],
+            )
+            .unwrap();
+        let folder = prepared_scope_folder();
+        let result = evaluate_simple_cash_dividend_prepared_scope_in_connection(
+            &connection,
+            &folder,
+            &prepared_scope_input(&folder, vec![1]),
+        )
+        .unwrap();
+        assert_eq!(result.ineligible, 1);
+        assert_eq!(result.dispositions[0].disposition, "INELIGIBLE");
+        assert!(result.dispositions[0].reason.contains("source NSE_API"));
+    }
+
+    #[test]
+    fn dividend_prepared_scope_r1_returns_already_approved_without_write() {
+        let connection = eligible_dividend_fixture();
+        connection
+            .execute(
+                "UPDATE corporate_action_imports SET review_status='APPROVED', approved_corporate_action_id=77 WHERE id=1",
+                [],
+            )
+            .unwrap();
+        let folder = prepared_scope_folder();
+        let result = evaluate_simple_cash_dividend_prepared_scope_in_connection(
+            &connection,
+            &folder,
+            &prepared_scope_input(&folder, vec![1]),
+        )
+        .unwrap();
+        assert_eq!(result.already_approved, 1);
+        assert_eq!(result.dispositions[0].disposition, "ALREADY_APPROVED");
+    }
+
+    #[test]
+    fn dividend_prepared_scope_r1_marks_changed_action_or_status_stale() {
+        for (action_type, parse_status, review_status) in [
+            ("SPLIT", "PARSED", "PENDING"),
+            ("DIVIDEND", "UNSUPPORTED", "PENDING"),
+            ("DIVIDEND", "PARSED", "UNRESOLVED"),
+        ] {
+            let connection = eligible_dividend_fixture();
+            connection
+                .execute(
+                    "UPDATE corporate_action_imports SET action_type=?, parse_status=?, review_status=? WHERE id=1",
+                    params![action_type, parse_status, review_status],
+                )
+                .unwrap();
+            let folder = prepared_scope_folder();
+            let result = evaluate_simple_cash_dividend_prepared_scope_in_connection(
+                &connection,
+                &folder,
+                &prepared_scope_input(&folder, vec![1]),
+            )
+            .unwrap();
+            assert_eq!(
+                result.stale_scope, 1,
+                "{action_type}/{parse_status}/{review_status}"
+            );
+            assert_eq!(result.dispositions[0].disposition, "STALE_SCOPE");
+        }
+    }
+
+    #[test]
+    fn dividend_prepared_scope_r1_marks_missing_id_without_aborting_batch() {
+        let connection = eligible_dividend_fixture();
+        let folder = prepared_scope_folder();
+        let result = evaluate_simple_cash_dividend_prepared_scope_in_connection(
+            &connection,
+            &folder,
+            &prepared_scope_input(&folder, vec![1, 2]),
+        )
+        .unwrap();
+        assert_eq!(result.requested, 2);
+        assert_eq!(result.eligible, 1);
+        assert_eq!(result.missing, 1);
+        assert_eq!(result.dispositions[0].import_id, 1);
+        assert_eq!(result.dispositions[1].import_id, 2);
+        assert_eq!(result.dispositions[1].disposition, "MISSING");
+    }
+
+    #[test]
+    fn dividend_prepared_scope_r1_rejects_empty_duplicate_invalid_and_over_100_ids() {
+        let connection = fixture();
+        let folder = prepared_scope_folder();
+        for ids in [
+            vec![],
+            vec![1, 1],
+            vec![0],
+            (1_i64..=101_i64).collect::<Vec<_>>(),
+        ] {
+            assert!(evaluate_simple_cash_dividend_prepared_scope_in_connection(
+                &connection,
+                &folder,
+                &prepared_scope_input(&folder, ids),
+            )
+            .is_err());
+        }
+    }
+
+    #[test]
+    fn dividend_prepared_scope_r1_rejects_database_context_change() {
+        let connection = eligible_dividend_fixture();
+        let folder = prepared_scope_folder();
+        let other = std::env::temp_dir().join(format!(
+            "eod-dividend-prepared-scope-r1-other-{}",
+            std::process::id()
+        ));
+        std::fs::create_dir_all(&other).unwrap();
+        let input = SimpleCashDividendPreparedScopeInput {
+            import_ids: vec![1],
+            expected_database_path: other.canonicalize().unwrap().to_string_lossy().to_string(),
+        };
+        assert!(evaluate_simple_cash_dividend_prepared_scope_in_connection(
+            &connection,
+            &folder,
+            &input,
+        )
+        .unwrap_err()
+        .contains("active database changed"));
+    }
+
+    #[test]
+    fn dividend_prepared_scope_r1_records_unexpected_evaluator_error_as_failed() {
+        let connection = eligible_dividend_fixture();
+        connection.execute("DROP TABLE instruments", []).unwrap();
+        let folder = prepared_scope_folder();
+        let result = evaluate_simple_cash_dividend_prepared_scope_in_connection(
+            &connection,
+            &folder,
+            &prepared_scope_input(&folder, vec![1]),
+        )
+        .unwrap();
+        assert_eq!(result.failed, 1);
+        assert!(!result.complete);
+        assert_eq!(result.dispositions[0].disposition, "FAILED");
+        assert!(result.dispositions[0].reason.contains("instruments"));
+    }
+
+    #[test]
+    fn dividend_prepared_scope_r1_fingerprint_is_order_independent_and_frontend_compatible() {
+        let folder = prepared_scope_folder();
+        let path = folder.to_string_lossy().to_string();
+        let ids = vec![9, 2, 7];
+        let left = simple_cash_dividend_prepared_scope_fingerprint(&path, &ids);
+        let right = simple_cash_dividend_prepared_scope_fingerprint(
+            path.replace('\\', "/").to_uppercase().as_str(),
+            &[2, 7, 9],
+        );
+        assert_eq!(left, right);
+        assert_eq!(left.len(), 64);
+        assert!(left
+            .chars()
+            .all(|value| value.is_ascii_hexdigit() && !value.is_ascii_lowercase()));
+    }
+
+    #[test]
+    fn dividend_prepared_scope_r1_sorts_output_dispositions_by_import_id() {
+        let connection = fixture();
+        insert_simple_cash_dividend_import(
+            &connection,
+            3,
+            "NSE_CSV",
+            "PENDING",
+            "Interim Dividend - Rs. 5 per share",
+            "2026-08-14",
+            5.0,
+        );
+        insert_simple_cash_dividend_import(
+            &connection,
+            1,
+            "NSE_CSV",
+            "PENDING",
+            "Interim Dividend - Rs. 5 per share",
+            "2026-08-14",
+            5.0,
+        );
+        let folder = prepared_scope_folder();
+        let result = evaluate_simple_cash_dividend_prepared_scope_in_connection(
+            &connection,
+            &folder,
+            &prepared_scope_input(&folder, vec![3, 1]),
+        )
+        .unwrap();
+        assert_eq!(
+            result
+                .dispositions
+                .iter()
+                .map(|item| item.import_id)
+                .collect::<Vec<_>>(),
+            vec![1, 3]
+        );
+        assert_eq!(result.ineligible, 2);
+    }
+
+    #[test]
+    fn dividend_prepared_scope_r1_batch_is_read_only() {
+        let connection = eligible_dividend_fixture();
+        let before_actions: i64 = connection
+            .query_row("SELECT COUNT(*) FROM corporate_actions", [], |row| {
+                row.get(0)
+            })
+            .unwrap();
+        let before_decisions: i64 = connection
+            .query_row(
+                "SELECT COUNT(*) FROM corporate_action_import_decisions",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        let before_import: (String, Option<i64>) = connection
+            .query_row(
+                "SELECT review_status,approved_corporate_action_id FROM corporate_action_imports WHERE id=1",
+                [],
+                |row| Ok((row.get(0)?, row.get(1)?)),
+            )
+            .unwrap();
+        let folder = prepared_scope_folder();
+        let result = evaluate_simple_cash_dividend_prepared_scope_in_connection(
+            &connection,
+            &folder,
+            &prepared_scope_input(&folder, vec![1]),
+        )
+        .unwrap();
+        assert_eq!(result.eligible, 1);
+        assert_eq!(
+            connection
+                .query_row("SELECT COUNT(*) FROM corporate_actions", [], |row| row
+                    .get::<_, i64>(0))
+                .unwrap(),
+            before_actions
+        );
+        assert_eq!(
+            connection
+                .query_row(
+                    "SELECT COUNT(*) FROM corporate_action_import_decisions",
+                    [],
+                    |row| row.get::<_, i64>(0)
+                )
+                .unwrap(),
+            before_decisions
+        );
+        assert_eq!(
+            connection.query_row(
+                "SELECT review_status,approved_corporate_action_id FROM corporate_action_imports WHERE id=1",
+                [],
+                |row| Ok((row.get::<_, String>(0)?, row.get::<_, Option<i64>>(1)?)),
+            ).unwrap(),
+            before_import
+        );
     }
 }

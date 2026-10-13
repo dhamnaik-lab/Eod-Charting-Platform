@@ -9,7 +9,7 @@ function row(id: number, purpose = 'અજંતા, "test"\r\nnext\tline'): Row
  classification: { state: 'ORDINARY_SPLIT', storedShareFactor: 2, proposedShareFactor: 2, proposedPriceFactor: .5, proposalOnly: true },
  canonical: { state: 'NONE', linkedId: null, ownerMatchCandidateId: null, candidateIds: [], evidence: [] },
  price: { scanId: null, scanRunId: null, scannedAt: null, scanStatus: null, confidence: null, expectedFactor: null, previousTradeDate: null, exTradeDate: null, previousClose: null, exOpen: null, exClose: null, rowFingerprintCheck: 'NOT_EVALUATED', compoundFingerprintCheck: 'NOT_EVALUATED', rawPriceRevalidation: 'NOT_RUN' },
- ordinaryReadiness: { state: 'BLOCKED', message: 'Identity missing' }, safeV1: { policyVersion: 'AUTO_APPROVAL_SAFE_V1', state: 'INELIGIBLE', reason: 'blocked', evidence: [] },
+ ordinaryReadiness: { state: 'BLOCKED', message: 'Identity missing' }, safeV1: { policyVersion: 'AUTO_APPROVAL_SAFE_V2', state: 'INELIGIBLE', reason: 'blocked', evidence: [] },
  blockers: [{ code: 'IDENTITY_UNRESOLVED', stage: 'IDENTITY', severity: 'BLOCKING', message: 'needs evidence', evidence: [], nextOperation: 'diagnose', retryableReadOnly: true }], repairPlan: [], outcome: 'EVIDENCE_BLOCKED', blocksInScopeCompleteness: true };
 }
 function result(rows: Row[]): Result {

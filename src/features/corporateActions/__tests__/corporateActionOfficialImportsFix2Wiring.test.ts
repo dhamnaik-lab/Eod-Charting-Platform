@@ -13,7 +13,7 @@ describe('Official Imports FIX2 active wiring', () => {
     assert.match(read('src-tauri-shell/src/main.rs'),/get_corporate_action_imports_by_ids,/);
   });
 
-  it('exposes backend-owned Auto-Approval Safe V1 through the real bridge and Tauri handler', () => {
+  it('exposes backend-owned Auto-Approval Safe V2 through the real bridge and Tauri handler', () => {
     assert.match(read('src/types/desktop.ts'),/autoApproveCorporateActionImports\(input: CorporateActionAutoApprovalInput\)/);
     assert.match(read('src/platform/types.ts'),/\| 'autoApproveCorporateActionImports'/);
     assert.match(read('src/platform/tauriDesktop.ts'),/tauriInvoke\('auto_approve_corporate_action_imports', \{ input \}\)/);

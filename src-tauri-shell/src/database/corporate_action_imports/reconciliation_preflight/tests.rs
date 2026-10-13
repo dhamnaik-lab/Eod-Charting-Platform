@@ -164,7 +164,7 @@ fn seed(c: &Connection, id: i64, state: &str) {
 }
 fn scan(c: &Connection, id: i64, status: &str, confidence: f64, factor: f64) {
  c.execute("INSERT INTO scan_runs(id,scope,action_types,started_at,completed_at,status) VALUES(?,'official_imports','SPLIT,BONUS','2026-08-14','2026-08-14','COMPLETED')",[id]).unwrap();
- c.execute("INSERT INTO corporate_action_scan_results(id,scan_run_id,corporate_action_import_id,symbol,exchange,scan_status,prev_trade_date,ex_trade_date,prev_close,ex_open,ex_close,expected_factor,confidence,message,scanned_at) VALUES(?,?,?,'TEST','NSE',?,'2026-08-13','2026-08-14',100,50,50,?,?,NULL,'2026-08-14T10:00:00Z')",params![id,id,id,status,factor,confidence]).unwrap();
+ c.execute("INSERT INTO corporate_action_scan_results(id,scan_run_id,corporate_action_import_id,symbol,exchange,scan_status,prev_trade_date,ex_trade_date,prev_close,ex_open,ex_close,expected_factor,actual_open_factor,actual_close_factor,confidence,message,scanned_at) VALUES(?,?,?,'TEST','NSE',?,'2026-08-13','2026-08-14',100,50,50,?,?,?,?,NULL,'2026-08-14T10:00:00Z')",params![id,id,id,status,factor,factor,factor,confidence]).unwrap();
 }
 fn input(ids: Vec<i64>) -> CorporateActionReconciliationPreflightInput { CorporateActionReconciliationPreflightInput {import_ids:ids, expected_database_path:"E:/TEST".into(), request_token:"test".into()} }
 fn run(c:&Connection, ids:Vec<i64>)->CorporateActionReconciliationPreflightResult {
@@ -357,4 +357,14 @@ fn r1a_input_deserialization_rejects_fractional_ids_and_force_arguments() {
         r#"{"importIds":[null],"expectedDatabasePath":"E:/TEST","requestToken":"r1"}"#,
         r#"{"importIds":[1],"expectedDatabasePath":"E:/TEST","requestToken":"r1","force":true}"#,
     ] { assert!(serde_json::from_str::<CorporateActionReconciliationPreflightInput>(body).is_err()); }
+}
+
+
+#[test]
+fn phase5b_preflight_safe_v2_exposes_typed_split_bonus_scan_id() {
+    let c=fixture();seed(&c,1,"PENDING");scan(&c,1,"MATCHED",0.99,2.0);
+    let r=run(&c,vec![1]);
+    assert_eq!(r.rows[0].safe_v1.policy_version,"AUTO_APPROVAL_SAFE_V2");
+    assert_eq!(r.rows[0].safe_v1.state,"ELIGIBLE_AT_READ_SNAPSHOT");
+    assert!(r.rows[0].safe_v1.evidence.iter().any(|e| e.owner=="auto_approval::evaluate_auto_approval_r1" && e.record_id.is_some()));
 }

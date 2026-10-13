@@ -18,6 +18,7 @@ type PendingPreparationApi = Pick<
   | 'quickResolveCorporateActionImport'
   | 'runCorporateActionScan'
   | 'autoApproveCorporateActionImports'
+  | 'getSetting'
 >;
 
 function importRow(id: number, overrides: Partial<CorporateActionImportRow> = {}): CorporateActionImportRow {
@@ -99,7 +100,7 @@ function skippedAutoApproval(importId: number) {
   return {
     requested: 1, eligible: 0, autoApproved: 0, linkedExisting: 0, alreadyApproved: 0, skipped: 1, failed: 0,
     dispositions: [{ importId, disposition: 'SKIPPED' as const, reason: 'manual review', importRecord: importRow(importId, { actionType: 'SPLIT', factor: 2 }), approvedRecord: null }],
-    policyVersion: 'AUTO_APPROVAL_SAFE_V1', message: 'skipped',
+    policyVersion: 'AUTO_APPROVAL_SAFE_V2', message: 'skipped',
   };
 }
 
@@ -144,6 +145,7 @@ describe('Corporate Action pending preparation', () => {
       quickResolveCorporateActionImport,
       runCorporateActionScan,
       autoApproveCorporateActionImports,
+      getSetting: vi.fn(async () => 'true'),
     } as unknown as PendingPreparationApi;
 
     const result = await prepareCorporateActionPendingImports({ api, pageSize: 3, expectedDatabasePath: 'E:\\TA Projects\\EOD Charting Platform\\EOD DATABASE\\Nse' });
@@ -157,7 +159,10 @@ describe('Corporate Action pending preparation', () => {
     expect(runCorporateActionScan).toHaveBeenCalledWith({ scope: 'official_imports', importIds: [2] });
     expect(result.validationImportIds).toEqual([2]);
     expect(autoApproveCorporateActionImports).toHaveBeenCalledWith({ importIds: [2], expectedDatabasePath: 'E:\\TA Projects\\EOD Charting Platform\\EOD DATABASE\\Nse' });
+    expect(api.getSetting).toHaveBeenCalledWith('corporate_actions.auto_approval.split_bonus.enabled');
     expect(result.autoApproval?.skipped).toBe(1);
+    expect(result.autoApproval?.dispositions.find((item) => item.importId === 2)?.disposition).toBe('SKIPPED');
+    expect(result.autoApproval?.dispositions.find((item) => item.importId === 2)?.reason).toBe('manual review');
     expect(result.identityHints[4]?.recommendedIsinException).toBe(true);
     expect(result.errors).toEqual([]);
   });
@@ -170,6 +175,7 @@ describe('Corporate Action pending preparation', () => {
       quickResolveCorporateActionImport: vi.fn(),
       runCorporateActionScan: vi.fn(),
       autoApproveCorporateActionImports: vi.fn(),
+      getSetting: vi.fn(async () => 'false'),
     } as unknown as PendingPreparationApi;
 
     const result = await prepareCorporateActionPendingImports({ api, pageSize: 2, expectedDatabasePath: 'E:\\TA Projects\\EOD Charting Platform\\EOD DATABASE\\Nse' });
@@ -198,6 +204,7 @@ describe('Corporate Action pending preparation', () => {
         throw new Error('scan offline');
       }),
       autoApproveCorporateActionImports: vi.fn(),
+      getSetting: vi.fn(async () => 'false'),
     } as unknown as PendingPreparationApi;
 
     const result = await prepareCorporateActionPendingImports({ api, pageSize: 2, expectedDatabasePath: 'E:\\TA Projects\\EOD Charting Platform\\EOD DATABASE\\Nse' });
@@ -218,6 +225,7 @@ describe('Corporate Action pending preparation', () => {
       quickResolveCorporateActionImport: vi.fn(),
       runCorporateActionScan: vi.fn(),
       autoApproveCorporateActionImports: vi.fn(),
+      getSetting: vi.fn(async () => 'false'),
     } as unknown as PendingPreparationApi;
 
     await expect(
@@ -228,4 +236,100 @@ describe('Corporate Action pending preparation', () => {
     expect(api.quickResolveCorporateActionImport).not.toHaveBeenCalled();
     expect(api.runCorporateActionScan).not.toHaveBeenCalled();
   });
+
+  it.each([null, 'false', 'yes'])(
+    'keeps validated Split/Bonus manual when the active Legacy family setting is %s',
+    async (settingValue) => {
+      const split = importRow(40, { actionType: 'SPLIT', factor: 2 });
+      const autoApproveCorporateActionImports = vi.fn();
+      const api = {
+        listCorporateActionImports: vi.fn().mockResolvedValueOnce([split]).mockResolvedValueOnce([]),
+        listCorporateActionImportResolutionHints: vi.fn(async ({ importIds }: { importIds: number[] }) => ({
+          requested: importIds.length,
+          hints: [],
+          message: '',
+        })),
+        quickResolveCorporateActionImport: vi.fn(),
+        runCorporateActionScan: vi.fn(async () => ({ scanRun: null, results: [scanRow(40)] })),
+        autoApproveCorporateActionImports,
+        getSetting: vi.fn(async () => settingValue),
+      } as unknown as PendingPreparationApi;
+
+      const result = await prepareCorporateActionPendingImports({
+        api,
+        expectedDatabasePath: 'E:\\TA Projects\\EOD Charting Platform\\EOD DATABASE\\Nse',
+      });
+
+      expect(result.complete).toBe(true);
+      expect(result.errors).toEqual([]);
+      expect(result.autoApproval).toBeNull();
+      expect(result.rows[0]?.reviewStatus).toBe('PENDING');
+      expect(result.validationImportIds).toEqual([40]);
+      expect(autoApproveCorporateActionImports).not.toHaveBeenCalled();
+      expect(result.message).toContain('Split/Bonus Safe V2 automatic approval is OFF');
+    },
+  );
+
+  it('fails closed on a setting read error without blocking existing manual Apply eligibility', async () => {
+    const split = importRow(41, { actionType: 'BONUS', factor: 2 });
+    const autoApproveCorporateActionImports = vi.fn();
+    const api = {
+      listCorporateActionImports: vi.fn().mockResolvedValueOnce([split]).mockResolvedValueOnce([]),
+      listCorporateActionImportResolutionHints: vi.fn(async ({ importIds }: { importIds: number[] }) => ({
+        requested: importIds.length,
+        hints: [],
+        message: '',
+      })),
+      quickResolveCorporateActionImport: vi.fn(),
+      runCorporateActionScan: vi.fn(async () => ({ scanRun: null, results: [scanRow(41)] })),
+      autoApproveCorporateActionImports,
+      getSetting: vi.fn(async () => {
+        throw new Error('settings unavailable');
+      }),
+    } as unknown as PendingPreparationApi;
+
+    const result = await prepareCorporateActionPendingImports({
+      api,
+      expectedDatabasePath: 'E:\\TA Projects\\EOD Charting Platform\\EOD DATABASE\\Nse',
+    });
+
+    expect(result.complete).toBe(true);
+    expect(result.errors).toEqual([]);
+    expect(result.autoApproval).toBeNull();
+    expect(result.rows[0]?.reviewStatus).toBe('PENDING');
+    expect(autoApproveCorporateActionImports).not.toHaveBeenCalled();
+    expect(result.message).toContain('Split/Bonus Safe V2 automatic approval is OFF');
+  });
+
+  it('stops a stale Legacy preparation cycle after the setting read and before Safe V2 execution', async () => {
+    const split = importRow(42, { actionType: 'SPLIT', factor: 2 });
+    let current = true;
+    const autoApproveCorporateActionImports = vi.fn();
+    const api = {
+      listCorporateActionImports: vi.fn().mockResolvedValueOnce([split]).mockResolvedValueOnce([]),
+      listCorporateActionImportResolutionHints: vi.fn(async ({ importIds }: { importIds: number[] }) => ({
+        requested: importIds.length,
+        hints: [],
+        message: '',
+      })),
+      quickResolveCorporateActionImport: vi.fn(),
+      runCorporateActionScan: vi.fn(async () => ({ scanRun: null, results: [scanRow(42)] })),
+      autoApproveCorporateActionImports,
+      getSetting: vi.fn(async () => {
+        current = false;
+        return 'true';
+      }),
+    } as unknown as PendingPreparationApi;
+
+    await expect(
+      prepareCorporateActionPendingImports({
+        api,
+        shouldContinue: () => current,
+        expectedDatabasePath: 'E:\\TA Projects\\EOD Charting Platform\\EOD DATABASE\\Nse',
+      }),
+    ).rejects.toBeInstanceOf(CorporateActionPendingPreparationStaleError);
+
+    expect(autoApproveCorporateActionImports).not.toHaveBeenCalled();
+  });
+
 });

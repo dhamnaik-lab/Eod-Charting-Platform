@@ -18,7 +18,7 @@ use crate::database::eod_binary_state::{
 use crate::database::{
     emit_database_changed, get_active_database_file_path, get_app_snapshot_internal,
     get_price_storage_mode, invalidate_cached_db_stats, prepare_database_connection,
-    PriceStorageMode, SnapshotOptions,
+    try_acquire_price_store_operation, PriceStorageMode, PriceStoreOperationKind, SnapshotOptions,
 };
 use crate::runtime::log_runtime_event;
 use chrono::{Datelike, Duration, Local, NaiveDate, Timelike, Weekday};
@@ -1169,6 +1169,8 @@ pub async fn download_bhavcopy(app: AppHandle, date: Option<String>) -> AppResul
     let app_handle = app.clone();
     tauri::async_runtime::spawn_blocking(move || {
         let started_at = Instant::now();
+        let _price_store_operation_permit =
+            try_acquire_price_store_operation(PriceStoreOperationKind::BhavcopyWrite)?;
         recover_pending_bhavcopy_sessions(&app_handle, &database_file_path)?;
         let trade_date =
             date.unwrap_or_else(|| Local::now().date_naive().format("%Y-%m-%d").to_string());
@@ -1275,6 +1277,8 @@ pub async fn download_bhavcopy_batch(
     tauri::async_runtime::spawn_blocking(move || {
         let started_at = Instant::now();
         let normalized_config = normalize_batch_config(config)?;
+        let _price_store_operation_permit =
+            try_acquire_price_store_operation(PriceStoreOperationKind::BhavcopyWrite)?;
         recover_pending_bhavcopy_sessions(&app_handle, &database_file_path)?;
         let connection = open_database_connection(&database_file_path)?;
         let BatchPlan {

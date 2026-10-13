@@ -271,6 +271,7 @@ describe('Corporate Action normal Review adapter', () => {
     const fetched = reduceCorporateActionNormalWorkflowFacts(initial, { type: 'FETCH_SUCCEEDED' });
     const loaded = reduceCorporateActionNormalWorkflowFacts(fetched, {
       type: 'LOAD_SUCCEEDED',
+      exceptionCount: 1,
       readyCount: 4,
     });
     const reviewed = reduceCorporateActionNormalWorkflowFacts(loaded, {
@@ -288,4 +289,19 @@ describe('Corporate Action normal Review adapter', () => {
       resumeReason: 'APPROVAL_REQUIRED',
     });
   });
+
+  it('phase5c_shows_backend_skip_reason_on_the_remaining_exception', async () => {
+    const split = row(9, { actionType: 'SPLIT', factor: 2, purposeRaw: 'Split' });
+    const api = apiBase();
+    const result = await buildCorporateActionNormalReviewData({
+      api,
+      rows: [split],
+      scanRows: [scan(split)],
+      backendReasons: { 9: 'Safe V2 near-unity discriminator failed' },
+    });
+    expect(result.events[0].evidenceRows[0].statusReason).toBe(
+      'Safe V2 near-unity discriminator failed',
+    );
+  });
+
 });

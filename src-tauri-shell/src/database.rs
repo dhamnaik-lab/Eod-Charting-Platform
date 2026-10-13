@@ -18,6 +18,7 @@ mod official_source_discovery;
 mod official_source_health;
 mod official_source_urls;
 mod official_source_version_history;
+mod price_store_operation_lock;
 mod quotes;
 mod settings;
 mod storage_mode;
@@ -52,13 +53,13 @@ pub(crate) use self::connection_registry::{
 pub use self::corporate_action_imports::{
     approve_corporate_action_import, approve_corporate_action_import_with_isin_mismatch,
     approve_corporate_action_import_with_price_validation_exception,
-    approve_corporate_action_imports, auto_approve_corporate_action_imports,
-    approve_recommended_corporate_action_isin_mismatches,
-    backfill_historical_capital_actions_batch, backfill_historical_capital_actions_for_symbol,
-    fetch_official_corporate_actions, import_corporate_actions_csv,
-    list_corporate_action_event_identities, list_corporate_action_import_resolution_hints,
+    approve_corporate_action_imports, approve_recommended_corporate_action_isin_mismatches,
+    auto_approve_corporate_action_imports, backfill_historical_capital_actions_batch,
+    backfill_historical_capital_actions_for_symbol, evaluate_simple_cash_dividend_prepared_scope,
+    fetch_official_corporate_actions, get_corporate_action_imports_by_ids,
+    import_corporate_actions_csv, list_corporate_action_event_identities,
+    list_corporate_action_import_resolution_hints,
     list_corporate_action_import_resolution_suggestions, list_corporate_action_imports,
-    get_corporate_action_imports_by_ids,
     list_corporate_action_scan_results, list_historical_capital_action_alias_candidates,
     list_historical_capital_action_backfill_runs,
     list_historical_capital_action_major_liquid_candidates,
@@ -103,6 +104,9 @@ pub use self::official_source_version_history::{
     ExpectedOfficialSourceRevision, OfficialSourceAuthorityEntry,
     OfficialSourceConfigurationAuthority, OfficialSourceHistoryEntry,
     SaveOfficialSourceUrlsReviewedInput, SaveOfficialSourceUrlsReviewedResult,
+};
+pub(crate) use self::price_store_operation_lock::{
+    try_acquire_price_store_operation, PriceStoreOperationKind,
 };
 use self::quotes::{
     delete_quote_date_scope_internal, delete_quote_internal, delete_quote_range_internal,
@@ -548,6 +552,13 @@ pub struct CorporateActionImportBulkApprovalInput {
 #[derive(Clone, Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CorporateActionAutoApprovalInput {
+    pub import_ids: Vec<i64>,
+    pub expected_database_path: String,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CorporateActionDividendPreparedScopeEvaluationInput {
     pub import_ids: Vec<i64>,
     pub expected_database_path: String,
 }
@@ -1405,6 +1416,49 @@ pub struct CorporateActionAutoApprovalResult {
 
 #[derive(Clone, Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
+pub struct CorporateActionDividendPreparedScopeEvaluationEvidence {
+    pub identity_proof: String,
+    pub official_evidence_id: i64,
+    pub evidence_captured_at: String,
+    pub source_locator: Option<String>,
+    pub cash_amount: f64,
+    pub previous_trade_date: String,
+    pub previous_close: f64,
+    pub computed_factor: f64,
+}
+
+#[derive(Clone, Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CorporateActionDividendPreparedScopeEvaluationDisposition {
+    pub import_id: i64,
+    pub disposition: String,
+    pub reason: String,
+    pub current_action_type: Option<String>,
+    pub current_parse_status: Option<String>,
+    pub current_review_status: Option<String>,
+    pub evidence: Option<CorporateActionDividendPreparedScopeEvaluationEvidence>,
+}
+
+#[derive(Clone, Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CorporateActionDividendPreparedScopeEvaluationResult {
+    pub requested: u32,
+    pub eligible: u32,
+    pub ineligible: u32,
+    pub already_approved: u32,
+    pub stale_scope: u32,
+    pub missing: u32,
+    pub failed: u32,
+    pub dispositions: Vec<CorporateActionDividendPreparedScopeEvaluationDisposition>,
+    pub policy_version: String,
+    pub scope_version: String,
+    pub scope_fingerprint: String,
+    pub complete: bool,
+    pub message: String,
+}
+
+#[derive(Clone, Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct CorporateActionScanRun {
     pub id: i64,
     pub scope: String,
@@ -1893,8 +1947,11 @@ pub async fn upsert_quote(app: AppHandle, input: QuoteInputPayload) -> AppResult
         let folder_path = resolve_active_database_folder(&app_handle)?
             .ok_or_else(|| "Open a database before editing quotes.".to_string())?;
 
+        let _price_store_operation_permit =
+            try_acquire_price_store_operation(PriceStoreOperationKind::QuoteMutation)?;
+
         let operation = (|| -> AppResult<QuoteRow> {
-            // 1. Open a temporary connection to perform the mutation outside the global lock
+            // 1. Open a temporary connection after acquiring the shared price-store operation permit.
             let connection = open_connection_for_folder(&folder_path, false)?;
 
             // 2. Perform the heavy work (SQLite + Binary EOD)
@@ -1972,6 +2029,9 @@ pub async fn delete_quote(app: AppHandle, input: DeleteQuoteInput) -> AppResult<
         let started_at = Instant::now();
         let folder_path = resolve_active_database_folder(&app_handle)?
             .ok_or_else(|| "Open a database before deleting quotes.".to_string())?;
+
+        let _price_store_operation_permit =
+            try_acquire_price_store_operation(PriceStoreOperationKind::QuoteMutation)?;
 
         let operation = (|| -> AppResult<DeleteQuoteResult> {
             let connection = open_connection_for_folder(&folder_path, false)?;
@@ -2054,6 +2114,9 @@ pub async fn delete_quote_range(
         let started_at = Instant::now();
         let folder_path = resolve_active_database_folder(&app_handle)?
             .ok_or_else(|| "Open a database before deleting quotes.".to_string())?;
+
+        let _price_store_operation_permit =
+            try_acquire_price_store_operation(PriceStoreOperationKind::QuoteMutation)?;
 
         let operation = (|| -> AppResult<DeleteQuoteResult> {
             let connection = open_connection_for_folder(&folder_path, false)?;
@@ -2147,6 +2210,9 @@ pub async fn delete_quote_date(
         let started_at = Instant::now();
         let folder_path = resolve_active_database_folder(&app_handle)?
             .ok_or_else(|| "Open a database before deleting quotes.".to_string())?;
+
+        let _price_store_operation_permit =
+            try_acquire_price_store_operation(PriceStoreOperationKind::QuoteMutation)?;
 
         let operation = (|| {
             let connection = open_connection_for_folder(&folder_path, false)?;

@@ -1,3 +1,7 @@
+// Pure evidence classifier only; no autonomous Dividend activation.
+pub(crate) mod simple_cash_dividend_evidence;
+#[cfg(test)]
+mod simple_cash_dividend_evidence_tests;
 mod auto_approval;
 mod controlled_identity_repair;
 mod event_identity_authority;
@@ -45,16 +49,19 @@ use super::{
     emit_database_changed, find_instrument_record, get_app_snapshot_internal,
     invalidate_cached_db_stats, normalize_exchange, normalize_optional_text, normalize_symbol,
     now_iso, open_connection_for_folder, open_read_only_connection_for_folder,
-    resolve_active_database_folder, run_connection_transaction, AppResult,
+    resolve_active_database_folder, run_connection_transaction, try_acquire_price_store_operation,
+    AppResult, CorporateActionAutoApprovalInput, CorporateActionAutoApprovalResult,
     CorporateActionCsvImportInput, CorporateActionCsvImportResult,
-    CorporateActionEventIdentityListInput, CorporateActionEventIdentityListResult,
-    CorporateActionAutoApprovalInput, CorporateActionAutoApprovalResult,
-    CorporateActionImportApprovalInput, CorporateActionImportApprovalResult,
-    CorporateActionImportBulkApprovalError, CorporateActionImportBulkApprovalInput,
-    CorporateActionImportBulkApprovalResult, CorporateActionImportBulkRecheckError,
-    CorporateActionImportBulkRecheckInput, CorporateActionImportBulkRecheckResult,
-    CorporateActionImportExceptionalApprovalInput, CorporateActionImportListInput,
-    CorporateActionImportLookupInput,
+    CorporateActionDividendPreparedScopeEvaluationDisposition,
+    CorporateActionDividendPreparedScopeEvaluationEvidence,
+    CorporateActionDividendPreparedScopeEvaluationInput,
+    CorporateActionDividendPreparedScopeEvaluationResult, CorporateActionEventIdentityListInput,
+    CorporateActionEventIdentityListResult, CorporateActionImportApprovalInput,
+    CorporateActionImportApprovalResult, CorporateActionImportBulkApprovalError,
+    CorporateActionImportBulkApprovalInput, CorporateActionImportBulkApprovalResult,
+    CorporateActionImportBulkRecheckError, CorporateActionImportBulkRecheckInput,
+    CorporateActionImportBulkRecheckResult, CorporateActionImportExceptionalApprovalInput,
+    CorporateActionImportListInput, CorporateActionImportLookupInput,
     CorporateActionImportQuickResolveInput, CorporateActionImportResolutionHint,
     CorporateActionImportResolutionHintsInput, CorporateActionImportResolutionHintsResult,
     CorporateActionImportResolutionSuggestion, CorporateActionImportResolutionSuggestionsInput,
@@ -74,7 +81,7 @@ use super::{
     HistoricalCapitalActionMajorLiquidCandidateInput,
     HistoricalCapitalActionMajorLiquidCandidateResult, HistoricalCapitalActionSparseCandidate,
     HistoricalCapitalActionSparseCandidateInput, HistoricalCapitalActionSparseCandidateResult,
-    SnapshotOptions,
+    PriceStoreOperationKind, SnapshotOptions,
 };
 
 const NSE_ACTIONS_PAGE_URL: &str =
@@ -806,6 +813,164 @@ pub async fn approve_corporate_action_imports(
     .map_err(|error| error.to_string())?
 }
 
+fn map_simple_cash_dividend_prepared_scope_result(
+    result: auto_approval::SimpleCashDividendPreparedScopeResult,
+) -> CorporateActionDividendPreparedScopeEvaluationResult {
+    CorporateActionDividendPreparedScopeEvaluationResult {
+        requested: result.requested,
+        eligible: result.eligible,
+        ineligible: result.ineligible,
+        already_approved: result.already_approved,
+        stale_scope: result.stale_scope,
+        missing: result.missing,
+        failed: result.failed,
+        dispositions: result
+            .dispositions
+            .into_iter()
+            .map(
+                |item| CorporateActionDividendPreparedScopeEvaluationDisposition {
+                    import_id: item.import_id,
+                    disposition: item.disposition,
+                    reason: item.reason,
+                    current_action_type: item.current_action_type,
+                    current_parse_status: item.current_parse_status,
+                    current_review_status: item.current_review_status,
+                    evidence: item.evidence.map(|evidence| {
+                        CorporateActionDividendPreparedScopeEvaluationEvidence {
+                            identity_proof: evidence.identity_proof,
+                            official_evidence_id: evidence.official_evidence_id,
+                            evidence_captured_at: evidence.evidence_captured_at,
+                            source_locator: evidence.source_locator,
+                            cash_amount: evidence.cash_amount,
+                            previous_trade_date: evidence.previous_trade_date,
+                            previous_close: evidence.previous_close,
+                            computed_factor: evidence.computed_factor,
+                        }
+                    }),
+                },
+            )
+            .collect(),
+        policy_version: result.policy_version,
+        scope_version: auto_approval::SIMPLE_CASH_DIVIDEND_PREPARED_SCOPE_VERSION.to_string(),
+        scope_fingerprint: result.scope_fingerprint,
+        complete: result.complete,
+        message: result.message,
+    }
+}
+
+/// Read-only bridge for current-cycle simple-cash Dividend prepared-scope evaluation.
+#[tauri::command]
+pub async fn evaluate_simple_cash_dividend_prepared_scope(
+    app: AppHandle,
+    input: CorporateActionDividendPreparedScopeEvaluationInput,
+) -> AppResult<CorporateActionDividendPreparedScopeEvaluationResult> {
+    validate_exact_import_lookup_ids(&input.import_ids)?;
+    let folder_path = resolve_active_database_folder(&app)?.ok_or_else(|| {
+        "Open a database before evaluating the Dividend prepared scope.".to_string()
+    })?;
+    verify_import_lookup_database(&folder_path, &input.expected_database_path)?;
+    tauri::async_runtime::spawn_blocking(move || {
+        let _price_store_operation_permit =
+            try_acquire_price_store_operation(PriceStoreOperationKind::CorporateActionAutomatic)?;
+        let connection = open_read_only_connection_for_folder(&folder_path)?;
+        let internal_input = auto_approval::SimpleCashDividendPreparedScopeInput {
+            import_ids: input.import_ids,
+            expected_database_path: input.expected_database_path,
+        };
+        let result = auto_approval::evaluate_simple_cash_dividend_prepared_scope_in_connection(
+            &connection,
+            &folder_path,
+            &internal_input,
+        )?;
+        Ok::<CorporateActionDividendPreparedScopeEvaluationResult, String>(
+            map_simple_cash_dividend_prepared_scope_result(result),
+        )
+    })
+    .await
+    .map_err(|error| error.to_string())?
+}
+
+#[cfg(test)]
+mod simple_cash_dividend_transaction_owner_tests;
+
+fn validate_simple_cash_dividend_write_stage_transaction_owner(
+    folder_path: &Path,
+    input: &auto_approval::SimpleCashDividendWriteStageInput,
+) -> AppResult<()> {
+    validate_exact_import_lookup_ids(&input.import_ids)?;
+    verify_import_lookup_database(folder_path, &input.expected_database_path)
+}
+
+fn run_simple_cash_dividend_write_stage_outer_transaction_with_executor<F>(
+    connection: &Connection,
+    folder_path: &Path,
+    input: &auto_approval::SimpleCashDividendWriteStageInput,
+    executor: F,
+) -> AppResult<auto_approval::SimpleCashDividendWriteStageResult>
+where
+    F: FnOnce(
+        &Connection,
+        &Path,
+        &auto_approval::SimpleCashDividendWriteStageInput,
+    ) -> AppResult<auto_approval::SimpleCashDividendWriteStageResult>,
+{
+    run_connection_transaction(connection, move |connection| {
+        let result = executor(connection, folder_path, input)?;
+        if result.failed > 0 || !result.complete {
+            return Err(format!(
+                "Dividend write-stage R1 transaction owner refused commit: failed={} complete={}.",
+                result.failed, result.complete
+            ));
+        }
+        Ok(result)
+    })
+}
+
+fn run_simple_cash_dividend_write_stage_outer_transaction(
+    connection: &Connection,
+    folder_path: &Path,
+    input: &auto_approval::SimpleCashDividendWriteStageInput,
+) -> AppResult<auto_approval::SimpleCashDividendWriteStageResult> {
+    run_simple_cash_dividend_write_stage_outer_transaction_with_executor(
+        connection,
+        folder_path,
+        input,
+        |connection, folder_path, input| {
+            auto_approval::execute_simple_cash_dividend_write_stage_in_connection(
+                connection,
+                folder_path,
+                input,
+            )
+        },
+    )
+}
+
+fn execute_simple_cash_dividend_write_stage_transaction_owner_for_folder(
+    folder_path: &Path,
+    input: &auto_approval::SimpleCashDividendWriteStageInput,
+) -> AppResult<auto_approval::SimpleCashDividendWriteStageResult> {
+    let _price_store_operation_permit =
+        try_acquire_price_store_operation(PriceStoreOperationKind::CorporateActionAutomatic)?;
+    let connection = open_connection_for_folder(folder_path, false)?;
+    run_simple_cash_dividend_write_stage_outer_transaction(&connection, folder_path, input)
+}
+
+async fn execute_simple_cash_dividend_write_stage_transaction_owner(
+    app: AppHandle,
+    input: auto_approval::SimpleCashDividendWriteStageInput,
+) -> AppResult<auto_approval::SimpleCashDividendWriteStageResult> {
+    validate_exact_import_lookup_ids(&input.import_ids)?;
+    let folder_path = resolve_active_database_folder(&app)?.ok_or_else(|| {
+        "Open a database before running the Dividend write-stage transaction owner.".to_string()
+    })?;
+    validate_simple_cash_dividend_write_stage_transaction_owner(&folder_path, &input)?;
+    tauri::async_runtime::spawn_blocking(move || {
+        execute_simple_cash_dividend_write_stage_transaction_owner_for_folder(&folder_path, &input)
+    })
+    .await
+    .map_err(|error| error.to_string())?
+}
+
 #[tauri::command]
 pub async fn auto_approve_corporate_action_imports(
     app: AppHandle,
@@ -818,6 +983,8 @@ pub async fn auto_approve_corporate_action_imports(
     verify_import_lookup_database(&folder_path, &input.expected_database_path)?;
     let app_handle = app.clone();
     tauri::async_runtime::spawn_blocking(move || {
+        let _price_store_operation_permit =
+            try_acquire_price_store_operation(PriceStoreOperationKind::CorporateActionAutomatic)?;
         let connection = open_connection_for_folder(&folder_path, false)?;
         let result = run_connection_transaction(&connection, |connection| {
             auto_approval::auto_approve_corporate_action_imports_in_connection(
@@ -5888,6 +6055,346 @@ fn is_split_bonus_validation_current(
     Ok(true)
 }
 
+
+fn reconcile_existing_corporate_action_import_internal(
+    connection: &Connection,
+    import_id: i64,
+) -> AppResult<CorporateActionImportApprovalResult> {
+    let import_row = get_import_row(connection, import_id)?;
+    if let Some(existing_id) = import_row.approved_corporate_action_id {
+        return Ok(CorporateActionImportApprovalResult {
+            import_record: import_row,
+            approved_record: None,
+            message: format!(
+                "Import is already linked to corporate action {}.",
+                existing_id
+            ),
+        });
+    }
+
+    if import_row.review_status != "UNRESOLVED"
+        || import_row.parse_status != "PARSED"
+        || !import_row.exchange.eq_ignore_ascii_case("NSE")
+        || !matches!(import_row.action_type.as_str(), "SPLIT" | "BONUS")
+    {
+        return Err(
+            "R1-B1 strict existing-event reconciliation requires an unresolved parsed NSE Split/Bonus import."
+                .to_string(),
+        );
+    }
+
+    let raw_symbol = import_row
+        .symbol
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .ok_or_else(|| {
+            "R1-B1 strict existing-event reconciliation requires a stored import symbol."
+                .to_string()
+        })?;
+    let raw_isin = import_row
+        .isin
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .ok_or_else(|| {
+            "R1-B1 strict existing-event reconciliation requires a stored raw ISIN."
+                .to_string()
+        })?;
+    let ex_date = import_row
+        .ex_date
+        .as_deref()
+        .ok_or_else(|| {
+            "R1-B1 strict existing-event reconciliation requires a Corporate Action ex-date."
+                .to_string()
+        })?;
+
+    let candidates = load_identity_chain_instrument_candidates(
+        connection,
+        raw_symbol,
+        Some(raw_isin),
+        &import_row.exchange,
+    )?;
+    let active_targets = candidates
+        .iter()
+        .filter(|candidate| candidate.is_active)
+        .collect::<Vec<_>>();
+    let current_target = if active_targets.len() == 1 {
+        active_targets[0]
+    } else if active_targets.is_empty() {
+        let inactive_current_targets = candidates
+            .iter()
+            .filter(|candidate| {
+                !candidate.is_active
+                    && candidate.symbol == raw_symbol
+                    && candidate.exchange == import_row.exchange
+            })
+            .collect::<Vec<_>>();
+        if inactive_current_targets.len() != 1 {
+            return Err(format!(
+                "R1-B2 requires exactly one inactive current-symbol identity target when no active current target exists; found {}.",
+                inactive_current_targets.len()
+            ));
+        }
+        inactive_current_targets[0]
+    } else {
+        return Err(format!(
+            "R1-B1 requires exactly one active current identity target; found {}.",
+            active_targets.len()
+        ));
+    };
+    if current_target.symbol != raw_symbol || current_target.exchange != import_row.exchange {
+        if current_target.is_active {
+            return Err(
+                "R1-B1 active current identity target does not match the stored import symbol/exchange."
+                    .to_string(),
+            );
+        }
+        return Err(
+            "R1-B2 inactive historical current-symbol identity target does not match the stored import symbol/exchange."
+                .to_string(),
+        );
+    }
+    let current_isin = current_target
+        .isin
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .ok_or_else(|| {
+            if current_target.is_active {
+                "R1-B1 active current identity target has no current ISIN.".to_string()
+            } else {
+                "R1-B2 inactive historical current-symbol identity target has no current ISIN."
+                    .to_string()
+            }
+        })?;
+
+    let mut predecessor_statement = connection
+        .prepare(
+            "
+              SELECT symbol
+              FROM instruments
+              WHERE exchange = ?
+                AND isin = ?
+                AND COALESCE(is_active, 1) = 0
+              ORDER BY symbol
+            ",
+        )
+        .map_err(|error| error.to_string())?;
+    let predecessor_symbols = predecessor_statement
+        .query_map(params![import_row.exchange.as_str(), raw_isin], |row| {
+            row.get::<_, String>(0)
+        })
+        .map_err(|error| error.to_string())?
+        .collect::<rusqlite::Result<Vec<_>>>()
+        .map_err(|error| error.to_string())?;
+    if predecessor_symbols.len() != 1 {
+        return Err(format!(
+            "R1-B1 requires exactly one inactive predecessor carrying the raw ISIN; found {}.",
+            predecessor_symbols.len()
+        ));
+    }
+    let predecessor_symbol = &predecessor_symbols[0];
+
+    let mut edge_statement = connection
+        .prepare(
+            "
+              SELECT effective_date, isin
+              FROM instrument_identity_history
+              WHERE exchange = ?
+                AND old_symbol = ?
+                AND new_symbol = ?
+                AND current_symbol = ?
+              ORDER BY effective_date, id
+            ",
+        )
+        .map_err(|error| error.to_string())?;
+    let edges = edge_statement
+        .query_map(
+            params![
+                import_row.exchange.as_str(),
+                predecessor_symbol.as_str(),
+                current_target.symbol.as_str(),
+                current_target.symbol.as_str()
+            ],
+            |row| {
+                Ok((
+                    row.get::<_, String>(0)?,
+                    row.get::<_, Option<String>>(1)?,
+                ))
+            },
+        )
+        .map_err(|error| error.to_string())?
+        .collect::<rusqlite::Result<Vec<_>>>()
+        .map_err(|error| error.to_string())?;
+    if edges.len() != 1 {
+        return Err(format!(
+            "R1-B1 requires exactly one direct predecessor identity edge; found {}.",
+            edges.len()
+        ));
+    }
+    let (transition_date, edge_current_isin) = &edges[0];
+    if edge_current_isin.as_deref() != Some(current_isin) {
+        if current_target.is_active {
+            return Err(
+                "R1-B1 direct predecessor identity edge does not bind the active current ISIN."
+                    .to_string(),
+            );
+        }
+        return Err(
+            "R1-B2 direct predecessor identity edge does not bind the inactive historical current-symbol ISIN."
+                .to_string(),
+        );
+    }
+    if transition_date.as_str() > ex_date {
+        return Err(
+            "R1-B1 predecessor transition must be on or before the Corporate Action ex-date."
+                .to_string(),
+        );
+    }
+
+    let mut canonical_statement = connection
+        .prepare(
+            "
+              SELECT id
+              FROM corporate_actions
+              WHERE exchange = ?
+                AND symbol = ?
+                AND effective_date = ?
+              ORDER BY id
+            ",
+        )
+        .map_err(|error| error.to_string())?;
+    let canonical_ids = canonical_statement
+        .query_map(
+            params![
+                import_row.exchange.as_str(),
+                current_target.symbol.as_str(),
+                ex_date
+            ],
+            |row| row.get::<_, i64>(0),
+        )
+        .map_err(|error| error.to_string())?
+        .collect::<rusqlite::Result<Vec<_>>>()
+        .map_err(|error| error.to_string())?;
+    if canonical_ids.len() != 1 {
+        return Err(format!(
+            "R1-B1 requires exactly one same-symbol/date canonical candidate; found {}.",
+            canonical_ids.len()
+        ));
+    }
+    let canonical_id = canonical_ids[0];
+    let canonical = repair_preview::load_repair_preview_canonical(connection, canonical_id)?
+        .ok_or_else(|| {
+            format!(
+                "R1-B1 canonical candidate {} disappeared during reconciliation.",
+                canonical_id
+            )
+        })?;
+
+    let canonical_note = canonical.note.as_deref().map(str::trim);
+    let purpose = import_row.purpose_raw.trim();
+    let semantics_match = canonical.exchange == import_row.exchange
+        && canonical.symbol == current_target.symbol
+        && canonical.isin.as_deref() == Some(current_isin)
+        && canonical.effective_date == ex_date
+        && canonical.record_date == import_row.record_date
+        && canonical.action_type == import_row.action_type
+        && import_row.factor == Some(canonical.factor)
+        && canonical.ratio_num == import_row.ratio_num
+        && canonical.ratio_den == import_row.ratio_den
+        && canonical.old_face_value == import_row.old_face_value
+        && canonical.new_face_value == import_row.new_face_value
+        && canonical.cash_amount == import_row.cash_amount
+        && canonical.adjust_volume
+        && canonical_note == Some(purpose);
+    if !semantics_match {
+        return Err(
+            "R1-B1 canonical event semantics do not match the unresolved import.".to_string(),
+        );
+    }
+
+    ensure_split_bonus_price_validation(connection, &import_row, false)?;
+
+    let prior_decisions: i64 = connection
+        .query_row(
+            "
+              SELECT COUNT(*)
+              FROM corporate_action_import_decisions
+              WHERE import_id = ?
+                AND decision_type = 'VERIFIED_EXISTING_EVENT_RECONCILIATION'
+            ",
+            params![import_row.id],
+            |row| row.get(0),
+        )
+        .map_err(|error| error.to_string())?;
+    if prior_decisions != 0 {
+        return Err(
+            "R1-B1 found prior reconciliation audit evidence without an existing import link."
+                .to_string(),
+        );
+    }
+
+    connection
+        .execute_batch("SAVEPOINT corporate_action_existing_event_reconciliation")
+        .map_err(|error| error.to_string())?;
+    let result = (|| -> AppResult<CorporateActionImportApprovalResult> {
+        mark_import_approved(connection, import_row.id, canonical_id)?;
+        let linked_row = get_import_row(connection, import_row.id)?;
+        let decision_reason = if current_target.is_active {
+            format!(
+                "R1-B1 strict existing-event identity reconciliation linked import {} to existing canonical action {} after proving one active current target, one direct inactive predecessor carrying the raw ISIN, a transition on/before the ex-date, exact canonical event semantics, and current matched Split/Bonus price validation.",
+                import_row.id, canonical_id
+            )
+        } else {
+            format!(
+                "R1-B2 inactive-historical existing-event reconciliation linked import {} to existing canonical action {} after proving no active identity target, exactly one inactive current-symbol target, one direct inactive predecessor carrying the raw ISIN, a transition on/before the ex-date, exact canonical event semantics, and current matched Split/Bonus price validation.",
+                import_row.id, canonical_id
+            )
+        };
+        record_corporate_action_import_decision(
+            connection,
+            &import_row,
+            &linked_row,
+            "VERIFIED_EXISTING_EVENT_RECONCILIATION",
+            &decision_reason,
+        )?;
+        let message = if current_target.is_active {
+            format!(
+                "R1-B1 strict existing-event identity reconciliation linked this import to existing corporate action {}. No new corporate action was created.",
+                canonical_id
+            )
+        } else {
+            format!(
+                "R1-B2 inactive-historical existing-event reconciliation linked this import to existing corporate action {}. No new corporate action was created.",
+                canonical_id
+            )
+        };
+        Ok(CorporateActionImportApprovalResult {
+            import_record: linked_row,
+            approved_record: None,
+            message,
+        })
+    })();
+
+    match result {
+        Ok(value) => {
+            connection
+                .execute_batch("RELEASE SAVEPOINT corporate_action_existing_event_reconciliation")
+                .map_err(|error| error.to_string())?;
+            Ok(value)
+        }
+        Err(error) => {
+            let _ = connection.execute_batch(
+                "ROLLBACK TO SAVEPOINT corporate_action_existing_event_reconciliation; \
+                 RELEASE SAVEPOINT corporate_action_existing_event_reconciliation",
+            );
+            Err(error)
+        }
+    }
+}
+
+
 fn approve_corporate_action_import_without_transaction(
     connection: &Connection,
     folder_path: &Path,
@@ -7587,6 +8094,80 @@ fn scan_result_row(
     }
 }
 
+fn resolve_event_time_historical_price_symbol(
+    connection: &Connection,
+    root_symbol: &str,
+    exchange: &str,
+    ex_date: &str,
+) -> AppResult<Option<String>> {
+    let has_identity_history = connection
+        .query_row(
+            "SELECT EXISTS(SELECT 1 FROM sqlite_master WHERE type='table' AND name='instrument_identity_history')",
+            [],
+            |row| row.get::<_, i64>(0),
+        )
+        .map_err(|error| error.to_string())?
+        != 0;
+    if !has_identity_history {
+        return Ok(None);
+    }
+
+    let mut current_symbol = root_symbol.to_string();
+    let mut visited = HashSet::new();
+    visited.insert(current_symbol.clone());
+    let mut traversed = false;
+
+    for _ in 0..32 {
+        let predecessors = {
+            let mut statement = connection
+                .prepare(
+                    "
+                    SELECT old_symbol
+                    FROM instrument_identity_history
+                    WHERE exchange = ?1
+                      AND current_symbol = ?2
+                      AND new_symbol = ?3
+                      AND effective_date > ?4
+                      AND change_type IN ('SYMBOL_CHANGE', 'BOTH')
+                      AND source = 'NSE_IDENTITY'
+                      AND source_ref IS NOT NULL
+                      AND TRIM(source_ref) <> ''
+                      AND old_symbol IS NOT NULL
+                      AND TRIM(old_symbol) <> ''
+                      AND TRIM(old_symbol) <> TRIM(new_symbol)
+                    ORDER BY effective_date DESC, id DESC
+                    LIMIT 2
+                    ",
+                )
+                .map_err(|error| error.to_string())?;
+            let mut rows = statement
+                .query(params![exchange, root_symbol, current_symbol.as_str(), ex_date])
+                .map_err(|error| error.to_string())?;
+            let mut values = Vec::new();
+            while let Some(row) = rows.next().map_err(|error| error.to_string())? {
+                values.push(row.get::<_, String>(0).map_err(|error| error.to_string())?);
+            }
+            values
+        };
+
+        if predecessors.is_empty() {
+            return Ok(traversed.then_some(current_symbol));
+        }
+        if predecessors.len() != 1 {
+            return Ok(None);
+        }
+
+        let predecessor = predecessors[0].trim().to_string();
+        if predecessor.is_empty() || !visited.insert(predecessor.clone()) {
+            return Ok(None);
+        }
+        current_symbol = predecessor;
+        traversed = true;
+    }
+
+    Ok(None)
+}
+
 fn load_trade_window(
     connection: &Connection,
     folder_path: &Path,
@@ -7597,7 +8178,25 @@ fn load_trade_window(
     if let Some(window) = load_binary_trade_window(folder_path, symbol, exchange, ex_date)? {
         return Ok(Some(window));
     }
-    load_sqlite_trade_window(connection, symbol, exchange, ex_date)
+    if let Some(window) = load_sqlite_trade_window(connection, symbol, exchange, ex_date)? {
+        return Ok(Some(window));
+    }
+
+    let Some(historical_symbol) =
+        resolve_event_time_historical_price_symbol(connection, symbol, exchange, ex_date)?
+    else {
+        return Ok(None);
+    };
+
+    if historical_symbol == symbol {
+        return Ok(None);
+    }
+    if let Some(window) =
+        load_binary_trade_window(folder_path, &historical_symbol, exchange, ex_date)?
+    {
+        return Ok(Some(window));
+    }
+    load_sqlite_trade_window(connection, &historical_symbol, exchange, ex_date)
 }
 
 fn load_binary_trade_window(
@@ -9003,6 +9602,9 @@ mod v114t_tests;
 #[path = "corporate_action_imports/v114y_tests.rs"]
 mod v114y_tests;
 
+#[cfg(test)]
+#[path = "corporate_action_imports/dividend_prepared_scope_bridge_tests.rs"]
+mod dividend_prepared_scope_bridge_tests;
 #[cfg(test)]
 mod v114ad_tests;
 #[cfg(test)]
@@ -13971,6 +14573,727 @@ mod tests {
         assert!(verify_import_lookup_database(active.path(),active.path().to_str().unwrap()).is_ok());
         assert!(verify_import_lookup_database(active.path(),different.path().to_str().unwrap()).is_err());
         assert!(verify_import_lookup_database(active.path(),"").is_err());
+    }
+
+
+
+    fn create_r1b1_existing_event_fixture(connection: &Connection) {
+        create_nse_resolution_tables(connection);
+        create_phase1_scan_tables(connection);
+        connection
+            .execute_batch(
+                "
+                CREATE TABLE corporate_actions (
+                  id INTEGER PRIMARY KEY AUTOINCREMENT,
+                  symbol TEXT NOT NULL,
+                  exchange TEXT NOT NULL DEFAULT 'NSE',
+                  isin TEXT,
+                  effective_date TEXT NOT NULL,
+                  record_date TEXT,
+                  action_type TEXT NOT NULL,
+                  factor REAL,
+                  ratio_num REAL,
+                  ratio_den REAL,
+                  old_face_value REAL,
+                  new_face_value REAL,
+                  cash_amount REAL,
+                  adjust_volume INTEGER NOT NULL DEFAULT 0,
+                  note TEXT,
+                  source TEXT,
+                  source_ref TEXT,
+                  applied_at TEXT,
+                  created_at TEXT,
+                  updated_at TEXT
+                );
+                INSERT INTO instruments (symbol, exchange, isin, name, is_active, series)
+                VALUES
+                  ('VAIBHAVGBL', 'NSE', 'INE884A01027', 'Vaibhav Global Limited', 1, 'EQ'),
+                  ('VAIBHAVGEM', 'NSE', 'INE884A01019', 'Vaibhav Gems Limited', 0, 'BE');
+                INSERT INTO instrument_identity_history (
+                  exchange, isin, current_symbol, current_name, old_symbol, old_name,
+                  new_symbol, new_name, effective_date, change_type, source, source_ref
+                ) VALUES (
+                  'NSE', 'INE884A01027', 'VAIBHAVGBL', 'Vaibhav Global Limited',
+                  'VAIBHAVGEM', 'Vaibhav Gems Limited', 'VAIBHAVGBL', 'Vaibhav Global Limited',
+                  '2012-12-24', 'BOTH', 'NSE_IDENTITY', 'legacy-provenance-only'
+                );
+                INSERT INTO corporate_action_imports (
+                  id, dedupe_key, exchange, source, symbol, isin, company_name, purpose_raw,
+                  ex_date, record_date, action_type, old_face_value, new_face_value,
+                  factor, price_factor, parse_status, review_status, message
+                ) VALUES (
+                  1, 'r1b1-fixture', 'NSE', 'NSE_API', 'VAIBHAVGBL', 'INE884A01019',
+                  'Vaibhav Global Limited',
+                  'Face Value Split (Sub-Division) - From Rs 10/- Per Share To Rs 2/- Per Share',
+                  '2021-05-07', '2021-05-10', 'SPLIT', 10, 2, 5, 0.2,
+                  'PARSED', 'UNRESOLVED',
+                  'Exact symbol matched, but the official ISIN differs from the database.'
+                );
+                INSERT INTO corporate_actions (
+                  id, symbol, exchange, isin, effective_date, record_date, action_type, factor,
+                  old_face_value, new_face_value, adjust_volume, note, source, source_ref,
+                  applied_at, created_at, updated_at
+                ) VALUES (
+                  235, 'VAIBHAVGBL', 'NSE', 'INE884A01027', '2021-05-07', '2021-05-10',
+                  'SPLIT', 5, 10, 2, 1,
+                  'Face Value Split (Sub-Division) - From Rs 10/- Per Share To Rs 2/- Per Share',
+                  'NSE_API', 'official-current-fetch',
+                  '2026-06-10 19:24:57', '2026-06-10 19:24:57', '2026-06-10 19:24:57'
+                );
+                ",
+            )
+            .unwrap();
+        insert_phase1_scan_result(
+            connection,
+            1,
+            "VAIBHAVGBL",
+            5.0,
+            "MATCHED",
+            Some(0.9869484151646984),
+        );
+        connection
+            .execute(
+                "UPDATE corporate_action_scan_results
+                 SET prev_trade_date='2021-05-06', ex_trade_date='2021-05-07'
+                 WHERE corporate_action_import_id=1",
+                [],
+            )
+            .unwrap();
+    }
+
+    #[test]
+    fn r1b1_strict_existing_event_reconciliation_links_existing_without_new_action() {
+        let connection = Connection::open_in_memory().unwrap();
+        create_r1b1_existing_event_fixture(&connection);
+        let before_actions: i64 = connection
+            .query_row("SELECT COUNT(*) FROM corporate_actions", [], |row| row.get(0))
+            .unwrap();
+        let result = reconcile_existing_corporate_action_import_internal(&connection, 1).unwrap();
+        assert_eq!(result.import_record.review_status, "APPROVED");
+        assert_eq!(result.import_record.approved_corporate_action_id, Some(235));
+        assert!(result.approved_record.is_none());
+        assert!(result.message.contains("strict existing-event identity reconciliation"));
+        let after_actions: i64 = connection
+            .query_row("SELECT COUNT(*) FROM corporate_actions", [], |row| row.get(0))
+            .unwrap();
+        assert_eq!(after_actions, before_actions);
+        let (raw_isin, decision_type): (Option<String>, String) = connection
+            .query_row(
+                "SELECT i.isin, d.decision_type
+                 FROM corporate_action_imports i
+                 JOIN corporate_action_import_decisions d ON d.import_id=i.id
+                 WHERE i.id=1",
+                [],
+                |row| Ok((row.get(0)?, row.get(1)?)),
+            )
+            .unwrap();
+        assert_eq!(raw_isin.as_deref(), Some("INE884A01019"));
+        assert_eq!(decision_type, "VERIFIED_EXISTING_EVENT_RECONCILIATION");
+    }
+
+    #[test]
+    fn r1b1_reconciliation_is_idempotent_after_existing_link() {
+        let connection = Connection::open_in_memory().unwrap();
+        create_r1b1_existing_event_fixture(&connection);
+        reconcile_existing_corporate_action_import_internal(&connection, 1).unwrap();
+        let second = reconcile_existing_corporate_action_import_internal(&connection, 1).unwrap();
+        assert_eq!(second.import_record.approved_corporate_action_id, Some(235));
+        assert!(second.message.contains("already linked"));
+        let decisions: i64 = connection
+            .query_row(
+                "SELECT COUNT(*) FROM corporate_action_import_decisions
+                 WHERE import_id=1 AND decision_type='VERIFIED_EXISTING_EVENT_RECONCILIATION'",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(decisions, 1);
+    }
+
+    #[test]
+    fn r1b1_requires_unique_active_current_target() {
+        let connection = Connection::open_in_memory().unwrap();
+        create_r1b1_existing_event_fixture(&connection);
+        connection.execute_batch(
+            "
+            INSERT INTO instruments (symbol,exchange,isin,name,is_active,series)
+            VALUES ('ALTGLOBAL','NSE','INE884A01035','Alternate Global',1,'EQ');
+            INSERT INTO instrument_identity_history (
+              exchange,isin,current_symbol,current_name,old_symbol,new_symbol,effective_date,change_type
+            ) VALUES ('NSE','INE884A01035','ALTGLOBAL','Alternate Global','VAIBHAVGEM','ALTGLOBAL','2013-01-01','BOTH');
+            "
+        ).unwrap();
+        let error = reconcile_existing_corporate_action_import_internal(&connection, 1).unwrap_err();
+        assert!(error.contains("exactly one active current identity target"), "{error}");
+        assert_eq!(get_import_row(&connection, 1).unwrap().review_status, "UNRESOLVED");
+    }
+
+    #[test]
+    fn r1b1_requires_one_direct_predecessor_edge_with_old_isin() {
+        let connection = Connection::open_in_memory().unwrap();
+        create_r1b1_existing_event_fixture(&connection);
+        connection.execute("DELETE FROM instrument_identity_history", []).unwrap();
+        let error = reconcile_existing_corporate_action_import_internal(&connection, 1).unwrap_err();
+        assert!(error.contains("direct predecessor identity edge"), "{error}");
+    }
+
+    #[test]
+    fn r1b1_rejects_transition_after_event_date() {
+        let connection = Connection::open_in_memory().unwrap();
+        create_r1b1_existing_event_fixture(&connection);
+        connection.execute(
+            "UPDATE instrument_identity_history SET effective_date='2022-01-01'",
+            [],
+        ).unwrap();
+        let error = reconcile_existing_corporate_action_import_internal(&connection, 1).unwrap_err();
+        assert!(error.contains("on or before the Corporate Action ex-date"), "{error}");
+    }
+
+    #[test]
+    fn r1b1_requires_exactly_one_same_symbol_date_canonical_candidate() {
+        let connection = Connection::open_in_memory().unwrap();
+        create_r1b1_existing_event_fixture(&connection);
+        connection.execute(
+            "INSERT INTO corporate_actions (
+               symbol,exchange,isin,effective_date,record_date,action_type,factor,
+               old_face_value,new_face_value,adjust_volume,note,source
+             ) SELECT symbol,exchange,isin,effective_date,record_date,action_type,factor,
+                      old_face_value,new_face_value,adjust_volume,note,source
+               FROM corporate_actions WHERE id=235",
+            [],
+        ).unwrap();
+        let error = reconcile_existing_corporate_action_import_internal(&connection, 1).unwrap_err();
+        assert!(error.contains("exactly one same-symbol/date canonical candidate"), "{error}");
+    }
+
+    #[test]
+    fn r1b1_rejects_canonical_event_semantic_mismatch() {
+        for sql in [
+            "UPDATE corporate_actions SET factor=4.0 WHERE id=235",
+            "UPDATE corporate_actions SET record_date='2021-05-11' WHERE id=235",
+            "UPDATE corporate_actions SET note='different purpose' WHERE id=235",
+        ] {
+            let connection = Connection::open_in_memory().unwrap();
+            create_r1b1_existing_event_fixture(&connection);
+            connection.execute(sql, []).unwrap();
+            let error = reconcile_existing_corporate_action_import_internal(&connection, 1).unwrap_err();
+            assert!(error.contains("canonical event semantics do not match"), "{error}");
+        }
+    }
+
+    #[test]
+    fn r1b1_requires_current_matched_split_bonus_price_validation() {
+        let connection = Connection::open_in_memory().unwrap();
+        create_r1b1_existing_event_fixture(&connection);
+        connection.execute(
+            "UPDATE corporate_action_scan_results SET scan_status='REVIEW' WHERE corporate_action_import_id=1",
+            [],
+        ).unwrap();
+        let error = reconcile_existing_corporate_action_import_internal(&connection, 1).unwrap_err();
+        assert!(error.contains("Split/Bonus price validation is REVIEW"), "{error}");
+    }
+
+    #[test]
+    fn r1b1_preserves_pending_isin_mismatch_and_action_scope_boundaries() {
+        let connection = Connection::open_in_memory().unwrap();
+        create_r1b1_existing_event_fixture(&connection);
+        connection.execute(
+            "UPDATE corporate_action_imports SET review_status='PENDING_ISIN_MISMATCH' WHERE id=1",
+            [],
+        ).unwrap();
+        let error = reconcile_existing_corporate_action_import_internal(&connection, 1).unwrap_err();
+        assert!(error.contains("unresolved parsed NSE Split/Bonus"), "{error}");
+
+        let connection = Connection::open_in_memory().unwrap();
+        create_r1b1_existing_event_fixture(&connection);
+        connection.execute(
+            "UPDATE corporate_action_imports SET action_type='DIVIDEND' WHERE id=1",
+            [],
+        ).unwrap();
+        let error = reconcile_existing_corporate_action_import_internal(&connection, 1).unwrap_err();
+        assert!(error.contains("unresolved parsed NSE Split/Bonus"), "{error}");
+    }
+
+    #[test]
+    fn r1b1_requires_stale_raw_isin_to_match_exactly_one_inactive_predecessor() {
+        let connection = Connection::open_in_memory().unwrap();
+        create_r1b1_existing_event_fixture(&connection);
+        connection.execute(
+            "UPDATE corporate_action_imports SET isin='INE884A01027' WHERE id=1",
+            [],
+        ).unwrap();
+        let error = reconcile_existing_corporate_action_import_internal(&connection, 1).unwrap_err();
+        assert!(error.contains("exactly one inactive predecessor carrying the raw ISIN"), "{error}");
+    }
+
+
+    fn r1b2_create_canonical_table(connection: &Connection) {
+        connection
+            .execute_batch(
+                "
+                CREATE TABLE corporate_actions (
+                  id INTEGER PRIMARY KEY AUTOINCREMENT,
+                  symbol TEXT NOT NULL,
+                  exchange TEXT NOT NULL,
+                  isin TEXT,
+                  effective_date TEXT NOT NULL,
+                  record_date TEXT,
+                  action_type TEXT NOT NULL,
+                  factor REAL NOT NULL,
+                  ratio_num REAL,
+                  ratio_den REAL,
+                  old_face_value REAL,
+                  new_face_value REAL,
+                  cash_amount REAL,
+                  adjust_volume INTEGER NOT NULL DEFAULT 1,
+                  note TEXT,
+                  source TEXT,
+                  source_ref TEXT,
+                  applied_at TEXT,
+                  created_at TEXT,
+                  updated_at TEXT
+                );
+                ",
+            )
+            .unwrap();
+    }
+
+    fn r1b2_setup_inactive_existing_event(
+        connection: &Connection,
+        action_type: &str,
+        factor: f64,
+        ratio_num: Option<f64>,
+        ratio_den: Option<f64>,
+        old_face_value: Option<f64>,
+        new_face_value: Option<f64>,
+        purpose: &str,
+    ) {
+        create_nse_resolution_tables(connection);
+        create_phase1_scan_tables(connection);
+        r1b2_create_canonical_table(connection);
+
+        connection
+            .execute(
+                "INSERT INTO instruments(symbol,exchange,isin,name,is_active,series) VALUES ('CURSYM','NSE','INECURR01020','Current Historical Company',0,'BE')",
+                [],
+            )
+            .unwrap();
+        connection
+            .execute(
+                "INSERT INTO instruments(symbol,exchange,isin,name,is_active,series) VALUES ('OLDSYM','NSE','INERAW001010','Old Historical Company',0,'EQ')",
+                [],
+            )
+            .unwrap();
+        connection
+            .execute(
+                "INSERT INTO instrument_identity_history(exchange,isin,current_symbol,current_name,old_symbol,old_name,new_symbol,new_name,effective_date,change_type,source,source_ref) VALUES ('NSE','INECURR01020','CURSYM','Current Historical Company','OLDSYM','Old Historical Company','CURSYM','Current Historical Company','2020-01-01','BOTH','NSE_IDENTITY','fixture')",
+                [],
+            )
+            .unwrap();
+
+        connection
+            .execute(
+                "INSERT INTO corporate_action_imports(id,dedupe_key,exchange,source,symbol,isin,company_name,purpose_raw,ex_date,record_date,action_type,ratio_num,ratio_den,old_face_value,new_face_value,factor,price_factor,parse_status,review_status,message) VALUES (1,'r1b2-import','NSE','NSE_API','CURSYM','INERAW001010','Current Historical Company',?1,'2026-08-14','2026-08-15',?2,?3,?4,?5,?6,?7,?8,'PARSED','UNRESOLVED','Exact symbol matched, but the official ISIN differs from the database.')",
+                params![purpose, action_type, ratio_num, ratio_den, old_face_value, new_face_value, factor, 1.0 / factor],
+            )
+            .unwrap();
+
+        connection
+            .execute(
+                "INSERT INTO corporate_actions(id,symbol,exchange,isin,effective_date,record_date,action_type,factor,ratio_num,ratio_den,old_face_value,new_face_value,cash_amount,adjust_volume,note,source,source_ref,applied_at,created_at,updated_at) VALUES (42,'CURSYM','NSE','INECURR01020','2026-08-14','2026-08-15',?1,?2,?3,?4,?5,?6,NULL,1,?7,'NSE_API','fixture','2026-08-15','2026-08-15','2026-08-15')",
+                params![action_type, factor, ratio_num, ratio_den, old_face_value, new_face_value, purpose],
+            )
+            .unwrap();
+
+        insert_phase1_scan_result(connection, 1, "CURSYM", factor, "MATCHED", Some(0.99));
+    }
+
+    #[test]
+    fn r1b2_inactive_historical_split_links_existing_without_new_action() {
+        let connection = Connection::open_in_memory().unwrap();
+        r1b2_setup_inactive_existing_event(
+            &connection,
+            "SPLIT",
+            10.0,
+            None,
+            None,
+            Some(10.0),
+            Some(1.0),
+            "Face Value Split From Rs 10/- To Re 1/-",
+        );
+        let before_actions: i64 = connection
+            .query_row("SELECT COUNT(*) FROM corporate_actions", [], |row| row.get(0))
+            .unwrap();
+
+        let result = reconcile_existing_corporate_action_import_internal(&connection, 1).unwrap();
+
+        assert_eq!(result.import_record.review_status, "APPROVED");
+        assert_eq!(result.import_record.approved_corporate_action_id, Some(42));
+        assert!(result.approved_record.is_none());
+        assert_eq!(
+            connection.query_row("SELECT COUNT(*) FROM corporate_actions", [], |row| row.get::<_, i64>(0)).unwrap(),
+            before_actions
+        );
+        let decision: String = connection
+            .query_row(
+                "SELECT decision_type FROM corporate_action_import_decisions WHERE import_id=1",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(decision, "VERIFIED_EXISTING_EVENT_RECONCILIATION");
+    }
+
+    #[test]
+    fn r1b2_inactive_historical_bonus_links_existing_without_new_action() {
+        let connection = Connection::open_in_memory().unwrap();
+        r1b2_setup_inactive_existing_event(
+            &connection,
+            "BONUS",
+            2.0,
+            Some(1.0),
+            Some(1.0),
+            None,
+            None,
+            "Bonus 1:1",
+        );
+
+        let result = reconcile_existing_corporate_action_import_internal(&connection, 1).unwrap();
+        assert_eq!(result.import_record.approved_corporate_action_id, Some(42));
+        assert_eq!(result.import_record.isin.as_deref(), Some("INERAW001010"));
+        let decision_count: i64 = connection
+            .query_row(
+                "SELECT COUNT(*) FROM corporate_action_import_decisions WHERE import_id=1 AND decision_type='VERIFIED_EXISTING_EVENT_RECONCILIATION'",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(decision_count, 1);
+    }
+
+    #[test]
+    fn r1b2_inactive_historical_reconciliation_is_idempotent() {
+        let connection = Connection::open_in_memory().unwrap();
+        r1b2_setup_inactive_existing_event(
+            &connection,
+            "BONUS",
+            2.0,
+            Some(1.0),
+            Some(1.0),
+            None,
+            None,
+            "Bonus 1:1",
+        );
+        let first = reconcile_existing_corporate_action_import_internal(&connection, 1).unwrap();
+        assert_eq!(first.import_record.approved_corporate_action_id, Some(42));
+        let changes_before_replay: i64 = connection
+            .query_row("SELECT total_changes()", [], |row| row.get(0))
+            .unwrap();
+        let second = reconcile_existing_corporate_action_import_internal(&connection, 1).unwrap();
+        let changes_after_replay: i64 = connection
+            .query_row("SELECT total_changes()", [], |row| row.get(0))
+            .unwrap();
+        assert_eq!(second.import_record.approved_corporate_action_id, Some(42));
+        assert_eq!(changes_after_replay, changes_before_replay);
+        assert_eq!(
+            connection.query_row("SELECT COUNT(*) FROM corporate_action_import_decisions WHERE import_id=1", [], |row| row.get::<_, i64>(0)).unwrap(),
+            1
+        );
+    }
+
+    #[test]
+    fn r1b2_requires_unique_inactive_current_symbol_target_when_no_active_target_exists() {
+        let connection = Connection::open_in_memory().unwrap();
+        r1b2_setup_inactive_existing_event(
+            &connection,
+            "SPLIT",
+            10.0,
+            None,
+            None,
+            Some(10.0),
+            Some(1.0),
+            "Face Value Split From Rs 10/- To Re 1/-",
+        );
+        connection
+            .execute(
+                "INSERT INTO instruments(symbol,exchange,isin,name,is_active,series) VALUES ('CURSYM','NSE','INEOTHER01020','Ambiguous Historical Target',0,'BE')",
+                [],
+            )
+            .unwrap();
+        let error = reconcile_existing_corporate_action_import_internal(&connection, 1).unwrap_err();
+        assert!(error.contains("exactly one inactive current-symbol identity target"), "{error}");
+    }
+
+    #[test]
+    fn r1b2_inactive_historical_target_still_requires_direct_predecessor_edge() {
+        let connection = Connection::open_in_memory().unwrap();
+        r1b2_setup_inactive_existing_event(
+            &connection,
+            "SPLIT",
+            10.0,
+            None,
+            None,
+            Some(10.0),
+            Some(1.0),
+            "Face Value Split From Rs 10/- To Re 1/-",
+        );
+        connection.execute("DELETE FROM instrument_identity_history", []).unwrap();
+        let error = reconcile_existing_corporate_action_import_internal(&connection, 1).unwrap_err();
+        assert!(error.contains("direct predecessor identity edge"), "{error}");
+    }
+
+
+    fn r1b3a1_create_price_identity_tables(connection: &Connection) {
+        connection
+            .execute_batch(
+                "
+                CREATE TABLE eod_prices (
+                  symbol TEXT NOT NULL,
+                  exchange TEXT NOT NULL DEFAULT 'NSE',
+                  date TEXT NOT NULL,
+                  open REAL NOT NULL,
+                  close REAL NOT NULL
+                );
+                CREATE TABLE instrument_identity_history (
+                  id INTEGER PRIMARY KEY AUTOINCREMENT,
+                  exchange TEXT NOT NULL DEFAULT 'NSE',
+                  isin TEXT,
+                  current_symbol TEXT,
+                  current_name TEXT,
+                  old_symbol TEXT,
+                  old_name TEXT,
+                  new_symbol TEXT,
+                  new_name TEXT,
+                  effective_date TEXT NOT NULL,
+                  change_type TEXT NOT NULL,
+                  source TEXT,
+                  source_ref TEXT,
+                  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+                  updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+                );
+                ",
+            )
+            .unwrap();
+    }
+
+    fn r1b3a1_insert_window(
+        connection: &Connection,
+        symbol: &str,
+        previous_date: &str,
+        previous_close: f64,
+        ex_date: &str,
+        ex_open: f64,
+        ex_close: f64,
+    ) {
+        connection
+            .execute(
+                "INSERT INTO eod_prices(symbol,exchange,date,open,close) VALUES (?1,'NSE',?2,?3,?4)",
+                params![symbol, previous_date, previous_close, previous_close],
+            )
+            .unwrap();
+        connection
+            .execute(
+                "INSERT INTO eod_prices(symbol,exchange,date,open,close) VALUES (?1,'NSE',?2,?3,?4)",
+                params![symbol, ex_date, ex_open, ex_close],
+            )
+            .unwrap();
+    }
+
+    fn r1b3a1_insert_transition(
+        connection: &Connection,
+        current_symbol: &str,
+        old_symbol: &str,
+        new_symbol: &str,
+        effective_date: &str,
+    ) {
+        connection
+            .execute(
+                "
+                INSERT INTO instrument_identity_history(
+                  exchange,current_symbol,old_symbol,new_symbol,effective_date,change_type,source,source_ref
+                ) VALUES ('NSE',?1,?2,?3,?4,'BOTH','NSE_IDENTITY','r1b3a1-fixture')
+                ",
+                params![current_symbol, old_symbol, new_symbol, effective_date],
+            )
+            .unwrap();
+    }
+
+    #[test]
+    fn r1b3a1_current_symbol_window_remains_first_authority() {
+        let connection = Connection::open_in_memory().unwrap();
+        r1b3a1_create_price_identity_tables(&connection);
+        r1b3a1_insert_transition(&connection, "SONAMLTD", "SONAMCLOCK", "SONAMLTD", "2023-11-15");
+        r1b3a1_insert_window(&connection, "SONAMLTD", "2022-07-13", 200.0, "2022-07-14", 100.0, 101.0);
+        r1b3a1_insert_window(&connection, "SONAMCLOCK", "2022-07-13", 88.55, "2022-07-14", 42.0, 45.1);
+        let folder = tempfile::tempdir().unwrap();
+
+        let window = load_trade_window(&connection, folder.path(), "SONAMLTD", "NSE", "2022-07-14")
+            .unwrap()
+            .expect("current-symbol window must remain authoritative");
+
+        assert_eq!(window.0.date, "2022-07-13");
+        assert_eq!(window.0.close, 200.0);
+        assert_eq!(window.1.open, 100.0);
+        assert_eq!(window.1.close, 101.0);
+    }
+
+    #[test]
+    fn r1b3a1_unique_pretransition_historical_symbol_supplies_missing_window() {
+        let connection = Connection::open_in_memory().unwrap();
+        r1b3a1_create_price_identity_tables(&connection);
+        r1b3a1_insert_transition(&connection, "SONAMLTD", "SONAMCLOCK", "SONAMLTD", "2023-11-15");
+        r1b3a1_insert_window(&connection, "SONAMCLOCK", "2022-07-13", 88.55, "2022-07-14", 42.0, 45.1);
+        let folder = tempfile::tempdir().unwrap();
+
+        let window = load_trade_window(&connection, folder.path(), "SONAMLTD", "NSE", "2022-07-14")
+            .unwrap()
+            .expect("unique pre-transition historical symbol should supply the local window");
+
+        assert_eq!(window.0.date, "2022-07-13");
+        assert!((window.0.close - 88.55).abs() < 1e-9);
+        assert!((window.1.open - 42.0).abs() < 1e-9);
+        assert!((window.1.close - 45.1).abs() < 1e-9);
+    }
+
+    #[test]
+    fn r1b3a1_scan_candidate_uses_strict_historical_window_and_matches_factor() {
+        let connection = Connection::open_in_memory().unwrap();
+        r1b3a1_create_price_identity_tables(&connection);
+        r1b3a1_insert_transition(&connection, "SONAMLTD", "SONAMCLOCK", "SONAMLTD", "2023-11-15");
+        r1b3a1_insert_window(&connection, "SONAMCLOCK", "2022-07-13", 88.55, "2022-07-14", 42.0, 45.1);
+        let folder = tempfile::tempdir().unwrap();
+        let candidate = ScanCandidate {
+            import_id: 3494,
+            symbol: Some("SONAMLTD".to_string()),
+            exchange: "NSE".to_string(),
+            ex_date: Some("2022-07-14".to_string()),
+            factor: Some(2.0),
+        };
+
+        let result = scan_candidate(&connection, folder.path(), 1, &candidate).unwrap();
+
+        assert_eq!(result.scan_status, "MATCHED");
+        assert_eq!(result.prev_trade_date.as_deref(), Some("2022-07-13"));
+        assert_eq!(result.ex_trade_date.as_deref(), Some("2022-07-14"));
+        assert!(result.confidence.unwrap_or(0.0) > 0.98);
+        assert!((result.actual_open_factor.unwrap() - (88.55 / 42.0)).abs() < 1e-9);
+        assert!((result.actual_close_factor.unwrap() - (88.55 / 45.1)).abs() < 1e-9);
+    }
+
+    #[test]
+    fn r1b3a1_multistep_history_walks_back_to_event_time_symbol() {
+        let connection = Connection::open_in_memory().unwrap();
+        r1b3a1_create_price_identity_tables(&connection);
+        r1b3a1_insert_transition(&connection, "CURR", "MID", "CURR", "2023-01-01");
+        r1b3a1_insert_transition(&connection, "CURR", "OLD", "MID", "2020-01-01");
+        r1b3a1_insert_window(&connection, "OLD", "2019-06-13", 120.0, "2019-06-14", 60.0, 61.0);
+        let folder = tempfile::tempdir().unwrap();
+
+        let window = load_trade_window(&connection, folder.path(), "CURR", "NSE", "2019-06-14")
+            .unwrap()
+            .expect("event predating both transitions should use the oldest uniquely proven symbol");
+
+        assert_eq!(window.0.close, 120.0);
+        assert_eq!(window.1.open, 60.0);
+    }
+
+    #[test]
+    fn r1b3a1_event_between_transitions_uses_intermediate_symbol() {
+        let connection = Connection::open_in_memory().unwrap();
+        r1b3a1_create_price_identity_tables(&connection);
+        r1b3a1_insert_transition(&connection, "CURR", "MID", "CURR", "2023-01-01");
+        r1b3a1_insert_transition(&connection, "CURR", "OLD", "MID", "2020-01-01");
+        r1b3a1_insert_window(&connection, "MID", "2022-06-13", 150.0, "2022-06-14", 75.0, 76.0);
+        let folder = tempfile::tempdir().unwrap();
+
+        let window = load_trade_window(&connection, folder.path(), "CURR", "NSE", "2022-06-14")
+            .unwrap()
+            .expect("event between transitions should use the uniquely proven intermediate symbol");
+
+        assert_eq!(window.0.close, 150.0);
+        assert_eq!(window.1.open, 75.0);
+    }
+
+    #[test]
+    fn r1b3a1_event_on_transition_date_does_not_fall_back_to_old_symbol() {
+        let connection = Connection::open_in_memory().unwrap();
+        r1b3a1_create_price_identity_tables(&connection);
+        r1b3a1_insert_transition(&connection, "CURR", "OLD", "CURR", "2023-01-23");
+        r1b3a1_insert_window(&connection, "OLD", "2023-01-20", 120.0, "2023-01-23", 60.0, 61.0);
+        let folder = tempfile::tempdir().unwrap();
+
+        let window = load_trade_window(&connection, folder.path(), "CURR", "NSE", "2023-01-23").unwrap();
+
+        assert!(window.is_none(), "exact transition date must retain current/new-symbol authority");
+    }
+
+    #[test]
+    fn r1b3a1_ambiguous_predecessor_edges_fail_closed() {
+        let connection = Connection::open_in_memory().unwrap();
+        r1b3a1_create_price_identity_tables(&connection);
+        r1b3a1_insert_transition(&connection, "CURR", "OLD_A", "CURR", "2023-01-01");
+        r1b3a1_insert_transition(&connection, "CURR", "OLD_B", "CURR", "2023-01-01");
+        r1b3a1_insert_window(&connection, "OLD_A", "2022-06-13", 100.0, "2022-06-14", 50.0, 51.0);
+        let folder = tempfile::tempdir().unwrap();
+
+        let window = load_trade_window(&connection, folder.path(), "CURR", "NSE", "2022-06-14").unwrap();
+
+        assert!(window.is_none(), "ambiguous historical predecessors must fail closed");
+    }
+
+    #[test]
+    fn r1b3a1_cyclic_identity_history_fails_closed() {
+        let connection = Connection::open_in_memory().unwrap();
+        r1b3a1_create_price_identity_tables(&connection);
+        r1b3a1_insert_transition(&connection, "CURR", "MID", "CURR", "2023-01-01");
+        r1b3a1_insert_transition(&connection, "CURR", "CURR", "MID", "2024-01-01");
+        r1b3a1_insert_window(&connection, "MID", "2022-06-13", 100.0, "2022-06-14", 50.0, 51.0);
+        let folder = tempfile::tempdir().unwrap();
+
+        let window = load_trade_window(&connection, folder.path(), "CURR", "NSE", "2022-06-14").unwrap();
+
+        assert!(window.is_none(), "cyclic historical lineage must fail closed");
+    }
+
+    #[test]
+    fn r1b3a1_historical_symbol_without_complete_window_preserves_no_price_data() {
+        let connection = Connection::open_in_memory().unwrap();
+        r1b3a1_create_price_identity_tables(&connection);
+        r1b3a1_insert_transition(&connection, "CURR", "OLD", "CURR", "2023-01-01");
+        connection
+            .execute(
+                "INSERT INTO eod_prices(symbol,exchange,date,open,close) VALUES ('OLD','NSE','2022-06-14',50.0,51.0)",
+                [],
+            )
+            .unwrap();
+        let folder = tempfile::tempdir().unwrap();
+
+        let window = load_trade_window(&connection, folder.path(), "CURR", "NSE", "2022-06-14").unwrap();
+
+        assert!(window.is_none(), "an incomplete historical window must remain unavailable");
+    }
+
+    #[test]
+    fn r1b3a1_missing_identity_history_table_preserves_existing_behavior() {
+        let connection = Connection::open_in_memory().unwrap();
+        connection
+            .execute_batch(
+                "
+                CREATE TABLE eod_prices (
+                  symbol TEXT NOT NULL,
+                  exchange TEXT NOT NULL DEFAULT 'NSE',
+                  date TEXT NOT NULL,
+                  open REAL NOT NULL,
+                  close REAL NOT NULL
+                );
+                ",
+            )
+            .unwrap();
+        let folder = tempfile::tempdir().unwrap();
+
+        let window = load_trade_window(&connection, folder.path(), "CURR", "NSE", "2022-06-14").unwrap();
+
+        assert!(window.is_none(), "fixtures without identity-history schema must preserve current no-window behavior");
     }
 
 }

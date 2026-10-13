@@ -25,7 +25,8 @@ function preparationApi(rows: CorporateActionImportRow[]) {
       requested: importIds.length, hints: importIds.map(hint), message: '' }),
     quickResolveCorporateActionImport: async () => { throw new Error('Must not auto-resolve ambiguous identity'); },
     runCorporateActionScan: async () => ({ scanRun: null, results: [] as CorporateActionScanResultRow[] }),
-    autoApproveCorporateActionImports: async () => ({ requested:0,eligible:0,autoApproved:0,linkedExisting:0,alreadyApproved:0,skipped:0,failed:0,dispositions:[],policyVersion:'AUTO_APPROVAL_SAFE_V1',message:'' }),
+    autoApproveCorporateActionImports: async () => ({ requested:0,eligible:0,autoApproved:0,linkedExisting:0,alreadyApproved:0,skipped:0,failed:0,dispositions:[],policyVersion:'AUTO_APPROVAL_SAFE_V2',message:'' }),
+    getSetting: async () => 'false',
   };
 }
 

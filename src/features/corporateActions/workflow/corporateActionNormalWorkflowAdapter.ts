@@ -1,6 +1,7 @@
 import type {
   CorporateActionEventIdentity,
   CorporateActionImportActionType,
+  CorporateActionAutoApprovalResult,
   CorporateActionImportResolutionHint,
   CorporateActionImportRow,
   CorporateActionOfficialFetchInput,
@@ -36,8 +37,11 @@ import {
   formatCorporateActionBulkApprovalSummary,
 } from '../corporateActionBulkApproval';
 import {
+  CorporateActionPendingPreparationStaleError,
   fetchOfficialCorporateActionsAndReload,
   loadCorporateActionImportRows,
+  readExactCorporateActionImports,
+  strictQuickResolveCorporateActionRows,
 } from '../legacy/corporateActionImportOperations';
 
 export const NORMAL_CORPORATE_ACTION_EXCHANGES = ['NSE', 'BSE'] as const;
@@ -62,6 +66,14 @@ type NormalCorporateActionApi = Pick<
   | 'runCorporateActionScan'
   | 'listCorporateActionImportResolutionHints'
 >;
+
+type NormalCorporateActionLoadApi = NormalCorporateActionApi &
+  Pick<
+    DesktopApi,
+    | 'quickResolveCorporateActionImport'
+    | 'getCorporateActionImportsByIds'
+    | 'autoApproveCorporateActionImports'
+  >;
 
 type NormalCorporateActionReviewApi = Pick<
   DesktopApi,
@@ -95,6 +107,9 @@ export interface CorporateActionNormalLoadResult {
   identityReviewCount: number;
   recommendedIdentityCount: number;
   validatedImportIds: number[];
+  quickResolvedCount: number;
+  autoApproval: CorporateActionAutoApprovalResult | null;
+  autoApprovalReasons: Readonly<Record<number, string>>;
   counts: Omit<CorporateActionNormalWorkflowCounts, 'fetched'>;
 }
 
@@ -158,7 +173,7 @@ export type CorporateActionNormalWorkflowFactEvent =
   | { type: 'FETCH_SUCCEEDED' }
   | { type: 'FETCH_FAILED' }
   | { type: 'LOAD_STARTED' }
-  | { type: 'LOAD_SUCCEEDED'; readyCount: number }
+  | { type: 'LOAD_SUCCEEDED'; readyCount: number; exceptionCount: number }
   | { type: 'LOAD_FAILED' }
   | { type: 'REVIEW_COMPLETED'; readyCount: number }
   | { type: 'APPROVAL_STARTED' }
@@ -216,12 +231,13 @@ export function reduceCorporateActionNormalWorkflowFacts(
   }
 
   if (event.type === 'LOAD_SUCCEEDED') {
+    const hasExceptions = event.exceptionCount > 0;
     return {
       ...facts,
       hasFetchedBatchPendingLoad: false,
       loadState: 'complete',
-      hasProcessedBatchPendingReview: true,
-      reviewCheckpointCompleted: false,
+      hasProcessedBatchPendingReview: hasExceptions,
+      reviewCheckpointCompleted: !hasExceptions,
       remainingReadyCount: event.readyCount,
       approvalState: 'idle',
     };
@@ -435,12 +451,15 @@ function getNormalValidationImportIds(rows: readonly CorporateActionImportRow[])
 async function validateNormalSplitBonusRows(
   api: NormalCorporateActionApi,
   importIds: readonly number[],
+  shouldContinue?: () => boolean,
 ): Promise<CorporateActionScanResultRow[]> {
   const scanRows: CorporateActionScanResultRow[] = [];
 
   for (let start = 0; start < importIds.length; start += NORMAL_CORPORATE_ACTION_SCAN_BATCH_SIZE) {
     const batch = importIds.slice(start, start + NORMAL_CORPORATE_ACTION_SCAN_BATCH_SIZE);
+    assertNormalLoadCurrent(shouldContinue);
     const result = await api.runCorporateActionScan({ scope: 'official_imports', importIds: batch });
+    assertNormalLoadCurrent(shouldContinue);
     scanRows.push(...result.results);
   }
 
@@ -461,6 +480,12 @@ async function loadNormalIdentityHints(
 
   const result = await api.listCorporateActionImportResolutionHints({ importIds });
   return result.hints;
+}
+
+function assertNormalLoadCurrent(shouldContinue?: () => boolean): void {
+  if (shouldContinue && !shouldContinue()) {
+    throw new CorporateActionPendingPreparationStaleError();
+  }
 }
 
 function latestScanByImportId(
@@ -525,9 +550,118 @@ export function classifyCorporateActionNormalRows(
 
 export async function loadCorporateActionNormalData({
   api,
+  expectedDatabasePath = '',
+  autoApproveSplitBonus = false,
+  shouldContinue,
 }: {
-  api: NormalCorporateActionApi;
+  api: NormalCorporateActionLoadApi;
+  expectedDatabasePath?: string;
+  autoApproveSplitBonus?: boolean;
+  shouldContinue?: () => boolean;
 }): Promise<CorporateActionNormalLoadResult> {
+  const initialRows = await loadAllNormalReviewRows(api);
+  const useFreshNormalScope = Boolean(expectedDatabasePath.trim());
+  const quickResolved = useFreshNormalScope
+    ? await strictQuickResolveCorporateActionRows({ api, rows: initialRows, shouldContinue })
+    : { rows: initialRows, resolvedCount: 0, errors: [] };
+  const scopedIds = initialRows.map((row) => row.id);
+  const freshRows = useFreshNormalScope && scopedIds.length > 0
+    ? await readExactCorporateActionImports(api, scopedIds, expectedDatabasePath, shouldContinue)
+    : quickResolved.rows;
+  const stepErrorIds = new Set(
+    quickResolved.errors.flatMap((entry) => (entry.importId == null ? [] : [entry.importId])),
+  );
+  const identityReviewCount = freshRows.filter(
+    (row) => row.reviewStatus === 'PENDING_ISIN_MISMATCH',
+  ).length;
+  const identityHints = await loadNormalIdentityHints(api, freshRows);
+  const recommendedIdentityCount = identityHints.filter(
+    (hint) => hint.recommendedIsinException,
+  ).length;
+  const validatedImportIds = getNormalValidationImportIds(freshRows);
+  const scanRows = await validateNormalSplitBonusRows(api, validatedImportIds, shouldContinue);
+  const returnedScanIds = new Set(
+    scanRows.flatMap((row) =>
+      row.corporateActionImportId == null ? [] : [row.corporateActionImportId],
+    ),
+  );
+  const autoApprovalScopeIds = freshRows
+    .filter(
+      (row) =>
+        row.exchange === 'NSE' &&
+        isSplitOrBonus(row) &&
+        row.parseStatus === 'PARSED' &&
+        row.reviewStatus === 'PENDING' &&
+        returnedScanIds.has(row.id) &&
+        !stepErrorIds.has(row.id),
+    )
+    .map((row) => row.id);
+
+  let autoApproval: CorporateActionAutoApprovalResult | null = null;
+  const autoApprovalReasons: Record<number, string> = {};
+
+  if (autoApproveSplitBonus && autoApprovalScopeIds.length > 0) {
+    if (!expectedDatabasePath.trim()) throw new Error('The reviewed database context is missing.');
+    const aggregate: CorporateActionAutoApprovalResult = {
+      requested: 0,
+      eligible: 0,
+      autoApproved: 0,
+      linkedExisting: 0,
+      alreadyApproved: 0,
+      skipped: 0,
+      failed: 0,
+      dispositions: [],
+      policyVersion: 'AUTO_APPROVAL_SAFE_V2',
+      message: '',
+    };
+
+    for (const batch of chunkCorporateActionApprovalIds(autoApprovalScopeIds)) {
+      assertNormalLoadCurrent(shouldContinue);
+      const batchResult = await api.autoApproveCorporateActionImports({
+        importIds: batch,
+        expectedDatabasePath,
+      });
+      assertNormalLoadCurrent(shouldContinue);
+      aggregate.requested += batchResult.requested;
+      aggregate.eligible += batchResult.eligible;
+      aggregate.autoApproved += batchResult.autoApproved;
+      aggregate.linkedExisting += batchResult.linkedExisting;
+      aggregate.alreadyApproved += batchResult.alreadyApproved;
+      aggregate.skipped += batchResult.skipped;
+      aggregate.failed += batchResult.failed;
+      aggregate.dispositions.push(...batchResult.dispositions);
+      for (const disposition of batchResult.dispositions) {
+        if (disposition.disposition === 'SKIPPED' || disposition.disposition === 'FAILED') {
+          autoApprovalReasons[disposition.importId] = disposition.reason;
+        }
+      }
+    }
+    aggregate.message = `Auto-Approval Safe V2: ${aggregate.autoApproved} approved, ${aggregate.linkedExisting} linked existing, ${aggregate.alreadyApproved} already approved, ${aggregate.skipped} left for review, ${aggregate.failed} failed.`;
+    autoApproval = aggregate;
+  }
+
+  const finalRows = useFreshNormalScope && scopedIds.length > 0
+    ? await readExactCorporateActionImports(api, scopedIds, expectedDatabasePath, shouldContinue)
+    : freshRows;
+
+  return {
+    rows: finalRows,
+    scanRows,
+    identityHints,
+    identityReviewCount,
+    recommendedIdentityCount,
+    validatedImportIds,
+    quickResolvedCount: quickResolved.resolvedCount,
+    autoApproval,
+    autoApprovalReasons,
+    counts: classifyCorporateActionNormalRows(finalRows, scanRows),
+  };
+}
+
+
+async function loadCorporateActionNormalApprovalRecheckData(
+  api: NormalCorporateActionApi,
+): Promise<CorporateActionNormalLoadResult> {
   const rows = await loadAllNormalReviewRows(api);
   const validatedImportIds = getNormalValidationImportIds(rows);
   const scanRows = await validateNormalSplitBonusRows(api, validatedImportIds);
@@ -546,6 +680,9 @@ export async function loadCorporateActionNormalData({
     identityReviewCount,
     recommendedIdentityCount,
     validatedImportIds,
+    quickResolvedCount: 0,
+    autoApproval: null,
+    autoApprovalReasons: {},
     counts: classifyCorporateActionNormalRows(rows, scanRows),
   };
 }
@@ -646,6 +783,7 @@ function reviewEvidenceRows(
   rows: readonly CorporateActionImportRow[],
   scanRows: readonly CorporateActionScanResultRow[],
   eventIdentities: readonly CorporateActionEventIdentity[],
+  backendReasons: Readonly<Record<number, string>>,
 ): CorporateActionNormalReviewEvidenceRow[] {
   const scans = latestScanByImportId(scanRows);
   const identities = buildEventIdentityMap(eventIdentities);
@@ -661,7 +799,10 @@ function reviewEvidenceRows(
       ? classifyCorporateActionValidation(row, scan)
       : 'NOT REQUIRED';
     const status = normalReviewStatus(approvalState, validationLabel);
-    const statusReason = normalReviewStatusReason(row, approvalState, validationLabel);
+    const statusReason =
+      status === 'APPROVED'
+        ? null
+        : backendReasons[row.id] ?? normalReviewStatusReason(row, approvalState, validationLabel);
     const pricePresentation = isSplitOrBonus(row)
       ? getCorporateActionPriceValidationPresentation(scan)
       : null;
@@ -722,13 +863,15 @@ export async function buildCorporateActionNormalReviewData({
   api,
   rows,
   scanRows,
+  backendReasons = {},
 }: {
   api: NormalCorporateActionReviewApi;
   rows: readonly CorporateActionImportRow[];
   scanRows: readonly CorporateActionScanResultRow[];
+  backendReasons?: Readonly<Record<number, string>>;
 }): Promise<CorporateActionNormalReviewResult> {
   const eventIdentities = await loadNormalEventIdentities(api, rows);
-  const evidenceRows = reviewEvidenceRows(rows, scanRows, eventIdentities);
+  const evidenceRows = reviewEvidenceRows(rows, scanRows, eventIdentities, backendReasons);
   const eventModels = buildCorporateActionEconomicEventViewModels(
     economicSourceRows(evidenceRows),
   );
@@ -811,7 +954,7 @@ export async function recheckCorporateActionNormalApprovalData({
   requestedImportIds: readonly number[];
 }): Promise<CorporateActionNormalApprovalRecheckResult> {
   const normalizedRequestedIds = normalizeCorporateActionNormalApprovalIds(requestedImportIds);
-  const loaded = await loadCorporateActionNormalData({ api });
+  const loaded = await loadCorporateActionNormalApprovalRecheckData(api);
   const review = await buildCorporateActionNormalReviewData({
     api,
     rows: loaded.rows,

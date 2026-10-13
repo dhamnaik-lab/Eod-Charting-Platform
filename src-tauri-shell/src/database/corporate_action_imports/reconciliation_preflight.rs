@@ -132,7 +132,7 @@ fn blank_row(id: i64, exists: bool) -> CorporateActionReconciliationPreflightRow
         canonical: R1ACanonical { state: "CANDIDATE_ONLY".into(), linked_id: None, owner_match_candidate_id: None, candidate_ids: vec![], evidence: vec![] },
         price: R1APrice { scan_id: None, scan_run_id: None, scanned_at: None, scan_status: None, confidence: None, expected_factor: None, previous_trade_date: None, ex_trade_date: None, previous_close: None, ex_open: None, ex_close: None, row_fingerprint_check: "NOT_EVALUATED".into(), compound_fingerprint_check: "NOT_EVALUATED".into(), raw_price_revalidation: "NOT_RUN".into() },
         ordinary_readiness: R1AOrdinaryReadiness { state: "NOT_EVALUATED".into(), message: "No writer call is made by this preview.".into() },
-        safe_v1: R1ASafeV1 { policy_version: "AUTO_APPROVAL_SAFE_V1".into(), state: "NOT_EVALUATED".into(), reason: None, evidence: vec![] },
+        safe_v1: R1ASafeV1 { policy_version: "AUTO_APPROVAL_SAFE_V2".into(), state: "NOT_EVALUATED".into(), reason: None, evidence: vec![] },
         blockers: vec![], repair_plan: vec![], outcome: if exists { "EVIDENCE_BLOCKED" } else { "MISSING_IMPORT" }.into(), blocks_in_scope_completeness: None }
 }
 fn empty_result(input: &CorporateActionReconciliationPreflightInput) -> CorporateActionReconciliationPreflightResult {
@@ -340,12 +340,12 @@ fn evaluate_row(c: &Connection, id: i64) -> AppResult<CorporateActionReconciliat
         }
         let candidate=ScanCandidate{import_id:id,symbol:r.identity.event_symbol.clone(),exchange:raw.exchange.clone(),ex_date:raw.ex_date.clone(),factor:raw.factor};
         match load_same_date_split_bonus_compound_context(c,&candidate){
-            Ok(Some(_))=>{if !compound&&!security_review&&!terms_conflict{r.classification.state="SUPPORTED_COMPOUND_REVIEW".into();}r.blockers.push(blocker("UNSUPPORTED_AUTOMATION_SCOPE","POLICY","WARNING","Existing same-date component validation may be supported; Safe V1 compound auto-approval is not authorized.","Preserve existing manual compound-validation workflow"));},
+            Ok(Some(_))=>{if !compound&&!security_review&&!terms_conflict{r.classification.state="SUPPORTED_COMPOUND_REVIEW".into();}r.blockers.push(blocker("UNSUPPORTED_AUTOMATION_SCOPE","POLICY","WARNING","Existing same-date component validation may be supported; Safe V2 compound auto-approval is not authorized.","Preserve existing manual compound-validation workflow"));},
             Ok(None)=>{},Err(e)=>owner_error(&mut r,"OWNER_CHECK_FAILED","PRICE",&e),
         }
         match auto_approval::evaluate_auto_approval_r1(c,id) {
-            Ok(auto_approval::AutoApprovalEligibility::Eligible(e))=>{r.safe_v1.state="ELIGIBLE_AT_READ_SNAPSHOT".into();r.safe_v1.reason=Some("Existing Safe V1 evaluator is eligible at this read snapshot only; not preparation-scope authority or approval.".into());r.safe_v1.evidence.push(evidence("auto_approval::evaluate_auto_approval_r1",&e.identity_proof,Some(checked_id(e.scan_id)?),None));},
-            Ok(auto_approval::AutoApprovalEligibility::Ineligible(reason))=>{r.safe_v1.state="INELIGIBLE".into();r.safe_v1.reason=Some(safe_message(&reason));r.blockers.push(blocker("SAFE_V1_INELIGIBLE","POLICY","INFORMATION",&reason,"Existing Safe V1 policy remains unchanged"));},
+            Ok(auto_approval::AutoApprovalEligibility::Eligible(e))=>{let scan_id=match &e.basis{auto_approval::ActionApprovalBasis::SplitBonusScan{scan_id,..}=>Some(checked_id(*scan_id)?)};r.safe_v1.state="ELIGIBLE_AT_READ_SNAPSHOT".into();r.safe_v1.reason=Some("Existing Safe V2 evaluator is eligible at this read snapshot only; not preparation-scope authority or approval.".into());r.safe_v1.evidence.push(evidence("auto_approval::evaluate_auto_approval_r1",&e.identity_proof,scan_id,None));},
+            Ok(auto_approval::AutoApprovalEligibility::Ineligible(reason))=>{r.safe_v1.state="INELIGIBLE".into();r.safe_v1.reason=Some(safe_message(&reason));r.blockers.push(blocker("SAFE_V1_INELIGIBLE","POLICY","INFORMATION",&reason,"Existing Safe V2 policy is read-only in this preview"));},
             Ok(auto_approval::AutoApprovalEligibility::AlreadyApproved)=>r.safe_v1.state="ALREADY_APPROVED".into(),
             Err(e)=>{r.safe_v1.state="ERROR".into();r.safe_v1.reason=Some(safe_message(&e));owner_error(&mut r,"OWNER_CHECK_FAILED","POLICY",&e);}
         }

@@ -104,7 +104,7 @@ describe('Identity I3 NSE reviewed-preview apply authority', () => {
     expect(historical).toContain('setNseReviewedApplyAuthority(null)');
 
     const manualNseStart = identity.indexOf('value={identityArchiveRoot}');
-    const manualNseEnd = identity.indexOf('placeholder="E:\\TA Projects\\Corporate Actions Raw"', manualNseStart);
+    const manualNseEnd = identity.indexOf('placeholder="Select NSE archive root"', manualNseStart);
     expect(manualNseStart).toBeGreaterThanOrEqual(0);
     expect(manualNseEnd).toBeGreaterThan(manualNseStart);
     expect(identity.slice(manualNseStart, manualNseEnd)).toContain('setNseReviewedApplyAuthority(null)');
@@ -120,4 +120,20 @@ describe('Identity I3 NSE reviewed-preview apply authority', () => {
     expect(dispatch).toContain('await applyCurrentUniverseSync()');
     expect(dispatch).toContain('await applyBseCurrentUniverseSync()');
   });
+
+  it('legacy path cleanup rejects the retired project-root hint in the manual NSE UI', () => {
+    const source = read(DATABASE_TOOLS_PATH);
+    const retiredRoot = ['E:', 'TA Projects', ['Corporate', 'Actions', 'Raw'].join(' ')].join('\\');
+
+    expect(source).not.toContain(retiredRoot);
+    expect(source).toContain('placeholder="Select NSE archive root"');
+  });
+
+  it('legacy path cleanup rejects the retired project-root fixture in NSE backend tests', () => {
+    const backend = read(NSE_BACKEND_PATH);
+
+    const retiredRoot = ['E:', 'TA Projects', ['Corporate', 'Actions', 'Raw'].join(' ')].join('\\');
+    expect(backend).not.toContain(retiredRoot);
+  });
+
 });

@@ -46,6 +46,10 @@ describe('Corporate Action normal Fetch + Load + Review workspace wiring', () =>
       'Review cards and the evidence drawer are intentionally deferred to Task 5D.',
     );
     expect(source).toContain('Approval execution is deliberately deferred to Task 5E.');
+    expect(source).toContain('Auto-approve eligible NSE Split/Bonus with Safe V2 (default OFF)');
+    expect(source).toContain('readCorporateActionSplitBonusAutoApprovalEnabled');
+    expect(source).toContain('autoApproveSplitBonus: splitBonusAutoApprovalEnabled');
+    expect(source).toContain('exceptionCount');
   });
 
   it('keeps Task 5D free of approval and Maintenance-only execution methods', () => {

@@ -5,7 +5,7 @@ use crate::database::binary_eod::{
 use crate::database::{
     emit_database_changed, get_active_database_file_path, get_app_snapshot_internal,
     get_price_storage_mode, invalidate_cached_db_stats, prepare_database_connection,
-    PriceStorageMode, SnapshotOptions,
+    try_acquire_price_store_operation, PriceStorageMode, PriceStoreOperationKind, SnapshotOptions,
 };
 use crate::manual_import_recovery::{
     latest_session_summary, list_session_summaries, prepare_binary_import_session,
@@ -548,6 +548,8 @@ pub async fn import_csv(app: AppHandle, input: ImportOptionsInput) -> AppResult<
         .ok_or_else(|| "Open a database before importing CSV data.".to_string())?;
     let app_handle = app.clone();
     tauri::async_runtime::spawn_blocking(move || {
+        let _price_store_operation_permit =
+            try_acquire_price_store_operation(PriceStoreOperationKind::ManualImport)?;
         let _manual_import_guard = MANUAL_IMPORT_MUTATION_LOCK
             .lock()
             .map_err(|_| "Manual Import mutation lock was poisoned.".to_string())?;
@@ -616,6 +618,8 @@ pub async fn undo_manual_import_recovery(
         .ok_or_else(|| "Open a database before undoing a Manual Import.".to_string())?;
     let app_handle = app.clone();
     tauri::async_runtime::spawn_blocking(move || {
+        let _price_store_operation_permit =
+            try_acquire_price_store_operation(PriceStoreOperationKind::ManualImport)?;
         let _manual_import_guard = MANUAL_IMPORT_MUTATION_LOCK
             .lock()
             .map_err(|_| "Manual Import mutation lock was poisoned.".to_string())?;

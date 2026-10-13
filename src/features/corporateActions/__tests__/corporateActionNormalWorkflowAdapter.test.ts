@@ -1,8 +1,11 @@
 import { describe, expect, it, vi } from 'vitest';
 import type {
+  CorporateActionAutoApprovalResult,
+  CorporateActionImportLookupInput,
   CorporateActionImportResolutionHint,
   CorporateActionImportRow,
   CorporateActionOfficialFetchResult,
+  CorporateActionScanInput,
   CorporateActionScanResultRow,
   DesktopApi,
 } from '@/platform';
@@ -23,6 +26,9 @@ type NormalApi = Pick<
   | 'listCorporateActionScanResults'
   | 'runCorporateActionScan'
   | 'listCorporateActionImportResolutionHints'
+  | 'quickResolveCorporateActionImport'
+  | 'getCorporateActionImportsByIds'
+  | 'autoApproveCorporateActionImports'
 >;
 
 function row(
@@ -127,6 +133,9 @@ function apiBase(): NormalApi {
       hints: [],
       message: '',
     })),
+    quickResolveCorporateActionImport: vi.fn(),
+    getCorporateActionImportsByIds: vi.fn(async () => []),
+    autoApproveCorporateActionImports: vi.fn(),
   };
 }
 
@@ -345,6 +354,7 @@ describe('Corporate Action normal Fetch + Load adapter', () => {
 
     const loaded = reduceCorporateActionNormalWorkflowFacts(loading, {
       type: 'LOAD_SUCCEEDED',
+      exceptionCount: 1,
       readyCount: 7,
     });
     expect(buildCorporateActionWorkflowModel(loaded)).toMatchObject({
@@ -352,4 +362,121 @@ describe('Corporate Action normal Fetch + Load adapter', () => {
       resumeReason: 'REVIEW_REQUIRED',
     });
   });
+
+  it('phase5c_quick_resolves_then_reloads_exact_fresh_scope_before_scan', async () => {
+    const unresolved = row(1, { reviewStatus: 'UNRESOLVED', actionType: 'SPLIT', factor: 2 });
+    const resolved = row(1, { reviewStatus: 'PENDING', actionType: 'SPLIT', factor: 2 });
+    const api = apiBase();
+    api.listCorporateActionImports = vi.fn(async () => [unresolved]);
+    api.listCorporateActionImportResolutionHints = vi.fn(async () => ({
+      requested: 1,
+      hints: [{ importId: 1, status: 'ONE_ACTIVE', quickResolvable: true, activeSuggestionCount: 1, totalSuggestionCount: 1, topSuggestionSymbol: 'SYM1', topSuggestionExchange: 'NSE', recommendedIsinException: false, recommendationReason: null, message: 'Strict' }],
+      message: 'Checked',
+    }));
+    api.quickResolveCorporateActionImport = vi.fn(async () => ({ importRecord: resolved, message: 'Resolved' }));
+    api.getCorporateActionImportsByIds = vi.fn(async () => [resolved]);
+    api.runCorporateActionScan = vi.fn(async () => ({ scanRun: null, results: [scan(resolved, 'MATCHED')] }));
+
+    const result = await loadCorporateActionNormalData({
+      api,
+      expectedDatabasePath: 'E:/test',
+      autoApproveSplitBonus: false,
+    });
+
+    expect(api.quickResolveCorporateActionImport).toHaveBeenCalledWith({ importId: 1 });
+    expect(api.getCorporateActionImportsByIds).toHaveBeenCalledWith({ importIds: [1], expectedDatabasePath: 'E:/test' });
+    expect(api.runCorporateActionScan).toHaveBeenCalledWith({ scope: 'official_imports', importIds: [1] });
+    expect(result.quickResolvedCount).toBe(1);
+    expect(result.autoApproval).toBeNull();
+  });
+
+  it('phase5c_default_off_never_calls_auto_approval_even_for_scoped_split_bonus', async () => {
+    const split = row(1, { actionType: 'SPLIT', factor: 2 });
+    const api = apiBase();
+    api.listCorporateActionImports = vi.fn(async () => [split]);
+    api.getCorporateActionImportsByIds = vi.fn(async () => [split]);
+    api.runCorporateActionScan = vi.fn(async () => ({ scanRun: null, results: [scan(split, 'MATCHED')] }));
+
+    await loadCorporateActionNormalData({ api, expectedDatabasePath: 'E:/test', autoApproveSplitBonus: false });
+
+    expect(api.autoApproveCorporateActionImports).not.toHaveBeenCalled();
+  });
+
+  it('phase5c_enabled_scopes_auto_approval_and_preserves_skipped_backend_reason', async () => {
+    const split = row(1, { actionType: 'SPLIT', factor: 2 });
+    const dividend = row(2, { actionType: 'DIVIDEND' });
+    const bseBonus = row(3, { exchange: 'BSE', actionType: 'BONUS', factor: 2 });
+    const api = apiBase();
+    api.listCorporateActionImports = vi.fn(async () => [split, dividend, bseBonus]);
+    api.getCorporateActionImportsByIds = vi.fn(async () => [split, dividend, bseBonus]);
+    api.runCorporateActionScan = vi.fn(async () => ({ scanRun: null, results: [scan(split, 'MATCHED'), scan(bseBonus, 'MATCHED')] }));
+    api.autoApproveCorporateActionImports = vi.fn(async (): Promise<CorporateActionAutoApprovalResult> => ({
+      requested: 1, eligible: 0, autoApproved: 0, linkedExisting: 0, alreadyApproved: 0,
+      skipped: 1, failed: 0,
+      dispositions: [{ importId: 1, disposition: 'SKIPPED', reason: 'Safe V2 backend reason', importRecord: split, approvedRecord: null }],
+      policyVersion: 'AUTO_APPROVAL_SAFE_V2', message: 'Skipped',
+    }));
+
+    const result = await loadCorporateActionNormalData({ api, expectedDatabasePath: 'E:/test', autoApproveSplitBonus: true });
+
+    expect(api.autoApproveCorporateActionImports).toHaveBeenCalledWith({ importIds: [1], expectedDatabasePath: 'E:/test' });
+    expect(result.autoApprovalReasons).toEqual({ 1: 'Safe V2 backend reason' });
+  });
+
+  it('phase5c_stale_cycle_stops_before_auto_approval', async () => {
+    const split = row(1, { actionType: 'SPLIT', factor: 2 });
+    const api = apiBase();
+    let current = true;
+    api.listCorporateActionImports = vi.fn(async () => [split]);
+    api.getCorporateActionImportsByIds = vi.fn(async () => [split]);
+    api.runCorporateActionScan = vi.fn(async () => {
+      current = false;
+      return { scanRun: null, results: [scan(split, 'MATCHED')] };
+    });
+
+    await expect(loadCorporateActionNormalData({
+      api,
+      expectedDatabasePath: 'E:/test',
+      autoApproveSplitBonus: true,
+      shouldContinue: () => current,
+    })).rejects.toThrow('no longer current');
+    expect(api.autoApproveCorporateActionImports).not.toHaveBeenCalled();
+  });
+
+  it('phase5c_thrown_auto_approval_batch_stops_without_sending_later_batches', async () => {
+    const splits = Array.from({ length: 501 }, (_, index) =>
+      row(index + 1, { actionType: 'SPLIT', factor: 2 }),
+    );
+    const api = apiBase();
+    api.listCorporateActionImports = vi.fn(async () => splits);
+    api.getCorporateActionImportsByIds = vi.fn(async (input: CorporateActionImportLookupInput) =>
+      input.importIds.map((id: number) => splits[id - 1]!),
+    );
+    api.runCorporateActionScan = vi.fn(async (input: CorporateActionScanInput) => ({
+      scanRun: null,
+      results: (input.importIds ?? []).map((id: number) => scan(splits[id - 1]!, 'MATCHED')),
+    }));
+    api.autoApproveCorporateActionImports = vi.fn(async () => {
+      throw new Error('batch failure');
+    });
+
+    await expect(loadCorporateActionNormalData({
+      api,
+      expectedDatabasePath: 'E:/test',
+      autoApproveSplitBonus: true,
+    })).rejects.toThrow('batch failure');
+    expect(api.autoApproveCorporateActionImports).toHaveBeenCalledTimes(1);
+  });
+
+  it('phase5c_reducer_skips_review_only_when_no_exception_event_remains', () => {
+    const initial = createInitialCorporateActionNormalWorkflowFacts();
+    const clean = reduceCorporateActionNormalWorkflowFacts(initial, { type: 'LOAD_SUCCEEDED', readyCount: 0, exceptionCount: 0 });
+    expect(clean).toMatchObject({ hasProcessedBatchPendingReview: false, reviewCheckpointCompleted: true });
+    expect(buildCorporateActionWorkflowModel(clean).resumeReason).toBe('CYCLE_COMPLETE');
+
+    const exception = reduceCorporateActionNormalWorkflowFacts(initial, { type: 'LOAD_SUCCEEDED', readyCount: 1, exceptionCount: 1 });
+    expect(exception).toMatchObject({ hasProcessedBatchPendingReview: true, reviewCheckpointCompleted: false });
+    expect(buildCorporateActionWorkflowModel(exception).resumeReason).toBe('REVIEW_REQUIRED');
+  });
+
 });

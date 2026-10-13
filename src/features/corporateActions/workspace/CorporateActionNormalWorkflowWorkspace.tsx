@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { getDesktopApi } from '@/platform';
 import { getActiveChartTab, useChartStore } from '@/store/chartStore';
 import { indiaIsoDate } from '../corporateActionDate';
@@ -22,6 +22,10 @@ import {
   writeCorporateActionNormalLastFetch,
   type CorporateActionNormalLastFetchRecord,
 } from '../workflow/corporateActionNormalFetchHistory';
+import {
+  readCorporateActionSplitBonusAutoApprovalEnabled,
+  writeCorporateActionSplitBonusAutoApprovalEnabled,
+} from '../workflow/corporateActionAutoApprovalSettings';
 import { CorporateActionApproveWorkspace } from './CorporateActionApproveWorkspace';
 import { CorporateActionReviewWorkspace } from './CorporateActionReviewWorkspace';
 import { CorporateActionWorkspace } from './CorporateActionWorkspace';
@@ -91,12 +95,38 @@ export function CorporateActionNormalWorkflowWorkspace({
   const [fetchLog, setFetchLog] = useState<string[]>([]);
   const [lastSuccessfulFetch, setLastSuccessfulFetch] =
     useState<CorporateActionNormalLastFetchRecord | null>(null);
+  const [splitBonusAutoApprovalEnabled, setSplitBonusAutoApprovalEnabled] = useState(false);
+  const [splitBonusSettingBusy, setSplitBonusSettingBusy] = useState(false);
+  const loadCycleRef = useRef(0);
   const workflow = useMemo(() => buildCorporateActionWorkflowModel(facts), [facts]);
   const readyImportCount = useMemo(() => getCorporateActionNormalReadyImportIds(reviewEvents).length, [reviewEvents]);
 
   useEffect(() => {
     setLastSuccessfulFetch(readCorporateActionNormalLastFetch(activeDatabasePath));
   }, [activeDatabasePath]);
+
+  useEffect(() => {
+    let current = true;
+    if (!api || !activeDatabasePath) {
+      setSplitBonusAutoApprovalEnabled(false);
+      return () => { current = false; };
+    }
+    setSplitBonusSettingBusy(true);
+    void readCorporateActionSplitBonusAutoApprovalEnabled(api)
+      .then((enabled) => {
+        if (current) setSplitBonusAutoApprovalEnabled(enabled);
+      })
+      .catch((settingError) => {
+        if (current) {
+          setSplitBonusAutoApprovalEnabled(false);
+          setError(formatCorporateActionNormalWorkflowError(settingError, 'Could not read Split/Bonus auto-approval setting.'));
+        }
+      })
+      .finally(() => {
+        if (current) setSplitBonusSettingBusy(false);
+      });
+    return () => { current = false; };
+  }, [activeDatabasePath, api]);
 
   useEffect(() => {
     if (!api) {
@@ -209,15 +239,37 @@ export function CorporateActionNormalWorkflowWorkspace({
     }
   };
 
+  const handleSplitBonusAutoApprovalChange = async (enabled: boolean) => {
+    if (!api || !activeDatabasePath) {
+      setError('Open a database before changing Split/Bonus auto-approval.');
+      return;
+    }
+    setSplitBonusSettingBusy(true);
+    setError('');
+    try {
+      await writeCorporateActionSplitBonusAutoApprovalEnabled(api, enabled);
+      setSplitBonusAutoApprovalEnabled(enabled);
+      setMessage(`Split/Bonus Safe V2 automatic approval is ${enabled ? 'ON' : 'OFF'}.`);
+    } catch (settingError) {
+      setError(formatCorporateActionNormalWorkflowError(settingError, 'Could not save Split/Bonus auto-approval setting.'));
+    } finally {
+      setSplitBonusSettingBusy(false);
+    }
+  };
+
   const handleLoad = async () => {
     if (!api) {
       setError('Desktop API bridge is unavailable.');
       return;
     }
-    if (!hasDatabase) {
+    if (!hasDatabase || !activeDatabasePath) {
       setError('Open a database before loading Corporate Actions.');
       return;
     }
+
+    const loadCycle = loadCycleRef.current + 1;
+    loadCycleRef.current = loadCycle;
+    const shouldContinue = () => loadCycleRef.current === loadCycle;
 
     setRunningOperation('load');
     setError('');
@@ -228,25 +280,36 @@ export function CorporateActionNormalWorkflowWorkspace({
     setFacts((current) => reduceCorporateActionNormalWorkflowFacts(current, { type: 'LOAD_STARTED' }));
 
     try {
-      const result = await loadCorporateActionNormalData({ api });
+      const result = await loadCorporateActionNormalData({
+        api,
+        expectedDatabasePath: activeDatabasePath,
+        autoApproveSplitBonus: splitBonusAutoApprovalEnabled,
+        shouldContinue,
+      });
       const review = await buildCorporateActionNormalReviewData({
         api,
         rows: result.rows,
         scanRows: result.scanRows,
+        backendReasons: result.autoApprovalReasons,
       });
       setReviewEvents(review.events);
       setCounts((current) => ({
         ...current,
         ...review.counts,
       }));
+      const exceptionCount = review.events.filter((item) => item.event.status !== 'APPROVED').length;
       setFacts((current) =>
         reduceCorporateActionNormalWorkflowFacts(current, {
           type: 'LOAD_SUCCEEDED',
           readyCount: review.counts.ready,
+          exceptionCount,
         }),
       );
+      const autoSummary = result.autoApproval
+        ? ` Safe V2 approved/linked ${result.autoApproval.autoApproved + result.autoApproval.linkedExisting}; ${result.autoApproval.skipped} skipped; ${result.autoApproval.failed} failed.`
+        : ` Split/Bonus Safe V2 automatic approval is ${splitBonusAutoApprovalEnabled ? 'ON with no scoped candidate' : 'OFF'}.`;
       setMessage(
-        `Load complete. ${result.rows.length} import candidate(s) grouped into ${review.counts.loaded} economic event(s): ${review.counts.ready} Ready, ${review.counts.needsReview} need review, ${review.counts.conflicts} conflict(s). Validated ${result.validatedImportIds.length} Split/Bonus candidate(s) and checked ${result.identityReviewCount} ISIN-review row(s), with ${result.recommendedIdentityCount} strict recommendation(s). Nothing was approved automatically.`,
+        `Load complete. ${result.rows.length} import candidate(s) grouped into ${review.counts.loaded} economic event(s): ${review.counts.ready} Ready, ${review.counts.needsReview} need review, ${review.counts.conflicts} conflict(s), ${exceptionCount} exception event(s). Strict Quick Resolve resolved ${result.quickResolvedCount}. Validated ${result.validatedImportIds.length} Split/Bonus candidate(s).${autoSummary}`,
       );
     } catch (loadError) {
       setFacts((current) => reduceCorporateActionNormalWorkflowFacts(current, { type: 'LOAD_FAILED' }));
@@ -392,19 +455,30 @@ export function CorporateActionNormalWorkflowWorkspace({
 
   if (workflow.currentStage === 'load') {
     stageContent = (
-      <div className="corporate-action-workspace-action-row">
-        <button
-          type="button"
-          className="corporate-action-workspace-primary-action"
-          disabled={!canRun}
-          onClick={() => void handleLoad()}
-        >
-          {runningOperation === 'load' ? 'PROCESSING...' : 'LOAD & PROCESS'}
-        </button>
-        <span>
-          Loads the full review queue, validates eligible Split/Bonus rows, checks strict identity recommendations, and prepares authoritative economic-event Review cards. Ambiguities remain read-only.
-        </span>
-      </div>
+      <>
+        <div className="corporate-action-workspace-action-row">
+          <button
+            type="button"
+            className="corporate-action-workspace-primary-action"
+            disabled={!canRun}
+            onClick={() => void handleLoad()}
+          >
+            {runningOperation === 'load' ? 'PROCESSING...' : 'LOAD & PROCESS'}
+          </button>
+          <span>
+            Strict Quick Resolve → fresh rows → Split/Bonus scan → optional Safe V2 auto-approval → fresh exception-only Review.
+          </span>
+        </div>
+        <label className="corporate-action-workspace-stage-note">
+          <input
+            type="checkbox"
+            checked={splitBonusAutoApprovalEnabled}
+            disabled={!canRun || splitBonusSettingBusy}
+            onChange={(event) => void handleSplitBonusAutoApprovalChange(event.target.checked)}
+          />
+          Auto-approve eligible NSE Split/Bonus with Safe V2 (default OFF)
+        </label>
+      </>
     );
   }
 

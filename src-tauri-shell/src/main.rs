@@ -1163,6 +1163,7 @@ fn main() {
             approve_corporate_action_import_with_price_validation_exception,
             approve_corporate_action_imports,
             auto_approve_corporate_action_imports,
+            evaluate_simple_cash_dividend_prepared_scope,
             approve_recommended_corporate_action_isin_mismatches,
             recheck_corporate_action_imports,
             list_corporate_action_import_resolution_hints,

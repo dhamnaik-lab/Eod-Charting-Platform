@@ -1464,22 +1464,14 @@ fn compute_adjustment_factor(
     input: &CorporateActionInputPayload,
 ) -> AppResult<f64> {
     if action_type == "DIVIDEND" {
-        let cash_amount = require_positive_adjustment_number(
+        return Ok(load_dividend_adjustment_basis(
+            connection,
+            base_path,
+            context,
+            effective_date,
             input.cash_amount,
-            "Dividend cash amount per share",
-        )?;
-        let previous_close =
-            load_previous_trade_close(connection, base_path, context, effective_date)?;
-        if cash_amount >= previous_close {
-            return Err(
-                "Dividend amount must be smaller than the local previous close.".to_string(),
-            );
-        }
-        let ex_basis = previous_close - cash_amount;
-        if ex_basis <= 0.0 {
-            return Err("Dividend adjustment produced a non-positive ex-basis price.".to_string());
-        }
-        return Ok(previous_close / ex_basis);
+        )?
+        .computed_factor);
     }
 
     if action_type == "RIGHTS" {
@@ -1527,6 +1519,57 @@ fn compute_adjustment_factor(
          (num:den) to compute an adjustment factor."
             .to_string(),
     )
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub(super) struct DividendAdjustmentBasis {
+    pub(super) previous_trade_date: String,
+    pub(super) previous_close: f64,
+    pub(super) cash_amount: f64,
+    pub(super) computed_factor: f64,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+struct PreviousTradeCloseBasis {
+    previous_trade_date: String,
+    previous_close: f64,
+}
+
+pub(super) fn load_dividend_adjustment_basis(
+    connection: &Connection,
+    base_path: Option<&Path>,
+    context: &super::ResolvedInstrumentContext,
+    effective_date: &str,
+    cash_amount: Option<f64>,
+) -> AppResult<DividendAdjustmentBasis> {
+    let cash_amount =
+        require_positive_adjustment_number(cash_amount, "Dividend cash amount per share")?;
+    let previous = load_previous_trade_close_basis(connection, base_path, context, effective_date)?;
+    compute_dividend_adjustment_basis_from_values(
+        previous.previous_trade_date,
+        previous.previous_close,
+        cash_amount,
+    )
+}
+
+fn compute_dividend_adjustment_basis_from_values(
+    previous_trade_date: String,
+    previous_close: f64,
+    cash_amount: f64,
+) -> AppResult<DividendAdjustmentBasis> {
+    if cash_amount >= previous_close {
+        return Err("Dividend amount must be smaller than the local previous close.".to_string());
+    }
+    let ex_basis = previous_close - cash_amount;
+    if ex_basis <= 0.0 {
+        return Err("Dividend adjustment produced a non-positive ex-basis price.".to_string());
+    }
+    Ok(DividendAdjustmentBasis {
+        previous_trade_date,
+        previous_close,
+        cash_amount,
+        computed_factor: previous_close / ex_basis,
+    })
 }
 
 fn require_positive_adjustment_number(value: Option<f64>, label: &str) -> AppResult<f64> {
@@ -1609,12 +1652,12 @@ fn build_default_action_note(
     }
 }
 
-fn load_previous_trade_close(
+fn load_previous_trade_close_basis(
     connection: &Connection,
     base_path: Option<&Path>,
     context: &super::ResolvedInstrumentContext,
     effective_date: &str,
-) -> AppResult<f64> {
+) -> AppResult<PreviousTradeCloseBasis> {
     let base_path = base_path.ok_or_else(|| {
         "Price adjustments need the active database folder to load local price history.".to_string()
     })?;
@@ -1628,16 +1671,88 @@ fn load_previous_trade_close(
     rows.into_iter()
         .rev()
         .find(|row| row.date.as_str() < effective_date)
-        .map(|row| row.close)
+        .map(|row| PreviousTradeCloseBasis {
+            previous_trade_date: row.date,
+            previous_close: row.close,
+        })
         .ok_or_else(|| {
             "No local previous trading-day close was found before the effective date.".to_string()
         })
+}
+
+fn load_previous_trade_close(
+    connection: &Connection,
+    base_path: Option<&Path>,
+    context: &super::ResolvedInstrumentContext,
+    effective_date: &str,
+) -> AppResult<f64> {
+    Ok(
+        load_previous_trade_close_basis(connection, base_path, context, effective_date)?
+            .previous_close,
+    )
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::database::prepare_database_connection;
+
+    #[test]
+    fn dividend_basis_shared_seam_preserves_factor_math_and_trade_date() {
+        let basis =
+            compute_dividend_adjustment_basis_from_values("2026-08-13".to_string(), 100.0, 5.0)
+                .unwrap();
+        assert_eq!(basis.previous_trade_date, "2026-08-13");
+        assert_eq!(basis.previous_close, 100.0);
+        assert_eq!(basis.cash_amount, 5.0);
+        assert_eq!(basis.computed_factor, 100.0 / 95.0);
+    }
+
+    #[test]
+    fn dividend_basis_shared_seam_preserves_cash_not_smaller_error() {
+        for cash_amount in [100.0, 101.0] {
+            assert_eq!(
+                compute_dividend_adjustment_basis_from_values(
+                    "2026-08-13".to_string(),
+                    100.0,
+                    cash_amount,
+                )
+                .unwrap_err(),
+                "Dividend amount must be smaller than the local previous close."
+            );
+        }
+    }
+
+    #[test]
+    fn dividend_basis_shared_seam_preserves_nonpositive_previous_close_error_precedence() {
+        for previous_close in [0.0, -1.0] {
+            assert_eq!(
+                compute_dividend_adjustment_basis_from_values(
+                    "2026-08-13".to_string(),
+                    previous_close,
+                    1.0,
+                )
+                .unwrap_err(),
+                "Dividend amount must be smaller than the local previous close."
+            );
+        }
+    }
+
+    #[test]
+    fn dividend_basis_shared_seam_does_not_add_new_nan_validation() {
+        let basis =
+            compute_dividend_adjustment_basis_from_values("2026-08-13".to_string(), f64::NAN, 1.0)
+                .unwrap();
+        assert!(basis.computed_factor.is_nan());
+    }
+
+    #[test]
+    fn dividend_basis_shared_seam_exact_math_has_no_new_rounding() {
+        let basis =
+            compute_dividend_adjustment_basis_from_values("2026-08-13".to_string(), 0.3, 0.1)
+                .unwrap();
+        assert_eq!(basis.computed_factor, 0.3 / (0.3 - 0.1));
+    }
 
     #[test]
     fn phase5a_adjustment_inputs_reject_nonpositive_values() {

@@ -6144,7 +6144,7 @@ mod f2_r2_official_historical_consumption_tests {
     #[test]
     fn f2_r2_manual_historical_archive_root_overrides_managed_root() {
         let managed_root = PathBuf::from("E:\\ActiveDb\\reference-data");
-        let manual_root = PathBuf::from("E:\\TA Projects\\Corporate Actions Raw");
+        let manual_root = PathBuf::from("manual-nse-identity-archive");
         let input = NseHistoricalIdentityPreviewInput {
             archive_root_path: Some(manual_root.display().to_string()),
         };

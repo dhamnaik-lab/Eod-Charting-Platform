@@ -12,6 +12,10 @@ import type {
 } from '@/platform';
 import { getCorporateActionApprovalState, isSplitOrBonus } from '../corporateActionValidation';
 import { chunkCorporateActionApprovalIds } from '../corporateActionBulkApproval';
+import {
+  CORPORATE_ACTION_SPLIT_BONUS_AUTO_APPROVAL_SETTING_KEY,
+  parseCorporateActionSplitBonusAutoApprovalSetting,
+} from '../workflow/corporateActionAutoApprovalSettings';
 
 const APPROVED_VALIDATION_BATCH_SIZE = 500;
 
@@ -119,6 +123,7 @@ type CorporateActionPendingPreparationApi = Pick<
   | 'quickResolveCorporateActionImport'
   | 'runCorporateActionScan'
   | 'autoApproveCorporateActionImports'
+  | 'getSetting'
 >;
 
 export interface PrepareCorporateActionPendingImportsInput {
@@ -248,7 +253,7 @@ export async function loadAllPendingCorporateActionImports({
 }
 
 async function loadResolutionHints(
-  api: CorporateActionPendingPreparationApi,
+  api: Pick<CorporateActionPendingPreparationApi, 'listCorporateActionImportResolutionHints'>,
   importIds: number[],
   stage: CorporateActionPendingPreparationError['stage'],
   shouldContinue: PrepareCorporateActionPendingImportsInput['shouldContinue'],
@@ -289,7 +294,7 @@ async function loadResolutionHints(
   return hints;
 }
 
-function canQuickResolveFromHint(hint: CorporateActionImportResolutionHint | undefined): boolean {
+export function canQuickResolveFromHint(hint: CorporateActionImportResolutionHint | undefined): boolean {
   return Boolean(
     hint?.quickResolvable &&
       hint.status === 'ONE_ACTIVE' &&
@@ -307,6 +312,96 @@ function isValidationTarget(row: CorporateActionImportRow): boolean {
       row.exDate &&
       row.factor != null,
   );
+}
+
+async function readLegacySplitBonusAutoApprovalEnabled(
+  api: Pick<CorporateActionPendingPreparationApi, 'getSetting'>,
+  shouldContinue: PrepareCorporateActionPendingImportsInput['shouldContinue'],
+): Promise<boolean> {
+  assertPreparationCurrent(shouldContinue);
+  try {
+    const value = await api.getSetting(CORPORATE_ACTION_SPLIT_BONUS_AUTO_APPROVAL_SETTING_KEY);
+    assertPreparationCurrent(shouldContinue);
+    return parseCorporateActionSplitBonusAutoApprovalSetting(value);
+  } catch (error) {
+    if (error instanceof CorporateActionPendingPreparationStaleError) throw error;
+    assertPreparationCurrent(shouldContinue);
+    return false;
+  }
+}
+
+export interface StrictQuickResolveCorporateActionRowsResult {
+  rows: CorporateActionImportRow[];
+  resolvedCount: number;
+  errors: CorporateActionPendingPreparationError[];
+}
+
+export async function strictQuickResolveCorporateActionRows(input: {
+  api: Pick<CorporateActionPendingPreparationApi, 'listCorporateActionImportResolutionHints' | 'quickResolveCorporateActionImport'>;
+  rows: readonly CorporateActionImportRow[];
+  shouldContinue?: () => boolean;
+  onProgress?: (progress: CorporateActionPendingPreparationProgress) => void;
+}): Promise<StrictQuickResolveCorporateActionRowsResult> {
+  const rowsById = new Map(input.rows.map((row) => [row.id, row]));
+  const orderedIds = input.rows.map((row) => row.id);
+  const errors: CorporateActionPendingPreparationError[] = [];
+  const unresolvedIds = input.rows
+    .filter((row) => row.reviewStatus === 'UNRESOLVED')
+    .map((row) => row.id);
+
+  emitPreparationProgress(input.onProgress, {
+    stage: 'matching',
+    message: `Checking ${unresolvedIds.length} unresolved row(s) for strict automatic matching...`,
+    completed: 0,
+    total: unresolvedIds.length,
+  });
+  const unresolvedHints = await loadResolutionHints(
+    input.api,
+    unresolvedIds,
+    'matching',
+    input.shouldContinue,
+    errors,
+    input.onProgress,
+  );
+  let resolvedCount = 0;
+  let resolutionAttempts = 0;
+  const resolvableIds = unresolvedIds.filter((id) => canQuickResolveFromHint(unresolvedHints[id]));
+
+  for (const importId of resolvableIds) {
+    emitPreparationProgress(input.onProgress, {
+      stage: 'resolving',
+      completed: resolutionAttempts,
+      total: resolvableIds.length,
+      message: `Strict automatic matching: ${resolutionAttempts}/${resolvableIds.length} checked; ${resolvedCount} resolved.`,
+    });
+    assertPreparationCurrent(input.shouldContinue);
+    try {
+      const result = await input.api.quickResolveCorporateActionImport({ importId });
+      assertPreparationCurrent(input.shouldContinue);
+      rowsById.set(importId, result.importRecord);
+      resolvedCount += 1;
+    } catch (error) {
+      if (error instanceof CorporateActionPendingPreparationStaleError) throw error;
+      errors.push({
+        importId,
+        stage: 'matching',
+        message: error instanceof Error ? error.message : 'Strict automatic matching failed.',
+      });
+    }
+    resolutionAttempts += 1;
+    emitPreparationProgress(input.onProgress, {
+      stage: 'resolving',
+      completed: resolutionAttempts,
+      total: resolvableIds.length,
+      message: `Strict automatic matching: ${resolutionAttempts}/${resolvableIds.length} checked; ${resolvedCount} resolved.`,
+    });
+  }
+
+  return {
+    rows: orderedIds.map((id) => rowsById.get(id)!).filter(Boolean),
+    resolvedCount,
+    errors,
+  };
 }
 
 export async function prepareCorporateActionPendingImports({
@@ -334,42 +429,14 @@ export async function prepareCorporateActionPendingImports({
     };
   }
 
-  const unresolvedIds = loaded.rows.filter((row) => row.reviewStatus === 'UNRESOLVED').map((row) => row.id);
-  emitPreparationProgress(onProgress, {
-    stage: 'matching',
-    message: `Checking ${unresolvedIds.length} unresolved row(s) for strict automatic matching...`,
-    completed: 0,
-    total: unresolvedIds.length,
+  const quickResolved = await strictQuickResolveCorporateActionRows({
+    api,
+    rows: loaded.rows,
+    shouldContinue,
+    onProgress,
   });
-  const unresolvedHints = await loadResolutionHints(api, unresolvedIds, 'matching', shouldContinue, errors, onProgress);
-  let resolvedCount = 0;
-  let resolutionAttempts = 0;
-  const resolvableIds = unresolvedIds.filter((id) => canQuickResolveFromHint(unresolvedHints[id]));
-  for (const importId of resolvableIds) {
-    emitPreparationProgress(onProgress, {
-      stage: 'resolving', completed: resolutionAttempts, total: resolvableIds.length,
-      message: `Strict automatic matching: ${resolutionAttempts}/${resolvableIds.length} checked; ${resolvedCount} resolved.`,
-    });
-    assertPreparationCurrent(shouldContinue);
-    try {
-      const result = await api.quickResolveCorporateActionImport({ importId });
-      assertPreparationCurrent(shouldContinue);
-      rowsById.set(importId, result.importRecord);
-      resolvedCount += 1;
-    } catch (error) {
-      if (error instanceof CorporateActionPendingPreparationStaleError) throw error;
-      errors.push({
-        importId,
-        stage: 'matching',
-        message: error instanceof Error ? error.message : 'Strict automatic matching failed.',
-      });
-    }
-    resolutionAttempts += 1;
-    emitPreparationProgress(onProgress, {
-      stage: 'resolving', completed: resolutionAttempts, total: resolvableIds.length,
-      message: `Strict automatic matching: ${resolutionAttempts}/${resolvableIds.length} checked; ${resolvedCount} resolved.`,
-    });
-  }
+  errors.push(...quickResolved.errors);
+  for (const row of quickResolved.rows) rowsById.set(row.id, row);
 
   const refreshedRows = orderedIds.map((id) => rowsById.get(id)!).filter(Boolean);
   const identityReviewIds = refreshedRows
@@ -416,19 +483,23 @@ export async function prepareCorporateActionPendingImports({
     validationRows.flatMap((row) => (row.corporateActionImportId == null ? [] : [row.corporateActionImportId])),
   );
   const autoApprovalScopeIds = validationIds.filter((id) => validatedIds.has(id) && !rowErrorIds.has(id));
+  const splitBonusAutoApprovalEnabled =
+    autoApprovalScopeIds.length > 0
+      ? await readLegacySplitBonusAutoApprovalEnabled(api, shouldContinue)
+      : false;
   let autoApproval: CorporateActionAutoApprovalResult | null = null;
-  if (autoApprovalScopeIds.length > 0) {
+  if (splitBonusAutoApprovalEnabled && autoApprovalScopeIds.length > 0) {
     if (!expectedDatabasePath.trim()) throw new Error('The reviewed database context is missing.');
     const aggregate: CorporateActionAutoApprovalResult = {
       requested: 0, eligible: 0, autoApproved: 0, linkedExisting: 0, alreadyApproved: 0,
-      skipped: 0, failed: 0, dispositions: [], policyVersion: 'AUTO_APPROVAL_SAFE_V1', message: '',
+      skipped: 0, failed: 0, dispositions: [], policyVersion: 'AUTO_APPROVAL_SAFE_V2', message: '',
     };
     let processed = 0;
     for (const batch of chunkCorporateActionApprovalIds(autoApprovalScopeIds)) {
       assertPreparationCurrent(shouldContinue);
       emitPreparationProgress(onProgress, {
         stage: 'auto-approving', completed: processed, total: autoApprovalScopeIds.length,
-        message: `Auto-Approval Safe V1: ${processed}/${autoApprovalScopeIds.length} strong Split/Bonus candidates checked.`,
+        message: `Auto-Approval Safe V2: ${processed}/${autoApprovalScopeIds.length} strong Split/Bonus candidates checked.`,
       });
       try {
         const batchResult = await api.autoApproveCorporateActionImports({ importIds: batch, expectedDatabasePath });
@@ -450,7 +521,7 @@ export async function prepareCorporateActionPendingImports({
         }
       } catch (error) {
         if (error instanceof CorporateActionPendingPreparationStaleError) throw error;
-        const message = error instanceof Error ? error.message : 'Auto-Approval Safe V1 failed.';
+        const message = error instanceof Error ? error.message : 'Auto-Approval Safe V2 failed.';
         for (const importId of batch) {
           errors.push({ importId, stage: 'auto-approving', message });
           rowErrorIds.add(importId);
@@ -459,20 +530,23 @@ export async function prepareCorporateActionPendingImports({
       }
       processed += batch.length;
     }
-    aggregate.message = `Auto-Approval Safe V1: ${aggregate.autoApproved} approved, ${aggregate.linkedExisting} linked existing, ${aggregate.alreadyApproved} already approved, ${aggregate.skipped} left for manual review, ${aggregate.failed} failed.`;
+    aggregate.message = `Auto-Approval Safe V2: ${aggregate.autoApproved} approved, ${aggregate.linkedExisting} linked existing, ${aggregate.alreadyApproved} already approved, ${aggregate.skipped} left for manual review, ${aggregate.failed} failed.`;
     autoApproval = aggregate;
   }
 
   const finalRows = orderedIds.map((id) => rowsById.get(id)!).filter(Boolean);
   const blockedCount = rowErrorIds.size;
+  const autoApprovedCount = autoApproval ? autoApproval.autoApproved + autoApproval.linkedExisting : 0;
+  const autoApprovalSummary = splitBonusAutoApprovalEnabled
+    ? `Auto-Approval Safe V2 approved/linked ${autoApprovedCount}`
+    : 'Split/Bonus Safe V2 automatic approval is OFF';
   emitPreparationProgress(onProgress, {
     stage: 'complete',
-    message: `Prepared ${finalRows.length} row(s) from the pending queue; Auto-Approval Safe V1 approved/linked ${autoApproval ? autoApproval.autoApproved + autoApproval.linkedExisting : 0}; ${blockedCount} row(s) could not be fully checked.`,
+    message: `Prepared ${finalRows.length} row(s) from the pending queue; ${autoApprovalSummary}; ${blockedCount} row(s) could not be fully checked.`,
     completed: finalRows.length,
     total: finalRows.length,
   });
 
-  const autoApprovedCount = autoApproval ? autoApproval.autoApproved + autoApproval.linkedExisting : 0;
   return {
     rows: finalRows,
     validationRows,
@@ -483,8 +557,8 @@ export async function prepareCorporateActionPendingImports({
     complete: true,
     message:
       blockedCount > 0
-        ? `Prepared ${finalRows.length} row(s) from the pending queue. Auto-Approval Safe V1 approved/linked ${autoApprovedCount}. ${blockedCount} row(s) are blocked because a required check failed.`
-        : `Prepared ${finalRows.length} row(s) from the pending queue. Auto-Approval Safe V1 approved/linked ${autoApprovedCount}; review the remaining actions and use the existing manual Apply controls where appropriate.`,
+        ? `Prepared ${finalRows.length} row(s) from the pending queue. ${autoApprovalSummary}. ${blockedCount} row(s) are blocked because a required check failed.`
+        : `Prepared ${finalRows.length} row(s) from the pending queue. ${autoApprovalSummary}; review the remaining actions and use the existing manual Apply controls where appropriate.`,
   };
 }
 
@@ -506,7 +580,7 @@ function checkedExactIds(ids: number[]): number[] {
 }
 
 /** One bounded read for each exact set of IDs; never falls back to queue enumeration. */
-async function readExactCorporateActionImports(
+export async function readExactCorporateActionImports(
   api: ExactImportApi, importIds: number[], expectedDatabasePath: string,
   shouldContinue: (() => boolean) | undefined,
   onBatch?: (completed: number, total: number) => void,
