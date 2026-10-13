@@ -1,5 +1,33 @@
 # Current Handoff
 
+<!-- CORPORATE-ACTIONS-CHECKPOINT-2026-10-13:BEGIN -->
+## Completed — Corporate Actions Safe V2 Split/Bonus, Shared Operation Lock & Dividend Prepared Scope Checkpoint (2026-10-13 23:58 IST)
+
+**Classification:** `GIT_CHECKPOINT__VALIDATION_PASSED`  
+**Commit:** `0cd6917`  
+**Checkpoint Tag:** `checkpoint-corporate-actions-safe-v2-complete`  
+**Scope:** Reconciled, audited, validated, and committed all pending Corporate Actions backend and frontend work spanning Phase 5A–5E, Simple Cash Dividend prepared scope, transaction owner, and shared price store operation lock.
+
+### Summary of Staged & Committed Scope:
+- **Rust Backend**:
+  - `price_store_operation_lock.rs`: Non-reentrant mutual exclusion across Bhavcopy writes, manual imports, quote mutations, and corporate actions.
+  - `auto_approval.rs`: Safe V2 empirical scan evaluation ($\ge 0.95$ confidence), policy executor, and simple cash dividend write stage.
+  - `simple_cash_dividend_evidence.rs` & `simple_cash_dividend_transaction_owner_tests.rs`: Defensive single-purpose grammar classifier, previous close basis validation, and transaction rollback ownership.
+  - `corporate_action_imports.rs`: Integration of auto-approval pipelines, identity repairs, and reconciliation preflight.
+- **Frontend / Renderer**:
+  - `CorporateActionNormalWorkflowWorkspace.tsx`: Safe V2 opt-in settings toggle, load-and-process workflow, and exception-focused review cards.
+  - `corporateActionDividendPreparedScope.ts` & orchestration: Cryptographic prepared scope builder with SHA-256 fingerprinting.
+  - `corporateActionImportOperations.ts` & adapter: Safe chunked batching for validation scans and review hydration.
+- **Validation Passed**:
+  - `npm run typecheck:renderer`: PASS (0 errors)
+  - `npm run test -- corporateAction`: PASS (51 test files, 363/363 unit tests)
+  - `cargo test auto_approval`: PASS (90/90 tests)
+  - `cargo test simple_cash_dividend`: PASS (59/59 tests)
+  - `cargo test price_store_operation_lock`: PASS (3/3 tests)
+  - `npm run tauri:check`: PASS (0 errors)
+<!-- CORPORATE-ACTIONS-CHECKPOINT-2026-10-13:END -->
+
+
 <!-- UI-MODERNIZATION-CHECKPOINT-2026-10-13:BEGIN -->
 ## Completed — UI Modernization, Dedicated Symbol Search, Color Toolbox & Ergonomics Commit (2026-10-13 23:25 IST)
 
