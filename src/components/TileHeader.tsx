@@ -13,7 +13,9 @@ export function TileHeader({ tab, isActive = false }: TileHeaderProps) {
   const bar = hoverBar ?? latestBar;
   const symbol = tab.instrument?.symbol ?? '---';
   const exchange = tab.instrument?.exchange ?? '--';
-  const referenceClose = bar?.prevClose ?? bar?.open ?? null;
+  const missingIndexReference = exchange === 'NSE_INDEX'
+    && (bar?.prevClose == null || !Number.isFinite(bar.prevClose) || bar.prevClose <= 0);
+  const referenceClose = missingIndexReference ? null : bar?.prevClose ?? bar?.open ?? null;
   const priceLabel = bar ? bar.close.toFixed(2) : '--';
   const change = bar && referenceClose !== null ? bar.close - referenceClose : null;
   const changePct =
@@ -30,8 +32,8 @@ export function TileHeader({ tab, isActive = false }: TileHeaderProps) {
 
       <div style={{ ...tileGroupStyle, ...tilePriceGroupStyle }}>
         <span style={tilePriceStyle}>{priceLabel}</span>
-        <span style={tileChangeStyle(isUp)}>
-          {change === null ? '--' : `${formatSigned(change)} (${formatSigned(changePct ?? 0)}%)`}
+        <span style={change === null ? { ...tileChangeStyle(isUp), color: 'var(--text-dim)' } : tileChangeStyle(isUp)}>
+          {change === null ? (bar && missingIndexReference ? 'Change unavailable' : '--') : `${formatSigned(change)} (${formatSigned(changePct ?? 0)}%)`}
         </span>
       </div>
     </div>

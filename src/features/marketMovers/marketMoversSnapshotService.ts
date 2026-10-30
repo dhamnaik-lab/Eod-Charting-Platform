@@ -124,7 +124,7 @@ export async function buildMarketMoversSnapshot(
   let filteredOutSymbolCount = 0;
 
   for (let index = 0; index < usable.length; index += 1) {
-    if (index % 128 === 0) {
+    if (index % 512 === 0) {
       await new Promise<void>((resolve) => setTimeout(resolve, 0));
     }
     if (shouldCancel?.()) throw new Error('Market movers snapshot calculation cancelled.');

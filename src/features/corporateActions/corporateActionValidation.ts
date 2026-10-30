@@ -1,4 +1,5 @@
 import type { CorporateActionImportRow, CorporateActionScanResultRow } from '@/platform';
+import { indiaIsoDate } from './corporateActionDate';
 
 export type CorporateActionIdentityLabel = 'MATCHED' | 'MATCH REQUIRED' | 'ISIN REVIEW REQUIRED' | 'REVIEW REQUIRED';
 export type CorporateActionPriceValidationLabel =
@@ -169,4 +170,33 @@ export function formatCorporateActionDescription(row: CorporateActionImportRow):
 
 function formatRatioNumber(value: number): string {
   return Number.isInteger(value) ? value.toFixed(0) : value.toFixed(4).replace(/0+$/, '').replace(/\.$/, '');
+}
+
+/** Normal three-step CA workflow's stricter local-EOD admission policy.
+ *  Existing maintenance and historical reports retain getCorporateActionApprovalState().
+ *  A scan is a readiness observation only: an ordinary approval rechecks the EOD
+ *  window in Rust immediately before writing. No UI state grants write authority.
+ */
+export function getCorporateActionNormalApprovalState(
+  row: CorporateActionImportRow,
+  scan: CorporateActionScanResultRow | null | undefined,
+  today = indiaIsoDate(),
+): CorporateActionApprovalState | 'SCHEDULED / UPCOMING' | 'WAITING FOR EOD DATA' {
+  const base = getCorporateActionApprovalState(row, scan);
+  if (base === 'APPROVED' || base === 'MATCH REQUIRED' ||
+      base === 'ISIN REVIEW REQUIRED' || base === 'NOT APPROVABLE') return base;
+  if (!row.exDate) return 'NEEDS REVIEW';
+  if (row.exDate > today) return 'SCHEDULED / UPCOMING';
+  if (!scan || scan.corporateActionImportId !== row.id ||
+      scan.symbol !== row.symbol || scan.exchange !== row.exchange ||
+      !scan.prevTradeDate || scan.prevTradeDate >= row.exDate ||
+      !scan.exTradeDate || scan.exTradeDate < row.exDate || scan.exTradeDate > today ||
+      scan.prevClose == null || !Number.isFinite(scan.prevClose) || scan.prevClose <= 0 ||
+      scan.exClose == null || !Number.isFinite(scan.exClose) || scan.exClose <= 0) {
+    return 'WAITING FOR EOD DATA';
+  }
+  if (isSplitOrBonus(row)) return base;
+  // For dividends/rights the observed ex-date price drop need not match the
+  // theoretical factor exactly. It establishes data availability, not terms.
+  return base;
 }

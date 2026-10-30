@@ -1,11 +1,13 @@
 import type { ChartIndicator, OHLCBar, OverlayIndicator } from '@/engine/types';
-import type {
-  IndicatorBuilder,
-  IndicatorSources,
-  RenderableIndicatorBundle,
-  RenderableOverlay,
-  RenderablePane,
+import {
+  buildLineSeries,
+  type IndicatorBuilder,
+  type IndicatorSources,
+  type RenderableIndicatorBundle,
+  type RenderableOverlay,
+  type RenderablePane,
 } from './base';
+import { pluginHost } from '@/plugins/hostRuntime';
 
 // Moving Averages
 import { buildSMA } from './standard/moving-averages/sma';
@@ -296,21 +298,49 @@ export function getIndicatorSetSignature(indicators: OverlayIndicator[]): string
   return stableSerialize(indicators);
 }
 
-function getBarSignature(bar: OHLCBar | undefined): string {
-  if (!bar) return 'none';
-  return [
-    bar.date,
-    bar.timestamp,
-    bar.open,
-    bar.high,
-    bar.low,
-    bar.close,
-    bar.volume,
-  ].join(':');
+function mixNumberHash(hash: number, value: number): number {
+  const scaled = Number.isFinite(value) ? Math.round(value * 10000) : 0;
+  const low = scaled | 0;
+  const high = Math.floor(scaled / 4294967296) | 0;
+  let h = Math.imul(hash ^ low, 16777619);
+  h = Math.imul(h ^ high, 16777619);
+  return h >>> 0;
 }
 
 function getBarsMutationSignature(bars: OHLCBar[]): string {
-  return `${bars.length}:${getBarSignature(bars[0])}:${getBarSignature(bars[bars.length - 1])}`;
+  const len = bars.length;
+  if (len === 0) return '0:empty';
+  let h1 = 2166136261 >>> 0;
+  for (let i = 0; i < len; i += 1) {
+    const b = bars[i];
+    h1 = mixNumberHash(h1, b.timestamp);
+    h1 = mixNumberHash(h1, b.open);
+    h1 = mixNumberHash(h1, b.high);
+    h1 = mixNumberHash(h1, b.low);
+    h1 = mixNumberHash(h1, b.close);
+    h1 = mixNumberHash(h1, b.volume);
+  }
+  const first = bars[0];
+  const last = bars[len - 1];
+  return [len, first.date, last.date, last.close, h1.toString(16)].join(':');
+}
+
+export function getChainedIndicatorCacheKey(
+  indicator: OverlayIndicator,
+  byId: Map<string, OverlayIndicator>,
+  visited = new Set<string>(),
+): string {
+  const selfSig = getIndicatorSettingsSignature(indicator);
+  const srcId = indicator.sourceIndicatorId;
+  if (!srcId || visited.has(indicator.id)) {
+    return selfSig;
+  }
+  visited.add(indicator.id);
+  const upstream = byId.get(srcId);
+  if (!upstream) {
+    return selfSig + '::missing:' + srcId;
+  }
+  return selfSig + '::src:' + getChainedIndicatorCacheKey(upstream, byId, visited);
 }
 
 export function getIndicatorCacheBucket(
@@ -321,11 +351,8 @@ export function getIndicatorCacheBucket(
   const indicatorSetSignature = getIndicatorSetSignature(indicators);
   const existing = indicatorCache.get(bars);
 
-  if (
-    existing &&
-    existing.dataSignature === dataSignature &&
-    existing.indicatorSetSignature === indicatorSetSignature
-  ) {
+  if (existing && existing.dataSignature === dataSignature) {
+    existing.indicatorSetSignature = indicatorSetSignature;
     return existing;
   }
 
@@ -350,7 +377,30 @@ export function buildRenderableIndicator(
 
   const builder = INDICATOR_REGISTRY[indicator.kind as ChartIndicator['kind']];
   if (!builder) {
-    return null;
+    const dynInd = pluginHost
+      .listRegisteredIndicators()
+      .find((item) => item.id === (indicator.kind as string) || item.id === indicator.id);
+    if (!dynInd) return null;
+    try {
+      const rawInputs: Record<string, number | string | boolean> = {};
+      if (dynInd.inputs) {
+        for (const [k, schema] of Object.entries(dynInd.inputs)) {
+          const val = (indicator as Record<string, unknown>)[k];
+          rawInputs[k] = typeof val === 'number' || typeof val === 'string' || typeof val === 'boolean' ? val : schema.default;
+        }
+      }
+      const computed = dynInd.calculate(bars, rawInputs);
+      const lines = dynInd.plots
+        .filter((p) => p.type === 'line')
+        .map((p) => buildLineSeries(p.key, p.label, computed[p.key] ?? [], bars.length, p.color, 1.8));
+      return {
+        indicator,
+        title: dynInd.shortLabel || dynInd.name,
+        lines,
+      };
+    } catch {
+      return null;
+    }
   }
 
   try {
@@ -370,9 +420,10 @@ export function buildRenderableIndicators(
   }
 
   const cacheBucket = getIndicatorCacheBucket(bars, indicators);
+  const byId = new Map<string, OverlayIndicator>(indicators.map((ind) => [ind.id, ind]));
 
   const needsHydration = visibleIndicators.some(
-    (indicator) => !cacheBucket.renderables.has(getIndicatorSettingsSignature(indicator)),
+    (indicator) => !cacheBucket.renderables.has(getChainedIndicatorCacheKey(indicator, byId)),
   );
 
   const sources: IndicatorSources = needsHydration
@@ -392,7 +443,7 @@ export function buildRenderableIndicators(
         return bundle;
       }
 
-      const cacheKey = getIndicatorSettingsSignature(indicator);
+      const cacheKey = getChainedIndicatorCacheKey(indicator, byId);
       let renderable = cacheBucket.renderables.get(cacheKey);
 
       if (!renderable) {

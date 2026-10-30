@@ -51,6 +51,7 @@ interface ChartTabSessionControllerDeps {
   resetChartInteractionUi: () => void;
   hydrateChartTabData: (tabId: string) => Promise<void>;
   setAutosaveSignature: (signature: string) => void;
+  onAdjustedModeLoaded?: (adjusted: boolean) => void;
 }
 
 function updateActiveTab(
@@ -67,6 +68,7 @@ function updateActiveTab(
 export function createChartTabSessionController(
   deps: ChartTabSessionControllerDeps,
 ): ChartTabSessionController {
+  let priceModeHydrationRevision = 0;
   const queueTabHydration = (tabId: string) => {
     queueMicrotask(() => {
       void deps.hydrateChartTabData(tabId);
@@ -83,12 +85,38 @@ export function createChartTabSessionController(
     });
   };
 
-  const rehydrateInstrumentTabs = () => {
-    const tabsToHydrate = deps
-      .getState()
+  const rehydrateInstrumentTabs = (onLoaded?: () => void) => {
+    const revision = ++priceModeHydrationRevision;
+    const requested = deps.getState();
+    const isCurrent = () => {
+      const state = deps.getState();
+      return revision === priceModeHydrationRevision
+        && state.snapshot?.activeDatabasePath === requested.snapshot?.activeDatabasePath
+        && state.adjustedMode === requested.adjustedMode
+        && state.includeDividendAdjustments === requested.includeDividendAdjustments
+        && state.includeRightsAdjustments === requested.includeRightsAdjustments;
+    };
+    const tabsToHydrate = requested
       .chartTabs.filter((tab) => tab.requestedInstrument ?? tab.instrument)
+      .sort((left, right) => Number(right.id === requested.activeChartTabId) - Number(left.id === requested.activeChartTabId))
       .map((tab) => tab.id);
-    queueSequentialTabHydration(tabsToHydrate);
+    queueMicrotask(() => {
+      void (async () => {
+        for (const tabId of tabsToHydrate) {
+          if (!isCurrent()) return;
+          const state = deps.getState();
+          const tab = state.chartTabs.find((candidate) => candidate.id === tabId);
+          if (tab && shouldHydrateChartTab(tab, state.adjustedMode, state.includeDividendAdjustments, state.includeRightsAdjustments)) {
+            await deps.hydrateChartTabData(tabId);
+          }
+        }
+        if (!isCurrent()) return;
+        const state = deps.getState();
+        const loaded = state.chartTabs.filter((tab) => tab.requestedInstrument ?? tab.instrument)
+          .every((tab) => !shouldHydrateChartTab(tab, state.adjustedMode, state.includeDividendAdjustments, state.includeRightsAdjustments));
+        if (loaded) onLoaded?.();
+      })();
+    });
   };
 
   return {
@@ -156,7 +184,7 @@ export function createChartTabSessionController(
           // Keep live chart mode responsive even if the background default save fails.
         });
       }
-      rehydrateInstrumentTabs();
+      rehydrateInstrumentTabs(() => deps.onAdjustedModeLoaded?.(adjusted));
     },
     setIncludeDividendAdjustments: (enabled) => {
       if (deps.getState().includeDividendAdjustments === enabled) {

@@ -15,6 +15,7 @@ export const CORPORATE_ACTION_DIVIDEND_PREPARED_SCOPE_BATCH_SIZE = 100;
 
 export interface CorporateActionDividendPreparedScopeAggregateResult {
   requested: number;
+  reusedCount?: number;
   eligible: number;
   ineligible: number;
   alreadyApproved: number;
@@ -46,6 +47,8 @@ export interface EvaluateCorporateActionDividendPreparedScopeInput {
   getCurrentGeneration: () => number;
   getCurrentDatabasePath: () => string | null;
   isCancelled: () => boolean;
+  /** Read-only display progress; no change to eligibility or approval authority. */
+  onBatchProgress?: (completedBatchCount: number, batchCount: number) => void;
 }
 
 export type EvaluateCorporateActionDividendPreparedScopeResult =
@@ -91,6 +94,10 @@ function protocolFailure(
   if (result.requested !== batch.length) {
     return `Dividend prepared-scope requested-count mismatch: ${result.requested}/${batch.length}.`;
   }
+  if (result.reusedCount !== undefined && (!Number.isInteger(result.reusedCount)
+    || result.reusedCount < 0 || result.reusedCount > batch.length)) {
+    return 'Dividend prepared-scope reused-count mismatch.';
+  }
   if (result.dispositions.length !== batch.length) {
     return `Dividend prepared-scope disposition-count mismatch: ${result.dispositions.length}/${batch.length}.`;
   }
@@ -109,6 +116,7 @@ function protocolFailure(
 function emptyAggregate(scope: CorporateActionDividendPreparedScope, batchCount: number): CorporateActionDividendPreparedScopeAggregateResult {
   return {
     requested: scope.importIds.length,
+    reusedCount: 0,
     eligible: 0,
     ineligible: 0,
     alreadyApproved: 0,
@@ -156,6 +164,7 @@ export async function evaluateCorporateActionDividendPreparedScopeBatches(
 
   const batches = chunkIds(scope.importIds);
   const aggregate = emptyAggregate(scope, batches.length);
+  input.onBatchProgress?.(0, batches.length);
 
   for (const batch of batches) {
     if (!isCurrent(scope, input)) return { status: 'STALE' };
@@ -194,6 +203,7 @@ export async function evaluateCorporateActionDividendPreparedScopeBatches(
     }
 
     aggregate.eligible += batchResult.eligible;
+    aggregate.reusedCount = (aggregate.reusedCount ?? 0) + (batchResult.reusedCount ?? 0);
     aggregate.ineligible += batchResult.ineligible;
     aggregate.alreadyApproved += batchResult.alreadyApproved;
     aggregate.staleScope += batchResult.staleScope;
@@ -201,6 +211,7 @@ export async function evaluateCorporateActionDividendPreparedScopeBatches(
     aggregate.failed += batchResult.failed;
     aggregate.dispositions.push(...batchResult.dispositions);
     aggregate.completedBatchCount += 1;
+    input.onBatchProgress?.(aggregate.completedBatchCount, batches.length);
 
     if (!batchResult.complete) {
       aggregate.operationalError = batchResult.message || 'Dividend prepared-scope batch was incomplete.';

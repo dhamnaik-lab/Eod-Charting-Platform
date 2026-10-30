@@ -160,4 +160,63 @@ describe('PluginHost lifecycle and sandboxing', () => {
     expect(logs.some((l) => l.level === 'info' && l.message.includes('Logger is ready'))).toBe(true);
     expect(logs.some((l) => l.level === 'warn' && l.message.includes('Low memory'))).toBe(true);
   });
+
+  it('supports EodPlugin onload/onunload and auto-disposes registered overlays, indicators, scanners, and panels on stop', async () => {
+    const unloadSpy = vi.fn();
+    const customPlugin: RegisteredPlugin = {
+      manifest: {
+        id: 'external.custom-pack',
+        name: 'External Custom Pack',
+        version: '1.0.0',
+        type: 'indicator',
+        status: 'external',
+        description: 'Dynamic EodPlugin test',
+        capabilities: ['chart:draw', 'indicator:register'],
+      },
+      externalLoadingSupported: true,
+      defaultEnabled: true,
+      instance: {
+        onload(ctx) {
+          ctx.registerChartOverlay({
+            id: 'ov-1',
+            name: 'Overlay 1',
+            render: () => {},
+          });
+          ctx.registerIndicator({
+            id: 'ind-1',
+            name: 'Indicator 1',
+            placement: 'overlay',
+            plots: [{ key: 'p1', label: 'Plot 1', type: 'line', color: '#00E676' }],
+            calculate: () => ({ p1: [] }),
+          });
+          ctx.registerScanner({
+            id: 'scan-1',
+            name: 'Scanner 1',
+            evaluate: () => null,
+          });
+          ctx.registerPanel({
+            id: 'panel-1',
+            title: 'Panel 1',
+            location: 'settings',
+          });
+        },
+        onunload: unloadSpy,
+      },
+    };
+
+    const host = new PluginHost([customPlugin]);
+    await host.startPlugin('external.custom-pack');
+
+    expect(host.listChartOverlays()).toHaveLength(1);
+    expect(host.listRegisteredIndicators()).toHaveLength(1);
+    expect(host.listRegisteredScanners()).toHaveLength(1);
+    expect(host.listRegisteredPanels()).toHaveLength(1);
+
+    await host.stopPlugin('external.custom-pack');
+    expect(unloadSpy).toHaveBeenCalledTimes(1);
+    expect(host.listChartOverlays()).toHaveLength(0);
+    expect(host.listRegisteredIndicators()).toHaveLength(0);
+    expect(host.listRegisteredScanners()).toHaveLength(0);
+    expect(host.listRegisteredPanels()).toHaveLength(0);
+  });
 });

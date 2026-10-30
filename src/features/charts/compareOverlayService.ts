@@ -3,6 +3,8 @@ import type { ChartCompareOverlay, ChartType, PersistedCompareOverlay, RenkoSett
 import type { EodDataResult, InstrumentKey } from '@/platform';
 import type { WorkspaceTimeframe } from '@/features/workspace/workspacePersistence';
 import { buildChartDisplayBars } from '@/features/charts/chartTypeTransformService';
+import { beginChartDataRead, chartReadKey } from '@/features/charts/chartLoadGuard';
+import { ChartDataRequestSupersededError } from '@/platform/chartRequestErrors';
 
 export const MAX_COMPARE_OVERLAYS = 3;
 
@@ -16,9 +18,14 @@ export interface CompareOverlayDataContext {
       adjusted?: boolean;
       includeDividendAdjustments?: boolean;
       includeRightsAdjustments?: boolean;
+      databasePath?: string | null;
+      forceReload?: boolean;
     }): Promise<EodDataResult>;
   } | null;
   databasePath: string | null;
+  forceReload?: boolean;
+  cacheGeneration?: () => number;
+  requestOwner?: object;
   readCachedInstrumentData: (
     databasePath: string | null,
     instrument: InstrumentKey,
@@ -126,7 +133,10 @@ export async function loadCompareOverlayResult(
     throw new Error('Desktop API unavailable.');
   }
 
-  const cachedResult = context.readCachedInstrumentData(
+  const generation = context.cacheGeneration?.();
+  const read = context.requestOwner ? beginChartDataRead(context.requestOwner,
+    chartReadKey(context.databasePath, overlay.instrument, adjusted, includeDividendAdjustments, includeRightsAdjustments), context.forceReload) : null;
+  const cachedResult = context.forceReload ? null : context.readCachedInstrumentData(
     context.databasePath,
     overlay.instrument,
     adjusted,
@@ -143,7 +153,12 @@ export async function loadCompareOverlayResult(
     adjusted,
     includeDividendAdjustments,
     includeRightsAdjustments,
+    databasePath: context.databasePath,
+    forceReload: context.forceReload,
   });
+  if ((read && !read.isCurrent()) || generation !== context.cacheGeneration?.()) {
+    throw new ChartDataRequestSupersededError('Compare data request was invalidated before completion.');
+  }
   context.writeCachedInstrumentData(context.databasePath, overlay.instrument, result);
   return result;
 }
@@ -177,12 +192,11 @@ export async function hydrateCompareOverlays(
           renkoBrickSize,
           renkoSettings,
         );
-      } catch {
-        return {
-          ...overlay,
-          rawBars: [],
-          displayBars: [],
-        };
+      } catch (error) {
+        // Let the owning chart retry cancellations; real failures must not
+        // silently replace comparison history with an empty successful result.
+        if (error instanceof ChartDataRequestSupersededError) throw error;
+        throw new Error(`Comparison history for ${overlay.instrument.exchange}:${overlay.instrument.symbol} failed. ${error instanceof Error ? error.message : String(error)}`);
       }
     }),
   );

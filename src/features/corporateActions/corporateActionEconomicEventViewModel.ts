@@ -48,6 +48,7 @@ export interface CorporateActionEconomicEventViewModel {
 
 const ACTION_ORDER: Readonly<Record<string, number>> = {
   SPLIT: 0,
+  CONSOLIDATION: 0,
   BONUS: 1,
   RIGHTS: 2,
   DIVIDEND: 3,
@@ -83,6 +84,7 @@ function normalizedActionType(value: string, eventKey: string): string {
 function actionLabel(actionType: string): string {
   const known: Readonly<Record<string, string>> = {
     SPLIT: 'Split',
+    CONSOLIDATION: 'Consolidation',
     BONUS: 'Bonus',
     RIGHTS: 'Rights',
     DIVIDEND: 'Dividend',
@@ -190,7 +192,10 @@ function buildComponents(
 
       return {
         actionType: type,
-        label: actionLabel(type),
+        label:
+          type === 'SPLIT' && shareFactor != null && shareFactor < 1.0
+            ? 'Consolidation'
+            : actionLabel(type),
         shareFactor,
         importIds: componentRows.map((row) => row.importId).sort((a, b) => a - b),
       };

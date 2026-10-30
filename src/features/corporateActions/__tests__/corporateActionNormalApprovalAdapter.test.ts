@@ -197,7 +197,7 @@ describe('Corporate Action normal Approve adapter', () => {
     const { api } = createApi(rows);
     const events = rows.map((candidate) => readyEvent([candidate.id]));
 
-    const result = await approveCorporateActionNormalReady({ api, reviewEvents: events });
+    const result = await approveCorporateActionNormalReady({ api, reviewEvents: events, expectedDatabasePath: 'E:/TEST-ONLY' });
 
     expect(api.approveCorporateActionImports).toHaveBeenCalledTimes(3);
     const approvalCalls = (api.approveCorporateActionImports as any).mock.calls as Array<[CorporateActionImportBulkApprovalInput]>;
@@ -227,9 +227,10 @@ describe('Corporate Action normal Approve adapter', () => {
     const result = await approveCorporateActionNormalReady({
       api,
       reviewEvents: [readyEvent([1, 2, 3])],
+      expectedDatabasePath: 'E:/TEST-ONLY',
     });
 
-    expect(api.approveCorporateActionImports).toHaveBeenCalledWith({ importIds: [1] });
+    expect(api.approveCorporateActionImports).toHaveBeenCalledWith({ importIds: [1], expectedDatabasePath: 'E:/TEST-ONLY' });
     expect(result.recheck.alreadyProcessedImportIds).toEqual([2]);
     expect(result.recheck.skippedImportIds).toEqual([3]);
     expect(result.failed).toBe(1);
@@ -251,6 +252,7 @@ describe('Corporate Action normal Approve adapter', () => {
     const result = await approveCorporateActionNormalReady({
       api: state.api,
       reviewEvents: rows.map((candidate) => readyEvent([candidate.id])),
+      expectedDatabasePath: 'E:/TEST-ONLY',
     });
 
     expect(state.api.approveCorporateActionImports).toHaveBeenCalledTimes(2);
@@ -272,6 +274,7 @@ describe('Corporate Action normal Approve adapter', () => {
     const result = await approveCorporateActionNormalReady({
       api: state.api,
       reviewEvents: [readyEvent([1])],
+      expectedDatabasePath: 'E:/TEST-ONLY',
     });
 
     expect(result.requestedImportIds).toEqual([1]);

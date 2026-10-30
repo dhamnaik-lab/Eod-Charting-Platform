@@ -30,31 +30,30 @@ describe('Identity I3 NSE reviewed-preview apply authority', () => {
     expect(desktopTypes).toContain('expectedPlanSha256: string');
     expect(desktopTypes).toContain('planSha256: string');
     expect(desktopTypes).toContain(
-      'applyNseCurrentUniverseSync(input: NseCurrentUniverseApplyInput): Promise<NseCurrentUniverseSyncResult>',
+      'applyNseCurrentUniverseSync(input: NseCurrentUniverseApplyInput, onProgress?: (progress: IdentityApplyProgress) => void): Promise<NseCurrentUniverseSyncResult>',
     );
 
     expect(databaseRs).toContain('pub struct NseCurrentUniverseApplyInput');
     expect(databaseRs).toContain('pub expected_plan_sha256: String');
     expect(databaseRs).toContain('pub plan_sha256: String');
 
-    expect(tauriDesktop).toContain("tauriInvoke('apply_nse_current_universe_sync', { input })");
+    expect(tauriDesktop).toContain("tauriInvoke('apply_nse_current_universe_sync', { input, operationId, expectedDatabasePath: input.expectedDatabasePath })");
   });
 
   it('fingerprints the backend plan and rejects stale reviewed apply before the write helper', () => {
     const backend = read(NSE_BACKEND_PATH);
-    const reviewedApply = sliceBetween(
-      backend,
-      'fn apply_nse_current_universe_sync_reviewed_internal(',
-      'fn normalize_archive_root',
-    );
+    const reporting = read(resolve(process.cwd(), 'src-tauri-shell/src/database/nse_identity_imports/apply_reporting.rs'));
+    const reviewedApply = sliceBetween(reporting, 'pub(super) fn apply_reviewed(', 'fn apply_plan(');
+    expect(backend).toContain('apply_reporting::apply_reviewed(connection, input, default_archive_root, &|_| {})');
+    expect(backend).toContain('apply_reporting::apply_reviewed(&connection, &input, Some(&managed_root), &report)');
 
-    expect(backend).toContain('NSE_CURRENT_UNIVERSE_SYNC_PLAN_V1');
+    expect(backend).toContain('NSE_CURRENT_UNIVERSE_SYNC_PLAN_V2_COVERAGE');
     expect(backend).toContain('NSE reviewed preview is stale because the source or database state changed. Preview again before applying.');
     expect(backend).toContain('fn nse_current_universe_plan_sha256(');
     expect(backend).toContain('fn normalize_expected_nse_plan_sha256(');
 
-    const compareIndex = reviewedApply.indexOf('if expected != plan_sha256');
-    const writeIndex = reviewedApply.indexOf('apply_nse_current_universe_sync_plan(connection, &plan)?');
+    const compareIndex = reviewedApply.indexOf('if normalize_expected_nse_plan_sha256(&input.expected_plan_sha256)? != sha');
+    const writeIndex = reviewedApply.indexOf('apply_plan_checked(connection, plan, sha.clone(), report');
     expect(compareIndex).toBeGreaterThanOrEqual(0);
     expect(writeIndex).toBeGreaterThan(compareIndex);
   });
@@ -78,7 +77,8 @@ describe('Identity I3 NSE reviewed-preview apply authority', () => {
     expect(readiness).toContain('const nseReviewedApplyReady = Boolean(');
     expect(readiness).toContain('currentUniverseSyncResult.planSha256');
     expect(readiness).toContain('nseReviewedApplyAuthority.activeDatabasePath === activeDatabasePath');
-    expect(readiness).toContain("identityExchange === 'NSE' ? nseReviewedApplyReady : identitySelectedSourceReady");
+    expect(readiness).toContain("identityExchange === 'NSE' ? nseReviewedApplyReady : Boolean(");
+    expect(readiness).toContain('bseReviewedApplyAuthority.planSha256 === bseCurrentUniverseSyncResult?.planSha256');
   });
 
   it('invalidates NSE reviewed authority on every approved context transition', () => {
@@ -112,7 +112,7 @@ describe('Identity I3 NSE reviewed-preview apply authority', () => {
     expect(identity).toContain('disabled={busy || !hasDatabase || !identitySelectedApplyReady}');
   });
 
-  it('preserves the BSE apply dispatcher while changing NSE acceptance only', () => {
+  it('preserves exchange-specific commands behind the shared Apply dispatcher', () => {
     const source = read(DATABASE_TOOLS_PATH);
     const dispatch = sliceBetween(source, 'const applySelectedIdentitySource = async () => {', 'const loadOfficialImports');
 

@@ -47,8 +47,14 @@ import {
   EXTERNAL_PLUGIN_SUPPORT_LABEL,
   isPluginEnabled,
   listBuiltInPlugins,
+  pluginHost,
   setPluginEnabled,
 } from '@/plugins/registry';
+import {
+  discoverAndLoadExternalPlugins,
+  installAndLoadExternalPlugin,
+  uninstallExternalPluginById,
+} from '@/plugins/pluginLoader';
 
 
 type DnnSourceValidationState =
@@ -638,11 +644,49 @@ export function SettingsDialog() {
 
         {activeSection === 'plugins' && (
         <div style={sectionStyle}>
-          <div style={sectionTitleStyle}>Plugins</div>
-          <div style={hintStyle}>{EXTERNAL_PLUGIN_SUPPORT_LABEL}</div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
+            <div>
+              <div style={sectionTitleStyle}>Plugins</div>
+              <div style={hintStyle}>{EXTERNAL_PLUGIN_SUPPORT_LABEL}</div>
+            </div>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button
+                type="button"
+                style={secondaryButtonStyle}
+                onClick={() => {
+                  void installAndLoadExternalPlugin()
+                    .then((installed) => {
+                      if (installed) {
+                        setSettings({ ...settings });
+                        setStatus(`Installed external plugin "${installed.manifest.name}" as inactive metadata. Execution requires a future isolated runtime.`);
+                      }
+                    })
+                    .catch((err) => setStatus(err instanceof Error ? err.message : String(err)));
+                }}
+              >
+                Import Plugin (.eodplugin / .zip)...
+              </button>
+              <button
+                type="button"
+                style={secondaryButtonStyle}
+                onClick={() => {
+                  void discoverAndLoadExternalPlugins(settings.pluginEnabled)
+                    .then((list) => {
+                      setSettings({ ...settings });
+                      setStatus(`Discovered ${list.length} external plugin(s) as inactive metadata. No plugin JavaScript executed.`);
+                    })
+                    .catch((err) => setStatus(err instanceof Error ? err.message : String(err)));
+                }}
+              >
+                Reload External
+              </button>
+            </div>
+          </div>
           <div style={pluginListStyle}>
             {listBuiltInPlugins().map((plugin) => {
-              const enabled = isPluginEnabled(plugin.manifest.id, settings.pluginEnabled);
+              const enabled = plugin.manifest.status === 'external'
+                ? false
+                : isPluginEnabled(plugin.manifest.id, settings.pluginEnabled);
               const isDnnTrend = plugin.manifest.id === DNN_TREND_PLUGIN_ID;
               const canEnable = !isDnnTrend || dnnSourceState.status === 'valid';
               const dnnConfiguration = getDnnTrendPluginConfiguration(settings.pluginConfigurations);
@@ -662,6 +706,9 @@ export function SettingsDialog() {
                       {plugin.manifest.type} · v{plugin.manifest.version} · {plugin.manifest.status}
                     </span>
                     <span style={hintStyle}>{plugin.manifest.description}</span>
+                    {plugin.manifest.status === 'external' && (
+                      <span style={hintStyle}>Installed but inactive. Third-party execution is blocked until isolation is approved.</span>
+                    )}
 
                     {isDnnTrend && (
                       <div style={dnnConfigurationStyle}>

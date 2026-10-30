@@ -1,5 +1,113 @@
 # Feature Status Matrix — EOD Charting Platform
 
+## Identity maintenance checkpoint — 30 October 2026
+
+| Feature | Evidence / remaining limit |
+| --- | --- |
+| Shared NSE/BSE reviewed confirmations | Implemented and checked; BSE company-name dialog confirmed natively; other native routes retain their acceptance limits. |
+| BSE company-name history | Native Refresh/Preview and successful 1,531-name Apply; persisted receipt audit has zero mismatches. |
+| BSE completed status / saved reporting | Native green 100%, APPLIED rows, disabled repeat Apply, Recent Applied and expanded hashes confirmed. |
+| Saved-report polish | Implemented: saved wording, path/hash Copy, counted outcome filters, display preferences and clarified readiness notice; 41 focused tests plus renderer/CSS/docs checks PASS. |
+| Native polish / clipboard / app restart persistence | Deferred by user: will test later using the existing saved run; no new Apply required. |
+| BSE Security ID history | Held pending separately verified dated source evidence. |
+
+See [handoff](HANDOFF.md) and [deferred checklist](docs/changes/2026-10-30-identity-report-polish/REPORT.md).
+
+## Latest CA acceptance and deferred work — 26 October 2026
+
+| Feature | Evidence / remaining limit |
+| --- | --- |
+| Bulk explicit approval | Native completion and read-only audit: 4,288 persisted actions including NSE/BSE Split/Bonus; no replay. |
+| Table exchange | Native Approved subset: 994 NSE events, 997 all exchanges; Fetch scope remains separate. |
+| Performance | Native seed 16m28s; approval/refresh 16m32s; unchanged warm reuse unmeasured. |
+| Progress and result UI | Incomplete: silent Checking period, Dividend-only subtotal, truncated summary, stale timer. |
+| Approved history | 1,000 loaded imports are a subset; full history discoverability/counts need work. |
+| Current priority | Database issue first; CA paused. Chart arithmetic and specific Stage 2A blocker native checks remain open. |
+
+This checkpoint supersedes older current-status claims below.
+See [CA resume checkpoint](docs/changes/2026-10-26_CA_PAUSE_DATABASE_PRIORITY_HANDOFF.md).
+
+## Corporate Actions acceptance update — 25 October 2026
+
+This dated update supersedes older CA rows below; unrelated feature status is unchanged.
+
+| Feature | Current evidence and limit |
+| --- | --- |
+| Selected Dividend approval/report/chart marker | User native screenshots: HEGAM import 44439 committed, saved history and chart marker. Numeric chart comparison remains unverified. |
+| Targeted post-approval queue refresh | 88 focused tests, renderer/whitespace PASS; native ICICIGI/HDBFS approvals refreshed 2/3 related events in 4/2 seconds, retaining full queue and unrelated readiness. |
+| Identity quick search | 34 focused tests, renderer/whitespace PASS; native symbol/case, exact-symbol priority, full-ISIN and empty results observed with 33,971 loaded unchanged. |
+| Esc and × clear | Explicitly confirmed working by the user. |
+| Details evidence view | Native ISIN, official terms, source provenance and blocker explanations visible; user confirms this option is needed. |
+| Remaining search checks | Whitespace padding, exact BSE-code lookup and measured typing speed are not yet verified natively. |
+| Other acceptance boundaries | Split/bulk approval, adjusted/unadjusted chart prices, independent live raw hashes and fresh BSE master transport remain open. |
+
+Evidence: [current handoff](HANDOFF.md), [targeted refresh](docs/changes/2026-10-25_CA_POST_APPROVAL_QUEUE_REFRESH.md),
+[quick search](docs/changes/2026-10-25_CA_QUICK_SEARCH.md). No approval authorization is granted by this matrix.
+
+<!-- EOD-CANONICAL-STATUS-2026-10-17-R1 -->
+## Current verified platform and Corporate Actions status — 17 October 2026 IST
+
+| Feature / obligation | Verified disposition |
+
+|---|---|
+
+| Existing CA active window and advanced controls | Source preserved; desktop observation NOT VERIFIED |
+
+| Official Fetch, Load & Validate, explicit Approve Ready | Integrated source + focused tests PASS; live feeds NOT TESTED |
+
+| Upcoming ex-date and missing EOD guards | Unit/focused tests PASS; manual integration NOT VERIFIED |
+
+| Normal Load auto-approval prohibition | Implemented and focused tests PASS |
+
+| Rust CA approval transaction and existing chart invalidation | Preserved code; controlled live manual checkpoint NOT VERIFIED |
+
+| Renderer typecheck / focused Vitest / Vite build | PASS / 62 of 62 / PASS |
+
+| Rust focused tests / offline cargo check | 2 of 2 PASS / PASS (7 warnings) |
+
+| Offline normal release and separate static-CRT build | PASS / PASS; static PE direct+delay VC imports clear |
+
+| Windows Sandbox app initialization | BLOCKED (CRT first attempt; WebView2 second) |
+
+| Real official feed / production DB approval / portable installation | NOT TESTED / NOT AUTHORIZED / NOT VERIFIED |
+
+| External JavaScript plugin activation | DISABLED; production guest isolation UNVERIFIED |
+
+**Plugin P5-FINAL:** metadata-only import/discovery/reload architecture is closed with third-party external JavaScript evaluation and activation still **DISABLED**. C2 did not prove production guest process/IPC isolation; no plugin activation is permitted by the CA documents. The three previously unattributed P1/P2 files were accepted by exact isolated reconstruction on 17 October.
+
+**Still open:** actual normal desktop workflow observation; official-feed integration under separately authorized network conditions; non-destructive/controlled approval and chart/cache refresh manual verification; optional portable Windows packaging. No further test environment redesign or production database modification is implied by this documentation update.
+<!-- END-EOD-CANONICAL-STATUS-2026-10-17-R1 -->
+
+<!-- STANDALONE-PLUGIN-ARCHITECTURE-P1-P3-2026-10-16:BEGIN -->
+## Standalone External Plugin Architecture and SDK — P1–P3 status
+
+- **Design boundary:** The EOD Charting Platform remains the protected core. Plugin Manager owns generic lifecycle controls; each plugin owns its own menu-opened interface and settings. External developers should integrate through the SDK and host interfaces rather than editing platform core code.
+- **P1/P2 implemented components (reported, not independently reaccepted here):** `src/plugins/pluginHost.ts`, `src/plugins/types.ts`, `src/plugins/pluginLoader.ts`, `src/engine/ChartEngine.ts`, `src/components/SettingsDialog.tsx`, and `src-tauri-shell/src/plugin_data.rs` provide extension registrations, loading and user-facing controls. The SDK is in `packages/eod-plugin-sdk/` with a development sample plugin.
+- **P3 accepted import-cycle fix (15 October 2026):** `src/plugins/hostRuntime.ts` owns the shared runtime singleton. Plugin registries, dynamic indicator registrations and scanners integrate through the lightweight host. The accepted P3 evidence records renderer typecheck PASS, six focused Vitest suites **22/22 PASS**, and renderer Vite build PASS; see `docs/changes/2026-10-15_1740_IST_P3_PLUGIN_IMPORT_CYCLE_LEAN_FIX_R1.md`.
+- **P4 boundary:** This section records implementation state and verified P3 evidence. It does **not** establish a full installed external-plugin lifecycle, production/manual activation, security review or portable Tauri build. Existing charts, CA functionality and database behavior remain protected. Corporate Actions write activation is not authorized here.
+<!-- STANDALONE-PLUGIN-ARCHITECTURE-P1-P3-2026-10-16:END -->
+
+
+<!-- TECH-AUDIT-PHASES-1-TO-5C-2026-10-14:BEGIN -->
+## Completed — Technical Audit & Internal Hardening Phases 1A-5C (2026-10-14 19:10 IST)
+
+- **Classification:** `INTERNAL_PERFORMANCE_STORAGE_IPC_AND_SECURITY_HARDENING__ALL_VALIDATION_GATES_PASSED`
+- **Report:** `docs/changes/2026-10-14_1910_IST_TECHNICAL_AUDIT_PHASES_1_TO_5C_COMPLETE.md`
+
+### Key Deliverables:
+1. **Multi-Layer Canvas & Memory Lifecycle (Phases 1A & 1B):**
+   - Reused `cachedRenderState` in `ChartEngine.getPointerState()` and isolated crosshair/synced-crosshair/drawing-preview repaints strictly to `overlayCanvas` (`src/engine/ChartEngine.ts`, `src/components/ChartCanvas.tsx`, `src/engine/__tests__/ChartLayerPartition.test.ts`).
+   - Added `blur`, `pointercancel`, and window close/minimize/maximize drag-listener teardown in `src/components/FloatingWindow.tsx` and `src/components/common/useDraggableFloatingWindow.ts`; zeroed detached `<canvas>` buffers on `unmount()`.
+2. **Windows Storage Lock Resilience & Single-Handle Reuse (Phase 1C):**
+   - Eliminated duplicate `OpenOptions::open` calls in `src-tauri-shell/src/database/binary_eod.rs` (`upsert_single_record_by_date` & `rewrite_from_first_incoming_record`) and added bounded retry backoff for transient Windows `ERROR_SHARING_VIOLATION` (`os error 32`) and `os error 5` in `binary_eod.rs` and `src-tauri-shell/src/bhavcopy_recovery.rs`.
+3. **Full-Series FNV-1a Indicator Cache & Scanner Throughput (Phases 2A & 2B):**
+   - Replaced 2-endpoint bar checks in `src/indicators/registry.ts` with an O(N) FNV-1a checksum (`getBarsMutationSignature`) and recursive upstream cache keys (`getChainedIndicatorCacheKey`).
+   - Bounded historical pattern evaluation sliding window to 260 bars in `src/plugins/scanner/chartPatternEvaluation.ts`, yielded to the event loop every 8 symbols in `src/plugins/scanner/scannerRunner.ts`, and hoisted `get_price_storage_mode` out of the per-symbol loop in `src-tauri-shell/src/database/daily_market_snapshot.rs`.
+4. **Packed 64-Byte Binary Bar IPC, 48-Symbol LRU Cache & Security Hardening (Phases 2C, 3A, 4, 5B & 5C):**
+   - Added `get_eod_data_binary` in `src-tauri-shell/src/database/eod_data.rs` and `decodeBinaryEodBars` in `src/platform/binaryEodDecoder.ts` (`src/platform/__tests__/binaryEodDecoder.test.ts`), paired with a 48-entry LRU cache and mutation invalidation in `src/platform/tauriDesktop.ts`.
+   - Enabled `is_html_response()` across all exchanges and capped ZIP extraction at 128 MB in `src-tauri-shell/src/bhavcopy.rs`; guarded `open_external` and `fetch_official_watchlist_source` in `src-tauri-shell/src/main.rs`; enabled a production CSP in `src-tauri-shell/tauri.conf.json`; resolved all 7 Rust compiler warnings.
+<!-- TECH-AUDIT-PHASES-1-TO-5C-2026-10-14:END -->
+
 <!-- GANN-PLUGIN-IMPLEMENTATION:BEGIN -->
 ## Gann Price-Time Analysis Plugin — 2026-09-14 01:12 IST
 
@@ -16,7 +124,7 @@
 | Options UI | User-configurable `GannPluginOptions` (pivot radius, colors, fixedScale) | **NOT STARTED** | — | `DEFAULT_GANN_OPTIONS` hardcoded for now |
 | Visual smoke test | Runtime confirmation overlay renders on a live symbol | **NOT RUN** | — | Recommended next step |
 
-Full report: `docs/changes/2026-09-14_0112_IST_GANN_PRICE_TIME_PLUGIN_IMPLEMENTATION.md`  
+Full report: `docs/changes/2026-09-14_0112_IST_GANN_PRICE_TIME_PLUGIN_IMPLEMENTATION.md`
 No real Git staging performed.
 <!-- GANN-PLUGIN-IMPLEMENTATION:END -->
 
@@ -44,7 +152,7 @@ No real Git staging performed.
 | Git attribution | Parent-baseline / commit ordering | **REVIEW REQUIRED** | Staging design intentionally returns `PARENT_BASELINE_REVIEW_REQUIRED` | Resolve before authorizing real index staging. |
 | Packaging | Fresh portable from accepted staged/commit state | **NOT STARTED** | Prior V1.14AD portable evidence exists, but not from eventual accepted staging/commit state | Package only after staging/commit authority is resolved. |
 
-Current source authority: `E:\TA Projects\EOD Charting Platform Source Audit\Eod Charting Platform Source Code 2026-08-31_000303_IST`  
+Current source authority: `E:\TA Projects\EOD Charting Platform Source Audit\Eod Charting Platform Source Code 2026-08-31_000303_IST`
 Build-relevant identity: `9832CB8F74F3E404A52253A9CD073EDA63647C7C576AA6B32FF40B9A1FCDF71D`
 
 See `docs\CURRENT_WORK_STATUS.md` for the exact current blocker, next action, and remaining task sequence.
@@ -55,7 +163,7 @@ See `docs\CURRENT_WORK_STATUS.md` for the exact current blocker, next action, an
 
 <!-- CA-V1.14M.2-AUG24-CANONICAL-CLOSURE -->
 
-> **Corporate Action exact three-row repair closure — 24 August 2026.**  
+> **Corporate Action exact three-row repair closure — 24 August 2026.**
 > V1.14M.2 independently re-derived the committed V1.14M.1.1 state from a fresh private read-only snapshot and returned **`FULL_SUCCESS`**. The exact three-row production-candidate repair workstream is therefore **`CLOSED / FULL_SUCCESS`**. This closes only this audited three-row repair tranche; it does not declare all Corporate Action work complete.
 
 - Production Corporate Action source SHA-256: `2e05315fa4bf7fe78f28e787edd2bd9a1fef23fb06cab66cc79c8ede9a1b5cfb`.

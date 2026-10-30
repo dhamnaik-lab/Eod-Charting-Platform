@@ -4,6 +4,7 @@ import { chartPatternScannerDefinitions } from '@/plugins/scanner/chartPatternSc
 import { coreOhlcvScannerDefinitions } from '@/plugins/scanner/coreOhlcvScanners';
 import { dailyMarketScannerDefinitions } from '@/plugins/scanner/dailyMarketScanners';
 import { signalScannerDefinitions } from '@/plugins/scanner/signalScanners';
+import { pluginHost } from '@/plugins/hostRuntime';
 
 export const CORE_EOD_SCANNER_PLUGIN_ID = 'core-eod-scanner';
 
@@ -29,10 +30,24 @@ export const coreEodScannerPlugin: RegisteredPlugin = {
 };
 
 export function listCoreScannerDefinitions(): ScannerDefinition[] {
+  const dynamicScanners: ScannerDefinition[] = pluginHost.listRegisteredScanners().map((s) => ({
+    id: s.id,
+    name: s.name,
+    categoryId: 'external_plugins',
+    categoryName: s.categoryName || 'External Plugins',
+    priority: s.priority ?? 2,
+    scannerType: 'pattern',
+    description: s.description || 'External plugin scanner.',
+    logicText: s.description || 'External plugin evaluation.',
+    requiredData: ['ohlcv'],
+    suggestedOutputColumns: [],
+    implementationStatus: 'ready_for_engine',
+  }));
   return [
     ...dailyMarketScannerDefinitions,
     ...coreOhlcvScannerDefinitions,
     ...chartPatternScannerDefinitions,
     ...signalScannerDefinitions,
+    ...dynamicScanners,
   ];
 }

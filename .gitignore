@@ -61,3 +61,6 @@ __pycache__/
 *.pyc
 Sript to remember.txt
 MANIFEST_SHA256.txt
+
+# Local WebView profiles created by native evidence checks
+/docs/changes/**/browser-profile/

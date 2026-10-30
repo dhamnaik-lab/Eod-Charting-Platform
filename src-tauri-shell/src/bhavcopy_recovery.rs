@@ -188,7 +188,7 @@ pub fn create_prepared_session(
     let journal_path = directory.join(JOURNAL_FILE);
     let (journal_byte_length, journal_sha256) =
         write_journal_file(&journal_temp_path, &spec.rows)?;
-    fs::rename(&journal_temp_path, &journal_path).map_err(|error| error.to_string())?;
+    retry_recovery_fs(|| fs::rename(&journal_temp_path, &journal_path)).map_err(|error| error.to_string())?;
 
     let binary_baselines_sha256 = sha256_json(&spec.binary_baselines)?;
     let now = now_iso();
@@ -575,7 +575,7 @@ fn sync_verified_checkpoint_paths(paths: Vec<PathBuf>) -> AppResult<CheckpointSy
                 return;
             };
 
-            let file = match OpenOptions::new().read(true).write(true).open(&path) {
+            let file = match retry_recovery_fs(|| OpenOptions::new().read(true).write(true).open(&path)) {
                 Ok(file) => file,
                 Err(error) => {
                     if let Ok(mut slot) = first_error.lock() {
@@ -925,6 +925,25 @@ fn hex_digest(bytes: impl AsRef<[u8]>) -> String {
         .collect::<String>()
 }
 
+fn retry_recovery_fs<T, F: FnMut() -> std::io::Result<T>>(mut op: F) -> std::io::Result<T> {
+    let mut delay_ms = 2_u64;
+    for attempt in 0..8 {
+        match op() {
+            Ok(val) => return Ok(val),
+            Err(err)
+                if attempt < 7
+                    && (matches!(err.raw_os_error(), Some(32) | Some(5))
+                        || err.kind() == std::io::ErrorKind::PermissionDenied) =>
+            {
+                std::thread::sleep(std::time::Duration::from_millis(delay_ms));
+                delay_ms = (delay_ms * 2).min(40);
+            }
+            Err(err) => return Err(err),
+        }
+    }
+    op()
+}
+
 fn write_manifest_atomic(directory: &Path, manifest: &RecoverySessionManifest) -> AppResult<()> {
     let temp_path = directory.join(MANIFEST_TEMP_FILE);
     let manifest_path = directory.join(MANIFEST_FILE);
@@ -939,19 +958,19 @@ fn write_manifest_atomic(directory: &Path, manifest: &RecoverySessionManifest) -
     }
 
     if backup_path.exists() {
-        fs::remove_file(&backup_path).map_err(|error| error.to_string())?;
+        retry_recovery_fs(|| fs::remove_file(&backup_path)).map_err(|error| error.to_string())?;
     }
     if manifest_path.exists() {
-        fs::rename(&manifest_path, &backup_path).map_err(|error| error.to_string())?;
+        retry_recovery_fs(|| fs::rename(&manifest_path, &backup_path)).map_err(|error| error.to_string())?;
     }
-    if let Err(error) = fs::rename(&temp_path, &manifest_path) {
+    if let Err(error) = retry_recovery_fs(|| fs::rename(&temp_path, &manifest_path)) {
         if backup_path.exists() && !manifest_path.exists() {
-            let _ = fs::rename(&backup_path, &manifest_path);
+            let _ = retry_recovery_fs(|| fs::rename(&backup_path, &manifest_path));
         }
         return Err(error.to_string());
     }
     if backup_path.exists() {
-        fs::remove_file(&backup_path).map_err(|error| error.to_string())?;
+        retry_recovery_fs(|| fs::remove_file(&backup_path)).map_err(|error| error.to_string())?;
     }
     Ok(())
 }

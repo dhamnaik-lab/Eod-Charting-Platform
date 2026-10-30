@@ -1,3 +1,12 @@
+mod historical_reporting;
+pub(crate) mod historical_categories;
+pub use historical_reporting::{list_nse_historical_identity_apply_history, get_nse_historical_identity_apply_report};
+mod historical_reconciliation;
+#[cfg(test)]
+mod historical_repair_tests;
+mod apply_reporting;
+pub use apply_reporting::list_nse_identity_apply_history;
+use tauri::Emitter;
 use chrono::NaiveDate;
 use csv::StringRecord;
 #[cfg(not(test))]
@@ -56,11 +65,11 @@ const CURRENT_UNIVERSE_MAX_FILE_AGE_DAYS: u64 = 14;
 const NSE_CURRENT_POPULATION_SANITY_MINIMUM: usize = 1000;
 const SOURCE_POPULATION_SANITY_REJECTED: &str = "SOURCE_POPULATION_SANITY_REJECTED";
 const NSE_CURRENT_UNIVERSE_SYNC_PLAN_HASH_VERSION: &str =
-    "NSE_CURRENT_UNIVERSE_SYNC_PLAN_V1";
+    "NSE_CURRENT_UNIVERSE_SYNC_PLAN_V2_COVERAGE";
 const NSE_REVIEWED_PLAN_STALE_ERROR: &str =
     "NSE reviewed preview is stale because the source or database state changed. Preview again before applying.";
 const NSE_HISTORICAL_IDENTITY_PLAN_HASH_VERSION: &str =
-    "NSE_HISTORICAL_IDENTITY_PLAN_V1";
+    "NSE_HISTORICAL_IDENTITY_PLAN_V3_REVIEWED_CURRENT_EFFECTS";
 const NSE_HISTORICAL_REVIEWED_PLAN_STALE_ERROR: &str =
     "NSE historical identity preview is stale because the source or database state changed. Preview Historical Identity again before applying.";
 const NSE_HISTORICAL_PREVIEW_ERRORS: &str =
@@ -93,6 +102,7 @@ struct NseHistoricalIdentitySourceSnapshot {
 enum HistoricalIdentityPayloadOutcome {
     New,
     Duplicate,
+    Skipped(String),
     Error(String),
 }
 
@@ -134,6 +144,7 @@ struct NseIdentityHistoryHints {
     symbol_to_current: HashMap<String, String>,
     isin_to_current: HashMap<String, String>,
     row_count: u32,
+    transition_edges: HashMap<String, HashSet<(String, String)>>,
 }
 
 #[derive(Clone, Debug)]
@@ -184,6 +195,7 @@ pub async fn preview_nse_historical_identity_archive(
 pub async fn apply_nse_historical_identity_archive(
     app: AppHandle,
     input: NseHistoricalIdentityApplyInput,
+    operation_id: Option<String>,
 ) -> AppResult<NseHistoricalIdentityResult> {
     let app_handle = app.clone();
     tauri::async_runtime::spawn_blocking(move || {
@@ -202,7 +214,12 @@ pub async fn apply_nse_historical_identity_archive(
             archive_root_path: Some(archive_root.display().to_string()),
             expected_plan_sha256: input.expected_plan_sha256.clone(),
         };
-        let result = apply_nse_historical_identity_archive_internal(&connection, &resolved_input)?;
+        let report = |progress: apply_reporting::IdentityApplyProgress| {
+            if let Some(id) = &operation_id { let _ = app_handle.emit("identity:historical-progress", serde_json::json!({"operationId":id,"databasePath":folder_path,"progress":progress})); }
+        };
+        let mut result = apply_nse_historical_identity_archive_with_progress(&connection, &resolved_input, &report)?;
+        report(historical_reporting::progress("refreshing",0,0));
+        let refresh = (|| -> AppResult<()> {
         invalidate_cached_db_stats(&app_handle, &folder_path)?;
         let snapshot = get_app_snapshot_internal(
             &app_handle,
@@ -212,6 +229,9 @@ pub async fn apply_nse_historical_identity_archive(
             }),
         )?;
         emit_database_changed(&app_handle, &snapshot)?;
+        Ok(())
+        })();
+        if let Err(error) = refresh { result.refresh_warning = Some(error); }
         Ok::<NseHistoricalIdentityResult, String>(result)
     })
     .await
@@ -240,20 +260,29 @@ pub async fn preview_nse_current_universe_sync(
 pub async fn apply_nse_current_universe_sync(
     app: AppHandle,
     input: NseCurrentUniverseApplyInput,
+    operation_id: Option<String>,
+    expected_database_path: Option<String>,
 ) -> AppResult<NseCurrentUniverseSyncResult> {
     let app_handle = app.clone();
     tauri::async_runtime::spawn_blocking(move || {
         let folder_path = resolve_active_database_folder(&app_handle)?.ok_or_else(|| {
             "Open a database before applying the NSE current-symbol sync.".to_string()
         })?;
+        super::check_identity_reviewed_database_path(&folder_path, expected_database_path.as_deref().unwrap_or(""))?;
         let connection = open_connection_for_folder(&folder_path, false)?;
 
         let managed_root = resolve_managed_nse_identity_root(&folder_path);
-        let result = apply_nse_current_universe_sync_reviewed_internal(
-            &connection,
-            &input,
-            Some(&managed_root),
-        )?;
+        let report = |progress: apply_reporting::IdentityApplyProgress| {
+            if let Some(id) = &operation_id {
+                let _ = app_handle.emit("identity:apply-progress", serde_json::json!({
+                    "operationId": id, "databasePath": folder_path, "progress": progress
+                }));
+            }
+        };
+        let mut result = apply_reporting::apply_reviewed(&connection, &input, Some(&managed_root), &report)?;
+        report(apply_reporting::IdentityApplyProgress { stage: "refreshing", processed: 0, total: 0, percent: Some(100) });
+        // A refresh error after commit must not be reported as a failed apply.
+        let refresh = (|| -> AppResult<()> {
         invalidate_cached_db_stats(&app_handle, &folder_path)?;
         let snapshot = get_app_snapshot_internal(
             &app_handle,
@@ -263,6 +292,9 @@ pub async fn apply_nse_current_universe_sync(
             }),
         )?;
         emit_database_changed(&app_handle, &snapshot)?;
+        Ok(())
+        })();
+        if let Err(error) = refresh { result.refresh_warning = Some(error); }
         Ok::<NseCurrentUniverseSyncResult, String>(result)
     })
     .await
@@ -412,14 +444,51 @@ fn historical_preview_row_from_payload(
 
 fn record_historical_identity_payload(
     connection: &Connection,
-    payload: &CorporateActionInputPayload,
+    payload: &mut CorporateActionInputPayload,
 ) -> HistoricalIdentityPayloadOutcome {
+    match historical_reconciliation::reconcile(connection, payload) {
+        Ok(Some(outcome)) => return outcome,
+        Ok(None) => {},
+        Err(error) => return HistoricalIdentityPayloadOutcome::Error(error),
+    }
+    // A historical event proves metadata at its date, not a current listing.
+    // Preserve activity (new targets default inactive); the master phase below
+    // remains authoritative for activating currently listed symbols.
+    let target_symbol = payload.new_symbol.clone().or_else(|| payload.current_symbol.clone()).or_else(|| payload.symbol.clone());
+    let target_was_active = match connection.query_row(
+        "SELECT COALESCE((SELECT is_active FROM instruments WHERE exchange='NSE' AND symbol=?),0)",
+        params![target_symbol], |row| row.get::<_, bool>(0),
+    ) {
+        Ok(active) => active,
+        Err(error) => return HistoricalIdentityPayloadOutcome::Error(error.to_string()),
+    };
     if let Err(error) = connection.execute_batch("SAVEPOINT i4_historical_identity_row") {
         return HistoricalIdentityPayloadOutcome::Error(error.to_string());
     }
 
     let outcome = match apply_corporate_action_internal(connection, payload, None) {
-        Ok(_) => HistoricalIdentityPayloadOutcome::New,
+        Ok(_) => {
+            // The accepted historical rename already deactivates its old row.
+            // Keep its lifecycle label consistent inside this row's savepoint;
+            // the current-master sync can still reactivate a listed/reused symbol.
+            let lifecycle = (|| -> AppResult<()> {
+                if !target_was_active {
+                    connection.execute("UPDATE instruments SET is_active=0 WHERE exchange='NSE' AND symbol=?", params![target_symbol])
+                        .map_err(|error| error.to_string())?;
+                }
+                if matches!(payload.action_type.as_str(), "SYMBOL_CHANGE" | "BOTH") {
+                    connection.execute(
+                    "UPDATE instruments SET lifecycle_status='OLD_SYMBOL' WHERE exchange='NSE' AND symbol=? AND is_active=0",
+                    params![payload.old_symbol],
+                    ).map_err(|error| error.to_string())?;
+                }
+                Ok(())
+            })();
+            match lifecycle {
+                Ok(()) => HistoricalIdentityPayloadOutcome::New,
+                Err(error) => HistoricalIdentityPayloadOutcome::Error(error),
+            }
+        },
         Err(error) if error.contains("already exists") => HistoricalIdentityPayloadOutcome::Duplicate,
         Err(error) => HistoricalIdentityPayloadOutcome::Error(error),
     };
@@ -433,7 +502,7 @@ fn record_historical_identity_payload(
                 return HistoricalIdentityPayloadOutcome::Error(error.to_string());
             }
         }
-        HistoricalIdentityPayloadOutcome::Error(_) => {
+        HistoricalIdentityPayloadOutcome::Error(_) | HistoricalIdentityPayloadOutcome::Skipped(_) => {
             let _ = connection.execute_batch(
                 "ROLLBACK TO SAVEPOINT i4_historical_identity_row; RELEASE SAVEPOINT i4_historical_identity_row",
             );
@@ -473,6 +542,10 @@ fn apply_historical_identity_outcome(
                 "This identity change already exists; no new historical row is required."
                     .to_string(),
             ));
+        }
+        HistoricalIdentityPayloadOutcome::Skipped(detail) => {
+            result.skipped_rows += 1;
+            result.history_rows.push(historical_preview_row_from_payload(payload, "SKIPPED", source_file, detail));
         }
         HistoricalIdentityPayloadOutcome::Error(error) => {
             result.error_rows += 1;
@@ -537,7 +610,17 @@ fn execute_nse_historical_identity_plan(
     connection: &Connection,
     snapshot: &NseHistoricalIdentitySourceSnapshot,
 ) -> AppResult<NseHistoricalIdentityResult> {
+    execute_nse_historical_identity_plan_with_progress(connection, snapshot, &|_, _| {})
+}
+
+fn execute_nse_historical_identity_plan_with_progress(
+    connection: &Connection, snapshot: &NseHistoricalIdentitySourceSnapshot, report: &dyn Fn(usize,usize),
+) -> AppResult<NseHistoricalIdentityResult> {
+    let mut processed = 0usize;
+    let total = snapshot.symbol_change_rows.len() + snapshot.name_change_rows.len();
+    let mut advance = |count: usize| { processed += count; if processed % 25 == 0 || processed >= total { report(processed, total); } };
     let mut result = NseHistoricalIdentityResult {
+        run_id: None, completed_at: None, refresh_warning: None, category_evidence: None,
         archive_root_path: snapshot.archive_root_path.clone(),
         applied: false,
         can_apply: false,
@@ -588,8 +671,9 @@ fn execute_nse_historical_identity_plan(
     });
     for row in included_name_rows {
         if should_include_name_change(&included_symbols, &row) {
-            name_rows_by_key.insert(name_change_key(&row.symbol, &row.effective_date), row);
+            if name_rows_by_key.insert(name_change_key(&row.symbol, &row.effective_date), row).is_some() { advance(1); }
         } else {
+            advance(1);
             result.skipped_rows += 1;
             result.history_rows.push(skipped_name_change_preview_row(
                 &row,
@@ -608,6 +692,7 @@ fn execute_nse_historical_identity_plan(
 
     for row in included_symbol_rows {
         if !should_include_symbol_change(&included_symbols, &row) {
+            advance(1);
             result.skipped_rows += 1;
             result.history_rows.push(skipped_symbol_change_preview_row(
                 &row,
@@ -618,7 +703,8 @@ fn execute_nse_historical_identity_plan(
 
         let key = name_change_key(&row.new_symbol, &row.effective_date);
         if let Some(name_row) = name_rows_by_key.remove(&key) {
-            let payload = CorporateActionInputPayload {
+            advance(2);
+            let mut payload = CorporateActionInputPayload {
                 action_type: "BOTH".to_string(),
                 symbol: Some(row.new_symbol.clone()),
                 exchange: NSE_EXCHANGE.to_string(),
@@ -641,7 +727,7 @@ fn execute_nse_historical_identity_plan(
                 source: Some(NSE_IDENTITY_SOURCE.to_string()),
                 source_ref: Some(snapshot.symbol_changes_path.clone()),
             };
-            let outcome = record_historical_identity_payload(connection, &payload);
+            let outcome = record_historical_identity_payload(connection, &mut payload);
             apply_historical_identity_outcome(
                 &mut result,
                 &payload,
@@ -654,7 +740,8 @@ fn execute_nse_historical_identity_plan(
             continue;
         }
 
-        let payload = CorporateActionInputPayload {
+        advance(1);
+        let mut payload = CorporateActionInputPayload {
             action_type: "SYMBOL_CHANGE".to_string(),
             symbol: Some(row.new_symbol.clone()),
             exchange: NSE_EXCHANGE.to_string(),
@@ -677,7 +764,7 @@ fn execute_nse_historical_identity_plan(
             source: Some(NSE_IDENTITY_SOURCE.to_string()),
             source_ref: Some(snapshot.symbol_changes_path.clone()),
         };
-        let outcome = record_historical_identity_payload(connection, &payload);
+        let outcome = record_historical_identity_payload(connection, &mut payload);
         apply_historical_identity_outcome(
             &mut result,
             &payload,
@@ -693,7 +780,8 @@ fn execute_nse_historical_identity_plan(
             .then_with(|| left.symbol.cmp(&right.symbol))
     });
     for row in remaining_name_rows {
-        let payload = CorporateActionInputPayload {
+        advance(1);
+        let mut payload = CorporateActionInputPayload {
             action_type: "NAME_CHANGE".to_string(),
             symbol: Some(row.symbol.clone()),
             exchange: NSE_EXCHANGE.to_string(),
@@ -716,7 +804,7 @@ fn execute_nse_historical_identity_plan(
             source: Some(NSE_IDENTITY_SOURCE.to_string()),
             source_ref: Some(snapshot.company_name_changes_path.clone()),
         };
-        let outcome = record_historical_identity_payload(connection, &payload);
+        let outcome = record_historical_identity_payload(connection, &mut payload);
         apply_historical_identity_outcome(
             &mut result,
             &payload,
@@ -731,7 +819,8 @@ fn execute_nse_historical_identity_plan(
         return Ok(result);
     }
 
-    upsert_security_master_rows(connection, &snapshot.master_rows)?;
+    // Build current effects before writing the master. The reviewed sync below
+    // already writes the complete supported master atomically.
     let current_plan = build_nse_current_universe_sync_plan_from_master_rows(
         connection,
         Path::new(&snapshot.archive_root_path),
@@ -747,6 +836,7 @@ fn execute_nse_historical_identity_plan(
     result.current_universe_plan_sha256 = Some(current_plan_sha256);
     apply_nse_current_universe_sync_plan(connection, &current_plan)?;
 
+    result.category_evidence = Some(historical_categories::build(snapshot, &result.history_rows));
     result.can_apply = true;
     result.plan_sha256 = nse_historical_identity_plan_sha256(&result);
     Ok(result)
@@ -1747,10 +1837,18 @@ fn normalize_expected_nse_historical_plan_sha256(value: &str) -> AppResult<Strin
     Ok(normalized)
 }
 
+#[cfg(test)]
 fn apply_nse_historical_identity_archive_internal(
     connection: &Connection,
     input: &NseHistoricalIdentityApplyInput,
 ) -> AppResult<NseHistoricalIdentityResult> {
+    apply_nse_historical_identity_archive_with_progress(connection, input, &|_| {})
+}
+
+fn apply_nse_historical_identity_archive_with_progress(
+    connection: &Connection, input: &NseHistoricalIdentityApplyInput, report: &dyn Fn(apply_reporting::IdentityApplyProgress),
+) -> AppResult<NseHistoricalIdentityResult> {
+    report(historical_reporting::progress("checking",0,0));
     let snapshot = load_nse_historical_identity_source_snapshot(&NseHistoricalIdentityPreviewInput {
         archive_root_path: input.archive_root_path.clone(),
     })?;
@@ -1758,7 +1856,10 @@ fn apply_nse_historical_identity_archive_internal(
         .execute_batch("BEGIN IMMEDIATE TRANSACTION")
         .map_err(|error| error.to_string())?;
 
-    let execution = execute_nse_historical_identity_plan(connection, &snapshot);
+    let prior_id: i64 = match connection.query_row("SELECT COALESCE(MAX(id),0) FROM instrument_identity_history", [], |r| r.get(0)) { Ok(id) => id, Err(e) => { rollback_nse_historical_identity_transaction(connection); return Err(e.to_string()); } };
+    let total = snapshot.symbol_change_rows.len() + snapshot.name_change_rows.len();
+    report(historical_reporting::progress("applying",0,total));
+    let execution = execute_nse_historical_identity_plan_with_progress(connection, &snapshot, &|done,total| report(historical_reporting::progress("applying",done,total)));
     let mut result = match execution {
         Ok(result) => result,
         Err(error) => {
@@ -1785,11 +1886,20 @@ fn apply_nse_historical_identity_archive_internal(
         return Err(NSE_HISTORICAL_REVIEWED_PLAN_STALE_ERROR.to_string());
     }
 
+    if !historical_reporting::actionable(&result) {
+        rollback_nse_historical_identity_transaction(connection);
+        return Err("No historical identity changes to apply. Create a new preview.".into());
+    }
+    result.category_evidence = Some(historical_categories::build(&snapshot, &result.history_rows));
+    if let Err(error) = historical_reporting::save_receipt(connection, &mut result, prior_id) {
+        rollback_nse_historical_identity_transaction(connection); return Err(error);
+    }
+    report(historical_reporting::progress("committing",total,total));
     if let Err(error) = connection.execute_batch("COMMIT") {
         rollback_nse_historical_identity_transaction(connection);
         return Err(error.to_string());
     }
-    result.applied = true;
+    report(historical_reporting::progress("committed",total,total));
     Ok(result)
 }
 
@@ -1896,6 +2006,19 @@ fn apply_nse_current_universe_sync_plan_in_open_transaction(
     connection: &Connection,
     plan: &NseCurrentUniverseSyncPlan,
 ) -> AppResult<()> {
+    apply_nse_current_universe_sync_plan_with_progress(connection, plan, &|_| {})
+}
+
+fn apply_nse_current_universe_sync_plan_with_progress(
+    connection: &Connection, plan: &NseCurrentUniverseSyncPlan, report: &dyn Fn(usize),
+) -> AppResult<()> {
+    let mut processed = 0;
+    if plan.deactivate_symbols.iter().any(|symbol| !matches!(
+        plan.deactivate_lifecycle_by_symbol.get(symbol).map(String::as_str), Some("OLD_SYMBOL" | "DELISTED")
+    )) {
+        return Err("NSE deactivation plan lacks explicit lifecycle evidence. Preview again.".to_string());
+    }
+
     for row in &plan.current_rows {
         connection
             .execute(
@@ -1928,6 +2051,8 @@ fn apply_nse_current_universe_sync_plan_in_open_transaction(
                 ],
             )
             .map_err(|error| error.to_string())?;
+        processed += 1;
+        report(processed);
     }
 
     for symbol in &plan.deactivate_symbols {
@@ -1935,7 +2060,7 @@ fn apply_nse_current_universe_sync_plan_in_open_transaction(
             .deactivate_lifecycle_by_symbol
             .get(symbol)
             .cloned()
-            .unwrap_or_else(|| "UNKNOWN_INACTIVE".to_string());
+            .ok_or_else(|| "NSE deactivation plan lacks lifecycle evidence.".to_string())?;
         connection
             .execute(
                 "
@@ -1949,6 +2074,8 @@ fn apply_nse_current_universe_sync_plan_in_open_transaction(
                 params![lifecycle_status, symbol, NSE_EXCHANGE],
             )
             .map_err(|error| error.to_string())?;
+        processed += 1;
+        report(processed);
     }
 
     Ok(())
@@ -2187,32 +2314,38 @@ fn plan_into_result(
     applied: bool,
     plan_sha256: String,
 ) -> NseCurrentUniverseSyncResult {
+    let held_active = plan.preview_rows.iter().filter(|row| matches!(row.action.as_str(), "REVIEW_REQUIRED" | "OUTSIDE_COVERAGE")).count();
     let message = if applied {
         format!(
-            "Applied NSE current-universe sync. Active {}/{} current official symbols. Activated {}, updated {}, deactivated {}, unchanged {}, official delisted {}.",
+            "Applied NSE current-universe sync. Active {}/{} current official symbols. Activated {}, updated {}, deactivated {}, unchanged {}, official delisted {}. Held active for coverage/evidence review {}.",
             plan.current_universe_symbols.saturating_sub(plan.new_symbols),
             plan.current_universe_symbols,
             plan.activate_count,
             plan.update_count,
             plan.deactivate_count,
             plan.unchanged_active,
-            plan.official_delisted_symbols
+            plan.official_delisted_symbols,
+            held_active
         )
     } else {
         format!(
-            "Previewed NSE current-universe sync. {} current official symbols. Activate {}, update {}, deactivate {}, unchanged {}, official delisted {}.",
+            "Previewed NSE current-universe sync. {} current official symbols. Activate {}, update {}, deactivate {}, unchanged {}, official delisted {}. Held active for coverage/evidence review {}.",
             plan.current_universe_symbols,
             plan.activate_count,
             plan.update_count,
             plan.deactivate_count,
             plan.unchanged_active,
-            plan.official_delisted_symbols
+            plan.official_delisted_symbols,
+            held_active
         )
     };
 
     NseCurrentUniverseSyncResult {
         archive_root_path: plan.archive_root_path,
         applied,
+        run_id: None,
+        completed_at: None,
+        refresh_warning: None,
         master_rows_read: plan.master_rows_read,
         current_universe_symbols: plan.current_universe_symbols,
         matched_by_symbol: plan.matched_by_symbol,
@@ -2324,12 +2457,13 @@ fn plan_nse_current_universe_sync_from_rows(
     for row in &existing_rows {
         if row.is_active && !current_symbols.contains(&row.symbol) {
             let lifecycle_status = classify_nse_inactive_lifecycle(
-                &row.symbol,
-                &history_hints,
-                &official_delisted_symbols,
+                row, &history_hints, &official_delisted_symbols, &current_symbols,
             );
-            deactivate_symbols.push(row.symbol.clone());
-            deactivate_lifecycle_by_symbol.insert(row.symbol.clone(), lifecycle_status.clone());
+            let can_deactivate = matches!(lifecycle_status.as_str(), "OLD_SYMBOL" | "DELISTED");
+            if can_deactivate {
+                deactivate_symbols.push(row.symbol.clone());
+                deactivate_lifecycle_by_symbol.insert(row.symbol.clone(), lifecycle_status.clone());
+            }
             preview_rows.push(NseCurrentUniverseSyncPreviewRow {
                 action: lifecycle_status.clone(),
                 symbol: row.symbol.clone(),
@@ -2337,7 +2471,7 @@ fn plan_nse_current_universe_sync_from_rows(
                 series: row.series.clone(),
                 isin: row.isin.clone(),
                 current_status: "ACTIVE".to_string(),
-                proposed_status: lifecycle_status.clone(),
+                proposed_status: if can_deactivate { lifecycle_status.clone() } else { "ACTIVE".to_string() },
                 matched_symbol: None,
                 reason: nse_inactive_lifecycle_reason(&lifecycle_status),
             });
@@ -3245,6 +3379,7 @@ fn preview_nse_current_universe_sync_internal(
     Ok(plan_into_result(plan, false, plan_sha256))
 }
 
+#[allow(dead_code)]
 fn apply_nse_current_universe_sync_internal(
     connection: &Connection,
     input: &NseCurrentUniverseSyncInput,
@@ -3256,23 +3391,13 @@ fn apply_nse_current_universe_sync_internal(
     Ok(plan_into_result(plan, true, plan_sha256))
 }
 
+#[cfg(test)]
 fn apply_nse_current_universe_sync_reviewed_internal(
     connection: &Connection,
     input: &NseCurrentUniverseApplyInput,
     default_archive_root: Option<&Path>,
 ) -> AppResult<NseCurrentUniverseSyncResult> {
-    let sync_input = NseCurrentUniverseSyncInput {
-        archive_root_path: input.archive_root_path.clone(),
-    };
-    let plan = build_nse_current_universe_sync_plan(connection, &sync_input, default_archive_root)?;
-    let plan_sha256 = nse_current_universe_plan_sha256(&plan);
-    let expected = normalize_expected_nse_plan_sha256(&input.expected_plan_sha256)?;
-    if expected != plan_sha256 {
-        return Err(NSE_REVIEWED_PLAN_STALE_ERROR.to_string());
-    }
-
-    apply_nse_current_universe_sync_plan(connection, &plan)?;
-    Ok(plan_into_result(plan, true, plan_sha256))
+    apply_reporting::apply_reviewed(connection, input, default_archive_root, &|_| {})
 }
 
 fn normalize_archive_root(value: &str) -> AppResult<PathBuf> {
@@ -3404,62 +3529,6 @@ fn resolve_archive_files(root: &Path) -> AppResult<NseIdentityArchiveFiles> {
     })
 }
 
-fn upsert_security_master_rows_in_open_transaction(
-    connection: &Connection,
-    rows: &[NseSecurityMasterRow],
-) -> AppResult<HashSet<String>> {
-    let symbols = rows
-        .iter()
-        .map(|row| row.symbol.clone())
-        .collect::<HashSet<_>>();
-    for row in rows {
-        connection
-            .execute(
-                "
-                  INSERT INTO instruments (
-                    symbol,
-                    exchange,
-                    isin,
-                    name,
-                    series,
-                    is_active,
-                    lifecycle_status,
-                    updated_at
-                  )
-                  VALUES (?, ?, ?, ?, ?, 1, 'CURRENT', datetime('now'))
-                  ON CONFLICT(symbol, exchange) DO UPDATE SET
-                    isin = COALESCE(excluded.isin, instruments.isin),
-                    name = COALESCE(excluded.name, instruments.name),
-                    series = COALESCE(excluded.series, instruments.series),
-                    is_active = 1,
-                    lifecycle_status = 'CURRENT',
-                    updated_at = excluded.updated_at
-                ",
-                params![
-                    row.symbol,
-                    NSE_EXCHANGE,
-                    row.isin,
-                    row.company_name,
-                    row.series
-                ],
-            )
-            .map_err(|error| error.to_string())?;
-    }
-    Ok(symbols)
-}
-
-fn upsert_security_master_rows(
-    connection: &Connection,
-    rows: &[NseSecurityMasterRow],
-) -> AppResult<HashSet<String>> {
-    if connection.is_autocommit() {
-        return super::run_connection_transaction(connection, |connection| {
-            upsert_security_master_rows_in_open_transaction(connection, rows)
-        });
-    }
-
-    upsert_security_master_rows_in_open_transaction(connection, rows)
-}
 
 fn load_existing_exchange_symbols(
     connection: &Connection,
@@ -3619,7 +3688,7 @@ fn load_symbol_change_rows(path: &Path) -> AppResult<Vec<NseSymbolChangeRow>> {
     };
 
     if looks_like_symbol_change_header(&first_record) {
-        let header_map = build_header_map(&first_record);
+        let header_map = symbol_change_header_map(&first_record)?;
         for record in records {
             let record = record.map_err(|error| error.to_string())?;
             rows.push(parse_symbol_change_header_record(
@@ -3658,6 +3727,48 @@ fn load_symbol_change_rows_from_bytes(
     let result = load_symbol_change_rows(&path);
     let _ = std::fs::remove_file(&path);
     result
+}
+
+// Retain source bytes separately from identity application. CA Fetch must not
+// mutate instruments or assume that a current master proves historical ISINs.
+pub(super) fn download_ca_symbol_change_source(
+    connection: &Connection,
+) -> AppResult<(String, Vec<u8>)> {
+    let urls = load_official_source_urls(Some(connection))?;
+    let bytes = fetch_nse_security_master_csv(
+        &urls.nse_symbol_change_url,
+        &urls.nse_securities_available_page_url,
+    )?;
+    parse_ca_symbol_change_source(&bytes)?;
+    Ok((urls.nse_symbol_change_url, bytes))
+}
+
+pub(super) fn parse_ca_symbol_change_source(
+    bytes: &[u8],
+) -> AppResult<Vec<(String, String, String, u64)>> {
+    let path = Path::new("retained NSE symbol-change CSV");
+    let mut reader = csv::ReaderBuilder::new()
+        .trim(csv::Trim::All)
+        .from_reader(bytes);
+    let headers = reader.headers().map_err(|e| e.to_string())?.clone();
+    let header_map = symbol_change_header_map(&headers)?;
+    if !["old", "new", "date"]
+        .iter()
+        .all(|key| header_map.contains_key(*key))
+    {
+        return Err("NSE symbol-change source has no recognized header.".to_string());
+    }
+    let mut rows = Vec::new();
+    for record in reader.records() {
+        let record = record.map_err(|e| e.to_string())?;
+        let line = record.position().map(|p| p.line()).unwrap_or(0);
+        let row = parse_symbol_change_header_record(&header_map, &record, path)?;
+        rows.push((row.old_symbol, row.new_symbol, row.effective_date, line));
+    }
+    if rows.is_empty() {
+        return Err("NSE symbol-change source is empty.".to_string());
+    }
+    Ok(rows)
 }
 
 fn parse_symbol_change_header_record(
@@ -3722,29 +3833,54 @@ fn load_name_change_rows_from_bytes(
         .trim(csv::Trim::All)
         .from_reader(Cursor::new(bytes));
     let headers = reader.headers().map_err(|error| error.to_string())?.clone();
-    let header_map = build_header_map(&headers);
+    let header_map = identity_change_header_map(
+        &headers,
+        &[
+            ("symbol", &["nchsymbol", "symbol"]),
+            ("oldname", &["nchprevname", "oldname", "previousname", "oldcompanyname", "previouscompanyname", "oldnameofthecompany"]),
+            ("newname", &["nchnewname", "newname", "newcompanyname", "newnameofthecompany"]),
+            ("date", &["nchdt", "date", "effectivedate"]),
+        ],
+        "company-name-change",
+    )?;
+    for (key, label) in [
+        ("symbol", "name change symbol"),
+        ("oldname", "old company name"),
+        ("newname", "new company name"),
+        ("date", "name change date"),
+    ] {
+        if !header_map.contains_key(key) {
+            return Err(format!("Missing {label} column in {source_label}; CSV headers: {headers:?}"));
+        }
+    }
     let mut rows = Vec::new();
 
     for record in reader.records() {
         let record = record.map_err(|error| error.to_string())?;
-        let symbol = normalize_symbol(
-            &pick_field(&header_map, &record, &["nchsymbol"])
-                .ok_or_else(|| format!("Missing name change symbol in {source_label}"))?,
-        )?;
-        let old_name = pick_field(&header_map, &record, &["nchprevname"])
-            .ok_or_else(|| format!("Missing old company name in {source_label}"))?;
-        let new_name = pick_field(&header_map, &record, &["nchnewname"])
-            .ok_or_else(|| format!("Missing new company name in {source_label}"))?;
-        let effective_date = parse_identity_date(
-            &pick_field(&header_map, &record, &["nchdt"])
-                .ok_or_else(|| format!("Missing name change date in {source_label}"))?,
-        )?;
-        rows.push(NseNameChangeRow {
-            symbol,
-            old_name,
-            new_name,
-            effective_date,
-        });
+        let parsed = (|| -> AppResult<NseNameChangeRow> {
+            let symbol = normalize_symbol(
+                &pick_field(&header_map, &record, &["symbol"])
+                    .ok_or_else(|| format!("Missing name change symbol in {source_label}"))?,
+            )?;
+            let old_name = pick_field(&header_map, &record, &["oldname"])
+                .ok_or_else(|| format!("Missing old company name in {source_label}"))?;
+            let new_name = pick_field(&header_map, &record, &["newname"])
+                .ok_or_else(|| format!("Missing new company name in {source_label}"))?;
+            let effective_date = parse_identity_date(
+                &pick_field(&header_map, &record, &["date"])
+                    .ok_or_else(|| format!("Missing name change date in {source_label}"))?,
+            )?;
+            Ok(NseNameChangeRow {
+                symbol,
+                old_name,
+                new_name,
+                effective_date,
+            })
+        })();
+        rows.push(parsed.map_err(|error| format!(
+            "{error}; CSV headers: {headers:?}; record position: {:?}; values: {record:?}",
+            record.position()
+        ))?);
     }
 
     Ok(rows)
@@ -3802,7 +3938,9 @@ fn load_identity_history_hints(
                 current_symbol,
                 old_symbol,
                 new_symbol,
-                isin
+                isin,
+                effective_date,
+                change_type
               FROM instrument_identity_history
               WHERE exchange = ?
             ",
@@ -3816,6 +3954,8 @@ fn load_identity_history_hints(
                 row.get::<_, Option<String>>(1)?,
                 row.get::<_, Option<String>>(2)?,
                 row.get::<_, Option<String>>(3)?,
+                row.get::<_, Option<String>>(4)?.unwrap_or_default(),
+                row.get::<_, Option<String>>(5)?.unwrap_or_default(),
             ))
         })
         .map_err(|error| error.to_string())?
@@ -3827,7 +3967,13 @@ fn load_identity_history_hints(
     let mut isin_to_current = HashMap::new();
     let mut isin_conflicts = HashSet::new();
 
-    for (current_symbol, old_symbol, new_symbol, isin) in &rows {
+    let mut transition_edges: HashMap<String, HashSet<(String, String)>> = HashMap::new();
+    for (current_symbol, old_symbol, new_symbol, isin, effective_date, change_type) in &rows {
+        if matches!(change_type.as_str(), "SYMBOL_CHANGE" | "BOTH") {
+            if let (Some(old), Some(new)) = (old_symbol, new_symbol) {
+                transition_edges.entry(old.clone()).or_default().insert((new.clone(), effective_date.clone()));
+            }
+        }
         let canonical_symbol = current_symbol.clone().or_else(|| new_symbol.clone());
         merge_unique_mapping(
             &mut symbol_to_current,
@@ -3859,6 +4005,7 @@ fn load_identity_history_hints(
         symbol_to_current,
         isin_to_current,
         row_count: rows.len() as u32,
+        transition_edges,
     })
 }
 
@@ -3971,25 +4118,54 @@ fn optional_field_would_change(next: &Option<String>, current: &Option<String>) 
     }
 }
 
-fn classify_nse_inactive_lifecycle(
+fn validated_current_successor(
     symbol: &str,
     history_hints: &NseIdentityHistoryHints,
+    current_symbols: &HashSet<String>,
+) -> Option<String> {
+    let mut at = symbol.to_string();
+    let mut seen = HashSet::from([at.clone()]);
+    let mut previous_date = None;
+    let today = chrono::Local::now().date_naive();
+    for _ in 0..32 {
+        let edges = history_hints.transition_edges.get(&at)?;
+        if edges.len() != 1 { return None; }
+        let (successor, effective_date) = edges.iter().next()?;
+        let date = NaiveDate::parse_from_str(effective_date, "%Y-%m-%d").ok()?;
+        if date > today || previous_date.is_some_and(|previous| date <= previous) || !seen.insert(successor.clone()) {
+            return None;
+        }
+        if current_symbols.contains(successor) { return Some(successor.clone()); }
+        at = successor.clone();
+        previous_date = Some(date);
+    }
+    None
+}
+
+fn classify_nse_inactive_lifecycle(
+    row: &ExistingNseInstrumentRow,
+    history_hints: &NseIdentityHistoryHints,
     official_delisted_symbols: &HashSet<String>,
+    current_symbols: &HashSet<String>,
 ) -> String {
-    if history_hints.symbol_to_current.contains_key(symbol) {
+    if !row.series.as_deref().is_some_and(|series| CURRENT_UNIVERSE_SUPPORTED_SERIES.contains(&series)) {
+        return "OUTSIDE_COVERAGE".to_string();
+    }
+    if validated_current_successor(&row.symbol, history_hints, current_symbols).is_some() {
         return "OLD_SYMBOL".to_string();
     }
-    if official_delisted_symbols.contains(symbol) {
+    if official_delisted_symbols.contains(&row.symbol) {
         return "DELISTED".to_string();
     }
-    "UNKNOWN_INACTIVE".to_string()
+    "REVIEW_REQUIRED".to_string()
 }
 
 fn nse_inactive_lifecycle_reason(lifecycle_status: &str) -> String {
     match lifecycle_status {
-        "OLD_SYMBOL" => "Symbol is an old NSE symbol mapped through official symbol-change history and will be hidden from normal browsing.".to_string(),
-        "DELISTED" => "Symbol is present in NSE's official delisted companies list and will be hidden from normal browsing.".to_string(),
-        _ => "Symbol is not present in the current official NSE universe or known delisted list and will be hidden pending review.".to_string(),
+        "OLD_SYMBOL" => "A unique dated symbol-change path reaches a different symbol in the current NSE master; the old symbol will be hidden from normal browsing.".to_string(),
+        "DELISTED" => "The covered symbol is present in NSE's official delisted companies list and will be hidden from normal browsing.".to_string(),
+        "OUTSIDE_COVERAGE" => "This instrument's series is outside the equity/SME source coverage. Absence is not inactivity evidence; it will remain active.".to_string(),
+        _ => "The symbol is absent from this current master, but no applicable delisting or validated successor is established. It will remain active pending review.".to_string(),
     }
 }
 
@@ -4049,10 +4225,17 @@ fn download_nse_current_universe_master_internal(
         &urls.nse_symbol_change_url,
         &urls.nse_securities_available_page_url,
     )?;
-    let company_name_change_bytes = fetch_nse_security_master_csv(
+    let (company_name_change_bytes, company_final_url, company_http_status) = fetch_nse_security_master_response(
         &urls.nse_company_name_change_url,
         &urls.nse_securities_available_page_url,
     )?;
+    let company_name_change_rows_read = validate_company_name_response(
+        &company_name_change_bytes, &urls.nse_company_name_change_url, company_http_status,
+    ).map_err(|error| company_name_failure_diagnostic(
+        Some(archive_root), &company_name_change_bytes,
+        &urls.nse_company_name_change_url, Some(&company_final_url),
+        Some(company_http_status), &error,
+    ))?;
     let allowed = CURRENT_UNIVERSE_SUPPORTED_SERIES
         .iter()
         .map(|value| (*value).to_string())
@@ -4066,10 +4249,6 @@ fn download_nse_current_universe_master_internal(
         load_security_master_rows_from_bytes(&sme_bytes, &urls.nse_sme_master_url, Some(&allowed))?;
     let symbol_change_rows =
         load_symbol_change_rows_from_bytes(&symbol_change_bytes, &urls.nse_symbol_change_url)?;
-    let company_name_change_rows_read = validate_nse_company_name_change_download(
-        &company_name_change_bytes,
-        &urls.nse_company_name_change_url,
-    )?;
     validate_nse_current_population_sanity(equity_rows.len())?;
 
     let equity_file_path =
@@ -4106,6 +4285,129 @@ fn download_nse_current_universe_master_internal(
     })
 }
 
+#[cfg(test)]
+mod company_name_diagnostic_tests {
+    use super::*;
+
+    #[test]
+    fn missing_column_and_blank_record_have_distinct_context() {
+        let missing = load_name_change_rows_from_bytes(b"SYMBOL,NEW NAME,DATE\n", "fixture").unwrap_err();
+        assert!(missing.contains("Missing old company name column"));
+        assert!(missing.contains("CSV headers:"));
+        let blank = load_name_change_rows_from_bytes(
+            b"SYMBOL,OLD NAME,NEW NAME,DATE\nABC,,New Limited,01-Jan-2026\n", "fixture",
+        ).unwrap_err();
+        assert!(blank.contains("Missing old company name in"));
+        assert!(blank.contains("record position:"));
+        assert!(blank.contains("ABC"));
+        assert!(blank.contains("line: 2"));
+    }
+
+    #[test]
+    fn captures_exact_bytes_without_replacing_saved_source() {
+        let root = tempfile::tempdir().unwrap();
+        let saved = root.path().join("NSE/Identity/CompanyNameChanges/nse_identity_company_name_changes.csv");
+        std::fs::create_dir_all(saved.parent().unwrap()).unwrap();
+        std::fs::write(&saved, b"last valid source").unwrap();
+        let bytes = b"SYMBOL,NEW NAME,DATE\r\nABC,New,01-Jan-2026\r\n";
+        let mut paths = Vec::new();
+        for _ in 0..2 {
+            let result = company_name_failure_diagnostic(Some(root.path()), bytes,
+                "https://nsearchives.nseindia.com/namechange.csv", Some("https://nsearchives.nseindia.com/namechange.csv"),
+                Some(200), "missing old-name column");
+            let receipt: serde_json::Value = serde_json::from_str(&result).unwrap();
+            let path = PathBuf::from(receipt["retainedDiagnosticPath"].as_str().unwrap());
+            let disk: serde_json::Value = serde_json::from_slice(&std::fs::read(&path).unwrap()).unwrap();
+            assert_eq!(disk["contentSha256"], sha256_hex_bytes(bytes));
+            assert_eq!(disk["httpStatus"], 200);
+            assert_eq!(disk["csvHeaders"][0], "SYMBOL");
+            assert_eq!(std::fs::read(path.parent().unwrap().join("response.bin")).unwrap(), bytes);
+            paths.push(path);
+        }
+        assert_ne!(paths[0], paths[1]);
+        assert_eq!(std::fs::read(saved).unwrap(), b"last valid source");
+    }
+
+    #[test]
+    fn retention_failure_is_explicit_and_keeps_original_error() {
+        let root = tempfile::tempdir().unwrap();
+        let blocked = root.path().join("file");
+        std::fs::write(&blocked, b"unchanged").unwrap();
+        let result = company_name_failure_diagnostic(Some(&blocked), b"bad", "fixture", None, None, "parser failed");
+        let receipt: serde_json::Value = serde_json::from_str(&result).unwrap();
+        assert_eq!(receipt["reason"], "parser failed");
+        assert!(receipt["retentionError"].is_string());
+        assert!(receipt["retainedDiagnosticPath"].is_null());
+        assert_eq!(std::fs::read(blocked).unwrap(), b"unchanged");
+    }
+
+    #[test]
+    fn non_success_response_never_passes_csv_validation() {
+        assert!(validate_company_name_response(b"SYMBOL,OLD NAME,NEW NAME,DATE\n", "fixture", 403)
+            .unwrap_err().contains("HTTP 403"));
+    }
+}
+
+fn validate_company_name_response(bytes: &[u8], url: &str, status: u16) -> AppResult<u32> {
+    if !(200..300).contains(&status) {
+        return Err(format!("NSE company-name download failed: HTTP {status}"));
+    }
+    validate_nse_company_name_change_download(bytes, url)
+}
+
+/// Diagnostic captures are never input archives or authority to apply identity changes.
+pub(crate) fn company_name_failure_diagnostic(
+    archive_root: Option<&Path>,
+    bytes: &[u8],
+    request_url: &str,
+    final_url: Option<&str>,
+    http_status: Option<u16>,
+    reason: &str,
+) -> String {
+    let headers = csv::ReaderBuilder::new()
+        .flexible(true)
+        .from_reader(Cursor::new(bytes))
+        .headers()
+        .map(|headers| headers.iter().map(str::to_owned).collect::<Vec<_>>())
+        .map_err(|error| error.to_string());
+    let mut diagnostic = serde_json::json!({
+        "capturedAtUtc": chrono::Utc::now().to_rfc3339(),
+        "sourceId": "NSE_COMPANY_NAME_CHANGE",
+        "requestUrl": request_url,
+        "finalUrl": final_url,
+        "httpStatus": http_status,
+        "contentBytes": bytes.len(),
+        "contentSha256": sha256_hex_bytes(bytes),
+        "csvHeaders": headers.ok(),
+        "reason": reason,
+        "savedSources": "Unchanged by diagnostic capture; failed response is not an import source."
+    });
+    if let Some(root) = archive_root {
+        let retained = (|| -> AppResult<PathBuf> {
+            if bytes.len() > 8 * 1024 * 1024 {
+                return Err("Response exceeds the 8 MiB diagnostic retention limit.".to_string());
+            }
+            let parent = root.join("NSE").join("Identity").join("Diagnostics");
+            std::fs::create_dir_all(&parent).map_err(|error| error.to_string())?;
+            let nonce = SystemTime::now().duration_since(SystemTime::UNIX_EPOCH)
+                .map_err(|error| error.to_string())?.as_nanos();
+            let directory = parent.join(format!("company-name-{nonce}-{}", std::process::id()));
+            // A collision fails rather than overwriting an earlier capture.
+            std::fs::create_dir(&directory).map_err(|error| error.to_string())?;
+            std::fs::write(directory.join("response.bin"), bytes).map_err(|error| error.to_string())?;
+            let receipt_path = directory.join("diagnostic.json");
+            std::fs::write(&receipt_path, serde_json::to_vec_pretty(&diagnostic)
+                .map_err(|error| error.to_string())?).map_err(|error| error.to_string())?;
+            Ok(receipt_path)
+        })();
+        match retained {
+            Ok(path) => diagnostic["retainedDiagnosticPath"] = path.display().to_string().into(),
+            Err(error) => diagnostic["retentionError"] = error.into(),
+        }
+    }
+    serde_json::to_string_pretty(&diagnostic).unwrap_or_else(|_| reason.to_string())
+}
+
 fn write_validated_download(path: &Path, bytes: &[u8]) -> AppResult<()> {
     let temp_path = path.with_extension("download.tmp");
     std::fs::write(&temp_path, bytes).map_err(|error| error.to_string())?;
@@ -4116,6 +4418,18 @@ fn write_validated_download(path: &Path, bytes: &[u8]) -> AppResult<()> {
 
 #[cfg(not(test))]
 fn fetch_nse_security_master_csv(url: &str, referer_url: &str) -> AppResult<Vec<u8>> {
+    let (bytes, _, status) = fetch_nse_security_master_response(url, referer_url)?;
+    if !(200..300).contains(&status) {
+        return Err(format!("NSE current master CSV download failed: HTTP {status}"));
+    }
+    if String::from_utf8_lossy(&bytes).trim_start().starts_with('<') {
+        return Err("NSE current master download returned HTML instead of CSV.".to_string());
+    }
+    Ok(bytes)
+}
+
+#[cfg(not(test))]
+fn fetch_nse_security_master_response(url: &str, referer_url: &str) -> AppResult<(Vec<u8>, String, u16)> {
     validate_nse_official_source_url(url)?;
     validate_nse_official_source_url(referer_url)?;
 
@@ -4153,25 +4467,20 @@ fn fetch_nse_security_master_csv(url: &str, referer_url: &str) -> AppResult<Vec<
         .header(REFERER, referer_url)
         .header(USER_AGENT, NSE_USER_AGENT)
         .send()
-        .map_err(|error| format!("Could not download NSE current master CSV: {error}"))?
-        .error_for_status()
-        .map_err(|error| format!("NSE current master CSV download failed: {error}"))?;
+        .map_err(|error| format!("Could not download NSE current master CSV: {error}"))?;
 
     validate_nse_official_source_url(response.url().as_str())?;
 
-    let bytes = response
-        .bytes()
-        .map(|bytes| bytes.to_vec())
+    let final_url = response.url().to_string();
+    let http_status = response.status().as_u16();
+    let bytes = response.bytes().map(|bytes| bytes.to_vec())
         .map_err(|error| format!("Could not read NSE current master CSV: {error}"))?;
-    let trimmed = String::from_utf8_lossy(&bytes)
-        .trim_start()
-        .chars()
-        .take(20)
-        .collect::<String>();
-    if trimmed.starts_with('<') {
-        return Err("NSE current master download returned HTML instead of CSV.".to_string());
-    }
-    Ok(bytes)
+    Ok((bytes, final_url, http_status))
+}
+
+#[cfg(test)]
+fn fetch_nse_security_master_response(_url: &str, _referer_url: &str) -> AppResult<(Vec<u8>, String, u16)> {
+    Err("NSE current master CSV download is not available in tests.".to_string())
 }
 
 #[cfg(test)]
@@ -4584,6 +4893,130 @@ fn xml_unescape(value: &str) -> String {
         .to_string()
 }
 
+#[cfg(test)]
+mod lifecycle_coverage_tests {
+    use super::*;
+
+    fn existing(symbol: &str, series: Option<&str>) -> ExistingNseInstrumentRow {
+        ExistingNseInstrumentRow { symbol: symbol.into(), isin: Some("SAMEISIN".into()), name: Some(symbol.into()),
+            series: series.map(str::to_string), is_active: true }
+    }
+    fn current() -> Vec<NseSecurityMasterRow> {
+        vec![NseSecurityMasterRow { symbol: "CURR".into(), company_name: Some("CURR".into()),
+            isin: Some("SAMEISIN".into()), series: Some("EQ".into()) }]
+    }
+    fn hints(edges: &[(&str, &str, &str)]) -> NseIdentityHistoryHints {
+        let mut result = NseIdentityHistoryHints::default();
+        for (old, new, date) in edges {
+            result.transition_edges.entry((*old).into()).or_default().insert(((*new).into(), (*date).into()));
+        }
+        result
+    }
+    fn plan(rows: Vec<ExistingNseInstrumentRow>, hints: NseIdentityHistoryHints, delisted: HashSet<String>) -> NseCurrentUniverseSyncPlan {
+        plan_nse_current_universe_sync_from_rows("fixture".into(), 1, current(), rows, hints, delisted)
+    }
+
+    #[test]
+    fn absent_uncovered_series_remain_active_even_with_delisting_or_rename_hints() {
+        for series in [Some("SG"), Some("TB"), Some("N1"), Some("SF"), None] {
+            let p = plan(vec![existing("ABSENT", series)], hints(&[("ABSENT", "CURR", "2020-01-01")]), HashSet::from(["ABSENT".into()]));
+            assert!(p.deactivate_symbols.is_empty());
+            let row = p.preview_rows.iter().find(|r| r.symbol == "ABSENT").unwrap();
+            assert_eq!(row.action, "OUTSIDE_COVERAGE");
+            assert_eq!(row.proposed_status, "ACTIVE");
+        }
+    }
+
+    #[test]
+    fn supported_unknown_absence_and_self_mapping_do_not_authorize_deactivation() {
+        for series in CURRENT_UNIVERSE_SUPPORTED_SERIES {
+            let mut h = hints(&[("ABSENT", "ABSENT", "2020-01-01")]);
+            h.symbol_to_current.insert("ABSENT".into(), "ABSENT".into());
+            let p = plan(vec![existing("ABSENT", Some(series))], h, HashSet::new());
+            assert!(p.deactivate_symbols.is_empty());
+            let row = p.preview_rows.iter().find(|r| r.symbol == "ABSENT").unwrap();
+            assert_eq!(row.action, "REVIEW_REQUIRED");
+            assert_eq!(row.proposed_status, "ACTIVE");
+        }
+    }
+
+    #[test]
+    fn dated_path_requires_unique_increasing_past_edges_and_a_live_successor() {
+        let live = HashSet::from(["CURR".into()]);
+        assert_eq!(validated_current_successor("OLD", &hints(&[("OLD", "MID", "2019-01-01"), ("MID", "CURR", "2020-01-01")]), &live), Some("CURR".into()));
+        for edges in [
+            vec![("OLD", "CURR", "2999-01-01")],
+            vec![("OLD", "CURR", "invalid")],
+            vec![("OLD", "MISSING", "2020-01-01")],
+            vec![("OLD", "CURR", "2020-01-01"), ("OLD", "OTHER", "2021-01-01")],
+            vec![("OLD", "MID", "2020-01-01"), ("MID", "CURR", "2020-01-01")],
+            vec![("OLD", "MID", "2021-01-01"), ("MID", "OLD", "2022-01-01")],
+        ] { assert_eq!(validated_current_successor("OLD", &hints(&edges), &live), None); }
+    }
+
+    #[test]
+    fn name_only_and_isin_hints_cannot_be_used_as_rename_proof() {
+        let c = Connection::open_in_memory().unwrap();
+        c.execute_batch("CREATE TABLE instrument_identity_history(current_symbol TEXT,old_symbol TEXT,new_symbol TEXT,isin TEXT,effective_date TEXT,change_type TEXT,exchange TEXT);
+            INSERT INTO instrument_identity_history VALUES('CURR','ABSENT','CURR','SAMEISIN','2020-01-01','NAME_CHANGE','NSE');").unwrap();
+        let h = load_identity_history_hints(&c, "NSE").unwrap();
+        assert_eq!(h.symbol_to_current.get("ABSENT").map(String::as_str), Some("CURR"));
+        assert!(h.transition_edges.is_empty());
+        let p = plan(vec![existing("ABSENT", Some("EQ"))], h, HashSet::new());
+        assert!(p.deactivate_symbols.is_empty());
+    }
+
+    #[test]
+    fn apply_preserves_held_flags_and_hides_only_explicitly_evidenced_rows() {
+        let c = Connection::open_in_memory().unwrap();
+        c.execute_batch("CREATE TABLE instruments(symbol TEXT,exchange TEXT,isin TEXT,name TEXT,series TEXT,is_active INTEGER,lifecycle_status TEXT,updated_at TEXT,PRIMARY KEY(symbol,exchange));
+            INSERT INTO instruments VALUES('HELD','NSE','SAMEISIN','HELD','EQ',1,'CURRENT','original');
+            INSERT INTO instruments VALUES('DEBT','NSE','SAMEISIN','DEBT','N1',1,'CURRENT','original');
+            INSERT INTO instruments VALUES('OLD','NSE','SAMEISIN','OLD','EQ',1,'CURRENT','original');
+            INSERT INTO instruments VALUES('DELIST','NSE','SAMEISIN','DELIST','BE',1,'CURRENT','original');").unwrap();
+        let p = plan(vec![existing("HELD", Some("EQ")), existing("DEBT", Some("N1")), existing("OLD", Some("EQ")), existing("DELIST", Some("BE"))],
+            hints(&[("OLD", "CURR", "2020-01-01")]), HashSet::from(["DELIST".into()]));
+        assert_eq!(p.deactivate_count, 2);
+        apply_nse_current_universe_sync_plan(&c, &p).unwrap();
+        for symbol in ["HELD", "DEBT"] {
+            let state: (i64, String, String) = c.query_row("SELECT is_active,lifecycle_status,updated_at FROM instruments WHERE symbol=?", [symbol], |r| Ok((r.get(0)?,r.get(1)?,r.get(2)?))).unwrap();
+            assert_eq!(state, (1, "CURRENT".into(), "original".into()));
+        }
+        for (symbol, status) in [("OLD", "OLD_SYMBOL"), ("DELIST", "DELISTED")] {
+            assert_eq!(c.query_row("SELECT lifecycle_status FROM instruments WHERE symbol=? AND is_active=0", [symbol], |r| r.get::<_, String>(0)).unwrap(), status);
+        }
+    }
+
+    #[test]
+    fn incomplete_write_plan_is_rejected_before_any_changes() {
+        let c = Connection::open_in_memory().unwrap();
+        let mut p = plan(Vec::new(), NseIdentityHistoryHints::default(), HashSet::new());
+        p.deactivate_symbols.push("HELD".into());
+        assert!(apply_nse_current_universe_sync_plan_in_open_transaction(&c, &p).unwrap_err().contains("explicit lifecycle evidence"));
+        assert_eq!(c.query_row("SELECT total_changes()", [], |r| r.get::<_, i64>(0)).unwrap(), 0);
+    }
+
+    #[test]
+    #[ignore = "Requires the pinned read-only audit copy; no live database access"]
+    fn guarded_copy_current_plan_holds_the_1052_audited_absences() {
+        let folder = Path::new("E:/TA Projects/EOD Charting Platform/tmp/ca-nse-lifecycle-coverage-20261029");
+        assert_eq!(std::fs::read_to_string(folder.join("READ_ONLY_PLAN_ONLY.txt")).unwrap().trim(), "READ_ONLY_PLAN_ONLY");
+        let c = Connection::open_with_flags(folder.join("proof.sqlite3"), rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY).unwrap();
+        c.execute_batch("PRAGMA query_only=ON; BEGIN").unwrap();
+        let root = Path::new("E:/TA Projects/EOD Charting Platform/EOD DATABASE/reference-data");
+        let p = build_nse_current_universe_sync_plan(&c, &NseCurrentUniverseSyncInput { archive_root_path: None }, Some(root)).unwrap();
+        assert_eq!(p.current_universe_symbols, 3200);
+        assert_eq!(p.activate_count, 29);
+        assert_eq!(p.update_count, 259);
+        assert_eq!(p.deactivate_count, 0);
+        assert_eq!(p.preview_rows.iter().filter(|r| r.action == "OUTSIDE_COVERAGE").count(), 990);
+        assert_eq!(p.preview_rows.iter().filter(|r| r.action == "REVIEW_REQUIRED").count(), 62);
+        assert!(p.preview_rows.iter().filter(|r| matches!(r.action.as_str(), "OUTSIDE_COVERAGE" | "REVIEW_REQUIRED")).all(|r| r.proposed_status == "ACTIVE"));
+        assert_eq!(c.query_row("SELECT total_changes()", [], |r| r.get::<_, i64>(0)).unwrap(), 0);
+        c.execute_batch("ROLLBACK").unwrap();
+    }
+}
+
 fn current_sync_action_rank(action: &str) -> u8 {
     match action {
         "REACTIVATE" => 0,
@@ -4593,6 +5026,8 @@ fn current_sync_action_rank(action: &str) -> u8 {
         "DELISTED" => 4,
         "UNKNOWN_INACTIVE" => 5,
         "DEACTIVATE" => 6,
+        "REVIEW_REQUIRED" => 7,
+        "OUTSIDE_COVERAGE" => 8,
         _ => 9,
     }
 }
@@ -4628,9 +5063,150 @@ fn normalize_header(value: &str) -> String {
 
 fn looks_like_symbol_change_header(record: &StringRecord) -> bool {
     let normalized = record.iter().map(normalize_header).collect::<Vec<_>>();
-    normalized.iter().any(|value| value == "old")
-        && normalized.iter().any(|value| value == "new")
-        && normalized.iter().any(|value| value == "date")
+    normalized.iter().any(|value| matches!(value.as_str(), "old" | "oldsymbol"))
+        && normalized.iter().any(|value| matches!(value.as_str(), "new" | "newsymbol"))
+        && normalized.iter().any(|value| matches!(value.as_str(), "date" | "effectivedate"))
+}
+
+// Health, saved-source preview and CA evidence must agree on header semantics.
+// Reject competing columns rather than picking one value by alias priority.
+fn identity_change_header_map(
+    headers: &StringRecord,
+    aliases: &[(&str, &[&str])],
+    source_kind: &str,
+) -> AppResult<HashMap<String, usize>> {
+    let normalized = headers.iter().map(normalize_header).collect::<Vec<_>>();
+    let mut map = build_header_map(headers);
+    for (key, names) in aliases {
+        let mut matches = normalized.iter().enumerate()
+            .filter(|(_, name)| names.contains(&name.as_str()));
+        if let Some((index, _)) = matches.next() {
+            if matches.next().is_some() {
+                return Err(format!("Ambiguous {source_kind} CSV columns for {key}."));
+            }
+            map.insert((*key).to_string(), index);
+        }
+    }
+    Ok(map)
+}
+
+fn symbol_change_header_map(headers: &StringRecord) -> AppResult<HashMap<String, usize>> {
+    identity_change_header_map(
+        headers,
+        &[
+            ("old", &["old", "oldsymbol"]),
+            ("new", &["new", "newsymbol"]),
+            ("date", &["date", "effectivedate"]),
+            ("company", &["company", "nameofthecompany", "nameofcompany"]),
+        ],
+        "symbol-change",
+    )
+}
+
+#[cfg(test)]
+mod identity_change_csv_compatibility_tests {
+    use super::*;
+
+    #[test]
+    fn captured_official_company_name_response_parses_all_2332_rows() {
+        let bytes = include_bytes!("fixtures/nse_namechange_20261028.csv");
+        assert_eq!(sha256_hex_bytes(bytes), "ca456bf37b8d8e715708f1df04089fe09f7418275764d105351c5d9742cfac9f");
+        let rows = load_name_change_rows_from_bytes(bytes, "retained official response").unwrap();
+        assert_eq!(rows.len(), 2332);
+        assert_eq!(rows[0].symbol, "1IADD");
+        assert_eq!(rows[0].effective_date, "2016-03-08");
+    }
+
+    #[test]
+    fn official_company_name_aliases_still_reject_ambiguity_and_bad_values() {
+        let duplicate = b"SYMBOL,OLD NAME OF THE COMPANY,OLD NAME,NEW NAME OF THE COMPANY,EFFECTIVE DATE\nABC,Old,Other,New,01-Jan-2026\n";
+        assert!(load_name_change_rows_from_bytes(duplicate, "fixture").unwrap_err().contains("Ambiguous"));
+        let blank = b"SYMBOL,OLD NAME OF THE COMPANY,NEW NAME OF THE COMPANY,EFFECTIVE DATE\nABC,,New,01-Jan-2026\n";
+        assert!(load_name_change_rows_from_bytes(blank, "fixture").unwrap_err().contains("Missing old company name"));
+        let bad_date = b"SYMBOL,OLD NAME OF THE COMPANY,NEW NAME OF THE COMPANY,EFFECTIVE DATE\nABC,Old,New,invalid\n";
+        assert!(load_name_change_rows_from_bytes(bad_date, "fixture").is_err());
+    }
+
+
+    #[test]
+    fn official_symbol_headers_agree_across_identity_health_and_ca() {
+        let bytes = b"NAME OF THE COMPANY,OLD SYMBOL,NEW SYMBOL,EFFECTIVE DATE\nExample Limited,OLD,NEW,01-Jan-2026\n";
+        let identity = load_symbol_change_rows_from_bytes(bytes, "fixture").unwrap();
+        let ca = parse_ca_symbol_change_source(bytes).unwrap();
+        assert_eq!(identity.len(), 1);
+        assert_eq!(identity[0].company_name.as_deref(), Some("Example Limited"));
+        assert_eq!(identity[0].old_symbol, ca[0].0);
+        assert_eq!(identity[0].new_symbol, ca[0].1);
+        assert_eq!(identity[0].effective_date, "2026-01-01");
+        assert_eq!(identity[0].effective_date, ca[0].2);
+        assert_eq!(ca[0].3, 2);
+        assert_eq!(validate_nse_symbol_change_bytes_for_health(bytes, "fixture").unwrap(), 1);
+    }
+
+    #[test]
+    fn legacy_and_reordered_symbol_headers_keep_field_meaning() {
+        for bytes in [
+            b"COMPANY,OLD,NEW,DATE\nExample Limited,OLD,NEW,01-Jan-2026\n".as_slice(),
+            b"EFFECTIVE DATE,NEW SYMBOL,NAME OF THE COMPANY,OLD SYMBOL\n01-Jan-2026,NEW,Example Limited,OLD\n".as_slice(),
+        ] {
+            let identity = load_symbol_change_rows_from_bytes(bytes, "fixture").unwrap();
+            let ca = parse_ca_symbol_change_source(bytes).unwrap();
+            assert_eq!(identity[0].old_symbol, "OLD");
+            assert_eq!(identity[0].new_symbol, "NEW");
+            assert_eq!(ca[0].0, "OLD");
+            assert_eq!(ca[0].1, "NEW");
+        }
+        let headerless = b"Example Limited,OLD,NEW,01-Jan-2026\n";
+        assert_eq!(load_symbol_change_rows_from_bytes(headerless, "fixture").unwrap().len(), 1);
+        assert!(parse_ca_symbol_change_source(headerless).is_err());
+    }
+
+    #[test]
+    fn competing_or_duplicate_symbol_columns_fail_closed() {
+        for bytes in [
+            b"OLD,OLD SYMBOL,NEW SYMBOL,EFFECTIVE DATE\nOLD,OTHER,NEW,01-Jan-2026\n".as_slice(),
+            b"OLD SYMBOL,old_symbol,NEW SYMBOL,EFFECTIVE DATE\nOLD,OTHER,NEW,01-Jan-2026\n".as_slice(),
+        ] {
+            assert!(load_symbol_change_rows_from_bytes(bytes, "fixture").unwrap_err().contains("Ambiguous"));
+            assert!(parse_ca_symbol_change_source(bytes).unwrap_err().contains("Ambiguous"));
+        }
+    }
+
+    #[test]
+    fn explicit_name_change_headers_and_legacy_columns_agree() {
+        for bytes in [
+            b"SYMBOL,OLD NAME,NEW NAME,EFFECTIVE DATE\nEXAMPLE,Previous Limited,Current Limited,01-Jan-2026\n".as_slice(),
+            b"NCH_SYMBOL,NCH_PREV_NAME,NCH_NEW_NAME,NCH_DT\nEXAMPLE,Previous Limited,Current Limited,01-Jan-2026\n".as_slice(),
+            b"Effective Date,New Company Name,Symbol,Previous Company Name\n01-Jan-2026,Current Limited,EXAMPLE,Previous Limited\n".as_slice(),
+        ] {
+            let rows = load_name_change_rows_from_bytes(bytes, "fixture").unwrap();
+            assert_eq!(rows.len(), 1);
+            assert_eq!(rows[0].symbol, "EXAMPLE");
+            assert_eq!(rows[0].old_name, "Previous Limited");
+            assert_eq!(rows[0].new_name, "Current Limited");
+            assert_eq!(rows[0].effective_date, "2026-01-01");
+            assert_eq!(validate_nse_company_name_change_bytes_for_health(bytes, "fixture").unwrap(), 1);
+        }
+    }
+
+    #[test]
+    fn name_change_rejects_competing_aliases_and_missing_columns_even_when_empty() {
+        let duplicate = b"SYMBOL,NCH_SYMBOL,OLD NAME,NEW NAME,EFFECTIVE DATE\nEXAMPLE,OTHER,Previous Limited,Current Limited,01-Jan-2026\n";
+        assert!(load_name_change_rows_from_bytes(duplicate, "fixture").unwrap_err().contains("Ambiguous"));
+        let missing = b"SYMBOL,OLD NAME,EFFECTIVE DATE\n";
+        assert!(load_name_change_rows_from_bytes(missing, "fixture").unwrap_err().contains("Missing new company name"));
+        let master = b"SYMBOL,NAME OF COMPANY,SERIES,ISIN NUMBER\nEXAMPLE,Current Limited,EQ,INE000000001\n";
+        assert!(load_name_change_rows_from_bytes(master, "fixture").unwrap_err().contains("Missing old company name"));
+    }
+
+    #[test]
+    fn malformed_dates_and_missing_name_values_remain_errors() {
+        let symbol = b"OLD SYMBOL,NEW SYMBOL,EFFECTIVE DATE\nOLD,NEW,31-Feb-2026\n";
+        assert!(load_symbol_change_rows_from_bytes(symbol, "fixture").unwrap_err().contains("Invalid NSE identity date"));
+        assert!(parse_ca_symbol_change_source(symbol).is_err());
+        let name = b"SYMBOL,OLD NAME,NEW NAME,EFFECTIVE DATE\nEXAMPLE,,Current Limited,01-Jan-2026\n";
+        assert!(load_name_change_rows_from_bytes(name, "fixture").unwrap_err().contains("Missing old company name"));
+    }
 }
 
 fn parse_identity_date(value: &str) -> AppResult<String> {
@@ -5020,6 +5596,7 @@ mod tests {
         ];
         let history_hints = NseIdentityHistoryHints {
             symbol_to_current: HashMap::from([("OLDCO".to_string(), "NEWCO".to_string())]),
+            transition_edges: HashMap::from([("OLDCO".to_string(), HashSet::from([("NEWCO".to_string(), "2020-01-01".to_string())]))]),
             isin_to_current: HashMap::new(),
             row_count: 1,
         };
@@ -5145,7 +5722,9 @@ mod tests {
 
         assert!(result.applied);
         assert_eq!(result.plan_sha256, preview.plan_sha256);
-        assert_eq!(old_is_active, 0);
+        assert_eq!(old_is_active, 1);
+        assert_eq!(result.deactivate_count, 0);
+        assert!(result.preview_rows.iter().any(|row| row.symbol == "OLDCO" && row.action == "REVIEW_REQUIRED"));
         assert_eq!(current_is_active, 1);
 
         let _ = fs::remove_dir_all(root);
@@ -5375,7 +5954,165 @@ mod tests {
         assert_eq!(result.plan_sha256, preview.plan_sha256);
         assert_eq!(history_count, 1);
         assert_eq!(current_is_active, 1);
+        assert_eq!(connection.query_row("SELECT lifecycle_status FROM instruments WHERE symbol='OLDCO' AND exchange='NSE'", [], |row| row.get::<_, String>(0)).unwrap(), "OLD_SYMBOL");
 
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn i4_historical_reporting_receipt_and_progress_share_commit_boundary() {
+        let root = create_temp_archive_root();
+        write_i4_historical_sources(&root,
+            "SYMBOL,NAME OF COMPANY,SERIES,ISIN NUMBER\nCURR,Current Limited,EQ,INECURR1\n",
+            "old,new,date,company\nOLDCO,CURR,2026-01-01,Current Limited\n",
+            "NCH_SYMBOL,NCH_PREV_NAME,NCH_NEW_NAME,NCH_DT\n");
+        let connection = create_phase5c_identity_import_connection();
+        let archive = Some(root.display().to_string());
+        let preview = preview_nse_historical_identity_archive_internal(&connection, &NseHistoricalIdentityPreviewInput { archive_root_path: archive.clone() }).unwrap();
+        assert!(preview.can_apply);
+        assert!(!connection.query_row("SELECT EXISTS(SELECT 1 FROM sqlite_master WHERE name='historical_identity_apply_runs')",[],|r|r.get::<_,bool>(0)).unwrap());
+        let events = std::cell::RefCell::new(Vec::new());
+        let result = apply_nse_historical_identity_archive_with_progress(&connection,
+            &NseHistoricalIdentityApplyInput { archive_root_path: archive, expected_plan_sha256: preview.plan_sha256 }, &|event| events.borrow_mut().push(event)).unwrap();
+        assert!(result.applied); assert!(result.run_id.is_some()); assert!(result.completed_at.is_some());
+        let history = historical_reporting::read_history(&connection).unwrap();
+        assert_eq!(history["runs"].as_array().unwrap().len(),1);
+        assert!(history["runs"][0].get("historyRows").is_none());
+        let before_read:i64=connection.query_row("SELECT total_changes()",[],|r|r.get(0)).unwrap();
+        let saved=historical_reporting::read_report(&connection,result.run_id.as_deref().unwrap()).unwrap();
+        assert_eq!(saved["applied"],true); assert!(!saved["historyRows"].as_array().unwrap().is_empty());
+        assert!(historical_reporting::read_report(&connection,"' OR 1=1 --").is_err());
+        assert_eq!(before_read,connection.query_row("SELECT total_changes()",[],|r|r.get::<_,i64>(0)).unwrap());
+        assert!(history["legacyRows"].as_array().unwrap().is_empty());
+        let events=events.borrow(); assert_eq!(events.last().unwrap().stage,"committed");
+        assert_eq!(events.last().unwrap().percent,Some(100));
+        assert!(events[..events.len()-1].iter().all(|e|e.percent.is_none_or(|p|p<100)));
+        assert!(connection.is_autocommit());
+        let _=fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn i4_historical_reporting_receipt_failure_rolls_back_every_identity_change() {
+        let root=create_temp_archive_root();
+        write_i4_historical_sources(&root,
+            "SYMBOL,NAME OF COMPANY,SERIES,ISIN NUMBER\nCURR,Current Limited,EQ,INECURR1\n",
+            "old,new,date,company\nOLDCO,CURR,2026-01-01,Current Limited\n",
+            "NCH_SYMBOL,NCH_PREV_NAME,NCH_NEW_NAME,NCH_DT\n");
+        let connection=create_phase5c_identity_import_connection();
+        connection.execute_batch("CREATE TABLE historical_identity_apply_runs(run_id TEXT PRIMARY KEY,completed_at TEXT,result_json TEXT);
+            CREATE TRIGGER fail_historical_receipt BEFORE INSERT ON historical_identity_apply_runs BEGIN SELECT RAISE(FAIL,'injected receipt failure'); END;").unwrap();
+        let archive=Some(root.display().to_string());
+        let preview=preview_nse_historical_identity_archive_internal(&connection,&NseHistoricalIdentityPreviewInput{archive_root_path:archive.clone()}).unwrap();
+        let before=read_i4_database_state(&connection);
+        let events=std::cell::RefCell::new(Vec::new());
+        let error=apply_nse_historical_identity_archive_with_progress(&connection,&NseHistoricalIdentityApplyInput{archive_root_path:archive,expected_plan_sha256:preview.plan_sha256},&|e|events.borrow_mut().push(e)).unwrap_err();
+        assert!(error.contains("injected receipt failure")); assert_eq!(before,read_i4_database_state(&connection));
+        assert!(events.borrow().iter().all(|e|e.stage!="committed")); assert!(connection.is_autocommit());
+        assert_eq!(connection.query_row("SELECT COUNT(*) FROM historical_identity_apply_runs",[],|r|r.get::<_,i64>(0)).unwrap(),0);
+        let _=fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn i4_historical_reporting_legacy_read_is_not_a_synthetic_run() {
+        let connection=create_phase5c_identity_import_connection();
+        connection.execute("INSERT INTO instrument_identity_history(exchange,old_symbol,new_symbol,effective_date,change_type,source,created_at) VALUES ('NSE','OLD','NEW','2026-01-01','SYMBOL_CHANGE','NSE_IDENTITY','2026-10-29 15:57:57')",[]).unwrap();
+        let before:i64=connection.query_row("SELECT total_changes()",[],|r|r.get(0)).unwrap();
+        let history=historical_reporting::read_history(&connection).unwrap();
+        assert!(history["runs"].as_array().unwrap().is_empty()); assert_eq!(history["legacyRows"].as_array().unwrap().len(),1);
+        assert_eq!(before,connection.query_row("SELECT total_changes()",[],|r|r.get::<_,i64>(0)).unwrap());
+        assert!(!connection.query_row("SELECT EXISTS(SELECT 1 FROM sqlite_master WHERE name='historical_identity_apply_runs')",[],|r|r.get::<_,bool>(0)).unwrap());
+    }
+
+    #[test]
+    fn i4_historical_reporting_zero_change_apply_rejects_without_receipt() {
+        let root=create_temp_archive_root();
+        write_i4_historical_sources(&root,
+            "SYMBOL,NAME OF COMPANY,SERIES,ISIN NUMBER\nOLDCO,Old Company,EQ,INEOLD1\n",
+            "old,new,date,company\n", "NCH_SYMBOL,NCH_PREV_NAME,NCH_NEW_NAME,NCH_DT\n");
+        let connection=create_phase5c_identity_import_connection(); let archive=Some(root.display().to_string());
+        let preview=preview_nse_historical_identity_archive_internal(&connection,&NseHistoricalIdentityPreviewInput{archive_root_path:archive.clone()}).unwrap();
+        assert!(preview.can_apply); assert!(!historical_reporting::actionable(&preview));
+        let before=read_i4_database_state(&connection);
+        let error=apply_nse_historical_identity_archive_internal(&connection,&NseHistoricalIdentityApplyInput{archive_root_path:archive,expected_plan_sha256:preview.plan_sha256}).unwrap_err();
+        assert!(error.contains("No historical identity changes")); assert_eq!(before,read_i4_database_state(&connection));
+        assert!(!connection.query_row("SELECT EXISTS(SELECT 1 FROM sqlite_master WHERE name='historical_identity_apply_runs')",[],|r|r.get::<_,bool>(0)).unwrap());
+        let _=fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn i4_historical_reporting_commit_failure_never_emits_completed() {
+        let root=create_temp_archive_root();
+        write_i4_historical_sources(&root,
+            "SYMBOL,NAME OF COMPANY,SERIES,ISIN NUMBER\nCURR,Current Limited,EQ,INECURR1\n",
+            "old,new,date,company\nOLDCO,CURR,2026-01-01,Current Limited\n",
+            "NCH_SYMBOL,NCH_PREV_NAME,NCH_NEW_NAME,NCH_DT\n");
+        let connection=create_phase5c_identity_import_connection();
+        connection.execute_batch("PRAGMA foreign_keys=ON;
+            CREATE TABLE receipt_parent(id INTEGER PRIMARY KEY);
+            CREATE TABLE receipt_child(id INTEGER REFERENCES receipt_parent(id) DEFERRABLE INITIALLY DEFERRED);
+            CREATE TABLE historical_identity_apply_runs(run_id TEXT PRIMARY KEY,completed_at TEXT,result_json TEXT);
+            CREATE TRIGGER fail_historical_commit AFTER INSERT ON historical_identity_apply_runs BEGIN INSERT INTO receipt_child VALUES(999); END;").unwrap();
+        let archive=Some(root.display().to_string());
+        let preview=preview_nse_historical_identity_archive_internal(&connection,&NseHistoricalIdentityPreviewInput{archive_root_path:archive.clone()}).unwrap();
+        let before=read_i4_database_state(&connection); let events=std::cell::RefCell::new(Vec::new());
+        let error=apply_nse_historical_identity_archive_with_progress(&connection,&NseHistoricalIdentityApplyInput{archive_root_path:archive,expected_plan_sha256:preview.plan_sha256},&|e|events.borrow_mut().push(e)).unwrap_err();
+        assert!(error.contains("FOREIGN KEY")); assert_eq!(before,read_i4_database_state(&connection));
+        assert!(events.borrow().iter().all(|e|e.percent.is_none_or(|p|p<100)));
+        assert!(connection.is_autocommit());
+        assert_eq!(connection.query_row("SELECT COUNT(*) FROM historical_identity_apply_runs",[],|r|r.get::<_,i64>(0)).unwrap(),0);
+        let _=fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn i4_historical_name_update_preserves_inactive_absent_symbol() {
+        let root = create_temp_archive_root();
+        write_i4_historical_sources(&root,
+            "SYMBOL,NAME OF COMPANY,SERIES,ISIN NUMBER\nCURR,Current Limited,EQ,INECURR1\n",
+            "old,new,date,company\n",
+            "NCH_SYMBOL,NCH_PREV_NAME,NCH_NEW_NAME,NCH_DT\nOLDCO,Old Company,Old Company Revised,2020-01-01\n");
+        let connection = create_phase5c_identity_import_connection();
+        connection.execute("UPDATE instruments SET is_active=0 WHERE symbol='OLDCO' AND exchange='NSE'", []).unwrap();
+        connection.execute_batch("CREATE TABLE corporate_actions (
+            id INTEGER PRIMARY KEY, symbol TEXT, exchange TEXT, isin TEXT,
+            effective_date TEXT, action_type TEXT, factor REAL, adjust_volume INTEGER,
+            ratio_num REAL, ratio_den REAL, old_face_value REAL, new_face_value REAL,
+            cash_amount REAL, source TEXT);").unwrap();
+        let archive = Some(root.display().to_string());
+        let before = read_i4_database_state(&connection);
+        let preview = preview_nse_historical_identity_archive_internal(&connection,
+            &NseHistoricalIdentityPreviewInput { archive_root_path: archive.clone() }).unwrap();
+        assert!(preview.can_apply, "{:?}", preview.errors); assert_eq!(preview.new_name_changes, 1);
+        assert_eq!(before, read_i4_database_state(&connection));
+        let result = apply_nse_historical_identity_archive_internal(&connection,
+            &NseHistoricalIdentityApplyInput { archive_root_path: archive, expected_plan_sha256: preview.plan_sha256 }).unwrap();
+        assert!(result.applied);
+        let old: (i64, String) = connection.query_row("SELECT is_active,name FROM instruments WHERE symbol='OLDCO' AND exchange='NSE'", [], |r| Ok((r.get(0)?,r.get(1)?))).unwrap();
+        assert_eq!(old, (0, "Old Company Revised".to_string()));
+        assert_eq!(connection.query_row("SELECT is_active FROM instruments WHERE symbol='CURR' AND exchange='NSE'", [], |r| r.get::<_, i64>(0)).unwrap(), 1);
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn i4_historical_lifecycle_failure_rolls_back_the_accepted_identity_row() {
+        let root = create_temp_archive_root();
+        write_i4_historical_sources(&root,
+            "SYMBOL,NAME OF COMPANY,SERIES,ISIN NUMBER\nCURR,Current Limited,EQ,INECURR1\n",
+            "old,new,date,company\nOLDCO,CURR,2026-01-01,Current Limited\n",
+            "NCH_SYMBOL,NCH_PREV_NAME,NCH_NEW_NAME,NCH_DT\n");
+        let connection = create_phase5c_identity_import_connection();
+        let archive = Some(root.display().to_string());
+        let preview = preview_nse_historical_identity_archive_internal(&connection,
+            &NseHistoricalIdentityPreviewInput { archive_root_path: archive.clone() }).unwrap();
+        assert!(preview.can_apply);
+        connection.execute_batch("CREATE TRIGGER fail_identity_lifecycle BEFORE UPDATE OF lifecycle_status ON instruments
+            WHEN NEW.symbol='OLDCO' AND NEW.lifecycle_status='OLD_SYMBOL'
+            BEGIN SELECT RAISE(FAIL,'injected identity lifecycle failure'); END;").unwrap();
+        let before = read_i4_database_state(&connection);
+        let error = apply_nse_historical_identity_archive_internal(&connection,
+            &NseHistoricalIdentityApplyInput { archive_root_path: archive, expected_plan_sha256: preview.plan_sha256 }).unwrap_err();
+        assert_eq!(error, NSE_HISTORICAL_PREVIEW_ERRORS);
+        assert_eq!(before, read_i4_database_state(&connection));
+        assert_eq!(connection.query_row("SELECT lifecycle_status FROM instruments WHERE symbol='OLDCO' AND exchange='NSE'", [], |r| r.get::<_, String>(0)).unwrap(), "CURRENT");
         let _ = fs::remove_dir_all(root);
     }
 
@@ -5483,6 +6220,20 @@ mod tests {
             "old,new,date,company\nOLDCO,CURR,2026-01-01,Current Limited\n",
             "NCH_SYMBOL,NCH_PREV_NAME,NCH_NEW_NAME,NCH_DT\n",
         );
+        // The failure must target a supported, explicitly evidenced deactivation.
+        // An unexplained absence is now held active and must not reach the trigger.
+        {
+            use std::io::Write;
+            let mut workbook = zip::ZipWriter::new(Cursor::new(Vec::new()));
+            workbook.start_file("xl/sharedStrings.xml", zip::write::FileOptions::default()).unwrap();
+            workbook.write_all(b"<sst><si><t>Symbol</t></si><si><t>EXTRA</t></si></sst>").unwrap();
+            workbook.start_file("xl/worksheets/sheet1.xml", zip::write::FileOptions::default()).unwrap();
+            workbook.write_all(b"<worksheet><sheetData><row><c r=\"A1\" t=\"s\"><v>0</v></c></row><row><c r=\"A2\" t=\"s\"><v>1</v></c></row></sheetData></worksheet>").unwrap();
+            let bytes = workbook.finish().unwrap().into_inner();
+            let folder = root.join("NSE/Identity/Delisted");
+            fs::create_dir_all(&folder).unwrap();
+            fs::write(folder.join("nse_identity_delisted_companies.xlsx"), bytes).unwrap();
+        }
         let connection = create_phase5c_identity_import_connection();
         connection
             .execute(
@@ -5751,8 +6502,9 @@ mod tests {
             .unwrap();
 
         assert!(result.applied);
-        assert_eq!(result.active_sync_deactivate_count, 1);
-        assert_eq!(old_is_active, 0);
+        assert_eq!(result.active_sync_deactivate_count, 0);
+        assert_eq!(old_is_active, 1);
+        assert!(result.current_universe_preview_rows.iter().any(|row| row.symbol == "OLDCO" && row.action == "REVIEW_REQUIRED" && row.proposed_status == "ACTIVE"));
         assert_eq!(current_is_active, 1);
 
         let _ = fs::remove_dir_all(root);
@@ -6117,7 +6869,7 @@ mod tests {
                 .join("Identity")
                 .join("CompanyNameChanges")
                 .join("nse_identity_company_name_changes.csv"),
-            "",
+            "NCH_SYMBOL,NCH_PREV_NAME,NCH_NEW_NAME,NCH_DT\n",
         )
         .unwrap();
         root
@@ -8100,7 +8852,7 @@ mod er2c2_shadow_tests {
         );
         let snapshot = load_nse_historical_identity_source_snapshot(&input).unwrap();
         let shadow = evaluate_nse_i4_er2_shadow(&connection, &snapshot, &expected);
-        assert!(shadow.iter().any(|row| row.relationship == NseI4Er2ShadowRelationship::ResolverConflict));
+        assert!(shadow.iter().any(|row| row.relationship == NseI4Er2ShadowRelationship::ResolverConflict), "preview errors: {:?}; shadow: {:?}", expected.errors, shadow);
         fs::remove_dir_all(root).unwrap();
     }
 

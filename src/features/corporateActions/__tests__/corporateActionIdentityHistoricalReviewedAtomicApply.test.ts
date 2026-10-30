@@ -45,7 +45,7 @@ describe('Identity I4 NSE historical reviewed atomic apply', () => {
     expect(databaseRs).toContain('pub struct NseHistoricalIdentityResult');
 
     expect(tauriDesktop).toContain("tauriInvoke('preview_nse_historical_identity_archive', { input })");
-    expect(tauriDesktop).toContain("tauriInvoke('apply_nse_historical_identity_archive', { input })");
+    expect(tauriDesktop).toContain("tauriInvoke('apply_nse_historical_identity_archive', { input, operationId })");
     expect(tauriDesktop).not.toContain("tauriInvoke('import_nse_identity_archive'");
     expect(mainRs).toContain('preview_nse_historical_identity_archive');
     expect(mainRs).toContain('apply_nse_historical_identity_archive');
@@ -54,7 +54,7 @@ describe('Identity I4 NSE historical reviewed atomic apply', () => {
   it('uses a deterministic historical plan fingerprint and reviewed atomic apply path', () => {
     const backend = read(NSE_BACKEND);
 
-    expect(backend).toContain('NSE_HISTORICAL_IDENTITY_PLAN_V1');
+    expect(backend).toContain('NSE_HISTORICAL_IDENTITY_PLAN_V3_REVIEWED_CURRENT_EFFECTS');
     expect(backend).toContain('fn nse_historical_identity_plan_sha256(');
     expect(backend).toContain('pub async fn preview_nse_historical_identity_archive(');
     expect(backend).toContain('pub async fn apply_nse_historical_identity_archive(');
@@ -82,7 +82,8 @@ describe('Identity I4 NSE historical reviewed atomic apply', () => {
     expect(source).toContain("'duplicates'");
     expect(source).toContain("'skipped'");
     expect(source).toContain("'errors'");
-    expect(source).toContain("useState<NseHistoricalIdentityFilter>('actionable')");
+    expect(source).toContain('identityPreferences.outcome');
+    expect(read('src/features/corporateActions/identity/identityDisplayPreferences.ts')).toContain("outcome: 'actionable'");
     expect(source).toContain('Preview Historical Identity');
     expect(source).toContain('Apply Reviewed Historical Identity');
     expect(source).not.toContain('Import Historical Identity');

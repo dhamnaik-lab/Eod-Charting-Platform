@@ -5,8 +5,6 @@ import { resolve } from 'node:path';
 import { describe, it } from 'vitest';
 
 const read = (path: string) => readFileSync(resolve(process.cwd(), path), 'utf8');
-const sha256 = (path: string) =>
-  createHash('sha256').update(readFileSync(resolve(process.cwd(), path))).digest('hex').toUpperCase();
 
 // Top-level Rust items in this source end with an unindented closing brace.
 // Require a unique command and reject a slice that reaches another top-level item.
@@ -87,12 +85,14 @@ describe('Dividend prepared-scope P3A read-only Tauri bridge', () => {
     assert.match(body, /PriceStoreOperationKind::CorporateActionAutomatic/);
   });
 
-  it('opens only the read-only connection and delegates to the closed P2 evaluator', () => {
+  it('delegates diagnostic persistence while preserving the read-only policy and financial boundary', () => {
     const source = read('src-tauri-shell/src/database/corporate_action_imports.rs');
     const body = preparedScopeCommand(source);
-    assert.match(body, /open_read_only_connection_for_folder\(&folder_path\)/);
-    assert.match(body, /evaluate_simple_cash_dividend_prepared_scope_in_connection/);
-    assert.doesNotMatch(body, /open_connection_for_folder\(/);
+    assert.match(body, /dividend_validation_cache::open_connection\(&folder_path\)/);
+    assert.match(body, /dividend_validation_cache::evaluate/);
+    const cache = read('src-tauri-shell/src/database/corporate_action_imports/dividend_validation_cache.rs');
+    assert.match(cache, /evaluate_simple_cash_dividend_prepared_scope_in_connection/);
+    assert.doesNotMatch(cache, /approve_corporate_action_import_without_transaction\(/);
     assert.doesNotMatch(body, /run_connection_transaction\(/);
     assert.doesNotMatch(body, /invalidate_cached_db_stats\(/);
     assert.doesNotMatch(body, /emit_database_changed\(/);
@@ -103,7 +103,7 @@ describe('Dividend prepared-scope P3A read-only Tauri bridge', () => {
   it('maps every P2 field explicitly and injects the exact scope version', () => {
     const source = read('src-tauri-shell/src/database/corporate_action_imports.rs');
     const start = source.indexOf('fn map_simple_cash_dividend_prepared_scope_result(');
-    const end = source.indexOf('/// Read-only bridge for current-cycle simple-cash Dividend prepared-scope evaluation.', start);
+    const end = source.indexOf('/// Diagnostic checkpoint owner;', start);
     const body = source.slice(start, end);
     for (const field of [
       'requested',
@@ -132,16 +132,15 @@ describe('Dividend prepared-scope P3A read-only Tauri bridge', () => {
     assert.match(body, /SIMPLE_CASH_DIVIDEND_PREPARED_SCOPE_VERSION/);
   });
 
-  it('preserves the accepted P4A module containing the P2 evaluator byte-exact', () => {
-    // Accepted P4A/P4B authority; the pre-P4A P2 whole-file hash is historical.
-    assert.equal(
-      readFileSync(resolve(process.cwd(), 'src-tauri-shell/src/database/corporate_action_imports/auto_approval.rs')).length,
-      121666,
-    );
-    assert.equal(
-      sha256('src-tauri-shell/src/database/corporate_action_imports/auto_approval.rs'),
-      '5C75FA10AF7354E5B83DFB8DD27F48C8EBF0678332DB19E87D1B7C5CA1C6A16F',
-    );
+  it('pins the Dividend policy after transaction-local peer-read reuse', () => {
+    // The policy body matches the pre-edit backup apart from the peer reader;
+    // the standalone/financial path passes no cache. Pin the reviewed wrapper too.
+    // Whole-module byte pins predate the accepted routing/provenance changes.
+    const source = read('src-tauri-shell/src/database/corporate_action_imports/auto_approval.rs').replace(/\r\n/g, '\n');
+    const policy = /^pub\(super\) fn evaluate_simple_cash_dividend_policy_r1\([\s\S]*?(?=^pub\(super\) fn evaluate_simple_cash_dividend_prepared_scope_in_connection)/m.exec(source)?.[0];
+    assert.ok(policy);
+    assert.equal(createHash('sha256').update(policy).digest('hex').toUpperCase(),
+      '48A128A76F02E3C39CCFDECEF4ADDA5EBD0BE5AC0A6FD4BA0300E5D4D691082F');
   });
 
   it('does not add a frontend orchestration caller in P3A', () => {

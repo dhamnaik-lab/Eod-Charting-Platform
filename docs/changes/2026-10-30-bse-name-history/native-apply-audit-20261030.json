@@ -1,0 +1,33 @@
+{
+  "databasePath": "E:\\TA Projects\\EOD Charting Platform\\EOD DATABASE\\market-data.sqlite3",
+  "manifest": "database.json",
+  "readOnly": true,
+  "queryOnly": true,
+  "explicitReadTransaction": true,
+  "runId": "bse-names-1793339156414000500",
+  "completedAtUtc": "2026-10-30T05:45:56.413808200+00:00",
+  "completedAtIst": "2026-10-30T11:15:56.413808+05:30",
+  "applied": true,
+  "canApply": false,
+  "receiptNameCount": 1531,
+  "duplicateRows": 2,
+  "skippedRows": 1310,
+  "heldRows": 0,
+  "matchingPersistedEvents": 1531,
+  "mismatches": 0,
+  "totalNameHistoryKeys": 1531,
+  "danglingHistoryKeys": 0,
+  "sourceMode": "official",
+  "sourceSha256": "fbfd9585435943997acfbfff6f559a37b5e88e2820a5fef066ed4813171a6e77",
+  "planSha256": "069076a0e514f7bf2b30a3fddeff50fadd8415541e4681ed97f98f0a299d3d1a",
+  "auditConnectionWrites": 0,
+  "checks": [
+    "Manifest-resolved SQLite path, mode=ro, PRAGMA query_only=ON and explicit BEGIN",
+    "Receipt applied=true, canApply=false, count equals NEW rows",
+    "Every receipt NEW row matches its semantic event key and persisted name/date/current-ID fields",
+    "Persisted exchange BSE, change type NAME_CHANGE and source BSE_COMPANY_NAME_HISTORY_V1",
+    "Persisted source security code and SHA-256 match receipt evidence",
+    "Old/new symbols and ISIN remain NULL in the saved name-only history rows"
+  ],
+  "limitations": "No before/after comparison of unrelated instrument/price data; native Recent Applied display, intermediate progress and restart persistence not exercised."
+}

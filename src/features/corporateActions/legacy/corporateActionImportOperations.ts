@@ -10,8 +10,9 @@ import type {
   CorporateActionAutoApprovalResult,
   DesktopApi,
 } from '@/platform';
-import { getCorporateActionApprovalState, isSplitOrBonus } from '../corporateActionValidation';
+import { getCorporateActionApprovalState, getCorporateActionNormalApprovalState, isSplitOrBonus } from '../corporateActionValidation';
 import { chunkCorporateActionApprovalIds } from '../corporateActionBulkApproval';
+import { hasCombinedSplitBonusAnnouncement, needsCorporateActionClassificationRefresh } from './corporateActionAnnouncementClassification';
 import {
   CORPORATE_ACTION_SPLIT_BONUS_AUTO_APPROVAL_SETTING_KEY,
   parseCorporateActionSplitBonusAutoApprovalSetting,
@@ -124,7 +125,7 @@ type CorporateActionPendingPreparationApi = Pick<
   | 'runCorporateActionScan'
   | 'autoApproveCorporateActionImports'
   | 'getSetting'
->;
+> & Partial<Pick<DesktopApi, 'refreshCorporateActionImportClassifications'>>;
 
 export interface PrepareCorporateActionPendingImportsInput {
   api: CorporateActionPendingPreparationApi;
@@ -132,6 +133,8 @@ export interface PrepareCorporateActionPendingImportsInput {
   onProgress?: (progress: CorporateActionPendingPreparationProgress) => void;
   pageSize?: number;
   expectedDatabasePath: string;
+  /** The normal three-step UI never grants auto-approval during Load. */
+  explicitApprovalOnly?: boolean;
 }
 
 export class CorporateActionPendingPreparationStaleError extends Error {
@@ -297,7 +300,7 @@ async function loadResolutionHints(
 export function canQuickResolveFromHint(hint: CorporateActionImportResolutionHint | undefined): boolean {
   return Boolean(
     hint?.quickResolvable &&
-      hint.status === 'ONE_ACTIVE' &&
+      ['ONE_ACTIVE', 'ONE_HISTORICAL'].includes(hint.status) &&
       hint.topSuggestionSymbol &&
       hint.topSuggestionExchange,
   );
@@ -333,6 +336,7 @@ async function readLegacySplitBonusAutoApprovalEnabled(
 export interface StrictQuickResolveCorporateActionRowsResult {
   rows: CorporateActionImportRow[];
   resolvedCount: number;
+  hints: Record<number, CorporateActionImportResolutionHint>;
   errors: CorporateActionPendingPreparationError[];
 }
 
@@ -346,12 +350,12 @@ export async function strictQuickResolveCorporateActionRows(input: {
   const orderedIds = input.rows.map((row) => row.id);
   const errors: CorporateActionPendingPreparationError[] = [];
   const unresolvedIds = input.rows
-    .filter((row) => row.reviewStatus === 'UNRESOLVED')
+    .filter((row) => row.reviewStatus === 'UNRESOLVED' || row.reviewStatus === 'PENDING_ISIN_MISMATCH')
     .map((row) => row.id);
 
   emitPreparationProgress(input.onProgress, {
     stage: 'matching',
-    message: `Checking ${unresolvedIds.length} unresolved row(s) for strict automatic matching...`,
+    message: `Checking ${unresolvedIds.length} unresolved/ISIN-review row(s) for strict automatic matching...`,
     completed: 0,
     total: unresolvedIds.length,
   });
@@ -400,6 +404,7 @@ export async function strictQuickResolveCorporateActionRows(input: {
   return {
     rows: orderedIds.map((id) => rowsById.get(id)!).filter(Boolean),
     resolvedCount,
+    hints: unresolvedHints,
     errors,
   };
 }
@@ -410,6 +415,7 @@ export async function prepareCorporateActionPendingImports({
   onProgress,
   pageSize,
   expectedDatabasePath,
+  explicitApprovalOnly = false,
 }: PrepareCorporateActionPendingImportsInput): Promise<CorporateActionPendingPreparationResult> {
   const loaded = await loadAllPendingCorporateActionImports({ api, shouldContinue, onProgress, pageSize });
   const errors = [...loaded.errors];
@@ -429,9 +435,50 @@ export async function prepareCorporateActionPendingImports({
     };
   }
 
+  // Reparse legacy metadata before matching. No financial approval is granted.
+  const classificationIds = explicitApprovalOnly
+    ? loaded.rows.filter(needsCorporateActionClassificationRefresh).map(row => row.id) : [];
+  let classificationCompleted = 0;
+  for (const batch of chunkIds(classificationIds, 100)) {
+    assertPreparationCurrent(shouldContinue);
+    emitPreparationProgress(onProgress, {
+      stage: 'loading', completed: classificationCompleted, total: classificationIds.length,
+      message: 'Rechecking stored identity and announcement terms; no approvals...',
+    });
+    try {
+      if (!api.refreshCorporateActionImportClassifications) throw new Error('Classification refresh is unavailable. Rebuild the desktop app.');
+      const refreshed = await api.refreshCorporateActionImportClassifications({ importIds: batch, expectedDatabasePath });
+      assertPreparationCurrent(shouldContinue);
+      if (refreshed.length !== batch.length || new Set(refreshed.map(row => row.id)).size !== batch.length
+        || refreshed.some(row => !batch.includes(row.id))) throw new Error('Classification refresh returned an incomplete scope.');
+      for (const row of refreshed) rowsById.set(row.id, row);
+      classificationCompleted += batch.length;
+    } catch (error) {
+      if (error instanceof CorporateActionPendingPreparationStaleError) throw error;
+      errors.push(...batch.map(importId => ({ importId, stage: 'loading' as const,
+        message: error instanceof Error ? error.message : 'Classification refresh failed.' })));
+      return { rows: orderedIds.map(id => rowsById.get(id)!), validationRows: [], validationImportIds: [],
+        identityHints: {}, autoApproval: null, errors, complete: false,
+        message: 'Announcement classification refresh was incomplete. Approval remains unavailable.' };
+    }
+  }
+  // Preparation can add the missing pending component of one official Split +
+  // Bonus announcement. Re-enumerate once so matching and scans include it.
+  if (explicitApprovalOnly && loaded.rows.some(hasCombinedSplitBonusAnnouncement)) {
+    const prepared = await loadAllPendingCorporateActionImports({ api, shouldContinue, onProgress, pageSize });
+    const preparedIds = new Set(prepared.rows.map(row => row.id));
+    if (!prepared.complete || loaded.rows.some(row => !preparedIds.has(row.id))) {
+      return { rows: prepared.rows, validationRows: [], validationImportIds: [], identityHints: {},
+        autoApproval: null, errors: [...errors, ...prepared.errors], complete: false,
+        message: 'Prepared action components changed or could not be loaded completely. Approval remains unavailable.' };
+    }
+    rowsById.clear();
+    orderedIds.length = 0;
+    for (const row of prepared.rows) { rowsById.set(row.id, row); orderedIds.push(row.id); }
+  }
   const quickResolved = await strictQuickResolveCorporateActionRows({
     api,
-    rows: loaded.rows,
+    rows: orderedIds.map(id => rowsById.get(id)!),
     shouldContinue,
     onProgress,
   });
@@ -448,18 +495,36 @@ export async function prepareCorporateActionPendingImports({
     completed: 0,
     total: identityReviewIds.length,
   });
-  const identityHints = await loadResolutionHints(api, identityReviewIds, 'identity', shouldContinue, errors, onProgress);
+  // Reuse the strict hints already fetched for unresolved/mismatch rows rather than
+  // repeating expensive identity-history queries across the full pending queue.
+  const identityHints: Record<number, CorporateActionImportResolutionHint> = {};
+  for (const id of identityReviewIds) {
+    if (quickResolved.hints[id]) identityHints[id] = quickResolved.hints[id];
+  }
+  const missingIdentityIds = identityReviewIds.filter((id) => !identityHints[id]);
+  Object.assign(identityHints, await loadResolutionHints(
+    api, missingIdentityIds, 'identity', shouldContinue, errors, onProgress,
+  ));
 
-  const validationIds = refreshedRows.filter(isValidationTarget).map((row) => row.id);
+  const validationIds = refreshedRows.filter((row) =>
+    isValidationTarget(row) || (explicitApprovalOnly &&
+      ['DIVIDEND', 'RIGHTS'].includes(row.actionType) &&
+      row.parseStatus === 'PARSED' && row.reviewStatus !== 'APPROVED' &&
+      Boolean(row.symbol) && Boolean(row.exDate)),
+  ).map((row) => row.id);
+  // Preserve the wider scope above to clear stale UI validation rows. The
+  // official-import scanner only evaluates Split/Bonus; Dividend has its own
+  // read-only prepared-scope verifier, and Rights remains unsupported here.
+  const scanIds = refreshedRows.filter(isValidationTarget).map((row) => row.id);
   const validationRows: CorporateActionScanResultRow[] = [];
   let validated = 0;
-  for (const batch of chunkIds(validationIds, PENDING_VALIDATION_BATCH_SIZE)) {
+  for (const batch of chunkIds(scanIds, PENDING_VALIDATION_BATCH_SIZE)) {
     assertPreparationCurrent(shouldContinue);
     emitPreparationProgress(onProgress, {
       stage: 'validating',
-      message: `Checking Split/Bonus prices... ${validated}/${validationIds.length} processed.`,
+      message: `Checking required local EOD evidence... ${validated}/${scanIds.length} processed.`,
       completed: validated,
-      total: validationIds.length,
+      total: scanIds.length,
     });
     try {
       const result = await api.runCorporateActionScan({ scope: 'official_imports', importIds: batch });
@@ -473,8 +538,8 @@ export async function prepareCorporateActionPendingImports({
     validated += batch.length;
     const failed = errors.filter((error) => error.stage === 'validating').length;
     emitPreparationProgress(onProgress, {
-      stage: 'validating', completed: validated, total: validationIds.length,
-      message: `Split/Bonus checks returned: ${validated}/${validationIds.length}; ${failed} could not be checked.`,
+      stage: 'validating', completed: validated, total: scanIds.length,
+      message: `Split/Bonus checks returned: ${validated}/${scanIds.length}; ${failed} could not be checked.`,
     });
   }
 
@@ -484,7 +549,7 @@ export async function prepareCorporateActionPendingImports({
   );
   const autoApprovalScopeIds = validationIds.filter((id) => validatedIds.has(id) && !rowErrorIds.has(id));
   const splitBonusAutoApprovalEnabled =
-    autoApprovalScopeIds.length > 0
+    !explicitApprovalOnly && autoApprovalScopeIds.length > 0
       ? await readLegacySplitBonusAutoApprovalEnabled(api, shouldContinue)
       : false;
   let autoApproval: CorporateActionAutoApprovalResult | null = null;
@@ -539,7 +604,7 @@ export async function prepareCorporateActionPendingImports({
   const autoApprovedCount = autoApproval ? autoApproval.autoApproved + autoApproval.linkedExisting : 0;
   const autoApprovalSummary = splitBonusAutoApprovalEnabled
     ? `Auto-Approval Safe V2 approved/linked ${autoApprovedCount}`
-    : 'Split/Bonus Safe V2 automatic approval is OFF';
+    : explicitApprovalOnly ? 'Approval requires an explicit operator action' : 'Split/Bonus Safe V2 automatic approval is OFF';
   emitPreparationProgress(onProgress, {
     stage: 'complete',
     message: `Prepared ${finalRows.length} row(s) from the pending queue; ${autoApprovalSummary}; ${blockedCount} row(s) could not be fully checked.`,
@@ -612,6 +677,8 @@ export async function recheckReviewedCorporateActionImports(input: {
   fingerprints: Readonly<Record<number, string>>;
   fingerprint: (row: CorporateActionImportRow, scan?: CorporateActionScanResultRow) => string;
   preparationErrors: Readonly<Record<number, string>>;
+  /** Keep advanced maintenance callers unchanged; normal CA requires current EOD proof. */
+  explicitApprovalOnly?: boolean;
   shouldContinue?: () => boolean;
   onProgress?: (progress: OfficialImportOperationProgress) => void;
 }): Promise<{ rows: CorporateActionImportRow[]; validationRows: CorporateActionScanResultRow[]; validationImportIds: number[] }> {
@@ -619,7 +686,8 @@ export async function recheckReviewedCorporateActionImports(input: {
   onProgress?.({ stage: 'rechecking', completed: 0, total: importIds.length, message: `Reading ${importIds.length} exact reviewed action(s)...` });
   const rows = await readExactCorporateActionImports(api, importIds, expectedDatabasePath, shouldContinue, (completed,total) =>
     onProgress?.({stage:'rechecking',completed,total,message:`Read ${completed}/${total} exact reviewed action(s).`}));
-  const scanIds = rows.filter(isSplitOrBonus).map((row) => row.id);
+  const scanIds = rows.filter((row) => isSplitOrBonus(row) ||
+    (input.explicitApprovalOnly === true && ['DIVIDEND', 'RIGHTS'].includes(row.actionType))).map((row) => row.id);
   const scans: CorporateActionScanResultRow[] = [];
   for (const batch of chunkIds(scanIds, 500)) {
     assertPreparationCurrent(shouldContinue);
@@ -640,7 +708,10 @@ export async function recheckReviewedCorporateActionImports(input: {
     if (input.fingerprint(row,scan) !== input.fingerprints[row.id]) {
       throw new Error(`${row.symbol ?? row.id} changed after review. Load & Prepare again before applying.`);
     }
-    if (input.preparationErrors[row.id] || getCorporateActionApprovalState(row,scan) !== 'READY TO APPROVE') {
+    const currentState = input.explicitApprovalOnly === true
+      ? getCorporateActionNormalApprovalState(row, scan)
+      : getCorporateActionApprovalState(row, scan);
+    if (input.preparationErrors[row.id] || currentState !== 'READY TO APPROVE') {
       throw new Error(`${row.symbol ?? row.id} is no longer ready to apply.`);
     }
   }
@@ -687,6 +758,7 @@ export async function applyReviewedCorporateActionBatches(input: {
   reload: (record: CorporateActionResult) => Promise<void>;
 }): Promise<OfficialImportApplyReceipt> {
   const { api, rows, expectedDatabasePath, shouldContinue, onProgress } = input;
+  if (!expectedDatabasePath.trim()) throw new Error('The reviewed database context is missing.');
   const ids = checkedExactIds(rows.map((row)=>row.id));
   const batches = chunkCorporateActionApprovalIds(ids);
   const attempted: number[] = [];
@@ -701,7 +773,7 @@ export async function applyReviewedCorporateActionBatches(input: {
     onProgress?.({stage:'applying',completed:receipt.processed,total:ids.length,message:`Applying batch ${index+1}/${batches.length}. ${detail()}`});
     attempted.push(...batch);
     try {
-      const result: CorporateActionImportBulkApprovalResult = await api.approveCorporateActionImports({importIds:batch});
+      const result: CorporateActionImportBulkApprovalResult = await api.approveCorporateActionImports({importIds:batch, expectedDatabasePath});
       assertPreparationCurrent(shouldContinue);
       const resultIds=[...result.results.map((r)=>r.importRecord.id),...result.errors.map((e)=>e.importId)];
       const wanted = new Set(batch);

@@ -70,7 +70,8 @@ import { ChartPaneControlsOverlay } from './ChartPaneControlsOverlay';
 import { buildChartPriceLegendSnapshot, ChartPriceLegendOverlay } from './ChartPriceLegendOverlay';
 import { computeGannSetup, DEFAULT_GANN_OPTIONS } from '@/plugins/analysis/gannPriceTime/engine';
 import { renderGannOverlay } from '@/plugins/analysis/gannPriceTime/canvasOverlay';
-import { isPluginEnabled } from '@/plugins/registry';
+import { isPluginEnabled, pluginHost } from '@/plugins/registry';
+import { discoverAndLoadExternalPlugins } from '@/plugins/pluginLoader';
 import { GANN_PRICE_TIME_PLUGIN_ID } from '@/plugins/analysis/gannPriceTime/gannPlugin';
 
 const DEFAULT_VOLUME_PCT = 0.14;
@@ -390,17 +391,6 @@ export function ChartCanvas({
     visibleStartBar && visibleEndBar
       ? `${formatVisibleDate(visibleStartBar.date)} -> ${formatVisibleDate(visibleEndBar.date)}`
       : 'No visible dates';
-  const toolStatus = useMemo(() => {
-    if (activeDrawingTool !== 'cursor') {
-      return {
-        title: `${getDrawingToolLabel(activeDrawingTool)} active`,
-        hint: getDrawingToolHint(activeDrawingTool),
-      };
-    }
-
-    return null;
-  }, [activeDrawingTool]);
-
   const clearTransientDrawingUi = () => {
     selectDrawing(null);
     setChartContextMenu(null);
@@ -760,11 +750,15 @@ export function ChartCanvas({
         return;
       }
       setGannPluginEnabled(isPluginEnabled(GANN_PRICE_TIME_PLUGIN_ID, settings.pluginEnabled));
+      void pluginHost.syncEnabledPlugins(settings.pluginEnabled);
     };
 
     const unsubscribe = subscribeAppSettingsChanges(applyGannPluginSetting);
     void readAppSettings()
-      .then(applyGannPluginSetting)
+      .then(async (s) => {
+        await discoverAndLoadExternalPlugins(s.pluginEnabled);
+        applyGannPluginSetting(s);
+      })
       .catch(() => {
         if (active) {
           setGannPluginEnabled(false);
@@ -805,10 +799,8 @@ export function ChartCanvas({
         if (latestHoverBarDateRef.current !== nextDate) {
           latestHoverBarDateRef.current = nextDate;
           setHoverBar(nextHoverBar);
-        }
-        if (event.crosshair?.visible && event.crosshair.bar?.date) {
-          if (useUiStore.getState().crosshairSyncEnabled) {
-            setSyncedCrosshairDate(event.crosshair.bar.date);
+          if (nextDate && useUiStore.getState().crosshairSyncEnabled && useUiStore.getState().syncedCrosshairDate !== nextDate) {
+            setSyncedCrosshairDate(nextDate);
           }
         }
       }
@@ -941,6 +933,38 @@ export function ChartCanvas({
       engineRef.current?.setGannOverlayCallback(null);
     };
   }, [bars, gannPluginEnabled]);
+
+  useEffect(() => {
+    const engine = engineRef.current;
+    if (!engine || bars.length === 0) {
+      engineRef.current?.unregisterPluginOverlay('__external_plugins__');
+      return;
+    }
+    const syncOverlay = () => {
+      const overlays = pluginHost.listChartOverlays().filter((o) => o.id !== 'gann-price-time-overlay');
+      if (overlays.length === 0) {
+        engine.unregisterPluginOverlay('__external_plugins__');
+        return;
+      }
+      engine.registerPluginOverlay('__external_plugins__', (ctx, scaleX, priceScaleY, width, height) => {
+        const mapper = { timeToX: (i: number) => scaleX.toPixel(i), priceToY: (p: number) => priceScaleY.toPixel(p) };
+        for (const ov of overlays) {
+          ctx.save();
+          try {
+            ov.render(ctx, bars, mapper, width, height);
+          } finally {
+            ctx.restore();
+          }
+        }
+      });
+    };
+    syncOverlay();
+    const unsub = pluginHost.subscribe(syncOverlay);
+    return () => {
+      unsub();
+      engineRef.current?.unregisterPluginOverlay('__external_plugins__');
+    };
+  }, [bars]);
 
   useEffect(() => {
     if (!crosshairSyncEnabled || !syncedCrosshairDate || !bars.length || !engineRef.current) {
@@ -1112,6 +1136,10 @@ export function ChartCanvas({
       if (nativeScrollbarSyncTimerRef.current !== null) {
         window.clearTimeout(nativeScrollbarSyncTimerRef.current);
         nativeScrollbarSyncTimerRef.current = null;
+      }
+      if (drawingAlertSyncTimerRef.current !== null) {
+        window.clearTimeout(drawingAlertSyncTimerRef.current);
+        drawingAlertSyncTimerRef.current = null;
       }
       syncingNativeScrollbarRef.current = false;
     };
@@ -1858,12 +1886,6 @@ export function ChartCanvas({
             }}
           >
             Loading {instrument ? `${instrument.exchange}:${instrument.symbol}` : 'symbol'}...
-          </div>
-        ) : null}
-        {toolStatus ? (
-          <div style={toolStatusBadgeStyle}>
-            <div style={toolStatusTitleStyle}>{toolStatus.title}</div>
-            <div style={toolStatusHintStyle}>{toolStatus.hint}</div>
           </div>
         ) : null}
         {dropActive ? (
@@ -2776,32 +2798,6 @@ const hoverReadoutCardStyle: React.CSSProperties = {
   zIndex: 8,
 };
 
-const toolStatusBadgeStyle: React.CSSProperties = {
-  position: 'absolute',
-  left: 8,
-  bottom: 8,
-  maxWidth: 224,
-  display: 'flex',
-  flexDirection: 'column',
-  gap: 2,
-  zIndex: 8,
-  pointerEvents: 'none',
-};
-
-const toolStatusTitleStyle: React.CSSProperties = {
-  color: 'var(--text)',
-  fontSize: 10,
-  fontWeight: 600,
-  textShadow: 'var(--chart-overlay-text-shadow)',
-};
-
-const toolStatusHintStyle: React.CSSProperties = {
-  color: 'var(--text-dim)',
-  fontSize: 9,
-  lineHeight: 1.25,
-  textShadow: 'var(--chart-overlay-text-shadow)',
-};
-
 const chartSettingsAnchorStyle = (
   top: number,
   side: 'left' | 'right' = 'right',
@@ -2984,109 +2980,6 @@ function getDrawingToolLabel(tool: DrawingTool): string {
       return 'Gann Fan';
     default:
       return 'Tool';
-  }
-}
-
-function getDrawingToolHint(tool: DrawingTool): string {
-  switch (tool) {
-    case 'crosshair':
-      return 'Move over the chart to inspect bar values.';
-    case 'hline':
-      return 'Click once to place a horizontal level. Esc cancels.';
-    case 'vline':
-      return 'Click once to place a vertical marker. Esc cancels.';
-    case 'trendline':
-      return 'Click two anchors to draw the line. Esc cancels.';
-    case 'extendedLine':
-      return 'Click two anchors to extend the line through the full pane. Esc cancels.';
-    case 'horizontalRay':
-      return 'Click once to extend a horizontal level to the right. Esc cancels.';
-    case 'crossLine':
-      return 'Click once to place a persistent cross line. Esc cancels.';
-    case 'infoLine':
-      return 'Click two anchors to measure price, percent, bars, and calendar span.';
-    case 'trendAngle':
-      return 'Click two anchors to show slope per bar and current visual angle.';
-    case 'priceRange':
-      return 'Click two anchors to highlight and measure a price range.';
-    case 'dateRange':
-      return 'Click two bars to highlight and measure their exact date range.';
-    case 'regressionTrend':
-      return 'Click two bars to calculate a close-price regression channel with ±2σ bands.';
-    case 'fibTimeZone':
-      return 'Click two bars to project Fibonacci time intervals.';
-    case 'fibCircles':
-      return 'Click a center and radius point for Fibonacci concentric circles.';
-    case 'fibArcs':
-      return 'Click Point 1 (arc center), then Point 2 to set the Fib speed/resistance radius.';
-    case 'gannBox':
-      return 'Click two corners to draw a Gann price/time grid.';
-    case 'circle':
-      return 'Click a center and edge point to draw a circle.';
-    case 'ellipse':
-      return 'Click two opposite corners to draw an ellipse.';
-    case 'forecast':
-      return 'Click start and target points to draw a manual projection.';
-    case 'arrowMarker':
-      return 'Click once to place an outlined arrow marker.';
-    case 'arrowUp':
-      return 'Click once to place an upward arrow marker.';
-    case 'arrowDown':
-      return 'Click once to place a downward arrow marker.';
-    case 'flatChannel':
-      return 'Click three points: trend start, trend end, then flat level. Esc cancels.';
-    case 'disjointChannel':
-      return 'Click four points to define two independent channel lines. Esc cancels.';
-    case 'triangle':
-      return 'Click three vertices to draw a triangle. Esc cancels.';
-    case 'rotatedRect':
-      return 'Click an edge start, edge end, then a third point to set rectangle height.';
-    case 'arc':
-      return 'Click center, radius point, then endpoint to draw an arc.';
-    case 'andrewsPitchfork':
-      return 'Click pivot and two swing points to draw an Andrews pitchfork.';
-    case 'schiffPitchfork':
-      return 'Click pivot and two swing points to draw a Schiff pitchfork.';
-    case 'modifiedSchiffPitchfork':
-      return 'Click pivot and two swing points to draw a Modified Schiff pitchfork.';
-    case 'insidePitchfork':
-      return 'Click pivot and two swing points to draw an Inside pitchfork.';
-    case 'trendFibExtension':
-      return 'Click A, B, then C to project trend-based Fibonacci extensions.';
-    case 'fibChannel':
-      return 'Click baseline start, baseline end, then channel width point.';
-    case 'fibTimeExtension':
-      return 'Click trend start, trend end, then projection origin.';
-    case 'fibWedge':
-      return 'Click apex and two boundary points to draw a Fibonacci wedge.';
-    case 'pitchfan':
-      return 'Click pivot and two swing points to draw a Fibonacci pitchfan.';
-    case 'longPosition':
-      return 'Click entry, target, then stop to plan a long risk/reward position.';
-    case 'shortPosition':
-      return 'Click entry, target, then stop to plan a short risk/reward position.';
-    case 'projection':
-      return 'Click A, B, then C to project the measured A-B price/time move from C.';
-    case 'ray':
-      return 'Click two anchors to extend a ray forward. Esc cancels.';
-    case 'arrow':
-      return 'Click two anchors to draw an arrow. Esc cancels.';
-    case 'rect':
-      return 'Click two anchors to outline a region. Esc cancels.';
-    case 'text':
-      return 'Click once to type a text note. Press Enter to save or Esc to cancel.';
-    case 'channel':
-      return 'Click start, end, then offset to build a channel.';
-    case 'fib':
-      return 'Click two anchors to project retracement levels.';
-    case 'fibExtension':
-      return 'Click two anchors to use the legacy EOD Fibonacci projection. New work should use Fibonacci Retracement or Trend-Based Fib Extension.';
-    case 'fibFan':
-      return 'Click two anchors to project Fibonacci fan rays.';
-    case 'gann':
-      return 'Click two anchors to project fan lines.';
-    default:
-      return 'Wheel zooms. Shift+wheel pans. Esc returns to cursor mode.';
   }
 }
 

@@ -163,12 +163,19 @@ fn p4b_05_failed_item_rolls_back_earlier_success() {
             connection
                 .execute("INSERT INTO p4b_probe(id) VALUES (1)", [])
                 .unwrap();
-            Ok(p4b_result(1, 0, 0, 0, 0, 1, false))
+            connection.execute_batch("CREATE TABLE corporate_action_imports (id INTEGER, symbol TEXT); INSERT INTO corporate_action_imports VALUES(44,'HEGAM');").unwrap();
+            let mut result = p4b_result(1, 0, 0, 0, 0, 1, false);
+            result.dispositions.push(auto_approval::SimpleCashDividendWriteStageDisposition {
+                import_id: 44, disposition: "FAILED".into(), reason: "Missing dated EOD window".into(), corporate_action_id: None,
+            });
+            Ok(result)
         },
     )
     .unwrap_err();
     assert!(error.contains("refused commit"));
     assert!(error.contains("failed=1"));
+    assert!(error.starts_with("CA_DIVIDEND_ROLLBACK_CONFIRMED: "));
+    assert!(error.contains("import 44 (HEGAM): Missing dated EOD window"));
     assert_eq!(p4b_probe_count(&connection), 0);
 }
 
@@ -344,7 +351,36 @@ fn p4b_15_source_outer_transaction_occurs_exactly_once() {
         "fn run_simple_cash_dividend_write_stage_outer_transaction_with_executor",
         "fn run_simple_cash_dividend_write_stage_outer_transaction(",
     );
-    assert_eq!(body.matches("run_connection_transaction(").count(), 1);
+    assert_eq!(body.matches("BEGIN IMMEDIATE TRANSACTION").count(), 1);
+    assert_eq!(body.matches("execute_batch(\"COMMIT\")").count(), 1);
+}
+
+#[test]
+fn dividend_owner_never_confirms_a_failed_rollback() {
+    let connection = p4b_connection();
+    let error = run_simple_cash_dividend_write_stage_outer_transaction_with_executor(
+        &connection, Path::new("E:\\p4b"), &p4b_input("E:\\p4b"),
+        |connection, _, _| {
+            connection.execute_batch("ROLLBACK").unwrap();
+            Err("synthetic transaction ended unexpectedly".into())
+        },
+    ).unwrap_err();
+    assert!(error.starts_with("Dividend rollback unconfirmed:"));
+    assert!(!error.contains("CA_DIVIDEND_ROLLBACK_CONFIRMED"));
+}
+
+#[test]
+fn dividend_owner_never_labels_commit_error_as_confirmed_rollback() {
+    let connection = p4b_connection();
+    let error = run_simple_cash_dividend_write_stage_outer_transaction_with_executor(
+        &connection, Path::new("E:\\p4b"), &p4b_input("E:\\p4b"),
+        |connection, _, _| {
+            connection.execute_batch("ROLLBACK").unwrap();
+            Ok(p4b_result(1, 0, 0, 0, 0, 0, true))
+        },
+    ).unwrap_err();
+    assert!(error.contains("commit outcome requires reconciliation"));
+    assert!(!error.contains("CA_DIVIDEND_ROLLBACK_CONFIRMED"));
 }
 
 #[test]
@@ -456,7 +492,7 @@ fn p4b_23_existing_manual_apply_command_does_not_gain_automatic_lock() {
 }
 
 #[test]
-fn p4b_24_source_owner_uses_only_frozen_orchestration_seams() {
+fn p4b_24_source_owner_preserves_lock_connection_and_executor_seams() {
     let source = p4b_owner_source();
     let body = p4b_source_between(
         source,
@@ -467,7 +503,8 @@ fn p4b_24_source_owner_uses_only_frozen_orchestration_seams() {
         "try_acquire_price_store_operation",
         "PriceStoreOperationKind::CorporateActionAutomatic",
         "open_connection_for_folder",
-        "run_connection_transaction",
+        "BEGIN IMMEDIATE TRANSACTION",
+        "execute_batch(\"ROLLBACK\")",
         "execute_simple_cash_dividend_write_stage_in_connection",
     ] {
         assert!(
@@ -490,6 +527,6 @@ fn p4b_25_transaction_failure_error_contract_is_deterministic() {
     .unwrap_err();
     assert_eq!(
         error,
-        "Dividend write-stage R1 transaction owner refused commit: failed=1 complete=false."
+        "CA_DIVIDEND_ROLLBACK_CONFIRMED: Dividend write-stage R1 transaction owner refused commit: failed=1 complete=false."
     );
 }

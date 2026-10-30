@@ -135,6 +135,29 @@ async function run(scope: CorporateActionDividendPreparedScope, h = harness(scop
 const source = (relative: string) => readFileSync(resolve(process.cwd(), relative), 'utf8');
 
 describe('Dividend prepared-scope P3B current-cycle orchestration', () => {
+  it('reconstructs the reviewed scope from backend-compatible results and records reuse', async () => {
+    const scope = await scopeFor([1, 2]);
+    const h = harness(scope);
+    h.evaluateSimpleCashDividendPreparedScope.mockImplementation(async ({ importIds }) => batchResult(importIds, { reusedCount: importIds.length }));
+    const { result } = await run(scope, h);
+    expect(result.status).toBe('OUTCOME');
+    if (result.status !== 'OUTCOME') throw new Error('Expected outcome');
+    expect(result.outcome.result.reusedCount).toBe(2);
+    expect(result.outcome.result.eligible).toBe(2);
+    expect(result.outcome.result.dispositions.map((item) => item.importId)).toEqual([1, 2]);
+  });
+
+  it('fails closed on impossible backend reuse counts', async () => {
+    const scope = await scopeFor([1]);
+    const h = harness(scope);
+    h.evaluateSimpleCashDividendPreparedScope.mockImplementation(async ({ importIds }) => batchResult(importIds, { reusedCount: 2 }));
+    const { result } = await run(scope, h);
+    if (result.status !== 'OUTCOME') throw new Error('Expected outcome');
+    expect(result.outcome.result.complete).toBe(false);
+    expect(result.outcome.result.dispositions).toEqual([]);
+    expect(result.outcome.result.operationalError).toMatch(/reused-count mismatch/);
+  });
+
   it('P1 shared fingerprint helper preserves the accepted whole-scope fingerprint', async () => {
     const scope = await scopeFor([9, 2, 7]);
     expect(scope.scopeFingerprint).toBe('BCDF0FBE3DE30C32D2E3ED1A5D9C83D7C48CB668057C37DD27848836C1732781');
@@ -155,6 +178,60 @@ describe('Dividend prepared-scope P3B current-cycle orchestration', () => {
     expect(result.outcome.result.complete).toBe(true);
     expect(result.outcome.result.requested).toBe(3);
     expect(result.outcome.result.completedBatchCount).toBe(1);
+  });
+
+  it('reports only read-only batch progress, never premature completion', async () => {
+    const scope = await scopeFor(Array.from({ length: 101 }, (_, index) => index + 1));
+    const h = harness(scope);
+    const progress = vi.fn();
+    const result = await evaluateCorporateActionDividendPreparedScopeBatches({
+      api: h.api, scope,
+      getCurrentGeneration: h.getCurrentGeneration,
+      getCurrentDatabasePath: h.getCurrentDatabasePath,
+      isCancelled: h.isCancelled,
+      onBatchProgress: progress,
+    });
+    expect(progress.mock.calls).toEqual([[0, 2], [1, 2], [2, 2]]);
+    expect(result.status).toBe('OUTCOME');
+    if (result.status === 'OUTCOME') expect(result.outcome.result.complete).toBe(true);
+  });
+
+  it('does not report completed batches when stale, or continue after cancellation', async () => {
+    const scope = await scopeFor(Array.from({ length: 101 }, (_, index) => index + 1));
+    const h = harness(scope);
+    h.evaluateSimpleCashDividendPreparedScope.mockImplementationOnce(async ({ importIds }) => {
+      const response = await batchResult(importIds);
+      h.cancel();
+      return response;
+    });
+    const progress = vi.fn();
+    const result = await evaluateCorporateActionDividendPreparedScopeBatches({
+      api: h.api, scope,
+      getCurrentGeneration: h.getCurrentGeneration,
+      getCurrentDatabasePath: h.getCurrentDatabasePath,
+      isCancelled: h.isCancelled,
+      onBatchProgress: progress,
+    });
+    expect(result).toEqual({ status: 'STALE' });
+    expect(progress.mock.calls).toEqual([[0, 2]]);
+    expect(h.evaluateSimpleCashDividendPreparedScope).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps dividend verification active until its own outcome and surfaces errors', () => {
+    const ui = source('src/components/DatabaseToolsDialogs.tsx');
+    const start = ui.indexOf('const loadAndPrepareOfficialImports = async () => {');
+    const end = ui.indexOf('\n  const loadOfficialImports = async', start);
+    const block = ui.slice(start, end);
+    const prepared = block.indexOf('setOfficialPreparationComplete(result.complete);');
+    const verified = block.indexOf("finishDividendVerification('dividend-verified',");
+    expect(prepared).toBeGreaterThan(-1);
+    expect(verified).toBeGreaterThan(prepared);
+    expect(block).toContain("stage: 'dividend-verifying'");
+    expect(block).toContain('onBatchProgress: (completedBatchCount, batchCount) => {');
+    expect(block).toContain("finishDividendVerification('dividend-stopped',");
+    expect(block).toContain('catch (error) {');
+    expect(block).not.toContain("stage: result.complete ? 'complete' : 'stopped',completed: result.rows.length");
+    expect(ui).toContain("officialTaskProgress?.stage === 'dividend-verified'");
   });
 
   it('uses the frozen 100-ID batch size', () => {
@@ -407,13 +484,32 @@ describe('Dividend prepared-scope P3B current-cycle orchestration', () => {
   it('DatabaseToolsDialogs wires P1 then P3A after the accepted preparation result without changing final status ownership', () => {
     const dialog = source('src/components/DatabaseToolsDialogs.tsx');
     const start = dialog.indexOf('const loadAndPrepareOfficialImports = async () => {');
-    const end = dialog.indexOf('\n  const loadOfficialImports = async', start);
+    const end = dialog.indexOf('\n  // Keep reports visible', start);
     const block = dialog.slice(start, end);
     expect(block).toContain('buildCorporateActionDividendPreparedScope({');
     expect(block).toContain('evaluateCorporateActionDividendPreparedScopeBatches({');
     expect(block.indexOf('setStatus(result.message);')).toBeGreaterThan(-1);
     expect(block.indexOf('buildCorporateActionDividendPreparedScope({')).toBeGreaterThan(block.indexOf('setStatus(result.message);'));
     expect(block.match(/setStatus\(/g)).toHaveLength(2); // existing success + existing catch only
+  });
+
+  it('restores Pending review on navigation and invalidates readiness without an automatic rescan', () => {
+    const dialog = source('src/components/DatabaseToolsDialogs.tsx');
+    const switchStart = dialog.indexOf('const switchOfficialImportView = async');
+    const navigation = dialog.slice(switchStart, dialog.indexOf('const pickOfficialImportFile', switchStart));
+    expect(navigation).toContain("if (view === 'review')");
+    expect(navigation).toContain('restorePendingReview();');
+    expect(navigation).not.toContain('loadAndPrepareOfficialImports');
+    const restoreStart = dialog.indexOf('function restorePendingReview()');
+    const restore = dialog.slice(restoreStart, dialog.indexOf('\n  useEffect', restoreStart));
+    expect(restore).toContain('saved.databasePath !== activeDatabasePath');
+    expect(restore).toContain('saved.generation !== officialPreparationGenerationRef.current');
+    expect(restore).toContain('setOfficialDividendPreparedScopeOutcome(saved.dividendOutcome)');
+    expect(restore).toContain('setOfficialApprovalConfirmation(null)');
+    const invalidationStart = dialog.indexOf('// Keep reports visible');
+    const invalidation = dialog.slice(invalidationStart, dialog.indexOf('const loadOfficialImports', invalidationStart));
+    expect(invalidation).toContain('setOfficialPreparationComplete(false)');
+    expect(invalidation).not.toContain('loadAndPrepareOfficialImports()');
   });
 
   it('DatabaseToolsDialogs keeps P3B state ephemeral and clears it with authoritative queue/cycle invalidation', () => {

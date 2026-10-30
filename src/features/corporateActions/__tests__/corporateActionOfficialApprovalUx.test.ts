@@ -9,9 +9,9 @@ describe('Official Imports user-friendly approval UI contract', () => {
     const source = readFileSync(DATABASE_TOOLS, 'utf8');
 
     expect(source).toContain('function CorporateActionDialog');
-    expect(source).toContain('Load &amp; Prepare');
-    expect(source).toContain('Apply Selected (');
-    expect(source).toContain('Apply All Ready (');
+    expect(source).toContain('Load &amp; Validate');
+    expect(source).toContain('Approve Selected (');
+    expect(source).toContain('Approve All Ready (');
     expect(source).toContain('prepareCorporateActionPendingImports');
     expect(source).toContain('officialPendingGroups');
     expect(source).toContain('All symbols');

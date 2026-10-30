@@ -1,4 +1,4 @@
-import { buildVolumeScaleY, niceYTicks, type XAxisTick } from './ScaleManager';
+import { buildVolumeScaleY, layoutXAxisLabels, niceYTicks, type XAxisTick } from './ScaleManager';
 import {
   calculateDrawingRangeMetrics,
   calculatePriceRangePercent,
@@ -455,7 +455,6 @@ export function drawXAxis(
   axisHeight = 24,
 ): void {
   const top = height - axisHeight;
-  const labelPadding = 6;
   ctx.fillStyle = theme.axisBackground;
   ctx.fillRect(0, top, width, axisHeight);
   ctx.strokeStyle = theme.panelBorder;
@@ -472,7 +471,11 @@ export function drawXAxis(
   ctx.beginPath();
   ctx.rect(0, top, width, axisHeight);
   ctx.clip();
-  ticks.forEach((tick) => {
+  const labels = layoutXAxisLabels(ticks, scaleX, width, (tick) => {
+    ctx.font = tick.isMajor ? '700 11px "Segoe UI", sans-serif' : '600 12px "Segoe UI", sans-serif';
+    return ctx.measureText(tick.label).width;
+  });
+  labels.forEach(({ tick, x: labelX }) => {
     const xPixel = scaleX.toPixel(tick.index);
     const x = Math.floor(xPixel) + 0.5;
     if (tick.isMajor) {
@@ -484,10 +487,6 @@ export function drawXAxis(
       ctx.fillStyle = theme.axisText;
       ctx.font = '600 12px "Segoe UI", sans-serif';
     }
-    const labelHalfWidth = ctx.measureText(tick.label).width / 2;
-    const minLabelX = Math.min(width / 2, labelHalfWidth + labelPadding);
-    const maxLabelX = Math.max(width / 2, width - labelHalfWidth - labelPadding);
-    const labelX = Math.min(Math.max(xPixel, minLabelX), maxLabelX);
     ctx.fillText(tick.label, labelX, height - axisHeight / 2);
 
     if (tick.isMajor) {

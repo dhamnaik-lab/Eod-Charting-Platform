@@ -116,6 +116,9 @@ export interface EodDataInput {
   includeDividendAdjustments?: boolean;
   includeRightsAdjustments?: boolean;
   resolveIdentity?: boolean;
+  /** Client-side cache context; never forwarded as a database selection command. */
+  databasePath?: string | null;
+  forceReload?: boolean;
 }
 
 export interface EodDataResult {
@@ -325,10 +328,12 @@ export interface CorporateActionImportLookupInput {
 
 export interface CorporateActionImportApprovalInput {
   importId: number;
+  expectedDatabasePath: string;
 }
 
 export interface CorporateActionImportBulkApprovalInput {
   importIds: number[];
+  expectedDatabasePath: string;
 }
 
 export interface CorporateActionAutoApprovalInput {
@@ -339,6 +344,15 @@ export interface CorporateActionAutoApprovalInput {
 export interface CorporateActionDividendPreparedScopeEvaluationInput {
   importIds: number[];
   expectedDatabasePath: string;
+}
+
+export interface CorporateActionDividendWriteStageInput {
+  importIds: number[];
+  expectedDatabasePath: string;
+  expectedPolicyVersion: string;
+  expectedScopeVersion: string;
+  expectedWriteStageVersion: string;
+  expectedScopeFingerprint: string;
 }
 
 export interface CorporateActionImportBulkRecheckInput {
@@ -363,6 +377,7 @@ export interface CorporateActionImportResolveInput {
 export interface CorporateActionImportExceptionalApprovalInput {
   importId: number;
   reason: string;
+  expectedDatabasePath: string;
 }
 
 export interface CorporateActionImportQuickResolveInput {
@@ -411,6 +426,7 @@ export interface NseCurrentUniverseSyncInput {
 
 export interface NseCurrentUniverseApplyInput extends NseCurrentUniverseSyncInput {
   expectedPlanSha256: string;
+  expectedDatabasePath: string;
 }
 
 export interface NseDelistedWorkbookDownloadResult {
@@ -434,11 +450,50 @@ export interface NseCurrentUniverseMasterDownloadResult {
   message: string;
 }
 
+export interface BseNameHistoryInput {
+  sourceMode: 'official' | 'manual';
+  filePath?: string;
+}
+export interface BseNameHistoryApplyInput extends BseNameHistoryInput {
+  expectedPlanSha256: string;
+  expectedDatabasePath: string;
+}
+export interface BseNameHistoryRow {
+  securityCode: string; currentId: string | null; oldName: string; newName: string;
+  sourceDate: string; outcome: 'NEW' | 'DUPLICATE' | 'SKIPPED' | 'HELD'; reason: string;
+}
+export interface BseNameHistoryResult {
+  filePath: string; sourceMode: 'official' | 'manual'; sourceSha256: string; planSha256: string;
+  rows: BseNameHistoryRow[]; newNameChanges: number; duplicateRows: number;
+  skippedRows: number; heldRows: number; canApply: boolean; applied: boolean;
+  runId: string | null; completedAt: string | null; warning: string | null;
+}
+export interface BseNameHistorySource { filePath: string; sourceSha256: string; rows: number; }
+export interface BseNameHistoryRun { runId: string; completedAt: string; newNameChanges: number; }
+
 export interface BseCurrentUniverseSyncInput {
   masterFilePath: string;
 }
 
+export interface BseCurrentUniverseApplyInput extends BseCurrentUniverseSyncInput {
+  expectedPlanSha256: string;
+  expectedDatabasePath: string;
+}
+
+export type IdentityInstrumentCategory = 'equity' | 'etf' | 'mutualFund' | 'debt' | 'reitInvit' | 'unknown';
+export interface HistoricalIdentityLegacyRow {
+  id: number; createdAt: string | null; changeType: string | null; effectiveDate: string | null;
+  oldSymbol: string | null; newSymbol: string | null; oldName: string | null; newName: string | null; sourceFile: string | null;
+}
+export interface HistoricalIdentityApplyHistory {
+  runs: Array<Pick<NseHistoricalIdentityResult, 'runId' | 'completedAt' | 'newSymbolChanges' | 'newNameChanges' | 'newCombinedChanges'>>; legacyRows: HistoricalIdentityLegacyRow[];
+}
+
 export interface NseHistoricalIdentityResult {
+  runId?: string | null;
+  completedAt?: string | null;
+  refreshWarning?: string | null;
+  categoryEvidence?: Record<string, { category: IdentityInstrumentCategory; evidence: string }> | null;
   archiveRootPath: string;
   applied: boolean;
   canApply: boolean;
@@ -479,7 +534,15 @@ export interface NseCurrentUniverseSyncPreviewRow {
   reason: string;
 }
 
+export interface IdentityApplyProgress {
+  stage: 'checking' | 'applying' | 'committing' | 'committed' | 'refreshing';
+  processed: number; total: number; percent: number | null;
+}
+
 export interface NseCurrentUniverseSyncResult {
+  runId?: string | null;
+  completedAt?: string | null;
+  refreshWarning?: string | null;
   archiveRootPath: string;
   applied: boolean;
   masterRowsRead: number;
@@ -560,6 +623,7 @@ export interface CorporateActionEventIdentity {
 export interface CorporateActionEventIdentityListResult {
   requested: number;
   identities: CorporateActionEventIdentity[];
+  existingDividends?: { importId: number; corporateActionId: number }[];
   message: string;
 }
 
@@ -764,6 +828,12 @@ export interface BseCurrentUniverseSyncPreviewRow {
 }
 
 export interface BseCurrentUniverseSyncResult {
+  runId?: string | null;
+  completedAt?: string | null;
+  refreshWarning?: string | null;
+  planSha256: string;
+  masterSha256: string;
+  newSymbols: number;
   masterFilePath: string;
   applied: boolean;
   masterRowsRead: number;
@@ -811,6 +881,7 @@ export interface OfficialSourceHealthResult {
   freshnessStatus: OfficialSourceCheckStatus;
   driftClass: OfficialSourceDriftClass | null;
   reason: string;
+  diagnostic?: string | null;
 }
 
 export interface OfficialSourceHealthReport {
@@ -1270,6 +1341,8 @@ export interface CorporateActionDividendPreparedScopeEvaluationDisposition {
 
 export interface CorporateActionDividendPreparedScopeEvaluationResult {
   requested: number;
+  /** Backend compatibility checks; the remainder received full policy evaluation. */
+  reusedCount?: number;
   eligible: number;
   ineligible: number;
   alreadyApproved: number;
@@ -1282,6 +1355,141 @@ export interface CorporateActionDividendPreparedScopeEvaluationResult {
   scopeFingerprint: string;
   complete: boolean;
   message: string;
+}
+
+export type CorporateActionDividendWriteStageDispositionCode =
+  | 'AUTO_APPROVED'
+  | 'INELIGIBLE'
+  | 'ALREADY_APPROVED'
+  | 'STALE_SCOPE'
+  | 'MISSING'
+  | 'FAILED';
+
+export interface CorporateActionDividendWriteStageDisposition {
+  importId: number;
+  disposition: CorporateActionDividendWriteStageDispositionCode;
+  reason: string;
+  corporateActionId: number | null;
+}
+
+export interface CorporateActionDividendWriteStageResult {
+  requested: number;
+  revalidatedEligible: number;
+  autoApproved: number;
+  ineligible: number;
+  alreadyApproved: number;
+  staleScope: number;
+  missing: number;
+  failed: number;
+  dispositions: CorporateActionDividendWriteStageDisposition[];
+  policyVersion: string;
+  scopeVersion: string;
+  writeStageVersion: string;
+  scopeFingerprint: string;
+  complete: boolean;
+  message: string;
+}
+
+export type CorporateActionActivityOutcome = 'COMPLETED' | 'INCOMPLETE' | 'FAILED' | 'CANCELLED';
+
+export interface CorporateActionValidationReportItemInput {
+  importId: number;
+  resultCode: CorporateActionDividendPreparedScopeEvaluationDispositionCode;
+  reasonSnapshot: string;
+  currentActionType: string | null;
+  currentParseStatus: string | null;
+  currentReviewStatus: string | null;
+  storedApprovalState: string | null;
+  evidence: CorporateActionDividendPreparedScopeEvaluationEvidence | null;
+}
+
+export interface CorporateActionValidationReportSaveInput {
+  expectedDatabasePath: string;
+  operationKind: 'DIVIDEND_VALIDATION';
+  requestedScope: Record<string, unknown>;
+  startedAtUtc: string;
+  completedAtUtc: string | null;
+  outcome: CorporateActionActivityOutcome;
+  requestedCount: number;
+  checkedCount: number;
+  eligibleCount: number;
+  ineligibleCount: number;
+  alreadyApprovedCount: number;
+  staleCount: number;
+  missingCount: number;
+  failedCount: number;
+  reusedCount: number;
+  errorMessage: string | null;
+  policyVersion: string;
+  scopeVersion: string;
+  scopeFingerprint: string;
+  items: CorporateActionValidationReportItemInput[];
+}
+
+export interface CorporateActionActivityRun {
+  id: number;
+  databaseInstanceId: string;
+  operationKind: string;
+  requestedScope: Record<string, unknown>;
+  startedAtUtc: string;
+  completedAtUtc: string | null;
+  outcome: CorporateActionActivityOutcome;
+  requestedCount: number;
+  checkedCount: number;
+  eligibleCount: number;
+  ineligibleCount: number;
+  alreadyApprovedCount: number;
+  staleCount: number;
+  missingCount: number;
+  failedCount: number;
+  reusedCount: number;
+  errorMessage: string | null;
+  appVersion: string;
+  policyVersion: string | null;
+  scopeVersion: string | null;
+  scopeFingerprint: string | null;
+  createdAtUtc: string;
+}
+
+export interface CorporateActionActivityRunListInput {
+  operationKind?: 'DIVIDEND_VALIDATION' | null;
+  limit?: number | null;
+  offset?: number | null;
+}
+
+export interface CorporateActionActivityRunListResult {
+  runs: CorporateActionActivityRun[];
+  total: number;
+  offset: number;
+  limit: number;
+  hasMore: boolean;
+}
+
+export interface CorporateActionValidationReportItem extends CorporateActionValidationReportItemInput {
+  id: number;
+  runId: number;
+  checkedAtUtc: string;
+  policyVersion: string;
+}
+
+export interface CorporateActionValidationReportItemListInput {
+  runId: number;
+  limit?: number | null;
+  offset?: number | null;
+}
+
+export interface CorporateActionValidationReportItemListResult {
+  runId: number;
+  items: CorporateActionValidationReportItem[];
+  total: number;
+  offset: number;
+  limit: number;
+  hasMore: boolean;
+}
+
+export interface CorporateActionValidationReportSaveResult {
+  run: CorporateActionActivityRun;
+  savedItemCount: number;
 }
 
 export interface CorporateActionImportResolveResult {
@@ -1564,6 +1772,27 @@ export interface BatchDownloadConfig {
   bseIndexUrlOverride?: string | null;
 }
 
+export interface BseHistoryDownloadInput {
+  startDate: string;
+  endDate: string;
+  scope: 'selected' | 'known';
+  codes: string[];
+}
+
+export interface BseHistoryDownloadSummary {
+  outputFolder: string;
+  securities: number;
+  plannedWindows: number;
+  completedWindows: number;
+  failedWindows: number;
+  emptyWindows: number;
+  sourceRows: number;
+  reviewRows: number;
+  missingVolumeRows: number;
+  heldRows: number;
+  cancelled: boolean;
+}
+
 export type DownloadMode = 'range' | 'update' | 'fullHistory';
 
 export interface BhavcopySettings {
@@ -1586,6 +1815,44 @@ export interface MarketHoliday {
   date: string;
   name: string;
   source: 'BUILTIN' | 'USER' | string;
+}
+
+export interface OfficialHolidayRow {
+  date: string;
+  name: string;
+}
+
+export interface OfficialHolidayExchangePreview {
+  exchange: 'NSE' | 'BSE';
+  verified: boolean;
+  message: string;
+  sourceUrls: string[];
+  sourceSha256: string | null;
+  holidays: OfficialHolidayRow[];
+  newDates: string[];
+  legacyOnlyDates: string[];
+  changedNames: string[];
+}
+
+export interface OfficialHolidaySyncPreview {
+  token: string;
+  year: number;
+  exchanges: OfficialHolidayExchangePreview[];
+}
+
+export interface OfficialHolidayAcceptedSnapshot {
+  exchange: string;
+  year: number;
+  acceptedAt: string;
+  recordCount: number;
+  sourceUrls: string[];
+  sourceSha256: string;
+}
+
+export interface OfficialHolidaySyncResult {
+  year: number;
+  accepted: string[];
+  records: number;
 }
 
 export interface BhavcopyDefaultTemplates {
@@ -1670,6 +1937,25 @@ export interface PluginTextFileReadInput {
   filePath: string;
   allowedExtensions: string[];
   maxBytes?: number | null;
+}
+
+export interface ExternalPluginPackageDescriptor {
+  id: string;
+  name: string;
+  version: string;
+  minHostVersion?: string | null;
+  pluginType: string;
+  description: string;
+  entry: string;
+  capabilities: string[];
+  permissions: string[];
+  folderPath: string;
+}
+
+export interface ExternalPluginModuleReadResult {
+  pluginId: string;
+  entry: string;
+  code: string;
 }
 
 export interface PluginTextFileReadResult {
@@ -1773,6 +2059,10 @@ export interface DesktopBridgeApi {
   pickPluginDataFile(input: PluginDataFilePickerInput): Promise<string | null>;
   pickPluginOutputDirectory(input: PluginOutputDirectoryPickerInput): Promise<string | null>;
   readPluginTextFile(input: PluginTextFileReadInput): Promise<PluginTextFileReadResult>;
+  listExternalPlugins(): Promise<ExternalPluginPackageDescriptor[]>;
+  readExternalPluginModule(input: { pluginId: string }): Promise<ExternalPluginModuleReadResult>;
+  installExternalPluginPackage(): Promise<ExternalPluginPackageDescriptor | null>;
+  uninstallExternalPlugin(input: { pluginId: string }): Promise<{ success: boolean }>;
   exportDnnResearchDataset(
     input: DnnResearchDatasetExportInput,
   ): Promise<DnnResearchDatasetExportResult>;
@@ -1814,14 +2104,23 @@ export interface DesktopBridgeApi {
   mergeSymbols(input: MergeSymbolsInput): Promise<MergeSymbolsResult>;
   applyCorporateAction(input: CorporateActionInput): Promise<CorporateActionResult>;
   previewNseHistoricalIdentityArchive(input: NseHistoricalIdentityPreviewInput): Promise<NseHistoricalIdentityResult>;
-  applyNseHistoricalIdentityArchive(input: NseHistoricalIdentityApplyInput): Promise<NseHistoricalIdentityResult>;
+  applyNseHistoricalIdentityArchive(input: NseHistoricalIdentityApplyInput, onProgress?: (progress: IdentityApplyProgress) => void): Promise<NseHistoricalIdentityResult>;
+  listNseHistoricalIdentityApplyHistory(): Promise<HistoricalIdentityApplyHistory>;
+  getNseHistoricalIdentityApplyReport(runId: string): Promise<NseHistoricalIdentityResult>;
   downloadNseDelistedWorkbook(): Promise<NseDelistedWorkbookDownloadResult>;
   downloadNseCurrentUniverseMaster(): Promise<NseCurrentUniverseMasterDownloadResult>;
   previewNseCurrentUniverseSync(input: NseCurrentUniverseSyncInput): Promise<NseCurrentUniverseSyncResult>;
-  applyNseCurrentUniverseSync(input: NseCurrentUniverseApplyInput): Promise<NseCurrentUniverseSyncResult>;
+  applyNseCurrentUniverseSync(input: NseCurrentUniverseApplyInput, onProgress?: (progress: IdentityApplyProgress) => void): Promise<NseCurrentUniverseSyncResult>;
+  listNseIdentityApplyHistory(): Promise<NseCurrentUniverseSyncResult[]>;
   downloadBseCurrentUniverseMaster(): Promise<BseCurrentUniverseMasterDownloadResult>;
   previewBseCurrentUniverseSync(input: BseCurrentUniverseSyncInput): Promise<BseCurrentUniverseSyncResult>;
-  applyBseCurrentUniverseSync(input: BseCurrentUniverseSyncInput): Promise<BseCurrentUniverseSyncResult>;
+  applyBseCurrentUniverseSync(input: BseCurrentUniverseApplyInput, onProgress?: (progress: IdentityApplyProgress) => void): Promise<BseCurrentUniverseSyncResult>;
+  listBseIdentityApplyHistory(): Promise<BseCurrentUniverseSyncResult[]>;
+  refreshBseNameHistory(): Promise<BseNameHistorySource>;
+  previewBseNameHistory(input: BseNameHistoryInput): Promise<BseNameHistoryResult>;
+  applyBseNameHistory(input: BseNameHistoryApplyInput, onProgress?: (progress: IdentityApplyProgress) => void): Promise<BseNameHistoryResult>;
+  listBseNameHistoryRuns(): Promise<BseNameHistoryRun[]>;
+  getBseNameHistoryReport(runId: string): Promise<BseNameHistoryResult>;
   assessIdentityOfficialSourceHealth(): Promise<OfficialSourceHealthReport>;
   getOfficialSourceConfigurationAuthority(): Promise<OfficialSourceConfigurationAuthority>;
   saveOfficialSourceUrlsReviewed(
@@ -1848,6 +2147,7 @@ export interface DesktopBridgeApi {
   listOfficialSourceHistory(input: { sourceKey: string }): Promise<OfficialSourceHistoryEntry[]>;
   importCorporateActionsCsv(input: CorporateActionCsvImportInput): Promise<CorporateActionCsvImportResult>;
   fetchOfficialCorporateActions(input: CorporateActionOfficialFetchInput): Promise<CorporateActionOfficialFetchResult>;
+  cancelOfficialCorporateActionFetch(): Promise<boolean>;
   backfillHistoricalCapitalActionsForSymbol(
     input: HistoricalCapitalActionBackfillInput,
   ): Promise<HistoricalCapitalActionBackfillResult>;
@@ -1868,6 +2168,7 @@ export interface DesktopBridgeApi {
   ): Promise<HistoricalCapitalActionMajorLiquidCandidateResult>;
   listCorporateActionImports(input?: CorporateActionImportListInput): Promise<CorporateActionImportRow[]>;
   getCorporateActionImportsByIds(input: CorporateActionImportLookupInput): Promise<CorporateActionImportRow[]>;
+  refreshCorporateActionImportClassifications(input: CorporateActionImportLookupInput): Promise<CorporateActionImportRow[]>;
   listCorporateActionEventIdentities(
     input: CorporateActionEventIdentityListInput,
   ): Promise<CorporateActionEventIdentityListResult>;
@@ -1887,6 +2188,18 @@ export interface DesktopBridgeApi {
   evaluateSimpleCashDividendPreparedScope(
     input: CorporateActionDividendPreparedScopeEvaluationInput,
   ): Promise<CorporateActionDividendPreparedScopeEvaluationResult>;
+  executeSimpleCashDividendWriteStage(
+    input: CorporateActionDividendWriteStageInput,
+  ): Promise<CorporateActionDividendWriteStageResult>;
+  saveCorporateActionValidationReport(
+    input: CorporateActionValidationReportSaveInput,
+  ): Promise<CorporateActionValidationReportSaveResult>;
+  listCorporateActionActivityRuns(
+    input?: CorporateActionActivityRunListInput,
+  ): Promise<CorporateActionActivityRunListResult>;
+  listCorporateActionValidationReportItems(
+    input: CorporateActionValidationReportItemListInput,
+  ): Promise<CorporateActionValidationReportItemListResult>;
   approveRecommendedCorporateActionIsinMismatches(
     input: CorporateActionImportBulkApprovalInput,
   ): Promise<CorporateActionImportBulkApprovalResult>;
@@ -1920,10 +2233,15 @@ export interface DesktopBridgeApi {
   undoManualImportRecovery(input: { sessionId: string }): Promise<ManualImportUndoResult>;
   downloadBhavcopy(date?: string): Promise<DownloadResult>;
   downloadBhavcopyBatch(config: BatchDownloadConfig): Promise<DownloadResult[]>;
+  downloadBsePriceHistory(input: BseHistoryDownloadInput): Promise<BseHistoryDownloadSummary>;
+  cancelBsePriceHistoryDownload(): Promise<boolean>;
   getBhavcopySettings(): Promise<BhavcopySettings>;
   saveBhavcopySettings(settings: BhavcopySettings): Promise<{ success: boolean }>;
   getBhavcopyDefaultTemplates(): Promise<BhavcopyDefaultTemplates>;
   listMarketHolidays(): Promise<MarketHoliday[]>;
+  listOfficialExchangeHolidaySnapshots(year: number): Promise<OfficialHolidayAcceptedSnapshot[]>;
+  previewOfficialExchangeHolidays(year: number): Promise<OfficialHolidaySyncPreview>;
+  applyOfficialExchangeHolidays(token: string, exchanges: string[]): Promise<OfficialHolidaySyncResult>;
   addMarketHoliday(date: string, name: string): Promise<MarketHoliday>;
   deleteMarketHoliday(id: number): Promise<void>;
   getSavedLayouts(): Promise<Array<{ name: string; timestamp: string }>>;

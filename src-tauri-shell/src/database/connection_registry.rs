@@ -697,7 +697,7 @@ fn encode_sqlite_uri_path(path: &Path) -> String {
     encoded
 }
 
-fn with_connection_for_folder<T, F>(
+pub(super) fn with_connection_for_folder<T, F>(
     app: &AppHandle,
     folder_path: &Path,
     create_if_missing: bool,

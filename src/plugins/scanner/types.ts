@@ -111,16 +111,26 @@ export function mapEodRowsToScannerBars(
   rows: EodRow[],
   lookbackBars: number | null,
 ): EodBar[] {
-  const orderedBars = rows
-    .map((row) => ({
-      symbol,
-      date: row.date,
-      open: row.open,
-      high: row.high,
-      low: row.low,
-      close: row.close,
-      volume: row.volume,
-    }))
-    .sort((a, b) => a.date.localeCompare(b.date));
-  return lookbackBars === null ? orderedBars : orderedBars.slice(-Math.max(2, lookbackBars));
+  let isSorted = true;
+  for (let i = 1; i < rows.length; i += 1) {
+    if (rows[i - 1].date > rows[i].date) {
+      isSorted = false;
+      break;
+    }
+  }
+  const sourceRows = isSorted
+    ? (lookbackBars === null ? rows : rows.slice(-Math.max(2, lookbackBars)))
+    : [...rows].sort((a, b) => a.date.localeCompare(b.date));
+  const sliced = !isSorted && lookbackBars !== null
+    ? sourceRows.slice(-Math.max(2, lookbackBars))
+    : sourceRows;
+  return sliced.map((row) => ({
+    symbol,
+    date: row.date,
+    open: row.open,
+    high: row.high,
+    low: row.low,
+    close: row.close,
+    volume: row.volume,
+  }));
 }

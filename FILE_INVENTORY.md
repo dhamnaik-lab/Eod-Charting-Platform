@@ -1,10 +1,148 @@
 # FILE_INVENTORY
 
+## Identity maintenance / saved-report presentation — 30 October 2026
+
+- `src-tauri-shell/src/database/bse_identity_imports/name_history.rs` and its tests:
+  official dated security-code/company-name source, reviewed name-only Apply and
+  transactional receipts; no Security ID transition inference.
+- `src/features/corporateActions/identity/BseNameHistory.tsx`: BSE name preview,
+  Apply status and read-only saved report with search/outcome/evidence controls.
+- `IdentityApplyConfirmation.tsx` in that folder: shared in-app review modal and
+  ephemeral confirmation gate; explicit confirmation remains required.
+- `IdentityReceiptControls.tsx` / `identityReceiptPresentation.ts`: shared evidence
+  Copy feedback, friendly path display, saved outcome counts and readiness notice.
+- `identityDisplayPreferences.ts`: validated context-specific display persistence,
+  including reportOutcome; never stores Apply authority.
+- `HistoricalApplyHistory.tsx` / `IdentityApplyHistory.tsx` / `IdentityHistoricalPreview.tsx`
+  / `IdentityImportWorkspace.tsx` and scoped CSS: NSE/BSE report presentation and
+  layout integration.
+- `src/platform/clipboard.ts`: deliberate Copy-action clipboard primitive.
+- `src/features/corporateActions/__tests__/identityReportPolish.test.tsx`: renderer
+  regressions for immutable receipts, display wording, paths/copy, filters and notices.
+- [Report and deferred user checklist](docs/changes/2026-10-30-identity-report-polish/REPORT.md):
+  implementation/evidence closeout; native portable testing will be done later.
+
+## CA pause and database-priority documentation — 26 October 2026
+
+The linked checkpoint records native approval/validation observations, direct
+read-only approval counts and BSE IDs, known UI defects, non-replay boundaries,
+and the bounded CA resume sequence after database work. No runtime file roles
+change. Current handoff, README, project state, feature matrix, architecture docs,
+work status and next-thread prompt now point to this checkpoint.
+
+This checkpoint supersedes older current-status claims below.
+See [CA resume checkpoint](docs/changes/2026-10-26_CA_PAUSE_DATABASE_PRIORITY_HANDOFF.md).
+
+## Corporate Actions table exchange and overlap performance — 26 October 2026
+
+- `src/features/corporateActions/workspace/CorporateActionClassicWorkspace.tsx` and `corporateActionClassicModel.ts`: separate local exchange filter and matching visible approval scopes.
+- `src-tauri-shell/src/database/corporate_action_imports/dividend_validation_cache.rs` and `auto_approval.rs`: transaction-local dependency-row and policy-peer read reuse.
+- `docs/changes/2026-10-26_CA_TABLE_EXCHANGE_AND_DIVIDEND_OVERLAP_PERFORMANCE.md`: native seed observation, disposable before/after benchmark, focused checks and remaining native acceptance.
+
+## Corporate Actions Split/Bonus terms safeguards — 26 October 2026
+
+- `src-tauri-shell/src/database/corporate_action_imports/split_bonus_terms.rs`: shared negative security/terms gate for parsing, pending preparation and approval.
+- `src-tauri-shell/src/database/corporate_action_imports/split_bonus_terms_tests.rs`: disposable regressions for classification, provenance, idempotence, rollback and stale approval rejection.
+- `docs/changes/2026-10-26_CA_STAGE2A_SPLIT_BONUS_TERMS.md`: bounded Stage 2A implementation, validation and native acceptance limits.
+
+## Corporate Actions persistent validation history — 26 October 2026
+
+- `src-tauri-shell/src/database/corporate_action_history.rs`: diagnostic-only transactional owner for immutable Dividend validation activity/report snapshots and paged read-only history APIs.
+- `src-tauri-shell/src/database/bootstrap.rs`: additive history metadata, activity-run and validation-item tables/indexes; no changes to approval or price tables.
+- `src/features/corporateActions/legacy/corporateActionValidationHistory.ts`: renderer aggregate-to-saved-snapshot mapping; retains full requested and checked ID scopes without creating approval authority.
+- `src/features/corporateActions/__tests__/corporateActionValidationHistory.test.ts`: complete/incomplete snapshot mapping coverage.
+- `src/components/DatabaseToolsDialogs.tsx`: saves read-only Dividend outcomes and reopens paged saved history under Reports without launching validation.
+- `outputs/2026-10-25_CA_P0_PERSISTENCE_OWNERSHIP_AND_MIGRATION.md` and `docs/changes/2026-10-26_CA_PERSISTENT_VALIDATION_HISTORY_P1.md`: design contract, validation receipts and deferred phases.
+
+## Corporate Actions queue refresh and quick search — 25 October 2026
+
+- `src/features/corporateActions/legacy/corporateActionPostApprovalRefresh.ts`: exact stored-row reconciliation and bounded related-symbol/full-ISIN verification; retains unrelated queue/evidence and expires old confirmations.
+- `src/features/corporateActions/__tests__/corporateActionPostApprovalRefresh.test.ts`: targeted refresh, generation, identity peers, incomplete/stale evidence and 9,002-row regression coverage.
+- `src/features/corporateActions/workspace/corporateActionQuickSearch.ts`: normalized identity-only matching and relevance tiers.
+- `src/features/corporateActions/__tests__/corporateActionQuickSearch.test.ts`: identity matching/ranking, empty/cleared results, status/approval scope and post-approval preservation.
+- Existing owners updated: `src/components/DatabaseToolsDialogs.tsx`, classic model/workspace/stylesheet, and explicit Dividend approval wiring tests.
+- `docs/changes/2026-10-25_CA_POST_APPROVAL_QUEUE_REFRESH.md`: superseded full-scan approach, targeted replacement, automated checks and user native evidence.
+- `docs/changes/2026-10-25_CA_QUICK_SEARCH.md`: search contract, 34 focused tests, native symbol/ranking/ISIN/empty-result screenshots and user-confirmed Esc/×; remaining native test limits. Latest operating state is in `HANDOFF.md`.
+
+## Added CA dated-chain proof files — 23 October 2026
+
+- `src-tauri-shell/src/database/corporate_action_imports/dated_symbol_chain.rs`: retained official rename snapshots and independently revalidated database/import-bound multi-step identity proof; metadata only.
+- `src-tauri-shell/src/database/corporate_action_imports/dated_symbol_chain/tests.rs`: chain boundaries, ambiguity, tampering, proof lifecycle, Dividend policy and guarded disposable-copy audit.
+- `docs/changes/2026-10-23_CA_DATED_SYMBOL_CHAIN_CONTRACT.md`: implementation, additive metadata tables, validation and outstanding independent-announcement evidence.
+
+## Added CA presentation files — 23 October 2026
+
+- `src/features/corporateActions/workspace/CorporateActionClassicWorkspace.tsx`: normal compact CA table, menus, dialogs and inspector.
+- `src/features/corporateActions/workspace/corporateActionClassicWorkspace.css`: scoped classic workspace styling.
+- `src/features/corporateActions/workspace/corporateActionClassicModel.ts`: presentation events, filters and exact visible Ready IDs.
+- `src/features/corporateActions/__tests__/corporateActionClassicModel.test.ts`: compound evidence and approval-scope regression checks.
+- `docs/changes/2026-10-23_CA_CLASSIC_WORKSPACE_UI.md` and `docs/changes/2026-10-23_CA_CLASSIC_UI_DESIGN_QA.md`: change/QA records and screenshot evidence. Existing backend authority remains unchanged by this presentation change.
+
+<!-- EOD-CANONICAL-STATUS-2026-10-17-R1 -->
+## Current verified platform and Corporate Actions status — 17 October 2026 IST
+
+**Accepted CA R1 changed files (8):**
+
+- `src/components/DatabaseToolsDialogs.tsx`
+
+- `src/features/corporateActions/legacy/corporateActionImportOperations.ts`
+
+- `src/features/corporateActions/corporateActionValidation.ts`
+
+- `src/features/corporateActions/corporateActionBulkApproval.ts`
+
+- `src/features/corporateActions/__tests__/corporateActionPendingPreparation.test.ts`
+
+- `src/features/corporateActions/__tests__/corporateActionValidation.test.ts`
+
+- `src/features/corporateActions/__tests__/corporateActionOfficialApprovalUx.test.ts`
+
+- `src-tauri-shell/src/database/corporate_action_imports.rs`
+
+**Preserved authority:** `src/engine/ChartEngine.ts`, `src/plugins/analysis/gannPriceTime/gannPlugin.ts`, `src/platform/types.ts`, plus untouched P5 plugin host anchors.
+
+**Current acceptance boundary (17 October 2026 IST):** source-integrated and native-validation **PASS** (62/62 focused Vitest, 2/2 focused Rust tests, renderer typecheck, frontend Vite build, offline Cargo check). Two isolated Windows release builds also **PASS**; the static-CRT EXE has no direct/delay VC runtime imports. **Desktop CA UI and chart-refresh acceptance remain NOT VERIFIED:** the first disposable Sandbox run lacked Visual C++ CRT DLLs, the static-CRT attempt then lacked WebView2 Runtime. Operator stopped; no manual CA pass, no real NSE/BSE network-fetch pass, no production CA write acceptance, and no portable installation acceptance.
+
+**Plugin P5-FINAL:** metadata-only import/discovery/reload architecture is closed with third-party external JavaScript evaluation and activation still **DISABLED**. C2 did not prove production guest process/IPC isolation; no plugin activation is permitted by the CA documents. The three previously unattributed P1/P2 files were accepted by exact isolated reconstruction on 17 October.
+
+**Canonical documentation updated in this checkpoint:** `HANDOFF.md`, `PROJECT_STATE_EOD_CHARTING_PLATFORM.md`, `FILE_INVENTORY.md`, `ARCHITECTURE_CURRENT_EOD_CHARTING_PLATFORM.md`, `FEATURE_STATUS_MATRIX_EOD_CHARTING_PLATFORM.md`, `docs/CURRENT_WORK_STATUS.md`, `README.md`, `docs/architecture.md`; one new IST change record.
+<!-- END-EOD-CANONICAL-STATUS-2026-10-17-R1 -->
+
+<!-- STANDALONE-PLUGIN-ARCHITECTURE-P1-P3-2026-10-16:BEGIN -->
+## Standalone External Plugin Architecture and SDK — P1–P3 status
+
+- **Design boundary:** The EOD Charting Platform remains the protected core. Plugin Manager owns generic lifecycle controls; each plugin owns its own menu-opened interface and settings. External developers should integrate through the SDK and host interfaces rather than editing platform core code.
+- **P1/P2 implemented components (reported, not independently reaccepted here):** `src/plugins/pluginHost.ts`, `src/plugins/types.ts`, `src/plugins/pluginLoader.ts`, `src/engine/ChartEngine.ts`, `src/components/SettingsDialog.tsx`, and `src-tauri-shell/src/plugin_data.rs` provide extension registrations, loading and user-facing controls. The SDK is in `packages/eod-plugin-sdk/` with a development sample plugin.
+- **P3 accepted import-cycle fix (15 October 2026):** `src/plugins/hostRuntime.ts` owns the shared runtime singleton. Plugin registries, dynamic indicator registrations and scanners integrate through the lightweight host. The accepted P3 evidence records renderer typecheck PASS, six focused Vitest suites **22/22 PASS**, and renderer Vite build PASS; see `docs/changes/2026-10-15_1740_IST_P3_PLUGIN_IMPORT_CYCLE_LEAN_FIX_R1.md`.
+- **P4 boundary:** This section records implementation state and verified P3 evidence. It does **not** establish a full installed external-plugin lifecycle, production/manual activation, security review or portable Tauri build. Existing charts, CA functionality and database behavior remain protected. Corporate Actions write activation is not authorized here.
+<!-- STANDALONE-PLUGIN-ARCHITECTURE-P1-P3-2026-10-16:END -->
+
+
+<!-- TECH-AUDIT-PHASES-1-TO-5C-2026-10-14:BEGIN -->
+## Completed — Technical Audit & Internal Hardening Phases 1A-5C (2026-10-14 19:10 IST)
+
+- **Classification:** `INTERNAL_PERFORMANCE_STORAGE_IPC_AND_SECURITY_HARDENING__ALL_VALIDATION_GATES_PASSED`
+- **Report:** `docs/changes/2026-10-14_1910_IST_TECHNICAL_AUDIT_PHASES_1_TO_5C_COMPLETE.md`
+
+### Key Deliverables:
+1. **Multi-Layer Canvas & Memory Lifecycle (Phases 1A & 1B):**
+   - Reused `cachedRenderState` in `ChartEngine.getPointerState()` and isolated crosshair/synced-crosshair/drawing-preview repaints strictly to `overlayCanvas` (`src/engine/ChartEngine.ts`, `src/components/ChartCanvas.tsx`, `src/engine/__tests__/ChartLayerPartition.test.ts`).
+   - Added `blur`, `pointercancel`, and window close/minimize/maximize drag-listener teardown in `src/components/FloatingWindow.tsx` and `src/components/common/useDraggableFloatingWindow.ts`; zeroed detached `<canvas>` buffers on `unmount()`.
+2. **Windows Storage Lock Resilience & Single-Handle Reuse (Phase 1C):**
+   - Eliminated duplicate `OpenOptions::open` calls in `src-tauri-shell/src/database/binary_eod.rs` (`upsert_single_record_by_date` & `rewrite_from_first_incoming_record`) and added bounded retry backoff for transient Windows `ERROR_SHARING_VIOLATION` (`os error 32`) and `os error 5` in `binary_eod.rs` and `src-tauri-shell/src/bhavcopy_recovery.rs`.
+3. **Full-Series FNV-1a Indicator Cache & Scanner Throughput (Phases 2A & 2B):**
+   - Replaced 2-endpoint bar checks in `src/indicators/registry.ts` with an O(N) FNV-1a checksum (`getBarsMutationSignature`) and recursive upstream cache keys (`getChainedIndicatorCacheKey`).
+   - Bounded historical pattern evaluation sliding window to 260 bars in `src/plugins/scanner/chartPatternEvaluation.ts`, yielded to the event loop every 8 symbols in `src/plugins/scanner/scannerRunner.ts`, and hoisted `get_price_storage_mode` out of the per-symbol loop in `src-tauri-shell/src/database/daily_market_snapshot.rs`.
+4. **Packed 64-Byte Binary Bar IPC, 48-Symbol LRU Cache & Security Hardening (Phases 2C, 3A, 4, 5B & 5C):**
+   - Added `get_eod_data_binary` in `src-tauri-shell/src/database/eod_data.rs` and `decodeBinaryEodBars` in `src/platform/binaryEodDecoder.ts` (`src/platform/__tests__/binaryEodDecoder.test.ts`), paired with a 48-entry LRU cache and mutation invalidation in `src/platform/tauriDesktop.ts`.
+   - Enabled `is_html_response()` across all exchanges and capped ZIP extraction at 128 MB in `src-tauri-shell/src/bhavcopy.rs`; guarded `open_external` and `fetch_official_watchlist_source` in `src-tauri-shell/src/main.rs`; enabled a production CSP in `src-tauri-shell/tauri.conf.json`; resolved all 7 Rust compiler warnings.
+<!-- TECH-AUDIT-PHASES-1-TO-5C-2026-10-14:END -->
+
 ## October 13 Layout Mode Persistent Chrome & Timeframe Cleanup Inventory Update
 
 <!-- LAYOUT-MODE-PERSISTENT-CHROME-AND-TF-CLEANUP-OCT13-INVENTORY -->
 
-> **Layout Mode Persistent Chrome, Right Tool Dock & Timeframe Cleanup — 13 October 2026.**  
+> **Layout Mode Persistent Chrome, Right Tool Dock & Timeframe Cleanup — 13 October 2026.**
 > Uncoupled `<Toolbar />` and `<ChartToolDock />` from single-mode branches to keep the top Header dock and right Tool dock permanently visible across all layout modes. Removed redundant timeframe button groups from individual tile headers, added active chart focus ring/glow, click-to-activate, and eager tab hydration. All validation gates passed (`typecheck:renderer` 0 errors, 100/100 chart tests passed).
 
 ### Added Files
@@ -21,7 +159,7 @@
 
 <!-- SHEET-TABS-AND-THEME-REMOVAL-OCT13-INVENTORY -->
 
-> **SheetTabs Numeric Sizing, Typography Polish & Deprecated Theme Cleanup — 13 October 2026.**  
+> **SheetTabs Numeric Sizing, Typography Polish & Deprecated Theme Cleanup — 13 October 2026.**
 > Formatted default sheet names (`Sheet 1` -> `1`), compacted chip minWidth to 32px, boosted font to 12px bold, and completely removed 3 deprecated themes (`bloomberg-pro`, `orderflow-dark`, `terminal-pro-dark`). All validation gates passed (`typecheck:renderer` 0 errors, 164/164 test suites passed).
 
 ### Modified Files
@@ -33,7 +171,7 @@
 
 <!-- LIGHT-THEME-GRID-FIX-OCT13-INVENTORY -->
 
-> **Light Theme Grid Line & Crosshair Preservation Fix — 13 October 2026.**  
+> **Light Theme Grid Line & Crosshair Preservation Fix — 13 October 2026.**
 > Guarded against global dark default fallbacks (`#1e2a3a` for grid, `#5588aa` for crosshair) in `getChartTheme`, preserving native subtle light grid lines and crosshair on light themes. All validation gates passed (`typecheck:renderer` 0 errors, Vitest passed).
 
 ### Added Files
@@ -47,7 +185,7 @@
 
 <!-- CODE-PROTECTION-AND-DISPLAY-SYNC-OCT13-INVENTORY -->
 
-> **Code Protection, Strict TypeScript Interface Locks & Display Sync Isolation — 13 October 2026.**  
+> **Code Protection, Strict TypeScript Interface Locks & Display Sync Isolation — 13 October 2026.**
 > Eliminated silent unwiring and collateral damage by requiring `theme` & `visualSettings` in `ChartEngineConfig`, adding automated theme regression tests, and isolating display state synchronization into `useChartDisplaySync`. All validation gates passed (`typecheck:renderer` 0 errors, 1,042/1,042 tests passed).
 
 ### Added Files
@@ -65,7 +203,7 @@
 
 <!-- DEDICATED-SYMBOL-SEARCH-OCT13-INVENTORY -->
 
-> **Dedicated Symbol Search, SQLite Search Controller Wiring & Floating Window Ergonomics — 13 October 2026.**  
+> **Dedicated Symbol Search, SQLite Search Controller Wiring & Floating Window Ergonomics — 13 October 2026.**
 > High-speed instrument search triggered via single-key `S`, exchange filters (`All`, `NSE`, `BSE`), recent symbols fallback, fixed stable dimensions (580px × 480px), and modeless window dragging. All validation gates passed (`typecheck:renderer` 0 errors, Vitest passed).
 
 ### Added Files
@@ -89,7 +227,7 @@
 
 <!-- TECHNICAL-AND-UX-AUDIT-OCT12-INVENTORY -->
 
-> **Technical and UX Audit Phases 1, 2, and 3 Closure — 12 October 2026.**  
+> **Technical and UX Audit Phases 1, 2, and 3 Closure — 12 October 2026.**
 > Execution of performance optimizations, UI modernization (left rail tool dock, 24px/11px status bar, 4-cluster toolbar), and formal plugin architecture with fault-isolated `PluginHost`. All validation gates passed (typecheck 0 errors, 21/21 Vitest tests, production Vite build in 5.10s).
 
 ### Added Files
@@ -117,7 +255,7 @@
 
 <!-- CA-V1.14M.2-AUG24-CANONICAL-CLOSURE -->
 
-> **Corporate Action exact three-row repair closure — 24 August 2026.**  
+> **Corporate Action exact three-row repair closure — 24 August 2026.**
 > V1.14M.2 independently re-derived the committed V1.14M.1.1 state from a fresh private read-only snapshot and returned **`FULL_SUCCESS`**. The exact three-row production-candidate repair workstream is therefore **`CLOSED / FULL_SUCCESS`**. This closes only this audited three-row repair tranche; it does not declare all Corporate Action work complete.
 
 - Production Corporate Action source SHA-256: `2e05315fa4bf7fe78f28e787edd2bd9a1fef23fb06cab66cc79c8ede9a1b5cfb`.
@@ -291,8 +429,7 @@ The snapshot contains `.cargo/config.toml`, the warning-clean Rust source, V1.7D
 | `src-tauri-shell/src/database/quotes.rs` | Quote Editor CRUD/date-range mutation, metadata invalidation, localized state-row removal, identity-preserving delete semantics |
 | `src-tauri-shell/src/database/binary_eod.rs` | Canonical `.eod` format, immediate new/full-file sync, buffered APPEND_NEWEST classification and diagnostics |
 | `src-tauri-shell/src/imports.rs` | CSV import/export and progress |
-| `src-tauri-shell/src/manual_import_recovery.rs` | Durable Binary Manual Import recovery sessions, before/after row journal, conflict-safe undo, and session-created instrument rollback |
-| `src-tauri-shell/src/bhavcopy.rs` | NSE/BSE download, Generation-6 baseline/classification fast paths, four-worker coverage prefilter, two-worker binary import/write policy, diagnostics, and background checkpoint scheduling |
+| `src-tauri-shell/src/bhavcopy/` | Modular Bhavcopy architecture: `mod.rs` (orchestrator & IPC commands), `types.rs`, `settings.rs`, `transport.rs`, `calendar.rs`, `sources/` (NSE/BSE candidate generators), `parsers/` (CSV/ZIP/JSON), `ingestion.rs` (SQLite & binary writer pool, recovery journal lifecycle, background checkpoints), and `tests.rs` |
 | `src-tauri-shell/src/bhavcopy_recovery.rs` | Durable journal/baselines, resumable APPLIED/CHECKPOINTING verification, two-worker checkpoint, phase/latency telemetry, and post-checkpoint incremental VERIFIED publication |
 | `src-tauri-shell/gen/` | Generated build metadata consumed by the shell |
 | `src-tauri-shell/icons/` / `capabilities/` | Tauri packaging/runtime assets |
@@ -450,7 +587,7 @@ V1.12.1 is a read-only closeout and authorizes no write by itself. V1.13 remains
 | `src-tauri-shell/src/database/eod_binary_state.rs` | Warning-clean Generation-6 state-index implementation; production incremental/open-existing surface retained, bootstrap/census-only APIs test-gated |
 | `src-tauri-shell/src/database/quotes.rs` | V1.5 metadata invalidation and V1.6 localized sidecar invalidation for Quote Editor mutations |
 | `src-tauri-shell/src/database/binary_eod.rs` | V1.7A immediate new/full-file `sync_data()` before rename and existing APPEND_NEWEST durability behavior |
-| `src-tauri-shell/src/bhavcopy.rs` | V1.3/V1.4 fast paths; binary import/write cap 2; prefilter cap 4 |
+| `src-tauri-shell/src/bhavcopy/` | Modular package: V1.3/V1.4 fast paths; binary import/write cap 2; prefilter cap 4 |
 | `src-tauri-shell/src/bhavcopy_recovery.rs` | checkpoint cap 2, verify/sync/publish telemetry, incremental VERIFIED publication |
 | `src/components/DatabaseToolsDialogs.tsx` | Accepted embedded Quote Editor `FloatingWindow`, exchange scopes, ALL counts, and display behavior |
 | `docs/changes/2026-08-22_2114_IST_STORAGE_QUOTE_EDITOR_WARNING_CLEANUP_CLOSEOUT.md` | Dated closeout and evidence summary |

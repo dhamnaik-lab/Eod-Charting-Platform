@@ -1,0 +1,22 @@
+{
+  "canApply": false,
+  "newSymbolChanges": 16,
+  "newNameChanges": 19,
+  "newCombinedChanges": 16,
+  "duplicateRows": 1325,
+  "skippedRows": 1375,
+  "errorRows": 10,
+  "errors": [
+    "BOTH SGBNOV23: Chart predecessor dates must increase along the rename chain.",
+    "SYMBOL_CHANGE INTERISE: Symbol changes require different old and new symbols.",
+    "SYMBOL_CHANGE QUALITY30: Symbol changes require different old and new symbols.",
+    "SYMBOL_CHANGE VERTIS: Symbol changes require different old and new symbols.",
+    "SYMBOL_CHANGE 805NMC29: Symbol changes require different old and new symbols.",
+    "BOTH LANDSMILL: Ambiguous chart predecessor history for NSE:EXCEL.",
+    "BOTH HEALTHX: Ambiguous chart predecessor history for NSE:SASTASUNDR.",
+    "NAME_CHANGE LANDSMILL: Ambiguous chart predecessor history for NSE:EXCEL.",
+    "NAME_CHANGE HEALTHX: Ambiguous chart predecessor history for NSE:SASTASUNDR.",
+    "NAME_CHANGE WSTCSTPAPR: Name changes require different old and new names."
+  ],
+  "planSha256": "e37cf2efaecc6a09726b8de6d53bb23b4619b7992a8f082c8a1c602950590cfe"
+}

@@ -293,6 +293,7 @@ pub(super) fn list_effective_event_identities(
     Ok(CorporateActionEventIdentityListResult {
         requested: input.import_ids.len() as u32,
         identities,
+        existing_dividends: Vec::new(),
         message: "Corporate Action event identities loaded without mutation.".to_string(),
     })
 }

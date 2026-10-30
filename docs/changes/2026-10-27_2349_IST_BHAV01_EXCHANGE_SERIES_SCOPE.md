@@ -1,0 +1,21 @@
+# BHAV-01 — Exchange-scoped NSE Bhavcopy exclusions
+
+- IST: 2026-10-27 23:49:15
+- Authorized workstream: E:\TA Projects\EOD Charting Platform
+- Previous defect: shared CSV parser applied configured NSE equity-series exclusions to BSE equity security groups.
+- Files modified: src-tauri-shell/src/bhavcopy/parsers/csv.rs; src-tauri-shell/src/bhavcopy/tests.rs.
+- Files created: this permanent change note; temporary backups, renderer output and evidence under tmp/BHAV01.
+- Implementation: Only NSE equity rows are tested against configured excluded series. Four new Rust regressions added (NSE preserved, BSE legacy group, BSE UDiFF group, index behavior).
+- Behavior preserved: BSE group metadata, index rows, NSE filtering, existing source callers, binary EOD formats, schema, UI, charts, Sheets, scanner, settings; no production database access or migration.
+- Focused Rust: PASS 4/4. Bhavcopy Rust: PASS 89 passed / 0 failed / 3 ignored.
+- Full Rust (single-threaded harness): FAILED (exit 101): 1019 passed, same 10 failed, 25 ignored. Exactly matches clean unpatched R2 failed-name set; not a green suite.
+- cargo check: PASS; cargo debug build: PASS (existing project target directory).
+- Renderer TypeScript: PASS. Vitest: FAILED (exit 1): 1157 passed, same 14 failed across 3 files, same 2 unhandled rejections. Exact failure names match verified unpatched baseline; not a green suite.
+- Renderer Vite build: PASS, output under project tmp/BHAV01/builds.
+- Validation commands: cargo test --offline --locked --target-dir <project>/target --manifest-path <project>/src-tauri-shell/Cargo.toml bhav01 -- --nocapture; cargo test ... bhavcopy; two individually named Rust probes; cargo test ... -- --test-threads=1 (full suite); cargo check ...; cargo build ...; npm run typecheck:renderer; npm test; npm run build:renderer -- --outDir <project>/tmp/BHAV01/builds/....
+- Baseline artifacts SHA256: Rust R2 45DAE42FD12CE89CAEF55A9DD0A70F830DD90A98EA1A4F49ECAB54C37E6A777A; frontend unpatched 2B2C5894E3E1CEC18D2476766B19FDDA29D2E9534E6F614609D28D8A591D685B; earlier R3 Vitest ED29C13D77911FAB6CEECC8185E220ACEBB5E40B76252B65429ACCD54DAD16C6.
+- Source SHA256: original parser CCBB00523E7554C8086AAFCEC33FE38F824E22AF5681B96AA37E8F4BCBD48CCD / new 4BA90C67E620EFFAB81A9610B7FCDBAA22086766D2E393A0F64C2C760FD807CD; original tests 8DC7B3B21F81536D578EF60B9D21C2C6DF025F89090EE547605CC35DF43E1BC8 / new 906C723C8A9197F326440085F704C05BA7C5A77D3D0AE52A32A2C05F3E13D2C2; preserved caller BC5BAC0B908CA4F333094719C78304040AF0036D4E214E8A6AFB5428DED3CE7C.
+- Risks: R4 parallel full Rust run had two additional, possibly timing-dependent failures; targeted rechecks passed, but R5 single-threaded validation does NOT prove parallel test stability. Pre-existing 10 Rust failures, 14 Vitest failures and 2 unhandled errors remain unresolved and must be handled in their own bounded task. No live imports, production DB validation, portable/release package, or manual UI checkpoint performed.
+- Rollback: invoke R5 runner -Mode Rollback -BackupDirectory 'E:\TA Projects\EOD Charting Platform\tmp\BHAV01\backups\R5_20261027_234915_IST'; verifies source hashes and restores only these two Rust source files. Rebuild afterward if runtime rollback is required.
+- Backup: E:\TA Projects\EOD Charting Platform\tmp\BHAV01\backups\R5_20261027_234915_IST
+- Evidence: C:\Users\dharm\Downloads\EOD_BHAV01_R5_Apply_EVIDENCE_20261027_234915_IST.zip

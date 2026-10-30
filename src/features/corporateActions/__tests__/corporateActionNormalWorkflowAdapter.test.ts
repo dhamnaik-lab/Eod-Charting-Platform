@@ -187,6 +187,26 @@ describe('Corporate Action normal Fetch + Load adapter', () => {
     expect(result.rows).toBe(finalRows);
   });
 
+  it('keeps the completed exchange and does not start BSE after cancellation', async () => {
+    const api = apiBase();
+    let cancelled = false;
+    await expect(fetchCorporateActionNormalData({
+      api, asOfDate: '2026-09-02',
+      shouldCancel: () => cancelled,
+      onExchangeCompleted: () => { cancelled = true; },
+    })).rejects.toThrow('cancelled');
+    expect(api.fetchOfficialCorporateActions).toHaveBeenCalledTimes(1);
+    expect(api.fetchOfficialCorporateActions).toHaveBeenCalledWith(expect.objectContaining({ exchange: 'NSE' }));
+    expect(api.listCorporateActionImports).toHaveBeenCalledTimes(1);
+    expect(api.autoApproveCorporateActionImports).not.toHaveBeenCalled();
+  });
+
+  it('does not start any exchange when the fetch is already cancelled', async () => {
+    const api = apiBase();
+    await expect(fetchCorporateActionNormalData({ api, asOfDate: '2026-09-02', shouldCancel: () => true })).rejects.toThrow('cancelled');
+    expect(api.fetchOfficialCorporateActions).not.toHaveBeenCalled();
+  });
+
   it('stops the routine Fetch immediately when an authoritative exchange fetch fails', async () => {
     const calls: string[] = [];
     const api = apiBase();

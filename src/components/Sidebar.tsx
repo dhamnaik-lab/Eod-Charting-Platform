@@ -346,6 +346,7 @@ export function Sidebar({ width, collapsed, pinned, onToggleCollapse, onTogglePi
   const createChartTab = useChartStore((state) => state.createChartTab);
   const addToWatchlist = useChartStore((state) => state.addToWatchlist);
   const openQuoteEditor = useUiStore((state) => state.openQuoteEditor);
+  const isClassicLightRefined = useUiStore((state) => state.currentTheme === 'classic-light-refined');
   const windows = useWindowStore((state) => state.windows);
   const restoreWindow = useWindowStore((state) => state.restoreWindow);
   const focusWindow = useWindowStore((state) => state.focusWindow);
@@ -1250,7 +1251,8 @@ export function Sidebar({ width, collapsed, pinned, onToggleCollapse, onTogglePi
       <div style={railStyle}>
         <button
           type="button"
-          style={collapseButtonStyle()}
+          className={isClassicLightRefined ? 'eod-refined-sidebar-control' : undefined}
+          style={isClassicLightRefined ? refinedSidebarControlStyle(collapseButtonStyle()) : collapseButtonStyle()}
           onClick={onToggleCollapse}
           title={collapsed ? 'Show sidebar' : 'Hide sidebar'}
         >
@@ -1260,7 +1262,9 @@ export function Sidebar({ width, collapsed, pinned, onToggleCollapse, onTogglePi
           <button
             key={panel.id}
             type="button"
-            style={railButtonStyle(activePanel === panel.id)}
+            className={isClassicLightRefined ? 'eod-refined-sidebar-control' : undefined}
+            style={isClassicLightRefined ? refinedSidebarControlStyle(railButtonStyle(activePanel === panel.id), activePanel === panel.id) : railButtonStyle(activePanel === panel.id)}
+            aria-pressed={isClassicLightRefined ? activePanel === panel.id : undefined}
             onClick={() => {
               setActivePanel(panel.id);
               if (collapsed) {
@@ -1279,7 +1283,8 @@ export function Sidebar({ width, collapsed, pinned, onToggleCollapse, onTogglePi
               <button
                 key={w.id}
                 type="button"
-                style={minimizedRailBadgeStyle}
+                className={isClassicLightRefined ? 'eod-refined-sidebar-control' : undefined}
+                style={isClassicLightRefined ? refinedSidebarControlStyle(minimizedRailBadgeStyle) : minimizedRailBadgeStyle}
                 onClick={() => {
                   restoreWindow(w.id);
                   focusWindow(w.id);
@@ -1312,7 +1317,8 @@ export function Sidebar({ width, collapsed, pinned, onToggleCollapse, onTogglePi
             {activePanel === 'symbols' ? (
               <button
                 type="button"
-                style={headerIconButtonStyle(seriesSettingsOpen)}
+                className={isClassicLightRefined ? 'eod-refined-sidebar-control' : undefined}
+                style={isClassicLightRefined ? refinedSidebarControlStyle(headerIconButtonStyle(seriesSettingsOpen), seriesSettingsOpen) : headerIconButtonStyle(seriesSettingsOpen)}
                 onClick={openSeriesSettings}
                 title="Symbol series settings"
                 aria-label="Symbol series settings"
@@ -1326,7 +1332,8 @@ export function Sidebar({ width, collapsed, pinned, onToggleCollapse, onTogglePi
             ) : null}
             <button
               type="button"
-              style={pinButtonStyle(pinned)}
+              className={isClassicLightRefined ? 'eod-refined-sidebar-control' : undefined}
+              style={isClassicLightRefined ? refinedSidebarControlStyle(pinButtonStyle(pinned), pinned) : pinButtonStyle(pinned)}
               onClick={onTogglePin}
               title={pinned ? 'Switch sidebar to click-to-hide mode' : 'Pin sidebar open'}
             >
@@ -1418,7 +1425,8 @@ export function Sidebar({ width, collapsed, pinned, onToggleCollapse, onTogglePi
                   <button
                     key={option.value}
                     type="button"
-                    style={exchangeSegmentButtonStyle(active)}
+                    className={isClassicLightRefined ? 'eod-refined-sidebar-control' : undefined}
+                    style={isClassicLightRefined ? refinedSidebarControlStyle(exchangeSegmentButtonStyle(active), active) : exchangeSegmentButtonStyle(active)}
                     onClick={() => {
                       setSymbolExchangeFilter(option.value);
                       setSeriesFilterOpen(false);
@@ -1798,7 +1806,8 @@ export function Sidebar({ width, collapsed, pinned, onToggleCollapse, onTogglePi
               <div style={watchlistToolbarStyle}>
                 <button
                   type="button"
-                  style={actionButtonStyle(hasActiveDatabase, false)}
+                  className={isClassicLightRefined ? 'eod-refined-sidebar-control' : undefined}
+                  style={isClassicLightRefined ? refinedSidebarControlStyle(actionButtonStyle(hasActiveDatabase, false)) : actionButtonStyle(hasActiveDatabase, false)}
                   title={hasActiveDatabase ? 'Create a new watchlist' : 'Open a database to create a watchlist'}
                   onClick={() => {
                     if (!hasActiveDatabase) {
@@ -1812,7 +1821,8 @@ export function Sidebar({ width, collapsed, pinned, onToggleCollapse, onTogglePi
                 </button>
                 <button
                   type="button"
-                  style={actionButtonStyle(hasActiveDatabase && selectedSourceLinkedWatchlist, true)}
+                  className={isClassicLightRefined ? 'eod-refined-sidebar-control' : undefined}
+                  style={isClassicLightRefined ? refinedSidebarControlStyle(actionButtonStyle(hasActiveDatabase && selectedSourceLinkedWatchlist, true), hasActiveDatabase && selectedSourceLinkedWatchlist) : actionButtonStyle(hasActiveDatabase && selectedSourceLinkedWatchlist, true)}
                   title={
                     selectedSourceLinkedWatchlist
                       ? `Update ${selectedWatchlist?.name ?? 'watchlist'} from source${lastSyncedDisplay ? ` (Last synced: ${lastSyncedDisplay})` : ''}`
@@ -1841,7 +1851,8 @@ export function Sidebar({ width, collapsed, pinned, onToggleCollapse, onTogglePi
                 </button>
                 <button
                   type="button"
-                  style={actionButtonStyle(Boolean(selectedWatchlistItems.length), watchlistSortOrder !== 'default')}
+                  className={isClassicLightRefined ? 'eod-refined-sidebar-control' : undefined}
+                  style={isClassicLightRefined ? refinedSidebarControlStyle(actionButtonStyle(Boolean(selectedWatchlistItems.length), watchlistSortOrder !== 'default'), watchlistSortOrder !== 'default') : actionButtonStyle(Boolean(selectedWatchlistItems.length), watchlistSortOrder !== 'default')}
                   title={watchlistSortOrder === 'default' ? 'Sort symbols A-Z' : watchlistSortOrder === 'asc' ? 'Sort symbols Z-A' : 'Reset to default order'}
                   onClick={() => setWatchlistSortOrder((prev) => (prev === 'default' ? 'asc' : prev === 'asc' ? 'desc' : 'default'))}
                   disabled={!selectedWatchlistItems.length}
@@ -2646,6 +2657,17 @@ const minimizedBadgeDotStyle: React.CSSProperties = {
   borderRadius: '50%',
   backgroundColor: 'var(--accent)',
 };
+
+/** Only the optional Refined theme uses this presentation wrapper. */
+function refinedSidebarControlStyle(base: React.CSSProperties, active = false): React.CSSProperties {
+  return {
+    ...base,
+    border: '1px solid transparent',
+    borderLeft: active ? '2px solid var(--accent)' : '1px solid transparent',
+    background: active ? 'var(--accent-soft)' : 'var(--eod-refined-sidebar-idle-bg, transparent)',
+    borderRadius: 4,
+  };
+}
 
 function collapseButtonStyle(): React.CSSProperties {
   return {

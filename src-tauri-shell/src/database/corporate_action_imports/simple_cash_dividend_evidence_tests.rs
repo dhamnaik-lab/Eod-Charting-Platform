@@ -53,6 +53,82 @@ fn accepts_single_rupee_slash_dash_terminator() {
 }
 
 #[test]
+fn r3_accepts_exact_agm_context_with_canonical_parser_and_stored_amount() {
+    // Captured October-20 wording examples, without changing the official parser.
+    let fixtures = [
+        ("Annual General Meeting And Dividend Re.1/- Per Share", 1.0),
+        ("Annual General Meeting And Dividend Rs.2/- Per Share", 2.0),
+        ("Annual General Meeting And Dividend Rs.1.50 Per Share", 1.50),
+        ("Annual General Meeting / Dividend - Re 1/- Per Share", 1.0),
+        ("Annual General Meeting/Dividend Rs 10 Per Share", 10.0),
+        ("Annual General Meeting / Final Dividend - Rs 4.50/- Per Share", 4.5),
+        ("Interim Dividend - Rs 2/- Per Share (Purpose Revised)", 2.0),
+        ("Dividend-Rs.3 Pr Share", 3.0),
+        ("Dividend-Rs.2/- Per Sh", 2.0),
+    ];
+    for (purpose, expected) in fixtures {
+        let parsed = parse_corporate_action_purpose(purpose);
+        assert_eq!(parsed.action_type, "DIVIDEND", "{purpose}");
+        assert_eq!(parsed.parse_status, "PARSED", "{purpose}");
+        assert_eq!(parsed.cash_amount, Some(expected), "{purpose}");
+        assert!(parsed.factor.is_none() && parsed.price_factor.is_none(), "{purpose}");
+        assert_eq!(classify(purpose), EligibleSimpleCash(expected), "{purpose}");
+        assert_eq!(revalidate(purpose, Some(expected)), EligibleSimpleCash(expected), "{purpose}");
+    }
+}
+
+#[test]
+fn r3_keeps_preference_share_and_unrecognized_meeting_context_outside_r1() {
+    for (purpose, amount) in [
+        ("Annual General Meeting/Dividend Rs 7.50 per preference share", 7.5),
+        ("EGM And Dividend Rs 1.50 Per Share", 1.5),
+    ] {
+        // The broad import parser can read these amounts; that is not R1 eligibility.
+        assert_eq!(parse_corporate_action_purpose(purpose).cash_amount, Some(amount));
+        assert_eq!(classify(purpose), Ineligible(NotSimpleExplicitPerShareCash));
+        assert_eq!(revalidate(purpose, Some(amount)), Ineligible(NotSimpleExplicitPerShareCash));
+    }
+}
+
+#[test]
+fn r3_agm_cash_requires_exact_unambiguous_stored_amount() {
+    let purpose = "Annual General Meeting And Dividend Rs.1.50 Per Share";
+    assert_eq!(revalidate(purpose, None), Ineligible(MissingStoredCashAmount));
+    assert_eq!(revalidate(purpose, Some(0.0)), Ineligible(InvalidStoredCashAmount));
+    assert_eq!(revalidate(purpose, Some(1.51)), Ineligible(StoredCashAmountMismatch));
+    let adjacent = f64::from_bits(1.5_f64.to_bits() + 1);
+    assert_eq!(revalidate(purpose, Some(adjacent)), Ineligible(StoredCashAmountMismatch));
+}
+
+#[test]
+fn r3_agm_keeps_percentage_revision_and_qualified_wording_blocked() {
+    for purpose in [
+        "Agm/Dividend-10%",
+        "Annual General Meeting And Dividend - 10%",
+        "Annual General Meeting/Dividend Rs 7.50 per preference share",
+        "Annual General Meeting And Dividend Rs.1.50 Per Share Subject To Approval",
+        "Annual General Meeting And Proposed Dividend Rs.1.50 Per Share",
+        "Annual General Meeting And Dividend Rs.1.50 Per Share (Revised)",
+        "Purpose Revised: Annual General Meeting And Dividend Rs.1.50 Per Share",
+        "Annual General Meeting And Dividend Rs.1.50 Per Share For FY 2025-26",
+        "Annual General Meeting And Dividend Rs 1.50 (15%) Per Share",
+        "Annual General Meeting And Dividend Rs -1.50 Per Share",
+        "Annual General Meeting And Dividend Rs 1.50 Per Share Or Rs 2 Per Share",
+        "EGM And Dividend Rs 1.50 Per Share",
+    ] {
+        assert_eq!(classify(purpose), Ineligible(NotSimpleExplicitPerShareCash), "{purpose}");
+    }
+}
+
+#[test]
+fn r3_agm_preserves_existing_special_multiple_compound_and_unit_exclusions() {
+    assert_eq!(classify("Annual General Meeting/Dividend Rs 2 Per Share/Special Dividend Rs 3 Per Share"), Ineligible(InclusiveOrSpecialDividend));
+    assert_eq!(classify("Annual General Meeting/Dividend Rs 2 Per Share/Final Dividend Rs 3 Per Share"), Ineligible(MultipleDividendComponents));
+    assert_eq!(classify("Annual General Meeting/Dividend Rs 2 Per Share/Bonus 1:1"), Ineligible(CompoundAction));
+    assert_eq!(classify("Annual General Meeting/Dividend Rs 2 Per Unit"), Ineligible(UnitOrMixedDistribution));
+}
+
+#[test]
 fn rejects_empty_or_nonsemantic_purpose() {
     for purpose in ["", " \n\t", "---", "₹"] {
         assert_eq!(classify(purpose), Ineligible(EmptyPurpose));
@@ -205,7 +281,7 @@ fn rejects_negated_conditional_cancelled_or_unrecognized_wording() {
         "Proposed Dividend Rs 7.50 per share",
         "Dividend Rs 7.50 subject to approval per share",
         "Dividend Rs 7.50 per share or Rs 8 per share",
-        "Annual General Meeting/Dividend Rs 7.50 per share",
+        "Annual General Meeting/Dividend Rs 7.50 per preference share",
     ] {
         assert_eq!(classify(purpose), Ineligible(NotSimpleExplicitPerShareCash), "{purpose}");
     }
@@ -264,4 +340,23 @@ fn keeps_existing_parser_output_unchanged_before_and_after_classification() {
         let _ = classify(purpose);
         assert_eq!(before, format!("{:?}", parse_corporate_action_purpose(purpose)));
     }
+}
+
+#[test]
+fn r2_diagnostic_labels_distinguish_categories_without_granting_eligibility() {
+    let cases = [
+        ("Annual General Meeting/Dividend Rs 7.50 per preference share", NotSimpleExplicitPerShareCash),
+        ("Dividend Rs 7.50 per share and Bonus 1:1", CompoundAction),
+        ("Special Dividend Rs 7.50 per share", InclusiveOrSpecialDividend),
+        ("Interim Dividend Rs 2 per share Final Dividend Rs 3 per share", MultipleDividendComponents),
+        ("Dividend Rs 7 per unit", UnitOrMixedDistribution),
+    ];
+    for (purpose, expected) in cases {
+        assert_eq!(classify(purpose), Ineligible(expected), "{purpose}");
+        assert!(!expected.diagnostic_label().is_empty());
+    }
+    assert_ne!(NotSimpleExplicitPerShareCash.diagnostic_label(),
+               InclusiveOrSpecialDividend.diagnostic_label());
+    assert_ne!(StoredCashAmountMismatch.diagnostic_label(),
+               MissingStoredCashAmount.diagnostic_label());
 }

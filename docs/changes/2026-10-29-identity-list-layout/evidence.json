@@ -1,0 +1,20 @@
+{
+  "receipt_read": {
+    "mode": "SQLite mode=ro, query_only=ON, explicit read transaction",
+    "completedAtUtc": "2026-10-29T05:03:14.776440800+00:00",
+    "applied": true,
+    "activate": 0,
+    "update": 1,
+    "deactivate": 0,
+    "resultRows": 1053,
+    "held": 62,
+    "outside": 990,
+    "symbol": "REFRACTORY",
+    "totalChanges": 0
+  },
+  "layout_ratio_target": "70-80 percent at desktop sizes",
+  "layout_ratio_measured": null,
+  "visual_check": "BLOCKED: in-app and Edge CDP Page.navigate timeouts",
+  "runtime_scope": "UI only; no backend or approval changes",
+  "preview_server": "Task-owned PID 31236 stopped; port 5175 checked"
+}

@@ -214,11 +214,13 @@ pub(super) fn load_verified_historical_isin_transition(
     suggestion: &CorporateActionImportResolutionSuggestion,
 ) -> AppResult<Option<VerifiedHistoricalIsinTransition>> {
     if !import_row.exchange.eq_ignore_ascii_case("NSE")
-        || import_row.review_status != "UNRESOLVED"
+        || !matches!(
+            import_row.review_status.as_str(),
+            "UNRESOLVED" | "PENDING_ISIN_MISMATCH"
+        )
         || import_row.approved_corporate_action_id.is_some()
         || import_row.parse_status != "PARSED"
-        || !import_row.action_type.eq_ignore_ascii_case("DIVIDEND")
-        || !suggestion.is_active
+        || !matches!(import_row.action_type.as_str(), "DIVIDEND" | "SPLIT" | "BONUS")
         || !suggestion.exchange.eq_ignore_ascii_case("NSE")
     {
         return Ok(None);

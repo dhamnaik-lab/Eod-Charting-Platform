@@ -1,0 +1,41 @@
+{
+  "nativeProof": "tmp\\nse-historical-repair-fde3f3e95dc4\\apply-proof-1793291642854505100.json",
+  "appliedDatabase": "E:\\TA Projects\\EOD Charting Platform\\tmp\\nse-historical-repair-fde3f3e95dc4\\applied-1793291642854505100.sqlite3",
+  "runId": "historical-1793291650504433400-abb490a071e7",
+  "completedAt": "2026-10-29T16:34:10.504465300+00:00",
+  "appliedCounts": {
+    "newSymbolChanges": 14,
+    "newNameChanges": 17,
+    "newCombinedChanges": 13,
+    "activeSyncActivateCount": 0,
+    "activeSyncUpdateCount": 1,
+    "activeSyncDeactivateCount": 0,
+    "duplicateRows": 1337,
+    "skippedRows": 1380,
+    "errorRows": 0
+  },
+  "repeatCounts": {
+    "newSymbolChanges": 0,
+    "newNameChanges": 0,
+    "newCombinedChanges": 0,
+    "activeSyncActivateCount": 0,
+    "activeSyncUpdateCount": 0,
+    "activeSyncDeactivateCount": 0,
+    "errorRows": 0
+  },
+  "rowCategories": {
+    "mutualFund": 383,
+    "unknown": 1557,
+    "equity": 665,
+    "etf": 156
+  },
+  "linkedHistoryRows": 44,
+  "nativeGuards": {
+    "financialDigestUnchanged": true,
+    "rawHashesUnchanged": true,
+    "sameDayGuardStillRejects": true,
+    "chartBars": 140,
+    "chartCurrentSymbol": "AEROPLANE"
+  },
+  "totalChanges": 0
+}

@@ -1,5 +1,68 @@
 # EOD Charting Platform
 
+## Identity maintenance checkpoint — 30 October 2026
+
+NSE/BSE Identity maintenance shares reviewed confirmations and saved reporting.
+BSE company-name history has native refresh/preview/Apply/receipt evidence; its
+Security ID history remains held for verified dated sources. The latest saved-report
+UI polish is implemented and checked, with native portable/clipboard/restart tests
+deferred until the user is ready. No additional Apply is needed for those checks.
+See [current handoff](HANDOFF.md) and [scope, validation and deferred checklist](docs/changes/2026-10-30-identity-report-polish/REPORT.md).
+
+## Latest checkpoint: database issue takes priority — 26 October 2026
+
+Corporate Actions is paused at the user request while the database issue is
+scoped and addressed. Native approval screenshots plus a direct read-only audit
+confirm 4,288 actions approved today across NSE and BSE. This supersedes earlier
+statements that no bulk/Split approvals have been observed; chart arithmetic and
+full acceptance remain separate. Progress reporting and history completeness
+still need work. Do not replay the completed approvals.
+
+This checkpoint supersedes older current-status claims below.
+See [CA resume checkpoint](docs/changes/2026-10-26_CA_PAUSE_DATABASE_PRIORITY_HANDOFF.md).
+
+## Latest Corporate Actions status — 25 October 2026
+
+This update supersedes the older CA acceptance statements below. User screenshots
+confirm selected Dividend approvals, HEGAM saved approval history/chart marker,
+and targeted post-approval refresh for ICICIGI/HDBFS in 4/2 seconds while retaining
+the full queue and unrelated readiness. Full rescanning after each approval has
+been removed. Native search screenshots confirm mixed-case identity matching,
+exact-symbol priority, full-ISIN matching and empty results without queue reload;
+the user confirms Esc/× clear. Details exposes ISIN, source evidence and blocker
+reasons. Whitespace padding, exact BSE-code lookup and measured typing speed remain
+unverified natively. Adjusted/unadjusted chart-price comparison,
+Split/bulk acceptance and automatic fresh BSE master transport remain unproven.
+See [current handoff](HANDOFF.md), [refresh evidence](docs/changes/2026-10-25_CA_POST_APPROVAL_QUEUE_REFRESH.md)
+and [quick search](docs/changes/2026-10-25_CA_QUICK_SEARCH.md).
+
+<!-- EOD-CANONICAL-STATUS-2026-10-17-R1 -->
+## Current verified platform and Corporate Actions status — 17 October 2026 IST
+
+**Integrated Corporate Actions R1:** approved normal workflow `Fetch from Officials → Load & Validate → Approve Ready`, implemented in the existing CA window without replacing advanced maintenance. Load does not automatically approve Split/Bonus. Future ex-dates remain scheduled and local EOD readiness must be satisfied before explicit operator approval; the backend rechecks readiness at approval. Existing adjustment ledger/transactions and chart-refresh hooks are preserved, but production write/refresh behavior has **not** been manually accepted.
+
+**Current acceptance boundary (17 October 2026 IST):** source-integrated and native-validation **PASS** (62/62 focused Vitest, 2/2 focused Rust tests, renderer typecheck, frontend Vite build, offline Cargo check). Two isolated Windows release builds also **PASS**; the static-CRT EXE has no direct/delay VC runtime imports. **Desktop CA UI and chart-refresh acceptance remain NOT VERIFIED:** the first disposable Sandbox run lacked Visual C++ CRT DLLs, the static-CRT attempt then lacked WebView2 Runtime. Operator stopped; no manual CA pass, no real NSE/BSE network-fetch pass, no production CA write acceptance, and no portable installation acceptance.
+
+**Plugin P5-FINAL:** metadata-only import/discovery/reload architecture is closed with third-party external JavaScript evaluation and activation still **DISABLED**. C2 did not prove production guest process/IPC isolation; no plugin activation is permitted by the CA documents. The three previously unattributed P1/P2 files were accepted by exact isolated reconstruction on 17 October.
+
+**Still open:** actual normal desktop workflow observation; official-feed integration under separately authorized network conditions; non-destructive/controlled approval and chart/cache refresh manual verification; optional portable Windows packaging. No further test environment redesign or production database modification is implied by this documentation update.
+
+Current handoff: `HANDOFF.md`. Current feature status: `FEATURE_STATUS_MATRIX_EOD_CHARTING_PLATFORM.md`.
+<!-- END-EOD-CANONICAL-STATUS-2026-10-17-R1 -->
+
+## Bhavcopy Modular Architecture Refactor — October 15, 2026
+
+<!-- BHAVCOPY-MODULAR-REFACTOR-OCT15-README -->
+
+> **Bhavcopy Modular Architectural Refactor Phases 1–9 Closure — 15 October 2026.**  
+> Decomposed the monolithic ~7,980-line `src-tauri-shell/src/bhavcopy.rs` into structured, single-responsibility submodules (`src-tauri-shell/src/bhavcopy/`) with zero breaking changes to public Tauri IPC commands, guaranteed preservation of the 4-worker binary concurrency limit and recovery journal contracts, passing all 50/50 unit tests and frontend typechecks.
+
+### Highlights
+- **Module Topology:** Decomposed into `mod.rs` (orchestrator facade), `types.rs` (domain contracts), `settings.rs` (settings persistence & templates), `transport.rs` (HTTP/1.1 client & connection pool), `calendar.rs` (trading calendar & holidays), `sources/` (NSE/BSE candidate URL generators), `parsers/` (CSV/ZIP/JSON normalizers), `ingestion.rs` (storage, binary writer pool, recovery journal lifecycle, background checkpoints), and `tests.rs` (unit tests).
+- **Public IPC Backward Compatibility:** All 8 public Tauri commands (`download_bhavcopy`, `download_bhavcopy_batch`, `get_bhavcopy_settings`, `save_bhavcopy_settings`, `get_bhavcopy_default_templates`, `list_market_holidays`, `add_market_holiday`, `delete_market_holiday`) and event contracts remain identical.
+- **Durability Contracts:** Retained 4-worker maximum concurrency cap, `APPEND_NEWEST` deferred-sync contract with journal protection, and immediate sync on historical/rewrite paths.
+- **Verification:** 50/50 tests passed (`cargo test --bin eod-charting-platform-shell -- bhavcopy::tests::`), `npm run typecheck:renderer` passed with 0 errors.
+
 ## Dedicated Symbol Search & Workflow Enhancements — October 13, 2026
 
 <!-- DEDICATED-SYMBOL-SEARCH-OCT13-README -->
@@ -1024,3 +1087,10 @@ Authoritative V2-P0 documents:
 
 Evidence binding: 2026-09-06 source snapshot SHA-256 `1E45A2F8CF8D0C69ABA1E4813B46018EA57ED72A8D9F0191DAA1F0F2056539A0`; R2 evidence ZIP SHA-256 `0992F1DDBA3CA33181FB916020D1738761AB5000D127DD037A8A3AF96E557DF5`; R3 evidence ZIP SHA-256 `403E75701DA18EBB662E8D600192F83EF7019E12BE1F59F512E8ADFC176548E4`.
 <!-- V2-P0-SECURITY-LISTING-PRICE-STREAM:END -->
+## Bhavcopy download fallback
+
+Choose exchanges and Date Range, Update or Full History, then press **Start Download**. The downloader tries the configured URL and existing official alternatives first. If BSE equity or index requests fail because of blocking or source/transport errors, it can retry the official daily sources through an internal browser session. There is no separate browser choice, security-code entry or download-only mode. NSE retains its existing URL fallback chain.
+
+A 403 response is reported as blocked; a confirmed 404 remains unavailable. Browser recovery is bounded, serialized and stopped after source refusal/repeated failures. Recovered original daily-source responses pass through normal staging/import validation. A missing archive is not a holiday, and browser recovery does not make unpublished archives available. The separate security-wise history API is retained internally for source evidence, but is not silently substituted for a complete Bhavcopy or used to manufacture ticker identity or missing volume.
+
+Normal download/import durability and identity safeguards remain in place. Batch staging avoids per-date database migrations, uses bounded SQLite log-write retries, and stops/joins workers on fatal failure. Command completion/error settles the download status; skipped dates are counted separately from imported jobs.

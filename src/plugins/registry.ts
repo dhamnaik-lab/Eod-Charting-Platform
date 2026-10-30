@@ -2,9 +2,9 @@ import type { PluginEnabledMap, RegisteredPlugin } from '@/plugins/types';
 import { coreEodScannerPlugin } from '@/plugins/scanner/scannerPlugin';
 import { dnnTrendPlugin } from '@/plugins/forecast/dnnTrend/dnnTrendPlugin';
 import { gannPriceTimePlugin } from '@/plugins/analysis/gannPriceTime/gannPlugin';
-import { PluginHost } from '@/plugins/pluginHost';
+import { pluginHost } from '@/plugins/hostRuntime';
 
-export const EXTERNAL_PLUGIN_SUPPORT_LABEL = 'External plugins: planned, disabled';
+export const EXTERNAL_PLUGIN_SUPPORT_LABEL = 'External packages: metadata-only import/reload. Execution disabled pending isolation.';
 
 export const BUILT_IN_PLUGINS: RegisteredPlugin[] = [
   coreEodScannerPlugin,
@@ -12,7 +12,11 @@ export const BUILT_IN_PLUGINS: RegisteredPlugin[] = [
   gannPriceTimePlugin,
 ];
 
-export const pluginHost = new PluginHost(BUILT_IN_PLUGINS);
+for (const plugin of BUILT_IN_PLUGINS) {
+  pluginHost.register(plugin);
+}
+
+export { pluginHost };
 
 export function listBuiltInPlugins(): RegisteredPlugin[] {
   return pluginHost.listPlugins();

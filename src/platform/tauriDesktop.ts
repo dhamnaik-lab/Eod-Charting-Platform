@@ -1,4 +1,7 @@
+import { decodeBinaryEodBars } from './binaryEodDecoder';
+import { ChartDataRequestSupersededError } from './chartRequestErrors';
 import type {
+  IdentityApplyProgress,
   AppSnapshot,
   DesktopApi,
   DownloadResult,
@@ -25,6 +28,32 @@ interface ProgressEventPayload {
 }
 
 let tauriDesktopApi: DesktopApi | null = null;
+const MAX_EOD_IPC_CACHE_ENTRIES = 48;
+const eodIpcCache = new Map<string, EodDataResult>();
+const eodInFlightRequests = new Map<string, Promise<EodDataResult>>();
+const eodRequestRevisions = new Map<string, number>();
+let eodCacheGeneration = 0;
+
+export function invalidateTauriEodDataCache(): void {
+  eodCacheGeneration += 1;
+  eodIpcCache.clear();
+  eodInFlightRequests.clear();
+  eodRequestRevisions.clear();
+}
+
+function buildEodCacheKey(input: EodDataInput): string {
+  return [
+    input.databasePath ?? '',
+    (input.exchange ?? '').trim().toUpperCase(),
+    (input.symbol ?? '').trim().toUpperCase(),
+    input.from ?? '',
+    input.to ?? '',
+    input.adjusted === true ? '1' : '0',
+    input.includeDividendAdjustments === true ? '1' : '0',
+    input.includeRightsAdjustments === true ? '1' : '0',
+    input.resolveIdentity !== false ? '1' : '0',
+  ].join('|');
+}
 
 function hasTauriInternals(): boolean {
   if (typeof window === 'undefined') {
@@ -42,9 +71,19 @@ async function getTauriEvent() {
   return import('@tauri-apps/api/event');
 }
 
+const MUTATING_EOD_COMMANDS = new Set(["create_database_interactive","open_database_interactive","activate_database_path","close_database","delete_database","upsert_quote","delete_quote","delete_quote_range","delete_quote_date","merge_symbols","apply_corporate_action","apply_nse_historical_identity_archive","apply_nse_current_universe_sync","apply_bse_current_universe_sync","approve_corporate_action_import","approve_corporate_action_import_with_isin_mismatch","approve_corporate_action_import_with_price_validation_exception","approve_corporate_action_imports","auto_approve_corporate_action_imports","approve_recommended_corporate_action_isin_mismatches","import_csv","undo_manual_import_recovery","download_bhavcopy","download_bhavcopy_batch","set_setting","set_price_storage_mode"]);
+
 async function tauriInvoke<T>(command: string, payload?: Record<string, unknown>): Promise<T> {
   const { invoke } = await getTauriCore();
-  return invoke<T>(command, payload);
+  const result = await invoke<T>(command, payload);
+  // Selecting the default display mode changes no prices. Invalidating here
+  // used to cancel the chart reads started by that same mode toggle.
+  const savesDefaultPriceMode = command === 'set_setting'
+    && (payload?.input as { key?: string } | undefined)?.key === 'default_price_mode';
+  if (MUTATING_EOD_COMMANDS.has(command) && !savesDefaultPriceMode) {
+    invalidateTauriEodDataCache();
+  }
+  return result;
 }
 
 function parseEventPayload<T>(event: TauriEvent<T> | T | unknown): T {
@@ -92,6 +131,18 @@ export function getTauriDesktopApi(): DesktopApi | null {
     readPluginTextFile: async (input) => {
       return tauriInvoke('read_plugin_text_file', { input });
     },
+    listExternalPlugins: async () => {
+      return tauriInvoke('list_external_plugins');
+    },
+    readExternalPluginModule: async (input) => {
+      return tauriInvoke('read_external_plugin_module', { input });
+    },
+    installExternalPluginPackage: async () => {
+      return tauriInvoke('install_external_plugin_package');
+    },
+    uninstallExternalPlugin: async (input) => {
+      return tauriInvoke('uninstall_external_plugin', { input });
+    },
     exportDnnResearchDataset: async (input) => {
       return tauriInvoke('export_dnn_research_dataset', { input });
     },
@@ -126,7 +177,61 @@ export function getTauriDesktopApi(): DesktopApi | null {
       return tauriInvoke<InstrumentSummary[]>('list_symbols', { input: input ?? null });
     },
     getEodData: async (input: EodDataInput) => {
-      return tauriInvoke<EodDataResult>('get_eod_data', { input });
+      const key = buildEodCacheKey(input);
+      const { databasePath: _databasePath, forceReload, ...backendInput } = input;
+      if (forceReload) {
+        eodRequestRevisions.set(key, (eodRequestRevisions.get(key) ?? 0) + 1);
+        eodIpcCache.delete(key);
+        eodInFlightRequests.delete(key);
+      }
+      const generation = eodCacheGeneration;
+      const revision = eodRequestRevisions.get(key) ?? 0;
+      const cached = forceReload ? undefined : eodIpcCache.get(key);
+      if (cached) {
+        eodIpcCache.delete(key);
+        eodIpcCache.set(key, cached);
+        return cached;
+      }
+      const inFlight = forceReload ? undefined : eodInFlightRequests.get(key);
+      if (inFlight) {
+        return inFlight;
+      }
+      const requestPromise = tauriInvoke<EodDataResult & { barCount?: number; barsB64?: string }>('get_eod_data_binary', { input: backendInput })
+        .then((raw) => {
+          if (typeof raw.barsB64 !== 'string' && !Array.isArray(raw.bars)) {
+            throw new Error('Missing chart data payload.');
+          }
+          return {
+            requestedSymbol: raw.requestedSymbol,
+            requestedExchange: raw.requestedExchange,
+            adjusted: raw.adjusted,
+            includeDividendAdjustments: raw.includeDividendAdjustments,
+            includeRightsAdjustments: raw.includeRightsAdjustments,
+            instrument: raw.instrument,
+            bars: typeof raw.barsB64 === 'string' ? decodeBinaryEodBars(raw.barsB64, raw.barCount ?? 0) : (raw.bars ?? []),
+            events: raw.events ?? [],
+          };
+        })
+        .then((result) => {
+          if (generation !== eodCacheGeneration || revision !== (eodRequestRevisions.get(key) ?? 0)) {
+            throw new ChartDataRequestSupersededError();
+          }
+          if (eodIpcCache.size >= MAX_EOD_IPC_CACHE_ENTRIES) {
+            const oldestKey = eodIpcCache.keys().next().value;
+            if (oldestKey !== undefined) {
+              eodIpcCache.delete(oldestKey);
+            }
+          }
+          eodIpcCache.set(key, result);
+          return result;
+        })
+        .finally(() => {
+          if (eodInFlightRequests.get(key) === requestPromise) {
+            eodInFlightRequests.delete(key);
+          }
+        });
+      eodInFlightRequests.set(key, requestPromise);
+      return requestPromise;
     },
     getDailyMarketSnapshot: async (input: DailyMarketSnapshotInput) => {
       return tauriInvoke<DailyMarketSnapshotResult>('get_daily_market_snapshot', { input });
@@ -161,9 +266,21 @@ export function getTauriDesktopApi(): DesktopApi | null {
     previewNseHistoricalIdentityArchive: async (input) => {
       return tauriInvoke('preview_nse_historical_identity_archive', { input });
     },
-    applyNseHistoricalIdentityArchive: async (input) => {
-      return tauriInvoke('apply_nse_historical_identity_archive', { input });
+    applyNseHistoricalIdentityArchive: async (input, onProgress) => {
+      const operationId = crypto.randomUUID();
+      let unlisten: (() => void) | undefined;
+      try {
+        if (onProgress) {
+          const { listen } = await getTauriEvent();
+          unlisten = await listen<{ operationId: string; progress: IdentityApplyProgress }>('identity:historical-progress', event => {
+            if (event.payload.operationId === operationId) onProgress(event.payload.progress);
+          });
+        }
+        return await tauriInvoke('apply_nse_historical_identity_archive', { input, operationId });
+      } finally { try { unlisten?.(); } catch { /* Do not mask a committed Apply. */ } }
     },
+    listNseHistoricalIdentityApplyHistory: async () => tauriInvoke('list_nse_historical_identity_apply_history'),
+    getNseHistoricalIdentityApplyReport: async (runId) => tauriInvoke('get_nse_historical_identity_apply_report', { runId }),
     downloadNseDelistedWorkbook: async () => {
       return tauriInvoke('download_nse_delisted_workbook');
     },
@@ -173,18 +290,60 @@ export function getTauriDesktopApi(): DesktopApi | null {
     previewNseCurrentUniverseSync: async (input) => {
       return tauriInvoke('preview_nse_current_universe_sync', { input });
     },
-    applyNseCurrentUniverseSync: async (input) => {
-      return tauriInvoke('apply_nse_current_universe_sync', { input });
+    applyNseCurrentUniverseSync: async (input, onProgress) => {
+      const operationId = crypto.randomUUID();
+      let unlisten: (() => void) | undefined;
+      try {
+        if (onProgress) {
+          const { listen } = await getTauriEvent();
+          unlisten = await listen<{ operationId: string; progress: IdentityApplyProgress }>('identity:apply-progress', event => {
+            if (event.payload.operationId === operationId) onProgress(event.payload.progress);
+          });
+        }
+        return await tauriInvoke('apply_nse_current_universe_sync', { input, operationId, expectedDatabasePath: input.expectedDatabasePath });
+      } finally {
+        // Listener cleanup must not turn a committed result into an apply error.
+        try { unlisten?.(); } catch { /* Best-effort event cleanup. */ }
+      }
     },
+    listNseIdentityApplyHistory: async () => tauriInvoke('list_nse_identity_apply_history'),
     downloadBseCurrentUniverseMaster: async () => {
       return tauriInvoke('download_bse_current_universe_master');
     },
     previewBseCurrentUniverseSync: async (input) => {
       return tauriInvoke('preview_bse_current_universe_sync', { input });
     },
-    applyBseCurrentUniverseSync: async (input) => {
-      return tauriInvoke('apply_bse_current_universe_sync', { input });
+    applyBseCurrentUniverseSync: async (input, onProgress) => {
+      const operationId = crypto.randomUUID();
+      let unlisten: (() => void) | undefined;
+      try {
+        if (onProgress) {
+          const { listen } = await getTauriEvent();
+          unlisten = await listen<{ operationId: string; progress: IdentityApplyProgress }>('identity:apply-progress', event => {
+            if (event.payload.operationId === operationId) onProgress(event.payload.progress);
+          });
+        }
+        return await tauriInvoke('apply_bse_current_universe_sync', { input, operationId });
+      } finally { try { unlisten?.(); } catch { /* Preserve a committed result. */ } }
     },
+    listBseIdentityApplyHistory: async () => tauriInvoke('list_bse_identity_apply_history'),
+    refreshBseNameHistory: async () => tauriInvoke('refresh_bse_name_history'),
+    previewBseNameHistory: async input => tauriInvoke('preview_bse_name_history', { input }),
+    applyBseNameHistory: async (input, onProgress) => {
+      const operationId = crypto.randomUUID();
+      let unlisten: (() => void) | undefined;
+      try {
+        if (onProgress) {
+          const { listen } = await getTauriEvent();
+          unlisten = await listen<{ operationId: string; progress: IdentityApplyProgress }>('identity:apply-progress', event => {
+            if (event.payload.operationId === operationId) onProgress(event.payload.progress);
+          });
+        }
+        return await tauriInvoke('apply_bse_name_history', { input, operationId });
+      } finally { try { unlisten?.(); } catch { /* Preserve the committed result. */ } }
+    },
+    listBseNameHistoryRuns: async () => tauriInvoke('list_bse_name_history_runs'),
+    getBseNameHistoryReport: async runId => tauriInvoke('get_bse_name_history_report', { runId }),
     assessIdentityOfficialSourceHealth: async () => {
       return tauriInvoke('assess_identity_official_source_health');
     },
@@ -221,6 +380,9 @@ export function getTauriDesktopApi(): DesktopApi | null {
     fetchOfficialCorporateActions: async (input) => {
       return tauriInvoke('fetch_official_corporate_actions', { input });
     },
+    cancelOfficialCorporateActionFetch: async () => {
+      return tauriInvoke('cancel_official_corporate_action_fetch');
+    },
     backfillHistoricalCapitalActionsForSymbol: async (input) => {
       return tauriInvoke('backfill_historical_capital_actions_for_symbol', { input });
     },
@@ -244,6 +406,9 @@ export function getTauriDesktopApi(): DesktopApi | null {
     },
     getCorporateActionImportsByIds: async (input) => {
       return tauriInvoke('get_corporate_action_imports_by_ids', { input });
+    },
+    refreshCorporateActionImportClassifications: async (input) => {
+      return tauriInvoke('refresh_corporate_action_import_classifications', { input });
     },
     listCorporateActionEventIdentities: async (input) => {
       return tauriInvoke('list_corporate_action_event_identities', { input });
@@ -271,6 +436,18 @@ export function getTauriDesktopApi(): DesktopApi | null {
     },
     evaluateSimpleCashDividendPreparedScope: async (input) => {
       return tauriInvoke('evaluate_simple_cash_dividend_prepared_scope', { input });
+    },
+    executeSimpleCashDividendWriteStage: async (input) => {
+      return tauriInvoke('execute_simple_cash_dividend_write_stage', { input });
+    },
+    saveCorporateActionValidationReport: async (input) => {
+      return tauriInvoke('save_corporate_action_validation_report', { input });
+    },
+    listCorporateActionActivityRuns: async (input) => {
+      return tauriInvoke('list_corporate_action_activity_runs', { input: input ?? null });
+    },
+    listCorporateActionValidationReportItems: async (input) => {
+      return tauriInvoke('list_corporate_action_validation_report_items', { input });
     },
     approveRecommendedCorporateActionIsinMismatches: async (input) => {
       return tauriInvoke('approve_recommended_corporate_action_isin_mismatches', { input });
@@ -347,6 +524,12 @@ export function getTauriDesktopApi(): DesktopApi | null {
     downloadBhavcopyBatch: async (config) => {
       return tauriInvoke('download_bhavcopy_batch', { config });
     },
+    downloadBsePriceHistory: async (input) => {
+      return tauriInvoke('download_bse_price_history', { input });
+    },
+    cancelBsePriceHistoryDownload: async () => {
+      return tauriInvoke('cancel_bse_price_history_download');
+    },
     getBhavcopySettings: async () => {
       return tauriInvoke('get_bhavcopy_settings');
     },
@@ -358,6 +541,15 @@ export function getTauriDesktopApi(): DesktopApi | null {
     },
     listMarketHolidays: async () => {
       return tauriInvoke('list_market_holidays');
+    },
+    listOfficialExchangeHolidaySnapshots: async (year: number) => {
+      return tauriInvoke('list_official_exchange_holiday_snapshots', { year });
+    },
+    previewOfficialExchangeHolidays: async (year: number) => {
+      return tauriInvoke('preview_official_exchange_holidays', { year });
+    },
+    applyOfficialExchangeHolidays: async (token: string, exchanges: string[]) => {
+      return tauriInvoke('apply_official_exchange_holidays', { token, exchanges });
     },
     addMarketHoliday: async (date: string, name: string) => {
       return tauriInvoke('add_market_holiday', { date, name });
@@ -615,6 +807,7 @@ export function getTauriDesktopApi(): DesktopApi | null {
       void getTauriEvent()
         .then(({ listen }) =>
           listen<TauriEvent<unknown> | unknown>('db:changed', (event) => {
+            invalidateTauriEodDataCache();
             const payload = parseEventPayload<unknown>(event);
             callback(payload as AppSnapshot);
           }),

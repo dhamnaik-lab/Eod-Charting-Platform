@@ -15,6 +15,7 @@ import {
   resolveSelectedWatchlistId,
 } from '@/features/watchlists/watchlistOrchestrationService';
 import { getUiStoreState, useUiStore } from '@/store/uiStore';
+import { applyDownloadProgress } from '@/features/bhavcopy/downloadRunState';
 
 type StoreStateUpdate =
   | Partial<ChartStoreState>
@@ -311,12 +312,7 @@ export function createChartRuntimeController(
         });
         api.onDownloadProgress((progress, message) => {
           deps.setState((state) => ({
-            downloadProgress: {
-              ...state.downloadProgress,
-              running: progress < 100,
-              progress,
-              message,
-            },
+            downloadProgress: applyDownloadProgress(state.downloadProgress, progress, message),
           }));
         });
       }

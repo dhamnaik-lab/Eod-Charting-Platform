@@ -1,14 +1,17 @@
+#[allow(unused_imports)]
 pub use self::corporate_action_imports::{preview_split_bonus_reconciliation, CorporateActionReconciliationPreflightInput, CorporateActionReconciliationPreflightResult, CorporateActionReconciliationPreflightRow, CorporateActionReconciliationBlocker};
 pub(crate) use self::connection_registry::peek_active_database_folder_read_only;
 pub mod binary_eod;
 mod bootstrap;
 mod bse_identity_imports;
 mod connection_registry;
+mod corporate_action_history;
 mod corporate_action_imports;
 mod daily_market_snapshot;
 mod dnn_research_export;
 pub mod eod_binary_state;
 mod eod_data;
+pub(crate) mod index_aliases;
 mod instrument_mutations;
 pub(crate) mod identity_evidence_resolver;
 mod nse_identity_imports;
@@ -34,16 +37,23 @@ use std::path::Path;
 use std::time::Instant;
 use tauri::{AppHandle, Emitter};
 
+#[allow(unused_imports)]
 pub use self::binary_eod::{get_binary_eod_status, migrate_to_binary_eod, validate_binary_parity};
 pub(crate) use self::bootstrap::{load_db_stats, prepare_database_connection};
 pub use self::bse_identity_imports::{
     apply_bse_current_universe_sync, download_bse_current_universe_master,
-    preview_bse_current_universe_sync,
+    preview_bse_current_universe_sync, list_bse_identity_apply_history,
+    refresh_bse_name_history, preview_bse_name_history, apply_bse_name_history,
+    list_bse_name_history_runs, get_bse_name_history_report,
 };
 pub use self::connection_registry::{
     activate_database_path, close_database, create_database_interactive, delete_database,
     get_app_snapshot, get_db_stats, open_database_interactive, remove_recent_database,
     ActiveDatabaseConnectionState,
+};
+pub use self::corporate_action_history::{
+    list_corporate_action_activity_runs, list_corporate_action_validation_report_items,
+    save_corporate_action_validation_report,
 };
 pub(crate) use self::connection_registry::{
     ensure_registry_initialized, get_active_database_file_path, get_app_snapshot_internal,
@@ -56,9 +66,10 @@ pub use self::corporate_action_imports::{
     approve_corporate_action_imports, approve_recommended_corporate_action_isin_mismatches,
     auto_approve_corporate_action_imports, backfill_historical_capital_actions_batch,
     backfill_historical_capital_actions_for_symbol, evaluate_simple_cash_dividend_prepared_scope,
-    fetch_official_corporate_actions, get_corporate_action_imports_by_ids,
-    import_corporate_actions_csv, list_corporate_action_event_identities,
-    list_corporate_action_import_resolution_hints,
+    execute_simple_cash_dividend_write_stage, fetch_official_corporate_actions,
+    cancel_official_corporate_action_fetch,
+    get_corporate_action_imports_by_ids, refresh_corporate_action_import_classifications, import_corporate_actions_csv,
+    list_corporate_action_event_identities, list_corporate_action_import_resolution_hints,
     list_corporate_action_import_resolution_suggestions, list_corporate_action_imports,
     list_corporate_action_scan_results, list_historical_capital_action_alias_candidates,
     list_historical_capital_action_backfill_runs,
@@ -74,14 +85,15 @@ pub(crate) use self::corporate_action_imports::{
 };
 pub use self::daily_market_snapshot::{cancel_daily_market_snapshot, get_daily_market_snapshot};
 pub use self::dnn_research_export::export_dnn_research_dataset;
-pub use self::eod_data::get_eod_data;
+pub use self::eod_data::{get_eod_data, get_eod_data_binary};
 use self::eod_data::{find_instrument_record, resolve_instrument_context};
 pub use self::instrument_mutations::{apply_corporate_action, merge_symbols};
 pub use self::nse_identity_imports::{
-    apply_nse_current_universe_sync, apply_nse_historical_identity_archive,
+    apply_nse_current_universe_sync, apply_nse_historical_identity_archive, list_nse_identity_apply_history, list_nse_historical_identity_apply_history, get_nse_historical_identity_apply_report,
     download_nse_current_universe_master, download_nse_delisted_workbook,
     preview_nse_current_universe_sync, preview_nse_historical_identity_archive,
 };
+#[allow(unused_imports)]
 pub use self::official_source_candidate_review::{
     apply_official_source_rollback_reviewed, create_official_source_rollback_review,
     find_official_source_replacement_candidates, list_official_source_history,
@@ -95,10 +107,12 @@ pub use self::official_source_candidate_review::{
     OfficialSourceRollbackReview, PromoteOfficialSourceCandidateReviewedInput,
     RecordOfficialSourceCandidateDecisionInput, RetryOfficialSourcePostHealthInput,
 };
+#[allow(unused_imports)]
 pub use self::official_source_health::{
     assess_identity_official_source_health, OfficialSourceHealthReport,
     OfficialSourceHealthResult,
 };
+#[allow(unused_imports)]
 pub use self::official_source_version_history::{
     get_official_source_configuration_authority, save_official_source_urls_reviewed,
     ExpectedOfficialSourceRevision, OfficialSourceAuthorityEntry,
@@ -541,12 +555,14 @@ pub struct CorporateActionImportLookupInput {
 #[serde(rename_all = "camelCase")]
 pub struct CorporateActionImportApprovalInput {
     pub import_id: i64,
+    pub expected_database_path: String,
 }
 
 #[derive(Clone, Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CorporateActionImportBulkApprovalInput {
     pub import_ids: Vec<i64>,
+    pub expected_database_path: String,
 }
 
 #[derive(Clone, Debug, Deserialize)]
@@ -561,6 +577,17 @@ pub struct CorporateActionAutoApprovalInput {
 pub struct CorporateActionDividendPreparedScopeEvaluationInput {
     pub import_ids: Vec<i64>,
     pub expected_database_path: String,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CorporateActionDividendWriteStageInput {
+    pub import_ids: Vec<i64>,
+    pub expected_database_path: String,
+    pub expected_policy_version: String,
+    pub expected_scope_version: String,
+    pub expected_write_stage_version: String,
+    pub expected_scope_fingerprint: String,
 }
 
 #[derive(Clone, Debug, Deserialize)]
@@ -595,6 +622,7 @@ pub struct CorporateActionImportResolveInput {
 pub struct CorporateActionImportExceptionalApprovalInput {
     pub import_id: i64,
     pub reason: String,
+    pub expected_database_path: String,
 }
 
 #[derive(Clone, Debug, Deserialize)]
@@ -636,7 +664,15 @@ pub struct CorporateActionEventIdentity {
 pub struct CorporateActionEventIdentityListResult {
     pub requested: u32,
     pub identities: Vec<CorporateActionEventIdentity>,
+    pub existing_dividends: Vec<CorporateActionExistingDividend>,
     pub message: String,
+}
+
+#[derive(Clone, Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CorporateActionExistingDividend {
+    pub import_id: i64,
+    pub corporate_action_id: i64,
 }
 
 #[derive(Clone, Debug, Deserialize)]
@@ -919,9 +955,40 @@ pub struct BseCurrentUniverseSyncInput {
     pub master_file_path: String,
 }
 
+#[derive(Clone, Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BseCurrentUniverseApplyInput {
+    pub master_file_path: String,
+    pub expected_plan_sha256: String,
+    pub expected_database_path: String,
+}
+
+#[derive(Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct IdentityApplyProgress {
+    pub stage: &'static str,
+    pub processed: usize,
+    pub total: usize,
+    pub percent: Option<u32>,
+}
+
+fn check_identity_reviewed_database_path(folder: &Path, expected: &str) -> AppResult<()> {
+    let expected = std::fs::canonicalize(expected)
+        .map_err(|_| "IDENTITY_REVIEWED_DATABASE_STALE: Preview the active database again.".to_string())?;
+    let actual = std::fs::canonicalize(folder).map_err(|error| error.to_string())?;
+    if actual != expected {
+        return Err("IDENTITY_REVIEWED_DATABASE_STALE: Active database changed; preview again.".into());
+    }
+    Ok(())
+}
+
 #[derive(Clone, Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct NseHistoricalIdentityResult {
+    pub run_id: Option<String>,
+    pub completed_at: Option<String>,
+    pub refresh_warning: Option<String>,
+    pub category_evidence: Option<std::collections::BTreeMap<String, nse_identity_imports::historical_categories::CategoryEvidence>>,
     pub archive_root_path: String,
     pub applied: bool,
     pub can_apply: bool,
@@ -967,6 +1034,9 @@ pub struct NseCurrentUniverseSyncPreviewRow {
 #[derive(Clone, Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct NseCurrentUniverseSyncResult {
+    pub run_id: Option<String>,
+    pub completed_at: Option<String>,
+    pub refresh_warning: Option<String>,
     pub archive_root_path: String,
     pub applied: bool,
     pub master_rows_read: u32,
@@ -1003,6 +1073,12 @@ pub struct BseCurrentUniverseSyncPreviewRow {
 #[derive(Clone, Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct BseCurrentUniverseSyncResult {
+    pub run_id: Option<String>,
+    pub completed_at: Option<String>,
+    pub refresh_warning: Option<String>,
+    pub plan_sha256: String,
+    pub master_sha256: String,
+    pub new_symbols: u32,
     pub master_file_path: String,
     pub applied: bool,
     pub master_rows_read: u32,
@@ -1443,6 +1519,7 @@ pub struct CorporateActionDividendPreparedScopeEvaluationDisposition {
 #[serde(rename_all = "camelCase")]
 pub struct CorporateActionDividendPreparedScopeEvaluationResult {
     pub requested: u32,
+    pub reused_count: u32,
     pub eligible: u32,
     pub ineligible: u32,
     pub already_approved: u32,
@@ -1452,6 +1529,35 @@ pub struct CorporateActionDividendPreparedScopeEvaluationResult {
     pub dispositions: Vec<CorporateActionDividendPreparedScopeEvaluationDisposition>,
     pub policy_version: String,
     pub scope_version: String,
+    pub scope_fingerprint: String,
+    pub complete: bool,
+    pub message: String,
+}
+
+#[derive(Clone, Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CorporateActionDividendWriteStageDisposition {
+    pub import_id: i64,
+    pub disposition: String,
+    pub reason: String,
+    pub corporate_action_id: Option<i64>,
+}
+
+#[derive(Clone, Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CorporateActionDividendWriteStageResult {
+    pub requested: u32,
+    pub revalidated_eligible: u32,
+    pub auto_approved: u32,
+    pub ineligible: u32,
+    pub already_approved: u32,
+    pub stale_scope: u32,
+    pub missing: u32,
+    pub failed: u32,
+    pub dispositions: Vec<CorporateActionDividendWriteStageDisposition>,
+    pub policy_version: String,
+    pub scope_version: String,
+    pub write_stage_version: String,
     pub scope_fingerprint: String,
     pub complete: bool,
     pub message: String,

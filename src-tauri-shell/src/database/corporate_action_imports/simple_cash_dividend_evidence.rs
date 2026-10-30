@@ -1,8 +1,9 @@
 //! Pure evidence classification only; not an autonomous approval decision.
 //!
-//! This module has no callers in Prepare, the writer, or auto_approval.rs. A later
-//! policy must separately establish NSE/source/identity/PENDING/event-date and
-//! same-date-peer authority, and previous-close viability before any write.
+//! The conservative Dividend R1 policy uses this classifier during read-only
+//! preparation and freshly rechecks it in the guarded explicit-approval writer.
+//! NSE/source/identity/PENDING/event-date, same-date-peer and price safeguards
+//! are separate and remain mandatory before any write.
 
 use super::{
     compound_action_primary_type, contains_inclusive_dividend_total,
@@ -32,12 +33,35 @@ pub(crate) enum SimpleCashDividendReason {
     StoredCashAmountMismatch,
 }
 
+impl SimpleCashDividendReason {
+    /// Fixed diagnostics only. No event wording, security identity, cash amount,
+    /// or user-selected override enters the proof/approval contract.
+    pub(crate) fn diagnostic_label(self) -> &'static str {
+        use SimpleCashDividendReason::*;
+        match self {
+            EmptyPurpose => "Empty or missing dividend announcement wording",
+            NotDividend => "Announcement is not a recognized cash dividend",
+            CompoundAction => "Dividend combined with another corporate action",
+            UnitOrMixedDistribution => "Per-unit or mixed cash/noncash distribution",
+            InclusiveOrSpecialDividend => "Special or inclusive multi-component dividend",
+            MultipleDividendComponents => "Multiple ordinary dividend components",
+            NotSimpleExplicitPerShareCash => "Unrecognized or qualified single-cash per-share wording",
+            ExistingParserDidNotConfirm => "Stored official parser did not confirm a positive single cash amount",
+            MissingStoredCashAmount => "Stored dividend cash amount is absent",
+            InvalidStoredCashAmount => "Stored dividend cash amount is invalid",
+            StoredCashAmountMismatch => "Parsed and stored cash amounts disagree",
+        }
+    }
+}
+
 /// Accept a deliberately small, whole-purpose grammar, then obtain the amount
 /// from the existing parser. Unsupported wording stays manual-only: this does
 /// not alter what the existing parser or manual approval path can accept.
 ///
-/// Grammar: [Interim|Final] Dividend|Div [-|:] Rs[.]|Re[.]|INR|₹
-///          unsigned-decimal [/-] per share[.]
+/// Grammar: [Annual General Meeting And|/] [Interim|Final] Dividend|Div
+///          [-|:] Rs[.]|Re[.]|INR|₹ unsigned-decimal [/-] per share[.]
+/// The optional full "Annual General Meeting" context must be followed by
+/// exactly AND, slash, or space-slash-space. Other qualifiers are NOT removed.
 /// Case and whitespace are ignored; no rounding, percentage conversion, grouped
 /// numerals, numeric aggregation, or interpretation of qualifiers is performed.
 pub(crate) fn classify_simple_cash_dividend_evidence(
@@ -132,23 +156,69 @@ pub(crate) fn revalidate_simple_cash_dividend_evidence(
 /// negative/cancelled/conditional or partially parsed amounts that a broader
 /// manual parser might otherwise accept. Only the existing parser converts f64.
 fn has_simple_per_share_cash_form(purpose_raw: &str) -> bool {
-    let compact = purpose_raw
+    let mut compact = purpose_raw
         .split_whitespace()
         .collect::<Vec<_>>()
         .join(" ")
         .to_ascii_uppercase();
-    let Some(without_suffix) = compact
-        .strip_suffix(" PER SHARE.")
-        .or_else(|| compact.strip_suffix(" PER SHARE"))
+    for rev_suffix in [
+        " (PURPOSE REVISED)",
+        "(PURPOSE REVISED)",
+        " (BC DATES REVISED)",
+        "(BC DATES REVISED)",
+        " (BOOK CLOSURE DATES REVISED)",
+    ] {
+        if let Some(stripped) = compact.strip_suffix(rev_suffix) {
+            compact = stripped.trim_end().to_string();
+            break;
+        }
+    }
+    let cash_description = [
+        "ANNUAL GENERAL MEETING AND ",
+        "ANNUAL GENERAL MEETING / ",
+        "ANNUAL GENERAL MEETING/",
+        "AGM AND ",
+        "AGM / ",
+        "AGM/",
+    ]
+    .iter()
+    .find_map(|prefix| compact.strip_prefix(*prefix))
+    .map(str::trim_start)
+    .unwrap_or(compact.as_str());
+    let Some(without_suffix) = [
+        " PER EQUITY SHARE.",
+        " PER EQUITY SHARE",
+        "/-PER EQUITY SHARE.",
+        "/-PER EQUITY SHARE",
+        " PER SHARE.",
+        " PER SHARE",
+        "/-PER SHARE.",
+        "/-PER SHARE",
+        " PR SHARE.",
+        " PR SHARE",
+        " PER SH.",
+        " PER SH",
+    ]
+    .iter()
+    .find_map(|suffix| cash_description.strip_suffix(*suffix))
     else {
         return false;
     };
+    let without_ordinal = [
+        "1ST ", "2ND ", "3RD ", "4TH ", "5TH ",
+        "FIRST ", "SECOND ", "THIRD ", "FOURTH ",
+    ]
+    .iter()
+    .find_map(|ord| without_suffix.strip_prefix(*ord))
+    .map(str::trim_start)
+    .unwrap_or(without_suffix);
     let Some(remainder) = [
-        "INTERIM DIVIDEND", "INTERIM DIV", "FINAL DIVIDEND", "FINAL DIV", "DIVIDEND", "DIV",
+        "INTERIM DIVIDEND", "INTERIM DIV", "INT DIVIDEND", "INT DIV", "INTDIVIDEND",
+        "FINAL DIVIDEND", "FINAL DIV", "DIVIDEND", "DIV",
     ]
     .iter()
     .find_map(|prefix| {
-        without_suffix.strip_prefix(*prefix).filter(|remaining| {
+        without_ordinal.strip_prefix(*prefix).filter(|remaining| {
             remaining.starts_with(' ') || remaining.starts_with('-') || remaining.starts_with(':')
         })
     }) else {
@@ -160,6 +230,7 @@ fn has_simple_per_share_cash_form(purpose_raw: &str) -> bool {
         .or_else(|| remainder.strip_prefix(':'))
         .unwrap_or(remainder)
         .trim_start();
+    let remainder = remainder.strip_prefix("OF ").map(str::trim_start).unwrap_or(remainder);
     let Some(number) = ["RS.", "RS", "RE.", "RE", "INR", "₹"]
         .iter()
         .find_map(|marker| remainder.strip_prefix(*marker))

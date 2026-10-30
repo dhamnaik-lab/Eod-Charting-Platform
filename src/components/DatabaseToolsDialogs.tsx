@@ -1,10 +1,31 @@
+import { HistoricalApplyStatus } from '@/features/corporateActions/identity/HistoricalApplyStatus';
+import { HistoricalApplyHistory } from '@/features/corporateActions/identity/HistoricalApplyHistory';
+import { historicalChangeCount } from '@/features/corporateActions/identity/historicalApplyModel';
+import { identityDisplayKey, useIdentityDisplayPreferences } from '@/features/corporateActions/identity/identityDisplayPreferences';
+import { IdentityHistoricalPreview } from '@/features/corporateActions/identity/IdentityHistoricalPreview';
+import { IdentityApplyStatus } from '@/features/corporateActions/identity/IdentityApplyStatus';
+import { IdentityApplyHistory } from '@/features/corporateActions/identity/IdentityApplyHistory';
+import type { IdentityApplyProgress } from '@/types/desktop';
+import { IdentityImportWorkspace } from '@/features/corporateActions/identity/IdentityImportWorkspace';
+import { BseNameHistoryReports, useBseNameHistory } from '@/features/corporateActions/identity/BseNameHistory';
+import { currentIdentityReview, nseHistoricalReview, useIdentityApplyConfirmation } from '@/features/corporateActions/identity/IdentityApplyConfirmation';
+import { IdentitySourceHistory } from '@/features/corporateActions/identity/IdentitySourceHistory';
+import { IdentitySourceHealth } from '@/features/corporateActions/identity/IdentitySourceHealth';
+import { IdentityPreviewTable } from '@/features/corporateActions/identity/IdentityPreviewTable';
+import { identityHasActionableChanges, identityHealthSummary, identityPreviewState } from '@/features/corporateActions/identity/identityImportModel';
 import { CorporateActionReconciliationPanel } from '@/features/corporateActions/reconciliation/CorporateActionReconciliationPanel';
+import { CorporateActionClassicWorkspace, CorporateActionClassicMenu, CorporateActionClassicDialog } from '@/features/corporateActions/workspace/CorporateActionClassicWorkspace';
+import { CLASSIC_ACTION_TYPES, type ClassicActionRow, type ClassicStatus } from '@/features/corporateActions/workspace/corporateActionClassicModel';
+import { isInformationalCorporateAnnouncement } from '@/features/corporateActions/legacy/corporateActionAnnouncementClassification';
+import { APPROVAL_HISTORY_PAGE_SIZE, appendApprovalHistoryPage, describeDividendDispatchFailure, formatApprovalTime } from '@/features/corporateActions/legacy/corporateActionApprovalReports';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   getDesktopApi,
+  requireDesktopShellApi,
   type BseCurrentUniverseSyncResult,
   type CorporateActionInput,
   type CorporateActionAutoApprovalResult,
+  type CorporateActionActivityRun,
   type CorporateActionEventIdentity,
   type CorporateActionImportActionType,
   type CorporateActionImportResolutionHint,
@@ -12,6 +33,7 @@ import {
   type CorporateActionImportRow,
   type CorporateActionResult,
   type CorporateActionScanResultRow,
+  type CorporateActionValidationReportItem,
   type HistoricalCapitalActionBackfillBatchResult,
   type HistoricalCapitalActionBackfillResult,
   type HistoricalCapitalActionBackfillRunRow,
@@ -63,6 +85,7 @@ import {
   classifyCorporateActionValidation,
   formatCorporateActionDescription,
   getCorporateActionApprovalState,
+  getCorporateActionNormalApprovalState,
   getCorporateActionIdentityLabel,
   getPriceMultiplier,
   getResidualGapPct,
@@ -89,11 +112,28 @@ import {
   loadCorporateActionImportRows,
   prepareCorporateActionPendingImports,
 } from '@/features/corporateActions/legacy/corporateActionImportOperations';
-import { buildCorporateActionDividendPreparedScope } from '@/features/corporateActions/legacy/corporateActionDividendPreparedScope';
+import {
+  buildCorporateActionDividendPreparedScope,
+  type CorporateActionDividendPreparedScope,
+  normalizeCorporateActionPreparedScopeDatabasePath,
+} from '@/features/corporateActions/legacy/corporateActionDividendPreparedScope';
+import { refreshCorporateActionQueueAfterApproval } from '@/features/corporateActions/legacy/corporateActionPostApprovalRefresh';
+import { corporateActionSearchRank } from '@/features/corporateActions/workspace/corporateActionQuickSearch';
+import {
+  CORPORATE_ACTION_DIVIDEND_WRITE_STAGE_ENABLED,
+  CORPORATE_ACTION_DIVIDEND_WRITE_STAGE_MAX_IDS,
+  prepareDividendWriteStageDraft,
+  isDividendWriteStageDraftCurrent,
+  verifyDividendWriteStageReceipt,
+  type DividendWriteStageDraft,
+} from '@/features/corporateActions/legacy/corporateActionDividendWriteStageOrchestration';
 import {
   evaluateCorporateActionDividendPreparedScopeBatches,
   type CorporateActionDividendPreparedScopeOutcomeState,
 } from '@/features/corporateActions/legacy/corporateActionDividendPreparedScopeOrchestration';
+import { formatDividendBlockerReport, summarizeDividendBlockerReasons } from '@/features/corporateActions/legacy/corporateActionDividendBlockerSummary';
+import { buildCorporateActionValidationReportSaveInput } from '@/features/corporateActions/legacy/corporateActionValidationHistory';
+import { summarizeCaPendingByType, formatCaPendingTypeReport } from '@/features/corporateActions/legacy/corporateActionAllTypeReadinessSummary';
 import {
   IDENTITY_RECOVERY_DOCUMENTS,
   type IdentityRecoveryDocument,
@@ -1437,6 +1477,26 @@ function CorporateActionDialog({
   const api = getDesktopApi();
   const CORPORATE_ACTIONS_WINDOW_ID = 'corporate-actions';
   const [reconciliationOpen, setReconciliationOpen] = useState(false);
+  const [classicReview, setClassicReview] = useState(true);
+  const [classicTypeFilters, setClassicTypeFilters] = useState<string[]>([...CLASSIC_ACTION_TYPES]);
+  const [classicFilterResetKey, setClassicFilterResetKey] = useState(0);
+  const [classicReport, setClassicReport] = useState<'types' | 'dividends' | 'activity' | 'approved' | 'help' | null>(null);
+  const [lastApprovalFailure, setLastApprovalFailure] = useState<{databasePath: string; at: string; message: string} | null>(null);
+  const [recentApprovals, setRecentApprovals] = useState<{databasePath: string; rows: CorporateActionImportRow[]; offset: number; hasMore: boolean; error?: string} | null>(null);
+  const [recentApprovalsLoading, setRecentApprovalsLoading] = useState(false);
+  const recentApprovalRequestRef = useRef(false);
+  const [savedValidationHistory, setSavedValidationHistory] = useState<{
+    databasePath: string;
+    run: CorporateActionActivityRun | null;
+    items: CorporateActionValidationReportItem[];
+    offset: number;
+    total: number;
+    hasMore: boolean;
+    error?: string;
+  } | null>(null);
+  const [savedValidationHistoryLoading, setSavedValidationHistoryLoading] = useState(false);
+  const savedValidationHistoryRequestRef = useRef(false);
+  const [validationHistoryWarning, setValidationHistoryWarning] = useState<string | null>(null);
 
   const registerWindow = useWindowStore((state) => state.registerWindow);
   const openWindow = useWindowStore((state) => state.openWindow);
@@ -1465,25 +1525,42 @@ function CorporateActionDialog({
   const [note, setNote] = useState('');
   const [status, setStatus] = useState('');
   const [busy, setBusy] = useState(false);
-  const [activeCorporateTab, setActiveCorporateTab] = useState<'manual' | 'identity' | 'imports' | 'scan' | 'issues'>('manual');
+  const [activeCorporateTab, setActiveCorporateTab] = useState<'manual' | 'identity' | 'imports' | 'scan' | 'issues'>('imports');
   const [identityExchange, setIdentityExchange] = useState<'NSE' | 'BSE'>(
     activeInstrument?.exchange === 'BSE' ? 'BSE' : 'NSE',
   );
   const [identitySourceMode, setIdentitySourceMode] = useState<'official' | 'manual'>('official');
   const [identityArchiveRoot, setIdentityArchiveRoot] = useState('');
+  const [identityApplyProgress, setIdentityApplyProgress] = useState<IdentityApplyProgress | null>(null);
+  const [identityApplyError, setIdentityApplyError] = useState<string | null>(null);
+  const [identityRefreshWarning, setIdentityRefreshWarning] = useState<string | null>(null);
   const [currentUniverseSyncResult, setCurrentUniverseSyncResult] = useState<NseCurrentUniverseSyncResult | null>(null);
   const [nseReviewedApplyAuthority, setNseReviewedApplyAuthority] =
     useState<NseReviewedApplyAuthority | null>(null);
+  const [bseReviewedApplyAuthority, setBseReviewedApplyAuthority] = useState<{ planSha256: string; databasePath: string; sourceMode: 'official' | 'manual'; masterFilePath: string } | null>(null);
   const [nseHistoricalIdentityResult, setNseHistoricalIdentityResult] =
     useState<NseHistoricalIdentityResult | null>(null);
-  const [nseHistoricalIdentityFilter, setNseHistoricalIdentityFilter] =
-    useState<NseHistoricalIdentityFilter>('actionable');
+  const [identityPreferences, updateIdentityPreferences, identitySettingsWarning] = useIdentityDisplayPreferences(identityDisplayKey(activeDatabasePath, identityExchange, identitySourceMode));
+  const bseNames = useBseNameHistory({ api, databasePath: activeDatabasePath, exchange: identityExchange,
+    mode: identitySourceMode, busy, setBusy, preferences: identityPreferences, updatePreferences: updateIdentityPreferences, active: activeCorporateTab === 'identity' });
+  const nseHistoricalIdentityFilter: NseHistoricalIdentityFilter = identityPreferences.outcome;
+  const setNseHistoricalIdentityFilter = (outcome: NseHistoricalIdentityFilter) => updateIdentityPreferences({ outcome });
+  const [historicalApplyProgress, setHistoricalApplyProgress] = useState<IdentityApplyProgress | null>(null);
+  const [historicalApplyError, setHistoricalApplyError] = useState<string | null>(null);
+  const [historicalRefreshWarning, setHistoricalRefreshWarning] = useState<string | null>(null);
   const [nseHistoricalReviewedApplyAuthority, setNseHistoricalReviewedApplyAuthority] =
     useState<NseHistoricalReviewedApplyAuthority | null>(null);
   const [bseMasterFilePath, setBseMasterFilePath] = useState('');
   const [bseOfficialMasterFilePath, setBseOfficialMasterFilePath] = useState('');
   const [bseManualMasterFilePath, setBseManualMasterFilePath] = useState('');
   const [bseCurrentUniverseSyncResult, setBseCurrentUniverseSyncResult] = useState<BseCurrentUniverseSyncResult | null>(null);
+  const identityConfirmation=useIdentityApplyConfirmation(JSON.stringify([
+    activeDatabasePath,identityExchange,identitySourceMode,identityArchiveRoot,bseMasterFilePath,
+    activeCorporateTab,identityPreferences.view,busy,nseReviewedApplyAuthority,bseReviewedApplyAuthority,
+    nseHistoricalReviewedApplyAuthority,currentUniverseSyncResult?.planSha256,currentUniverseSyncResult?.applied,
+    bseCurrentUniverseSyncResult?.planSha256,bseCurrentUniverseSyncResult?.applied,
+    nseHistoricalIdentityResult?.planSha256,nseHistoricalIdentityResult?.canApply,nseHistoricalIdentityResult?.applied,
+  ]));
   const [officialSourceUrlsOpen, setOfficialSourceUrlsOpen] = useState(false);
   const [officialSourceUrlExchange, setOfficialSourceUrlExchange] = useState<OfficialSourceUrlExchange>('NSE');
   const [officialSourceUrlDraft, setOfficialSourceUrlDraft] = useState<OfficialSourceUrls>(DEFAULT_OFFICIAL_SOURCE_URLS);
@@ -1504,15 +1581,19 @@ function CorporateActionDialog({
   const [officialSourceHealthStatus, setOfficialSourceHealthStatus] = useState('');
   const [importExchange, setImportExchange] = useState(activeInstrument?.exchange ?? 'NSE');
   const [officialFetchExchangeSelection, setOfficialFetchExchangeSelection] =
-    useState<OfficialFetchExchangeSelection>(activeInstrument?.exchange === 'BSE' ? 'BSE' : 'NSE');
+    useState<OfficialFetchExchangeSelection>('BOTH');
   const [officialFetchLog, setOfficialFetchLog] = useState<string[]>([]);
+  const [bseFetchFailed, setBseFetchFailed] = useState(false);
+  const [officialFetchRunning, setOfficialFetchRunning] = useState(false);
+  const officialFetchCancelRequested = useRef(false);
   const [importLoadLimit, setImportLoadLimit] = useState(CORPORATE_IMPORT_LOAD_STEP);
   const [scanLoadLimit, setScanLoadLimit] = useState(CORPORATE_SCAN_LOAD_STEP);
   const [importFilePath, setImportFilePath] = useState('');
   const [activeOfficialImportSection, setActiveOfficialImportSection] = useState<OfficialImportSection>('review');
   const [activeOfficialImportView, setActiveOfficialImportView] = useState<OfficialImportView>('review');
   const [fetchFromDate, setFetchFromDate] = useState(() => addIndiaIsoDays(indiaIsoDate(), -90));
-  const [fetchToDate, setFetchToDate] = useState(indiaIsoDate());
+  // Use today's India date by default; future ranges remain explicitly selectable.
+  const [fetchToDate, setFetchToDate] = useState(indiaIsoDate);
   const [lastSuccessfulOfficialFetch, setLastSuccessfulOfficialFetch] =
     useState<CorporateActionNormalLastFetchRecord | null>(() =>
       readCorporateActionNormalLastFetch(activeDatabasePath),
@@ -1550,7 +1631,8 @@ function CorporateActionDialog({
   const [historicalMajorLiquidCandidates, setHistoricalMajorLiquidCandidates] = useState<
     HistoricalCapitalActionMajorLiquidCandidate[]
   >([]);
-  const [identitySearchQuery, setIdentitySearchQuery] = useState('');
+  const identitySearchQuery = identityPreferences.currentQuery;
+  const setIdentitySearchQuery: React.Dispatch<React.SetStateAction<string>> = value => updateIdentityPreferences({ currentQuery: typeof value === 'function' ? value(identityPreferences.currentQuery) : value });
   const [importSearchQuery, setImportSearchQuery] = useState('');
   const [scanSearchQuery, setScanSearchQuery] = useState('');
   const [selectedImportActionTypes, setSelectedImportActionTypes] = useState<CorporateActionImportActionType[]>([
@@ -1562,6 +1644,9 @@ function CorporateActionDialog({
   const [importRows, setImportRows] = useState<CorporateActionImportRow[]>([]);
   const [eventIdentityByImportId, setEventIdentityByImportId] = useState<
     Record<number, CorporateActionEventIdentity>
+  >({});
+  const [existingDividendByImportId, setExistingDividendByImportId] = useState<
+    Record<number, { row: CorporateActionImportRow; corporateActionId: number }>
   >({});
   const [selectedImportIds, setSelectedImportIds] = useState<Set<number>>(() => new Set());
   const [selectedIssueImportIds, setSelectedIssueImportIds] = useState<Set<number>>(() => new Set());
@@ -1589,6 +1674,8 @@ function CorporateActionDialog({
   // Current-cycle Dividend evaluation is read-only presentation evidence, never manual Apply or write authority.
   const [officialDividendPreparedScopeOutcome, setOfficialDividendPreparedScopeOutcome] =
     useState<CorporateActionDividendPreparedScopeOutcomeState | null>(null);
+  const [officialDividendWriteStageScope, setOfficialDividendWriteStageScope] =
+    useState<CorporateActionDividendPreparedScope | null>(null);
   const [officialReviewSymbolFilter, setOfficialReviewSymbolFilter] = useState('ALL');
   const [officialSafeV2SkippedOnly, setOfficialSafeV2SkippedOnly] = useState(false);
   const [expandedOfficialGroupKeys, setExpandedOfficialGroupKeys] = useState<Set<string>>(() => new Set());
@@ -1599,8 +1686,12 @@ function CorporateActionDialog({
     scopeLabel: string;
     databasePath: string;
     generation: number;
+    dividendImportIds: number[];
+    dividendDrafts: DividendWriteStageDraft[];
   } | null>(null);
+  const officialApprovalPreparingRef = useRef(false);
   const officialPreparationGenerationRef = useRef(0);
+  const pendingReviewRef = useRef<ReturnType<typeof capturePendingReview> | null>(null);
   const officialOperationRunningRef = useRef(false);
   const officialCancelPreparationRef = useRef(false);
   const [officialCanCancelPreparation, setOfficialCanCancelPreparation] = useState(false);
@@ -1613,6 +1704,15 @@ function CorporateActionDialog({
     officialDividendPreparedScopeOutcome.databasePath === activeDatabasePath &&
     officialDividendPreparedScopeOutcome.generation === officialPreparationGenerationRef.current
       ? officialDividendPreparedScopeOutcome : null;
+  const currentOfficialDividendWriteStageScope = CORPORATE_ACTION_DIVIDEND_WRITE_STAGE_ENABLED &&
+    currentOfficialDividendPreparedScopeOutcome?.result.complete &&
+    !currentOfficialDividendPreparedScopeOutcome.result.operationalError &&
+    currentOfficialDividendPreparedScopeOutcome.result.failed === 0 &&
+    officialDividendWriteStageScope?.generation === officialPreparationGenerationRef.current &&
+    officialDividendWriteStageScope?.operationKey === currentOfficialDividendPreparedScopeOutcome.operationKey &&
+    officialDividendWriteStageScope?.normalizedDatabasePath ===
+      normalizeCorporateActionPreparedScopeDatabasePath(currentOfficialDividendPreparedScopeOutcome.databasePath)
+      ? officialDividendWriteStageScope : null;
   const officialDividendPreparedScopeDispositionByImportId = useMemo(() => {
     const dispositions = new Map<
       number,
@@ -1681,10 +1781,12 @@ function CorporateActionDialog({
 
   useEffect(() => {
     setLastSuccessfulOfficialFetch(readCorporateActionNormalLastFetch(activeDatabasePath));
+    setBseFetchFailed(false);
   }, [activeDatabasePath]);
 
   useEffect(() => {
     officialPreparationGenerationRef.current += 1;
+    pendingReviewRef.current = null;
     officialOperationRunningRef.current = false;
     officialCancelPreparationRef.current = false;
     setOfficialCanCancelPreparation(false);
@@ -1694,28 +1796,34 @@ function CorporateActionDialog({
     setOfficialPreparationComplete(false);
     setOfficialAutoApproval(null);
     setOfficialDividendPreparedScopeOutcome(null);
+    if (typeof setOfficialDividendWriteStageScope !== "undefined") setOfficialDividendWriteStageScope(null);
     setOfficialPreparationErrors({});
     setOfficialApprovalConfirmation(null);
     setSelectedImportIds(new Set());
     setNseReviewedApplyAuthority(null);
     setNseHistoricalReviewedApplyAuthority(null);
+    setCurrentUniverseSyncResult(null);
+    setBseCurrentUniverseSyncResult(null);
+    setNseHistoricalIdentityResult(null);
     setOfficialSourceHealthReport(null);
     setOfficialSourceHealthStatus('');
     setOfficialSourceCandidateResult(null);
     setOfficialSourceCandidateStatus('');
     setOfficialSourceRejectNotes({});
     setOfficialSourceHistory([]);
+    setSavedValidationHistory(null);
+    setValidationHistoryWarning(null);
   }, [activeDatabasePath]);
 
   useEffect(() => {
     registerWindow({
       id: CORPORATE_ACTIONS_WINDOW_ID,
-      title: 'Corporate Actions / Identity',
+      title: 'Corporate Actions',
       bounds: {
         x: 220,
         y: 140,
-        width: 860,
-        height: 640,
+        width: 1120,
+        height: 740,
       },
       minWidth: 620,
       minHeight: 460,
@@ -1750,6 +1858,7 @@ function CorporateActionDialog({
 
     if (!api || !hasDatabase || importRows.length === 0) {
       setEventIdentityByImportId({});
+      setExistingDividendByImportId({});
       return () => {
         cancelled = true;
       };
@@ -1757,8 +1866,14 @@ function CorporateActionDialog({
 
     const loadEventIdentities = async () => {
       const next: Record<number, CorporateActionEventIdentity> = {};
+      const existing: Record<number, { row: CorporateActionImportRow; corporateActionId: number }> = {};
+      const currentRows = new Map(importRows.map(row => [row.id, row]));
       const groupedPendingReview = activeCorporateTab === 'imports' && activeOfficialImportSection === 'review' && activeOfficialImportView === 'review';
-      const ids = selectCorporateActionIdentityDetailIds(importRows, groupedPendingReview, resolveImportId);
+      const ids = [...new Set([
+        ...selectCorporateActionIdentityDetailIds(importRows, groupedPendingReview, resolveImportId),
+        ...importRows.filter(row => row.actionType === 'DIVIDEND' && row.parseStatus === 'PARSED' &&
+          row.reviewStatus === 'PENDING' && row.approvedCorporateActionId == null).map(row => row.id),
+      ])];
       for (let index = 0; index < ids.length; index += CORPORATE_EVENT_IDENTITY_BATCH_SIZE) {
         const batch = ids.slice(index, index + CORPORATE_EVENT_IDENTITY_BATCH_SIZE);
         const result = await api.listCorporateActionEventIdentities({ importIds: batch });
@@ -1768,15 +1883,25 @@ function CorporateActionDialog({
         for (const identity of result.identities) {
           next[identity.importId] = identity;
         }
+        for (const match of result.existingDividends ?? []) {
+          const row = currentRows.get(match.importId);
+          if (!row || !batch.includes(match.importId) || !Number.isSafeInteger(match.corporateActionId) ||
+              match.corporateActionId <= 0 || existing[match.importId]) {
+            throw new Error('Invalid existing Dividend classification response');
+          }
+          existing[match.importId] = { row, corporateActionId: match.corporateActionId };
+        }
       }
       if (!cancelled) {
         setEventIdentityByImportId(next);
+        setExistingDividendByImportId(existing);
       }
     };
 
     void loadEventIdentities().catch(() => {
       if (!cancelled) {
         setEventIdentityByImportId({});
+        setExistingDividendByImportId({});
       }
     });
 
@@ -1791,6 +1916,7 @@ function CorporateActionDialog({
     officialPreparationGenerationRef.current += 1;
     setOfficialAutoApproval(null);
     setOfficialDividendPreparedScopeOutcome(null);
+    if (typeof setOfficialDividendWriteStageScope !== "undefined") setOfficialDividendWriteStageScope(null);
     closeWindow(CORPORATE_ACTIONS_WINDOW_ID);
     onClose();
   };
@@ -1805,9 +1931,11 @@ function CorporateActionDialog({
   const needsCashAmount = actionType === 'DIVIDEND' || actionType === 'RIGHTS';
   const showingApprovedImports = activeOfficialImportView === 'approved';
 
-  const setLoadedImportRows = (rows: CorporateActionImportRow[]) => {
+  const setLoadedImportRows = (rows: CorporateActionImportRow[], preservePendingReview = false) => {
+    if (!preservePendingReview) pendingReviewRef.current = null;
     setOfficialAutoApproval(null);
     setOfficialDividendPreparedScopeOutcome(null);
+    if (typeof setOfficialDividendWriteStageScope !== "undefined") setOfficialDividendWriteStageScope(null);
     setImportRows(rows);
     setSelectedImportIds((selectedIds) => {
       const loadedIds = new Set(rows.map((row) => row.id));
@@ -1853,6 +1981,15 @@ function CorporateActionDialog({
     searchQuery: importSearchQuery.trim() || null,
     excludeApproved: true,
   });
+
+  useEffect(() => {
+    setBseReviewedApplyAuthority(null);
+    setIdentityApplyProgress(null); setIdentityApplyError(null); setIdentityRefreshWarning(null);
+    setHistoricalApplyProgress(null); setHistoricalApplyError(null); setHistoricalRefreshWarning(null);
+  }, [activeDatabasePath, identityExchange, identitySourceMode]);
+  useEffect(() => {
+    if (!currentUniverseSyncResult?.applied && !bseCurrentUniverseSyncResult?.applied) { setIdentityApplyError(null); setIdentityRefreshWarning(null); }
+  }, [currentUniverseSyncResult, bseCurrentUniverseSyncResult]);
 
   const normalizedIdentitySearchQuery = identitySearchQuery.trim().toUpperCase();
   const normalizedImportSearchQuery = importSearchQuery.trim().toUpperCase();
@@ -1901,6 +2038,8 @@ function CorporateActionDialog({
 
   const visibleImportRows = useMemo(() => {
     return importRows.filter((row) => {
+      if (classicReview && activeCorporateTab === 'imports' && activeOfficialImportSection === 'review'
+        && !classicTypeFilters.includes(row.actionType)) return false;
       if (!effectiveImportActionTypes.includes(row.actionType)) return false;
       if (normalizedImportSearchQuery && !matchesCorporateImportSearch(row, normalizedImportSearchQuery)) return false;
       if (officialSafeV2SkippedFocusActive && !officialAutoApprovalSkippedReasons.has(row.id)) return false;
@@ -1909,6 +2048,7 @@ function CorporateActionDialog({
     });
   }, [
     importRows,
+    classicReview, classicTypeFilters, activeCorporateTab, activeOfficialImportSection,
     normalizedImportSearchQuery,
     officialReviewSymbolFilter,
     effectiveImportActionTypes,
@@ -2174,6 +2314,7 @@ function CorporateActionDialog({
   };
 
   const previewNseHistoricalIdentityArchive = async () => {
+    setHistoricalApplyProgress(null); setHistoricalApplyError(null); setHistoricalRefreshWarning(null);
     setNseReviewedApplyAuthority(null);
     setNseHistoricalReviewedApplyAuthority(null);
     if (!api) {
@@ -2195,7 +2336,7 @@ function CorporateActionDialog({
         requestedArchiveRootPath === null ? {} : { archiveRootPath: requestedArchiveRootPath },
       );
       setNseHistoricalIdentityResult(result);
-      setNseHistoricalIdentityFilter('actionable');
+      setHistoricalApplyProgress(null); setHistoricalApplyError(null); setHistoricalRefreshWarning(null);
       const liveDatabasePath = useChartStore.getState().snapshot?.activeDatabasePath ?? null;
       if (previewDatabasePath && liveDatabasePath === previewDatabasePath && result.canApply) {
         setNseHistoricalReviewedApplyAuthority({
@@ -2215,9 +2356,8 @@ function CorporateActionDialog({
   };
 
   const applyNseHistoricalIdentityArchive = async () => {
+    if (busy) return;
     const reviewedAuthority = nseHistoricalReviewedApplyAuthority;
-    setNseHistoricalReviewedApplyAuthority(null);
-    setNseReviewedApplyAuthority(null);
     if (!api) {
       return;
     }
@@ -2238,6 +2378,17 @@ function CorporateActionDialog({
       return;
     }
 
+    if (!nseHistoricalIdentityResult || nseHistoricalIdentityResult.applied || historicalChangeCount(nseHistoricalIdentityResult) === 0) {
+      setStatus('No historical identity changes to apply. Create a fresh preview.'); return;
+    }
+    if (!await identityConfirmation.confirm(nseHistoricalReview(nseHistoricalIdentityResult, activeDatabasePath ?? ''))) {
+      setStatus('Historical Apply cancelled. No changes were saved; the preview remains available for review.'); return;
+    }
+    if (useChartStore.getState().snapshot?.activeDatabasePath !== activeDatabasePath) return;
+    setNseHistoricalReviewedApplyAuthority(null);
+    setNseReviewedApplyAuthority(null);
+    setHistoricalApplyProgress({ stage: 'checking', processed: 0, total: 0, percent: null });
+    setHistoricalApplyError(null); setHistoricalRefreshWarning(null);
     setBusy(true);
     setStatus('Applying reviewed NSE historical identity...');
     try {
@@ -2246,9 +2397,12 @@ function CorporateActionDialog({
           ? {}
           : { archiveRootPath: requestedArchiveRootPath }),
         expectedPlanSha256: reviewedAuthority.planSha256,
-      });
+      }, progress => { if (useChartStore.getState().snapshot?.activeDatabasePath === activeDatabasePath) setHistoricalApplyProgress(progress); });
+      if (useChartStore.getState().snapshot?.activeDatabasePath !== activeDatabasePath) return;
       setIssueResolveHints({});
       setNseHistoricalIdentityResult(result);
+      setHistoricalRefreshWarning(result.refreshWarning ?? null);
+      try {
       await onRefresh();
       if (activeInstrument) {
         await onReloadInstrument(activeInstrument.symbol, activeInstrument.exchange, {
@@ -2256,16 +2410,21 @@ function CorporateActionDialog({
           preserveViewport: true,
         });
       }
+      } catch (refreshError) { setHistoricalRefreshWarning(getErrorMessage(refreshError, 'View refresh needs retry.')); }
+      setHistoricalApplyProgress({ stage: 'committed', processed: 0, total: 0, percent: 100 });
       setStatus(formatNseHistoricalIdentityStatus(result));
     } catch (error) {
+      if (useChartStore.getState().snapshot?.activeDatabasePath !== activeDatabasePath) return;
       setNseHistoricalReviewedApplyAuthority(null);
-      setStatus(getErrorMessage(error, 'Could not apply reviewed NSE historical identity.'));
+      const message = getErrorMessage(error, 'Could not apply reviewed NSE historical identity.');
+      setHistoricalApplyError(message); setStatus(message);
     } finally {
       setBusy(false);
     }
   };
 
   const previewCurrentUniverseSync = async (archiveRootPath?: string) => {
+    setHistoricalApplyProgress(null); setHistoricalApplyError(null); setHistoricalRefreshWarning(null);
     setNseReviewedApplyAuthority(null);
     setNseHistoricalReviewedApplyAuthority(null);
     setNseHistoricalIdentityResult(null);
@@ -2309,6 +2468,7 @@ function CorporateActionDialog({
   };
 
   const refreshNseIdentitySources = async () => {
+    setHistoricalApplyProgress(null); setHistoricalApplyError(null); setHistoricalRefreshWarning(null);
     setNseReviewedApplyAuthority(null);
     setNseHistoricalReviewedApplyAuthority(null);
     setNseHistoricalIdentityResult(null);
@@ -2668,15 +2828,59 @@ function CorporateActionDialog({
     setOfficialSourceUrlStatus('Defaults restored in the form. Click Apply to save.');
   };
 
+  const executeCurrentIdentityApply = async (exchange: 'NSE' | 'BSE',
+    apply: (report: (progress: IdentityApplyProgress) => void) => Promise<NseCurrentUniverseSyncResult | BseCurrentUniverseSyncResult>) => {
+    const databasePath = activeDatabasePath;
+    const live = () => useChartStore.getState().snapshot?.activeDatabasePath === databasePath;
+    let committed = false;
+    let lastProgress: IdentityApplyProgress | null = null;
+    const progress = (value: IdentityApplyProgress) => {
+      if (value.stage === 'committed' || value.stage === 'refreshing') committed = true;
+      lastProgress = value;
+      if (live()) setIdentityApplyProgress(value);
+    };
+    setIdentityApplyError(null); setIdentityRefreshWarning(null);
+    setIdentityApplyProgress({ stage: 'checking', processed: 0, total: 0, percent: null });
+    setBusy(true); setStatus(`Applying ${exchange} current-symbol sync...`);
+    try {
+      const result = await apply(progress);
+      if (!live()) return;
+      committed = result.applied;
+      setIssueResolveHints({});
+      if ('masterFilePath' in result) { setBseCurrentUniverseSyncResult(result); setCurrentUniverseSyncResult(null); }
+      else { setCurrentUniverseSyncResult(result); setBseCurrentUniverseSyncResult(null); }
+      setIdentityApplyProgress({ stage: 'refreshing', processed: 0, total: 0, percent: 100 });
+      let warning = result.refreshWarning ?? null;
+      try {
+        await onRefresh();
+        if (activeInstrument && live()) {
+          await onReloadInstrument(activeInstrument.symbol, activeInstrument.exchange, { forceReload: true, preserveViewport: true });
+        }
+      } catch (error) { warning = getErrorMessage(error, 'Could not refresh the view.'); }
+      if (!live()) return;
+      setIdentityRefreshWarning(warning); setIdentityApplyProgress(null);
+      setStatus(`${result.message}${warning ? ` Changes saved; view refresh needs retry: ${warning}` : ''}`);
+    } catch (error) {
+      if (!live()) return;
+      const message = getErrorMessage(error, `Could not apply ${exchange} changes.`);
+      setIdentityApplyProgress(committed ? lastProgress : null);
+      setIdentityApplyError(message);
+      setStatus(committed ? `Changes saved; read Recent Applied before retrying. ${message}` : message);
+    } finally { setBusy(false); }
+  };
+
   const applyCurrentUniverseSync = async (archiveRootPath?: string) => {
-    setNseHistoricalReviewedApplyAuthority(null);
-    setNseHistoricalIdentityResult(null);
-    if (!api) {
+    if (busy || !api) {
       return;
     }
     if (archiveRootPath !== undefined && !archiveRootPath.trim()) {
       setNseReviewedApplyAuthority(null);
       setStatus('Enter the NSE raw archive root path first.');
+      return;
+    }
+
+    if (currentUniverseSyncResult && !identityHasActionableChanges(currentUniverseSyncResult)) {
+      setStatus(currentUniverseSyncResult.applied ? 'Changes already saved. Create a new preview before applying again.' : 'Up to date — nothing to apply.');
       return;
     }
 
@@ -2698,33 +2902,20 @@ function CorporateActionDialog({
       return;
     }
 
+    if (!await identityConfirmation.confirm(currentIdentityReview(currentUniverseSyncResult!, 'NSE', activeDatabasePath!))) return;
+    if (useChartStore.getState().snapshot?.activeDatabasePath !== activeDatabasePath) return;
     setNseReviewedApplyAuthority(null);
-    setBusy(true);
-    setStatus('Applying NSE current-symbol sync...');
-    try {
-      const result = await api.applyNseCurrentUniverseSync({
-        ...(requestedArchiveRootPath === null
-          ? {}
-          : { archiveRootPath: requestedArchiveRootPath }),
-        expectedPlanSha256: reviewedAuthority.planSha256,
-      });
-      setIssueResolveHints({});
-      setCurrentUniverseSyncResult(result);
-      setBseCurrentUniverseSyncResult(null);
-      await onRefresh();
-      if (activeInstrument) {
-        await onReloadInstrument(activeInstrument.symbol, activeInstrument.exchange, { forceReload: true, preserveViewport: true });
-      }
-      setStatus(formatNseCurrentUniverseSyncStatus(result));
-    } catch (error) {
-      setNseReviewedApplyAuthority(null);
-      setStatus(getErrorMessage(error, 'Could not apply the NSE current-symbol sync.'));
-    } finally {
-      setBusy(false);
-    }
+    setBseReviewedApplyAuthority(null);
+    setNseHistoricalReviewedApplyAuthority(null); setNseHistoricalIdentityResult(null);
+    await executeCurrentIdentityApply('NSE', report => api.applyNseCurrentUniverseSync({
+      ...(requestedArchiveRootPath === null ? {} : { archiveRootPath: requestedArchiveRootPath }),
+      expectedPlanSha256: reviewedAuthority.planSha256,
+      expectedDatabasePath: reviewedAuthority.activeDatabasePath,
+    }, report));
   };
 
   const downloadBseCurrentUniverseMaster = async () => {
+    setBseReviewedApplyAuthority(null);
     if (!api) {
       return null;
     }
@@ -2748,6 +2939,10 @@ function CorporateActionDialog({
   };
 
   const previewBseCurrentUniverseSync = async (masterFilePath = bseMasterFilePath) => {
+    setBseReviewedApplyAuthority(null);
+    setIdentityApplyError(null); setIdentityRefreshWarning(null); setIdentityApplyProgress(null);
+    const databasePath = activeDatabasePath;
+    const sourceMode = identitySourceMode;
     if (!api) {
       return;
     }
@@ -2762,8 +2957,10 @@ function CorporateActionDialog({
       const result = await api.previewBseCurrentUniverseSync({
         masterFilePath: masterFilePath.trim(),
       });
+      if (useChartStore.getState().snapshot?.activeDatabasePath !== databasePath) return;
       setBseCurrentUniverseSyncResult(result);
       setCurrentUniverseSyncResult(null);
+      if (databasePath) setBseReviewedApplyAuthority({planSha256:result.planSha256, databasePath, sourceMode, masterFilePath:masterFilePath.trim()});
       setStatus(formatBseCurrentUniverseSyncStatus(result));
     } catch (error) {
       setStatus(getErrorMessage(error, 'Could not preview the BSE current-symbol sync.'));
@@ -2773,41 +2970,33 @@ function CorporateActionDialog({
   };
 
   const applyBseCurrentUniverseSync = async () => {
-    if (!api) {
+    if (busy || !api) return;
+    const authority = bseReviewedApplyAuthority;
+    if (!identityHasActionableChanges(bseCurrentUniverseSyncResult)) {
+      setStatus(bseCurrentUniverseSyncResult?.applied ? 'Changes already saved. Create a new preview before applying again.' : 'Up to date — nothing to apply.');
       return;
     }
-    if (!bseMasterFilePath.trim()) {
-      setStatus('Enter the BSE current master CSV path first.');
-      return;
+    if (!authority || !activeDatabasePath || authority.databasePath !== activeDatabasePath ||
+      authority.sourceMode !== identitySourceMode || authority.masterFilePath !== bseMasterFilePath.trim() ||
+      authority.planSha256 !== bseCurrentUniverseSyncResult?.planSha256) {
+      setBseReviewedApplyAuthority(null); setStatus('Preview the current BSE changes again before applying.'); return;
     }
-
-    setBusy(true);
-    setStatus('Applying BSE current-symbol sync...');
-    try {
-      const result = await api.applyBseCurrentUniverseSync({
-        masterFilePath: bseMasterFilePath.trim(),
-      });
-      setIssueResolveHints({});
-      setBseCurrentUniverseSyncResult(result);
-      setCurrentUniverseSyncResult(null);
-      await onRefresh();
-      if (activeInstrument) {
-        await onReloadInstrument(activeInstrument.symbol, activeInstrument.exchange, { forceReload: true, preserveViewport: true });
-      }
-      setStatus(formatBseCurrentUniverseSyncStatus(result));
-    } catch (error) {
-      setStatus(getErrorMessage(error, 'Could not apply the BSE current-symbol sync.'));
-    } finally {
-      setBusy(false);
-    }
+    if (!await identityConfirmation.confirm(currentIdentityReview(bseCurrentUniverseSyncResult!, 'BSE', activeDatabasePath))) return;
+    if (useChartStore.getState().snapshot?.activeDatabasePath !== activeDatabasePath) return;
+    setBseReviewedApplyAuthority(null); setNseReviewedApplyAuthority(null);
+    setNseHistoricalReviewedApplyAuthority(null); setNseHistoricalIdentityResult(null);
+    await executeCurrentIdentityApply('BSE', report => api.applyBseCurrentUniverseSync({
+      masterFilePath: authority.masterFilePath, expectedPlanSha256: authority.planSha256,
+      expectedDatabasePath: authority.databasePath,
+    }, report));
   };
 
   const selectIdentityExchange = (nextExchange: 'NSE' | 'BSE') => {
+    setBseReviewedApplyAuthority(null);
     setNseReviewedApplyAuthority(null);
     setNseHistoricalReviewedApplyAuthority(null);
     setNseHistoricalIdentityResult(null);
     setIdentityExchange(nextExchange);
-    setIdentitySearchQuery('');
     setCurrentUniverseSyncResult(null);
     setBseCurrentUniverseSyncResult(null);
     setStatus('');
@@ -2819,11 +3008,11 @@ function CorporateActionDialog({
   };
 
   const selectIdentitySourceMode = (nextMode: 'official' | 'manual') => {
+    setBseReviewedApplyAuthority(null);
     setNseReviewedApplyAuthority(null);
     setNseHistoricalReviewedApplyAuthority(null);
     setNseHistoricalIdentityResult(null);
     setIdentitySourceMode(nextMode);
-    setIdentitySearchQuery('');
     setCurrentUniverseSyncResult(null);
     setBseCurrentUniverseSyncResult(null);
     setStatus('');
@@ -2871,6 +3060,7 @@ function CorporateActionDialog({
       if (!selected) {
         return;
       }
+      setBseReviewedApplyAuthority(null);
       setBseManualMasterFilePath(selected);
       setBseMasterFilePath(selected);
       setBseCurrentUniverseSyncResult(null);
@@ -2927,8 +3117,50 @@ function CorporateActionDialog({
     await applyBseCurrentUniverseSync();
   };
 
+  function capturePendingReview() {
+    return { databasePath: activeDatabasePath, generation: officialPreparationGenerationRef.current,
+      rows: importRows, scans: scanRows, complete: officialPreparationComplete,
+      errors: officialPreparationErrors, autoApproval: officialAutoApproval,
+      dividendOutcome: officialDividendPreparedScopeOutcome, dividendScope: officialDividendWriteStageScope,
+      progress: officialTaskProgress, message: status, hints: importIdentityHints, limit: importLoadLimit };
+  }
+
+  function restorePendingReview() {
+    const saved = pendingReviewRef.current;
+    setSelectedImportIds(new Set());
+    setOfficialApprovalConfirmation(null);
+    if (!saved || saved.databasePath !== activeDatabasePath ||
+        saved.generation !== officialPreparationGenerationRef.current) {
+      setOfficialPreparationComplete(false);
+      setStatus('Run Load & Validate to prepare the Pending review.');
+      return;
+    }
+    setImportRows(saved.rows);
+    setScanRows(saved.scans);
+    setOfficialPreparationComplete(saved.complete);
+    setOfficialPreparationErrors(saved.errors);
+    setOfficialAutoApproval(saved.autoApproval);
+    setOfficialDividendPreparedScopeOutcome(saved.dividendOutcome);
+    setOfficialDividendWriteStageScope(saved.dividendScope);
+    setOfficialTaskProgress(saved.progress);
+    setImportIdentityHints(saved.hints);
+    setImportLoadLimit(saved.limit);
+    setStatus(saved.message);
+  }
+
+  useEffect(() => {
+    if (!busy && officialPreparationComplete && activeCorporateTab === 'imports' &&
+        activeOfficialImportSection === 'review' && activeOfficialImportView === 'review') {
+      pendingReviewRef.current = capturePendingReview();
+    }
+  }, [busy, officialPreparationComplete, activeCorporateTab, activeOfficialImportSection,
+    activeOfficialImportView, importRows, scanRows, officialPreparationErrors, officialAutoApproval,
+    officialDividendPreparedScopeOutcome, officialDividendWriteStageScope, officialTaskProgress,
+    importIdentityHints, importLoadLimit, status, activeDatabasePath]);
+
   const loadAndPrepareOfficialImports = async () => {
-    if (!api || officialOperationRunningRef.current) return;
+    if (!api || officialOperationRunningRef.current || (typeof officialApprovalPreparingRef !== "undefined" && officialApprovalPreparingRef.current)) return;
+    pendingReviewRef.current = null;
     officialOperationRunningRef.current = true;
     officialCancelPreparationRef.current = false;
     const generation = ++officialPreparationGenerationRef.current;
@@ -2942,6 +3174,7 @@ function CorporateActionDialog({
     setOfficialPreparationComplete(false);
     setOfficialAutoApproval(null);
     setOfficialDividendPreparedScopeOutcome(null);
+    if (typeof setOfficialDividendWriteStageScope !== "undefined") setOfficialDividendWriteStageScope(null);
     setOfficialPreparationErrors({});
     setOfficialApprovalConfirmation(null);
     setSelectedImportIds(new Set());
@@ -2951,7 +3184,7 @@ function CorporateActionDialog({
       message: 'Loading all outstanding pending imports...', startedAt });
     try {
       const result = await prepareCorporateActionPendingImports({
-        api, shouldContinue, expectedDatabasePath: databasePath ?? '',
+        api, shouldContinue, expectedDatabasePath: databasePath ?? '', explicitApprovalOnly: true,
         onProgress: (progress) => {
           if (shouldContinue()) setOfficialTaskProgress({ ...progress, startedAt });
         },
@@ -2968,9 +3201,21 @@ function CorporateActionDialog({
       setOfficialPreparationErrors(rowErrors);
       setOfficialPreparationComplete(result.complete);
       setStatus(result.message);
-      setOfficialTaskProgress({stage: result.complete ? 'complete' : 'stopped',completed: result.rows.length,
-        total: result.rows.length,message:result.message,startedAt,endedAt:Date.now()});
-      if (result.complete && databasePath && shouldContinue()) {
+      // The pending queue is prepared; Dividend R1 still requires an independent read-only pass.
+      // Do not mark the overall operation complete or stop the elapsed timer yet.
+      setOfficialTaskProgress(result.complete && databasePath
+        ? { stage: 'dividend-verifying', completed: 0, total: null,
+          message: 'Pending queue prepared. Starting read-only Dividend R1 verification...', startedAt }
+        : { stage: result.complete ? 'complete' : 'stopped', completed: result.rows.length,
+          total: result.rows.length, message: result.message, startedAt, endedAt: Date.now() });
+      const finishDividendVerification = (
+        stage: 'dividend-verified' | 'dividend-stopped', message: string,
+      ) => {
+        setOfficialTaskProgress((current) => current ? {
+          ...current, stage, message, endedAt: Date.now(),
+        } : null);
+      };
+      if (result.complete && databasePath && shouldContinue() && typeof buildCorporateActionDividendPreparedScope !== "undefined") {
         try {
           const preparedScope = await buildCorporateActionDividendPreparedScope({
             rows: result.rows,
@@ -2981,36 +3226,87 @@ function CorporateActionDialog({
             cancelled: officialCancelPreparationRef.current,
           });
           if (!shouldContinue()) return;
-          if (preparedScope.status === 'READY' && preparedScope.scope.importIds.length > 0) {
+          if (preparedScope.status !== 'READY') {
+            finishDividendVerification('dividend-stopped',
+              `Pending queue prepared, but Dividend R1 verification could not start: ${preparedScope.reason}. No dividend approval evidence was published.`);
+          } else if (preparedScope.scope.importIds.length === 0) {
+            finishDividendVerification('dividend-verified',
+              'Pending queue prepared. No pending Dividend R1 candidates require verification; no approvals occurred.');
+          } else {
+            const dividendValidationStartedAt = Date.now();
             const evaluation = await evaluateCorporateActionDividendPreparedScopeBatches({
               api,
               scope: preparedScope.scope,
               getCurrentGeneration: () => officialPreparationGenerationRef.current,
               getCurrentDatabasePath: () => useChartStore.getState().snapshot?.activeDatabasePath ?? null,
               isCancelled: () => officialCancelPreparationRef.current,
+              onBatchProgress: (completedBatchCount, batchCount) => {
+                if (shouldContinue()) setOfficialTaskProgress({
+                  stage: 'dividend-verifying', completed: completedBatchCount, total: batchCount,
+                  message: `Dividend R1 compatibility checks: ${completedBatchCount}/${batchCount} batches; unchanged saved results may be reused. No approvals.`,
+                  startedAt,
+                });
+              },
             });
             if (!shouldContinue() || evaluation.status === 'STALE') return;
             if (evaluation.status === 'OUTCOME') {
               setOfficialDividendPreparedScopeOutcome(evaluation.outcome);
+              const summary = evaluation.outcome.result;
+              try {
+                await api.saveCorporateActionValidationReport(
+                  buildCorporateActionValidationReportSaveInput(
+                    evaluation.outcome, dividendValidationStartedAt, preparedScope.scope.importIds,
+                  ),
+                );
+                if (shouldContinue()) {
+                  setValidationHistoryWarning(null);
+                  setSavedValidationHistory(null);
+                }
+              } catch (historyError) {
+                if (shouldContinue()) {
+                  setValidationHistoryWarning(
+                    getErrorMessage(historyError, 'The read-only result is available for this session, but its saved history could not be written.'),
+                  );
+                }
+              }
+              if (!shouldContinue()) return;
+              if (summary.complete && !summary.operationalError && summary.failed === 0) {
+                setOfficialDividendWriteStageScope(preparedScope.scope);
+                finishDividendVerification('dividend-verified',
+                  `Pending queue prepared. Dividend R1 verification finished: ${summary.reusedCount ?? 0} saved results reused, ${summary.dispositions.length - (summary.reusedCount ?? 0)} policy evaluations, ${summary.eligible} eligible, ${summary.ineligible} ineligible. No approvals occurred.`);
+              } else {
+                finishDividendVerification('dividend-stopped',
+                  `Pending queue prepared, but Dividend R1 verification was incomplete (${summary.completedBatchCount}/${summary.batchCount} batches): ${summary.operationalError ?? `${summary.failed} failed records`}. No dividend approval evidence was published.`);
+              }
             }
           }
-        } catch {
+        } catch (error) {
           if (!shouldContinue()) return;
-          // P3B is read-only diagnostics. It never changes preparation status or manual Apply readiness.
+          // Diagnostic-only failure. Never turn it into verified Ready evidence or manual Apply authority.
+          finishDividendVerification('dividend-stopped',
+            `Pending queue prepared, but Dividend R1 verification failed: ${getErrorMessage(error, 'Unknown read-only verification error')}. No dividend approval evidence was published.`);
         }
       }
     } catch(error) {
       if (!isCurrent()) return;
       const message = officialCancelPreparationRef.current
-        ? 'Preparation cancelled after the current check. Completed matching/check metadata may already be saved, and an in-flight Auto-Approval Safe V2 batch may already have approved eligible Split/Bonus rows. Load & Prepare again to refresh the authoritative queue before any manual Apply.'
+        ? 'Preparation cancelled after the current check. Completed matching/check metadata may already be saved. Load & Validate again to refresh the authoritative queue before approval.'
         : getErrorMessage(error, 'Could not prepare pending imports.');
       setOfficialPreparationComplete(false);
       setOfficialAutoApproval(null);
       setOfficialDividendPreparedScopeOutcome(null);
+    if (typeof setOfficialDividendWriteStageScope !== "undefined") setOfficialDividendWriteStageScope(null);
       setStatus(message);
       setOfficialTaskProgress((current) => current ? {...current,stage:'stopped',message,endedAt:Date.now()} : null);
     } finally {
       if (isCurrent()) {
+        if (officialCancelPreparationRef.current) {
+          setOfficialTaskProgress((current) => current ? {
+            ...current, stage: 'dividend-stopped',
+            message: 'Operation stopped on request. Pending queue preparation or Dividend R1 verification did not fully finish; no new dividend approval evidence was published.',
+            endedAt: Date.now(),
+          } : null);
+        }
         officialOperationRunningRef.current = false;
         setOfficialCanCancelPreparation(false);
         setBusy(false);
@@ -3018,6 +3314,21 @@ function CorporateActionDialog({
       }
     }
   };
+
+  // Keep reports visible, but invalidate readiness when database data changes.
+  // Navigation never launches a new validation run.
+  useEffect(() => {
+    if (!api || !activeDatabasePath) return undefined;
+    return api.onDatabaseChanged((nextSnapshot) => {
+      if (nextSnapshot.activeDatabasePath !== activeDatabasePath || officialOperationRunningRef.current || officialApprovalPreparingRef.current) return;
+      pendingReviewRef.current = null;
+      officialPreparationGenerationRef.current += 1;
+      setOfficialPreparationComplete(false);
+      setOfficialApprovalConfirmation(null);
+      setSelectedImportIds(new Set());
+      setStatus('Database changed. Previous report is retained; run Load & Validate to refresh readiness.');
+    });
+  }, [api, activeDatabasePath]);
 
   const loadOfficialImports = async (requestedLimit = importLoadLimit, view = activeOfficialImportView) => {
     if (!api) {
@@ -3040,7 +3351,7 @@ function CorporateActionDialog({
         mergeOfficialValidationRows(validationRows, validationImportIds);
       }
       setImportLoadLimit(requestedLimit);
-      setLoadedImportRows(rows);
+      setLoadedImportRows(rows, true);
       setStatus(
         rows.length
           ? view === 'approved'
@@ -3071,7 +3382,7 @@ function CorporateActionDialog({
     try {
       const rows = await api.listCorporateActionImports(buildIssueImportListInput(requestedLimit));
       setImportLoadLimit(requestedLimit);
-      setLoadedImportRows(rows);
+      setLoadedImportRows(rows, true);
       setStatus(
         rows.length
           ? `Loaded ${rows.length} unresolved or review-pending import row(s).`
@@ -3106,11 +3417,14 @@ function CorporateActionDialog({
       return;
     }
     setActiveOfficialImportView(view);
-    setOfficialTaskProgress(null);
     setSelectedImportIds(new Set());
     setSelectedIssueImportIds(new Set());
     clearResolveImport();
-    await loadOfficialImports(importLoadLimit, view);
+    if (view === 'review') {
+      restorePendingReview();
+    } else {
+      await loadOfficialImports(importLoadLimit, view);
+    }
   };
 
   const pickOfficialImportFile = async () => {
@@ -3179,8 +3493,11 @@ function CorporateActionDialog({
         : [officialFetchExchangeSelection];
     const scopeLabel = formatCorporateActionNormalFetchScope(officialFetchExchangeSelection);
 
+    officialFetchCancelRequested.current = false;
+    setOfficialFetchRunning(true);
     setBusy(true);
     setOfficialFetchLog([]);
+    setBseFetchFailed(false);
     setCorporateProgress({
       progress: 0,
       message: forceRefresh
@@ -3205,6 +3522,7 @@ function CorporateActionDialog({
 
     try {
       for (const selectedExchange of selectedExchanges) {
+        if (officialFetchCancelRequested.current) throw new Error('Official fetch cancelled. Completed windows are saved; use Fetch Official to resume.');
         setOfficialFetchLog((current) => [
           ...current,
           `${selectedExchange} - Fetch started: ${fetchFromDate} to ${fetchToDate}${forceRefresh ? ' (forced)' : ''}`,
@@ -3244,6 +3562,10 @@ function CorporateActionDialog({
             `${selectedExchange} - Complete: ${result.rowsRead} read, ${result.rowsInserted} added, ${result.rowsDuplicate} duplicate, ${result.rowsUnresolved} unresolved; reused ${result.cachedDays}/${result.requestedDays} cached day(s) and fetched ${result.fetchedDays} missing day(s) across ${result.fetchedRanges} range(s).`,
           ]);
         } catch (error) {
+          if (selectedExchange === 'BSE') {
+            setBseFetchFailed(true);
+            setImportExchange('BSE');
+          }
           setOfficialFetchLog((current) => [
             ...current,
             `${selectedExchange} - Failed: ${getErrorMessage(error, 'Official source fetch failed.')}`,
@@ -3252,6 +3574,7 @@ function CorporateActionDialog({
         }
       }
 
+      if (officialFetchCancelRequested.current) throw new Error('Official fetch cancelled. Completed windows are saved; use Fetch Official to resume.');
       const coverageSummary = forceRefresh
         ? `Forced re-fetch completed for ${scopeLabel}: fetched ${totalFetchedDays}/${totalRequestedDays} requested exchange-day(s). Saved coverage was bypassed for this request. `
         : `Official fetch completed for ${scopeLabel}: reused ${totalCachedDays}/${totalRequestedDays} cached exchange-day(s) and fetched ${totalFetchedDays} day(s) across ${totalFetchedRanges} range(s). `;
@@ -3275,6 +3598,7 @@ function CorporateActionDialog({
       setStatus(getErrorMessage(error, 'Could not fetch official corporate actions.'));
     } finally {
       setCorporateProgress({ progress: 0, message: '' });
+      setOfficialFetchRunning(false);
       setBusy(false);
     }
   };
@@ -3580,7 +3904,7 @@ function CorporateActionDialog({
     setBusy(true);
     setStatus('');
     try {
-      const result = await api.approveCorporateActionImport({ importId: row.id });
+      const result = await api.approveCorporateActionImport({ importId: row.id, expectedDatabasePath: activeDatabasePath ?? '' });
       const rows = await api.listCorporateActionImports({
         ...buildOfficialImportListInput(importLoadLimit),
       });
@@ -3628,6 +3952,7 @@ function CorporateActionDialog({
       const result = await api.approveCorporateActionImportWithIsinMismatch({
         importId: resolveTargetRow.id,
         reason,
+        expectedDatabasePath: activeDatabasePath ?? '',
       });
       const rows = await api.listCorporateActionImports({
         ...buildOfficialImportListInput(importLoadLimit),
@@ -3687,6 +4012,7 @@ function CorporateActionDialog({
       const result = await api.approveCorporateActionImportWithPriceValidationException({
         importId: priceExceptionTargetRow.id,
         reason,
+        expectedDatabasePath: activeDatabasePath ?? '',
       });
       const rows = await api.listCorporateActionImports({
         ...buildOfficialImportListInput(importLoadLimit),
@@ -3719,11 +4045,123 @@ function CorporateActionDialog({
     }
   };
 
-  const eligibleImportRows = visibleImportRows.filter((row) =>
-    officialPreparationComplete &&
-    !officialPreparationErrors[row.id] &&
-    isApprovableCorporateImport(row, latestScanByImportId.get(row.id)),
+  // The Rust Dividend R1 evaluator, not Split/Bonus scan observations, owns
+  // dividend eligibility. P3C is a read-only preview; the writer rechecks it.
+  const dividendPreparedImportIds = useMemo(
+    () => new Set(currentOfficialDividendWriteStageScope?.importIds ?? []),
+    [currentOfficialDividendWriteStageScope],
   );
+  const isOfficialRowReady = (row: CorporateActionImportRow): boolean => {
+    if (existingDividendByImportId[row.id]?.row === row) return false;
+    if (!officialPreparationComplete || officialPreparationErrors[row.id]) return false;
+    if (row.actionType !== 'DIVIDEND') {
+      return getCorporateActionNormalApprovalState(row, latestScanByImportId.get(row.id)) === 'READY TO APPROVE';
+    }
+    const disposition = officialDividendPreparedScopeDispositionByImportId.get(row.id);
+    return Boolean(dividendPreparedImportIds.has(row.id)) &&
+      row.parseStatus === 'PARSED' && row.reviewStatus === 'PENDING' &&
+      disposition?.disposition === 'ELIGIBLE' && disposition.evidence != null;
+  };
+  const eligibleImportRows = visibleImportRows.filter((row) => officialPreparationComplete && !officialPreparationErrors[row.id] && (isOfficialRowReady(row) && (row.actionType === 'DIVIDEND' || row.actionType === 'RIGHTS' || isApprovableCorporateImport(row, latestScanByImportId.get(row.id)))));
+  // Aggregate the complete loaded pending queue, independent of type/symbol UI filters.
+  const allTypePendingSummary = officialPreparationComplete
+    ? summarizeCaPendingByType(importRows, new Set(importRows.filter(isOfficialRowReady).map(row => row.id)))
+    : null;
+  // Report evidence is deliberately separate from live readiness/write scopes.
+  const lastScanReportRef = useRef<{
+    databasePath: string; at: string; generation: number;
+    summary: ReturnType<typeof summarizeCaPendingByType>;
+    dividendOutcome: typeof currentOfficialDividendPreparedScopeOutcome;
+  } | null>(null);
+  useEffect(() => {
+    if (lastScanReportRef.current?.databasePath !== activeDatabasePath) lastScanReportRef.current = null;
+    if (!busy && !showingApprovedImports && allTypePendingSummary && activeDatabasePath &&
+        lastScanReportRef.current?.generation !== officialPreparationGenerationRef.current) {
+      lastScanReportRef.current = {databasePath: activeDatabasePath, at: new Date().toISOString(), generation: officialPreparationGenerationRef.current,
+        summary: allTypePendingSummary, dividendOutcome: currentOfficialDividendPreparedScopeOutcome};
+    }
+  }, [activeDatabasePath, busy, showingApprovedImports, allTypePendingSummary, currentOfficialDividendPreparedScopeOutcome]);
+  const lastScanReport = lastScanReportRef.current?.databasePath === activeDatabasePath ? lastScanReportRef.current : null;
+  const pendingReportSummary = (!busy && !showingApprovedImports ? allTypePendingSummary : null) ?? lastScanReport?.summary ?? null;
+  const reportDividendOutcome = currentOfficialDividendPreparedScopeOutcome ?? lastScanReport?.dividendOutcome ?? null;
+  const approvalFailureReport = lastApprovalFailure?.databasePath === activeDatabasePath ? lastApprovalFailure : null;
+  const recentApprovalReport = recentApprovals?.databasePath === activeDatabasePath ? recentApprovals : null;
+  const savedValidationHistoryReport = savedValidationHistory?.databasePath === activeDatabasePath
+    ? savedValidationHistory : null;
+  const openSavedValidationHistory = async (loadMore = false) => {
+    if (!api || !activeDatabasePath || savedValidationHistoryRequestRef.current) return;
+    const databasePath = activeDatabasePath;
+    const isCurrent = () => useChartStore.getState().snapshot?.activeDatabasePath === databasePath;
+    const previous = loadMore ? savedValidationHistoryReport : null;
+    if (loadMore && (!previous?.run || !previous.hasMore)) return;
+    savedValidationHistoryRequestRef.current = true;
+    setSavedValidationHistoryLoading(true);
+    try {
+      let run = previous?.run ?? null;
+      if (!loadMore) {
+        const runs = await api.listCorporateActionActivityRuns({
+          operationKind: 'DIVIDEND_VALIDATION', limit: 1, offset: 0,
+        });
+        run = runs.runs[0] ?? null;
+        if (!run) {
+          if (isCurrent()) setSavedValidationHistory({
+            databasePath, run: null, items: [], offset: 0, total: 0, hasMore: false,
+          });
+          return;
+        }
+      }
+      if (!run) return;
+      const page = await api.listCorporateActionValidationReportItems({
+        runId: run.id, limit: 200, offset: previous?.offset ?? 0,
+      });
+      if (!isCurrent()) return;
+      const items = [...(previous?.items ?? [])];
+      const seen = new Set(items.map((item) => item.id));
+      for (const item of page.items) {
+        if (!seen.has(item.id)) { items.push(item); seen.add(item.id); }
+      }
+      setSavedValidationHistory({
+        databasePath, run, items, offset: page.offset + page.items.length,
+        total: page.total, hasMore: page.hasMore,
+      });
+    } catch (error) {
+      if (isCurrent()) setSavedValidationHistory({
+        databasePath,
+        run: previous?.run ?? null,
+        items: previous?.items ?? [],
+        offset: previous?.offset ?? 0,
+        total: previous?.total ?? 0,
+        hasMore: previous?.hasMore ?? false,
+        error: getErrorMessage(error, 'Could not load saved validation history.'),
+      });
+    } finally {
+      savedValidationHistoryRequestRef.current = false;
+      setSavedValidationHistoryLoading(false);
+    }
+  };
+  const openRecentApprovals = async (loadMore = false) => {
+    if (!api || !activeDatabasePath || busy || recentApprovalRequestRef.current) return;
+    const databasePath = activeDatabasePath;
+    const generation = officialPreparationGenerationRef.current;
+    const isCurrent = () => useChartStore.getState().snapshot?.activeDatabasePath === databasePath &&
+      officialPreparationGenerationRef.current === generation;
+    const previous = loadMore ? recentApprovalReport : null;
+    if (loadMore && !previous?.hasMore) return;
+    recentApprovalRequestRef.current = true;
+    setClassicReport('approved');
+    setRecentApprovalsLoading(true);
+    if (!loadMore) setRecentApprovals(null);
+    try {
+      // Read saved approvals independently of queue filters. Backend sorts by approval time.
+      const rows = await api.listCorporateActionImports({reviewStatus:'APPROVED',limit:APPROVAL_HISTORY_PAGE_SIZE,offset:previous?.offset ?? 0});
+      if (isCurrent()) setRecentApprovals({databasePath,...appendApprovalHistoryPage(previous,rows)});
+    } catch (error) {
+      if (isCurrent()) {
+        setRecentApprovals({...previous,databasePath,rows:previous?.rows ?? [],offset:previous?.offset ?? 0,
+          hasMore:previous?.hasMore ?? false,error:getErrorMessage(error,'Could not load saved approvals.')});
+      }
+    } finally { recentApprovalRequestRef.current = false; setRecentApprovalsLoading(false); }
+  };
   const selectedEligibleImportRows = eligibleImportRows.filter((row) => selectedImportIds.has(row.id));
   const officialPendingGroups = useMemo(() => {
     if (showingApprovedImports) return [];
@@ -3837,7 +4275,7 @@ function CorporateActionDialog({
     setSelectedImportIds(new Set());
     setOfficialPreparationErrors((current) => {
       const next = {...current};
-      for (const id of receipt.blockedImportIds) next[id] = 'Apply or refresh needs review. Check Approved before retrying; Load & Prepare is required for this action.';
+      for (const id of receipt.blockedImportIds) next[id] = 'Apply or refresh needs review. Check Approved before retrying; Load & Validate is required for this action.';
       return next;
     });
     const refreshNote = receipt.approvedRecords.map((record) => buildCorporateActionRefreshNote({
@@ -3866,7 +4304,7 @@ function CorporateActionDialog({
       for (let index = 0; index < batches.length; index += 1) {
         const batch = batches[index];
         setStatus(`Approving recommended identities: batch ${index + 1}/${batches.length} (${batch.length} row(s)); ${totals.requested}/${uniqueRows.length} processed...`);
-        const result = await api.approveRecommendedCorporateActionIsinMismatches({ importIds: batch });
+        const result = await api.approveRecommendedCorporateActionIsinMismatches({ importIds: batch, expectedDatabasePath: activeDatabasePath ?? '' });
         totals.requested += result.requested;
         totals.approved += result.approved;
         totals.linkedExisting += result.linkedExisting;
@@ -3898,36 +4336,85 @@ function CorporateActionDialog({
     }
   };
 
-  const requestOfficialImportApproval = (mode: 'selected' | 'all-ready') => {
-    const rows = selectCorporateActionApprovalTargetRows(eligibleImportRows, selectedImportIds, mode);
+  const requestOfficialImportApproval = async (mode: 'selected' | 'all-ready', visibleReadyIds?: readonly number[]) => {
+    if (officialOperationRunningRef.current || officialApprovalPreparingRef.current || busy) return;
+    const allowedIds = visibleReadyIds ? new Set(visibleReadyIds) : null;
+    const rows = selectCorporateActionApprovalTargetRows(
+      allowedIds ? eligibleImportRows.filter(row => allowedIds.has(row.id)) : eligibleImportRows,
+      selectedImportIds, mode);
     if (rows.length === 0) {
       setStatus(mode === 'selected' ? 'Select at least one ready action first.' : 'There are no ready actions in the current review scope.');
       return;
     }
-    const scopeLabel = officialReviewSymbolFilter === 'ALL'
+    const scopeLabel = visibleReadyIds ? 'the current filtered table' : officialReviewSymbolFilter === 'ALL'
       ? (normalizedImportSearchQuery ? `current filtered review (${importSearchQuery.trim()})` : 'all visible pending actions')
       : officialReviewSymbolOptions.find(([key]) => key === officialReviewSymbolFilter)?.[1] ?? 'current symbol';
-    setOfficialApprovalConfirmation({
-      mode,
-      importIds: rows.map((row) => row.id),
-      fingerprints: Object.fromEntries(rows.map((row) => [row.id, corporateActionApprovalFingerprint(row, latestScanByImportId.get(row.id))])),
-      scopeLabel,
-      databasePath: activeDatabasePath ?? '',
-      generation: officialPreparationGenerationRef.current,
-    });
-    setOfficialTaskProgress(null);
+    const dividendImportIds = rows.filter((row) => row.actionType === 'DIVIDEND').map((row) => row.id);
+    const databasePath = activeDatabasePath ?? '';
+    const generation = officialPreparationGenerationRef.current;
+    const dividendScope = currentOfficialDividendWriteStageScope;
+    const dividendOutcome = currentOfficialDividendPreparedScopeOutcome;
+    const dividendDrafts: DividendWriteStageDraft[] = [];
+    officialApprovalPreparingRef.current = true;
+    setBusy(true);
+    try {
+      if (dividendImportIds.length && (!CORPORATE_ACTION_DIVIDEND_WRITE_STAGE_ENABLED || !dividendScope || !dividendOutcome)) {
+        throw new Error('Dividend eligibility is no longer current. Load & Validate again.');
+      }
+      for (let start = 0; start < dividendImportIds.length; start += CORPORATE_ACTION_DIVIDEND_WRITE_STAGE_MAX_IDS) {
+        const batch = dividendImportIds.slice(start, start + CORPORATE_ACTION_DIVIDEND_WRITE_STAGE_MAX_IDS);
+        const drafted = await prepareDividendWriteStageDraft({
+          scope: dividendScope, outcome: dividendOutcome, selectedImportIds: batch,
+          getCurrentContext: () => ({
+            generation: officialPreparationGenerationRef.current,
+            databasePath: useChartStore.getState().snapshot?.activeDatabasePath ?? null,
+            preparationComplete: officialPreparationComplete,
+            cancelled: officialCancelPreparationRef.current,
+            operationRunning: officialOperationRunningRef.current,
+          }),
+        });
+        if (drafted.status !== 'READY') throw new Error(drafted.reason);
+        if (drafted.draft.generation !== generation) throw new Error('Dividend preparation changed. Load & Validate again.');
+        dividendDrafts.push(drafted.draft);
+      }
+      if (generation !== officialPreparationGenerationRef.current ||
+          useChartStore.getState().snapshot?.activeDatabasePath !== databasePath) {
+        throw new Error('Database or preparation changed before approval. Load & Validate again.');
+      }
+      // No write is dispatched until the distinct confirmation action below.
+      setOfficialApprovalConfirmation({
+        mode, importIds: rows.map((row) => row.id), dividendImportIds, dividendDrafts,
+        fingerprints: Object.fromEntries(rows.map((row) => [row.id, corporateActionApprovalFingerprint(row, latestScanByImportId.get(row.id))])),
+        scopeLabel, databasePath, generation,
+      });
+      setOfficialTaskProgress(null);
+    } catch (error) {
+      setOfficialApprovalConfirmation(null);
+      setStatus(getErrorMessage(error, 'Could not prepare exact Dividend approval selection.'));
+    } finally {
+      officialApprovalPreparingRef.current = false;
+      setBusy(false);
+    }
   };
 
   const confirmOfficialImportApproval = async () => {
-    if (!api || !officialApprovalConfirmation || officialOperationRunningRef.current) return;
+    if (!api || !officialApprovalConfirmation || officialOperationRunningRef.current || officialApprovalPreparingRef.current) return;
     const confirmation = officialApprovalConfirmation;
-    setOfficialAutoApproval(null);
-    setOfficialDividendPreparedScopeOutcome(null);
+    const dividendScope = currentOfficialDividendWriteStageScope;
+    const dividendOutcome = currentOfficialDividendPreparedScopeOutcome;
+    const context = () => ({
+      generation: officialPreparationGenerationRef.current,
+      databasePath: useChartStore.getState().snapshot?.activeDatabasePath ?? null,
+      preparationComplete: officialPreparationComplete,
+      cancelled: officialCancelPreparationRef.current,
+      operationRunning: officialOperationRunningRef.current,
+    });
     const shouldContinue = () => officialPreparationGenerationRef.current === confirmation.generation &&
       useChartStore.getState().snapshot?.activeDatabasePath === confirmation.databasePath;
-    if (!shouldContinue()) {
+    if (!shouldContinue() || confirmation.dividendDrafts.some((draft) =>
+      !isDividendWriteStageDraftCurrent(draft, dividendScope, dividendOutcome, context()))) {
       setOfficialApprovalConfirmation(null);
-      setStatus('The database changed after review. Load & Prepare again.');
+      setStatus('The prepared database, Dividend evidence, or review generation changed. Load & Validate again.');
       return;
     }
     officialOperationRunningRef.current = true;
@@ -3937,27 +4424,99 @@ function CorporateActionDialog({
     };
     setBusy(true);
     setCorporateProgress({progress:0,message:''});
+    setOfficialApprovalConfirmation(null);
+    let completedApprovalSummary: string | null = null;
+    let queueReconciled = false;
     try {
-      const checked = await recheckReviewedCorporateActionImports({
-        api,importIds:confirmation.importIds,expectedDatabasePath:confirmation.databasePath,
-        fingerprints:confirmation.fingerprints,fingerprint:corporateActionApprovalFingerprint,
-        preparationErrors:officialPreparationErrors,shouldContinue,onProgress:report,
+      // Every write requires this explicit second user click. The Rust owner
+      // independently revalidates identity, official receipt, local price basis,
+      // same-date exclusions, and duplicate canonical records in its transaction.
+      const dividendTotals = { requested: 0, approved: 0, blocked: 0 };
+      for (const draft of confirmation.dividendDrafts) {
+        if (!shouldContinue()) throw new Error('Database changed. Dividend confirmation is no longer current.');
+        let reply: unknown;
+        try {
+          reply = await api.executeSimpleCashDividendWriteStage(draft.input);
+        } catch (error) {
+          throw new Error(describeDividendDispatchFailure(getErrorMessage(error, 'No authoritative receipt.')));
+        }
+        const receipt = verifyDividendWriteStageReceipt(draft.input, reply);
+        if (receipt.status !== 'COMMITTED') {
+          throw new Error(`Dividend approval result uncertain: ${receipt.reason} Do not retry; check Approved and reload.`);
+        }
+        dividendTotals.requested += receipt.result.requested;
+        dividendTotals.approved += receipt.result.autoApproved;
+        dividendTotals.blocked += receipt.result.ineligible + receipt.result.staleScope + receipt.result.missing + receipt.result.alreadyApproved;
+      }
+      if (!shouldContinue()) throw new Error('Database changed after dividend commit. Check Approved before retrying.');
+      const normalIds = confirmation.importIds.filter((id) => !confirmation.dividendImportIds.includes(id));
+      if (normalIds.length) {
+        const checked = await recheckReviewedCorporateActionImports({
+          api, importIds: normalIds, expectedDatabasePath: confirmation.databasePath,
+          fingerprints: confirmation.fingerprints, fingerprint: corporateActionApprovalFingerprint,
+          preparationErrors: officialPreparationErrors, explicitApprovalOnly: true, shouldContinue, onProgress: report,
+        });
+        if (!shouldContinue()) return;
+        mergeOfficialValidationRows(checked.validationRows, checked.validationImportIds);
+        await approveOfficialImportRows(checked.rows, confirmation.databasePath, shouldContinue, report);
+      }
+      if (!shouldContinue()) return;
+      // Keep the full prepared queue while refreshing charts. A list read using
+      // the search field here would replace it with just the selected symbol.
+      if (dividendTotals.requested) {
+        await onRefresh();
+        if (!shouldContinue()) return;
+        const eligibleDividendRows = importRows.filter((row) => confirmation.dividendImportIds.includes(row.id));
+        const refreshedSymbols = new Set<string>();
+        for (const row of eligibleDividendRows) {
+          if (!row.symbol || !row.exchange || !confirmation.dividendImportIds.includes(row.id)) continue;
+          const key = `${row.exchange}:${row.symbol}`;
+          if (refreshedSymbols.has(key)) continue;
+          refreshedSymbols.add(key);
+          // Reloading is post-commit and preserves the currently viewed chart.
+          if (activeInstrument?.symbol === row.symbol && activeInstrument?.exchange === row.exchange) {
+            await onReloadInstrument(row.symbol, row.exchange, { forceReload: true, preserveViewport: true });
+          }
+        }
+        completedApprovalSummary = `Explicit Dividend approval: ${dividendTotals.approved}/${dividendTotals.requested} committed; ${dividendTotals.blocked} blocked or already approved. Rust revalidated every item. No raw EOD prices changed.`;
+      }
+      if (!shouldContinue()) return;
+      completedApprovalSummary ??= 'Reviewed corporate action approval completed.';
+      setSelectedImportIds(new Set());
+      setStatus(`${completedApprovalSummary} Refreshing affected events only...`);
+      const refreshed = await refreshCorporateActionQueueAfterApproval({
+        api, rows: importRows, approvedSelection: confirmation.importIds,
+        previousOutcome: dividendOutcome, previousGeneration: confirmation.generation,
+        expectedDatabasePath: confirmation.databasePath, shouldContinue,
       });
       if (!shouldContinue()) return;
-      mergeOfficialValidationRows(checked.validationRows,checked.validationImportIds);
-      setOfficialApprovalConfirmation(null);
-      await approveOfficialImportRows(checked.rows,confirmation.databasePath,shouldContinue,report);
+      setImportRows(refreshed.rows);
+      mergeOfficialValidationRows(refreshed.validationRows, refreshed.validationIds);
+      setOfficialDividendPreparedScopeOutcome(refreshed.outcome);
+      setOfficialDividendWriteStageScope(refreshed.scope);
+      queueReconciled = true;
+      const message = `${completedApprovalSummary} Refreshed ${refreshed.affectedCount} related stored events; unrelated readiness retained. No full rescan.`;
+      setStatus(message);
+      setOfficialTaskProgress({stage:'complete',completed:refreshed.affectedCount,total:refreshed.affectedCount,
+        message,startedAt,endedAt:Date.now()});
     } catch(error) {
       if (!shouldContinue()) return;
-      setOfficialApprovalConfirmation(null);
-      setOfficialPreparationComplete(false);
-      setOfficialAutoApproval(null);
-      setOfficialDividendPreparedScopeOutcome(null);
-      const message = getErrorMessage(error, 'The reviewed actions changed. Load & Prepare again.');
-      setStatus(message);
-      setOfficialTaskProgress((current) => current ? {...current,stage:'stopped',message,endedAt:Date.now()} : null);
+      const failure = [completedApprovalSummary, getErrorMessage(error, 'Approval did not complete. Check Approved before retrying.')].filter(Boolean).join(' ');
+      setStatus(failure);
+      setLastApprovalFailure({databasePath:confirmation.databasePath,at:new Date().toISOString(),message:failure});
+      setOfficialTaskProgress((current) => current ? {...current,stage:'stopped',message:failure,endedAt:Date.now()} : null);
     } finally {
       if (shouldContinue()) {
+        // Expire old confirmations. Carry only successfully reconciled evidence
+        // into the next generation; uncertain writes/refreshes stay invalidated.
+        pendingReviewRef.current = null;
+        officialPreparationGenerationRef.current += 1;
+        setOfficialPreparationComplete(queueReconciled);
+        setOfficialAutoApproval(null);
+        if (!queueReconciled) {
+          setOfficialDividendPreparedScopeOutcome(null);
+          if (typeof setOfficialDividendWriteStageScope !== "undefined") setOfficialDividendWriteStageScope(null);
+        }
         officialOperationRunningRef.current = false;
         setBusy(false);
         setCorporateProgress({progress:0,message:''});
@@ -4931,6 +5490,7 @@ function CorporateActionDialog({
     identitySourceMode === 'manual' ? identityArchiveRoot.trim() : null;
   const nseReviewedApplyReady = Boolean(
     currentUniverseSyncResult &&
+      identityHasActionableChanges(currentUniverseSyncResult) &&
       nseReviewedApplyAuthority &&
       activeDatabasePath &&
       nseReviewedApplyAuthority.planSha256 === currentUniverseSyncResult.planSha256 &&
@@ -4939,11 +5499,16 @@ function CorporateActionDialog({
       nseReviewedApplyAuthority.requestedArchiveRootPath === requestedNseArchiveRoot,
   );
   const identitySelectedApplyReady =
-    identityExchange === 'NSE' ? nseReviewedApplyReady : identitySelectedSourceReady;
+    identityExchange === 'NSE' ? nseReviewedApplyReady : Boolean(
+      identityHasActionableChanges(bseCurrentUniverseSyncResult) && bseReviewedApplyAuthority && activeDatabasePath &&
+      bseReviewedApplyAuthority.databasePath === activeDatabasePath && bseReviewedApplyAuthority.sourceMode === identitySourceMode &&
+      bseReviewedApplyAuthority.masterFilePath === bseMasterFilePath.trim() && bseReviewedApplyAuthority.planSha256 === bseCurrentUniverseSyncResult?.planSha256);
+  const historicalCommitConfirmed = Boolean(nseHistoricalIdentityResult?.applied || historicalApplyProgress?.stage === 'committed' || historicalApplyProgress?.stage === 'refreshing');
   const nseHistoricalReviewedApplyReady = Boolean(
     identityExchange === 'NSE' &&
       nseHistoricalIdentityResult &&
       nseHistoricalIdentityResult.canApply &&
+      !nseHistoricalIdentityResult.applied && historicalChangeCount(nseHistoricalIdentityResult) > 0 &&
       nseHistoricalReviewedApplyAuthority &&
       activeDatabasePath &&
       nseHistoricalReviewedApplyAuthority.planSha256 === nseHistoricalIdentityResult.planSha256 &&
@@ -4977,22 +5542,30 @@ function CorporateActionDialog({
         { label: 'Update', value: identitySelectedPreview.updateCount },
         { label: 'Deactivate', value: identitySelectedPreview.deactivateCount },
         { label: 'Unchanged', value: identitySelectedPreview.unchangedActive },
+        ...(identityExchange === 'NSE' ? [
+          { label: 'Held for review', value: identitySelectedPreview.previewRows.filter(row => row.action === 'REVIEW_REQUIRED').length },
+          { label: 'Outside coverage', value: identitySelectedPreview.previewRows.filter(row => row.action === 'OUTSIDE_COVERAGE').length },
+        ] : []),
       ]
     : [];
 
   const renderNseHistoricalPreviewPanel = () =>
     nseHistoricalIdentityResult ? (
-      <div style={identityHistoricalPreviewPanelStyle}>
-        <div style={identitySummaryRowStyle} aria-label="Historical identity preview summary">
+      <IdentityHistoricalPreview rows={filteredNseHistoricalIdentityRows}
+        total={nseHistoricalIdentityResult.historyRows.length} busy={busy}
+        currentEffects={nseHistoricalIdentityResult.currentUniversePreviewRows}
+        preferences={identityPreferences} onPreferencesChange={updateIdentityPreferences}
+        categoryEvidence={nseHistoricalIdentityResult.categoryEvidence} applied={historicalCommitConfirmed}
+        emptyMessage={nseHistoricalIdentityFilter === 'errors' && nseHistoricalIdentityResult.errorRows === 0 ? 'No errors in this preview.' : undefined}
+        summary={<div style={identitySummaryRowStyle} aria-label="Historical identity preview summary">
           {nseHistoricalPreviewSummary.map((item) => (
             <span key={item.label} style={identitySummaryBadgeStyle}>
               <span>{item.label}</span>
               <strong>{item.value}</strong>
             </span>
           ))}
-        </div>
-
-        <div style={identityHistoricalFilterRowStyle} aria-label="Historical identity filters">
+        </div>}
+        filters={<div style={identityHistoricalFilterRowStyle} aria-label="Historical identity filters">
           {([
             ['actionable', 'Actionable'],
             ['all', 'All'],
@@ -5004,104 +5577,18 @@ function CorporateActionDialog({
               key={value}
               type="button"
               style={identitySegmentButtonStyle(nseHistoricalIdentityFilter === value)}
+              aria-pressed={nseHistoricalIdentityFilter === value}
               onClick={() => setNseHistoricalIdentityFilter(value)}
               disabled={busy}
             >
               {label}
             </button>
           ))}
-        </div>
-
-        <div style={corporateImportTableStyle}>
-          <div style={identityHistoricalPreviewHeaderStyle}>
-            <span>Outcome</span>
-            <span>Type</span>
-            <span>Effective</span>
-            <span>Old Symbol</span>
-            <span>New/Current</span>
-            <span>Old Name</span>
-            <span>New/Current Name</span>
-            <span>Detail</span>
-          </div>
-          <div style={quotesBodyStyle}>
-            {filteredNseHistoricalIdentityRows.map((row, index) => (
-              <div
-                key={`${row.disposition}-${row.changeType}-${row.effectiveDate ?? '-'}-${row.oldSymbol ?? '-'}-${row.newSymbol ?? row.currentSymbol ?? '-'}-${index}`}
-                style={identityHistoricalPreviewRowStyle}
-              >
-                <span style={corporateCellStyle}>{row.disposition}</span>
-                <span style={corporateCellStyle}>{row.changeType}</span>
-                <span style={corporateCellStyle}>{row.effectiveDate ?? '-'}</span>
-                <span style={corporateCellStyle}>{row.oldSymbol ?? '-'}</span>
-                <span style={corporateCellStyle}>{row.newSymbol ?? row.currentSymbol ?? '-'}</span>
-                <span style={corporatePurposeCellStyle} title={row.oldName ?? ''}>{row.oldName ?? '-'}</span>
-                <span style={corporatePurposeCellStyle} title={row.newName ?? ''}>{row.newName ?? '-'}</span>
-                <span style={corporatePurposeCellStyle} title={`${row.sourceFile} | ${row.detail}`}>{row.detail}</span>
-              </div>
-            ))}
-            {filteredNseHistoricalIdentityRows.length === 0 ? (
-              <div style={corporateEmptyStateStyle}>
-                No historical rows match the {nseHistoricalIdentityFilter} filter.
-              </div>
-            ) : null}
-          </div>
-        </div>
-
-        <div style={utilityHelperTextStyle}>
-          Current-universe effects from this reviewed historical plan
-        </div>
-        <div style={corporateImportTableStyle}>
-          <div style={identitySyncHeaderStyle}>
-            <span>Action</span>
-            <span>Symbol</span>
-            <span>Series</span>
-            <span>Current</span>
-            <span>Proposed</span>
-            <span>Match</span>
-            <span>Reason</span>
-          </div>
-          <div style={quotesBodyStyle}>
-            {nseHistoricalIdentityResult.currentUniversePreviewRows.map((row) => (
-              <div
-                key={`historical-current-${row.action}-${row.symbol}-${row.proposedStatus}`}
-                style={identitySyncRowStyle}
-              >
-                <span style={corporateCellStyle}>{row.action}</span>
-                <span style={corporateCellStyle} title={[row.companyName, row.isin].filter(Boolean).join(' | ')}>
-                  {row.symbol}
-                </span>
-                <span style={corporateCellStyle}>{row.series ?? '-'}</span>
-                <span style={corporateCellStyle}>{row.currentStatus}</span>
-                <span style={corporateCellStyle}>{row.proposedStatus}</span>
-                <span style={corporateCellStyle}>{row.matchedSymbol ?? '-'}</span>
-                <span style={corporatePurposeCellStyle} title={row.reason}>{row.reason}</span>
-              </div>
-            ))}
-            {nseHistoricalIdentityResult.currentUniversePreviewRows.length === 0 ? (
-              <div style={corporateEmptyStateStyle}>No current-universe status changes in this historical plan.</div>
-            ) : null}
-          </div>
-        </div>
-      </div>
+        </div>}
+      />
     ) : null;
 
   const renderOfficialSourceHealthPanel = () => {
-    if (!officialSourceHealthReport && !officialSourceHealthStatus) {
-      return null;
-    }
-
-    const totalCount = officialSourceHealthReport?.results.length ?? 0;
-    const healthyCount =
-      officialSourceHealthReport?.results.filter((result) =>
-        result.provenanceStatus === 'PASS' &&
-        result.transportStatus === 'PASS' &&
-        result.formatStatus === 'PASS' &&
-        result.populationStatus !== 'FAIL' &&
-        result.populationStatus !== 'NOT_EVALUATED' &&
-        result.freshnessStatus !== 'FAIL' &&
-        result.freshnessStatus !== 'NOT_EVALUATED'
-      ).length ?? 0;
-    const needsAttentionCount = Math.max(0, totalCount - healthyCount);
     const selectedCandidateAuthority = officialSourceCandidateResult
       ? officialSourceCandidateResult.authority.sources.find(
           (source) => source.sourceKey === officialSourceCandidateResult.sourceKey,
@@ -5110,73 +5597,22 @@ function CorporateActionDialog({
 
     return (
       <div style={officialSourceHealthPanelStyle} aria-label="Latest official source health">
-        <div style={officialSourceHealthHeaderStyle}>
-          <strong>Latest official source health</strong>
-          <span style={officialSourceHealthSummaryStyle}>
-            {officialSourceHealthReport
-              ? `${totalCount} total · ${healthyCount} healthy · ${needsAttentionCount} needs attention · ${officialSourceHealthReport.assessedAtUtc}`
-              : 'No completed assessment yet'}
-          </span>
-        </div>
-        {officialSourceHealthStatus ? (
-          <div style={identityStatusStyle}>{officialSourceHealthStatus}</div>
-        ) : null}
-        {officialSourceHealthReport ? (
-          <div style={officialSourceHealthScrollStyle}>
-            <div style={officialSourceHealthGridStyle(true)}>
-              <span>Source</span>
-              <span>Provenance</span>
-              <span>Transport</span>
-              <span>Format</span>
-              <span>Population</span>
-              <span>Freshness</span>
-              <span>Drift</span>
-              <span>Evidence / reason</span>
-            </div>
-            {officialSourceHealthReport.results.map((result) => (
-              <div key={result.sourceId} style={officialSourceHealthGridStyle(false)}>
-                <span style={officialSourceHealthCellStyle}>
-                  <strong>{result.exchange} · {result.sourceId}</strong>
-                  <span>{result.role}</span>
-                </span>
-                <span>{result.provenanceStatus}</span>
-                <span>
-                  {result.transportStatus}
-                  {result.httpStatus == null ? '' : ` · ${result.httpStatus}`}
-                </span>
-                <span>{result.formatStatus}</span>
-                <span>
-                  {result.populationStatus}
-                  {result.populationCount == null ? '' : ` · ${result.populationCount}`}
-                </span>
-                <span>{result.freshnessStatus}</span>
-                <span>{result.driftClass ?? 'NOT_CLASSIFIABLE'}</span>
-                <div style={officialSourceHealthEvidenceStyle}>
-                  <span>{result.reason}</span>
-                  <details style={officialSourceHealthDetailsStyle}>
-                    <summary style={officialSourceHealthEvidenceSummaryStyle}>Show evidence</summary>
-                    <div style={officialSourceHealthEvidenceDetailsBodyStyle}>
-                      <span>Request: {result.requestUrl}</span>
-                      <span>Final: {result.finalUrl ?? '-'}</span>
-                      <span>Bytes: {result.contentBytes ?? '-'}</span>
-                      <span title={result.contentSha256 ?? undefined}>SHA-256: {result.contentSha256 ?? '-'}</span>
-                    </div>
-                  </details>
-                  {getEr4RecoveryRequestForHealthResult(result) ? (
-                    <button
-                      type="button"
-                      style={identitySecondaryButtonStyle}
-                      onClick={() => void findOfficialReplacementCandidates(result)}
-                      disabled={busy}
-                    >
-                      Find Official Replacement Candidates
-                    </button>
-                  ) : null}
-                </div>
-              </div>
-            ))}
-          </div>
-        ) : null}
+        <IdentitySourceHealth key={identityExchange} report={officialSourceHealthReport} exchange={identityExchange}
+          busy={busy} canRecover={result => Boolean(getEr4RecoveryRequestForHealthResult(result))}
+          onRecover={result => void findOfficialReplacementCandidates(result)} />
+        {officialSourceHealthStatus ? <div role="status" style={identityStatusStyle}>{officialSourceHealthStatus}</div> : null}
+        <details open={Boolean(officialSourceCandidateResult)}>
+          <summary>Advanced source maintenance and version history</summary>
+          <IdentitySourceHistory key={`${activeDatabasePath}-${identityExchange}`}
+            authority={officialSourceAuthority} exchange={identityExchange} busy={busy} hasDatabase={hasDatabase}
+            configurationError={officialSourceUrlStatus} onReloadSources={() => void loadOfficialSourceUrls()}
+            loadHistory={sourceKey => {
+              if (!api || !hasDatabase) return Promise.reject(new Error('Open a database before loading source history.'));
+              return api.listOfficialSourceHistory({ sourceKey });
+            }} />
+          {!officialSourceCandidateResult ? <p className="identity-review-note">
+            No replacement review is loaded. For an eligible source, open its Details in Source Health to find official replacement candidates.
+          </p> : null}
         {officialSourceCandidateStatus ? (
           <div style={identityStatusStyle}>{officialSourceCandidateStatus}</div>
         ) : null}
@@ -5382,16 +5818,24 @@ function CorporateActionDialog({
             ) : null}
           </div>
         ) : null}
+        </details>
       </div>
     );
   };
 
-  const renderIdentityTab = () => (
-      <div style={identityRecoveryPanelStyle}>
-        {renderOfficialSourceUrlDialog()}
-        {renderIdentityInfoDialog()}
-
-        <div style={identityControlHeaderStyle}>
+    const health = identityHealthSummary(officialSourceHealthReport, identityExchange);
+    const previewCount = identitySelectedPreview?.previewRows.length ?? 0;
+    const applyDisabled = busy || !hasDatabase || !identitySelectedApplyReady;
+    const nothingToApply = !busy && hasDatabase && identitySelectedPreview != null &&
+      !identitySelectedPreview.applied && !identityHasActionableChanges(identitySelectedPreview);
+    const historicalDisabled = busy || !hasDatabase || !nseHistoricalReviewedApplyReady;
+  const renderIdentityTab = () => (<>
+      {renderOfficialSourceUrlDialog()}
+      {renderIdentityInfoDialog()}
+      <IdentityImportWorkspace key={`${activeDatabasePath}-${identityExchange}-${identitySourceMode}`}
+        databasePath={activeDatabasePath} busy={busy} status={status}
+        preferences={identityPreferences} onPreferencesChange={updateIdentityPreferences} settingsWarning={identitySettingsWarning}
+        header={<>        <div style={identityControlHeaderStyle}>
           <div style={identitySelectorRowStyle}>
             <span style={identityCompactLabelStyle}>Exchange</span>
             <div style={identitySegmentStyle}>
@@ -5451,67 +5895,8 @@ function CorporateActionDialog({
           </div>
         </div>
 
-        {identitySourceMode === 'official' ? (
-          <>
-            <div style={identitySourceRowStyle}>
-              <div style={identitySourceCopyStyle}>
-                <strong>{identityExchange} Sources</strong>
-                <span style={utilityHelperTextStyle}>
-                  {identityExchange === 'NSE'
-                    ? 'Current Master + De-listed'
-                    : 'Active + De-listed + Suspended'}
-                </span>
-              </div>
-              <div style={identitySourceActionsStyle}>
-                <button
-                  type="button"
-                  style={busy || !hasDatabase ? identitySecondaryButtonStyle : identitySourceHealthButtonStyle}
-                  onClick={() => void checkOfficialSourceHealth()}
-                  disabled={busy || !hasDatabase}
-                  title="Read-only check of all configured NSE/BSE official sources"
-                >
-                  Check Source Health
-                </button>
-                <button
-                  type="button"
-                  style={identityButtonStyle}
-                  onClick={() => void refreshAndPreviewSelectedOfficialIdentitySource()}
-                  disabled={busy || !hasDatabase}
-                >
-                  Refresh &amp; Preview
-                </button>
-              </div>
-            </div>
-            {renderOfficialSourceHealthPanel()}
-            {identityExchange === 'NSE' ? (
-              <>
-                <div style={identityHistoricalRowStyle}>
-                  <span style={utilityHelperTextStyle}>Historical NSE symbol/name chains</span>
-                  <div style={identityHistoricalActionsStyle}>
-                    <button
-                      type="button"
-                      style={identitySecondaryButtonStyle}
-                      onClick={() => void previewNseHistoricalIdentityArchive()}
-                      disabled={busy || !hasDatabase}
-                    >
-                      Preview Historical Identity
-                    </button>
-                    <button
-                      type="button"
-                      style={identityPrimaryButtonStyle}
-                      onClick={() => void applyNseHistoricalIdentityArchive()}
-                      disabled={busy || !hasDatabase || !nseHistoricalReviewedApplyReady}
-                    >
-                      Apply Reviewed Historical Identity
-                    </button>
-                  </div>
-                </div>
-                {renderNseHistoricalPreviewPanel()}
-              </>
-            ) : null}
-          </>
-        ) : identityExchange === 'NSE' ? (
-          <>
+</>}
+        sourceControls={identitySourceMode === 'manual' ? identityExchange === 'NSE' ? (
             <div style={identityManualSourceRowStyle}>
               <span style={identityCompactLabelStyle}>NSE Archive Root</span>
               <input
@@ -5535,35 +5920,13 @@ function CorporateActionDialog({
                 Browse Folder
               </button>
             </div>
-            <div style={identityHistoricalRowStyle}>
-              <span style={utilityHelperTextStyle}>Historical NSE symbol/name chains</span>
-              <div style={identityHistoricalActionsStyle}>
-                <button
-                  type="button"
-                  style={identitySecondaryButtonStyle}
-                  onClick={() => void previewNseHistoricalIdentityArchive()}
-                  disabled={busy || !hasDatabase || !identityArchiveRoot.trim()}
-                >
-                  Preview Historical Identity
-                </button>
-                <button
-                  type="button"
-                  style={identityPrimaryButtonStyle}
-                  onClick={() => void applyNseHistoricalIdentityArchive()}
-                  disabled={busy || !hasDatabase || !nseHistoricalReviewedApplyReady}
-                >
-                  Apply Reviewed Historical Identity
-                </button>
-              </div>
-            </div>
-            {renderNseHistoricalPreviewPanel()}
-          </>
         ) : (
           <div style={identityManualSourceRowStyle}>
             <span style={identityCompactLabelStyle}>BSE Master CSV</span>
             <input
               value={bseManualMasterFilePath}
               onChange={(event) => {
+                setBseReviewedApplyAuthority(null);
                 setBseManualMasterFilePath(event.target.value);
                 setBseMasterFilePath(event.target.value);
                 setBseCurrentUniverseSyncResult(null);
@@ -5580,35 +5943,25 @@ function CorporateActionDialog({
               Browse File
             </button>
           </div>
-        )}
-
-        <div style={identityActionRowStyle}>
-          <button
-            type="button"
-            style={identityButtonStyle}
-            onClick={() => void previewSelectedIdentitySource()}
-            disabled={busy || !hasDatabase || !identitySelectedSourceReady}
-          >
+        ) : null}
+        summary={<div>
+          <span><strong>{identityExchange} · {identitySourceMode === 'official' ? 'Official sources' : 'Manual archive'}</strong></span>
+          <span>{health.checked ? `${health.results.length} sources checked · ${health.attention} need attention` : 'Source health not checked'}</span>
+          {officialSourceHealthReport ? <span>Last check: {new Date(officialSourceHealthReport.assessedAtUtc).toLocaleString()}</span> : null}
+          <span>{identitySelectedPreview ? 'Saved sources read by current preview.' : 'Saved-source availability: not checked by preview.'}</span>
+        </div>}
+        currentToolbar={<>
+          {identitySourceMode === 'official' ? <button type="button" onClick={() => void refreshAndPreviewSelectedOfficialIdentitySource()}
+            disabled={busy || !hasDatabase}>Refresh &amp; Preview</button> : null}
+          <button type="button" onClick={() => void previewSelectedIdentitySource()}
+            disabled={busy || !hasDatabase || !identitySelectedSourceReady}>
             {identitySourceMode === 'official' ? 'Preview Saved Sources' : 'Preview Changes'}
           </button>
-          <button
-            type="button"
-            style={identityPrimaryButtonStyle}
-            onClick={() => void applySelectedIdentitySource()}
-            disabled={busy || !hasDatabase || !identitySelectedApplyReady}
-          >
-            Apply Reviewed Changes
-          </button>
-        </div>
-
-        <div style={identityStatusStyle}>
-          {status ||
-            (identitySourceMode === 'official'
-              ? 'Refresh & Preview retrieves fresh official sources. Preview Saved Sources reuses the currently available source.'
-              : 'Select a manual source, preview the proposed symbol/status changes, then apply only after review.')}
-        </div>
-
-        {identityPreviewSummary.length > 0 ? (
+        </>}
+        current={<>
+          <IdentityApplyStatus progress={identityApplyProgress} result={identitySelectedPreview}
+            error={identityApplyError} refreshWarning={identityRefreshWarning} />
+        {identityPreviewSummary.length > 0 && !identitySelectedPreview?.applied ? (
           <div style={identitySummaryRowStyle} aria-label="Identity preview summary">
             {identityPreviewSummary.map((item) => (
               <span key={item.label} style={identitySummaryBadgeStyle}>
@@ -5619,75 +5972,154 @@ function CorporateActionDialog({
           </div>
         ) : null}
 
-        {renderSearchBar(
-          'Find',
-          identitySearchQuery,
-          setIdentitySearchQuery,
-          () =>
-            applyCurrentSymbolFilter(
-              setIdentitySearchQuery,
-              currentUniverseSyncResult
-                ? 'NSE'
-                : bseCurrentUniverseSyncResult
-                  ? 'BSE'
-                  : activeInstrument?.exchange ?? null,
-            ),
-          'Filter preview rows by symbol, company, or ISIN',
-          'Current Chart',
-        )}
 
-        <div style={corporateImportTableStyle}>
-          <div style={identitySyncHeaderStyle}>
-            <span>Action</span>
-            <span>Symbol</span>
-            <span>Series</span>
-            <span>Current</span>
-            <span>Proposed</span>
-            <span>Match/Code</span>
-            <span>Reason</span>
+          <IdentityPreviewTable rows={filteredIdentityPreviewRows} loaded={identitySelectedPreview != null}
+            total={previewCount} busy={busy} sourceMode={identitySourceMode} applied={identitySelectedPreview?.applied}
+            toolbar={renderSearchBar(
+              'Find',
+              identitySearchQuery,
+              setIdentitySearchQuery,
+              () =>
+                applyCurrentSymbolFilter(
+                  setIdentitySearchQuery,
+                  currentUniverseSyncResult
+                    ? 'NSE'
+                    : bseCurrentUniverseSyncResult
+                      ? 'BSE'
+                      : activeInstrument?.exchange ?? null,
+                ),
+              'Filter preview rows by symbol, company, or ISIN',
+              'Current Chart',
+            )} />
+        </>}
+        currentFooter={<>
+          <div><strong>{nothingToApply ? 'Up to date — nothing to apply.' : identityPreviewState(identitySelectedPreview != null, previewCount, filteredIdentityPreviewRows.length, busy, identitySelectedPreview?.applied)}</strong>
+            <span className="identity-review-note">{identitySelectedPreview?.applied ? 'Changes saved. Create a new preview before applying again.' : nothingToApply ? 'Held and outside-coverage records remain unchanged and available for review.' : applyDisabled ? 'Preview and review the current source before applying.' : 'Reviewed preview available. Apply requires confirmation.'}</span></div>
+          <button type="button" style={identityPrimaryButtonStyle} onClick={() => void applySelectedIdentitySource()}
+            disabled={busy || !hasDatabase || !identitySelectedApplyReady} title={nothingToApply ? 'No actionable changes in this preview.' : applyDisabled ? 'A valid reviewed preview and active database are required.' : 'Apply the reviewed current-universe plan'}>
+            Apply Reviewed Changes
+          </button>
+        </>}
+        historical={identityExchange === 'NSE' ? <>
+          <HistoricalApplyStatus progress={historicalApplyProgress} result={nseHistoricalIdentityResult} error={historicalApplyError} refreshWarning={historicalRefreshWarning} />
+          {nseHistoricalIdentityResult ? renderNseHistoricalPreviewPanel() : <p>Not previewed. Preview saved historical symbol and company-name changes to review the dated identity plan.</p>}
+        </> : bseNames.panel}
+        historicalSourceControls={identityExchange === 'BSE' ? bseNames.controls : undefined}
+        historicalSummary={identityExchange === 'BSE' ? bseNames.sourceSummary : undefined}
+        recent={api ? <div className="identity-recent-history">
+          <IdentityApplyHistory key={`${activeDatabasePath}-${identityExchange}-current-history`} exchange={identityExchange}
+            load={() => identityExchange === 'NSE' ? api.listNseIdentityApplyHistory() : api.listBseIdentityApplyHistory()}
+            latest={identitySelectedPreview?.applied ? identitySelectedPreview : null} />
+          {identityExchange === 'NSE' ? <HistoricalApplyHistory key={`${activeDatabasePath}-${nseHistoricalIdentityResult?.runId ?? ''}`}
+          preferenceKey={activeDatabasePath ? `${identityDisplayKey(activeDatabasePath, identityExchange, identitySourceMode)}:reports` : null}
+          load={() => api.listNseHistoricalIdentityApplyHistory()} loadReport={runId => api.getNseHistoricalIdentityApplyReport(runId)} latest={nseHistoricalIdentityResult?.applied ? nseHistoricalIdentityResult : null} /> : <BseNameHistoryReports key={`${activeDatabasePath}-bse-names`} api={api} latest={bseNames.latest}
+            preferenceKey={activeDatabasePath ? `${identityDisplayKey(activeDatabasePath,'BSE',identitySourceMode)}:name-reports` : null} />}
+        </div> : undefined}
+        historicalToolbar={identityExchange === 'NSE' ? <>
+          {identitySourceMode === 'official' ? <button type="button" disabled={busy || !hasDatabase}
+            onClick={() => void refreshNseIdentitySources()}>Refresh NSE Sources</button> : null}
+          <button type="button" onClick={() => void previewNseHistoricalIdentityArchive()}
+            disabled={busy || !hasDatabase || (identitySourceMode === 'manual' && !identityArchiveRoot.trim())}>Preview Historical Identity</button>
+        </> : bseNames.toolbar}
+        historicalFooter={identityExchange === 'NSE' ? <>
+          <div><strong>{historicalCommitConfirmed ? 'Completed — historical identity saved' : nseHistoricalIdentityResult && historicalChangeCount(nseHistoricalIdentityResult) === 0 ? 'Up to date — nothing to apply' : nseHistoricalIdentityResult ? `${nseHistoricalIdentityResult.historyRows.length} historical rows in preview` : 'Not previewed'}</strong>
+            <span className="identity-review-note">{historicalCommitConfirmed ? 'View Recent Applied for this completed run. Create a fresh preview before applying again.' : nseHistoricalIdentityResult && historicalChangeCount(nseHistoricalIdentityResult) === 0 ? 'No actionable changes. Informational records remain available for review.' : historicalDisabled ? 'A valid reviewed historical plan is required.' : 'Reviewed historical plan available. Apply requires confirmation.'}</span></div>
+          <button type="button" style={identityPrimaryButtonStyle} onClick={() => void applyNseHistoricalIdentityArchive()}
+            disabled={historicalDisabled} title="Apply only the reviewed historical identity plan">Apply Reviewed Historical Identity</button>
+        </> : bseNames.footer}
+        diagnostics={<>
+          <div className="identity-workspace-toolbar">
+            <button type="button" onClick={() => void checkOfficialSourceHealth()} disabled={busy || !hasDatabase}
+              title="Checks all configured NSE and BSE sources; does not refresh saved import files">Check Source Health</button>
+            <span>Checks all exchanges. Results initially show {identityExchange}.</span>
           </div>
-          <div style={quotesBodyStyle}>
-            {filteredIdentityPreviewRows.map((row) => (
-              <div key={`${row.source}-${row.action}-${row.symbol}-${row.proposedStatus}`} style={identitySyncRowStyle}>
-                <span style={corporateCellStyle}>{row.action}</span>
-                <span
-                  style={corporateCellStyle}
-                  title={[row.companyName, row.isin].filter(Boolean).join(' | ')}
-                >
-                  {row.symbol}
-                </span>
-                <span style={corporateCellStyle}>{row.series ?? '-'}</span>
-                <span style={corporateCellStyle}>{row.currentStatus}</span>
-                <span style={corporateCellStyle}>{row.proposedStatus}</span>
-                <span style={corporateCellStyle}>{row.matchValue ?? '-'}</span>
-                <span style={corporatePurposeCellStyle} title={row.reason}>
-                  {row.reason}
-                </span>
-              </div>
-            ))}
-            {!currentUniverseSyncResult && !bseCurrentUniverseSyncResult ? (
-              <div style={corporateEmptyStateStyle}>No current-universe preview loaded.</div>
-            ) : (currentUniverseSyncResult?.previewRows.length ?? bseCurrentUniverseSyncResult?.previewRows.length ?? 0) === 0 ? (
-              <div style={corporateEmptyStateStyle}>Preview loaded with no symbol-status changes.</div>
-            ) : filteredIdentityPreviewRows.length === 0 ? (
-              <div style={corporateEmptyStateStyle}>
-                No pending {identityExchange} identity changes match this filter.
-              </div>
-            ) : null}
-          </div>
-        </div>
-      </div>
+          {renderOfficialSourceHealthPanel()}
+        </>}
+      />
+      {identityConfirmation.dialog}
+      {bseNames.confirmationDialog}
+    </>
   );
 
   const compactPendingReview =
     activeOfficialImportSection === 'review' && !showingApprovedImports;
+  const dividendVerificationTerminal = officialTaskProgress?.stage === 'dividend-verified' ||
+    officialTaskProgress?.stage === 'dividend-stopped';
   const pendingCompactMessage = busy && officialTaskProgress && officialTaskProgress.endedAt == null
     ? officialTaskProgress.message
+    : dividendVerificationTerminal && officialTaskProgress ? officialTaskProgress.message
     : status || (officialPreparationComplete
         ? `Prepared ${importRows.length} pending action(s). Ready ${eligibleImportRows.length}; selected ${selectedEligibleImportRows.length}.`
-        : 'Choose Load & Prepare. The app will perform routine matching and Split/Bonus checks before you review and apply.');
+        : 'Choose Load & Validate. The app will perform routine matching and Split/Bonus checks before you review and apply.');
   const pendingCompactTaskIsCurrent = officialTaskProgress != null &&
-    (officialTaskProgress.endedAt == null || !status || status === officialTaskProgress.message);
+    (officialTaskProgress.endedAt == null || dividendVerificationTerminal ||
+      !status || status === officialTaskProgress.message);
+
+  const classicRows = useMemo<ClassicActionRow[]>(() => {
+    const readyIds = new Set(eligibleImportRows.map(row => row.id));
+    return visibleImportRows.map(row => {
+      const existing = existingDividendByImportId[row.id]?.row === row ? existingDividendByImportId[row.id] : undefined;
+      const ready = !busy && !existing && readyIds.has(row.id);
+      const disposition = officialDividendPreparedScopeDispositionByImportId.get(row.id);
+      let label = officialImportUserStatus(row,latestScanByImportId.get(row.id),officialPreparationErrors[row.id],officialPreparationComplete,true);
+      let category: ClassicStatus = 'review';
+      if (row.reviewStatus === 'APPROVED' || row.approvedCorporateActionId != null) { label='Approved';category='approved'; }
+      else if (existing) { label='Already Processed';category='processed'; }
+      else if (isInformationalCorporateAnnouncement(row)) { label='Informational';category='informational'; }
+      else if (busy || !officialPreparationComplete) { label=busy?'Checking…':'Not validated';category='checking'; }
+      else if (ready) { label='Ready';category='ready'; }
+      else {
+        if (row.actionType === 'DIVIDEND' && disposition?.disposition === 'INELIGIBLE') {
+          const reason=disposition.reason;
+          label=/identity/i.test(reason)?'Awaiting identity evidence':/official.source|witness/i.test(reason)?'Awaiting official source evidence'
+            :/close|trade date|EOD/i.test(reason)?'Waiting for EOD data':/cash|wording|components/i.test(reason)?'Cash evidence needs verification':'Needs evidence verification';
+        } else if (row.actionType === 'DIVIDEND' && row.parseStatus === 'PARSED' && row.reviewStatus === 'PENDING') {
+          label='Awaiting Dividend verification';
+        } else if (/Ready to/i.test(label)) label='Not eligible for current workflow';
+        category=/Awaiting|Waiting|Scheduled/i.test(label)?'waiting':'review';
+      }
+      return {record:row,ready,status:label,category,terms:formatCorporateActionDescription(row)};
+    });
+  },[visibleImportRows,busy,officialPreparationComplete,officialPreparationErrors,latestScanByImportId,
+    officialDividendPreparedScopeDispositionByImportId,currentOfficialDividendWriteStageScope,existingDividendByImportId]);
+
+  const clearClassicSelection = () => { setSelectedImportIds(new Set());setOfficialApprovalConfirmation(null); };
+  const showClassicQueue = () => {
+    if (activeOfficialImportView === 'review' &&
+        (activeCorporateTab !== 'imports' || activeOfficialImportSection !== 'review')) restorePendingReview();
+    setActiveCorporateTab('imports');setActiveOfficialImportSection('review');setClassicReview(true);
+    setOfficialSafeV2SkippedOnly(false);setSelectedImportActionTypes([...CORPORATE_IMPORT_FILTER_TYPES]);
+  };
+  const renderClassicImports = () => <CorporateActionClassicWorkspace
+    rows={classicRows} loadedCount={importRows.length} selectedIds={selectedImportIds}
+    busy={busy} hasDatabase={hasDatabase} approved={showingApprovedImports}
+    exchange={officialFetchExchangeSelection} fromDate={fetchFromDate} toDate={fetchToDate}
+    types={classicTypeFilters} search={importSearchQuery} filterResetKey={classicFilterResetKey} message={pendingCompactMessage}
+    progress={officialTaskProgress ? {startedAt:officialTaskProgress.startedAt,endedAt:officialTaskProgress.endedAt??null,
+      completed:officialTaskProgress.completed??0,total:officialTaskProgress.total??null}:undefined} canCancel={officialCanCancelPreparation}
+    onCancel={()=>{officialCancelPreparationRef.current=true;setOfficialCanCancelPreparation(false);}}
+    onFetch={()=>void fetchOfficialActions()} onValidate={()=>void (showingApprovedImports?loadOfficialImports():loadAndPrepareOfficialImports())}
+    onViewChange={approved=>void switchOfficialImportView(approved?'approved':'review')}
+    onExchangeChange={value=>setOfficialFetchExchangeSelection(value as OfficialFetchExchangeSelection)}
+    onDateChange={(from,to)=>{setFetchFromDate(from);setFetchToDate(to);}}
+    onTypesChange={value=>{setClassicTypeFilters(value);setSelectedImportActionTypes([...CORPORATE_IMPORT_FILTER_TYPES]);}}
+    onSearchChange={value=>updateOfficialImportSearchQuery(value)}
+    onCurrentSymbol={()=>applyCurrentSymbolFilter(updateOfficialImportSearchQuery,importExchange)}
+    onToggleMany={(ids,checked)=>{setSelectedImportIds(old=>{const next=new Set(old);for(const id of ids){if(checked)next.add(id);else next.delete(id);}return next;});setOfficialApprovalConfirmation(null);}} onFilterChange={clearClassicSelection}
+    onApprove={(mode,ids)=>void requestOfficialImportApproval(mode,ids)}
+    renderDetails={row=><>
+      <dl><dt>ISIN</dt><dd>{row.isin??'Unavailable'}</dd><dt>Official purpose</dt><dd>{row.purposeRaw}</dd>
+        <dt>Source evidence</dt><dd style={{whiteSpace:'pre-wrap',overflowWrap:'anywhere'}}>{formatCorporateImportEvidenceTitle(row)}</dd></dl>
+      <p>{officialPreparationErrors[row.id]??row.message}</p>
+      {existingDividendByImportId[row.id]?.row === row ? <p>Already represented by verified canonical Dividend #{existingDividendByImportId[row.id].corporateActionId}. No new adjustment required; this source row has not been marked approved.</p> : null}
+      <OfficialDividendPreparedScopeDispositionDetails disposition={officialDividendPreparedScopeDispositionByImportId.get(row.id)} />
+      {latestScanByImportId.get(row.id)?<dl><dt>Previous close</dt><dd>{latestScanByImportId.get(row.id)?.prevClose??'Unavailable'}</dd>
+        <dt>Ex-date close</dt><dd>{latestScanByImportId.get(row.id)?.exClose??'Unavailable'}</dd>
+        <dt>Price check</dt><dd>{latestScanByImportId.get(row.id)?.message??latestScanByImportId.get(row.id)?.scanStatus}</dd></dl>:null}
+      {row.actionType!=='DIVIDEND' && ['UNRESOLVED','PENDING_ISIN_MISMATCH'].includes(row.reviewStatus)?
+        <button type="button" disabled={busy} onClick={()=>{setClassicReview(false);startResolveImport(row);}}>Advanced identity maintenance</button>:null}
+      {isSplitOrBonus(row)&&!isOfficialRowReady(row)?<button type="button" disabled={busy} onClick={()=>{setClassicReview(false);startPriceExceptionReview(row);}}>Advanced price maintenance</button>:null}
+    </>} />;
 
   const renderImportsTab = () => (
     <div style={corporateActionPanelStyle}>
@@ -5704,7 +6136,7 @@ function CorporateActionDialog({
           style={corporateActionTabButtonStyle(activeOfficialImportSection === 'fetch')}
           onClick={() => setActiveOfficialImportSection('fetch')}
         >
-          Fetch &amp; Import
+          Fetch from Officials
         </button>
         <button
           type="button"
@@ -5737,8 +6169,12 @@ function CorporateActionDialog({
           <div style={pendingCompactControlsStyle} aria-label="Pending Actions compact controls">
             <div data-ca-review-band="actions" style={pendingCompactActionsStyle}>
               <div style={pendingCompactActionGroupStyle}>
+  <select aria-label="Official fetch exchange scope" value={officialFetchExchangeSelection} onChange={(event) => setOfficialFetchExchangeSelection(event.target.value as OfficialFetchExchangeSelection)} style={{ ...utilityInputStyle, width: 108 }} disabled={busy}><option value="BOTH">NSE + BSE</option><option value="NSE">NSE</option><option value="BSE">BSE</option></select>
+  <input type="date" aria-label="Official fetch from date" value={fetchFromDate} max={fetchToDate || undefined} onChange={(event) => setFetchFromDate(event.target.value)} style={{ ...utilityInputStyle, width: 128 }} disabled={busy} />
+  <input type="date" aria-label="Official fetch to date" value={fetchToDate} min={fetchFromDate || undefined} onChange={(event) => setFetchToDate(event.target.value)} style={{ ...utilityInputStyle, width: 128 }} disabled={busy} />
+  <button type="button" style={primaryButtonStyle} onClick={() => void fetchOfficialActions()} disabled={busy || !hasDatabase || !fetchFromDate || !fetchToDate || fetchFromDate > fetchToDate}>Fetch Official</button>
                 <button type="button" style={primaryButtonStyle} onClick={() => void loadAndPrepareOfficialImports()} disabled={busy || !hasDatabase}>
-                  Load &amp; Prepare
+                  Load &amp; Validate
                 </button>
                 <button
                   type="button"
@@ -5746,7 +6182,7 @@ function CorporateActionDialog({
                   onClick={() => void approveSelectedOfficialImports()}
                   disabled={busy || !hasDatabase || !officialPreparationComplete || selectedEligibleImportRows.length === 0}
                 >
-                  Apply Selected ({selectedEligibleImportRows.length})
+                  Approve Selected ({selectedEligibleImportRows.length})
                 </button>
                 <button
                   type="button"
@@ -5754,7 +6190,7 @@ function CorporateActionDialog({
                   onClick={() => void approveAllReadyOfficialImports()}
                   disabled={busy || !hasDatabase || !officialPreparationComplete || eligibleImportRows.length === 0}
                 >
-                  Apply All Ready ({eligibleImportRows.length})
+                  Approve All Ready ({eligibleImportRows.length})
                 </button>
               </div>
               <div style={pendingCompactViewActionsStyle}>
@@ -5840,6 +6276,52 @@ function CorporateActionDialog({
                 <span>Ready {eligibleImportRows.length}</span>
                 <span>Selected {selectedEligibleImportRows.length}</span>
               </div>
+              {allTypePendingSummary ? (
+                <details style={pendingDiagnosticDisclosureStyle}>
+                  <summary style={{ cursor: 'pointer' }}>
+                    All action types — {allTypePendingSummary.totals.pending.toLocaleString('en-IN')} not approved ·
+                    {' '}{allTypePendingSummary.totals.ready.toLocaleString('en-IN')} Ready ·
+                    {' '}{allTypePendingSummary.totals.blocked.toLocaleString('en-IN')} Blocked
+                    {' · '}{allTypePendingSummary.totals.informational.toLocaleString('en-IN')} Informational
+                  </summary>
+                  <div style={pendingDiagnosticTableViewportStyle}>
+                    <table aria-label="Corporate Actions pending by type" style={pendingDiagnosticTableStyle}>
+                      <thead><tr>
+                        <th scope="col" style={pendingDiagnosticLabelCellStyle}>Type</th>
+                        <th scope="col" style={pendingDiagnosticNumberCellStyle}>Not approved</th>
+                        <th scope="col" style={pendingDiagnosticNumberCellStyle}>Ready</th>
+                        <th scope="col" style={pendingDiagnosticNumberCellStyle}>Blocked</th>
+                        <th scope="col" style={pendingDiagnosticNumberCellStyle}>Informational</th>
+                      </tr></thead>
+                      <tbody>{allTypePendingSummary.rows.map(item => (
+                        <tr key={item.actionType}>
+                          <th scope="row" style={pendingDiagnosticLabelCellStyle}>{item.actionType}</th>
+                          <td style={pendingDiagnosticNumberCellStyle}>{item.pending.toLocaleString('en-IN')}</td>
+                          <td style={pendingDiagnosticNumberCellStyle}>{item.ready.toLocaleString('en-IN')}</td>
+                          <td style={pendingDiagnosticNumberCellStyle}>{item.blocked.toLocaleString('en-IN')}</td>
+                          <td style={pendingDiagnosticNumberCellStyle}>{item.informational.toLocaleString('en-IN')}</td>
+                        </tr>
+                      ))}</tbody>
+                      <tfoot><tr>
+                        <th scope="row" style={pendingDiagnosticLabelCellStyle}>TOTAL</th>
+                        <td style={pendingDiagnosticNumberCellStyle}>{allTypePendingSummary.totals.pending.toLocaleString('en-IN')}</td>
+                        <td style={pendingDiagnosticNumberCellStyle}>{allTypePendingSummary.totals.ready.toLocaleString('en-IN')}</td>
+                        <td style={pendingDiagnosticNumberCellStyle}>{allTypePendingSummary.totals.blocked.toLocaleString('en-IN')}</td>
+                        <td style={pendingDiagnosticNumberCellStyle}>{allTypePendingSummary.totals.informational.toLocaleString('en-IN')}</td>
+                      </tr></tfoot>
+                    </table>
+                  </div>
+                  <details style={pendingDiagnosticDisclosureStyle}>
+                    <summary style={{ cursor: 'pointer' }}>Copyable type report</summary>
+                    <textarea aria-label="All CA pending type report" readOnly
+                      value={formatCaPendingTypeReport(allTypePendingSummary)} rows={6}
+                      style={pendingDiagnosticReportStyle} />
+                  </details>
+                  <div style={{ ...corporateIssueHintTextStyle, whiteSpace: 'normal' }}>
+                    Counts cover the loaded pending queue, not all historical approvals. Ready does not mean approved.
+                  </div>
+                </details>
+              ) : null}
               <div style={pendingCompactStatusPresentationStyle}>
                 {pendingCompactTaskIsCurrent && officialTaskProgress ? (
                   <OfficialImportTaskStatus
@@ -5859,6 +6341,11 @@ function CorporateActionDialog({
                 )}
                 <OfficialSafeV2OutcomeSummary result={currentOfficialAutoApproval} />
                 <OfficialDividendPreparedScopeOutcomeSummary outcome={currentOfficialDividendPreparedScopeOutcome} />
+                <div role="group" aria-label="Dividend R1 write-stage activation status" style={corporateIssueHintTextStyle}>
+                  Dividend R1: {currentOfficialDividendWriteStageScope
+                    ? `${currentOfficialDividendPreparedScopeOutcome?.result.eligible ?? 0} independently verified; only explicitly confirmed Ready IDs may be applied.`
+                    : 'No current verified Dividend batch.'} No automatic approval occurs during Load.
+                </div>
               </div>
             </div>
           </div>
@@ -5915,6 +6402,7 @@ function CorporateActionDialog({
               <span style={utilityFieldLabelStyle}>Exchange</span>
               <select
                 value={officialFetchExchangeSelection}
+              disabled={busy}
                 onChange={(event) =>
                   setOfficialFetchExchangeSelection(event.target.value as OfficialFetchExchangeSelection)
                 }
@@ -5930,6 +6418,7 @@ function CorporateActionDialog({
               <input
                 type="date"
                 value={fetchFromDate}
+                disabled={busy}
                 max={fetchToDate || undefined}
                 onChange={(event) => setFetchFromDate(event.target.value)}
                 style={utilityInputStyle}
@@ -5940,6 +6429,7 @@ function CorporateActionDialog({
               <input
                 type="date"
                 value={fetchToDate}
+                disabled={busy}
                 min={fetchFromDate || undefined}
                 onChange={(event) => setFetchToDate(event.target.value)}
                 style={utilityInputStyle}
@@ -5961,6 +6451,22 @@ function CorporateActionDialog({
             >
               Force Re-fetch
             </button>
+            {officialFetchRunning ? (
+              <button
+                type="button"
+                style={modalButtonStyle}
+                disabled={officialFetchCancelRequested.current}
+                onClick={async () => {
+                  officialFetchCancelRequested.current = true;
+                  setStatus('Stopping official fetch at a safe request boundary. Completed windows remain saved.');
+                  setCorporateProgress({ progress: 0, message: 'Stopping official fetch at a safe request boundary. Completed windows remain saved.' });
+                  try { await api?.cancelOfficialCorporateActionFetch(); }
+                  catch (error) { setStatus(getErrorMessage(error, 'Could not request fetch cancellation.')); }
+                }}
+              >
+                Cancel Fetch
+              </button>
+            ) : null}
           </div>
           <div style={officialFetchLastSuccessStyle}>
             Last successful fetch: {formatCorporateActionNormalLastFetch(lastSuccessfulOfficialFetch)}
@@ -5972,6 +6478,37 @@ function CorporateActionDialog({
                 <li key={String(index) + ':' + entry}>{entry}</li>
               ))}
             </ol>
+          ) : null}
+          {bseFetchFailed ? (
+            <div role="status" style={utilityHelperTextStyle}>
+              Automatic BSE collection did not finish. Completed NSE results and BSE windows are saved.
+              Select BSE and use Fetch Official to resume the remaining dates.
+              <div style={buttonRowStyle}>
+                <button
+                  type="button"
+                  style={modalButtonStyle}
+                  disabled={busy || !api}
+                  onClick={async () => {
+                    try {
+                      const result = await requireDesktopShellApi().openExternal('https://www.bseindia.com/corporates/corporates_act');
+                      if (!result.success) setStatus('Could not open the official BSE page.');
+                    } catch (error) {
+                      setStatus(getErrorMessage(error, 'Could not open the official BSE page.'));
+                    }
+                  }}
+                >
+                  Open official BSE page
+                </button>
+                <button
+                  type="button"
+                  style={modalButtonStyle}
+                  disabled={busy}
+                  onClick={() => setOfficialFetchExchangeSelection('BSE')}
+                >
+                  Select BSE only for retry
+                </button>
+              </div>
+            </div>
           ) : null}
         </div>
       ) : null}
@@ -6193,7 +6730,7 @@ function CorporateActionDialog({
               <strong>Confirm apply</strong>
               <span>
                 Apply {officialApprovalConfirmation.importIds.length} ready action(s) from {officialApprovalConfirmation.scopeLabel}.
-                Only the reviewed IDs will be considered; the app rechecks them before writing.
+                Only the reviewed IDs will be considered; the app freshly revalidates them before writing. Dividends use 100-ID guarded transactions.
               </span>
               <div style={buttonRowStyle}>
                 <button type="button" style={modalButtonStyle} onClick={() => setOfficialApprovalConfirmation(null)} disabled={busy}>Cancel</button>
@@ -6204,6 +6741,7 @@ function CorporateActionDialog({
           <div
             style={{
               ...corporateImportTableStyle,
+              minHeight: compactPendingReview ? 160 : corporateImportTableStyle.minHeight,
               display: (resolveTargetRow || priceExceptionTargetRow) && !showingApprovedImports ? 'none' : 'flex',
             }}
           >
@@ -6223,11 +6761,14 @@ function CorporateActionDialog({
               {!showingApprovedImports
                 ? officialPendingGroups.map((group) => {
                     const readyRows = group.rows.filter((row) =>
-                      officialPreparationComplete &&
-                      !officialPreparationErrors[row.id] &&
-                      isApprovableCorporateImport(row, latestScanByImportId.get(row.id)),
+                      isOfficialRowReady(row),
                     );
-                    const reasonCounts = summarizeOfficialImportReadiness(group.rows, latestScanByImportId, officialPreparationErrors, officialPreparationComplete);
+                    const reasonCounts = summarizeOfficialImportReadiness(group.rows, latestScanByImportId, officialPreparationErrors, officialPreparationComplete, true);
+                    const eligibleDividendsInGroup = group.rows.filter((row) => row.actionType === 'DIVIDEND' && isOfficialRowReady(row)).length;
+                    if (eligibleDividendsInGroup) {
+                      reasonCounts['Waiting for EOD Data'] = Math.max(0, (reasonCounts['Waiting for EOD Data'] ?? 0) - eligibleDividendsInGroup);
+                      reasonCounts['Ready to approve'] = (reasonCounts['Ready to approve'] ?? 0) + eligibleDividendsInGroup;
+                    }
                     const reasonSummary = Object.entries(reasonCounts).map(([reason,count]) => `${count} ${reason.toLowerCase()}`).join(' · ');
                     const selectedReady = readyRows.filter((row) => selectedImportIds.has(row.id));
                     const expanded = expandedOfficialGroupKeys.has(group.key);
@@ -6270,11 +6811,18 @@ function CorporateActionDialog({
                         </div>
                         {expanded ? group.rows.map((row) => {
                           const scan = latestScanByImportId.get(row.id);
-                          const approvalState = getCorporateActionApprovalState(row, scan);
+                          const approvalState = row.actionType === 'DIVIDEND' ? (isOfficialRowReady(row) ? 'READY TO APPROVE' : 'NEEDS REVIEW') : getCorporateActionNormalApprovalState(row, scan);
                           const canApprove = officialPreparationComplete && !officialPreparationErrors[row.id] && approvalState === 'READY TO APPROVE';
-                          const statusLabel = officialImportUserStatus(row, scan, officialPreparationErrors[row.id], officialPreparationComplete);
-                          const needsIdentityDecision = row.reviewStatus === 'UNRESOLVED' || row.reviewStatus === 'PENDING_ISIN_MISMATCH';
-                          const needsPriceDecision = isSplitOrBonus(row) && approvalState === 'NEEDS REVIEW';
+                          const dividendDisposition = officialDividendPreparedScopeDispositionByImportId.get(row.id);
+                          const statusLabel = row.actionType === 'DIVIDEND' && currentOfficialDividendWriteStageScope
+                            ? canApprove ? 'Ready to approve (verified Dividend R1)'
+                              : dividendDisposition ? `Blocked — ${dividendDisposition.disposition.toLowerCase().replaceAll('_', ' ')}`
+                                : row.parseStatus !== 'PARSED' || ['UNRESOLVED', 'PENDING_ISIN_MISMATCH'].includes(row.reviewStatus)
+                                  ? officialImportUserStatus(row, scan, officialPreparationErrors[row.id], officialPreparationComplete, true)
+                                  : 'Awaiting Dividend R1 evidence verification'
+                            : officialImportUserStatus(row, scan, officialPreparationErrors[row.id], officialPreparationComplete, true);
+                          const needsIdentityEvidence = row.actionType !== 'DIVIDEND' && ['UNRESOLVED', 'PENDING_ISIN_MISMATCH'].includes(row.reviewStatus);
+                          const needsPriceReview = isSplitOrBonus(row) && approvalState === 'NEEDS REVIEW';
                           return (
                             <div key={row.id} style={officialPendingActionRowStyle}>
                               <input
@@ -6291,6 +6839,7 @@ function CorporateActionDialog({
                               <span style={corporateCellStyle}>{row.exDate ?? '-'}</span>
                               <span style={corporateEvidenceSourceCellStyle}>
                                 <strong>{statusLabel}</strong>
+                                {!canApprove && row.actionType !== 'DIVIDEND' ? <span style={{ ...corporateIssueHintTextStyle, whiteSpace: 'normal' }}>{row.message ?? scan?.message}</span> : null}
                                 {officialPreparationErrors[row.id] ? <span style={corporateIssueHintTextStyle}>{officialPreparationErrors[row.id]}</span> : null}
                                 {!officialPreparationErrors[row.id] ? (
                                   <OfficialSafeV2SkippedReason reason={officialAutoApprovalSkippedReasons.get(row.id)} />
@@ -6300,10 +6849,15 @@ function CorporateActionDialog({
                                 />
                               </span>
                               <span style={corporateCellStyle}>
-                                {needsIdentityDecision ? (
-                                  <button type="button" style={modalButtonStyle} onClick={() => startResolveImport(row)} disabled={busy}>Review identity</button>
-                                ) : needsPriceDecision ? (
-                                  <button type="button" style={modalButtonStyle} onClick={() => startPriceExceptionReview(row)} disabled={busy}>Review price</button>
+                                {!canApprove && (needsIdentityEvidence || needsPriceReview) ? (
+                                  <details>
+                                    <summary>Advanced</summary>
+                                    {needsIdentityEvidence ? (
+                                      <button type="button" style={modalButtonStyle} onClick={() => startResolveImport(row)} disabled={busy}>Review identity</button>
+                                    ) : isSplitOrBonus(row) && approvalState === 'NEEDS REVIEW' ? (
+                                      <button type="button" style={modalButtonStyle} onClick={() => startPriceExceptionReview(row)} disabled={busy}>Review price</button>
+                                    ) : null}
+                                  </details>
                                 ) : null}
                               </span>
                             </div>
@@ -6361,7 +6915,7 @@ function CorporateActionDialog({
                     ? 'Review previously approved official Corporate Actions here. Split/Bonus rows show separate share and price multipliers when validation evidence is loaded.'
                     : officialPreparationComplete
                       ? `Prepared ${importRows.length} pending action(s). Ready ${eligibleImportRows.length}; selected ${selectedEligibleImportRows.length}.`
-                      : 'Choose Load & Prepare. The app will perform routine matching and Split/Bonus checks before you review and apply.' )}
+                      : 'Choose Load & Validate. The app will perform routine matching and Split/Bonus checks before you review and apply.' )}
         </div>
       ) : null}
     </div>
@@ -7258,29 +7812,98 @@ function CorporateActionDialog({
 
   return (
     <FloatingWindow id={CORPORATE_ACTIONS_WINDOW_ID} onClose={handleClose}>
-      <div style={corporateActionShellStyle}>
-        <div style={corporateActionTabRowStyle}>
-          <button type="button" style={corporateActionTabButtonStyle(activeCorporateTab === 'manual')} onClick={() => setActiveCorporateTab('manual')}>
-            Manual Entry
-          </button>
-          <button type="button" style={corporateActionTabButtonStyle(activeCorporateTab === 'identity')} onClick={() => setActiveCorporateTab('identity')}>
-            Identity Import
-          </button>
-          <button type="button" style={corporateActionTabButtonStyle(activeCorporateTab === 'imports')} onClick={() => setActiveCorporateTab('imports')}>
-            Official Imports
-          </button>
-          <button type="button" style={corporateActionTabButtonStyle(activeCorporateTab === 'scan')} onClick={() => setActiveCorporateTab('scan')}>
-            Scan Database
-          </button>
-          <button type="button" style={corporateActionTabButtonStyle(activeCorporateTab === 'issues')} onClick={() => setActiveCorporateTab('issues')}>
-            Review Issues
-          </button>
-        </div>
+      <div style={{...corporateActionShellStyle,gap:0}}>
+        <nav className="ca-classic-menubar" aria-label="Corporate Actions menu">
+          <CorporateActionClassicMenu label="Actions" items={[
+            {label:'Return to review queue',disabled:busy,onClick:showClassicQueue},
+            {label:'Fetch official actions',disabled:busy||showingApprovedImports||!hasDatabase||!fetchFromDate||!fetchToDate||fetchFromDate>fetchToDate,onClick:()=>void fetchOfficialActions()},
+            {label:'Load & Validate',disabled:busy||showingApprovedImports||!hasDatabase,onClick:()=>{showClassicQueue();void loadAndPrepareOfficialImports();}},
+            {label:'Load more approved actions',disabled:busy||!hasDatabase||!showingApprovedImports,onClick:()=>void loadMoreOfficialImports()},
+          ]} />
+          <CorporateActionClassicMenu label="View" items={[
+            {label:'Pending actions',disabled:busy,onClick:()=>{showClassicQueue();void switchOfficialImportView('review');}},
+            {label:'Approved actions',disabled:busy,onClick:()=>{showClassicQueue();void switchOfficialImportView('approved');}},
+            {label:'Clear all filters',onClick:()=>{clearClassicSelection();setClassicFilterResetKey(key=>key+1);setClassicTypeFilters([...CLASSIC_ACTION_TYPES]);setSelectedImportActionTypes([...CORPORATE_IMPORT_FILTER_TYPES]);setOfficialReviewSymbolFilter('ALL');setOfficialSafeV2SkippedOnly(false);updateOfficialImportSearchQuery('');}},
+          ]} />
+          <CorporateActionClassicMenu label="Reports" items={[
+            {label:'Pending actions by type',onClick:()=>setClassicReport('types')},
+            {label:'Dividend verification reasons',onClick:()=>{setClassicReport('dividends');void openSavedValidationHistory();}},
+            {label:'Activity and validation details',onClick:()=>{setClassicReport('activity');void openSavedValidationHistory();}},
+            {label:'Recent approved actions',disabled:busy||!hasDatabase||recentApprovalsLoading,onClick:()=>void openRecentApprovals()},
+            {label:'Reconciliation / Export CSV-TXT',disabled:busy||!hasDatabase,onClick:()=>setReconciliationOpen(true)},
+          ]} />
+          <CorporateActionClassicMenu label="Tools" items={[
+            {label:'Manual Entry',disabled:busy,onClick:()=>setActiveCorporateTab('manual')},
+            {label:'Identity Import',disabled:busy,onClick:()=>setActiveCorporateTab('identity')},
+            {label:'Official source settings / CSV import',disabled:busy,onClick:()=>{setActiveCorporateTab('imports');setActiveOfficialImportSection('fetch');}},
+            {label:'Historical Backfill',disabled:busy,onClick:()=>{setActiveCorporateTab('imports');setActiveOfficialImportSection('history');}},
+            {label:'Scan Database',disabled:busy,onClick:()=>setActiveCorporateTab('scan')},
+            {label:'Review Issues',disabled:busy,onClick:()=>setActiveCorporateTab('issues')},
+            {label:'Advanced review workspace',disabled:busy,onClick:()=>{if(activeOfficialImportView==='review')restorePendingReview();setActiveCorporateTab('imports');setActiveOfficialImportSection('review');setClassicReview(false);}},
+          ]} />
+          <CorporateActionClassicMenu label="Help" items={[{label:'Corporate Actions workflow',onClick:()=>setClassicReport('help')}]} />
+          {activeCorporateTab!=='imports'||activeOfficialImportSection!=='review'||!classicReview?<span className="ca-classic-active-tool">Advanced tools · <button type="button" disabled={busy} onClick={showClassicQueue}>Return to queue</button></span>:null}
+        </nav>
         {activeCorporateTab === 'manual' ? renderManualTab() : null}
         {activeCorporateTab === 'identity' ? renderIdentityTab() : null}
-        {activeCorporateTab === 'imports' ? renderImportsTab() : null}
+        {activeCorporateTab === 'imports' ? classicReview && activeOfficialImportSection === 'review' ? renderClassicImports() : renderImportsTab() : null}
         {activeCorporateTab === 'scan' ? renderScanTab() : null}
         {activeCorporateTab === 'issues' ? renderIssuesTab() : null}
+        {classicReview && activeCorporateTab==='imports' && activeOfficialImportSection==='review' && officialApprovalConfirmation ?
+          <CorporateActionClassicDialog title="Confirm Corporate Action approval" onClose={()=>{if(!busy)setOfficialApprovalConfirmation(null);}}>
+            <p>Approve {officialApprovalConfirmation.importIds.length} Ready action(s) from {officialApprovalConfirmation.scopeLabel}.</p>
+            <p>Only these reviewed actions will be submitted. The app rechecks the active database, source evidence and prices before writing.</p>
+            <p>Ready does not mean approved. Charts refresh after a successful approval.</p>
+            <div style={buttonRowStyle}><button type="button" disabled={busy} onClick={()=>setOfficialApprovalConfirmation(null)}>Cancel</button>
+              <button type="button" disabled={busy} onClick={()=>void confirmOfficialImportApproval()}>Approve reviewed actions</button></div>
+          </CorporateActionClassicDialog>:null}
+        {classicReport ? <CorporateActionClassicDialog title={classicReport==='types'?'Pending actions by type':classicReport==='dividends'?'Dividend verification reasons':classicReport==='approved'?'Recent approved actions':classicReport==='help'?'Corporate Actions workflow':'Activity and validation details'} onClose={()=>setClassicReport(null)}>
+          {lastScanReport && (busy || !officialPreparationComplete || showingApprovedImports) && classicReport !== 'approved' && classicReport !== 'help' ? <p role="status">Last scan: {formatApprovalTime(lastScanReport.at)}. Historical report only — counts may have changed; Load & Validate before approval.</p> : null}
+          {approvalFailureReport && classicReport !== 'help' ? <p role="alert">Last approval failure ({formatApprovalTime(approvalFailureReport.at)}): {approvalFailureReport.message}</p> : null}
+          {validationHistoryWarning && classicReport !== 'approved' && classicReport !== 'help' ? <p role="alert">Validation history warning: {validationHistoryWarning}</p> : null}
+          {classicReport==='types'?pendingReportSummary?<>
+            <p>All loaded pending actions. Ready requires explicit approval; informational announcements require no adjustment.</p>
+            <table><thead><tr><th>Type</th><th>Not approved</th><th>Ready</th><th>Blocked</th><th>Informational</th></tr></thead>
+              <tbody>{[...pendingReportSummary.rows,{actionType:'TOTAL',...pendingReportSummary.totals}].map(item=><tr key={item.actionType}><th scope="row">{item.actionType}</th><td>{item.pending}</td><td>{item.ready}</td><td>{item.blocked}</td><td>{item.informational}</td></tr>)}</tbody></table>
+            <details><summary>Copyable type report</summary><textarea aria-label="All CA pending type report" readOnly value={formatCaPendingTypeReport(pendingReportSummary)} /></details>
+          </>:<p>Load & Validate to prepare the pending summary.</p>:null}
+          {classicReport==='dividends'?<>
+            <OfficialDividendPreparedScopeOutcomeSummary outcome={reportDividendOutcome} />
+            <SavedCorporateActionValidationHistory history={savedValidationHistoryReport}
+              loading={savedValidationHistoryLoading} onRefresh={()=>void openSavedValidationHistory()}
+              onLoadMore={()=>void openSavedValidationHistory(true)} />
+          </>:null}
+          {classicReport==='activity'?<>
+            <p>{status||pendingCompactMessage}</p>
+            {officialTaskProgress?<OfficialImportTaskStatus progress={officialTaskProgress} canCancel={officialCanCancelPreparation} onCancel={()=>{officialCancelPreparationRef.current=true;setOfficialCanCancelPreparation(false);}} />:null}
+            <OfficialSafeV2OutcomeSummary result={currentOfficialAutoApproval} />
+            <OfficialDividendPreparedScopeOutcomeSummary outcome={reportDividendOutcome} />
+            <SavedCorporateActionValidationHistory history={savedValidationHistoryReport}
+              loading={savedValidationHistoryLoading} onRefresh={()=>void openSavedValidationHistory()}
+              onLoadMore={()=>void openSavedValidationHistory(true)} />
+            <pre style={{whiteSpace:'pre-wrap'}}>{officialFetchLog.join('\n')}</pre>
+          </>:null}
+          {classicReport==='approved'?<>
+            <p>Saved approvals, newest approval first (not ex-date), loaded {APPROVAL_HISTORY_PAGE_SIZE} at a time. Independent of pending filters. This is saved action history, not a reconstructed batch receipt. Refresh to include approvals made since opening this report.</p>
+            <div style={buttonRowStyle}>
+              <button type="button" disabled={busy||recentApprovalsLoading||!hasDatabase} onClick={()=>void openRecentApprovals()}>Refresh history</button>
+              <button type="button" disabled={busy||recentApprovalsLoading||!recentApprovalReport?.hasMore} onClick={()=>void openRecentApprovals(true)}>Load more approved actions</button>
+              <span>Shown {recentApprovalReport?.rows.length ?? 0} saved approvals</span>
+            </div>
+            {recentApprovalsLoading ? <p role="status">Loading saved approvals…</p> : null}
+            {recentApprovalReport?.error ? <p role="alert">{recentApprovalReport.error} Previously loaded rows are retained; retry Load more or Refresh.</p> : null}
+            {recentApprovalReport?.rows.length ?
+              <table><thead><tr><th>Approved at</th><th>Exchange</th><th>Symbol</th><th>Action</th><th>Ex-date</th><th>Import ID</th></tr></thead>
+                <tbody>{recentApprovalReport.rows.map(row=><tr key={row.id}><td>{formatApprovalTime(row.approvedAt)}</td><td>{row.exchange}</td><td>{row.symbol ?? 'Unmatched'}</td><td>{row.actionType}</td><td>{row.exDate ?? '—'}</td><td>{row.id}</td></tr>)}</tbody></table>
+              : !recentApprovalsLoading && !recentApprovalReport?.error ? <p>No saved approved actions loaded for this database.</p> : null}
+            {recentApprovalReport && !recentApprovalReport.hasMore && !recentApprovalReport.error && !recentApprovalsLoading ? <p>End of saved approval history.</p> : null}
+          </>:null}
+          {classicReport==='help'?<><p>Fetch from Officials → Load & Validate → explicitly Approve Ready.</p><p>Fetch dates apply to source collection. The pending view contains all loaded, unapproved actions; Type, Status and Find filter this table.</p><p>Select Ready actions using the checkboxes. Approve opens a separate confirmation. Checking, waiting, informational and blocked actions cannot be selected for approval.</p><p>Use Details for official evidence and price checks. Reports and Tools retain diagnostics and advanced maintenance. Use Ctrl+F to search; focus the table and use arrow keys, Space to select a Ready event, or Enter to inspect it.</p></>:null}
+        </CorporateActionClassicDialog>:null}
+        {reconciliationOpen && api && classicReview ? <CorporateActionClassicDialog title="Reconciliation / Export CSV-TXT" onClose={()=>setReconciliationOpen(false)}>
+          <CorporateActionReconciliationPanel api={api} databasePath={activeDatabasePath} importIds={visibleImportRows.map(row=>row.id)}
+            generation={officialPreparationGenerationRef.current} scopeRevision={importRows} onClose={()=>setReconciliationOpen(false)} />
+        </CorporateActionClassicDialog>:null}
       </div>
     </FloatingWindow>
   );
@@ -7400,19 +8023,7 @@ function formatCorporateConfidence(value: number | null | undefined): string {
 }
 
 function matchesCorporateImportSearch(row: CorporateActionImportRow, query: string): boolean {
-  return [
-    row.symbol,
-    row.companyName,
-    row.isin,
-    row.bseScripCode,
-    row.purposeRaw,
-    row.message,
-    ...row.evidenceSources,
-    row.latestEvidenceSourceLocator,
-    row.latestEvidenceNote,
-  ]
-    .filter(Boolean)
-    .some((value) => value!.toUpperCase().includes(query));
+  return corporateActionSearchRank(row, query) != null;
 }
 
 function formatCorporateImportEvidenceSummary(row: CorporateActionImportRow): string {
@@ -8803,6 +9414,60 @@ const pendingCompactStatusBandStyle: React.CSSProperties = {
   color: 'var(--text-dim)',
   fontSize: 12,
   lineHeight: 1.35,
+  // Expanded diagnostics scroll here instead of displacing the pending actions.
+  maxHeight: 'min(30vh, 280px)',
+  overflowY: 'auto',
+  overflowX: 'hidden',
+  scrollbarGutter: 'stable',
+};
+
+const pendingDiagnosticDisclosureStyle: React.CSSProperties = {
+  width: '100%',
+  minWidth: 0,
+  marginTop: 5,
+};
+
+const pendingDiagnosticTableViewportStyle: React.CSSProperties = {
+  maxWidth: 760,
+  overflowX: 'auto',
+  margin: '8px 0',
+};
+
+const pendingDiagnosticTableStyle: React.CSSProperties = {
+  width: '100%',
+  minWidth: 480,
+  borderCollapse: 'collapse',
+  fontSize: 12,
+  background: 'var(--control-bg)',
+};
+
+const pendingDiagnosticLabelCellStyle: React.CSSProperties = {
+  padding: '6px 12px',
+  minWidth: 110,
+  textAlign: 'left',
+  whiteSpace: 'nowrap',
+  borderBottom: '1px solid var(--border)',
+};
+
+const pendingDiagnosticNumberCellStyle: React.CSSProperties = {
+  ...pendingDiagnosticLabelCellStyle,
+  minWidth: 90,
+  textAlign: 'right',
+  fontVariantNumeric: 'tabular-nums',
+};
+
+const pendingDiagnosticReportStyle: React.CSSProperties = {
+  display: 'block',
+  width: '100%',
+  maxWidth: 850,
+  maxHeight: 160,
+  marginTop: 6,
+  boxSizing: 'border-box',
+  resize: 'vertical',
+  fontFamily: 'monospace',
+  fontSize: 11,
+  color: 'var(--text)',
+  background: 'var(--control-bg)',
 };
 
 const pendingCompactCountsStyle: React.CSSProperties = {
@@ -8913,13 +9578,6 @@ const corporateActionPanelStyle: React.CSSProperties = {
   flex: 1,
 };
 
-// Identity health/recovery/history can exceed the window; keep its overflow reachable.
-const identityRecoveryPanelStyle: React.CSSProperties = {
-  ...corporateActionPanelStyle,
-  overflowX: 'hidden',
-  overflowY: 'auto',
-};
-
 const corporateImportToolbarStyle: React.CSSProperties = {
   display: 'flex',
   flexWrap: 'wrap',
@@ -9020,68 +9678,12 @@ const officialSourceHealthHeaderStyle: React.CSSProperties = {
   fontSize: 12,
 };
 
-const officialSourceHealthScrollStyle: React.CSSProperties = {
-  minWidth: 0,
-  maxHeight: 'min(52vh, 520px)',
-  overflowX: 'auto',
-  overflowY: 'scroll',
-  scrollbarGutter: 'stable',
-  border: '1px solid var(--border)',
-};
-
-function officialSourceHealthGridStyle(header: boolean): React.CSSProperties {
-  return {
-    display: 'grid',
-    gridTemplateColumns: 'minmax(180px, 1.25fr) repeat(6, minmax(72px, 0.55fr)) minmax(220px, 1.75fr)',
-    gap: 8,
-    minWidth: 920,
-    padding: header ? '5px 8px' : '4px 8px',
-    borderBottom: '1px solid var(--border)',
-    background: header ? 'var(--control-bg)' : 'var(--panel-bg)',
-    fontSize: 10,
-    lineHeight: 1.25,
-    fontWeight: header ? 600 : 400,
-    alignItems: 'start',
-    position: header ? 'sticky' : 'relative',
-    top: header ? 0 : undefined,
-    zIndex: header ? 2 : 1,
-  };
-}
-
-const officialSourceHealthCellStyle: React.CSSProperties = {
-  display: 'flex',
-  flexDirection: 'column',
-  gap: 2,
-  minWidth: 0,
-};
-
-const officialSourceHealthEvidenceStyle: React.CSSProperties = {
-  display: 'flex',
-  flexDirection: 'column',
-  gap: 3,
-  minWidth: 0,
-  overflowWrap: 'anywhere',
-};
-
 const officialSourceHealthSummaryStyle: React.CSSProperties = {
   minWidth: 0,
   color: 'var(--text-dim)',
   fontSize: 10,
   fontFamily: 'var(--font-mono)',
   textAlign: 'right',
-};
-
-const officialSourceHealthDetailsStyle: React.CSSProperties = {
-  marginTop: 1,
-  minWidth: 0,
-};
-
-const officialSourceHealthEvidenceSummaryStyle: React.CSSProperties = {
-  width: 'fit-content',
-  cursor: 'pointer',
-  color: 'var(--accent)',
-  fontWeight: 600,
-  userSelect: 'none',
 };
 
 const officialSourceHealthEvidenceDetailsBodyStyle: React.CSSProperties = {
@@ -9093,20 +9695,6 @@ const officialSourceHealthEvidenceDetailsBodyStyle: React.CSSProperties = {
   color: 'var(--text-dim)',
   fontFamily: 'var(--font-mono)',
   overflowWrap: 'anywhere',
-};
-
-const identitySourceHealthButtonStyle: React.CSSProperties = {
-  display: 'inline-flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-  minHeight: 30,
-  padding: '5px 10px',
-  border: '1px solid var(--accent)',
-  borderRadius: 4,
-  background: 'var(--control-bg-hover)',
-  color: 'var(--text)',
-  cursor: 'pointer',
-  fontWeight: 600,
 };
 
 const identityManualSourceRowStyle: React.CSSProperties = {
@@ -9130,16 +9718,6 @@ const identityHistoricalActionsStyle: React.CSSProperties = {
   flexWrap: 'wrap',
   justifyContent: 'flex-end',
   gap: 6,
-};
-
-const identityHistoricalPreviewPanelStyle: React.CSSProperties = {
-  display: 'flex',
-  flexDirection: 'column',
-  gap: 8,
-  minWidth: 0,
-  padding: 8,
-  border: '1px solid var(--border)',
-  background: 'var(--bg2)',
 };
 
 const identityHistoricalFilterRowStyle: React.CSSProperties = {
@@ -9616,12 +10194,6 @@ const identitySyncHeaderStyle: React.CSSProperties = {
   letterSpacing: 0,
 };
 
-const identityHistoricalPreviewHeaderStyle: React.CSSProperties = {
-  ...quotesHeaderStyle,
-  gridTemplateColumns: '86px 100px 94px 104px 112px minmax(140px, 1fr) minmax(140px, 1fr) minmax(220px, 1.4fr)',
-  letterSpacing: 0,
-};
-
 const corporateImportRowStyle: React.CSSProperties = {
   display: 'grid',
   gridTemplateColumns: '34px 118px 86px minmax(140px, 1.05fr) 118px minmax(160px, 1.1fr) minmax(138px, 1fr) 112px',
@@ -9766,12 +10338,6 @@ const historicalBackfillRawEvidencePreStyle: React.CSSProperties = {
 const identitySyncRowStyle: React.CSSProperties = {
   ...corporateImportRowStyle,
   gridTemplateColumns: '96px 112px 72px 88px 88px 112px minmax(220px, 1fr)',
-};
-
-const identityHistoricalPreviewRowStyle: React.CSSProperties = {
-  ...corporateImportRowStyle,
-  gridTemplateColumns: '86px 100px 94px 104px 112px minmax(140px, 1fr) minmax(140px, 1fr) minmax(220px, 1.4fr)',
-  minHeight: 38,
 };
 
 const corporateIssueHeaderStyle: React.CSSProperties = {
@@ -10100,6 +10666,52 @@ function OfficialSafeV2SkippedReason({ reason }: { reason: string | undefined })
   );
 }
 
+function SavedCorporateActionValidationHistory({
+  history,
+  loading,
+  onRefresh,
+  onLoadMore,
+}: {
+  history: {
+    run: CorporateActionActivityRun | null;
+    items: CorporateActionValidationReportItem[];
+    total: number;
+    hasMore: boolean;
+    error?: string;
+  } | null;
+  loading: boolean;
+  onRefresh: () => void;
+  onLoadMore: () => void;
+}) {
+  return (
+    <section aria-label="Saved Corporate Actions validation history" style={{ marginTop: 10 }}>
+      <h4>Saved validation snapshot</h4>
+      <div style={buttonRowStyle}>
+        <button type="button" disabled={loading} onClick={onRefresh}>Refresh saved history</button>
+        <button type="button" disabled={loading || !history?.hasMore} onClick={onLoadMore}>Load more saved rows</button>
+        {history?.run ? <span>Shown {history.items.length.toLocaleString('en-IN')} / {history.total.toLocaleString('en-IN')}</span> : null}
+      </div>
+      {loading ? <p role="status">Loading saved validation history…</p> : null}
+      {history?.error ? <p role="alert">{history.error} Previously loaded saved rows are retained.</p> : null}
+      {!loading && history && !history.run && !history.error ? <p>No saved Dividend validation report exists for this database.</p> : null}
+      {history?.run ? <>
+        <p>
+          Historical evidence only — never current approval authority. Run {history.run.id} · {history.run.outcome} · checked {formatApprovalTime(history.run.completedAtUtc ?? history.run.startedAtUtc)} · requested {history.run.requestedCount.toLocaleString('en-IN')} · checked {history.run.checkedCount.toLocaleString('en-IN')} · eligible {history.run.eligibleCount.toLocaleString('en-IN')} · blocked {history.run.ineligibleCount.toLocaleString('en-IN')} · failed {history.run.failedCount.toLocaleString('en-IN')}.
+        </p>
+        {history.run.errorMessage ? <p role="alert">Saved run issue: {history.run.errorMessage}</p> : null}
+        {history.items.length ? <div style={{ maxHeight: 240, overflowY: 'auto' }}>
+          <table>
+            <thead><tr><th>Import ID</th><th>Saved result</th><th>Stored state</th><th>Reason snapshot</th></tr></thead>
+            <tbody>{history.items.map((item) => <tr key={item.id}>
+              <td>{item.importId}</td><td>{item.resultCode}</td><td>{item.storedApprovalState ?? 'Unknown'}</td><td>{item.reasonSnapshot}</td>
+            </tr>)}</tbody>
+          </table>
+        </div> : null}
+      </> : null}
+    </section>
+  );
+}
+
 function OfficialDividendPreparedScopeOutcomeSummary({
   outcome,
 }: {
@@ -10107,13 +10719,41 @@ function OfficialDividendPreparedScopeOutcomeSummary({
 }) {
   if (!outcome) return null;
   const { result } = outcome;
+  const blockerSummary = summarizeDividendBlockerReasons(result);
   return (
     <div
       aria-label="Dividend R1 read-only outcome summary"
       style={{ ...corporateIssueHintTextStyle, whiteSpace: 'normal', overflowWrap: 'anywhere' }}
     >
-      Dividend R1 read-only — NOT APPROVED: requested {result.requested} · eligible {result.eligible} (read-only, not approved) · ineligible {result.ineligible} · already approved {result.alreadyApproved} · stale {result.staleScope} · missing {result.missing} · failed {result.failed} · batches {result.completedBatchCount}/{result.batchCount} · {result.complete ? 'complete' : 'incomplete'}
+      Dividend R1 read-only — NOT APPROVED: requested {result.requested}{result.reusedCount !== undefined && <> · reused {result.reusedCount} · policy evaluated {result.dispositions.length - result.reusedCount}</>} · eligible {result.eligible} (read-only, not approved) · ineligible {result.ineligible} · already approved {result.alreadyApproved} · stale {result.staleScope} · missing {result.missing} · failed {result.failed} · batches {result.completedBatchCount}/{result.batchCount} · {result.complete ? 'complete' : 'incomplete'}
       {result.operationalError ? <> · issue: {result.operationalError}</> : null}
+      <details style={{ marginTop: 6, maxWidth: '100%' }}>
+        <summary style={{ cursor: 'pointer' }}>
+          Dividend R1 — exact blocked reasons ({blockerSummary.ineligibleObserved.toLocaleString('en-IN')})
+        </summary>
+        <div style={{ marginTop: 4 }}>
+          {blockerSummary.completedWithoutError && blockerSummary.accountedFor
+            ? 'Complete read-only rejection breakdown. Not approval evidence.'
+            : 'Incomplete or inconsistent diagnostic — do not treat these counts as a complete baseline.'}
+        </div>
+        <div style={{ maxHeight: 220, overflowY: 'auto', marginTop: 4 }}>
+          {blockerSummary.reasons.map(({ reason, count }) => (
+            <div key={reason} style={{ marginBottom: 3 }}>
+              <strong>{count.toLocaleString('en-IN')}</strong> — {reason}
+            </div>
+          ))}
+        </div>
+        <details style={pendingDiagnosticDisclosureStyle}>
+          <summary style={{ cursor: 'pointer' }}>Copyable aggregate report (select text, Ctrl+A, Ctrl+C)</summary>
+          <textarea
+            aria-label="Dividend R1 aggregate blocker report"
+            readOnly
+            value={formatDividendBlockerReport(result)}
+            rows={6}
+            style={pendingDiagnosticReportStyle}
+          />
+        </details>
+      </details>
     </div>
   );
 }
@@ -10144,7 +10784,12 @@ function OfficialDividendPreparedScopeDispositionDetails({
   );
 }
 
-type OfficialImportTaskProgress = (CorporateActionPendingPreparationProgress | OfficialImportOperationProgress) & {
+type OfficialImportTaskProgress = (CorporateActionPendingPreparationProgress | OfficialImportOperationProgress | {
+  stage: 'dividend-verifying' | 'dividend-verified' | 'dividend-stopped';
+  completed: number;
+  total: number | null;
+  message: string;
+}) & {
   startedAt: number;
   endedAt?: number;
 };

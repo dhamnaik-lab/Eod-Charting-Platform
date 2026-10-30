@@ -23,7 +23,9 @@ export function Toolbar() {
   const removeIndicator = useChartStore((state) => state.removeIndicator);
   const setShowVolume = useChartStore((state) => state.setShowVolume);
   const setChartType = useChartStore((state) => state.setChartType);
-    const setLayoutMode = useChartStore((state) => state.setLayoutMode);
+  const setLayoutMode = useChartStore((state) => state.setLayoutMode);
+  const adjustedMode = useChartStore((state) => state.adjustedMode);
+  const setAdjustedMode = useChartStore((state) => state.setAdjustedMode);
   const addToast = useChartStore((state) => state.addToast);
   const updateIndicator = useChartStore((state) => state.updateIndicator);
   const scrollToViewportStart = useChartStore((state) => state.scrollToViewportStart);
@@ -236,6 +238,21 @@ export function Toolbar() {
             title={showVolume ? 'Hide chart volume overlay' : 'Show chart volume overlay'}
           >
             Volume
+          </button>
+        </div>
+        <div style={toolbarClusterStyle}>
+          <button
+            type="button"
+            onClick={() => {
+              const next = !adjustedMode;
+              setAdjustedMode(next);
+            }}
+            style={adjustedMode ? activeActionButtonStyle : actionButtonStyle}
+            title={activeTab?.instrument && activeTab.loadedAdjusted !== adjustedMode
+              ? `Capital adjustment ${adjustedMode ? 'ON' : 'OFF'} requested. Chart data has not yet loaded in this mode. Click to change mode.`
+              : adjustedMode ? 'Capital adjustment ON (Splits & Bonuses adjusted). Click to show raw prices.' : 'Capital adjustment OFF (Showing raw prices). Click to adjust for Splits & Bonuses.'}
+          >
+            Adj
           </button>
         </div>
         <div style={toolbarClusterStyle}>

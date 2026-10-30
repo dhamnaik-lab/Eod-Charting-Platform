@@ -8,7 +8,7 @@ const DATABASE_RS = resolve(process.cwd(), 'src-tauri-shell/src/database.rs');
 const NSE_BACKEND = resolve(process.cwd(), 'src-tauri-shell/src/database/nse_identity_imports.rs');
 
 function read(path: string): string {
-  return readFileSync(path, 'utf8');
+  return readFileSync(path, 'utf8').replace(/\r\n/g, '\n');
 }
 
 function sliceBetween(source: string, startMarker: string, endMarker: string): string {
@@ -109,15 +109,12 @@ describe('Identity F2-R2 official historical consumption', () => {
 
   it('exposes Historical Preview and reviewed Apply in the Official NSE surface', () => {
     const source = read(DATABASE_TOOLS);
-    const officialSurface = sliceBetween(
-      source,
-      "{identitySourceMode === 'official' ? (",
-      ") : identityExchange === 'NSE' ? (",
-    );
-
-    expect(officialSurface).toContain('Preview Historical Identity');
-    expect(officialSurface).toContain('Apply Reviewed Historical Identity');
-    expect(officialSurface).toContain('Historical NSE symbol/name chains');
+    const identity = sliceBetween(source, 'const renderIdentityTab = () => (', 'const compactPendingReview');
+    expect(identity).toContain("historical={identityExchange === 'NSE'");
+    expect(identity).toContain('Preview Historical Identity');
+    expect(identity).toContain('Apply Reviewed Historical Identity');
+    expect(identity).toContain('historicalToolbar=');
+    expect(identity).toContain('historicalFooter=');
   });
 
   it('preserves the Manual NSE Archive Root workflow', () => {

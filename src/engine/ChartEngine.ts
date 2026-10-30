@@ -272,6 +272,9 @@ export class ChartEngine {
   private pendingMultiAnchors: { paneId: ChartPaneId; anchors: DrawingAnchor[] } | null = null;
   private isDirty = true;
   private isOverlayDirty = true;
+  private baseRenderCount = 0;
+  private overlayRenderCount = 0;
+  private renderStateBuildCount = 0;
   private cachedRenderState: RenderState | null = null;
   private cachedRenderStateWidth = 0;
   private cachedRenderStateHeight = 0;
@@ -306,6 +309,22 @@ export class ChartEngine {
   private chartType: ChartType;
   private signalRules: ChartSignalRule[] = [];
   private gannOverlayCallback: ((ctx: CanvasRenderingContext2D, scaleX: ScaleX, priceScaleY: ScaleY, width: number, height: number) => void) | null = null;
+  private pluginOverlayCallbacks = new Map<string, (ctx: CanvasRenderingContext2D, scaleX: ScaleX, priceScaleY: ScaleY, width: number, height: number) => void>();
+
+  registerPluginOverlay(
+    id: string,
+    callback: (ctx: CanvasRenderingContext2D, scaleX: ScaleX, priceScaleY: ScaleY, width: number, height: number) => void,
+  ): () => void {
+    this.pluginOverlayCallbacks.set(id, callback);
+    this.markDirty();
+    return () => this.unregisterPluginOverlay(id);
+  }
+
+  unregisterPluginOverlay(id: string): void {
+    if (this.pluginOverlayCallbacks.delete(id)) {
+      this.markDirty();
+    }
+  }
 
   setSignalRules(rules: ChartSignalRule[]): void {
     this.signalRules = rules ?? [];
@@ -343,28 +362,18 @@ export class ChartEngine {
           value: 0,
           bar: null,
         };
-        this.markDirty();
+        this.markOverlayDirty();
       }
       return;
     }
-
     const bar = this.bars[barIndex];
     if (!bar) return;
-
-    this.crosshair = {
-      visible: true,
-      x: 0,
-      y: 0,
-      barIndex,
-      logicalIndex: barIndex,
-      dateLabel: bar.date,
-      paneId: 'price',
-      paneTop: 0,
-      paneHeight: 0,
-      value: bar.close,
-      bar,
-    };
-    this.markDirty();
+    if (this.crosshair.visible && this.crosshair.barIndex === barIndex && this.crosshair.dateLabel === bar.date) return;
+    const cx = this.cachedRenderState ? this.cachedRenderState.scaleX.toPixel(barIndex) : 0;
+    const cy = this.cachedRenderState ? this.cachedRenderState.priceScaleY.toPixel(bar.close) : 0;
+    const ch = this.cachedRenderState ? this.cachedRenderState.pricePane.height : 0;
+    this.crosshair = { visible: true, x: cx, y: cy, barIndex, logicalIndex: barIndex, dateLabel: bar.date, paneId: 'price', paneTop: 0, paneHeight: ch, value: bar.close, bar };
+    this.markOverlayDirty();
   }
 
   constructor(container: HTMLDivElement, config: ChartEngineConfig) {
@@ -416,8 +425,14 @@ export class ChartEngine {
       cancelAnimationFrame(this.kineticAnimationId);
       this.kineticAnimationId = null;
     }
+    this.clearCachedRenderState();
+    this.baseCanvas.width = 0;
+    this.baseCanvas.height = 0;
+    this.overlayCanvas.width = 0;
+    this.overlayCanvas.height = 0;
     this.baseCanvas.remove();
     this.overlayCanvas.remove();
+    this.listeners.clear();
   }
 
   resize(): void {
@@ -534,7 +549,7 @@ export class ChartEngine {
       this.pendingChannelBase = null;
     }
     this.overlayCanvas.style.cursor = resolvePointerCursor(tool);
-    this.markDirty();
+    this.markOverlayDirty();
   }
 
   setIndicatorPaneHeights(heights: IndicatorPaneHeights): void {
@@ -769,9 +784,6 @@ export class ChartEngine {
           const hit = this.hitTestDrawing(pointerState);
           this.overlayCanvas.style.cursor = hit ? resolveDrawingHitCursor(hit.mode) : resolvePointerCursor(this.drawingTool);
         }
-      }
-      if (this.drawingTool !== 'cursor') {
-        this.markDirty();
       }
       this.markOverlayDirty();
     };
@@ -1075,6 +1087,7 @@ export class ChartEngine {
   }
 
   private renderBase(): void {
+    this.baseRenderCount += 1;
     const rect = this.container.getBoundingClientRect();
     const width = rect.width;
     const height = rect.height;
@@ -1584,6 +1597,7 @@ export class ChartEngine {
   }
 
   private renderOverlay(): void {
+    this.overlayRenderCount += 1;
     const rect = this.container.getBoundingClientRect();
     this.overlayCtx.clearRect(0, 0, rect.width, rect.height);
     if (!this.bars.length) {
@@ -1735,6 +1749,22 @@ export class ChartEngine {
       );
       this.overlayCtx.restore();
     }
+    if (this.pluginOverlayCallbacks.size > 0) {
+      for (const callback of this.pluginOverlayCallbacks.values()) {
+        this.overlayCtx.save();
+        this.overlayCtx.beginPath();
+        this.overlayCtx.rect(0, 0, layout.chartWidth, renderState.pricePane.plotHeight);
+        this.overlayCtx.clip();
+        callback(
+          this.overlayCtx,
+          scaleX,
+          priceScaleY,
+          layout.chartWidth,
+          renderState.pricePane.plotHeight,
+        );
+        this.overlayCtx.restore();
+      }
+    }
 
     this.overlayCtx.restore();
   }
@@ -1770,6 +1800,13 @@ export class ChartEngine {
 
   public markOverlayDirty(): void {
     this.isOverlayDirty = true;
+  }
+  public flushRenderFrame(): void {
+    if (this.isDirty) { this.renderBase(); this.isDirty = false; this.isOverlayDirty = true; }
+    if (this.isOverlayDirty) { this.renderOverlay(); this.isOverlayDirty = false; }
+  }
+  public getRenderDiagnostics() {
+    return { baseRenderCount: this.baseRenderCount, overlayRenderCount: this.overlayRenderCount, renderStateBuildCount: this.renderStateBuildCount, isBaseDirty: this.isDirty, isOverlayDirty: this.isOverlayDirty };
   }
 
   private getCachedOrFreshRenderState(width: number, height: number): RenderState {
@@ -1836,6 +1873,7 @@ export class ChartEngine {
   }
 
   private buildRenderState(width: number, height: number, axisWidth: number): RenderState {
+    this.renderStateBuildCount += 1;
     const renderableIndicators = buildRenderableIndicators(this.bars, this.overlays);
     const compareRenderables = this.buildCompareRenderables();
     const effectiveVolumePct = this.showVolume ? this.volumePct : 0;
@@ -1865,14 +1903,11 @@ export class ChartEngine {
     compareRenderables.forEach((compare) => {
       priceSeries.push(compare.normalizedValues);
     });
-    const priceScaleBars = this.chartType === 'line'
-      ? this.bars.map((bar) => ({ ...bar, high: bar.close, low: bar.close }))
-      : this.bars;
     const priceLegendHeight = this.canvasPriceLegendEnabled ? PRICE_LEGEND_HEIGHT : 0;
     const pricePlotHeight = Math.max(layout.priceHeight - priceLegendHeight, 1);
     const priceTopPad = this.canvasPriceLegendEnabled ? 0.05 : computePriceLegendTopPadding(pricePlotHeight);
     const priceScaleY = buildScaleY(
-      priceScaleBars,
+      this.bars,
       this.viewport.startIndex,
       this.viewport.endIndex,
       pricePlotHeight,
@@ -1883,6 +1918,7 @@ export class ChartEngine {
       this.logScale,
       Boolean(this.paneScaleOverrides.price),
       this.invertPriceScale,
+      this.chartType === 'line',
     );
     const latestVisibleBarIndex = this.getLatestVisibleBarIndex();
     const pricePane: PaneContext = {
@@ -2079,7 +2115,7 @@ export class ChartEngine {
     }
 
     const rect = this.overlayCanvas.getBoundingClientRect();
-    const renderState = this.getRenderState(width ?? rect.width, height ?? rect.height);
+    const renderState = this.getCachedOrFreshRenderState(width ?? rect.width, height ?? rect.height);
     const { layout, scaleX } = renderState;
     const chartOffsetX = offsetX - layout.leftAxisWidth;
     const isInAxis = offsetX >= layout.leftAxisWidth + layout.chartWidth + layout.priceAxisGap || offsetX < layout.leftAxisWidth;
@@ -2499,10 +2535,12 @@ export class ChartEngine {
     }
 
     const bar = this.bars[valueIndex];
+    const missingIndexReference = exchange === 'NSE_INDEX'
+      && (bar.prevClose == null || !Number.isFinite(bar.prevClose) || bar.prevClose <= 0);
     const referenceClose = bar.prevClose ?? bar.open;
     const change = bar.close - referenceClose;
     const changePct = referenceClose !== 0 ? (change / referenceClose) * 100 : 0;
-    const closeColor = change >= 0 ? this.theme.candleUp : this.theme.candleDown;
+    const closeColor = missingIndexReference ? '#dce8f4' : change >= 0 ? this.theme.candleUp : this.theme.candleDown;
 
     tokens.push({ text: bar.date, color: '#dce8f4', gapAfter: 12 });
     tokens.push({ text: 'O', color: '#91a8bd', gapAfter: 4 });
@@ -2514,7 +2552,8 @@ export class ChartEngine {
     tokens.push({ text: 'C', color: '#91a8bd', gapAfter: 4 });
     tokens.push({ text: formatPrice(bar.close), color: closeColor, gapAfter: 10 });
     tokens.push({
-      text: `${formatSignedValue(change, 2, 2)} (${formatSignedValue(changePct, 2, 2)}%)`,
+      text: missingIndexReference ? 'Change unavailable'
+        : `${formatSignedValue(change, 2, 2)} (${formatSignedValue(changePct, 2, 2)}%)`,
       color: closeColor,
       gapAfter: 10,
     });
@@ -2577,10 +2616,12 @@ export class ChartEngine {
     }
 
     const bar = this.bars[valueIndex];
+    const missingIndexReference = exchange === 'NSE_INDEX'
+      && (bar.prevClose == null || !Number.isFinite(bar.prevClose) || bar.prevClose <= 0);
     const referenceClose = bar.prevClose ?? bar.open;
     const change = bar.close - referenceClose;
     const changePct = referenceClose !== 0 ? (change / referenceClose) * 100 : 0;
-    const closeColor = change >= 0 ? this.theme.candleUp : this.theme.candleDown;
+    const closeColor = missingIndexReference ? neutralColor : change >= 0 ? this.theme.candleUp : this.theme.candleDown;
 
     tokens.push({ text: bar.date, color: '#dce8f4', gapAfter: 12 });
     tokens.push({ text: 'O', color: neutralColor, gapAfter: 4 });
@@ -2592,7 +2633,8 @@ export class ChartEngine {
     tokens.push({ text: 'C', color: neutralColor, gapAfter: 4 });
     tokens.push({ text: formatPrice(bar.close), color: closeColor, gapAfter: 10 });
     tokens.push({
-      text: `${formatSignedValue(change, 2, 2)} (${formatSignedValue(changePct, 2, 2)}%)`,
+      text: missingIndexReference ? 'Change unavailable'
+        : `${formatSignedValue(change, 2, 2)} (${formatSignedValue(changePct, 2, 2)}%)`,
       color: closeColor,
       gapAfter: 10,
     });

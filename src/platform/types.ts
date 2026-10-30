@@ -1,6 +1,7 @@
 import type { AppInfo, DesktopBridgeApi } from '@/types/desktop';
 
 export type {
+  IdentityApplyProgress,
   CorporateActionReconciliationPreflightInput, CorporateActionReconciliationPreflightResult,
   CorporateActionReconciliationPreflightRow, CorporateActionReconciliationBlocker,
   R1ACheckState, R1AOutcome, R1AEvidenceReference, R1ACandidate, R1ARepairPlanItem,
@@ -9,6 +10,8 @@ export type {
   AppProfileSettingsSaveInput,
   AppSnapshot,
   BatchDownloadConfig,
+  BseHistoryDownloadInput,
+  BseHistoryDownloadSummary,
   BhavcopySettings,
   BhavcopyDefaultTemplates,
   ChartEventMarker,
@@ -47,6 +50,20 @@ export type {
   CorporateActionDividendPreparedScopeEvaluationEvidence,
   CorporateActionDividendPreparedScopeEvaluationInput,
   CorporateActionDividendPreparedScopeEvaluationResult,
+  CorporateActionDividendWriteStageDisposition,
+  CorporateActionDividendWriteStageDispositionCode,
+  CorporateActionDividendWriteStageInput,
+  CorporateActionDividendWriteStageResult,
+  CorporateActionActivityOutcome,
+  CorporateActionActivityRun,
+  CorporateActionActivityRunListInput,
+  CorporateActionActivityRunListResult,
+  CorporateActionValidationReportItem,
+  CorporateActionValidationReportItemInput,
+  CorporateActionValidationReportItemListInput,
+  CorporateActionValidationReportItemListResult,
+  CorporateActionValidationReportSaveInput,
+  CorporateActionValidationReportSaveResult,
   CorporateActionImportApprovalInput,
   CorporateActionImportApprovalResult,
   CorporateActionImportBulkApprovalInput,
@@ -151,6 +168,8 @@ export type {
   PluginOutputDirectoryPickerInput,
   PluginTextFileReadInput,
   PluginTextFileReadResult,
+  ExternalPluginPackageDescriptor,
+  ExternalPluginModuleReadResult,
   DnnResearchDatasetExchange,
   DnnResearchDatasetExportInput,
   DnnResearchDatasetExportProgressEvent,
@@ -244,6 +263,10 @@ export type DesktopApi = Pick<
   | 'pickPluginDataFile'
   | 'pickPluginOutputDirectory'
   | 'readPluginTextFile'
+  | 'listExternalPlugins'
+  | 'readExternalPluginModule'
+  | 'installExternalPluginPackage'
+  | 'uninstallExternalPlugin'
   | 'exportDnnResearchDataset'
   | 'saveTextExport'
   | 'saveChartImage'
@@ -272,9 +295,18 @@ export type DesktopApi = Pick<
   | 'downloadNseCurrentUniverseMaster'
   | 'previewNseCurrentUniverseSync'
   | 'applyNseCurrentUniverseSync'
+  | 'listNseIdentityApplyHistory'
+  | 'listNseHistoricalIdentityApplyHistory'
+  | 'getNseHistoricalIdentityApplyReport'
   | 'downloadBseCurrentUniverseMaster'
   | 'previewBseCurrentUniverseSync'
   | 'applyBseCurrentUniverseSync'
+  | 'listBseIdentityApplyHistory'
+  | 'refreshBseNameHistory'
+  | 'previewBseNameHistory'
+  | 'applyBseNameHistory'
+  | 'listBseNameHistoryRuns'
+  | 'getBseNameHistoryReport'
   | 'assessIdentityOfficialSourceHealth'
   | 'getOfficialSourceConfigurationAuthority'
   | 'saveOfficialSourceUrlsReviewed'
@@ -287,6 +319,7 @@ export type DesktopApi = Pick<
   | 'listOfficialSourceHistory'
   | 'importCorporateActionsCsv'
   | 'fetchOfficialCorporateActions'
+  | 'cancelOfficialCorporateActionFetch'
   | 'backfillHistoricalCapitalActionsForSymbol'
   | 'backfillHistoricalCapitalActionsBatch'
   | 'listHistoricalCapitalActionBackfillRuns'
@@ -295,6 +328,7 @@ export type DesktopApi = Pick<
   | 'listHistoricalCapitalActionSparseCandidates'
   | 'listCorporateActionImports'
   | 'getCorporateActionImportsByIds'
+  | 'refreshCorporateActionImportClassifications'
   | 'listCorporateActionEventIdentities'
   | 'previewCorporateActionRepairs'
   | 'previewSplitBonusReconciliation'
@@ -304,6 +338,10 @@ export type DesktopApi = Pick<
   | 'approveCorporateActionImports'
   | 'autoApproveCorporateActionImports'
   | 'evaluateSimpleCashDividendPreparedScope'
+  | 'executeSimpleCashDividendWriteStage'
+  | 'saveCorporateActionValidationReport'
+  | 'listCorporateActionActivityRuns'
+  | 'listCorporateActionValidationReportItems'
   | 'approveRecommendedCorporateActionIsinMismatches'
   | 'recheckCorporateActionImports'
   | 'listCorporateActionImportResolutionHints'
@@ -329,12 +367,17 @@ export type DesktopApi = Pick<
   | 'undoManualImportRecovery'
   | 'downloadBhavcopy'
   | 'downloadBhavcopyBatch'
+  | 'downloadBsePriceHistory'
+  | 'cancelBsePriceHistoryDownload'
   | 'getBhavcopySettings'
   | 'saveBhavcopySettings'
   | 'getBhavcopyDefaultTemplates'
   | 'listMarketHolidays'
   | 'addMarketHoliday'
   | 'deleteMarketHoliday'
+  | 'listOfficialExchangeHolidaySnapshots'
+  | 'previewOfficialExchangeHolidays'
+  | 'applyOfficialExchangeHolidays'
   | 'getSavedLayouts'
   | 'saveLayout'
   | 'loadLayout'

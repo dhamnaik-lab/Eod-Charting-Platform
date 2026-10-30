@@ -1,59 +1,44 @@
 # EOD Charting Platform - Next Thread Prompt
 
-Project: EOD Charting Platform
+Project root: `E:\TA Projects\EOD Charting Platform`
 
-You are continuing work on EOD Charting Platform.
+## Start here
 
-## First, do this before changing anything
-1. Read:
-   - `AGENTS.md`
-   - `README.md`
-   - `PROJECT_BRIEF_EOD_CHARTING_PLATFORM.md`
-   - `PROJECT_STATE_EOD_CHARTING_PLATFORM.md`
-   - `FILE_INVENTORY.md`
-   - `CLAUDE_HANDOFF_PROMPT_EOD_CHARTING_PLATFORM.md`
-   - `CURRENT_ARCHITECTURE_STRUCTURE_EOD_CHARTING_PLATFORM.md`
-   - `src-tauri-shell/README.md`
-2. Then read the most relevant historical reports under `docs/archive/`:
-   - `docs/archive/TAURI_ONLY_ELECTRON_RETIREMENT_REPORT.md`
-   - `docs/archive/TAURI_PERFORMANCE_PASS1_REPORT.md`
-   - `docs/archive/TAURI_LIGHTWEIGHT_SNAPSHOT_SPLIT_REPORT.md`
-   - `docs/archive/TAURI_SYMBOL_SEARCH_EOD_CACHE_REPORT.md`
-   - `docs/archive/WATCHLIST_LOAD_DB_STATS_PERFORMANCE_REPORT.md`
-   - `docs/archive/DB_STATS_CACHE_PERFORMANCE_REPORT.md`
-   - `docs/archive/WATCHLIST_SWITCHING_PERFORMANCE_REPORT.md`
-   - `docs/archive/DATABASE_OPEN_ZOOM_VIDEO_REFINEMENT_REPORT.md`
-   - `docs/archive/PANE_AWARE_DRAWING_SUPPORT_REPORT.md`
-   - `docs/archive/STORE_SPLIT_PASS1_REPORT.md`
-   - `docs/archive/STORE_SPLIT_PASS2_REPORT.md`
-   - `docs/archive/STORE_SPLIT_PASS3_MENU_ROUTER_REPORT.md`
-   - `docs/archive/STORE_SPLIT_PASS4_REPORT.md`
-   - `docs/archive/STORE_SPLIT_PASS5_REPORT.md`
-   - `docs/archive/STORE_SPLIT_PASS6_REPORT.md`
-   - `docs/archive/OFFICIAL_WATCHLIST_TESTING_FOUNDATION_REPORT.md`
-   - `docs/archive/OFFICIAL_WATCHLIST_LAST_SYNCED_UI_REPORT.md`
-   - `docs/archive/OFFICIAL_WATCHLIST_SYNC_STATUS_COMPLETION_REPORT.md`
-   - `docs/archive/OFFICIAL_WATCHLIST_UPDATE_ALL_REPORT.md`
-   - `docs/archive/PRICE_SCALE_INDICATOR_VALUES_REVISED_PROMPT.md`
-   - `docs/archive/EOD_CHART_VISUAL_PARITY_REVISED_PROMPT.md`
-   - `docs/archive/INDICATOR_PANE_CONTROLS_REPORT.md`
-   - `docs/archive/SCALE_RIGHT_AXIS_TRIGGER_FIX_REPORT.md`
-   - `docs/archive/SCALE_TOOLBAR_TRADINGVIEW_FIX_REPORT.md`
-   - `docs/archive/SCALE_TRADINGVIEW_AXIS_HEADER_FIX_REPORT.md`
-   - `docs/archive/SCALE_HEADER_ALIGNMENT_REFINEMENT_REPORT.md`
-   - `docs/archive/SCALE_HEADER_SLOT_MOVE_REPORT.md`
-   - `docs/archive/HIGH_VALUE_CHART_FEATURES_PASS_REPORT.md`
-   - `docs/archive/PORTABLE_ASSET_STAGING_FIX_REPORT.md`
-   - `docs/archive/PORTABLE_LAUNCHER_WORKDIR_FIX_REPORT.md`
-   - `docs/archive/TAURI_FRONTEND_ASSET_REBUILD_INVALIDATION_REPORT.md`
-   - `docs/archive/BACKUP_RETENTION_RESET_REPORT.md`
-3. Treat `src-tauri-shell` as the only active desktop backend path.
-4. The old `src-tauri` tree has been removed; do not recreate or depend on it.
-5. Treat `src/platform/*` as the only renderer-facing runtime seam.
-6. Treat the portable Tauri workflow as the preferred Windows development/runtime base.
-7. Treat `CLAUDE_HANDOFF_PROMPT_EOD_CHARTING_PLATFORM.md` and `CURRENT_ARCHITECTURE_STRUCTURE_EOD_CHARTING_PLATFORM.md` as current handoff guidance; do not treat `EOD_CHART_CODEX_PROMPT_REVISED.md` as the live implementation baseline by itself.
+1. Confirm the project root and read `AGENTS.md`, then the relevant current section of `HANDOFF.md`.
+2. Use the user's current request and active source as authority. Read only task-relevant snippets from `README.md`, `PROJECT_STATE_EOD_CHARTING_PLATFORM.md`, `FILE_INVENTORY.md`, and one relevant report.
+3. Start with 3-5 relevant files and follow the context limits in `AGENTS.md`. Open historical reports only when a specific question requires them.
+4. Preserve local changes. Keep `src-tauri-shell` as the active backend and renderer-to-desktop calls behind `src/platform/*`.
+5. Before editing, state the bounded scope and follow the backup and focused-validation requirements in `AGENTS.md`.
+6. Keep these reusable instructions stable. Supply the current task, timestamps, logs, IDs, and changing status separately after them. Do not copy the historical sections below into every new chat.
 
-## Current Objective
+## Identity checkpoint — 30 October 2026
+
+The latest saved-report UI polish is implemented and checked; the user will test
+the rebuilt portable app later. Native BSE name Apply and pre-polish saved-report
+evidence are already accepted, with 1,531 names and a matching persisted audit.
+Do not replay Apply or start new runtime work from this checkpoint alone. When
+the user returns with testing evidence, follow the relevant handoff and the
+[deferred checklist](docs/changes/2026-10-30-identity-report-polish/REPORT.md).
+Native clipboard, new report-polish behavior and app restart persistence remain
+unverified. Security ID history remains held for separately verified dated evidence.
+7. Report changes, focused validation results, and remaining risks. Do not infer financial approval or native acceptance from historical reports.
+
+## Current task checkpoint — 26 October 2026
+
+The user has paused Corporate Actions to address a database issue. Obtain its
+symptoms and affected scope before implementation; do not assume a BSE-data cause.
+CA has 4,288 confirmed persisted approvals from the latest run. Do not replay them.
+Resume CA later from [the checkpoint](docs/changes/2026-10-26_CA_PAUSE_DATABASE_PRIORITY_HANDOFF.md),
+which records remaining progress/status/history UI work and validation limits.
+This current checkpoint supersedes the historical task material below.
+
+The active objective comes from the current user request and `HANDOFF.md`. Stop reading here unless the task needs historical context. This file does not configure API cache keys, modes, or retention, and stable text alone does not guarantee a cache hit.
+
+## Historical reference only
+
+Everything below is retained April-era reference, including headings that say "current", "required", or "start". It is not a live task list and must not override the current request, `AGENTS.md`, `HANDOFF.md`, or inspected source.
+
+### Historical objective
 
 Latest verified on April 12, 2026:
 - `src/store/chartStore.ts` is down to 498 lines after the chartStore completion shell pass; it is now a thin Zustand shell that composes extracted controllers/helpers, keeps autosave subscription glue, and exports `getActiveChartTab`.

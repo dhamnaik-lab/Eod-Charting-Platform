@@ -246,10 +246,44 @@ fn get_app_info(app: AppHandle) -> RuntimeAppInfo {
     }
 }
 
+fn validate_safe_external_url(raw_url: &str) -> Result<reqwest::Url, String> {
+    let parsed = reqwest::Url::parse(raw_url.trim())
+        .map_err(|error| format!("Invalid external URL: {error}"))?;
+    if !matches!(parsed.scheme(), "https" | "http") {
+        return Err(format!(
+            "Refusing to open non-HTTP/HTTPS external URL scheme: {}",
+            parsed.scheme()
+        ));
+    }
+    if parsed.host_str().map(str::trim).filter(|h| !h.is_empty()).is_none() {
+        return Err("External URL must include a valid host.".to_string());
+    }
+    Ok(parsed)
+}
+
 #[tauri::command]
 fn open_external(url: String) -> Result<OperationResult, String> {
-    open::that(url).map_err(|error| error.to_string())?;
+    let validated = validate_safe_external_url(&url)?;
+    open::that(validated.as_str()).map_err(|error| error.to_string())?;
     Ok(OperationResult { success: true })
+}
+
+#[cfg(test)]
+mod external_url_security_tests {
+    use super::validate_safe_external_url;
+
+    #[test]
+    fn allows_valid_https_and_http_urls() {
+        assert!(validate_safe_external_url("https://www.nseindia.com/market-data").is_ok());
+        assert!(validate_safe_external_url("http://localhost:5173").is_ok());
+    }
+
+    #[test]
+    fn rejects_non_http_schemes_and_local_paths() {
+        assert!(validate_safe_external_url("file:///C:/Windows/System32/cmd.exe").is_err());
+        assert!(validate_safe_external_url("javascript:alert(1)").is_err());
+        assert!(validate_safe_external_url("C:\\Windows\\System32\\calc.exe").is_err());
+    }
 }
 
 fn set_check_menu_item_state<R: Runtime>(
@@ -365,7 +399,13 @@ fn sync_menu_state(app: AppHandle, state: MenuStateSyncInput) -> Result<Operatio
 fn fetch_official_watchlist_source(
     input: OfficialWatchlistSourceFetchInput,
 ) -> Result<String, String> {
-    let parsed_url = reqwest::Url::parse(&input.url).map_err(|error| error.to_string())?;
+    let parsed_url = reqwest::Url::parse(input.url.trim()).map_err(|error| error.to_string())?;
+    if parsed_url.scheme() != "https" {
+        return Err(format!(
+            "Official watchlist source must use HTTPS: {}",
+            input.url
+        ));
+    }
     let hostname = parsed_url
         .host_str()
         .map(str::to_lowercase)
@@ -399,6 +439,7 @@ fn fetch_official_watchlist_source(
     let client = Client::builder()
         .default_headers(headers)
         .cookie_store(true)
+        .timeout(std::time::Duration::from_secs(30))
         .build()
         .map_err(|error| error.to_string())?;
 
@@ -414,7 +455,12 @@ fn fetch_official_watchlist_source(
         ));
     }
 
-    response.text().map_err(|error| error.to_string())
+    let body = response.text().map_err(|error| error.to_string())?;
+    let trimmed_lower = body.trim_start().to_ascii_lowercase();
+    if trimmed_lower.starts_with("<!doctype html") || trimmed_lower.starts_with("<html") {
+        return Err("Official watchlist source returned an HTML challenge/error page instead of CSV.".to_string());
+    }
+    Ok(body)
 }
 
 fn build_menu<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<tauri::menu::Menu<R>> {
@@ -1100,6 +1146,10 @@ fn main() {
             pick_plugin_data_file,
             pick_plugin_output_directory,
             read_plugin_text_file,
+            list_external_plugins,
+            read_external_plugin_module,
+            install_external_plugin_package,
+            uninstall_external_plugin,
             open_external,
             get_binary_eod_status,
             validate_binary_parity,
@@ -1115,6 +1165,7 @@ fn main() {
             search_symbols,
             list_symbols,
             get_eod_data,
+            get_eod_data_binary,
             get_daily_market_snapshot,
             cancel_daily_market_snapshot,
             export_dnn_research_dataset,
@@ -1132,9 +1183,18 @@ fn main() {
             download_nse_current_universe_master,
             preview_nse_current_universe_sync,
             apply_nse_current_universe_sync,
+            list_nse_identity_apply_history,
+            list_nse_historical_identity_apply_history,
+            get_nse_historical_identity_apply_report,
             download_bse_current_universe_master,
             preview_bse_current_universe_sync,
             apply_bse_current_universe_sync,
+            list_bse_identity_apply_history,
+            refresh_bse_name_history,
+            preview_bse_name_history,
+            apply_bse_name_history,
+            list_bse_name_history_runs,
+            get_bse_name_history_report,
             assess_identity_official_source_health,
             get_official_source_configuration_authority,
             save_official_source_urls_reviewed,
@@ -1147,6 +1207,7 @@ fn main() {
             list_official_source_history,
             import_corporate_actions_csv,
             fetch_official_corporate_actions,
+            cancel_official_corporate_action_fetch,
             backfill_historical_capital_actions_for_symbol,
             backfill_historical_capital_actions_batch,
             list_historical_capital_action_backfill_runs,
@@ -1155,6 +1216,7 @@ fn main() {
             list_historical_capital_action_sparse_candidates,
             list_corporate_action_imports,
             get_corporate_action_imports_by_ids,
+            refresh_corporate_action_import_classifications,
             list_corporate_action_event_identities,
             preview_corporate_action_repairs,
             preview_split_bonus_reconciliation,
@@ -1164,6 +1226,10 @@ fn main() {
             approve_corporate_action_imports,
             auto_approve_corporate_action_imports,
             evaluate_simple_cash_dividend_prepared_scope,
+            execute_simple_cash_dividend_write_stage,
+            save_corporate_action_validation_report,
+            list_corporate_action_activity_runs,
+            list_corporate_action_validation_report_items,
             approve_recommended_corporate_action_isin_mismatches,
             recheck_corporate_action_imports,
             list_corporate_action_import_resolution_hints,
@@ -1191,12 +1257,17 @@ fn main() {
             undo_manual_import_recovery,
             download_bhavcopy,
             download_bhavcopy_batch,
+            download_bse_price_history,
+            cancel_bse_price_history_download,
             get_bhavcopy_settings,
             save_bhavcopy_settings,
             get_bhavcopy_default_templates,
             list_market_holidays,
             add_market_holiday,
             delete_market_holiday,
+            list_official_exchange_holiday_snapshots,
+            preview_official_exchange_holidays,
+            apply_official_exchange_holidays,
             get_saved_layouts,
             save_layout,
             load_layout,

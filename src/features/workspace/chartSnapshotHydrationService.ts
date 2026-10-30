@@ -1,6 +1,8 @@
 import {
   createChartWorkspace,
 } from '@/features/charts/chartTabWorkspaceService';
+import { beginChartRequest, invalidateChartRequests } from '@/features/charts/chartLoadGuard';
+import { readLatestChartData } from '@/platform/chartRequestErrors';
 import {
   restoreWorkspaceState,
 } from '@/features/charts/chartSheetWorkspaceService';
@@ -51,6 +53,7 @@ interface ChartSnapshotHydrationControllerDeps {
   resetChartInteractionUi: () => void;
   resolveSelectedWatchlistId: (watchlists: Watchlist[], selectedWatchlistId: number | null) => number | null;
   setAutosaveSignature: (signature: string) => void;
+  reportLoadError?: (message: string) => void;
 }
 
 interface HydrateChartTabDataOptions {
@@ -69,7 +72,6 @@ export function createChartSnapshotHydrationController(
 ): ChartSnapshotHydrationController {
   let restoringWorkspace = false;
   let snapshotHydrationToken = 0;
-  const hydratingTabIds = new Set<string>();
 
   const setRestoreCompleteState = () => ({
     isDatabaseTransitioning: false,
@@ -82,7 +84,7 @@ export function createChartSnapshotHydrationController(
     options?: HydrateChartTabDataOptions,
   ) => {
     const api = deps.getApi();
-    if (!api || hydratingTabIds.has(tabId)) {
+    if (!api) {
       return;
     }
 
@@ -92,7 +94,19 @@ export function createChartSnapshotHydrationController(
       return;
     }
 
-    hydratingTabIds.add(tabId);
+    const request = beginChartRequest(deps.instrumentDataCache, [tabId]);
+    const startState = deps.getState();
+    const databasePath = startState.snapshot?.activeDatabasePath ?? null;
+    const canApply = (state: ChartStoreState) => {
+      const current = state.chartTabs.find((candidate) => candidate.id === tabId);
+      const instrument = current?.requestedInstrument ?? current?.instrument;
+      return request.isCurrent(tabId)
+        && (state.snapshot?.activeDatabasePath ?? null) === databasePath
+        && state.adjustedMode === startState.adjustedMode
+        && state.includeDividendAdjustments === startState.includeDividendAdjustments
+        && state.includeRightsAdjustments === startState.includeRightsAdjustments
+        && instrument?.symbol === targetInstrument.symbol && instrument.exchange === targetInstrument.exchange;
+    };
     if (deps.getState().activeChartTabId === tabId) {
       deps.setState({ isLoadingBars: true });
     }
@@ -111,19 +125,19 @@ export function createChartSnapshotHydrationController(
       const includeRightsAdjustments =
         options?.includeRightsAdjustments ?? state.includeRightsAdjustments;
 
-      const { result, compareOverlays: hydratedCompareOverlays } = await hydrateChartTabPayload({
+      const { result, compareOverlays: hydratedCompareOverlays } = await readLatestChartData((retry) => hydrateChartTabPayload({
         api,
-        databasePath: state.snapshot?.activeDatabasePath ?? null,
+        databasePath,
         tab: currentTab,
         targetInstrument,
         adjusted,
         includeDividendAdjustments,
         includeRightsAdjustments,
         instrumentDataCache: deps.instrumentDataCache,
-        forceReload: options?.forceReload,
-      });
+        forceReload: retry ? false : options?.forceReload,
+      }), () => canApply(deps.getState()));
 
-      deps.setState((nextState) => ({
+      deps.setState((nextState) => !canApply(nextState) ? {} : ({
         isLoadingBars: nextState.activeChartTabId === tabId ? false : nextState.isLoadingBars,
         chartTabs: nextState.chartTabs.map((candidate) =>
           candidate.id === tabId
@@ -139,7 +153,8 @@ export function createChartSnapshotHydrationController(
             : candidate,
         ),
       }));
-    } catch {
+    } catch (error) {
+      if (!canApply(deps.getState())) return;
       const adjustedMode = options?.adjusted ?? deps.getState().adjustedMode;
       const includeDividendAdjustments =
         options?.includeDividendAdjustments ?? deps.getState().includeDividendAdjustments;
@@ -159,8 +174,8 @@ export function createChartSnapshotHydrationController(
             : candidate,
         ),
       }));
-    } finally {
-      hydratingTabIds.delete(tabId);
+      const backgroundTab = deps.getState().activeChartTabId !== tabId ? ' background chart tab' : '';
+      deps.reportLoadError?.(`Failed to load${backgroundTab} ${targetInstrument.exchange}:${targetInstrument.symbol}. ${error instanceof Error ? error.message : String(error)}`);
     }
   };
 
@@ -168,9 +183,8 @@ export function createChartSnapshotHydrationController(
     const hydrationToken = ++snapshotHydrationToken;
     const previousSnapshot = deps.getState().snapshot;
     const databaseChanged = snapshot.activeDatabasePath !== previousSnapshot?.activeDatabasePath;
-    if (databaseChanged) {
-      deps.instrumentDataCache.clear();
-    }
+    invalidateChartRequests(deps.instrumentDataCache);
+    deps.instrumentDataCache.clear();
 
     restoringWorkspace = true;
     deps.clearWorkspaceAutosaveTimer();
@@ -254,6 +268,7 @@ export function createChartSnapshotHydrationController(
         const activeTab = getActiveChartTab(workspace.chartTabs, workspace.activeChartTabId);
         if (activeTab?.instrument) {
           window.setTimeout(() => {
+            if (hydrationToken !== snapshotHydrationToken) return;
             void hydrateChartTabData(workspace.activeChartTabId, {
               adjusted: startupAdjustedMode,
               includeDividendAdjustments: startupDividendAdjustments,

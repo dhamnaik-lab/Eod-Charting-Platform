@@ -47,9 +47,9 @@ describe('Identity I2 compact workspace', () => {
     const nseRefresh = sliceBetween(source, 'const refreshNseIdentitySources = async () => {', 'const updateOfficialSourceUrl');
 
     expect(identity).toContain('Refresh &amp; Preview');
-    expect(identity).toContain('Current Master + De-listed');
+    expect(identity).toContain('IdentityImportWorkspace');
     expect(identity).toContain('Preview Saved Sources');
-    expect(identity).toContain('Active + De-listed + Suspended');
+    expect(identity).toContain('identityExchange');
 
     const masterIndex = nseRefresh.indexOf('api.downloadNseCurrentUniverseMaster()');
     const delistedIndex = nseRefresh.indexOf('api.downloadNseDelistedWorkbook()');
@@ -105,17 +105,17 @@ describe('Identity I2 compact workspace', () => {
     expect(dispatch).toContain('applyBseCurrentUniverseSync()');
   });
 
-  it('keeps historical NSE identity reviewed Preview/Apply secondary and manual-only', () => {
+  it('keeps historical NSE identity in a separate supported workspace with reviewed Apply', () => {
     const source = readSource();
     const identity = sliceBetween(source, 'const renderIdentityTab = () => (', 'const renderImportsTab');
 
-    expect(identity).toContain('Historical NSE symbol/name chains');
+    expect(identity).toContain("historical={identityExchange === 'NSE'");
     expect(identity).toContain('Preview Historical Identity');
     expect(identity).toContain('Apply Reviewed Historical Identity');
     expect(identity).toContain('onClick={() => void previewNseHistoricalIdentityArchive()}');
     expect(identity).toContain('onClick={() => void applyNseHistoricalIdentityArchive()}');
-    expect(identity).toContain("identitySourceMode === 'official' ? (");
-    expect(identity).toContain(") : identityExchange === 'NSE' ? (");
+    expect(identity).toContain('historicalToolbar=');
+    expect(identity).toContain('historicalFooter=');
   });
 
   it('preserves I1 Current behavior while renaming the operator control to Current Chart', () => {
@@ -141,7 +141,7 @@ describe('Identity I2 compact workspace', () => {
     expect(styles).toContain("gridTemplateColumns: '112px minmax(0, 1fr) 96px'");
 
     const identity = sliceBetween(source, 'const renderIdentityTab = () => (', 'const renderImportsTab');
-    expect(identity).toContain('style={corporateImportTableStyle}');
+    expect(identity).toContain('IdentityPreviewTable rows={filteredIdentityPreviewRows}');
   });
 
   it('updates help copy to describe actual NSE and BSE source composition', () => {

@@ -169,11 +169,11 @@ export function ChartSettingsMenu({
         <div style={menuSectionTitleStyle}>Scale Mode</div>
         <button type="button" style={menuRowStyle(!logScale)} onClick={() => onSetLogScale(false)}>
           <span>Regular</span>
-          <span style={radioPillStyle(!logScale)}>Active</span>
+          {!logScale && <span style={radioPillStyle(true)}>Active</span>}
         </button>
         <button type="button" style={menuRowStyle(logScale)} onClick={() => onSetLogScale(true)}>
           <span>Logarithmic</span>
-          <span style={radioPillStyle(logScale)}>Active</span>
+          {logScale && <span style={radioPillStyle(true)}>Active</span>}
         </button>
         <MenuToggle label="Invert scale" checked={invertPriceScale} onChange={onSetInvertPriceScale} />
         {onSetVolumeProfileEnabled && (

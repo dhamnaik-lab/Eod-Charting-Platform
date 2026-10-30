@@ -29,6 +29,8 @@ export function FloatingWindow({
 
   const dragRef = useRef<{ startX: number; startY: number; startWindowX: number; startWindowY: number } | null>(null);
   const resizeRef = useRef<{ startX: number; startY: number; startWidth: number; startHeight: number } | null>(null);
+  const idRef = useRef(id);
+  idRef.current = id;
   const windowStateRef = useRef(windowState);
   windowStateRef.current = windowState;
 
@@ -52,7 +54,7 @@ export function FloatingWindow({
       nextX = Math.max(-windowStateRef.current.bounds.width + 100, Math.min(nextX, viewportWidth - 100));
       nextY = Math.max(0, Math.min(nextY, viewportHeight - 40));
 
-      moveWindowRef.current(id, nextX, nextY);
+      moveWindowRef.current(idRef.current, nextX, nextY);
     }
   }).current;
 
@@ -80,7 +82,7 @@ export function FloatingWindow({
         nextHeight = viewportHeight - windowStateRef.current.bounds.y;
       }
 
-      resizeWindowRef.current(id, nextWidth, nextHeight);
+      resizeWindowRef.current(idRef.current, nextWidth, nextHeight);
     }
   }).current;
 
@@ -90,15 +92,28 @@ export function FloatingWindow({
     window.removeEventListener('mouseup', handleResizeMouseUpStable);
   }).current;
 
-  // Global mouse event cleanup on unmount
+  const stopActiveInteractions = useRef(() => {
+    dragRef.current = null;
+    resizeRef.current = null;
+    window.removeEventListener('mousemove', handleMouseMoveStable);
+    window.removeEventListener('mouseup', handleMouseUpStable);
+    window.removeEventListener('mousemove', handleResizeMouseMoveStable);
+    window.removeEventListener('mouseup', handleResizeMouseUpStable);
+  }).current;
+
   useEffect(() => {
+    if (!windowState?.isOpen || windowState?.isMinimized || windowState?.isMaximized) {
+      stopActiveInteractions();
+    }
+  }, [windowState?.isOpen, windowState?.isMinimized, windowState?.isMaximized, stopActiveInteractions]);
+
+  useEffect(() => {
+    window.addEventListener('blur', stopActiveInteractions);
     return () => {
-      window.removeEventListener('mousemove', handleMouseMoveStable);
-      window.removeEventListener('mouseup', handleMouseUpStable);
-      window.removeEventListener('mousemove', handleResizeMouseMoveStable);
-      window.removeEventListener('mouseup', handleResizeMouseUpStable);
+      window.removeEventListener('blur', stopActiveInteractions);
+      stopActiveInteractions();
     };
-  }, [handleMouseMoveStable, handleMouseUpStable, handleResizeMouseMoveStable, handleResizeMouseUpStable]);
+  }, [stopActiveInteractions]);
 
   if (!windowState || !windowState.isOpen) {
     return null;

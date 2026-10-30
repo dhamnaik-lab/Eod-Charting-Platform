@@ -1,0 +1,96 @@
+{
+  "database": "E:\\TA Projects\\EOD Charting Platform\\EOD DATABASE",
+  "symbols": [
+    {
+      "symbol": "AEROPLANE",
+      "is_active": 1,
+      "lifecycle_status": "CURRENT"
+    },
+    {
+      "symbol": "AMIRCHAND",
+      "is_active": 0,
+      "lifecycle_status": "OLD_SYMBOL"
+    }
+  ],
+  "transition": [
+    {
+      "old_symbol": "AMIRCHAND",
+      "new_symbol": "AEROPLANE",
+      "effective_date": "2026-07-20",
+      "change_type": "SYMBOL_CHANGE",
+      "created_at": "2026-10-29 15:57:57",
+      "source": "NSE_IDENTITY"
+    }
+  ],
+  "recentHistoryGroups": [
+    {
+      "created_at": "2026-10-29 15:57:57",
+      "change_type": "BOTH",
+      "count": 13
+    },
+    {
+      "created_at": "2026-10-29 15:57:57",
+      "change_type": "NAME_CHANGE",
+      "count": 17
+    },
+    {
+      "created_at": "2026-10-29 15:57:57",
+      "change_type": "SYMBOL_CHANGE",
+      "count": 14
+    }
+  ],
+  "financialTablesMatchPreApplySnapshot": {
+    "corporate_actions": true,
+    "corporate_action_import_decisions": false,
+    "corporate_action_event_identity_resolutions": true
+  },
+  "rawFilesMatchPreApplySnapshot": {
+    "AMIRCHAND": true,
+    "AEROPLANE": true
+  },
+  "hasHistoricalRunReceipts": false,
+  "laterAddedImportDecisions": [
+    {
+      "id": 22904,
+      "import_id": 45630,
+      "decision_type": "BSE_SECURITY_CODE_RESOLUTION",
+      "previous_symbol": null,
+      "previous_exchange": "BSE",
+      "previous_isin": null,
+      "resolved_symbol": "BANSALWIRE",
+      "resolved_exchange": "BSE",
+      "resolved_isin": "INE0B9K01033",
+      "reason": "Exact official BSE security code mapped to local instrument metadata; no event-date proof or financial approval granted.",
+      "decided_at": "2026-10-29 16:12:03"
+    },
+    {
+      "id": 22905,
+      "import_id": 45610,
+      "decision_type": "BSE_SECURITY_CODE_RESOLUTION",
+      "previous_symbol": null,
+      "previous_exchange": "BSE",
+      "previous_isin": null,
+      "resolved_symbol": "BUILDPRO",
+      "resolved_exchange": "BSE",
+      "resolved_isin": "INE24OJ01029",
+      "reason": "Exact official BSE security code mapped to local instrument metadata; no event-date proof or financial approval granted.",
+      "decided_at": "2026-10-29 16:12:03"
+    },
+    {
+      "id": 22906,
+      "import_id": 45604,
+      "decision_type": "BSE_SECURITY_CODE_RESOLUTION",
+      "previous_symbol": null,
+      "previous_exchange": "BSE",
+      "previous_isin": null,
+      "resolved_symbol": "BLSE",
+      "resolved_exchange": "BSE",
+      "resolved_isin": "INE0NLT01028",
+      "reason": "Exact official BSE security code mapped to local instrument metadata; no event-date proof or financial approval granted.",
+      "decided_at": "2026-10-29 16:12:03"
+    }
+  ],
+  "removedImportDecisions": 0,
+  "totalChanges": 0,
+  "limitation": "Persisted-row evidence only; the old application did not save a complete historical Apply receipt."
+}

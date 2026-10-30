@@ -1,24 +1,27 @@
 use csv::StringRecord;
-use reqwest::blocking::Client;
-use reqwest::header::{ACCEPT, REFERER, USER_AGENT};
 use rusqlite::{params, Connection};
+use serde::Serialize;
+use sha2::{Digest, Sha256};
 use std::collections::{HashMap, HashSet};
 use std::fs;
 use std::io::Read;
 use std::path::{Path, PathBuf};
-use std::time::Duration;
-use tauri::AppHandle;
+use tauri::{AppHandle, Emitter};
 
-use super::official_source_urls::{
-    bse_official_redirect_policy, load_official_source_urls, validate_bse_official_source_url,
-    OfficialSourceUrls,
-};
+mod apply_reporting;
+mod master_transport;
+mod name_history;
+pub use apply_reporting::list_bse_identity_apply_history;
+pub use name_history::{refresh_bse_name_history, preview_bse_name_history, apply_bse_name_history,
+    list_bse_name_history_runs, get_bse_name_history_report};
+
+use super::official_source_urls::{load_official_source_urls, OfficialSourceUrls};
 use super::{
     emit_database_changed, get_app_snapshot_internal, invalidate_cached_db_stats,
     normalize_optional_text, normalize_symbol, open_connection_for_folder,
-    resolve_active_database_folder, AppResult, BseCurrentUniverseMasterDownloadResult,
-    BseCurrentUniverseSyncInput, BseCurrentUniverseSyncPreviewRow, BseCurrentUniverseSyncResult,
-    SnapshotOptions,
+    resolve_active_database_folder, AppResult, BseCurrentUniverseApplyInput,
+    BseCurrentUniverseMasterDownloadResult, BseCurrentUniverseSyncInput,
+    BseCurrentUniverseSyncPreviewRow, BseCurrentUniverseSyncResult, SnapshotOptions,
 };
 
 const BSE_EXCHANGE: &str = "BSE";
@@ -32,7 +35,7 @@ const BSE_LIFECYCLE_STATUSES: &[(&str, &str)] = &[
     ("Suspended", "SUSPENDED"),
 ];
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize)]
 struct BseMasterRow {
     symbol: String,
     security_code: Option<String>,
@@ -42,7 +45,7 @@ struct BseMasterRow {
     lifecycle_status: String,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize)]
 struct ExistingBseInstrumentRow {
     symbol: String,
     security_code: Option<String>,
@@ -50,11 +53,14 @@ struct ExistingBseInstrumentRow {
     series: Option<String>,
     isin: Option<String>,
     is_active: bool,
+    lifecycle_status: String,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize)]
 struct BseCurrentUniverseSyncPlan {
     master_file_path: String,
+    master_sha256: String,
+    existing_rows: Vec<ExistingBseInstrumentRow>,
     master_rows_read: u32,
     current_universe_symbols: u32,
     activate_count: u32,
@@ -78,7 +84,7 @@ pub async fn download_bse_current_universe_master(
         })?;
         let connection = open_connection_for_folder(&folder_path, false)?;
         let urls = load_official_source_urls(Some(&connection))?;
-        download_bse_current_universe_master_internal(&folder_path, &urls)
+        master_transport::download(&app_handle, &folder_path, &urls)
     })
     .await
     .map_err(|error| error.to_string())?
@@ -104,26 +110,41 @@ pub async fn preview_bse_current_universe_sync(
 #[tauri::command]
 pub async fn apply_bse_current_universe_sync(
     app: AppHandle,
-    input: BseCurrentUniverseSyncInput,
+    input: BseCurrentUniverseApplyInput,
+    operation_id: Option<String>,
 ) -> AppResult<BseCurrentUniverseSyncResult> {
-    let app_handle = app.clone();
     tauri::async_runtime::spawn_blocking(move || {
-        let folder_path = resolve_active_database_folder(&app_handle)?.ok_or_else(|| {
-            "Open a database before applying the BSE current-symbol sync.".to_string()
-        })?;
-        let connection = open_connection_for_folder(&folder_path, false)?;
-
-        let result = apply_bse_current_universe_sync_internal(&connection, &input)?;
-        invalidate_cached_db_stats(&app_handle, &folder_path)?;
-        let snapshot = get_app_snapshot_internal(
-            &app_handle,
-            Some(&SnapshotOptions {
-                include_stats: Some(false),
-                include_watchlists: Some(false),
-            }),
-        )?;
-        emit_database_changed(&app_handle, &snapshot)?;
-        Ok::<BseCurrentUniverseSyncResult, String>(result)
+        let folder = resolve_active_database_folder(&app)?
+            .ok_or("Open a database before applying BSE changes.")?;
+        apply_reporting::check_database_path(&folder, &input.expected_database_path)?;
+        let connection = open_connection_for_folder(&folder, false)?;
+        let report = |progress: super::IdentityApplyProgress| {
+            if let Some(id) = &operation_id {
+                let _ = app.emit(
+                    "identity:apply-progress",
+                    serde_json::json!({
+                        "operationId": id, "databasePath": folder, "progress": progress
+                    }),
+                );
+            }
+        };
+        let mut result = apply_reporting::apply_reviewed(&connection, &input, &report)?;
+        report(apply_reporting::progress("refreshing", 0, 0));
+        let refresh = (|| -> AppResult<()> {
+            invalidate_cached_db_stats(&app, &folder)?;
+            let snapshot = get_app_snapshot_internal(
+                &app,
+                Some(&SnapshotOptions {
+                    include_stats: Some(false),
+                    include_watchlists: Some(false),
+                }),
+            )?;
+            emit_database_changed(&app, &snapshot)
+        })();
+        if let Err(error) = refresh {
+            result.refresh_warning = Some(error);
+        }
+        Ok(result)
     })
     .await
     .map_err(|error| error.to_string())?
@@ -153,92 +174,6 @@ pub(super) fn validate_bse_active_population_for_health(active_symbols: usize) -
     validate_bse_current_population_sanity(active_symbols, 0, 0)
 }
 
-fn download_bse_current_universe_master_internal(
-    database_folder_path: &Path,
-    urls: &OfficialSourceUrls,
-) -> AppResult<BseCurrentUniverseMasterDownloadResult> {
-    validate_bse_official_source_url(&urls.bse_list_scrips_referer)?;
-
-    let client = Client::builder()
-        .timeout(Duration::from_secs(45))
-        .redirect(bse_official_redirect_policy())
-        .build()
-        .map_err(|error| error.to_string())?;
-    let mut combined_csv = String::new();
-    let mut combined_rows_read = 0_u32;
-    for (status, lifecycle_status) in BSE_LIFECYCLE_STATUSES {
-        let url = format!("{}{}", urls.bse_list_scrips_url_prefix, status);
-        validate_bse_official_source_url(&url)?;
-        let response = client
-            .get(&url)
-            .header(ACCEPT, "text/csv,*/*")
-            .header(REFERER, &urls.bse_list_scrips_referer)
-            .header(USER_AGENT, BSE_USER_AGENT)
-            .send()
-            .map_err(|error| format!("Could not download BSE {status} master: {error}"))?
-            .error_for_status()
-            .map_err(|error| format!("BSE {status} master download failed: {error}"))?;
-        validate_bse_official_source_url(response.url().as_str())?;
-        let csv_text = response
-            .text()
-            .map_err(|error| format!("Could not read BSE {status} master response: {error}"))?;
-        if !csv_text
-            .trim_start_matches('\u{feff}')
-            .trim_start()
-            .starts_with("Security Code")
-        {
-            return Err(format!(
-                "BSE {status} master response did not look like the expected CSV."
-            ));
-        }
-        append_bse_lifecycle_csv(&mut combined_csv, &csv_text, lifecycle_status)?;
-        combined_rows_read += csv_text
-            .lines()
-            .skip(1)
-            .filter(|line| !line.trim().is_empty())
-            .count() as u32;
-    }
-
-    let rows = load_bse_master_rows_from_bytes(
-        combined_csv.as_bytes(),
-        "BSE combined lifecycle official download",
-    )?;
-    let active_rows = rows
-        .iter()
-        .filter(|row| row.lifecycle_status == "CURRENT")
-        .count();
-    let delisted_rows = rows
-        .iter()
-        .filter(|row| row.lifecycle_status == "DELISTED")
-        .count();
-    let suspended_rows = rows
-        .iter()
-        .filter(|row| row.lifecycle_status == "SUSPENDED")
-        .count();
-    validate_bse_current_population_sanity(active_rows, delisted_rows, suspended_rows)?;
-
-    let target_dir = database_folder_path.join("reference-data").join("bse");
-    fs::create_dir_all(&target_dir).map_err(|error| error.to_string())?;
-    let timestamp = chrono::Utc::now().format("%Y%m%d_%H%M%S");
-    let file_path = target_dir.join(format!("bse-lifecycle-master-{timestamp}.csv"));
-    fs::write(&file_path, combined_csv).map_err(|error| error.to_string())?;
-
-    Ok(BseCurrentUniverseMasterDownloadResult {
-        file_path: file_path.display().to_string(),
-        source_url: format!(
-            "{}<Active|Delisted|Suspended>",
-            urls.bse_list_scrips_url_prefix
-        ),
-        rows_read: combined_rows_read.max(rows.len() as u32),
-        message: format!(
-            "Downloaded BSE lifecycle master with {} active, {} delisted, and {} suspended symbols.",
-            active_rows,
-            delisted_rows,
-            suspended_rows
-        ),
-    })
-}
-
 fn preview_bse_current_universe_sync_internal(
     connection: &Connection,
     input: &BseCurrentUniverseSyncInput,
@@ -247,6 +182,7 @@ fn preview_bse_current_universe_sync_internal(
     Ok(plan_into_result(plan, false))
 }
 
+#[cfg(test)]
 fn apply_bse_current_universe_sync_internal(
     connection: &Connection,
     input: &BseCurrentUniverseSyncInput,
@@ -261,7 +197,8 @@ fn build_bse_current_universe_sync_plan(
     input: &BseCurrentUniverseSyncInput,
 ) -> AppResult<BseCurrentUniverseSyncPlan> {
     let master_path = normalize_master_file_path(&input.master_file_path)?;
-    let current_rows = load_bse_master_rows(&master_path)?;
+    let bytes = fs::read(&master_path).map_err(|error| error.to_string())?;
+    let current_rows = load_bse_master_rows_from_bytes(&bytes, &master_path.display().to_string())?;
     let active_rows = current_rows
         .iter()
         .filter(|row| row.lifecycle_status == "CURRENT")
@@ -276,21 +213,47 @@ fn build_bse_current_universe_sync_plan(
         .count();
     validate_bse_current_population_sanity(active_rows, delisted_rows, suspended_rows)?;
     let existing_rows = load_existing_bse_instrument_rows(connection)?;
-    Ok(plan_bse_current_universe_sync_from_rows(
+    let mut plan = plan_bse_current_universe_sync_from_rows(
         master_path.display().to_string(),
         current_rows.len() as u32,
         current_rows,
         existing_rows,
-    ))
+    );
+    plan.master_sha256 = format!("{:x}", Sha256::digest(&bytes));
+    Ok(plan)
 }
 
+#[cfg(test)]
 fn apply_bse_current_universe_sync_plan(
     connection: &Connection,
     plan: &BseCurrentUniverseSyncPlan,
 ) -> AppResult<()> {
     super::run_connection_transaction(connection, |connection| {
-        for row in &plan.current_rows {
-            connection
+        write_bse_plan(connection, plan, &|_| {})
+    })
+}
+
+fn write_bse_plan(
+    connection: &Connection,
+    plan: &BseCurrentUniverseSyncPlan,
+    report: &dyn Fn(usize),
+) -> AppResult<()> {
+    let changed: HashSet<&str> = plan
+        .preview_rows
+        .iter()
+        .map(|row| row.symbol.as_str())
+        .collect();
+    let mut processed = 0;
+    let mut advance = || {
+        processed += 1;
+        report(processed);
+    };
+    for row in plan
+        .current_rows
+        .iter()
+        .filter(|row| changed.contains(row.symbol.as_str()))
+    {
+        connection
                 .execute(
                     "
                       INSERT INTO instruments (
@@ -324,12 +287,17 @@ fn apply_bse_current_universe_sync_plan(
                     ],
                 )
                 .map_err(|error| error.to_string())?;
-        }
+        advance();
+    }
 
-        for row in &plan.inactive_rows {
-            connection
-                .execute(
-                    "
+    for row in plan
+        .inactive_rows
+        .iter()
+        .filter(|row| changed.contains(row.symbol.as_str()))
+    {
+        connection
+            .execute(
+                "
                       UPDATE instruments
                       SET bse_security_code = COALESCE(?, bse_security_code),
                           isin = COALESCE(?, isin),
@@ -341,23 +309,24 @@ fn apply_bse_current_universe_sync_plan(
                       WHERE symbol = ?
                         AND exchange = ?
                     ",
-                    params![
-                        row.security_code,
-                        row.isin,
-                        row.name,
-                        row.series,
-                        row.lifecycle_status,
-                        row.symbol,
-                        BSE_EXCHANGE
-                    ],
-                )
-                .map_err(|error| error.to_string())?;
-        }
+                params![
+                    row.security_code,
+                    row.isin,
+                    row.name,
+                    row.series,
+                    row.lifecycle_status,
+                    row.symbol,
+                    BSE_EXCHANGE
+                ],
+            )
+            .map_err(|error| error.to_string())?;
+        advance();
+    }
 
-        for symbol in &plan.deactivate_symbols {
-            connection
-                .execute(
-                    "
+    for symbol in &plan.deactivate_symbols {
+        connection
+            .execute(
+                "
                       UPDATE instruments
                       SET is_active = 0,
                           lifecycle_status = 'UNKNOWN_INACTIVE',
@@ -365,13 +334,25 @@ fn apply_bse_current_universe_sync_plan(
                       WHERE symbol = ?
                         AND exchange = ?
                     ",
-                    params![symbol, BSE_EXCHANGE],
-                )
-                .map_err(|error| error.to_string())?;
-        }
+                params![symbol, BSE_EXCHANGE],
+            )
+            .map_err(|error| error.to_string())?;
+        advance();
+    }
 
-        Ok(())
-    })
+    Ok(())
+}
+
+fn bse_metadata_changed(existing: &ExistingBseInstrumentRow, row: &BseMasterRow) -> bool {
+    // COALESCE preserves absent source values; do not invent repeat updates for them.
+    [
+        (&row.security_code, &existing.security_code),
+        (&row.name, &existing.name),
+        (&row.series, &existing.series),
+        (&row.isin, &existing.isin),
+    ]
+    .iter()
+    .any(|(proposed, current)| proposed.is_some() && proposed != current)
 }
 
 fn plan_bse_current_universe_sync_from_rows(
@@ -407,6 +388,7 @@ fn plan_bse_current_universe_sync_from_rows(
         .cloned()
         .collect::<HashSet<_>>();
 
+    let existing_snapshot = existing_rows.clone();
     let mut activate_count = 0_u32;
     let mut update_count = 0_u32;
     let mut official_inactive_count = 0_u32;
@@ -415,10 +397,8 @@ fn plan_bse_current_universe_sync_from_rows(
 
     for row in &current_rows {
         if let Some(existing) = existing_by_symbol.get(&row.symbol) {
-            let metadata_changed = existing.security_code != row.security_code
-                || existing.name != row.name
-                || existing.series != row.series
-                || existing.isin != row.isin;
+            let metadata_changed =
+                bse_metadata_changed(existing, row) || existing.lifecycle_status != "CURRENT";
             if existing.is_active {
                 if metadata_changed {
                     update_count += 1;
@@ -469,6 +449,12 @@ fn plan_bse_current_universe_sync_from_rows(
 
     for row in &inactive_rows {
         if let Some(existing) = existing_by_symbol.get(&row.symbol) {
+            if !existing.is_active
+                && existing.lifecycle_status == row.lifecycle_status
+                && !bse_metadata_changed(existing, row)
+            {
+                continue;
+            }
             official_inactive_count += 1;
             preview_rows.push(BseCurrentUniverseSyncPreviewRow {
                 action: row.lifecycle_status.clone(),
@@ -521,6 +507,8 @@ fn plan_bse_current_universe_sync_from_rows(
 
     BseCurrentUniverseSyncPlan {
         master_file_path,
+        master_sha256: String::new(),
+        existing_rows: existing_snapshot,
         master_rows_read,
         current_universe_symbols: current_rows.len() as u32,
         activate_count,
@@ -558,7 +546,19 @@ fn plan_into_result(
         )
     };
 
+    let plan_sha256 = apply_reporting::plan_sha256(&plan);
+    let new_symbols = plan
+        .preview_rows
+        .iter()
+        .filter(|row| row.action == "INSERT")
+        .count() as u32;
     BseCurrentUniverseSyncResult {
+        run_id: None,
+        completed_at: None,
+        refresh_warning: None,
+        plan_sha256,
+        master_sha256: plan.master_sha256,
+        new_symbols,
         master_file_path: plan.master_file_path,
         applied,
         master_rows_read: plan.master_rows_read,
@@ -603,8 +603,19 @@ fn append_bse_lifecycle_csv(
     }
     for record in reader.records() {
         let record = record.map_err(|error| error.to_string())?;
+        // BSE may append unnamed empty fields. Keep the lifecycle value aligned
+        // with its declared header; never silently discard non-empty overflow.
+        if record.len() < headers.len()
+            || record
+                .iter()
+                .skip(headers.len())
+                .any(|value| !value.trim().is_empty())
+        {
+            return Err("BSE lifecycle CSV has missing fields or non-empty unnamed fields.".into());
+        }
         let mut values = record
             .iter()
+            .take(headers.len())
             .map(|value| csv_escape(value))
             .collect::<Vec<_>>();
         values.push(lifecycle_status.to_string());
@@ -614,6 +625,7 @@ fn append_bse_lifecycle_csv(
     Ok(())
 }
 
+#[cfg(test)]
 fn load_bse_master_rows(path: &Path) -> AppResult<Vec<BseMasterRow>> {
     let mut reader = csv::ReaderBuilder::new()
         .flexible(true)
@@ -724,7 +736,8 @@ fn load_existing_bse_instrument_rows(
                 name,
                 series,
                 isin,
-                COALESCE(is_active, 1)
+                COALESCE(is_active, 1),
+                COALESCE(lifecycle_status, 'CURRENT')
               FROM instruments
               WHERE exchange = ?
             ",
@@ -739,6 +752,7 @@ fn load_existing_bse_instrument_rows(
                 series: row.get(3)?,
                 isin: row.get(4)?,
                 is_active: row.get::<_, i64>(5)? != 0,
+                lifecycle_status: row.get(6)?,
             })
         })
         .map_err(|error| error.to_string())?
@@ -833,6 +847,7 @@ fn classify_bse_lifecycle_status(value: Option<&str>) -> String {
     if normalized.is_empty()
         || normalized == "A"
         || normalized == "ACTIVE"
+        || normalized == "CURRENT"
         || normalized == "LISTED"
         || normalized == "EQUITY"
     {
@@ -906,6 +921,7 @@ mod tests {
     fn inactive_bse_status_values_are_not_treated_as_active() {
         assert!(is_active_status(None));
         assert!(is_active_status(Some("Active")));
+        assert!(is_active_status(Some("CURRENT")));
         assert!(is_active_status(Some("Listed")));
         assert!(!is_active_status(Some("Inactive")));
         assert!(!is_active_status(Some("Suspended")));
@@ -948,6 +964,7 @@ mod tests {
                 series: Some("A".to_string()),
                 isin: Some("INECURR1".to_string()),
                 is_active: true,
+                lifecycle_status: "CURRENT".into(),
             },
             ExistingBseInstrumentRow {
                 symbol: "INACT".to_string(),
@@ -956,6 +973,7 @@ mod tests {
                 series: Some("B".to_string()),
                 isin: Some("INEINACT1".to_string()),
                 is_active: false,
+                lifecycle_status: "UNKNOWN_INACTIVE".into(),
             },
             ExistingBseInstrumentRow {
                 symbol: "OLDCO".to_string(),
@@ -964,6 +982,7 @@ mod tests {
                 series: Some("X".to_string()),
                 isin: Some("INEOLD1".to_string()),
                 is_active: true,
+                lifecycle_status: "CURRENT".into(),
             },
         ];
 
@@ -1016,6 +1035,7 @@ mod tests {
                 series: Some("A".to_string()),
                 isin: Some("INECURR1".to_string()),
                 is_active: true,
+                lifecycle_status: "CURRENT".into(),
             },
             ExistingBseInstrumentRow {
                 symbol: "OLDCO".to_string(),
@@ -1024,6 +1044,7 @@ mod tests {
                 series: Some("B".to_string()),
                 isin: Some("INEOLD1".to_string()),
                 is_active: true,
+                lifecycle_status: "CURRENT".into(),
             },
             ExistingBseInstrumentRow {
                 symbol: "HALT".to_string(),
@@ -1032,6 +1053,7 @@ mod tests {
                 series: Some("Z".to_string()),
                 isin: Some("INEHALT1".to_string()),
                 is_active: true,
+                lifecycle_status: "CURRENT".into(),
             },
         ];
 
@@ -1176,10 +1198,9 @@ mod f3_bse_source_contract_tests {
 
     #[test]
     fn f3_bse_source_contract_rejects_missing_symbol_header() {
-        let error = parse(
-            "Security Code,Security Name,Group,ISIN No\n500001,Example Ltd,A,INE000000001\n",
-        )
-        .expect_err("BSE source missing Security Id/Scrip Id must fail closed");
+        let error =
+            parse("Security Code,Security Name,Group,ISIN No\n500001,Example Ltd,A,INE000000001\n")
+                .expect_err("BSE source missing Security Id/Scrip Id must fail closed");
 
         assert!(
             error.contains("BSE_SOURCE_CONTRACT_REJECTED"),
@@ -1189,10 +1210,9 @@ mod f3_bse_source_contract_tests {
 
     #[test]
     fn f3_bse_source_contract_rejects_missing_security_code_header() {
-        let error = parse(
-            "Security Id,Security Name,Group,ISIN No\nEXAMPLE,Example Ltd,A,INE000000001\n",
-        )
-        .expect_err("BSE source missing Security Code must fail closed");
+        let error =
+            parse("Security Id,Security Name,Group,ISIN No\nEXAMPLE,Example Ltd,A,INE000000001\n")
+                .expect_err("BSE source missing Security Code must fail closed");
 
         assert!(
             error.contains("BSE_SOURCE_CONTRACT_REJECTED"),
@@ -1202,10 +1222,9 @@ mod f3_bse_source_contract_tests {
 
     #[test]
     fn f3_bse_source_contract_rejects_missing_security_name_header() {
-        let error = parse(
-            "Security Code,Security Id,Group,ISIN No\n500001,EXAMPLE,A,INE000000001\n",
-        )
-        .expect_err("BSE source missing Security Name must fail closed");
+        let error =
+            parse("Security Code,Security Id,Group,ISIN No\n500001,EXAMPLE,A,INE000000001\n")
+                .expect_err("BSE source missing Security Name must fail closed");
 
         assert!(
             error.contains("BSE_SOURCE_CONTRACT_REJECTED"),
@@ -1228,10 +1247,9 @@ mod f3_bse_source_contract_tests {
 
     #[test]
     fn f3_bse_source_contract_rejects_missing_isin_header() {
-        let error = parse(
-            "Security Code,Security Id,Security Name,Group\n500001,EXAMPLE,Example Ltd,A\n",
-        )
-        .expect_err("BSE source missing ISIN must fail closed");
+        let error =
+            parse("Security Code,Security Id,Security Name,Group\n500001,EXAMPLE,Example Ltd,A\n")
+                .expect_err("BSE source missing ISIN must fail closed");
 
         assert!(
             error.contains("BSE_SOURCE_CONTRACT_REJECTED"),

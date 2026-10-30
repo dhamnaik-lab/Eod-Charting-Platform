@@ -93,6 +93,7 @@ export function CorporateActionNormalWorkflowWorkspace({
   const [fetchExchangeSelection, setFetchExchangeSelection] =
     useState<CorporateActionNormalFetchExchangeSelection>('BOTH');
   const [fetchLog, setFetchLog] = useState<string[]>([]);
+  const fetchCancelRequested = useRef(false);
   const [lastSuccessfulFetch, setLastSuccessfulFetch] =
     useState<CorporateActionNormalLastFetchRecord | null>(null);
   const [splitBonusAutoApprovalEnabled, setSplitBonusAutoApprovalEnabled] = useState(false);
@@ -160,6 +161,7 @@ export function CorporateActionNormalWorkflowWorkspace({
     }
 
     const scopeLabel = formatCorporateActionNormalFetchScope(fetchExchangeSelection);
+    fetchCancelRequested.current = false;
     setRunningOperation('fetch');
     setError('');
     setMessage('Fetching official ' + scopeLabel + ' Corporate Action coverage...');
@@ -172,6 +174,7 @@ export function CorporateActionNormalWorkflowWorkspace({
     try {
       const result = await fetchCorporateActionNormalData({
         api,
+        shouldCancel: () => fetchCancelRequested.current,
         fromDate: fetchFromDate,
         toDate: fetchToDate,
         exchangeSelection: fetchExchangeSelection,
@@ -297,7 +300,9 @@ export function CorporateActionNormalWorkflowWorkspace({
         ...current,
         ...review.counts,
       }));
-      const exceptionCount = review.events.filter((item) => item.event.status !== 'APPROVED').length;
+      const exceptionCount = review.events.filter((item) =>
+        item.event.status !== 'APPROVED' && item.event.status !== 'ALREADY_PROCESSED',
+      ).length;
       setFacts((current) =>
         reduceCorporateActionNormalWorkflowFacts(current, {
           type: 'LOAD_SUCCEEDED',
@@ -361,6 +366,7 @@ export function CorporateActionNormalWorkflowWorkspace({
       const result = await approveCorporateActionNormalReady({
         api,
         reviewEvents,
+        expectedDatabasePath: activeDatabasePath ?? '',
         onProgress: setMessage,
       });
       setApprovalResult(result);
@@ -397,6 +403,7 @@ export function CorporateActionNormalWorkflowWorkspace({
             <span>Exchange</span>
             <select
               value={fetchExchangeSelection}
+              disabled={runningOperation !== null}
               onChange={(event) =>
                 setFetchExchangeSelection(
                   event.target.value as CorporateActionNormalFetchExchangeSelection,
@@ -413,6 +420,7 @@ export function CorporateActionNormalWorkflowWorkspace({
             <input
               type="date"
               value={fetchFromDate}
+              disabled={runningOperation !== null}
               max={fetchToDate || undefined}
               onChange={(event) => setFetchFromDate(event.target.value)}
             />
@@ -422,6 +430,7 @@ export function CorporateActionNormalWorkflowWorkspace({
             <input
               type="date"
               value={fetchToDate}
+              disabled={runningOperation !== null}
               min={fetchFromDate || undefined}
               onChange={(event) => setFetchToDate(event.target.value)}
             />
@@ -435,6 +444,14 @@ export function CorporateActionNormalWorkflowWorkspace({
             >
               {runningOperation === 'fetch' ? 'FETCHING...' : 'FETCH LATEST DATA'}
             </button>
+            {runningOperation === 'fetch' ? (
+              <button type="button" disabled={fetchCancelRequested.current} onClick={async () => {
+                fetchCancelRequested.current = true;
+                setMessage('Stopping official fetch at a safe request boundary. Completed windows remain saved.');
+                try { await api?.cancelOfficialCorporateActionFetch(); }
+                catch (error) { setError(formatCorporateActionNormalWorkflowError(error, 'Could not request fetch cancellation.')); }
+              }}>Cancel Fetch</button>
+            ) : null}
             <span className="corporate-action-workspace-last-fetch">
               Last successful fetch: {formatCorporateActionNormalLastFetch(lastSuccessfulFetch)}
             </span>

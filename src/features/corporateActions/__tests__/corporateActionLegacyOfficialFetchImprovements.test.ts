@@ -22,6 +22,8 @@ describe('Corporate Action legacy Official Imports R1C donor promotion', () => {
     expect(fetchSection).toContain('max={fetchToDate || undefined}');
     expect(fetchSection).toContain('min={fetchFromDate || undefined}');
     expect(source).toContain('fetchFromDate > fetchToDate');
+    expect(source).toContain('const [fetchToDate, setFetchToDate] = useState(indiaIsoDate);');
+    expect(source).not.toContain('addIndiaIsoDays(indiaIsoDate(), 30)');
 
     expect(csvSection).toContain('value={importExchange}');
     expect(csvSection).toContain('<option value="NSE">NSE</option>');

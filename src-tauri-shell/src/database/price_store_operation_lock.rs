@@ -82,7 +82,7 @@ mod tests {
 
     #[test]
     fn phase5a_price_store_operation_lock_is_wired_to_frozen_outer_entrypoints() {
-        let bhavcopy = include_str!("../bhavcopy.rs");
+        let bhavcopy = include_str!("../bhavcopy/mod.rs");
         assert_lock_before(bhavcopy, "pub async fn download_bhavcopy(", "PriceStoreOperationKind::BhavcopyWrite", "recover_pending_bhavcopy_sessions");
         assert_lock_before(bhavcopy, "pub async fn download_bhavcopy_batch(", "PriceStoreOperationKind::BhavcopyWrite", "recover_pending_bhavcopy_sessions");
 

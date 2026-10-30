@@ -120,8 +120,7 @@ describe('Corporate Action Identity Import characterization authority', () => {
       'const downloadBseCurrentUniverseMaster',
     );
     expect(nseApply).toContain('api.applyNseCurrentUniverseSync(');
-    expect(nseApply).toContain('await onRefresh()');
-    expect(nseApply).toContain('await onReloadInstrument(');
+    expect(nseApply).toContain("executeCurrentIdentityApply('NSE'");
 
     const bseApply = sliceBetween(
       source,
@@ -129,8 +128,10 @@ describe('Corporate Action Identity Import characterization authority', () => {
       'const selectIdentityExchange',
     );
     expect(bseApply).toContain('api.applyBseCurrentUniverseSync({');
-    expect(bseApply).toContain('await onRefresh()');
-    expect(bseApply).toContain('await onReloadInstrument(');
+    expect(bseApply).toContain("executeCurrentIdentityApply('BSE'");
+    const shared = sliceBetween(source, 'const executeCurrentIdentityApply = async', 'const applyCurrentUniverseSync = async');
+    expect(shared.indexOf('await apply(progress)')).toBeLessThan(shared.indexOf('await onRefresh()'));
+    expect(shared).toContain('await onReloadInstrument(');
 
     const dispatch = sliceBetween(
       source,

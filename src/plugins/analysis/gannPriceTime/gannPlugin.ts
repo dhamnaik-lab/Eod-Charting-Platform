@@ -6,6 +6,9 @@
  */
 
 import type { RegisteredPlugin } from '@/plugins/types';
+import { computeGannSetup, DEFAULT_GANN_OPTIONS } from './engine';
+import { renderGannOverlay } from './canvasOverlay';
+import type { GannBar } from './types';
 
 export const GANN_PRICE_TIME_PLUGIN_ID = 'gann-price-time';
 
@@ -38,10 +41,28 @@ export const gannPriceTimePlugin: RegisteredPlugin = {
   },
   lifecycle: {
     init(context) {
+      context.registerChartOverlay({
+        id: 'gann-price-time-overlay',
+        name: 'Gann Price-Time Overlay',
+        render: (ctx, bars, mapper, width, height) => {
+          const gannBars: GannBar[] = bars.map((b, i) => ({
+            date: b.date,
+            timestamp: b.timestamp ?? i,
+            open: b.open,
+            high: b.high,
+            low: b.low,
+            close: b.close,
+            volume: b.volume,
+          }));
+          const setup = computeGannSetup(gannBars);
+          if (!setup) return;
+          renderGannOverlay(ctx, setup, mapper, DEFAULT_GANN_OPTIONS, width, height);
+        },
+      });
       context.log('info', 'Gann Price-Time plugin initialized.');
     },
     destroy() {
-      // Teardown
+      // Disposables are automatically cleaned up by PluginHost
     },
   },
 };

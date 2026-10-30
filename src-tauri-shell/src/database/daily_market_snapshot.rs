@@ -8,14 +8,14 @@ use std::time::UNIX_EPOCH;
 use tauri::{AppHandle, Emitter};
 
 use super::eod_data::{
-    apply_corporate_adjustments, build_chart_events, load_unified_price_rows,
+    apply_corporate_adjustments, build_chart_events, load_unified_price_rows_with_mode,
     resolve_instrument_context,
 };
 use super::symbol_search::list_instrument_summaries_internal;
 use super::{
-    get_active_database_file_path, load_db_stats, open_read_only_connection_for_folder,
-    resolve_active_database_folder, AppResult, ChartEventRecord, EodRow, InstrumentSummary,
-    SymbolSeriesFilter,
+    get_active_database_file_path, get_price_storage_mode, load_db_stats,
+    open_read_only_connection_for_folder, resolve_active_database_folder, AppResult,
+    ChartEventRecord, EodRow, InstrumentSummary, SymbolSeriesFilter,
 };
 
 const DEFAULT_HISTORY_SESSIONS: usize = 30;
@@ -172,6 +172,7 @@ fn build_daily_market_snapshot(
     // Market scans use their own read-only SQLite connection. This avoids holding the
     // shared chart/database connection mutex for the duration of a full-universe scan.
     let connection = open_read_only_connection_for_folder(&folder_path)?;
+    let storage_mode = get_price_storage_mode(&connection);
     let db_stats = load_db_stats(&folder_path, &connection)?;
     let mut instruments = Vec::new();
     match exchange.as_str() {
@@ -278,8 +279,14 @@ fn build_daily_market_snapshot(
                 resolve_instrument_context(&connection, &instrument.symbol, &instrument.exchange)?
                     .ok_or_else(|| "Instrument context could not be resolved".to_string())?;
 
-            let price_rows =
-                load_unified_price_rows(&folder_path, &connection, &context, &from, &to)?;
+            let price_rows = load_unified_price_rows_with_mode(
+                &folder_path,
+                &connection,
+                &context,
+                &from,
+                &to,
+                storage_mode,
+            )?;
             let price_rows = if adjusted {
                 apply_corporate_adjustments(
                     price_rows,

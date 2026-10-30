@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'vitest';
-import type { CorporateActionImportRow, CorporateActionImportResolutionHint, CorporateActionScanResultRow } from '@/platform';
+import type { CorporateActionImportRow, CorporateActionImportResolutionHint, CorporateActionScanResultRow, CorporateActionImportBulkApprovalInput, CorporateActionResult } from '@/platform';
 import * as operations from '../legacy/corporateActionImportOperations';
 import * as presentation from '../corporateActionBulkApproval';
 
@@ -74,10 +74,16 @@ describe('Official Imports FIX2 preparation and presentation', () => {
     const rows=[row(1),row(2,{reviewStatus:'UNRESOLVED'}),row(3,{actionType:'OTHER',reviewStatus:'UNSUPPORTED'}),row(4)];
     const counts=presentation.summarizeOfficialImportReadiness(rows,new Map(),{4:'check failed'},true);
     assert.equal(counts['Ready to apply'],1);
-    assert.equal(counts['Identity needs a decision'],1);
+    assert.equal(counts['Awaiting verified identity evidence'],1);
     assert.equal(counts['Not approvable'],1);
     assert.equal(counts['Could not check'],1);
     assert.equal(Object.values(counts).reduce((a,b)=>a+b,0),4);
+  });
+  it('explains missing percentage cash evidence and price mismatches as app checks', () => {
+    const percent = row(8,{actionType:'DIVIDEND',purposeRaw:'Dividend 24%',parseStatus:'NEEDS_REVIEW',reviewStatus:'NEEDS_REVIEW',cashAmount:null});
+    assert.equal(presentation.officialImportUserStatus(percent,undefined,undefined,true,true),'Awaiting verified cash amount and face-value basis');
+    const split = row(9,{actionType:'SPLIT',reviewStatus:'PENDING_ISIN_MISMATCH',factor:2});
+    assert.equal(presentation.officialImportUserStatus(split,undefined,undefined,true,true),'Awaiting verified identity evidence');
   });
 });
 
@@ -151,6 +157,42 @@ function approvalResult(ids:number[]) {
 }
 
 describe('Official Imports FIX2 apply receipts and reconciliation', () => {
+  it('pins the reviewed database and automatically reloads each affected instrument after commit', async () => {
+    const trace: string[] = [];
+    const api = {
+      ...lookupApi([approved(1), approved(2)], []),
+      approveCorporateActionImports: async (input: CorporateActionImportBulkApprovalInput) => {
+        assert.equal(input.expectedDatabasePath, db);
+        trace.push('commit');
+        const result = approvalResult(input.importIds);
+        return { ...result, results: result.results.map(item => ({
+          ...item, approvedRecord: { exchange: 'NSE', currentSymbol: 'SAME' } as CorporateActionResult,
+        })) };
+      },
+    };
+    const receipt = await operations.applyReviewedCorporateActionBatches({
+      api, rows: [row(1), row(2)], expectedDatabasePath: db,
+      shouldContinue: () => true,
+      onReconcile: () => { trace.push('reconcile'); },
+      refresh: async () => { trace.push('refresh'); },
+      reload: async record => { trace.push(`reload:${record.exchange}:${record.currentSymbol}`); },
+    });
+    assert.equal(receipt.approved, 2);
+    assert.deepEqual(trace, ['commit', 'reconcile', 'refresh', 'reload:NSE:SAME']);
+  });
+
+  it('rejects a missing reviewed database before dispatching approval', async () => {
+    let writes = 0;
+    const api = { ...lookupApi([], []), approveCorporateActionImports: async () => {
+      writes++; return approvalResult([1]);
+    } };
+    await assert.rejects(() => operations.applyReviewedCorporateActionBatches({
+      api, rows: [row(1)], expectedDatabasePath: '',
+      onReconcile: () => {}, refresh: async () => {}, reload: async () => {},
+    }), /reviewed database context/);
+    assert.equal(writes, 0);
+  });
+
   it('preserves the complete 32203-row queue while removing only confirmed applied IDs', () => {
     assert.equal(typeof operations.reconcilePreparedCorporateActionRows,'function');
     const rows=Array.from({length:32203},(_,i)=>row(i+1));

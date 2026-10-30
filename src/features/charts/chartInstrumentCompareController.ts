@@ -1,3 +1,4 @@
+import { readLatestChartData } from '@/platform/chartRequestErrors';
 import {
   applyCompareOverlayResult,
   createChartCompareOverlay,
@@ -24,6 +25,7 @@ import type {
 } from '@/store/chartStoreTypes';
 import type { ChartCompareOverlay } from '@/engine/types';
 import { useUiStore } from '@/store/uiStore';
+import { beginChartRequest } from '@/features/charts/chartLoadGuard';
 
 type StoreStateUpdate =
   | Partial<ChartStoreState>
@@ -100,8 +102,6 @@ function updateChartTabById(
 export function createChartInstrumentCompareController(
   deps: ChartInstrumentCompareControllerDeps,
 ): ChartInstrumentCompareController {
-  const inFlightLoads = new Set<string>();
-
   const loadInstrument = async (
     key: InstrumentKey,
     meta?: InstrumentSummary | null,
@@ -112,12 +112,6 @@ export function createChartInstrumentCompareController(
       return;
     }
 
-    const loadKey = `${key.exchange}:${key.symbol}:${options?.forceReload ? 'force' : 'cached'}`;
-    if (inFlightLoads.has(loadKey)) {
-      return;
-    }
-    inFlightLoads.add(loadKey);
-
     const adjusted = deps.getState().adjustedMode;
     const includeDividendAdjustments = deps.getState().includeDividendAdjustments;
     const includeRightsAdjustments = deps.getState().includeRightsAdjustments;
@@ -127,6 +121,19 @@ export function createChartInstrumentCompareController(
     // Snapshot viewport for every tab BEFORE buildInstrumentLoadStartTab zeroes it
     // for new instruments. This is the viewport we want to restore after load.
     const preLoadState = deps.getState();
+    const targetIds = preLoadState.chartTabs
+      .filter((tab) => tab.id === preLoadState.activeChartTabId || symbolLinkEnabled)
+      .map((tab) => tab.id);
+    const request = beginChartRequest(deps.instrumentDataCache, targetIds);
+    const canApply = (state: ChartStoreState, tab: ChartTabState) => {
+      const instrument = tab.requestedInstrument ?? tab.instrument;
+      return request.isCurrent(tab.id)
+        && state.snapshot?.activeDatabasePath === databasePath
+        && state.adjustedMode === adjusted
+        && state.includeDividendAdjustments === includeDividendAdjustments
+        && state.includeRightsAdjustments === includeRightsAdjustments
+        && instrument?.symbol === key.symbol && instrument.exchange === key.exchange;
+    };
     const viewportSnapshot = new Map<string, import('@/engine/types').Viewport>(
       preLoadState.chartTabs.map((tab) => [tab.id, tab.viewport]),
     );
@@ -134,14 +141,14 @@ export function createChartInstrumentCompareController(
     deps.setState((state) => ({
       isLoadingBars: true,
       chartTabs: state.chartTabs.map((tab) =>
-        tab.id === state.activeChartTabId || symbolLinkEnabled
+        targetIds.includes(tab.id)
           ? buildInstrumentLoadStartTab(tab, key, meta)
           : tab,
       ),
     }));
 
     try {
-      const result = await loadInstrumentResult({
+      const result = await readLatestChartData((retry) => loadInstrumentResult({
         api,
         databasePath,
         instrument: key,
@@ -149,13 +156,14 @@ export function createChartInstrumentCompareController(
         includeDividendAdjustments,
         includeRightsAdjustments,
         instrumentDataCache: deps.instrumentDataCache,
-        forceReload: options?.forceReload,
+        forceReload: retry ? false : options?.forceReload,
         resolveIdentity: meta?.isActive === false ? false : undefined,
-      });
+      }), () => deps.getState().chartTabs.some((tab) => canApply(deps.getState(), tab)));
       deps.setState((state) => ({
-        isLoadingBars: false,
+        isLoadingBars: state.chartTabs.some((tab) => tab.id === state.activeChartTabId && canApply(state, tab))
+          ? false : state.isLoadingBars,
         chartTabs: state.chartTabs.map((tab) =>
-          tab.id === state.activeChartTabId || symbolLinkEnabled
+          canApply(state, tab)
             ? applyEodResultToTab(
                 {
                   ...tab,
@@ -170,29 +178,19 @@ export function createChartInstrumentCompareController(
         ),
       }));
     } catch (error) {
-      const adjustedMode = deps.getState().adjustedMode;
-      const includeDividendAdjustments = deps.getState().includeDividendAdjustments;
-      const includeRightsAdjustments = deps.getState().includeRightsAdjustments;
+      if (!deps.getState().chartTabs.some((tab) => canApply(deps.getState(), tab))) return;
       deps.setState((state) => ({
-        isLoadingBars: false,
-        ...updateActiveTab(state, (tab) =>
-          buildInstrumentLoadFailureTab(
-            tab,
-            key,
-            meta,
-            adjustedMode,
-            includeDividendAdjustments,
-            includeRightsAdjustments,
-          ),
-        ),
+        isLoadingBars: state.chartTabs.some((tab) => tab.id === state.activeChartTabId && canApply(state, tab))
+          ? false : state.isLoadingBars,
+        chartTabs: state.chartTabs.map((tab) => canApply(state, tab)
+          ? buildInstrumentLoadFailureTab(tab, key, meta, adjusted, includeDividendAdjustments, includeRightsAdjustments)
+          : tab),
       }));
       deps.addToast(
         `Failed to load data for ${key.exchange}:${key.symbol}. ${error instanceof Error ? error.message : String(error)}`,
         'error',
         'Load Failure',
       );
-    } finally {
-      inFlightLoads.delete(loadKey);
     }
   };
 
@@ -243,6 +241,17 @@ export function createChartInstrumentCompareController(
       activeTab.renkoSettings,
     );
     const databasePath = activeState.snapshot?.activeDatabasePath ?? null;
+    const generation = deps.instrumentDataCache.getGeneration?.();
+    const canApplyCompare = () => {
+      const state = deps.getState();
+      const current = state.chartTabs.find((tab) => tab.id === tabId);
+      return (state.snapshot?.activeDatabasePath ?? null) === databasePath
+        && generation === deps.instrumentDataCache.getGeneration?.()
+        && isSameInstrumentKey(current?.requestedInstrument ?? current?.instrument, baseInstrument)
+        && state.adjustedMode === adjusted
+        && state.includeDividendAdjustments === includeDividendAdjustments
+        && state.includeRightsAdjustments === includeRightsAdjustments;
+    };
     const adjusted = activeState.adjustedMode;
     const includeDividendAdjustments = activeState.includeDividendAdjustments;
     const includeRightsAdjustments = activeState.includeRightsAdjustments;
@@ -266,8 +275,11 @@ export function createChartInstrumentCompareController(
           databasePath,
           readCachedInstrumentData: deps.instrumentDataCache.read,
           writeCachedInstrumentData: deps.instrumentDataCache.write,
+          cacheGeneration: deps.instrumentDataCache.getGeneration,
+          requestOwner: deps.instrumentDataCache,
         },
       );
+      if (!canApplyCompare()) return;
       deps.setState((state) => ({
         ...updateChartTabById(state, tabId, (tab) => ({
           ...tab,
@@ -286,6 +298,7 @@ export function createChartInstrumentCompareController(
         })),
       }));
     } catch {
+      if (!canApplyCompare()) return;
       deps.setState((state) => ({
         ...updateChartTabById(state, tabId, (tab) => ({
           ...tab,

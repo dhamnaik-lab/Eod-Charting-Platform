@@ -1,0 +1,22 @@
+# P5-F1 — Metadata-Only External Plugin Discovery and Zero-Evaluation Import R1
+
+- IST timestamp: 2026-10-16 13:06 IST.
+- Objective: Do not read or evaluate external JavaScript on discovery, import, reload or saved enabled settings.
+- Previous defect: External plugin code executed during discovery and import before the plugin was enabled, on the renderer thread.
+- Files modified: `src/components/SettingsDialog.tsx`, `src/plugins/pluginHost.ts`, `src/plugins/pluginLoader.ts`, `src/plugins/registry.ts`.
+- Files created: `src/plugins/__tests__/pluginMetadataDiscovery.test.ts` and this IST change record.
+- Final implementation: Metadata-only registration from manifest descriptors; automatic third-party evaluation removed from import/discovery; external metadata cannot start via PluginHost; built-in lifecycle unchanged; UI disables external execution and explains status; legacy evaluator kept only for existing direct trusted-path tests.
+- Behaviour preserved: Existing bundled plugins, SDK source/interface, Rust P5-D/P5-E installer and transaction recovery, valid external package formats, charting, indicator/scanner code, Bhavcopy, CA, database and Tauri configuration.
+- Behavior deliberately changed: Previously automatic external JavaScript import/evaluation disabled; external checkbox no longer allows activation pending P5-F2 isolation approval.
+- Validation: 01-renderer-typecheck exit 0; 02-focused-plugin-vitest exit 0; 03-renderer-vite-build exit 0. Required 4 Plugin suites/20 tests.
+- Mandatory backup: Standard repository pre-backup plus task-owned exact PRE source copies verified, before edits.
+- Risks/limitations: Low-level evaluatePluginModuleCode remains available to explicit trusted-path test code; it is not a sandbox. No real app/profile/plugin activation or runtime isolation proof. A running app should be restarted after deploying code changes.
+- Rollback: Only if exact candidate POST hashes match, restore the four originals from task backup; remove the added focused test and this change record if and only if their hashes match this task.
+- P5-A source identity ZIP SHA256: 76CCC33B06B3709F7955DCA15C0EEBEDEA491E4E61B7C2F24F977AE5CA01E71C.
+- P5-E accepted result ZIP SHA256: DD14C1138C2AFD8052450620F693B774EC2216BAE263BC6DC50238AFB36A420F.
+- P5-F design SHA256: 1C22F75DF21AE9A6C8ADE529743581C7F78251B721947039A3886E3063943AD9.
+- src/components/SettingsDialog.tsx: PRE A78DF49A7E0521ABE160F0503EE6176E86CF55EB35F59224862022F406A2BE2E / POST 19F41E2D24F57AE878A2D5FD6634E06DDFD1F34CBC05220873910166B7505729.
+- src/plugins/pluginHost.ts: PRE 2FD559C3A01282FA7F06AA8D9415B77FBC811E06466C4C3F52EA8D4A054AF3BB / POST D7BF98ADCDA4C4AF826698FB669E07171D627F4AA7C19A7AC5BA49820C1439EE.
+- src/plugins/pluginLoader.ts: PRE 56C133DBD89D66DA3AAEBFFA59012FBC64266BF2F445795072647CBBC1F82098 / POST 5AF59B3B5FA7DE9147473CA7E0771828E99A32CBB7798030680CA4DAD52CB81C.
+- src/plugins/registry.ts: PRE 261577AECD978BAF56EEE1E8C96004DD0D36444027788E02AB7372D7067A0079 / POST 96891F9615F1F0350C80AD81291A9D19F9C6EF9550325FC06912B125FBCBE81A.
+- New test SHA256: 01D18DE1AF92440BCC463EC6DAB4C8A7E2973D28E497B2C016883A2C9367938A.

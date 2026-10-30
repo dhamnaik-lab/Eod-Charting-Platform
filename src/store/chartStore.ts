@@ -252,6 +252,7 @@ export const useChartStore = create<ChartStoreState>((set, get, store) => {
     getState: get,
     setState: set,
     instrumentDataCache,
+    reportLoadError: (message) => get().addToast(message, 'error', 'Chart Load Failure'),
     clearWorkspaceAutosaveTimer,
     closeImportDialogUi,
     resetChartInteractionUi,
@@ -270,6 +271,11 @@ export const useChartStore = create<ChartStoreState>((set, get, store) => {
     setAutosaveSignature: (signature) => {
       autosaveSignature = signature;
     },
+    onAdjustedModeLoaded: (adjusted) => get().addToast(
+      adjusted ? 'Capital adjustments loaded (Splits & Bonuses).' : 'Raw unadjusted prices loaded.',
+      'info',
+      'Adjusted Mode',
+    ),
   });
 
   const chartInstrumentCompare = createChartInstrumentCompareController({

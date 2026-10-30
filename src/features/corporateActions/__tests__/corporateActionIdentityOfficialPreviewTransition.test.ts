@@ -31,7 +31,7 @@ describe('Identity I2-R2 official preview transition correction', () => {
     );
 
     for (const handler of [exchange, sourceMode]) {
-      expect(handler).toContain('setIdentitySearchQuery(\'\')');
+      expect(handler).not.toContain('setIdentitySearchQuery(\'\')');
       expect(handler).toContain('setCurrentUniverseSyncResult(null)');
       expect(handler).toContain('setBseCurrentUniverseSyncResult(null)');
       expect(handler).toContain('setStatus(\'\')');
@@ -84,7 +84,7 @@ describe('Identity I2-R2 official preview transition correction', () => {
     const identity = sliceBetween(source, 'const renderIdentityTab = () => (', 'const renderImportsTab');
 
     expect(identity).toContain(
-      'Refresh & Preview retrieves fresh official sources. Preview Saved Sources reuses the currently available source.',
+      'Saved-source availability: not checked by preview.',
     );
   });
 });

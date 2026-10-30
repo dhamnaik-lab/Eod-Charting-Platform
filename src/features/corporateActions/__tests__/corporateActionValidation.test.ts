@@ -3,6 +3,7 @@ import type { CorporateActionImportRow, CorporateActionScanResultRow } from '@/p
 import {
   classifyCorporateActionValidation,
   getCorporateActionApprovalState,
+  getCorporateActionNormalApprovalState,
   getCorporateActionIdentityLabel,
   getPriceMultiplier,
   getResidualGapPct,
@@ -117,6 +118,37 @@ describe('corporateActionValidation', () => {
     expect(getCorporateActionIdentityLabel('PENDING')).toBe('MATCHED');
     expect(getCorporateActionIdentityLabel('UNRESOLVED')).toBe('MATCH REQUIRED');
     expect(getCorporateActionIdentityLabel('PENDING_ISIN_MISMATCH')).toBe('ISIN REVIEW REQUIRED');
+  });
+});
+
+describe('normal Corporate Action EOD and ex-date readiness', () => {
+  const TODAY = '2026-10-17';
+  it('keeps future actions scheduled even when synthetic scan data exists', () => {
+    const row = importRow({ exDate: '2026-10-19' });
+    expect(getCorporateActionNormalApprovalState(row, scanRow(), TODAY)).toBe('SCHEDULED / UPCOMING');
+  });
+  it('requires completed trading bars across the ex-date before enabling Approve Ready', () => {
+    const row = importRow();
+    expect(getCorporateActionNormalApprovalState(row, null, TODAY)).toBe('WAITING FOR EOD DATA');
+    expect(getCorporateActionNormalApprovalState(row, scanRow({ exTradeDate: '2026-10-19' }), TODAY))
+      .toBe('WAITING FOR EOD DATA');
+    expect(getCorporateActionNormalApprovalState(row, scanRow({ prevClose: 0 }), TODAY))
+      .toBe('WAITING FOR EOD DATA');
+    expect(getCorporateActionNormalApprovalState(row, scanRow({ confidence: 0.95 }), TODAY))
+      .toBe('READY TO APPROVE');
+  });
+  it('requires dividend/rights local EOD evidence but does not require an exact price-drop match', () => {
+    for (const actionType of ['DIVIDEND', 'RIGHTS'] as const) {
+      const row = importRow({ actionType, factor: 1.012, cashAmount: actionType === 'DIVIDEND' ? 1 : null });
+      expect(getCorporateActionNormalApprovalState(row, null, TODAY)).toBe('WAITING FOR EOD DATA');
+      expect(getCorporateActionNormalApprovalState(row, scanRow({ scanStatus: 'REVIEW' }), TODAY))
+        .toBe('READY TO APPROVE');
+    }
+  });
+  it('never overrides already-approved or unresolved identity dispositions', () => {
+    expect(getCorporateActionNormalApprovalState(importRow({ reviewStatus: 'APPROVED' }), null, TODAY)).toBe('APPROVED');
+    expect(getCorporateActionNormalApprovalState(importRow({ reviewStatus: 'UNRESOLVED', exDate: '2026-10-20' }), null, TODAY))
+      .toBe('MATCH REQUIRED');
   });
 });
 

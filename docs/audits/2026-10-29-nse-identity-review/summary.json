@@ -1,0 +1,46 @@
+{
+  "current_master": {
+    "supported_raw_rows": 3200,
+    "unique_symbols": 3200,
+    "exact_matches": 3194,
+    "insert": 6,
+    "reactivate_existing": 23,
+    "activate_total": 29,
+    "update": 259,
+    "unchanged": 2912,
+    "insert_symbols": [
+      "BONDADA",
+      "JPL",
+      "KHAZANCHI",
+      "PARASHLTH",
+      "SHIVAM-RE1",
+      "SUDARSHAN"
+    ],
+    "delisted_workbook_symbols": 459
+  },
+  "deactivations": {
+    "total": 1052,
+    "outside_supported_series": 990,
+    "within_supported_series": 62,
+    "by_proposed": {
+      "UNKNOWN_INACTIVE": 1051,
+      "OLD_SYMBOL": 1
+    },
+    "supported_by_proposed": {
+      "UNKNOWN_INACTIVE": 61,
+      "OLD_SYMBOL": 1
+    },
+    "supported_series": {
+      "BE": 17,
+      "EQ": 36,
+      "ST": 5,
+      "SM": 1,
+      "BZ": 3
+    },
+    "rights_suffix_heuristic_supported": 17,
+    "supported_inf_prefix": 27,
+    "supported_same_isin_current_match": 9,
+    "self_history_targets": 1
+  },
+  "total_changes": 0
+}

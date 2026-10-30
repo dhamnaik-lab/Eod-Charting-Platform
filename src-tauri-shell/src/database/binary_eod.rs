@@ -14,6 +14,42 @@ std::thread_local! {
     static V17A_TEST_SYNC_DATA_CALLS: std::cell::Cell<usize> = std::cell::Cell::new(0);
 }
 
+fn is_transient_windows_io_error(err: &std::io::Error) -> bool {
+    matches!(err.raw_os_error(), Some(32) | Some(5))
+        || err.kind() == std::io::ErrorKind::PermissionDenied
+}
+
+fn retry_fs_op<T, F: FnMut() -> std::io::Result<T>>(mut op: F) -> std::io::Result<T> {
+    let mut delay_ms = 2_u64;
+    for attempt in 0..8 {
+        match op() {
+            Ok(val) => return Ok(val),
+            Err(err) if attempt < 7 && is_transient_windows_io_error(&err) => {
+                std::thread::sleep(std::time::Duration::from_millis(delay_ms));
+                delay_ms = (delay_ms * 2).min(40);
+            }
+            Err(err) => return Err(err),
+        }
+    }
+    op()
+}
+
+fn open_ro_with_retry<P: AsRef<Path>>(path: P) -> std::io::Result<File> {
+    let p = path.as_ref();
+    retry_fs_op(|| File::open(p))
+}
+
+fn open_rw_with_retry<P: AsRef<Path>>(path: P) -> std::io::Result<File> {
+    let p = path.as_ref();
+    retry_fs_op(|| fs::OpenOptions::new().read(true).write(true).open(p))
+}
+
+fn rename_with_retry<P: AsRef<Path>, Q: AsRef<Path>>(from: P, to: Q) -> std::io::Result<()> {
+    let f = from.as_ref();
+    let t = to.as_ref();
+    retry_fs_op(|| fs::rename(f, t))
+}
+
 fn sync_data_with_v17a_test_probe(file: &File) -> std::io::Result<()> {
     #[cfg(test)]
     V17A_TEST_SYNC_DATA_CALLS.with(|calls| calls.set(calls.get().saturating_add(1)));
@@ -257,7 +293,7 @@ pub struct BinaryEodFile {
 impl BinaryEodFile {
     /// Opens an existing binary EOD file.
     pub fn open<P: AsRef<Path>>(path: P) -> Result<Self, String> {
-        let mut file = File::open(&path).map_err(|e| e.to_string())?;
+        let mut file = open_ro_with_retry(&path).map_err(|e| e.to_string())?;
         let header = Self::read_header(&mut file)?;
         Ok(Self {
             path: path.as_ref().to_path_buf(),
@@ -272,7 +308,7 @@ impl BinaryEodFile {
 
     /// Reads the latest N records from the file.
     pub fn read_latest(&self, n: usize) -> Result<Vec<EodRecord>, String> {
-        let mut file = File::open(&self.path).map_err(|e| e.to_string())?;
+        let mut file = open_ro_with_retry(&self.path).map_err(|e| e.to_string())?;
         let total_records = self.header.record_count as usize;
 
         if total_records == 0 {
@@ -300,7 +336,7 @@ impl BinaryEodFile {
     /// Reads records within a specific date range (inclusive).
     /// Uses binary search to find the start of the range.
     pub fn read_range(&self, start_date: u32, end_date: u32) -> Result<Vec<EodRecord>, String> {
-        let mut file = File::open(&self.path).map_err(|e| e.to_string())?;
+        let mut file = open_ro_with_retry(&self.path).map_err(|e| e.to_string())?;
         let total_records = self.header.record_count as usize;
 
         if total_records == 0 {
@@ -501,7 +537,7 @@ impl BinaryEodFile {
             sync_data_us = sync_started.elapsed().as_micros().max(1);
         }
 
-        fs::rename(&temp_path, &path).map_err(|e| e.to_string())?;
+        rename_with_retry(&temp_path, &path).map_err(|e| e.to_string())?;
 
         Ok((
             Self {
@@ -635,11 +671,7 @@ impl BinaryEodFile {
         diagnostics.sort_us += sort_started.elapsed().as_micros();
 
         let open_started = Instant::now();
-        let mut file = fs::OpenOptions::new()
-            .read(true)
-            .write(true)
-            .open(path_ref)
-            .map_err(|e| e.to_string())?;
+        let mut file = open_rw_with_retry(path_ref).map_err(|e| e.to_string())?;
         diagnostics.open_us += open_started.elapsed().as_micros();
 
         if let Some(hint) = append_newest_hint {
@@ -734,10 +766,10 @@ impl BinaryEodFile {
             )
         } else {
             let mut result = if incoming.len() == 1 {
-                Self::upsert_single_record_by_date(path_ref, existing, price_scale, incoming[0])?
+                Self::upsert_single_record_by_date(file, existing, price_scale, incoming[0])?
             } else {
                 Self::rewrite_from_first_incoming_record(
-                    path_ref,
+                    file,
                     existing,
                     price_scale,
                     &incoming,
@@ -857,8 +889,8 @@ impl BinaryEodFile {
         })
     }
 
-    fn rewrite_from_first_incoming_record<P: AsRef<Path>>(
-        path: P,
+    fn rewrite_from_first_incoming_record(
+        mut file: File,
         mut existing: Self,
         price_scale: u32,
         incoming: &[EodRecord],
@@ -874,14 +906,6 @@ impl BinaryEodFile {
                 diagnostics,
             });
         }
-
-        let open_started = Instant::now();
-        let mut file = fs::OpenOptions::new()
-            .read(true)
-            .write(true)
-            .open(&path)
-            .map_err(|e| e.to_string())?;
-        diagnostics.open_us += open_started.elapsed().as_micros();
 
         let lookup_started = Instant::now();
         let start_index = existing.lower_bound_date(&mut file, incoming[0].date)?;
@@ -989,22 +1013,14 @@ impl BinaryEodFile {
         })
     }
 
-    fn upsert_single_record_by_date<P: AsRef<Path>>(
-        path: P,
+    fn upsert_single_record_by_date(
+        mut file: File,
         mut existing: Self,
         price_scale: u32,
         incoming: EodRecord,
     ) -> Result<BinaryAppendMergeResult, String> {
         let total_started = Instant::now();
         let mut diagnostics = BinaryWriteDiagnostics::default();
-
-        let open_started = Instant::now();
-        let mut file = fs::OpenOptions::new()
-            .read(true)
-            .write(true)
-            .open(&path)
-            .map_err(|e| e.to_string())?;
-        diagnostics.open_us += open_started.elapsed().as_micros();
 
         let total_records = existing.header.record_count as usize;
         let lookup_started = Instant::now();

@@ -481,6 +481,35 @@ fn record_price_adjustment_action(
     action_type: &str,
     base_path: Option<&Path>,
 ) -> AppResult<CorporateActionResult> {
+    record_price_adjustment_action_with_basis(connection,input,action_type,base_path,None)
+}
+
+// Called only from the ordinary guarded official-import writer, never from IPC
+// or manual numeric overrides. Independently rebuild the route inside its txn.
+pub(super) fn apply_official_import_price_adjustment(
+    connection: &Connection, input: &CorporateActionInputPayload, folder: &Path,
+    import: &super::CorporateActionImportRow,
+) -> AppResult<CorporateActionResult> {
+    if input.symbol != import.symbol || input.exchange != import.exchange || Some(&input.effective_date) != import.ex_date.as_ref()
+        || input.action_type != import.action_type || input.cash_amount != import.cash_amount {
+        return Err("Official adjustment context changed.".into());
+    }
+    if !matches!(input.action_type.as_str(), "DIVIDEND"|"SPLIT"|"BONUS"|"RIGHTS") {
+        return apply_corporate_action_internal(connection,input,Some(folder));
+    }
+    let route = super::corporate_action_imports::event_price_route::resolve(connection,folder,import)?;
+    let previous = route.as_ref().map(|route|route.previous());
+    let mut bound = input.clone();
+    if let Some(route) = &route {
+        bound.note = Some(format!("{}\n[eventPriceRouteR1={}]",input.note.as_deref().unwrap_or_default(),route.fingerprint()));
+    }
+    record_price_adjustment_action_with_basis(connection,&bound,&bound.action_type,Some(folder),previous)
+}
+
+fn record_price_adjustment_action_with_basis(
+    connection: &Connection, input: &CorporateActionInputPayload, action_type: &str,
+    base_path: Option<&Path>, verified_previous: Option<(&str,f64)>,
+) -> AppResult<CorporateActionResult> {
     let exchange = normalize_exchange(&input.exchange)?;
     let requested_symbol = normalize_symbol(
         input
@@ -497,14 +526,24 @@ fn record_price_adjustment_action(
             "The selected instrument was not found in the active database.".to_string()
         })?;
 
-    let factor = compute_adjustment_factor(
+    let factor = if let Some((previous_date,previous_close)) = verified_previous {
+        if action_type == "DIVIDEND" {
+            compute_dividend_adjustment_basis_from_values(previous_date.to_string(),previous_close,
+                require_positive_adjustment_number(input.cash_amount,"Dividend cash amount per share")?)?.computed_factor
+        } else if action_type == "RIGHTS" {
+            compute_rights_adjustment_factor(previous_close,
+                require_positive_adjustment_number(input.ratio_num,"Rights ratio numerator")?,
+                require_positive_adjustment_number(input.ratio_den,"Rights ratio denominator")?,
+                require_positive_adjustment_number(input.cash_amount,"Rights issue price")?)?
+        } else { compute_adjustment_factor(connection,base_path,&context,&effective_date,action_type,input)? }
+    } else { compute_adjustment_factor(
         connection,
         base_path,
         &context,
         &effective_date,
         action_type,
         input,
-    )?;
+    )? };
     if !factor.is_finite() || factor <= 0.0 || (factor - 1.0).abs() < f64::EPSILON {
         return Err("The selected action needs valid adjustment inputs.".to_string());
     }
@@ -1552,7 +1591,7 @@ pub(super) fn load_dividend_adjustment_basis(
     )
 }
 
-fn compute_dividend_adjustment_basis_from_values(
+pub(super) fn compute_dividend_adjustment_basis_from_values(
     previous_trade_date: String,
     previous_close: f64,
     cash_amount: f64,

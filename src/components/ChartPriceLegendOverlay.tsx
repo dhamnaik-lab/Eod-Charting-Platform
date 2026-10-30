@@ -542,10 +542,13 @@ function buildPriceSummary(
     return { title, segments: [] };
   }
   const bar = bars[valueIndex];
+  const missingIndexReference = instrument?.exchange === "NSE_INDEX"
+    && (bar.prevClose == null || !Number.isFinite(bar.prevClose) || bar.prevClose <= 0);
   const referenceClose = bar.prevClose ?? bar.open;
   const change = bar.close - referenceClose;
   const changePct = referenceClose !== 0 ? (change / referenceClose) * 100 : 0;
-  const closeColor = change >= 0 ? "var(--green)" : "var(--red)";
+  const closeColor = missingIndexReference ? "var(--legend-text)"
+    : change >= 0 ? "var(--green)" : "var(--red)";
   return {
     title,
     segments: [
@@ -559,7 +562,8 @@ function buildPriceSummary(
       { text: "C", color: "var(--legend-muted)", muted: true },
       { text: formatPrice(bar.close, 2, 2), color: closeColor },
       {
-        text: `${formatSignedValue(change, 2, 2)} (${formatSignedValue(changePct, 2, 2)}%)`,
+        text: missingIndexReference ? "Change unavailable"
+          : `${formatSignedValue(change, 2, 2)} (${formatSignedValue(changePct, 2, 2)}%)`,
         color: closeColor,
       },
     ],

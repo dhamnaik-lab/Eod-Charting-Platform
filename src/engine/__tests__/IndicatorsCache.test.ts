@@ -143,4 +143,52 @@ describe('Indicator cache isolation and invalidation', () => {
 
     expect(after).toBeGreaterThan(before);
   });
+
+  it('invalidates cached output when interior historical bars are adjusted by corporate actions without changing first or last bar', () => {
+    const bars = makeBars(200, 30);
+    const indicator: OverlayIndicator = {
+      id: 'sma-interior-ca-adjustment',
+      kind: 'SMA',
+      placement: 'overlay',
+      period: 10,
+      color: '#5dafff',
+    };
+
+    const before = lastFinite(
+      buildRenderableIndicators(bars, [indicator]).overlays[0].lines[0].values,
+    );
+
+    // Mutate an interior bar within the trailing 10-bar window (leave bars[0] and bars[29] untouched)
+    bars[25].close += 250;
+    bars[25].high += 250;
+
+    const after = lastFinite(
+      buildRenderableIndicators(bars, [indicator]).overlays[0].lines[0].values,
+    );
+    expect(after).toBeGreaterThan(before + 20);
+  });
+
+  it('preserves cached renderable object identity for existing indicators when a new sibling indicator is added', () => {
+    const bars = makeBars(200, 30);
+    const sma20: OverlayIndicator = {
+      id: 'sma-20-keep-cached',
+      kind: 'SMA',
+      placement: 'overlay',
+      period: 20,
+      color: '#5dafff',
+    };
+    const ema9: OverlayIndicator = {
+      id: 'ema-9-new-sibling',
+      kind: 'EMA',
+      placement: 'overlay',
+      period: 9,
+      color: '#26a69a',
+    };
+
+    const firstBundle = buildRenderableIndicators(bars, [sma20]);
+    const secondBundle = buildRenderableIndicators(bars, [sma20, ema9]);
+
+    expect(secondBundle.overlays[0]).toBe(firstBundle.overlays[0]);
+    expect(secondBundle.overlays.length).toBe(2);
+  });
 });

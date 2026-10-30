@@ -109,25 +109,81 @@ export function tabButtonStyle(active: boolean): CSSProperties {
 }
 
 export const marketHolidayPageStyle: CSSProperties = {
+  display: 'flex',
+  flexDirection: 'column',
   flex: 1,
   minHeight: 0,
-  overflow: 'auto',
-  padding: 16,
+  minWidth: 0,
+  overflow: 'hidden',
+  padding: '12px 16px',
+  gap: 10,
 };
 
 export const marketHolidayHeaderStyle: CSSProperties = {
   display: 'flex',
-  alignItems: 'flex-start',
+  flexShrink: 0,
+  alignItems: 'center',
   justifyContent: 'space-between',
   gap: 12,
-  marginBottom: 14,
 };
 
+const marketHolidayGridColumns = '135px minmax(0, 1fr) 90px 110px';
+
 export const marketHolidayTableStyle: CSSProperties = {
+  flex: '1 1 0',
+  minHeight: 64,
+  overflowY: 'auto',
+  overflowX: 'hidden',
   border: '1px solid var(--border2)',
   borderRadius: 4,
-  overflow: 'hidden',
   fontSize: 12,
+};
+
+export const marketHolidayTableHeaderStyle: CSSProperties = {
+  position: 'sticky',
+  top: 0,
+  zIndex: 1,
+  display: 'grid',
+  gridTemplateColumns: marketHolidayGridColumns,
+  gap: 8,
+  padding: '8px 10px',
+  color: 'var(--text-dim)',
+  backgroundColor: 'var(--bg3)',
+  borderBottom: '1px solid var(--border2)',
+  fontSize: 11,
+  fontWeight: 600,
+};
+
+export const marketHolidayTableRowStyle: CSSProperties = {
+  display: 'grid',
+  gridTemplateColumns: marketHolidayGridColumns,
+  alignItems: 'center',
+  gap: 8,
+  padding: '7px 10px',
+  borderBottom: '1px solid var(--border)',
+};
+
+export const marketHolidayAddStyle: CSSProperties = {
+  display: 'flex',
+  flexDirection: 'column',
+  flexShrink: 0,
+  gap: 7,
+  paddingTop: 9,
+  borderTop: '1px solid var(--border2)',
+};
+
+export const marketHolidayStatusStyle: CSSProperties = {
+  display: 'flex',
+  alignItems: 'center',
+  flexShrink: 0,
+  gap: 8,
+  minHeight: 26,
+  padding: '6px 9px',
+  border: '1px solid var(--border2)',
+  borderRadius: 4,
+  backgroundColor: 'var(--bg3)',
+  color: 'var(--text)',
+  fontSize: 11,
 };
 
 export const excludeSeriesWindowBodyStyle: CSSProperties = {

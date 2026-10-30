@@ -354,12 +354,14 @@ export async function fetchCorporateActionNormalData({
   onExchangeStarted,
   onExchangeCompleted,
   onExchangeFailed,
+  shouldCancel,
 }: {
   api: NormalCorporateActionApi;
   asOfDate?: string;
   fromDate?: string;
   toDate?: string;
   exchangeSelection?: CorporateActionNormalFetchExchangeSelection;
+  shouldCancel?: () => boolean;
   onExchangeStarted?: (
     exchange: (typeof NORMAL_CORPORATE_ACTION_EXCHANGES)[number],
     input: CorporateActionOfficialFetchInput,
@@ -385,6 +387,7 @@ export async function fetchCorporateActionNormalData({
   }
 
   for (const fetchInput of buildCorporateActionNormalFetchInputs(range, exchangeSelection)) {
+    if (shouldCancel?.()) throw new Error('Official fetch cancelled. Completed windows are saved; fetch again to resume.');
     onExchangeStarted?.(fetchInput.exchange, fetchInput);
 
     try {
@@ -402,6 +405,7 @@ export async function fetchCorporateActionNormalData({
     }
   }
 
+  if (shouldCancel?.()) throw new Error('Official fetch cancelled. Completed windows are saved; fetch again to resume.');
   return {
     fetchResults,
     rows,
@@ -690,9 +694,10 @@ async function loadCorporateActionNormalApprovalRecheckData(
 async function loadNormalEventIdentities(
   api: NormalCorporateActionReviewApi,
   rows: readonly CorporateActionImportRow[],
-): Promise<CorporateActionEventIdentity[]> {
+): Promise<{ identities: CorporateActionEventIdentity[]; existingDividends: Map<number, number> }> {
   const ids = [...new Set(rows.map((row) => row.id))];
   const identities: CorporateActionEventIdentity[] = [];
+  const existingDividends = new Map<number, number>();
 
   for (
     let start = 0;
@@ -702,9 +707,16 @@ async function loadNormalEventIdentities(
     const batch = ids.slice(start, start + NORMAL_CORPORATE_ACTION_EVENT_IDENTITY_BATCH_SIZE);
     const result = await api.listCorporateActionEventIdentities({ importIds: batch });
     identities.push(...result.identities);
+    for (const match of result.existingDividends ?? []) {
+      if (!batch.includes(match.importId) || !Number.isSafeInteger(match.corporateActionId) ||
+          match.corporateActionId <= 0 || existingDividends.has(match.importId)) {
+        throw new Error('Invalid existing Dividend classification response');
+      }
+      existingDividends.set(match.importId, match.corporateActionId);
+    }
   }
 
-  return identities;
+  return { identities, existingDividends };
 }
 
 function buildEventIdentityMap(
@@ -784,6 +796,7 @@ function reviewEvidenceRows(
   scanRows: readonly CorporateActionScanResultRow[],
   eventIdentities: readonly CorporateActionEventIdentity[],
   backendReasons: Readonly<Record<number, string>>,
+  existingDividends: ReadonlyMap<number, number>,
 ): CorporateActionNormalReviewEvidenceRow[] {
   const scans = latestScanByImportId(scanRows);
   const identities = buildEventIdentityMap(eventIdentities);
@@ -798,9 +811,13 @@ function reviewEvidenceRows(
     const validationLabel = isSplitOrBonus(row)
       ? classifyCorporateActionValidation(row, scan)
       : 'NOT REQUIRED';
-    const status = normalReviewStatus(approvalState, validationLabel);
+    const existingId = row.actionType === 'DIVIDEND' && row.reviewStatus === 'PENDING' &&
+      row.approvedCorporateActionId == null ? existingDividends.get(row.id) : undefined;
+    const status = existingId != null ? 'ALREADY_PROCESSED' : normalReviewStatus(approvalState, validationLabel);
     const statusReason =
-      status === 'APPROVED'
+      existingId != null
+        ? `Already represented by verified canonical Dividend #${existingId}; no new adjustment required.`
+        : status === 'APPROVED'
         ? null
         : backendReasons[row.id] ?? normalReviewStatusReason(row, approvalState, validationLabel);
     const pricePresentation = isSplitOrBonus(row)
@@ -870,8 +887,8 @@ export async function buildCorporateActionNormalReviewData({
   scanRows: readonly CorporateActionScanResultRow[];
   backendReasons?: Readonly<Record<number, string>>;
 }): Promise<CorporateActionNormalReviewResult> {
-  const eventIdentities = await loadNormalEventIdentities(api, rows);
-  const evidenceRows = reviewEvidenceRows(rows, scanRows, eventIdentities, backendReasons);
+  const { identities: eventIdentities, existingDividends } = await loadNormalEventIdentities(api, rows);
+  const evidenceRows = reviewEvidenceRows(rows, scanRows, eventIdentities, backendReasons, existingDividends);
   const eventModels = buildCorporateActionEconomicEventViewModels(
     economicSourceRows(evidenceRows),
   );
@@ -963,6 +980,8 @@ export async function recheckCorporateActionNormalApprovalData({
   const currentReadyIds = new Set(getCorporateActionNormalReadyImportIds(review.events));
   const approvedRows = await loadApprovedNormalImportRows(api);
   const approvedIds = new Set(approvedRows.map((row) => row.id));
+  const existingIds = new Set(review.events.filter((item) => item.event.status === 'ALREADY_PROCESSED')
+    .flatMap((item) => item.evidenceRows.map((evidence) => evidence.importRow.id)));
   const readyImportIds: number[] = [];
   const alreadyProcessedImportIds: number[] = [];
   const skippedImportIds: number[] = [];
@@ -972,7 +991,7 @@ export async function recheckCorporateActionNormalApprovalData({
       readyImportIds.push(importId);
       continue;
     }
-    if (approvedIds.has(importId)) {
+    if (approvedIds.has(importId) || existingIds.has(importId)) {
       alreadyProcessedImportIds.push(importId);
       continue;
     }
@@ -999,12 +1018,15 @@ function normalApprovalErrorMessage(error: unknown): string {
 export async function approveCorporateActionNormalReady({
   api,
   reviewEvents,
+  expectedDatabasePath,
   onProgress,
 }: {
   api: NormalCorporateActionApprovalApi;
   reviewEvents: readonly CorporateActionNormalReviewEvent[];
+  expectedDatabasePath: string;
   onProgress?: (message: string) => void;
 }): Promise<CorporateActionNormalApprovalResult> {
+  if (!expectedDatabasePath.trim()) throw new Error('The reviewed database context is missing.');
   const requestedImportIds = getCorporateActionNormalReadyImportIds(reviewEvents);
   const recheck = await recheckCorporateActionNormalApprovalData({ api, requestedImportIds });
   const batches = chunkCorporateActionApprovalIds([...recheck.readyImportIds]);
@@ -1030,7 +1052,7 @@ export async function approveCorporateActionNormalReady({
     );
 
     try {
-      const result = await api.approveCorporateActionImports({ importIds });
+      const result = await api.approveCorporateActionImports({ importIds, expectedDatabasePath });
       approved += result.approved;
       linkedExisting += result.linkedExisting;
       alreadyApproved += result.alreadyApproved;

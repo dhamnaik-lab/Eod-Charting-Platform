@@ -1,4 +1,168 @@
-# Pending Actions Compact Layout R1 — installed / automated gates passed / manual visual acceptance pending
+# Current Work Status
+
+## Identity maintenance checkpoint — 30 October 2026
+
+BSE company-name history now has official refresh, reviewed preview, confirmed
+Apply and saved receipts. The user's native Apply saved 1,531 names at 11:15:56
+IST; the read-only audit found zero mismatches. Native confirmation, completed
+100% status, Recent Applied and expanded source/plan evidence are confirmed.
+Security ID history remains held for separately verified dated evidence.
+
+The latest report polish is implemented: saved wording, friendly/copyable source
+evidence, counted historical outcome filters with display preferences, and a
+clearer Corporate Actions readiness notice. PASS: 41 focused tests, renderer
+typecheck, CSS/docs/whitespace checks and isolated UI/reload checks. Native polish,
+clipboard and restart persistence are **deferred: the user will test later**.
+No new Apply is required. This documentation closeout runs no application tests
+or live mutations. See [current handoff](../HANDOFF.md) and the
+[deferred test checklist](changes/2026-10-30-identity-report-polish/REPORT.md).
+
+## Chart UI native closeout - 29 October 2026
+
+The user rebuilt/restarted and provided native screenshots confirming the reported
+date-axis density/collision corrections, removal of persistent tool instructions,
+and successful Adj OFF/ON reload notifications without the previous false failure.
+The startup `Loading DB...` status clears after a few seconds; the settled screenshot
+shows green `EOD DATABASE` and range `1991-01-02` to `2026-10-26`.
+
+The reported UI issues are closed. Deliberate rapid-toggle/database-switch races
+and comparison fault injection remain automated-only; these screenshots do not
+prove complete historical data. No new task or CA resumption is authorized by this
+documentation update. See [native closeout and evidence](changes/2026-10-29_CHART_NATIVE_ACCEPTANCE_CLOSEOUT.md).
+
+<!-- DOC01-STORAGE-MAINTENANCE-2026-10-28 -->
+## Storage / temporary artifacts checkpoint — 28 October 2026 IST
+
+DC-01 and DC-02 exact-path Cargo-cache cleanup completed with hash-verified preservation; the two operations recorded a summed 18.841 GiB free-space increase across their measurement intervals. BUILD-01 established an opt-in shared Cargo wrapper and verified repeated `cargo check` cache reuse. TMP-01 R2 fixed the initial timestamp-parser failure and passed marker-only scratch Create / Preview / Cleanup acceptance. Existing unmarked `tmp` folders, databases, production application code and portable executables were preserved.
+
+For **current storage operating instructions, limits, rollback and evidence hashes**, read [EOD storage maintenance](operations/EOD_STORAGE_MAINTENANCE_2026-10-28.md). This storage-only checkpoint does not change the Corporate Actions/database priority or supersede other domain handoffs.
+<!-- END-DOC01-STORAGE-MAINTENANCE-2026-10-28 -->
+
+
+## Database priority; CA paused — 26 October 2026
+
+This historical checkpoint prioritized the user-reported database issue over CA.
+The chart UI closeout above records the subsequently resolved scoped issues;
+the next task is for the user to select. CA latest run has 4,288 persisted approvals
+including 3 BSE Split/Bonus actions. Do not replay any completed approvals.
+Outstanding: live approval progress, combined totals, unrelated Checking-state
+investigation, completed timer labelling, Approved-history paging/counts, and
+unchanged native warm-validation measurement. No such UI fix is implemented yet.
+
+This checkpoint supersedes older current-status claims below.
+See [CA resume checkpoint](changes/2026-10-26_CA_PAUSE_DATABASE_PRIORITY_HANDOFF.md).
+
+## Latest Corporate Actions status — 25 October 2026 IST
+
+The 17 October and lower sections are historical checkpoints for this workstream.
+Selected native Dividend approvals now have user screenshot evidence: HEGAM saved
+history/chart marker and ICICIGI/HDBFS targeted queue refresh in 4/2 seconds. Full
+queue and unrelated readiness remain available; no automatic full scan after each
+approval. Refresh implementation: 88 focused tests, renderer/whitespace PASS.
+
+Quick search implementation: 34 focused tests, renderer/whitespace PASS. Native
+screenshots now confirm mixed-case symbol matching, exact-symbol priority, full
+ISIN matching through Details and explicit empty results with the loaded count
+unchanged at 33,971. User confirms Esc/× clear. Whitespace padding, exact BSE-code
+lookup and measured typing speed remain unverified natively. Preserve Details and
+its source/ISIN/blocker explanations. Remaining chart-price, Split/bulk
+and BSE transport limits are recorded in [HANDOFF](../HANDOFF.md). Continue from
+that latest handoff; do not resume the obsolete stopped-Sandbox workflow below.
+Details: [refresh](changes/2026-10-25_CA_POST_APPROVAL_QUEUE_REFRESH.md),
+[quick search](changes/2026-10-25_CA_QUICK_SEARCH.md).
+
+<!-- EOD-CANONICAL-STATUS-2026-10-17-R1 -->
+## Current verified platform and Corporate Actions status — 17 October 2026 IST
+
+**Active project/workstream:** `E:\TA Projects\EOD Charting Platform`.
+
+**Newest accepted work:** P5-FINAL fail-closed closeout → P1/P2 source-identity reconciliation → integrated Corporate Actions R1 native gates → desktop attempts stopped for runtime dependencies.
+
+**Integrated Corporate Actions R1:** approved normal workflow `Fetch from Officials → Load & Validate → Approve Ready`, implemented in the existing CA window without replacing advanced maintenance. Load does not automatically approve Split/Bonus. Future ex-dates remain scheduled and local EOD readiness must be satisfied before explicit operator approval; the backend rechecks readiness at approval. Existing adjustment ledger/transactions and chart-refresh hooks are preserved, but production write/refresh behavior has **not** been manually accepted.
+
+**Current acceptance boundary (17 October 2026 IST):** source-integrated and native-validation **PASS** (62/62 focused Vitest, 2/2 focused Rust tests, renderer typecheck, frontend Vite build, offline Cargo check). Two isolated Windows release builds also **PASS**; the static-CRT EXE has no direct/delay VC runtime imports. **Desktop CA UI and chart-refresh acceptance remain NOT VERIFIED:** the first disposable Sandbox run lacked Visual C++ CRT DLLs, the static-CRT attempt then lacked WebView2 Runtime. Operator stopped; no manual CA pass, no real NSE/BSE network-fetch pass, no production CA write acceptance, and no portable installation acceptance.
+
+**Plugin P5-FINAL:** metadata-only import/discovery/reload architecture is closed with third-party external JavaScript evaluation and activation still **DISABLED**. C2 did not prove production guest process/IPC isolation; no plugin activation is permitted by the CA documents. The three previously unattributed P1/P2 files were accepted by exact isolated reconstruction on 17 October.
+
+**Do not resume obsolete historical CA phases from lower sections as the current task.** They remain historical records. Present bounded task is canonical documentation reconciliation only.
+
+**Still open:** actual normal desktop workflow observation; official-feed integration under separately authorized network conditions; non-destructive/controlled approval and chart/cache refresh manual verification; optional portable Windows packaging. No further test environment redesign or production database modification is implied by this documentation update.
+
+**Evidence:** P1/P2 three-file authority 4B97997A5B55DE56…; native CA 762203D79459BC29…; first stopped desktop 8A41ADAF68C9BF4A…; static CRT stopped desktop 46D6BEA22CB1083A…. Full SHA256 identities and limitations are in the new docs reconciliation record.
+<!-- END-EOD-CANONICAL-STATUS-2026-10-17-R1 -->
+
+<!-- STANDALONE-PLUGIN-ARCHITECTURE-P1-P3-2026-10-16:BEGIN -->
+## Standalone External Plugin Architecture and SDK — P1–P3 status
+
+- **Design boundary:** The EOD Charting Platform remains the protected core. Plugin Manager owns generic lifecycle controls; each plugin owns its own menu-opened interface and settings. External developers should integrate through the SDK and host interfaces rather than editing platform core code.
+- **P1/P2 implemented components (reported, not independently reaccepted here):** `src/plugins/pluginHost.ts`, `src/plugins/types.ts`, `src/plugins/pluginLoader.ts`, `src/engine/ChartEngine.ts`, `src/components/SettingsDialog.tsx`, and `src-tauri-shell/src/plugin_data.rs` provide extension registrations, loading and user-facing controls. The SDK is in `packages/eod-plugin-sdk/` with a development sample plugin.
+- **P3 accepted import-cycle fix (15 October 2026):** `src/plugins/hostRuntime.ts` owns the shared runtime singleton. Plugin registries, dynamic indicator registrations and scanners integrate through the lightweight host. The accepted P3 evidence records renderer typecheck PASS, six focused Vitest suites **22/22 PASS**, and renderer Vite build PASS; see `docs/changes/2026-10-15_1740_IST_P3_PLUGIN_IMPORT_CYCLE_LEAN_FIX_R1.md`.
+- **P4 boundary:** This section records implementation state and verified P3 evidence. It does **not** establish a full installed external-plugin lifecycle, production/manual activation, security review or portable Tauri build. Existing charts, CA functionality and database behavior remain protected. Corporate Actions write activation is not authorized here.
+<!-- STANDALONE-PLUGIN-ARCHITECTURE-P1-P3-2026-10-16:END -->
+
+
+<!-- BHAVCOPY-MODULAR-REFACTOR-PHASES-1-TO-9-2026-10-15:BEGIN -->
+## Completed — Bhavcopy Modular Architectural Refactor Phases 1–9 (2026-10-15 00:50 IST)
+
+- **Classification:** `MODULAR_CODE_HYGIENE_AND_ARCHITECTURE_REFACTOR__ALL_VALIDATION_GATES_PASSED`
+- **Plan Artifact:** `BHAVCOPY_MODULAR_REFACTOR_PLAN.md`
+- **Core Outcome:** Decomposed the ~7,980-line monolithic `src-tauri-shell/src/bhavcopy.rs` into a structured, highly maintainable subpackage (`src-tauri-shell/src/bhavcopy/`) with zero regressions and 100% backward compatibility for all 8 public Tauri IPC commands.
+
+### Module Topology:
+1. **`src-tauri-shell/src/bhavcopy/mod.rs` (1,118 lines):**
+   - Public facade: `download_bhavcopy` (single) and `download_bhavcopy_batch` (batch).
+   - Task worker pools, channel coordination, and batch planning execution.
+2. **`src-tauri-shell/src/bhavcopy/types.rs` (246 lines):**
+   - Core domain types: `BhavcopySettings`, `BatchDownloadConfig`, `DownloadResult`, `DownloadTask`, `StagedDownload`, `AppResult<T>`.
+3. **`src-tauri-shell/src/bhavcopy/settings.rs` (194 lines):**
+   - Persistent settings commands: `get_bhavcopy_default_templates`, `get_bhavcopy_settings`, `save_bhavcopy_settings`.
+   - Settings validation, default configurations, and series exclusion normalizers.
+4. **`src-tauri-shell/src/bhavcopy/transport.rs` (193 lines):**
+   - HTTP/1.1 client configuration, connection pooling (10s idle, max 4 per host), session warming, candidate streaming, and causal error chain diagnostics.
+5. **`src-tauri-shell/src/bhavcopy/calendar.rs` (455 lines):**
+   - Market holiday commands: `list_market_holidays`, `add_market_holiday`, `delete_market_holiday`.
+   - Special trading session overrides (Muhurat, disaster-recovery sessions), date math, 18:00 IST evening probe cutoff.
+6. **`src-tauri-shell/src/bhavcopy/sources/` (308 lines):**
+   - `sources/mod.rs`: `Candidate`, `CandidateKind`, `apply_template`.
+   - `sources/nse.rs`: NSE Equity & Index candidate generators and referer headers.
+   - `sources/bse.rs`: BSE Equity (UDiFF & legacy ZIP) & BSE Index candidate generators and referer headers.
+7. **`src-tauri-shell/src/bhavcopy/parsers/` (722 lines):**
+   - `parsers/zip.rs`: Bounded ZIP archive extractor with 128 MB security guard.
+   - `parsers/json.rs`: BSE Index Arch JSON & NSE historical API row normalizers.
+   - `parsers/csv.rs`: NSE/BSE UDiFF CSV parser, legacy EQ parser, IndexSummary parser.
+   - `parsers/mod.rs`: `ParsedBhavcopyRow`, `ParsedBhavcopyFile`, duplicate symbol-date row detection.
+8. **`src-tauri-shell/src/bhavcopy/ingestion.rs` (3,409 lines):**
+   - SQLite download log tracking, transactions, and storage mode pre-filter queries.
+   - Durability-governed binary writer pool (`write_bhavcopy_binary_records_parallel` preserving 2-worker default and 4-worker maximum cap).
+   - Recovery journal session lifecycle: `prepare_bhavcopy_recovery_session`, `capture_recovery_binary_baselines`, `recover_pending_bhavcopy_sessions`, background checkpoint worker.
+   - Fast-path baseline classification & shadow inspection engine.
+9. **`src-tauri-shell/src/bhavcopy/tests.rs` (1,478 lines):**
+   - Isolated unit tests covering parser parity, shadow classification, durability baselines, date window boundaries, and candidate URL templates.
+
+### Validation Passed:
+- `cargo test --bin eod-charting-platform-shell -- bhavcopy::tests::`: **50/50 PASS** (0.77s, 0 compiler warnings).
+- `npm run typecheck:renderer`: **PASS** (0 errors).
+<!-- BHAVCOPY-MODULAR-REFACTOR-PHASES-1-TO-9-2026-10-15:END -->
+
+<!-- TECH-AUDIT-PHASES-1-TO-5C-2026-10-14:BEGIN -->
+## Completed — Technical Audit & Internal Hardening Phases 1A-5C (2026-10-14 19:10 IST)
+
+- **Classification:** `INTERNAL_PERFORMANCE_STORAGE_IPC_AND_SECURITY_HARDENING__ALL_VALIDATION_GATES_PASSED`
+- **Report:** `docs/changes/2026-10-14_1910_IST_TECHNICAL_AUDIT_PHASES_1_TO_5C_COMPLETE.md`
+
+### Key Deliverables:
+1. **Multi-Layer Canvas & Memory Lifecycle (Phases 1A & 1B):**
+   - Reused `cachedRenderState` in `ChartEngine.getPointerState()` and isolated crosshair/synced-crosshair/drawing-preview repaints strictly to `overlayCanvas` (`src/engine/ChartEngine.ts`, `src/components/ChartCanvas.tsx`, `src/engine/__tests__/ChartLayerPartition.test.ts`).
+   - Added `blur`, `pointercancel`, and window close/minimize/maximize drag-listener teardown in `src/components/FloatingWindow.tsx` and `src/components/common/useDraggableFloatingWindow.ts`; zeroed detached `<canvas>` buffers on `unmount()`.
+2. **Windows Storage Lock Resilience & Single-Handle Reuse (Phase 1C):**
+   - Eliminated duplicate `OpenOptions::open` calls in `src-tauri-shell/src/database/binary_eod.rs` (`upsert_single_record_by_date` & `rewrite_from_first_incoming_record`) and added bounded retry backoff for transient Windows `ERROR_SHARING_VIOLATION` (`os error 32`) and `os error 5` in `binary_eod.rs` and `src-tauri-shell/src/bhavcopy_recovery.rs`.
+3. **Full-Series FNV-1a Indicator Cache & Scanner Throughput (Phases 2A & 2B):**
+   - Replaced 2-endpoint bar checks in `src/indicators/registry.ts` with an O(N) FNV-1a checksum (`getBarsMutationSignature`) and recursive upstream cache keys (`getChainedIndicatorCacheKey`).
+   - Bounded historical pattern evaluation sliding window to 260 bars in `src/plugins/scanner/chartPatternEvaluation.ts`, yielded to the event loop every 8 symbols in `src/plugins/scanner/scannerRunner.ts`, and hoisted `get_price_storage_mode` out of the per-symbol loop in `src-tauri-shell/src/database/daily_market_snapshot.rs`.
+4. **Packed 64-Byte Binary Bar IPC, 48-Symbol LRU Cache & Security Hardening (Phases 2C, 3A, 4, 5B & 5C):**
+   - Added `get_eod_data_binary` in `src-tauri-shell/src/database/eod_data.rs` and `decodeBinaryEodBars` in `src/platform/binaryEodDecoder.ts` (`src/platform/__tests__/binaryEodDecoder.test.ts`), paired with a 48-entry LRU cache and mutation invalidation in `src/platform/tauriDesktop.ts`.
+   - Enabled `is_html_response()` across all exchanges and capped ZIP extraction at 128 MB in `src-tauri-shell/src/bhavcopy.rs`; guarded `open_external` and `fetch_official_watchlist_source` in `src-tauri-shell/src/main.rs`; enabled a production CSP in `src-tauri-shell/tauri.conf.json`; resolved all 7 Rust compiler warnings.
+<!-- TECH-AUDIT-PHASES-1-TO-5C-2026-10-14:END -->
 
 IST: 2026-09-20 00:37:39 +05:30
 
@@ -26,8 +190,8 @@ No final acceptance or snapshot. BSE referer and Gann deferrals unchanged. TEST-
 
 # CURRENT TASK â€” OFFICIAL IMPORTS USER-FRIENDLY APPROVAL
 
-**Automated implementation installed:** `2026-09-19 01:25:26 +05:30`  
-**Status:** `AUTOMATED GREEN AFTER FIX1 / MANUAL PORTABLE CHECKPOINT PENDING`  
+**Automated implementation installed:** `2026-09-19 01:25:26 +05:30`
+**Status:** `AUTOMATED GREEN AFTER FIX1 / MANUAL PORTABLE CHECKPOINT PENDING`
 **Bounded workstream:** `Official Imports frontend simplification only`
 
 Current implementation:
@@ -41,7 +205,7 @@ Current implementation:
 - backend/schema/IPC and Identity Import behavior remain unchanged;
 - automated validation passed; manual WebView2 acceptance on the TEST database is still required.
 
-Change record: `docs\changes\2026-09-19_0125_IST_CA_OFFICIAL_IMPORTS_USER_FRIENDLY_APPROVAL_FIX1_TYPE_CONTRACT.md`  
+Change record: `docs\changes\2026-09-19_0125_IST_CA_OFFICIAL_IMPORTS_USER_FRIENDLY_APPROVAL_FIX1_TYPE_CONTRACT.md`
 Automated evidence: `E:\TA Projects\EOD Charting Platform\tmp\CA_OFFICIAL_IMPORTS_UX_FIX1_RESUME1_2026-09-19_012526_IST_evidence.zip`
 
 ---
@@ -170,8 +334,8 @@ It must answer, without staging anything:
 
 Do not run real `git add`, commit, packaging, or production-database work during this review.
 <!-- R1A-R3-CONTINUITY-UPDATE:END -->
-**Continuity checkpoint:** `V1.14AD-CONTINUITY-2026-08-31-R1`  
-**Last updated:** 2026-08-31 00:25:09 IST  
+**Continuity checkpoint:** `V1.14AD-CONTINUITY-2026-08-31-R1`
+**Last updated:** 2026-08-31 00:25:09 IST
 **Project root:** `E:\TA Projects\EOD Charting Platform`
 
 ## Read this first
@@ -418,7 +582,7 @@ However, the staging preflight is **not accepted or closed** because:
 
 ## Current blocker
 
-**File:** `V1.14AD-Controlled-CA-Staging-Preflight-R1A-R2.ps1`  
+**File:** `V1.14AD-Controlled-CA-Staging-Preflight-R1A-R2.ps1`
 **Operator SHA-256:** `F30C8E8755B4FCE31DDCF000B368EA8E14E938D601E2AF96FC046CF270703CAD`
 
 Embedded helper defect:
@@ -546,8 +710,8 @@ Therefore this checkpoint also mirrors the active state into the root `HANDOFF.m
 
 Use this prompt when a new chat/session is required:
 
-> Project: EOD Charting Platform  
-> Root: `E:\TA Projects\EOD Charting Platform`  
+> Project: EOD Charting Platform
+> Root: `E:\TA Projects\EOD Charting Platform`
 > First read `docs\CURRENT_WORK_STATUS.md`. If working only from a source snapshot that does not contain that file, read the top **Current active handoff** section of `HANDOFF.md`, then the referenced latest `docs\changes` report. Verify the source/snapshot/hash authority before changing anything. Do not rely on previous-chat memory. Continue only from **Current blocker**, **Exact next action**, and **Remaining V1.14AD sequence**. Preserve unrelated working-tree changes and do not perform real Git staging unless explicitly authorized.
 
 ## Current continuity report

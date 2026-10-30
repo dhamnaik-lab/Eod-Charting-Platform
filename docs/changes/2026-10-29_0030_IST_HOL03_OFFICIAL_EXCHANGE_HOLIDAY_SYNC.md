@@ -1,0 +1,24 @@
+# HOL03 official NSE/BSE holiday sync
+
+- IST: 2026-10-29 00:30:05 +05:30
+- Workstream: E:\TA Projects\EOD Charting Platform
+- Objective: add official first-party equity-holiday preview and explicit exchange/year acceptance.
+- Previous limitation: one shared date-keyed calendar, refresh local-only; BSE base circular missing 2026-01-15 amendment.
+- Files changed:
+- src-tauri-shell\src\database\bootstrap.rs
+- src-tauri-shell\src\bhavcopy\mod.rs
+- src-tauri-shell\src\bhavcopy\calendar.rs
+- src-tauri-shell\src\bhavcopy\holiday_sync.rs
+- src-tauri-shell\src\main.rs
+- src\types\desktop.ts
+- src\platform\tauriDesktop.ts
+- src\components\BhavcopyDownloadWindow.tsx
+- src\components\__tests__\BhavcopyOfficialHolidaySync.test.ts
+- Implementation: additive official snapshot and date tables, NSE CM JSON and BSE 2026 base+amendment validators, exchange/year scoped skip override after explicit acceptance. The legacy table is not rewritten.
+- Behavior preserved: HOL01/HOL02 UI, legacy shared calendar fallback, USER additions, special trading sessions, Bhavcopy manual/batch/automatic entrypoints, no source download during ordinary Refresh.
+- Commands/results: focused HOL03 Rust=PASS; Bhavcopy Rust=PASS; HOL01/HOL02/HOL03 Vitest=PASS; renderer typecheck=PASS; renderer Vite build=PASS. Actual outputs in E:\TA Projects\EOD Charting Platform\tmp\HOL03\evidence\R1_Apply_20261029_002827_IST.
+- Risks/limitations: 2026 BSE requires both official notices; future BSE years currently fail closed; additional BSE amendments may exist and must be independently verified. Native HTTP and UX not tested; no portable build performed. Full Rust/frontend suites not run.
+- Rollback: stop EOD Chart, restore source files from E:\TA Projects\EOD Charting Platform\backups\pre_opencode_changes_20261029_002833_HOL03_OFFICIAL_HOLIDAY_SYNC using the source-hash manifest. Remove newly created HOL03 module/test only after checking pins. Never restore or overwrite a production database; separately backed-up DB is outside this code rollback.
+- Backup: E:\TA Projects\EOD Charting Platform\backups\pre_opencode_changes_20261029_002833_HOL03_OFFICIAL_HOLIDAY_SYNC
+- Source authority evidence SHA256: B29A6947747C90717E620E3ADD8D3A24AC4843E0D029C7901BFA44A88BD038F8
+- Candidate manifest SHA256: 400D6810F10837FD5D0F2D65550347E7361DBC1A2CC4246C45816AE30B87A5DF

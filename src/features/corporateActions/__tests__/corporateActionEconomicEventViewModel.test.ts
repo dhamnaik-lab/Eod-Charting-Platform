@@ -240,4 +240,29 @@ describe('Corporate Action economic-event view model', () => {
       ALREADY_PROCESSED: false,
     });
   });
+
+  it('labels SPLIT with shareFactor < 1.0 as Consolidation in components and actionLabel', () => {
+    const result = buildCorporateActionEconomicEventViewModels([
+      row({
+        eventKey: 'NSE:REVSPLIT:2026-03-15',
+        importId: 10,
+        symbol: 'REVSPLIT',
+        companyName: 'Reverse Split Corp',
+        exDate: '2026-03-15',
+        actionType: 'SPLIT',
+        shareFactor: 0.2,
+      }),
+    ]);
+
+    expect(result).toHaveLength(1);
+    expect(result[0].actionLabel).toBe('Consolidation');
+    expect(result[0].components).toEqual([
+      {
+        actionType: 'SPLIT',
+        label: 'Consolidation',
+        shareFactor: 0.2,
+        importIds: [10],
+      },
+    ]);
+  });
 });

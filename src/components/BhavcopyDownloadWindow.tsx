@@ -7,14 +7,15 @@ import {
   type DownloadResult,
   type MarketHoliday,
 } from '@/platform';
+import type { OfficialHolidayAcceptedSnapshot, OfficialHolidaySyncPreview } from '@/types/desktop';
 import { useBhavcopyStore, type LogEntry } from '@/store/bhavcopyStore';
+import { useChartStore } from '@/store/chartStore';
 import { useUiStore } from '@/store/uiStore';
 import { useWindowStore } from '@/store/windowStore';
 import { FloatingWindow } from '@/components/FloatingWindow';
 import {
   addButtonStyle,
   addSeriesInputStyle,
-  addSeriesStyle,
   buttonGroupStyle,
   checkboxGroupStyle,
   checkboxLabelStyle,
@@ -23,9 +24,6 @@ import {
   copyButtonStyle,
   dateInputStyle,
   dateRangeStyle,
-  excludeSeriesWindowBodyStyle,
-  excludeSeriesWindowListStyle,
-  excludedChipStyle,
   emptyLogStyle,
   footerStyle,
   inputGroupStyle,
@@ -38,8 +36,12 @@ import {
   logHeaderStyle,
   logTitleStyle,
   leftPanelStyle,
+  marketHolidayAddStyle,
   marketHolidayHeaderStyle,
   marketHolidayPageStyle,
+  marketHolidayStatusStyle,
+  marketHolidayTableHeaderStyle,
+  marketHolidayTableRowStyle,
   marketHolidayTableStyle,
   modeHintStyle,
   modeRangeInfoStyle,
@@ -49,7 +51,6 @@ import {
   progressBarContainerStyle,
   progressBarFillStyle,
   progressFillStyle,
-  removeChipButtonStyle,
   resultsSummaryStyle,
   rightPanelStyle,
   sectionStyle,
@@ -74,26 +75,22 @@ import {
   windowBodyStyle,
 } from './BhavcopyDownloadWindow.styles';
 import { BhavcopySourceSettingsDialog } from './BhavcopySourceSettingsDialog';
+import { localDownloadDate } from '@/features/bhavcopy/bseHistoryDownload';
+import { beginDownloadRun, finishDownloadRun } from '@/features/bhavcopy/downloadRunState';
 
 type DownloadConfig = BatchDownloadConfig;
 type LogFilter = 'all' | LogEntry['level'];
+type HolidayStatusKind = 'info' | 'success' | 'error';
+type HolidayStatus = { kind: HolidayStatusKind; message: string; time: string };
 
 interface BhavcopyDownloadWindowProps {
   onClose: () => void;
 }
 
-const DEFAULT_EXCLUDED_SERIES = ['GS', 'GB', 'GF', 'GT', 'GBD', 'GBI', 'GSD', 'GSI'];
 const BHAVCOPY_WINDOW_ID = 'bhavcopy-download';
-const EXCLUDE_SERIES_WINDOW_ID = 'bhavcopy-exclude-series';
-
-function getExcludeSeriesWindowHeight(seriesCount: number): number {
-  const visibleRows = Math.min(Math.max(seriesCount, 1), 12);
-  return 230 + visibleRows * 34;
-}
 
 function getDefaultDateRange() {
-  const today = new Date();
-  const todayIso = today.toISOString().split('T')[0];
+  const todayIso = localDownloadDate();
   return {
     startDate: todayIso,
     endDate: todayIso,
@@ -205,13 +202,13 @@ export function BhavcopyDownloadWindow({ onClose }: BhavcopyDownloadWindowProps)
   const clearLogs = useBhavcopyStore((state) => state.clearLogs);
   const reportDownloadResult = useBhavcopyStore((state) => state.reportDownloadResult);
   const reportedDownloadResults = useBhavcopyStore((state) => state.reportedDownloadResults);
+  const activeDatabasePath = useChartStore((state) => state.snapshot?.activeDatabasePath ?? null);
 
   const bhavcopyOpenRequestCount = useUiStore((state) => state.bhavcopyOpenRequestCount);
   const registerWindow = useWindowStore((state) => state.registerWindow);
   const openWindow = useWindowStore((state) => state.openWindow);
   const focusWindow = useWindowStore((state) => state.focusWindow);
   const closeWindowStore = useWindowStore((state) => state.closeWindow);
-  const resizeWindow = useWindowStore((state) => state.resizeWindow);
 
   const [config, setConfig] = useState<DownloadConfig>(() => {
     const dateRange = getDefaultDateRange();
@@ -226,26 +223,41 @@ export function BhavcopyDownloadWindow({ onClose }: BhavcopyDownloadWindowProps)
       startDate: dateRange.startDate,
       endDate: dateRange.endDate,
       workers: 2,
-      excludedSeries: [...DEFAULT_EXCLUDED_SERIES],
+      // Compatibility-only API field; new downloads never filter series.
+      excludedSeries: [],
       nseEquityUrlOverride: null,
       nseIndexUrlOverride: null,
       bseEquityUrlOverride: null,
       bseIndexUrlOverride: null,
     };
   });
-  const [newExcludedSeries, setNewExcludedSeries] = useState('');
+  const [runError, setRunError] = useState<string | null>(null);
   const [settingsLoaded, setSettingsLoaded] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [logFilter, setLogFilter] = useState<LogFilter>('all');
   const [copySuccess, setCopySuccess] = useState(false);
   const [autoScroll, setAutoScroll] = useState(true);
   const [holidays, setHolidays] = useState<MarketHoliday[]>([]);
+  const [holidayDatabasePath, setHolidayDatabasePath] = useState<string | null>(null);
+  const holidayRequestIdRef = useRef(0);
+  const visibleHolidays = holidayDatabasePath === activeDatabasePath ? holidays : [];
   const [activeTab, setActiveTab] = useState<'bhavcopy' | 'marketHoliday'>('bhavcopy');
   const [holidaysLoading, setHolidaysLoading] = useState(false);
   const [newHolidayDate, setNewHolidayDate] = useState('');
   const [newHolidayName, setNewHolidayName] = useState('');
-  const [holidayError, setHolidayError] = useState<string | null>(null);
+  const [, setHolidayError] = useState<string | null>(null);
+  const [holidayStatus, setHolidayStatus] = useState<HolidayStatus>({ kind: 'info', message: 'Open Market Holiday to load the holiday list.', time: '' });
+  const [holidayMutationPending, setHolidayMutationPending] = useState<'add' | number | null>(null);
+  const holidayMutationInFlightRef = useRef(false);
+  const holidayMutationVersionRef = useRef(0);
   const [deleteConfirmId, setDeleteConfirmId] = useState<number | null>(null);
+  const [officialPreview, setOfficialPreview] = useState<OfficialHolidaySyncPreview | null>(null);
+  const [officialCoverage, setOfficialCoverage] = useState<OfficialHolidayAcceptedSnapshot[]>([]);
+  const [officialBusy, setOfficialBusy] = useState(false);
+  const [officialReviewed, setOfficialReviewed] = useState(false);
+  const [officialSelected, setOfficialSelected] = useState<{NSE: boolean; BSE: boolean}>({NSE: true,BSE: true});
+  const officialRequestVersionRef = useRef(0);
+  const [officialPreviewDbPath, setOfficialPreviewDbPath] = useState<string | null>(null);
   const logAreaRef = useRef<HTMLDivElement>(null);
   const api = getDesktopApi();
 
@@ -261,20 +273,6 @@ export function BhavcopyDownloadWindow({ onClose }: BhavcopyDownloadWindowProps)
       },
       minWidth: 860,
       minHeight: 520,
-    });
-    registerWindow({
-      id: EXCLUDE_SERIES_WINDOW_ID,
-      title: 'Exclude Series (NSE)',
-      bounds: {
-        x: 360,
-        y: 180,
-        width: 560,
-        height: 420,
-      },
-      minWidth: 460,
-      minHeight: 300,
-      maxWidth: 760,
-      maxHeight: 720,
     });
   }, [registerWindow]);
 
@@ -330,96 +328,332 @@ export function BhavcopyDownloadWindow({ onClose }: BhavcopyDownloadWindowProps)
     });
   };
 
+  const reportHolidayStatus = (kind: HolidayStatusKind, message: string) => {
+    setHolidayStatus({ kind, message, time: new Date().toLocaleTimeString() });
+  };
+
   const loadHolidays = async () => {
-    if (!api || holidaysLoading) return;
+    const databasePath = useChartStore.getState().snapshot?.activeDatabasePath ?? null;
+    const requestId = ++holidayRequestIdRef.current;
+    const isCurrentRequest = () => requestId === holidayRequestIdRef.current &&
+      (useChartStore.getState().snapshot?.activeDatabasePath ?? null) === databasePath;
+    if (!api) {
+      const message = 'Holiday service is unavailable.';
+      setHolidayError(message);
+      reportHolidayStatus('error', message);
+      return;
+    }
     setHolidaysLoading(true);
     setHolidayError(null);
+    reportHolidayStatus('info', 'Refreshing holiday list...');
     try {
       const rows = await api.listMarketHolidays();
+      if (!isCurrentRequest()) return;
       setHolidays(rows);
+      setHolidayDatabasePath(databasePath);
+      reportHolidayStatus('success', `Holiday list refreshed: ${rows.length} records.`);
     } catch (err) {
-      setHolidayError(getErrorMessage(err));
+      if (isCurrentRequest()) {
+        const message = getErrorMessage(err);
+        setHolidayError(message);
+        reportHolidayStatus('error', `Unable to refresh holidays: ${message}`);
+      }
     } finally {
-      setHolidaysLoading(false);
+      if (isCurrentRequest()) setHolidaysLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    // Never retain rows or pending responses from a previously active database.
+    // Also clear operation status and mutation guards before loading the next database.
+    holidayRequestIdRef.current += 1;
+    holidayMutationVersionRef.current += 1;
+    holidayMutationInFlightRef.current = false;
+    setHolidayMutationPending(null);
+    setHolidays([]);
+    setHolidayDatabasePath(null);
+    setOfficialCoverage([]);
+    setHolidayError(null);
+    setDeleteConfirmId(null);
+    officialRequestVersionRef.current += 1;
+    setOfficialPreview(null);
+    setOfficialPreviewDbPath(null);
+    setOfficialReviewed(false);
+    setOfficialBusy(false);
+    setHolidaysLoading(false);
+    reportHolidayStatus('info', 'Holiday database changed; reload required.');
+    if (activeTab === 'marketHoliday') void loadHolidays();
+  }, [activeDatabasePath]);
+
+  // HOL-03 accepted-snapshot metadata is independent of the existing local
+  // Refresh request. Keep loadHolidays() limited to listMarketHolidays() so a
+  // coverage fetch cannot alter or delay the established HOL-01/02 behavior.
+  useEffect(() => {
+    if (activeTab !== 'marketHoliday' || !activeDatabasePath || !api) return;
+    let cancelled = false;
+    const databasePath = activeDatabasePath;
+    void (async () => {
+      try {
+        const rows = await api.listOfficialExchangeHolidaySnapshots(new Date().getFullYear());
+        if (!cancelled && (useChartStore.getState().snapshot?.activeDatabasePath ?? null) === databasePath) {
+          setOfficialCoverage(rows);
+        }
+      } catch {
+        if (!cancelled && (useChartStore.getState().snapshot?.activeDatabasePath ?? null) === databasePath) {
+          setOfficialCoverage([]);
+        }
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [activeTab, activeDatabasePath]);
+
+  const handlePreviewOfficialHolidays = async () => {
+    if (!api || officialBusy || holidayMutationInFlightRef.current) return;
+    const databasePath = useChartStore.getState().snapshot?.activeDatabasePath ?? null;
+    const version = ++officialRequestVersionRef.current;
+    const stillActive = () => version === officialRequestVersionRef.current &&
+      databasePath === (useChartStore.getState().snapshot?.activeDatabasePath ?? null);
+    setOfficialBusy(true);
+    setOfficialPreview(null);
+    setOfficialPreviewDbPath(null);
+    setOfficialReviewed(false);
+    reportHolidayStatus('info', 'Checking official NSE/BSE equity holiday sources...');
+    try {
+      const result = await api.previewOfficialExchangeHolidays(new Date().getFullYear());
+      if (!stillActive()) return;
+      setOfficialPreview(result);
+      setOfficialPreviewDbPath(databasePath);
+      const verified = result.exchanges.filter((x) => x.verified).length;
+      reportHolidayStatus(verified === 2 ? 'success' : 'info',
+        `Official preview: ${verified}/2 exchanges verified for ${result.year}. Review before accepting.`);
+    } catch (error) {
+      if (stillActive()) reportHolidayStatus('error', `Official calendar check failed: ${getErrorMessage(error)}`);
+    } finally {
+      if (stillActive()) setOfficialBusy(false);
+    }
+  };
+
+  const handleAcceptOfficialHolidays = async () => {
+    if (!api || !officialPreview || !officialReviewed || officialBusy || holidayMutationInFlightRef.current) return;
+    const databasePath = useChartStore.getState().snapshot?.activeDatabasePath ?? null;
+    if (databasePath !== officialPreviewDbPath) return;
+    const exchanges = officialPreview.exchanges.filter((x) => x.verified &&
+      officialSelected[x.exchange]).map((x) => x.exchange);
+    if (exchanges.length === 0) {
+      reportHolidayStatus('error', 'Select at least one verified exchange for acceptance.');
+      return;
+    }
+    const version = ++officialRequestVersionRef.current;
+    const stillActive = () => version === officialRequestVersionRef.current &&
+      databasePath === (useChartStore.getState().snapshot?.activeDatabasePath ?? null);
+    setOfficialBusy(true);
+    reportHolidayStatus('info', `Accepting official ${exchanges.join(' and ')} holidays...`);
+    try {
+      const result = await api.applyOfficialExchangeHolidays(officialPreview.token, exchanges);
+      if (!stillActive()) return;
+      setOfficialPreview(null);
+      setOfficialPreviewDbPath(null);
+      try {
+        const coverage = await api.listOfficialExchangeHolidaySnapshots(result.year);
+        if (stillActive()) setOfficialCoverage(coverage);
+      } catch { /* Keep accepted result; a subsequent Refresh will retry coverage listing. */ }
+      if (!stillActive()) return;
+      reportHolidayStatus('success', `Accepted ${result.records} official ${result.year} records: ${result.accepted.join(', ')}. Shared/user holidays retained.`);
+    } catch (error) {
+      if (stillActive()) reportHolidayStatus('error', `Official calendar acceptance failed: ${getErrorMessage(error)}`);
+    } finally {
+      if (stillActive()) setOfficialBusy(false);
     }
   };
 
   const handleAddHoliday = async () => {
-    if (!api) return;
+    if (holidayMutationInFlightRef.current) return;
+    if (!newHolidayDate || !newHolidayName.trim()) {
+      reportHolidayStatus('error', 'Enter a valid date and holiday name.');
+      return;
+    }
+    if (!api) {
+      reportHolidayStatus('error', 'Holiday service is unavailable.');
+      return;
+    }
+    const databasePath = useChartStore.getState().snapshot?.activeDatabasePath ?? null;
+    const mutationVersion = holidayMutationVersionRef.current;
+    const isCurrentMutation = () => mutationVersion === holidayMutationVersionRef.current &&
+      (useChartStore.getState().snapshot?.activeDatabasePath ?? null) === databasePath;
+    holidayMutationInFlightRef.current = true;
+    setHolidayMutationPending('add');
     setHolidayError(null);
+    reportHolidayStatus('info', 'Adding holiday...');
     try {
       const added = await api.addMarketHoliday(newHolidayDate, newHolidayName);
-      setHolidays((prev) => [...prev, added].sort((a, b) => a.date.localeCompare(b.date)));
+      if (!isCurrentMutation()) return;
+      // An earlier read must not overwrite the newly added row.
+      holidayRequestIdRef.current += 1;
+      setHolidaysLoading(false);
+      setHolidays((prev) => [...(holidayDatabasePath === databasePath ? prev : []), added]
+        .sort((a, b) => a.date.localeCompare(b.date)));
+      setHolidayDatabasePath(databasePath);
       setNewHolidayDate('');
       setNewHolidayName('');
+      reportHolidayStatus('success', `Holiday added: ${added.date} — ${added.name}.`);
     } catch (err) {
-      setHolidayError(String(err));
+      if (isCurrentMutation()) {
+        const message = getErrorMessage(err);
+        setHolidayError(message);
+        reportHolidayStatus('error', `Unable to add holiday: ${message}`);
+      }
+    } finally {
+      if (isCurrentMutation()) {
+        holidayMutationInFlightRef.current = false;
+        setHolidayMutationPending(null);
+      }
     }
   };
 
   const handleDeleteHoliday = async (id: number) => {
-    if (!api) return;
+    if (holidayMutationInFlightRef.current) return;
+    if (!api) {
+      reportHolidayStatus('error', 'Holiday service is unavailable.');
+      return;
+    }
+    const deleted = visibleHolidays.find((row) => row.id === id);
+    const databasePath = useChartStore.getState().snapshot?.activeDatabasePath ?? null;
+    const mutationVersion = holidayMutationVersionRef.current;
+    const isCurrentMutation = () => mutationVersion === holidayMutationVersionRef.current &&
+      (useChartStore.getState().snapshot?.activeDatabasePath ?? null) === databasePath;
+    holidayMutationInFlightRef.current = true;
+    setHolidayMutationPending(id);
     setHolidayError(null);
+    reportHolidayStatus('info', 'Removing holiday...');
     try {
       await api.deleteMarketHoliday(id);
+      if (!isCurrentMutation()) return;
+      holidayRequestIdRef.current += 1;
+      setHolidaysLoading(false);
       setHolidays((prev) => prev.filter((h) => h.id !== id));
       setDeleteConfirmId(null);
+      reportHolidayStatus('success', deleted
+        ? `Holiday removed: ${deleted.date} — ${deleted.name}.`
+        : 'Holiday removed successfully.');
     } catch (err) {
-      setHolidayError(String(err));
+      if (isCurrentMutation()) {
+        const message = getErrorMessage(err);
+        setHolidayError(message);
+        reportHolidayStatus('error', `Unable to remove holiday: ${message}`);
+      }
+    } finally {
+      if (isCurrentMutation()) {
+        holidayMutationInFlightRef.current = false;
+        setHolidayMutationPending(null);
+      }
     }
   };
 
   const renderMarketHolidayPage = () => (
     <div style={marketHolidayPageStyle}>
       <div style={marketHolidayHeaderStyle}>
-        <div>
+        <div style={{ minWidth: 0 }}>
           <div style={sectionTitleStyle}>Market Holiday</div>
-          <div style={{ marginTop: 4, color: 'var(--text-dim)', fontSize: 12 }}>
+          <div style={{ marginTop: 3, color: 'var(--text-dim)', fontSize: 12 }}>
             Manage holiday dates excluded from bhavcopy downloads.
           </div>
         </div>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexShrink: 0 }}>
+          <button
+            type="button"
+            aria-label="Sync official NSE and BSE holidays"
+            style={{ ...secondaryButtonStyle, borderRadius: 14, padding: '4px 12px' }}
+            disabled={officialBusy || holidaysLoading || holidayMutationPending !== null}
+            onClick={() => void handlePreviewOfficialHolidays()}
+          >{officialBusy ? 'Checking...' : 'Sync Official Holidays'}</button>
         <button
           type="button"
-          style={secondaryButtonStyle}
+          aria-label="Refresh market holidays"
+          style={{ ...secondaryButtonStyle, flexShrink: 0, borderRadius: 14, padding: '4px 12px' }}
           onClick={() => void loadHolidays()}
-          disabled={holidaysLoading}
+          disabled={holidaysLoading || holidayMutationPending !== null}
         >
-          {holidaysLoading ? 'Loading...' : 'Refresh'}
+          {holidaysLoading ? 'Refreshing...' : 'Refresh'}
         </button>
+        </div>
       </div>
 
-      {holidayError && (
-        <div style={{ color: 'var(--red)', fontSize: 12, marginBottom: 8 }}>{holidayError}</div>
+      {officialPreview && officialPreviewDbPath === activeDatabasePath && (
+        <div style={{ flexShrink: 0, maxHeight: 165, overflowY: 'auto', padding: '8px 10px',
+          border: '1px solid var(--border2)', borderRadius: 5, fontSize: 12 }}
+          aria-label="Official holiday sync preview">
+          <div style={{ fontWeight: 600, marginBottom: 5 }}>Official {officialPreview.year} cash-market holidays — preview only, no changes yet</div>
+          {officialPreview.exchanges.map((entry) => (
+            <div key={entry.exchange} style={{ marginBottom: 6 }}>
+              <label style={{ display: 'flex', gap: 7, alignItems: 'center' }}>
+                <input type="checkbox" checked={entry.verified && officialSelected[entry.exchange]}
+                  disabled={!entry.verified || officialBusy}
+                  onChange={(e) => setOfficialSelected((old) => ({ ...old, [entry.exchange]: e.target.checked }))}/>
+                <strong>{entry.exchange} equity</strong>
+                <span>{entry.verified ? `${entry.holidays.length} holidays; ${entry.newDates.length} additions, ${entry.changedNames.length} name differences, ${entry.legacyOnlyDates.length} local-only dates` : 'Unavailable — not eligible for acceptance'}</span>
+              </label>
+              <div style={{ paddingLeft: 22, color: entry.verified ? 'var(--text-dim)' : 'var(--red)' }}>{entry.message}</div>
+              {entry.sourceUrls.map((url) => <div key={url} style={{ paddingLeft: 22, overflowWrap: 'anywhere' }}><a href={url} target="_blank" rel="noreferrer">{url}</a></div>)}
+              {entry.verified && entry.sourceSha256 && <div style={{ paddingLeft: 22, color: 'var(--text-dim)' }}>Source SHA-256: {entry.sourceSha256}</div>}
+              {entry.verified && <details style={{ paddingLeft: 22, marginTop: 3 }}>
+                <summary>Review all {entry.holidays.length} dated official records</summary>
+                {entry.holidays.map((row) => <div key={row.date}>{row.date} — {row.name}</div>)}
+              </details>}
+              {entry.verified && entry.newDates.length > 0 && <div style={{ paddingLeft: 22 }}>New dates: {entry.newDates.join(', ')}</div>}
+              {entry.verified && entry.legacyOnlyDates.length > 0 && <div style={{ paddingLeft: 22 }}>Local-only: {entry.legacyOnlyDates.join(', ')} (not deleted)</div>}
+              {entry.verified && entry.changedNames.length > 0 && <div style={{ paddingLeft: 22 }}>Different names: {entry.changedNames.join(', ')}</div>}
+            </div>
+          ))}
+          <label style={{ display: 'block', marginBottom: 5 }}>
+            <input type="checkbox" checked={officialReviewed} disabled={officialBusy}
+              onChange={(e) => setOfficialReviewed(e.target.checked)}/>
+            I reviewed the official records, year and linked exchange notices (including possible amendments).
+          </label>
+          <button type="button" style={secondaryButtonStyle}
+            disabled={officialBusy || !officialReviewed || !officialPreview.exchanges.some((x) => x.verified && officialSelected[x.exchange])}
+            onClick={() => void handleAcceptOfficialHolidays()}>Accept selected official calendars</button>
+          <button type="button" style={{ ...secondaryButtonStyle, marginLeft: 6 }}
+            disabled={officialBusy} onClick={() => { setOfficialPreview(null); setOfficialPreviewDbPath(null); }}>
+            Cancel</button>
+        </div>
       )}
 
-      <div style={marketHolidayTableStyle}>
-        <div style={{ display: 'grid', gridTemplateColumns: '140px minmax(0, 1fr) 100px 110px', gap: 8, padding: '8px 10px', color: 'var(--text-dim)', backgroundColor: 'var(--bg3)', borderBottom: '1px solid var(--border2)', fontSize: 11, fontWeight: 600 }}>
-          <span>Date</span>
-          <span>Name</span>
-          <span>Source</span>
-          <span>Actions</span>
+      {officialCoverage.length > 0 && (
+        <div style={{ padding: '3px 9px', fontSize: 11, flexShrink: 0, color: 'var(--text-dim)' }}>
+          Accepted official calendars: {officialCoverage.map((row) => `${row.exchange} ${row.year}: ${row.recordCount} records (${row.acceptedAt} UTC)`).join(' | ')}
         </div>
-        {holidaysLoading && holidays.length === 0 ? (
+      )}
+
+      <div style={marketHolidayTableStyle} role="table" aria-label="Market holiday dates">
+        <div style={marketHolidayTableHeaderStyle} role="row">
+          <span role="columnheader">Date</span>
+          <span role="columnheader">Name</span>
+          <span role="columnheader">Source</span>
+          <span role="columnheader">Actions</span>
+        </div>
+        {holidaysLoading && visibleHolidays.length === 0 ? (
           <div style={{ padding: 12, color: 'var(--text-dim)' }}>Loading holidays...</div>
-        ) : holidays.length === 0 ? (
+        ) : visibleHolidays.length === 0 ? (
           <div style={{ padding: 12, color: 'var(--text-dim)' }}>No holidays loaded.</div>
         ) : (
-          holidays.map((h) => (
-            <div key={h.id} style={{ display: 'grid', gridTemplateColumns: '140px minmax(0, 1fr) 100px 110px', alignItems: 'center', gap: 8, padding: '7px 10px', borderBottom: '1px solid var(--border)' }}>
-              <span style={{ fontFamily: 'monospace', color: 'var(--text-dim)' }}>{h.date}</span>
-              <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{h.name}</span>
-              <span style={{ fontSize: 10, color: 'var(--text-dim)' }}>{h.source}</span>
-              <span>
+          visibleHolidays.map((h) => (
+            <div key={h.id} style={marketHolidayTableRowStyle} role="row">
+              <span role="cell" style={{ fontFamily: 'monospace', color: 'var(--text-dim)' }}>{h.date}</span>
+              <span role="cell" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={h.name}>{h.name}</span>
+              <span role="cell" style={{ fontSize: 10, color: 'var(--text-dim)' }}>{h.source}</span>
+              <span role="cell">
                 {deleteConfirmId === h.id ? (
                   <span style={{ display: 'inline-flex', gap: 4 }}>
                     <button
                       type="button"
                       style={{ fontSize: 10, color: 'var(--red)', background: 'none', border: '1px solid var(--red)', borderRadius: 3, padding: '2px 6px', cursor: 'pointer' }}
+                      disabled={holidayMutationPending !== null}
                       onClick={() => void handleDeleteHoliday(h.id)}
-                    >Confirm</button>
+                    >{holidayMutationPending === h.id ? 'Removing...' : 'Confirm'}</button>
                     <button
                       type="button"
                       style={{ fontSize: 10, background: 'none', border: '1px solid var(--border2)', borderRadius: 3, padding: '2px 6px', cursor: 'pointer', color: 'var(--text-dim)' }}
+                      disabled={holidayMutationPending !== null}
                       onClick={() => setDeleteConfirmId(null)}
                     >Cancel</button>
                   </span>
@@ -427,6 +661,7 @@ export function BhavcopyDownloadWindow({ onClose }: BhavcopyDownloadWindowProps)
                   <button
                     type="button"
                     style={{ fontSize: 11, background: 'none', border: 'none', color: 'var(--text-dim)', cursor: 'pointer', padding: '2px 4px' }}
+                    disabled={holidayMutationPending !== null}
                     onClick={() => setDeleteConfirmId(h.id)}
                   >Remove</button>
                 )}
@@ -436,20 +671,24 @@ export function BhavcopyDownloadWindow({ onClose }: BhavcopyDownloadWindowProps)
         )}
       </div>
 
-      <div style={{ ...sectionStyle, marginTop: 18, maxWidth: 560 }}>
+      <div style={marketHolidayAddStyle}>
         <div style={sectionTitleStyle}>Add Holiday</div>
-        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
           <input
             type="date"
+            aria-label="Holiday date"
             value={newHolidayDate}
             onChange={(e) => setNewHolidayDate(e.target.value)}
-            style={{ ...dateInputStyle, width: 140 }}
+            disabled={holidayMutationPending !== null}
+            style={{ ...dateInputStyle, width: 150 }}
           />
           <input
             type="text"
+            aria-label="Holiday name"
             value={newHolidayName}
             onChange={(e) => setNewHolidayName(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && newHolidayDate && newHolidayName && void handleAddHoliday()}
+            onKeyDown={(e) => e.key === 'Enter' && newHolidayDate && newHolidayName.trim() && holidayMutationPending === null && void handleAddHoliday()}
+            disabled={holidayMutationPending !== null}
             placeholder="Holiday name"
             style={{ ...addSeriesInputStyle, flex: 1, minWidth: 180 }}
             maxLength={80}
@@ -458,9 +697,21 @@ export function BhavcopyDownloadWindow({ onClose }: BhavcopyDownloadWindowProps)
             type="button"
             style={addButtonStyle}
             onClick={() => void handleAddHoliday()}
-            disabled={!newHolidayDate || !newHolidayName.trim()}
-          >Add</button>
+            disabled={!newHolidayDate || !newHolidayName.trim() || holidayMutationPending !== null}
+          >{holidayMutationPending === 'add' ? 'Adding...' : 'Add'}</button>
         </div>
+      </div>
+      <div
+        style={marketHolidayStatusStyle}
+        role={holidayStatus.kind === 'error' ? 'alert' : 'status'}
+        aria-live={holidayStatus.kind === 'error' ? 'assertive' : 'polite'}
+        aria-atomic="true"
+      >
+        <span style={{ color: holidayStatus.kind === 'success' ? 'var(--green)' : holidayStatus.kind === 'error' ? 'var(--red)' : 'var(--text-dim)', fontSize: 12 }} aria-hidden="true">
+          ●
+        </span>
+        <span style={{ flex: 1, minWidth: 0, overflowWrap: 'anywhere' }}>{holidayStatus.message}</span>
+        {holidayStatus.time && <span style={{ whiteSpace: 'nowrap', color: 'var(--text-dim)' }}>{holidayStatus.time}</span>}
       </div>
     </div>
   );
@@ -499,24 +750,18 @@ export function BhavcopyDownloadWindow({ onClose }: BhavcopyDownloadWindowProps)
     updateConfig((previous) => ({ ...previous, mode }));
   };
 
-  const addExcludedSeries = () => {
-    const series = newExcludedSeries.trim().toUpperCase();
-    if (series && !config.excludedSeries.includes(series)) {
-      updateConfig((previous) => ({
-        ...previous,
-        excludedSeries: [...previous.excludedSeries, series],
-      }), { persistSettings: true });
-      resizeWindow(EXCLUDE_SERIES_WINDOW_ID, 560, getExcludeSeriesWindowHeight(config.excludedSeries.length + 1));
-      setNewExcludedSeries('');
-    }
+  const startRun = () => {
+    clearLogs();
+    setRunError(null);
+    setIsDownloading(true);
+    useChartStore.getState().setDownloadProgress(beginDownloadRun());
   };
 
-  const removeExcludedSeries = (series: string) => {
-    updateConfig((previous) => ({
-      ...previous,
-      excludedSeries: previous.excludedSeries.filter((value) => value !== series),
-    }), { persistSettings: true });
-    resizeWindow(EXCLUDE_SERIES_WINDOW_ID, 560, getExcludeSeriesWindowHeight(Math.max(0, config.excludedSeries.length - 1)));
+  const stopRun = (error: string | null) => {
+    setRunError(error);
+    setIsDownloading(false);
+    const chart = useChartStore.getState();
+    chart.setDownloadProgress(finishDownloadRun(chart.downloadProgress, error));
   };
 
   const handleDownload = async () => {
@@ -524,7 +769,6 @@ export function BhavcopyDownloadWindow({ onClose }: BhavcopyDownloadWindowProps)
       addLog('error', 'Desktop API bridge not available');
       return;
     }
-
     const selectedExchanges = Object.entries(config.exchanges)
       .filter(([, enabled]) => enabled)
       .map(([exchange]) => exchange);
@@ -546,8 +790,7 @@ export function BhavcopyDownloadWindow({ onClose }: BhavcopyDownloadWindowProps)
       }
     }
 
-    setIsDownloading(true);
-    clearLogs();
+    startRun();
     addLog('info', `Mode: ${getDownloadModeLabel(config.mode)}`);
     addLog('info', `Starting download for: ${selectedExchangeLabels.join(', ')}`);
     if (config.mode === 'range') {
@@ -557,6 +800,7 @@ export function BhavcopyDownloadWindow({ onClose }: BhavcopyDownloadWindowProps)
     }
     addLog('info', `Workers: ${config.workers}`);
 
+    let failure: string | null = null;
     try {
       const result = await api.downloadBhavcopyBatch({
         mode: config.mode,
@@ -581,20 +825,22 @@ export function BhavcopyDownloadWindow({ onClose }: BhavcopyDownloadWindowProps)
       const successCount = result.filter((r) => r.success && !isSkippedResult(r)).length;
       const skippedCount = result.filter((r) => isSkippedResult(r)).length;
       const failCount = result.filter((r) => !r.success).length;
+      if (failCount > 0) failure = `${failCount} download jobs failed.`;
       const importedRows = result.reduce((total, entry) => total + entry.rowsInserted, 0);
       addLog(
         'info',
         `Download complete: ${successCount} success, ${skippedCount} skipped, ${failCount} failed, imported rows: ${importedRows}`,
       );
     } catch (error) {
-      addLog('error', getErrorMessage(error));
+      failure = getErrorMessage(error);
+      addLog('error', failure);
     } finally {
-      setIsDownloading(false);
+      stopRun(failure);
     }
   };
   const selectedExchangesCount = Object.values(config.exchanges).filter(Boolean).length;
   const { skippedCount, successCount, failedCount, totalRowsInserted, completedCount } = runSummary;
-  const runStatus = isDownloading ? 'Running' : completedCount > 0 ? (failedCount > 0 ? 'Completed With Errors' : 'Completed') : 'Idle';
+  const runStatus = isDownloading ? 'Running' : runError ? 'Stopped With Errors' : completedCount > 0 ? (failedCount > 0 ? 'Completed With Errors' : 'Completed') : 'Idle';
   const filteredLogs = useMemo(() => {
     if (logFilter === 'all') return logs;
     return logs.filter((log) => log.level === logFilter);
@@ -622,15 +868,8 @@ export function BhavcopyDownloadWindow({ onClose }: BhavcopyDownloadWindowProps)
   };
 
   const handleClose = () => {
-    closeWindowStore(EXCLUDE_SERIES_WINDOW_ID);
     closeWindowStore(BHAVCOPY_WINDOW_ID);
     onClose();
-  };
-
-  const openExcludeSeriesWindow = () => {
-    resizeWindow(EXCLUDE_SERIES_WINDOW_ID, 560, getExcludeSeriesWindowHeight(config.excludedSeries.length));
-    openWindow(EXCLUDE_SERIES_WINDOW_ID);
-    focusWindow(EXCLUDE_SERIES_WINDOW_ID);
   };
 
   return (
@@ -653,8 +892,9 @@ export function BhavcopyDownloadWindow({ onClose }: BhavcopyDownloadWindowProps)
             aria-selected={activeTab === 'marketHoliday'}
             style={tabButtonStyle(activeTab === 'marketHoliday')}
             onClick={() => {
+              if (activeTab === 'marketHoliday') return;
               setActiveTab('marketHoliday');
-              if (holidays.length === 0) void loadHolidays();
+              void loadHolidays();
             }}
           >
             Market Holiday
@@ -779,23 +1019,6 @@ export function BhavcopyDownloadWindow({ onClose }: BhavcopyDownloadWindowProps)
           </div>
 
           <div style={sectionStyle}>
-            <div style={sectionTitleStyle}>Exclude Series (NSE)</div>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
-              <span style={{ color: 'var(--text-dim)', fontSize: 12 }}>
-                {config.excludedSeries.length} series excluded
-              </span>
-              <button
-                type="button"
-                style={secondaryButtonStyle}
-                onClick={openExcludeSeriesWindow}
-                disabled={isDownloading}
-              >
-                Manage
-              </button>
-            </div>
-          </div>
-
-          <div style={sectionStyle}>
             <button
               style={{ ...secondaryButtonStyle, width: '100%', fontSize: 12 }}
               onClick={() => setIsSettingsOpen(true)}
@@ -888,7 +1111,7 @@ export function BhavcopyDownloadWindow({ onClose }: BhavcopyDownloadWindowProps)
             <div
               style={{
                 ...statusBadgeStyle,
-                ...(isDownloading ? statusBadgeRunningStyle : completedCount > 0 ? (failedCount > 0 ? statusBadgeErrorStyle : statusBadgeSuccessStyle) : null),
+                ...(isDownloading ? statusBadgeRunningStyle : runError || failedCount > 0 ? statusBadgeErrorStyle : completedCount > 0 ? statusBadgeSuccessStyle : null),
               }}
             >
               <span style={statusDotStyle} />
@@ -904,8 +1127,9 @@ export function BhavcopyDownloadWindow({ onClose }: BhavcopyDownloadWindowProps)
             ) : completedCount > 0 ? (
               <>
                 <span style={{ color: 'var(--green)' }}>
-                  OK {successCount + skippedCount}
+                  Imported {successCount}
                 </span>
+                <span style={{ color: 'var(--text-dim)' }}>Skipped {skippedCount}</span>
                 <span style={{ color: 'var(--red)' }}>
                   Fail {failedCount}
                 </span>
@@ -953,55 +1177,6 @@ export function BhavcopyDownloadWindow({ onClose }: BhavcopyDownloadWindowProps)
           />
         )}
       </div>
-      </FloatingWindow>
-      <FloatingWindow
-        id={EXCLUDE_SERIES_WINDOW_ID}
-        onClose={() => closeWindowStore(EXCLUDE_SERIES_WINDOW_ID)}
-      >
-        <div style={excludeSeriesWindowBodyStyle}>
-          <div style={{ color: 'var(--text-dim)', fontSize: 12 }}>
-            These NSE series are excluded from bhavcopy downloads. Changes save automatically.
-          </div>
-          <div style={excludeSeriesWindowListStyle}>
-            {config.excludedSeries.length === 0 ? (
-              <div style={{ padding: 12, color: 'var(--text-dim)', fontSize: 12 }}>No excluded series.</div>
-            ) : (
-              config.excludedSeries.map((series) => (
-                <div key={series} style={{ ...excludedChipStyle, borderRadius: 0, borderWidth: '0 0 1px', width: '100%', justifyContent: 'space-between', padding: '8px 10px' }}>
-                  <span>{series}</span>
-                  <button
-                    type="button"
-                    style={removeChipButtonStyle}
-                    onClick={() => removeExcludedSeries(series)}
-                    disabled={isDownloading}
-                  >
-                    Remove
-                  </button>
-                </div>
-              ))
-            )}
-          </div>
-          <div style={addSeriesStyle}>
-            <input
-              type="text"
-              value={newExcludedSeries}
-              onChange={(e) => setNewExcludedSeries(e.target.value.toUpperCase())}
-              onKeyDown={(e) => e.key === 'Enter' && addExcludedSeries()}
-              placeholder="Add NSE series"
-              style={addSeriesInputStyle}
-              disabled={isDownloading}
-              maxLength={4}
-            />
-            <button
-              type="button"
-              style={addButtonStyle}
-              onClick={addExcludedSeries}
-              disabled={isDownloading || !newExcludedSeries.trim()}
-            >
-              Add
-            </button>
-          </div>
-        </div>
       </FloatingWindow>
     </>
   );

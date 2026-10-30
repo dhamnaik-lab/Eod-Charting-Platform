@@ -58,6 +58,7 @@ pub struct OfficialSourceHealthResult {
     pub freshness_status: String,
     pub drift_class: Option<String>,
     pub reason: String,
+    pub diagnostic: Option<String>,
 }
 
 
@@ -116,7 +117,7 @@ pub async fn assess_identity_official_source_health(
         })?;
         let connection = open_read_only_connection_for_folder(&folder_path)?;
         let urls = load_official_source_urls(Some(&connection))?;
-        assess_official_source_health_for_urls(&urls)
+        assess_official_source_health_with_diagnostics(&urls, Some(&folder_path.join("reference-data")))
     })
     .await
     .map_err(|error| error.to_string())?
@@ -124,6 +125,13 @@ pub async fn assess_identity_official_source_health(
 
 pub(crate) fn assess_official_source_health_for_urls(
     urls: &OfficialSourceUrls,
+) -> AppResult<OfficialSourceHealthReport> {
+    assess_official_source_health_with_diagnostics(urls, None)
+}
+
+fn assess_official_source_health_with_diagnostics(
+    urls: &OfficialSourceUrls,
+    archive_root: Option<&std::path::Path>,
 ) -> AppResult<OfficialSourceHealthReport> {
     let nse_client = Client::builder()
         .timeout(Duration::from_secs(45))
@@ -188,7 +196,17 @@ pub(crate) fn assess_official_source_health_for_urls(
         "text/csv,application/csv,*/*",
         Some(&urls.nse_securities_available_page_url),
     );
-    results.push(assess_nse_company_name_change(&company_name_change_fetch));
+    let mut company_result = assess_nse_company_name_change(&company_name_change_fetch);
+    if !er1_health_result_is_healthy(&company_result) {
+        if let Some(bytes) = company_name_change_fetch.body.as_deref() {
+            company_result.diagnostic = Some(super::nse_identity_imports::company_name_failure_diagnostic(
+                archive_root, bytes, &company_name_change_fetch.request_url,
+                company_name_change_fetch.final_url.as_deref(), company_name_change_fetch.http_status,
+                &company_result.reason,
+            ));
+        }
+    }
+    results.push(company_result);
 
     let delisted_landing_fetch = fetch_source(
         &nse_client,
@@ -394,6 +412,7 @@ fn base_result(source_id: &str, exchange: &str, role: &str, fetch: &FetchEvidenc
         freshness_status: NOT_APPLICABLE.to_string(),
         drift_class: None,
         reason: fetch.reason.clone(),
+        diagnostic: None,
     }
 }
 

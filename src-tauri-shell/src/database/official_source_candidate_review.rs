@@ -122,6 +122,7 @@ pub(crate) struct Er4CurrentSourceAuthority {
     pub current_url: String,
 }
 
+#[allow(dead_code)]
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) struct Er4ConfigurationAuthority {
     pub schema_version: u32,

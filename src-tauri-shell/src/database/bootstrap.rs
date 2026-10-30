@@ -300,6 +300,71 @@ fn run_migrations(connection: &Connection) -> AppResult<()> {
               scanned_at TEXT NOT NULL DEFAULT (datetime('now'))
             );
 
+            CREATE TABLE IF NOT EXISTS corporate_action_history_metadata (
+              singleton_id INTEGER PRIMARY KEY CHECK (singleton_id = 1),
+              database_instance_id TEXT NOT NULL UNIQUE DEFAULT (lower(hex(randomblob(16)))),
+              schema_version INTEGER NOT NULL DEFAULT 1,
+              created_at_utc TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+            );
+
+            INSERT OR IGNORE INTO corporate_action_history_metadata (singleton_id)
+            VALUES (1);
+
+            CREATE TABLE IF NOT EXISTS corporate_action_dividend_validation_checkpoints (
+              id INTEGER PRIMARY KEY AUTOINCREMENT,
+              import_id INTEGER NOT NULL,
+              dependency_hash TEXT NOT NULL,
+              result_json TEXT NOT NULL,
+              result_hash TEXT NOT NULL,
+              checked_at_utc TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+            );
+            CREATE TABLE IF NOT EXISTS corporate_action_dividend_validation_current (
+              import_id INTEGER PRIMARY KEY,
+              checkpoint_id INTEGER NOT NULL REFERENCES corporate_action_dividend_validation_checkpoints(id)
+            );
+
+            CREATE TABLE IF NOT EXISTS corporate_action_activity_runs (
+              id INTEGER PRIMARY KEY AUTOINCREMENT,
+              database_instance_id TEXT NOT NULL,
+              operation_kind TEXT NOT NULL,
+              requested_scope_json TEXT NOT NULL DEFAULT '{}',
+              started_at_utc TEXT NOT NULL,
+              completed_at_utc TEXT,
+              outcome TEXT NOT NULL,
+              requested_count INTEGER NOT NULL DEFAULT 0,
+              checked_count INTEGER NOT NULL DEFAULT 0,
+              eligible_count INTEGER NOT NULL DEFAULT 0,
+              ineligible_count INTEGER NOT NULL DEFAULT 0,
+              already_approved_count INTEGER NOT NULL DEFAULT 0,
+              stale_count INTEGER NOT NULL DEFAULT 0,
+              missing_count INTEGER NOT NULL DEFAULT 0,
+              failed_count INTEGER NOT NULL DEFAULT 0,
+              reused_count INTEGER NOT NULL DEFAULT 0,
+              error_message TEXT,
+              app_version TEXT NOT NULL,
+              policy_version TEXT,
+              scope_version TEXT,
+              scope_fingerprint TEXT,
+              created_at_utc TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+            );
+
+            CREATE TABLE IF NOT EXISTS corporate_action_validation_report_items (
+              id INTEGER PRIMARY KEY AUTOINCREMENT,
+              run_id INTEGER NOT NULL REFERENCES corporate_action_activity_runs(id) ON DELETE CASCADE,
+              import_id INTEGER NOT NULL,
+              result_code TEXT NOT NULL,
+              reason_snapshot TEXT NOT NULL,
+              current_action_type TEXT,
+              current_parse_status TEXT,
+              current_review_status TEXT,
+              stored_approval_state TEXT,
+              evidence_json TEXT,
+              dependency_json TEXT,
+              checked_at_utc TEXT NOT NULL,
+              policy_version TEXT NOT NULL,
+              UNIQUE (run_id, import_id)
+            );
+
             CREATE TABLE IF NOT EXISTS instrument_identity_history (
               id INTEGER PRIMARY KEY AUTOINCREMENT,
               exchange TEXT NOT NULL DEFAULT 'NSE',
@@ -356,6 +421,29 @@ fn run_migrations(connection: &Connection) -> AppResult<()> {
 
             CREATE INDEX IF NOT EXISTS idx_market_holidays_date
               ON market_holidays(date);
+
+            -- HOL03 official calendars are additive; legacy/user rows stay intact.
+            CREATE TABLE IF NOT EXISTS official_exchange_holiday_snapshots (
+              exchange TEXT NOT NULL CHECK(exchange IN ('NSE','BSE')),
+              year INTEGER NOT NULL CHECK(year BETWEEN 1990 AND 2100),
+              source_urls TEXT NOT NULL,
+              source_sha256 TEXT NOT NULL,
+              accepted_at TEXT NOT NULL,
+              record_count INTEGER NOT NULL,
+              PRIMARY KEY (exchange, year)
+            );
+            CREATE TABLE IF NOT EXISTS official_exchange_holidays (
+              exchange TEXT NOT NULL CHECK(exchange IN ('NSE','BSE')),
+              year INTEGER NOT NULL,
+              date TEXT NOT NULL,
+              name TEXT NOT NULL,
+              PRIMARY KEY (exchange, year, date),
+              FOREIGN KEY(exchange,year)
+                REFERENCES official_exchange_holiday_snapshots(exchange,year)
+            );
+            CREATE INDEX IF NOT EXISTS idx_official_exchange_holiday_date
+              ON official_exchange_holidays(exchange,date);
+
             ",
         )
         .map_err(|error| error.to_string())?;
@@ -514,6 +602,15 @@ fn run_migrations(connection: &Connection) -> AppResult<()> {
 
             CREATE INDEX IF NOT EXISTS idx_corporate_action_scan_results_run
               ON corporate_action_scan_results(scan_run_id, scan_status);
+
+            CREATE INDEX IF NOT EXISTS idx_corporate_action_activity_runs_started
+              ON corporate_action_activity_runs(started_at_utc DESC, id DESC);
+
+            CREATE INDEX IF NOT EXISTS idx_corporate_action_validation_items_run
+              ON corporate_action_validation_report_items(run_id, id);
+
+            CREATE INDEX IF NOT EXISTS idx_corporate_action_validation_items_import
+              ON corporate_action_validation_report_items(import_id, run_id DESC);
 
             CREATE INDEX IF NOT EXISTS idx_identity_history_old_symbol
               ON instrument_identity_history(exchange, old_symbol);
@@ -978,142 +1075,8 @@ fn seed_defaults(connection: &Connection) -> AppResult<()> {
             .map_err(|error| error.to_string())?;
     }
 
-    seed_market_holidays(connection)?;
 
-    Ok(())
-}
-
-fn seed_market_holidays(connection: &Connection) -> AppResult<()> {
-    let existing: i64 = connection
-        .query_row("SELECT COUNT(*) FROM market_holidays", [], |row| row.get(0))
-        .map_err(|e| e.to_string())?;
-    if existing > 0 {
-        return Ok(());
-    }
-
-    // Seed all known NSE/shared Indian cash-market holidays (2023-2027).
-    // All four exchanges (NSE, NSEINDEX, BSE, BSEINDEX) share this list.
-    // After this one-time seed the user manages holidays via the app UI —
-    // no further source-code changes are needed for new years.
-    let holidays: &[(&str, &str)] = &[
-        // 2023
-        ("2023-01-26", "Republic Day"),
-        ("2023-02-18", "Mahashivratri"),
-        ("2023-02-19", "Chhatrapati Shivaji Maharaj Jayanti"),
-        ("2023-03-07", "Holi"),
-        ("2023-03-30", "Ram Navami"),
-        ("2023-04-01", "Annual Bank Closing"),
-        ("2023-04-04", "Mahavir Jayanti"),
-        ("2023-04-07", "Good Friday"),
-        ("2023-04-14", "Dr. Baba Saheb Ambedkar Jayanti"),
-        ("2023-04-22", "Id-Ul-Fitr (Ramzan Eid)"),
-        ("2023-05-01", "Maharashtra Day"),
-        ("2023-06-29", "Bakri Id"),
-        ("2023-07-29", "Muharram"),
-        ("2023-08-15", "Independence Day"),
-        ("2023-09-19", "Ganesh Chaturthi"),
-        ("2023-09-28", "Id-E-Milad"),
-        ("2023-10-02", "Mahatma Gandhi Jayanti"),
-        ("2023-10-24", "Dussehra"),
-        ("2023-11-12", "Diwali Laxmi Pujan"),
-        ("2023-11-14", "Diwali Balipratipada"),
-        ("2023-11-27", "Guru Nanak Jayanti"),
-        ("2023-12-25", "Christmas"),
-        // 2024
-        ("2024-01-26", "Republic Day"),
-        ("2024-03-08", "Mahashivratri"),
-        ("2024-03-25", "Holi"),
-        ("2024-03-29", "Good Friday"),
-        ("2024-04-11", "Id-Ul-Fitr (Ramadan Eid)"),
-        ("2024-04-14", "Dr. Baba Saheb Ambedkar Jayanti"),
-        ("2024-04-17", "Shri Ram Navmi"),
-        ("2024-04-21", "Shri Mahavir Jayanti"),
-        ("2024-05-01", "Maharashtra Day"),
-        ("2024-06-17", "Bakri Id"),
-        ("2024-07-17", "Moharram"),
-        ("2024-08-15", "Independence Day/Parsi New Year"),
-        ("2024-09-07", "Ganesh Chaturthi"),
-        ("2024-10-02", "Mahatma Gandhi Jayanti"),
-        ("2024-10-12", "Dussehra"),
-        ("2024-11-01", "Diwali Laxmi Pujan"),
-        ("2024-11-02", "Diwali-Balipratipada"),
-        ("2024-11-15", "Gurunanak Jayanti"),
-        ("2024-12-25", "Christmas"),
-        // 2025
-        ("2025-01-26", "Republic Day"),
-        ("2025-02-26", "Mahashivratri"),
-        ("2025-03-14", "Holi"),
-        ("2025-03-31", "Id-Ul-Fitr (Ramadan Eid)"),
-        ("2025-04-06", "Shri Ram Navami"),
-        ("2025-04-10", "Shri Mahavir Jayanti"),
-        ("2025-04-14", "Dr. Baba Saheb Ambedkar Jayanti"),
-        ("2025-04-18", "Good Friday"),
-        ("2025-05-01", "Maharashtra Day"),
-        ("2025-06-07", "Bakri Id"),
-        ("2025-07-06", "Muharram"),
-        ("2025-08-15", "Independence Day"),
-        ("2025-08-27", "Ganesh Chaturthi"),
-        ("2025-10-02", "Mahatma Gandhi Jayanti/Dussehra"),
-        ("2025-10-22", "Diwali-Balipratipada"),
-        ("2025-11-05", "Prakash Gurpurb Sri Guru Nanak Dev"),
-        ("2025-12-25", "Christmas"),
-        // 2026
-        (
-            "2026-01-15",
-            "Municipal Corporation Election in Maharashtra",
-        ),
-        ("2026-01-26", "Republic Day"),
-        ("2026-02-15", "Mahashivratri"),
-        ("2026-03-03", "Holi"),
-        ("2026-03-21", "Ramzan-Id (Id-Ul-Fitr)"),
-        ("2026-03-26", "Shri Ram Navami"),
-        ("2026-03-31", "Shri Mahavir Jayanti"),
-        ("2026-04-03", "Good Friday"),
-        ("2026-04-14", "Dr. Baba Saheb Ambedkar Jayanti"),
-        ("2026-05-01", "Maharashtra Day"),
-        ("2026-05-28", "Bakri Id"),
-        ("2026-06-26", "Muharram"),
-        (
-            "2026-08-15",
-            "Independence Day/Parsi New Year (Shahenshahi)",
-        ),
-        ("2026-09-14", "Ganesh Chaturthi"),
-        ("2026-10-02", "Mahatma Gandhi Jayanti"),
-        ("2026-10-20", "Dussehra"),
-        ("2026-11-08", "Diwali Amavasya (Laxmi Pujan)"),
-        ("2026-11-10", "Diwali-Balipratipada"),
-        ("2026-11-24", "Prakash Gurpurb Sri Guru Nanak Dev"),
-        ("2026-12-25", "Christmas"),
-        // 2027 — verify against NSE circular published Oct-Nov 2026
-        ("2027-01-26", "Republic Day"),
-        ("2027-02-26", "Mahashivratri"),
-        ("2027-03-22", "Holi"),
-        ("2027-03-31", "Id-Ul-Fitr (Ramadan Eid)"),
-        ("2027-04-06", "Shri Ram Navami"),
-        ("2027-04-09", "Good Friday"),
-        ("2027-04-14", "Dr. Baba Saheb Ambedkar Jayanti"),
-        ("2027-04-20", "Shri Mahavir Jayanti"),
-        ("2027-05-01", "Maharashtra Day"),
-        ("2027-06-07", "Id-Ul-Adha (Bakri Eid)"),
-        ("2027-07-06", "Muharram"),
-        ("2027-08-15", "Independence Day"),
-        ("2027-09-02", "Ganesh Chaturthi"),
-        ("2027-10-02", "Mahatma Gandhi Jayanti"),
-        ("2027-10-28", "Dussehra"),
-        ("2027-11-17", "Diwali-Balipratipada"),
-        ("2027-11-24", "Prakash Gurpurb Sri Guru Nanak Dev"),
-        ("2027-12-25", "Christmas"),
-    ];
-
-    let mut stmt = connection
-        .prepare(
-            "INSERT OR IGNORE INTO market_holidays (date, name, source) VALUES (?, ?, 'BUILTIN')",
-        )
-        .map_err(|e| e.to_string())?;
-    for (date, name) in holidays {
-        stmt.execute(params![date, name])
-            .map_err(|e| e.to_string())?;
-    }
+    // HOL-04: No yearly BUILTIN holiday seeding. Existing database rows stay intact.
     Ok(())
 }
 
@@ -1258,6 +1221,44 @@ mod tests {
         )
         .unwrap();
         conn
+    }
+
+    #[test]
+    fn hol04_new_database_has_no_hardcoded_holiday_rows() {
+        let conn = setup_test_db();
+        seed_defaults(&conn).unwrap();
+        let count: i64 = conn.query_row(
+            "SELECT COUNT(*) FROM market_holidays", [], |row| row.get(0)
+        ).unwrap();
+        assert_eq!(count, 0);
+        // Re-running defaults must not turn a calendar-less database into a
+        // pre-filled calendar, even after explicit removal of all holidays.
+        seed_defaults(&conn).unwrap();
+        let again: i64 = conn.query_row(
+            "SELECT COUNT(*) FROM market_holidays", [], |row| row.get(0)
+        ).unwrap();
+        assert_eq!(again, 0);
+    }
+
+    #[test]
+    fn hol04_existing_builtin_and_user_holidays_are_preserved() {
+        let conn = setup_test_db();
+        conn.execute(
+            "INSERT INTO market_holidays (date, name, source) VALUES ('2026-03-03', 'Historical built-in fixture', 'BUILTIN')", []
+        ).unwrap();
+        conn.execute(
+            "INSERT INTO market_holidays (date, name, source) VALUES ('2026-05-02', 'Manual fixture', 'USER')", []
+        ).unwrap();
+        seed_defaults(&conn).unwrap();
+        seed_defaults(&conn).unwrap();
+        let rows: Vec<(String,String,String)> = conn.prepare(
+            "SELECT date, name, source FROM market_holidays ORDER BY date"
+        ).unwrap().query_map([], |row| Ok((row.get(0)?,row.get(1)?,row.get(2)?)))
+         .unwrap().map(|row| row.unwrap()).collect();
+        assert_eq!(rows, vec![
+            ("2026-03-03".into(), "Historical built-in fixture".into(), "BUILTIN".into()),
+            ("2026-05-02".into(), "Manual fixture".into(), "USER".into()),
+        ]);
     }
 
     #[test]

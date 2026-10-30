@@ -4,6 +4,8 @@ import {
   toBar,
 } from '@/features/charts/chartDataUtils';
 import { buildChartDisplayBars } from '@/features/charts/chartTypeTransformService';
+import { beginChartDataRead, chartReadKey, invalidateChartRequests } from '@/features/charts/chartLoadGuard';
+import { ChartDataRequestSupersededError } from '@/platform/chartRequestErrors';
 import {
   filterCompareOverlaysForBaseInstrument,
   hydrateCompareOverlays,
@@ -48,6 +50,7 @@ export interface InstrumentDataCache {
     resolveIdentity?: boolean,
   ) => void;
   clear: () => void;
+  getGeneration?: () => number;
 }
 
 interface LoadInstrumentResultInput {
@@ -82,13 +85,14 @@ function buildInstrumentDataCacheKey(
   includeRightsAdjustments: boolean,
   resolveIdentity = true,
 ): string {
-  return `${databasePath}::${instrument.exchange}:${instrument.symbol}::${adjusted ? 'adjusted' : 'raw'}::${includeDividendAdjustments ? 'dividend' : 'no-dividend'}::${includeRightsAdjustments ? 'rights' : 'no-rights'}::${resolveIdentity ? 'identity' : 'exact'}`;
+  return chartReadKey(databasePath, instrument, adjusted, includeDividendAdjustments, includeRightsAdjustments, resolveIdentity);
 }
 
 export function createInstrumentDataCache(): InstrumentDataCache {
   const instrumentDataCache = new Map<string, EodDataResult>();
+  let generation = 0;
 
-  return {
+  const cache: InstrumentDataCache = {
     read: (databasePath, instrument, adjusted, includeDividendAdjustments, includeRightsAdjustments, resolveIdentity) => {
       if (!databasePath) {
         return null;
@@ -139,9 +143,13 @@ export function createInstrumentDataCache(): InstrumentDataCache {
       }
     },
     clear: () => {
+      generation += 1;
+      invalidateChartRequests(cache);
       instrumentDataCache.clear();
     },
+    getGeneration: () => generation,
   };
+  return cache;
 }
 
 function normalizePersistedViewport(
@@ -295,6 +303,9 @@ export function buildInstrumentLoadStartTab(
     viewport: isSameInstrument ? tab.viewport : { startIndex: 0, endIndex: 0 },
     visibleBarCount: isSameInstrument ? tab.visibleBarCount : 0,
     hoverBar: null,
+    loadedAdjusted: isSameInstrument ? tab.loadedAdjusted : null,
+    loadedDividendAdjusted: isSameInstrument ? tab.loadedDividendAdjusted : null,
+    loadedRightsAdjusted: isSameInstrument ? tab.loadedRightsAdjusted : null,
   };
 }
 
@@ -323,9 +334,9 @@ export function buildInstrumentLoadFailureTab(
     viewport: isSameInstrument ? tab.viewport : { startIndex: 0, endIndex: 0 },
     visibleBarCount: isSameInstrument ? tab.visibleBarCount : 0,
     hoverBar: null,
-    loadedAdjusted: adjustedMode,
-    loadedDividendAdjusted: includeDividendAdjustments,
-    loadedRightsAdjusted: includeRightsAdjustments,
+    loadedAdjusted: isSameInstrument ? tab.loadedAdjusted : null,
+    loadedDividendAdjusted: isSameInstrument ? tab.loadedDividendAdjusted : null,
+    loadedRightsAdjusted: isSameInstrument ? tab.loadedRightsAdjusted : null,
   };
 }
 
@@ -350,9 +361,9 @@ export function buildHydrationFailureTab(
     viewport: isSameInstrument ? tab.viewport : { startIndex: 0, endIndex: 0 },
     visibleBarCount: isSameInstrument ? tab.visibleBarCount : 0,
     hoverBar: null,
-    loadedAdjusted: adjustedMode,
-    loadedDividendAdjusted: includeDividendAdjustments,
-    loadedRightsAdjusted: includeRightsAdjustments,
+    loadedAdjusted: isSameInstrument ? tab.loadedAdjusted : null,
+    loadedDividendAdjusted: isSameInstrument ? tab.loadedDividendAdjusted : null,
+    loadedRightsAdjusted: isSameInstrument ? tab.loadedRightsAdjusted : null,
   };
 }
 
@@ -367,6 +378,9 @@ export async function loadInstrumentResult({
   forceReload,
   resolveIdentity,
 }: LoadInstrumentResultInput): Promise<EodDataResult> {
+  const generation = instrumentDataCache.getGeneration?.();
+  const read = beginChartDataRead(instrumentDataCache,
+    chartReadKey(databasePath, instrument, adjusted, includeDividendAdjustments, includeRightsAdjustments, resolveIdentity), forceReload);
   if (!forceReload) {
     const cachedResult = instrumentDataCache.read(
       databasePath,
@@ -388,7 +402,12 @@ export async function loadInstrumentResult({
     includeDividendAdjustments,
     includeRightsAdjustments,
     resolveIdentity,
+    databasePath,
+    forceReload,
   });
+  if (!read.isCurrent() || generation !== instrumentDataCache.getGeneration?.()) {
+    throw new ChartDataRequestSupersededError('Chart data request was invalidated before completion.');
+  }
   instrumentDataCache.write(databasePath, instrument, result, resolveIdentity);
   return result;
 }
@@ -429,6 +448,9 @@ export async function hydrateChartTabPayload({
           databasePath,
           readCachedInstrumentData: instrumentDataCache.read,
           writeCachedInstrumentData: instrumentDataCache.write,
+          forceReload,
+          cacheGeneration: instrumentDataCache.getGeneration,
+          requestOwner: instrumentDataCache,
         },
       )
     : tab.compareOverlays;

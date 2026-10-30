@@ -218,6 +218,10 @@ export function CommandPalette() {
     rawSymbols = searchResults ?? [];
   }
 
+  // Hide separate BSE T+0 instruments in normal search and its recent list.
+  // Keep identities, stored history, and the full Symbols browser unchanged.
+  rawSymbols = rawSymbols.filter((symbol) => !(symbol.exchange.toUpperCase() === 'BSE' && symbol.symbol.endsWith('#')));
+
   if (exchangeFilter !== 'all') {
     rawSymbols = rawSymbols.filter((s) => s.exchange.toUpperCase() === exchangeFilter);
   }
@@ -291,7 +295,7 @@ export function CommandPalette() {
               <span style={headerTitleStyle}>{isSymbolMode ? 'Symbol Search' : 'Command Palette'}</span>
               <span style={headerSubtitleStyle}>
                 {isSymbolMode
-                  ? 'Fast ticker search across NSE & BSE instruments'
+                  ? 'NSE & BSE ticker search · BSE T+0 (#) hidden'
                   : 'Search symbols or launch platform commands'}
               </span>
             </div>

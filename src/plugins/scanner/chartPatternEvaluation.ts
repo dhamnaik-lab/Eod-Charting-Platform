@@ -7,6 +7,7 @@ import type {
 } from '@/plugins/scanner/types';
 
 const MIN_HISTORICAL_ENDPOINT_BARS = 20;
+const MAX_PATTERN_WINDOW_BARS = 260;
 const HISTORY_PROGRESS_INTERVAL = 25;
 
 export type ScannerExecutionMode = 'responsive' | 'fast';
@@ -80,11 +81,12 @@ export async function evaluateChartPatterns({
       return { latestResults, historicalResults: completedGroups, cancelled: true };
     }
 
+    const windowStart = Math.max(0, endIndex - MAX_PATTERN_WINDOW_BARS);
     const endpointContext: ScannerContext = {
       symbol: target.symbol,
       exchange: target.exchange,
       instrument: target,
-      bars: bars.slice(0, endIndex),
+      bars: bars.slice(windowStart, endIndex),
     };
     const matches = evaluateChartPatternDefinitions(endpointContext, definitions);
     const activeKeys = new Set<string>();
@@ -116,13 +118,13 @@ export async function evaluateChartPatterns({
     });
 
     const historyCompleted = endIndex - MIN_HISTORICAL_ENDPOINT_BARS + 1;
-    if (historyCompleted % HISTORY_PROGRESS_INTERVAL === 0 || historyCompleted === historyTotal) {
+    if (historyCompleted % 50 === 0 || historyCompleted === historyTotal) {
       onProgress?.({
         completed: historyCompleted,
         total: historyTotal,
         resultCount: completedGroups.length + activeGroups.size,
       });
-      if (executionMode === 'responsive') {
+      if (historyCompleted % 150 === 0 && executionMode === 'responsive') {
         await yieldToEventLoop();
       }
     }

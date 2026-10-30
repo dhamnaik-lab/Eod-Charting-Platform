@@ -19,6 +19,7 @@ fn dividend_prepared_scope_tauri_bridge_input_deserializes_camel_case() {
 fn dividend_prepared_scope_tauri_bridge_maps_all_fields_and_versions() {
     let internal = auto_approval::SimpleCashDividendPreparedScopeResult {
         requested: 1,
+        reused_count: 0,
         eligible: 1,
         ineligible: 0,
         already_approved: 0,

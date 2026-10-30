@@ -1,5 +1,6 @@
 import type { CorporateActionImportActionType, CorporateActionImportRow, CorporateActionScanResultRow } from '@/platform';
-import { classifyCorporateActionValidation, getCorporateActionApprovalState, isSplitOrBonus } from './corporateActionValidation';
+import { classifyCorporateActionValidation, getCorporateActionApprovalState, getCorporateActionNormalApprovalState, isSplitOrBonus } from './corporateActionValidation';
+import { isInformationalCorporateAnnouncement } from './legacy/corporateActionAnnouncementClassification';
 
 export const CORPORATE_ACTION_BULK_APPROVAL_BATCH_SIZE = 100;
 
@@ -93,16 +94,27 @@ export function officialImportUserStatus(
   scan: CorporateActionScanResultRow | undefined,
   preparationError: string | undefined,
   preparationComplete: boolean,
+  explicitApprovalOnly = false,
 ): string {
   if (!preparationComplete) return 'Load & Prepare required';
   if (preparationError) return 'Could not check';
+  if (row.reviewStatus !== 'APPROVED' && row.approvedCorporateActionId == null
+    && isInformationalCorporateAnnouncement(row)) return 'Informational (no adjustment)';
+  if (row.reviewStatus !== 'APPROVED' && row.parseStatus !== 'PARSED') {
+    if (row.actionType === 'DIVIDEND' && row.purposeRaw.includes('%')) return 'Awaiting verified cash amount and face-value basis';
+    return 'Awaiting verified announcement terms';
+  }
   const validation = isSplitOrBonus(row) ? classifyCorporateActionValidation(row, scan) : 'NOT VALIDATED';
-  const approval = getCorporateActionApprovalState(row, scan);
-  if (approval === 'READY TO APPROVE') return 'Ready to apply';
-  if (approval === 'MATCH REQUIRED' || approval === 'ISIN REVIEW REQUIRED') return 'Identity needs a decision';
+  const approval = explicitApprovalOnly
+    ? getCorporateActionNormalApprovalState(row, scan)
+    : getCorporateActionApprovalState(row, scan);
+  if (approval === 'READY TO APPROVE') return explicitApprovalOnly ? 'Ready to approve' : 'Ready to apply';
+  if (approval === 'SCHEDULED / UPCOMING') return 'Scheduled / Upcoming';
+  if (approval === 'WAITING FOR EOD DATA') return 'Waiting for EOD Data';
+  if (approval === 'MATCH REQUIRED' || approval === 'ISIN REVIEW REQUIRED') return 'Awaiting verified identity evidence';
   if (validation === 'NO PRICE DATA') return 'Waiting for price data';
   if (approval === 'NEEDS VALIDATION') return 'Could not check';
-  if (approval === 'NEEDS REVIEW') return 'Price needs a decision';
+  if (approval === 'NEEDS REVIEW') return 'Price mismatch — app verification required';
   if (approval === 'APPROVED') return 'Applied';
   return 'Not approvable';
 }
@@ -112,10 +124,11 @@ export function summarizeOfficialImportReadiness(
   scans: ReadonlyMap<number, CorporateActionScanResultRow>,
   errors: Readonly<Record<number, string>>,
   complete: boolean,
+  explicitApprovalOnly = false,
 ): Record<string, number> {
   const counts: Record<string, number> = {};
   for (const row of rows) {
-    const label = officialImportUserStatus(row, scans.get(row.id), errors[row.id], complete);
+    const label = officialImportUserStatus(row, scans.get(row.id), errors[row.id], complete, explicitApprovalOnly);
     counts[label] = (counts[label] ?? 0) + 1;
   }
   return counts;

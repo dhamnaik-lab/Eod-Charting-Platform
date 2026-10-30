@@ -1,5 +1,45 @@
 # Architecture
 
+## CA checkpoint; database work takes priority — 26 October 2026
+
+No architecture change is introduced. Native completion plus persisted records
+now establish 4,288 approvals, including NSE/BSE Split/Bonus. The approval flow
+retains financial rechecks and targeted refresh; silent progress and whole-table
+Checking need investigation. CA work is paused until the user-reported database
+issue is scoped and addressed. Older bulk/Split acceptance limits below are
+historical; numeric chart verification remains open.
+
+This checkpoint supersedes older current-status claims below.
+See [CA resume checkpoint](changes/2026-10-26_CA_PAUSE_DATABASE_PRIORITY_HANDOFF.md).
+
+## Corporate Actions update — 25 October 2026
+
+The current CA renderer retains a full loaded queue with local identity search and
+an evidence Details view. Search ranks exact symbols before prefixes and broader
+matches, and does not trigger data loading, validation or approval. Explicit
+approval refreshes only the related symbol/full-ISIN group; unrelated readiness
+survives and old confirmation drafts expire. Rust still owns financial rechecks.
+
+User native observations establish selected Dividend commits, targeted refresh
+and symbol/ranking/ISIN/empty-result behavior; Esc/× is user-confirmed. Chart-price,
+Split/bulk and fresh BSE master-transport limits remain open. The older acceptance
+statements below are historical. See [current handoff](../HANDOFF.md) and
+[search evidence and remaining checks](changes/2026-10-25_CA_QUICK_SEARCH.md).
+
+<!-- EOD-CANONICAL-STATUS-2026-10-17-R1 -->
+## Current verified platform and Corporate Actions status — 17 October 2026 IST
+
+**Current architecture addendum (documentation-only):** the original text below is retained for historical reference. The accepted live application combines a React/TypeScript renderer with a Rust/Tauri desktop shell, proprietary binary EOD price storage and auxiliary SQLite metadata/CA records. Future EOD2 identity/storage designs remain unpromoted; do not treat the old overview or future architecture as current source authority.
+
+**Current CA contract:** preserve the active CA window; official action ingestion → data/identity validation → explicit approval within existing Rust transactional ledger → existing chart-cache/database-changed refresh. Live refresh remains unverified.
+
+**Current acceptance boundary (17 October 2026 IST):** source-integrated and native-validation **PASS** (62/62 focused Vitest, 2/2 focused Rust tests, renderer typecheck, frontend Vite build, offline Cargo check). Two isolated Windows release builds also **PASS**; the static-CRT EXE has no direct/delay VC runtime imports. **Desktop CA UI and chart-refresh acceptance remain NOT VERIFIED:** the first disposable Sandbox run lacked Visual C++ CRT DLLs, the static-CRT attempt then lacked WebView2 Runtime. Operator stopped; no manual CA pass, no real NSE/BSE network-fetch pass, no production CA write acceptance, and no portable installation acceptance.
+
+**Plugin P5-FINAL:** metadata-only import/discovery/reload architecture is closed with third-party external JavaScript evaluation and activation still **DISABLED**. C2 did not prove production guest process/IPC isolation; no plugin activation is permitted by the CA documents. The three previously unattributed P1/P2 files were accepted by exact isolated reconstruction on 17 October.
+
+For ongoing technical authority see `ARCHITECTURE_CURRENT_EOD_CHARTING_PLATFORM.md` and `docs/CURRENT_WORK_STATUS.md`.
+<!-- END-EOD-CANONICAL-STATUS-2026-10-17-R1 -->
+
 ## System overview
 
 ```

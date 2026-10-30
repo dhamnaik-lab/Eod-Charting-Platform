@@ -135,7 +135,7 @@ describe('ScaleManager viewport scaling', () => {
     expect(ticks.find((tick) => tick.index === februaryIndex)?.isMajor).toBe(true);
   });
 
-  it('uses yearly boundaries for long monthly views', () => {
+  it('uses quarterly boundaries for monthly views when month names fit', () => {
     const bars = createMonthlyBars('2023-01-01', 60);
     const viewport = { startIndex: 0, endIndex: 60 };
     const ticks = niceXTicks(bars, viewport, buildScaleX(viewport, 1800), 1800, 'M', 110);
@@ -143,7 +143,8 @@ describe('ScaleManager viewport scaling', () => {
     const april2024Index = bars.findIndex((bar) => bar.date === '2024-04-01');
 
     expect(ticks.find((tick) => tick.index === january2024Index)?.isMajor).toBe(true);
-    expect(ticks.find((tick) => tick.index === april2024Index)?.isMajor).not.toBe(true);
+    expect(ticks.find((tick) => tick.index === april2024Index)?.isMajor).toBe(true);
+    expect(ticks.find((tick) => tick.index === april2024Index)?.label).toBe('Apr');
   });
 
   it('uses yearly boundaries for spaced yearly views', () => {

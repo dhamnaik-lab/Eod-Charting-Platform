@@ -368,3 +368,60 @@ fn phase5b_preflight_safe_v2_exposes_typed_split_bonus_scan_id() {
     assert_eq!(r.rows[0].safe_v1.state,"ELIGIBLE_AT_READ_SNAPSHOT");
     assert!(r.rows[0].safe_v1.evidence.iter().any(|e| e.owner=="auto_approval::evaluate_auto_approval_r1" && e.record_id.is_some()));
 }
+
+#[test]
+#[ignore = "explicit NSE Phase 1 query-copy audit; never opens the live database"]
+fn phase1_nse_query_copy_proof_matrix() {
+    let project = Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap();
+    let audit = project.join("outputs/2026-10-27-ca-nse-phase1").canonicalize().unwrap();
+    let root = audit.join("query-copy").canonicalize().unwrap();
+    assert!(root.starts_with(&audit));
+    assert_eq!(
+        fs::read_to_string(root.join("PHASE1_QUERY_ONLY.txt")).unwrap().replace("\r\n", "\n"),
+        "CA_NSE_PHASE1_QUERY_ONLY_COPY\nNo app startup, repairs, approvals, imports or raw prices.\n"
+    );
+    let output = audit.join("preflight-result.json");
+    assert!(!output.exists(), "never replace retained audit evidence");
+    let ids: Vec<i64> = serde_json::from_slice(&fs::read(audit.join("ids.json")).unwrap()).unwrap();
+    assert!(!ids.is_empty() && ids.len() <= 114);
+    let db = validate_database_path(&root).unwrap();
+    assert!(db.starts_with(&root));
+    let before = format!("{:x}", Sha256::digest(fs::read(&db).unwrap()));
+    let c = open_validated_read_only(&db).unwrap();
+    for id in &ids {
+        let raw = get_import_row(&c, *id).unwrap();
+        assert_eq!(raw.exchange, "NSE");
+        assert!(matches!(raw.action_type.as_str(), "SPLIT" | "BONUS"));
+        assert_ne!(raw.review_status, "APPROVED");
+        assert!(raw.approved_corporate_action_id.is_none());
+    }
+    let folder = root.to_string_lossy().to_string();
+    let mut request = input(ids);
+    request.expected_database_path = folder.clone();
+    let started = std::time::Instant::now();
+    let first = preflight_with_connection(&c, &request, &folder, "sealed-query-copy", &build_identity());
+    let first_seconds = started.elapsed().as_secs_f64();
+    println!("PHASE1 first pass: {} rows, {}, {:.3}s", first.rows.len(), first.status, first_seconds);
+    let repeated = std::time::Instant::now();
+    let second = preflight_with_connection(&c, &request, &folder, "sealed-query-copy", &build_identity());
+    let repeat_seconds = repeated.elapsed().as_secs_f64();
+    assert_ne!(first.status, "REJECTED");
+    assert_eq!(first.fingerprint, second.fingerprint);
+    assert_eq!(first.rows.len(), first.selection.unique_count);
+    assert_eq!(first.approval_writes, 0);
+    assert_eq!(first.executed_repairs, 0);
+    assert_eq!(c.query_row("SELECT total_changes()", [], |r| r.get::<_, i64>(0)).unwrap(), 0);
+    assert_eq!(c.query_row("PRAGMA query_only", [], |r| r.get::<_, i64>(0)).unwrap(), 1);
+    drop(c);
+    let after = format!("{:x}", Sha256::digest(fs::read(&db).unwrap()));
+    assert_eq!(before, after);
+    let result = json!({
+        "first": first, "repeatFingerprint": second.fingerprint,
+        "byteHashBefore": before, "byteHashAfter": after,
+        "firstSeconds": first_seconds, "repeatSeconds": repeat_seconds,
+        "queryOnly": true, "totalChanges": 0,
+        "source": "REAL_RUST_PREFLIGHT_ON_SEALED_NSE_QUERY_COPY"
+    });
+    fs::write(output, serde_json::to_vec_pretty(&result).unwrap()).unwrap();
+    println!("PHASE1 repeat pass: {:.3}s; zero writes; identical result and database hashes", repeat_seconds);
+}

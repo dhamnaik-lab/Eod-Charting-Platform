@@ -10,6 +10,7 @@ import { buildCorporateActionWorkflowModel } from '../corporateActionWorkflow';
 import {
   buildCorporateActionNormalReviewData,
   createInitialCorporateActionNormalWorkflowFacts,
+  getCorporateActionNormalReadyImportIds,
   reduceCorporateActionNormalWorkflowFacts,
 } from '../workflow/corporateActionNormalWorkflowAdapter';
 
@@ -131,6 +132,22 @@ function apiBase(): ReviewApi {
 }
 
 describe('Corporate Action normal Review adapter', () => {
+  it('shows verified existing dividends as already processed without approving the import', async () => {
+    const api = apiBase();
+    api.listCorporateActionEventIdentities = vi.fn(async () => ({
+      requested: 1, identities: [identity(1)],
+      existingDividends: [{ importId: 1, corporateActionId: 77 }], message: 'Read only',
+    }));
+    const pending = row(1);
+    const result = await buildCorporateActionNormalReviewData({ api, rows: [pending], scanRows: [] });
+    expect(result.events[0].event.status).toBe('ALREADY_PROCESSED');
+    expect(result.events[0].event.approvalCandidate).toBe(false);
+    expect(result.events[0].event.statusReason).toContain('#77');
+    expect(getCorporateActionNormalReadyImportIds(result.events)).toEqual([]);
+    expect(pending.reviewStatus).toBe('PENDING');
+    expect(pending.approvedCorporateActionId).toBeNull();
+  });
+
   it('groups only by authoritative compound fingerprint and keeps ordinary imports separate', async () => {
     const split = row(1, {
       symbol: 'SAME',

@@ -1,0 +1,30 @@
+{
+  "backup": "E:\\TA Projects\\EOD Charting Platform\\backups\\pre_opencode_changes_20261028_212104_identity_import_redesign_phase1b",
+  "unchanged_handler_checks": {
+    "historical preview": true,
+    "historical Apply": true,
+    "source refresh": true,
+    "current preview and Apply dispatch": true,
+    "reviewed readiness": true,
+    "exchange and source invalidation": true
+  },
+  "ui_tests": {
+    "tests": 70,
+    "passed": 70,
+    "failed": 0,
+    "files": 13
+  },
+  "source_hashes": {
+    "src/components/DatabaseToolsDialogs.tsx": "9777d2f30e30cd8ac46f257343d11308c6dc08a1c607667a6566f49cf8e8462b",
+    "src-tauri-shell/src/database/nse_identity_imports.rs": "39c108da0ec0eb4d63b9315e0a9625be81e77620a05c025898e113f37c930591",
+    "src/features/corporateActions/identity/identityImportModel.ts": "33c57a9be0819ebc5be45569100e88b8da384c70f4d1eb3f3c318d5bf8a5d996",
+    "src/features/corporateActions/identity/identityImportWorkspace.css": "3bc5fb4df75556f7f30d198ffc445c6ffe4b295bb3c94691ed66198374a780fb",
+    "src/features/corporateActions/identity/IdentityImportWorkspace.tsx": "8b89e57a31f84f94fb65619a72e37f10e5b610f66e72f94a050842557d3be723",
+    "src/features/corporateActions/identity/IdentityPreviewTable.tsx": "c680caa3bf91ee20061360633cc3aff545848eae2040c162f68e0fac92780f2a",
+    "src/features/corporateActions/identity/IdentitySourceHealth.tsx": "69189ec73022c632c60f24a4efb2b72707854536ccf2e06bc7f67782ddf179db",
+    "src-tauri-shell/src/database/fixtures/nse_namechange_20261028.csv": "ca456bf37b8d8e715708f1df04089fe09f7418275764d105351c5d9742cfac9f"
+  },
+  "native_acceptance": "NOT_TESTED; in-app browser CDP navigation/focus timed out",
+  "official_network_requests": 0,
+  "live_database_operations": 0
+}

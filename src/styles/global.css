@@ -117,6 +117,45 @@
   color-scheme: light;
 }
 
+/* Optional Refined v1 theme. Existing light and dark styles are untouched. */
+[data-theme="classic-light-refined"] {
+  --bg: #f4f7fb;
+  --bg2: #ffffff;
+  --bg3: #fafcff;
+  --bg4: #eaf1f8;
+  --chart-bg: #ffffff;
+  --border: #d9e2ec;
+  --border2: #c7d3e0;
+  --text: #1e293b;
+  --text-dim: #475569;
+  --text-mute: #64748b;
+  --green: #059669;
+  --red: #dc2626;
+  --accent: #2563eb;
+  --accent-strong: #1d4ed8;
+  --accent-soft: rgba(37, 99, 235, 0.11);
+  --accent-faint: rgba(37, 99, 235, 0.04);
+  --blue: #2563eb;
+  --blue-dim: rgba(37, 99, 235, 0.12);
+  --control-bg: #ffffff;
+  --control-bg-hover: #f1f5fb;
+  --control-bg-active: rgba(37, 99, 235, 0.11);
+  --legend-text: #1f2937;
+  --legend-muted: #64748b;
+  --legend-bg: rgba(255, 255, 255, 0.78);
+  --chart-overlay-text-shadow: 0 1px 0 rgba(255, 255, 255, 0.9);
+  --workspace-bg: linear-gradient(180deg, #f4f7fb 0%, #edf3f9 100%);
+  --chrome-bg: linear-gradient(180deg, #ffffff 0%, #f4f7fb 100%);
+  --chart-wrap-bg: #eef2f7;
+  --chart-viewport-bg: #ffffff;
+  --tab-strip-bg: #e5e7eb;
+  --overlay-bg: rgba(248, 250, 252, 0.72);
+  --shadow-lg: 0 18px 42px rgba(15, 23, 42, 0.13);
+  --scrollbar-thumb: rgba(75, 85, 99, 0.36);
+  --scrollbar-thumb-hover: rgba(75, 85, 99, 0.55);
+  color-scheme: light;
+}
+
 [data-theme="deep-light"] {
   --bg: #f1f5f9;
   --bg2: #ffffff;
@@ -380,4 +419,15 @@ button:disabled {
 
 .sidebar-indicator-row:hover {
   background-color: var(--control-bg-hover);
+}
+
+/* Refined-only sidebar hover and keyboard focus. Base geometry remains unchanged. */
+html[data-theme="classic-light-refined"] aside button.eod-refined-sidebar-control:hover:not(:disabled) {
+  --eod-refined-sidebar-idle-bg: var(--control-bg-hover);
+}
+
+html[data-theme="classic-light-refined"] aside button:focus-visible {
+  outline: 2px solid var(--accent) !important;
+  outline-offset: 1px;
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.9) !important;
 }

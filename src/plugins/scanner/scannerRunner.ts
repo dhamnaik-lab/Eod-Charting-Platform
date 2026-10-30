@@ -22,6 +22,7 @@ import { createChartPatternEvaluationExecutor } from '@/plugins/scanner/chartPat
 import { coreOhlcvScannerDefinitions, runCoreScanner } from '@/plugins/scanner/coreOhlcvScanners';
 import { dailyMarketScannerDefinitions, runDailyMarketScanner } from '@/plugins/scanner/dailyMarketScanners';
 import { evaluateSignalScannerDefinitions } from '@/plugins/scanner/signalScanners';
+import { pluginHost } from '@/plugins/hostRuntime';
 
 export async function runCoreEodScannerBatch(
   api: Pick<DesktopApi, 'getEodData'>,
@@ -81,6 +82,34 @@ export async function runCoreEodScannerBatch(
         results.push(...signalResults);
         currentEndpointResults.push(...signalResults);
 
+        const dynamicScanners = pluginHost.listRegisteredScanners().filter((s) => scannerIds.has(s.id));
+        for (const dynScanner of dynamicScanners) {
+          try {
+            const match = dynScanner.evaluate(bars, { symbol: target.symbol, exchange: target.exchange });
+            if (match?.matched) {
+              const dynResult: ScannerResult = {
+                symbol: target.symbol,
+                exchange: target.exchange,
+                scannerId: dynScanner.id,
+                scannerName: dynScanner.name,
+                categoryId: 'external_plugins',
+                categoryName: dynScanner.categoryName || 'External Plugins',
+                date: bars[bars.length - 1]!.date,
+                matched: true,
+                direction: match.direction ?? 'neutral',
+                score: match.score,
+                reasons: match.reasons ?? [],
+                values: match.values ?? {},
+                generatedAt: new Date().toISOString(),
+              };
+              results.push(dynResult);
+              currentEndpointResults.push(dynResult);
+            }
+          } catch {
+            // Isolate external scanner errors
+          }
+        }
+
         if (chartPatternExecutor) {
           const cancellationMonitor = setInterval(() => {
             if (request.shouldCancel?.()) {
@@ -132,6 +161,9 @@ export async function runCoreEodScannerBatch(
           exchange: target.exchange,
           resultCount: results.length,
         });
+        if (scannedSymbols % 8 === 0) {
+          await new Promise<void>((resolve) => setTimeout(resolve, 0));
+        }
       }
     }
   } finally {
@@ -190,6 +222,9 @@ export async function runCustomFormulaScannerBatch(
         to: request.toDate || undefined,
       });
       scannedSymbols += 1;
+      if (scannedSymbols % 8 === 0) {
+        await new Promise<void>((resolve) => setTimeout(resolve, 0));
+      }
       const bars = mapResultToContextBars(data, request.lookbackBars ?? null);
       if (bars.length < 5) continue;
 

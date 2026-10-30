@@ -9,6 +9,7 @@ import {
   CorporateActionPendingPreparationStaleError,
   loadAllPendingCorporateActionImports,
   prepareCorporateActionPendingImports,
+  recheckReviewedCorporateActionImports,
 } from '../legacy/corporateActionImportOperations';
 
 type PendingPreparationApi = Pick<
@@ -105,6 +106,105 @@ function skippedAutoApproval(importId: number) {
 }
 
 describe('Corporate Action pending preparation', () => {
+  it('refreshes legacy classifications in the reviewed database before matching, without approving', async () => {
+    const legacy = importRow(91,{actionType:'OTHER',reviewStatus:'UNSUPPORTED',purposeRaw:'Agm/Div-Rs.2/- Per Share',cashAmount:null});
+    const refreshed = importRow(91,{purposeRaw:legacy.purposeRaw,cashAmount:2});
+    const api = {
+      listCorporateActionImports: vi.fn().mockResolvedValueOnce([legacy]).mockResolvedValueOnce([]),
+      refreshCorporateActionImportClassifications: vi.fn(async () => [refreshed]),
+      listCorporateActionImportResolutionHints: vi.fn(), quickResolveCorporateActionImport: vi.fn(),
+      runCorporateActionScan: vi.fn(), autoApproveCorporateActionImports: vi.fn(),getSetting:vi.fn(),
+    };
+    const result = await prepareCorporateActionPendingImports({api,expectedDatabasePath:'E:/TEST-ONLY',explicitApprovalOnly:true});
+    expect(api.refreshCorporateActionImportClassifications).toHaveBeenCalledWith({importIds:[91],expectedDatabasePath:'E:/TEST-ONLY'});
+    expect(result.rows).toEqual([refreshed]);
+    expect(result.complete).toBe(true);
+    expect(api.runCorporateActionScan).not.toHaveBeenCalled();
+    expect(api.autoApproveCorporateActionImports).not.toHaveBeenCalled();
+    api.listCorporateActionImports.mockReset().mockResolvedValueOnce([legacy]);
+    api.refreshCorporateActionImportClassifications.mockResolvedValueOnce([]);
+    const incomplete = await prepareCorporateActionPendingImports({api,expectedDatabasePath:'E:/TEST-ONLY',explicitApprovalOnly:true});
+    expect(incomplete.complete).toBe(false);
+    expect(incomplete.errors[0]?.message).toContain('incomplete scope');
+    expect(api.quickResolveCorporateActionImport).not.toHaveBeenCalled();
+  });
+  it('rechecks dividend EOD scan identity and readiness before explicit operator approval', async () => {
+    const dividend = importRow(55);
+    const scan = scanRow(55);
+    const fingerprint = (row: CorporateActionImportRow, latest?: CorporateActionScanResultRow) =>
+      JSON.stringify([row.id, row.exDate, latest?.scanStatus ?? null, latest?.scannedAt ?? null]);
+    const api = {
+      getCorporateActionImportsByIds: vi.fn(async () => [dividend]),
+      listCorporateActionScanResults: vi.fn(async () => ({scanRun: null, results: [scan]})),
+    } as unknown as Pick<DesktopApi, 'getCorporateActionImportsByIds' | 'listCorporateActionScanResults'>;
+    const request = {
+      api, importIds: [55], expectedDatabasePath: 'E:/TEST-ONLY',
+      fingerprints: {55: fingerprint(dividend, scan)}, fingerprint,
+      preparationErrors: {}, explicitApprovalOnly: true,
+    };
+    const checked = await recheckReviewedCorporateActionImports(request);
+    expect(checked.validationImportIds).toEqual([55]);
+    expect(checked.validationRows).toEqual([scan]);
+    expect(api.listCorporateActionScanResults).toHaveBeenCalledWith({importIds: [55], limit: 10000});
+    api.listCorporateActionScanResults = vi.fn(async () => ({scanRun: null, results: []}));
+    await expect(recheckReviewedCorporateActionImports(request)).rejects.toThrow('changed after review');
+  });
+
+  it('never reads the legacy auto-approval setting or approves during explicit-only Load', async () => {
+    const api = {
+      listCorporateActionImports: vi.fn()
+        .mockResolvedValueOnce([importRow(1, { actionType: 'SPLIT', factor: 2 }),
+          importRow(2, { actionType: 'DIVIDEND', factor: 1.01 })])
+        .mockResolvedValueOnce([]),
+      refreshCorporateActionImportClassifications: vi.fn(async () => [importRow(1, { actionType: 'SPLIT', factor: 2 })]),
+      listCorporateActionImportResolutionHints: vi.fn(),
+      quickResolveCorporateActionImport: vi.fn(),
+      runCorporateActionScan: vi.fn(async ({ importIds }: { importIds?: number[] | null }) => ({
+        scanRun: null, results: (importIds ?? []).map(scanRow),
+      })),
+      autoApproveCorporateActionImports: vi.fn(),
+      getSetting: vi.fn(async () => 'true'),
+    } as unknown as PendingPreparationApi;
+    const result = await prepareCorporateActionPendingImports({
+      api, expectedDatabasePath: 'E:/TEST-ONLY', explicitApprovalOnly: true,
+    });
+    expect(result.complete).toBe(true);
+    expect(result.validationImportIds).toEqual([1, 2]);
+    expect(api.runCorporateActionScan).toHaveBeenCalledExactlyOnceWith({
+      scope: 'official_imports', importIds: [1],
+    });
+    expect(result.validationRows.map((row) => row.corporateActionImportId)).toEqual([1]);
+    expect(result.autoApproval).toBeNull();
+    expect(api.autoApproveCorporateActionImports).not.toHaveBeenCalled();
+    expect(api.getSetting).not.toHaveBeenCalled();
+  });
+
+  it('keeps Dividend/Rights pending without creating empty Split/Bonus scan batches', async () => {
+    const rows = Array.from({ length: 1001 }, (_, index) => importRow(index + 1, {
+      actionType: index % 2 === 0 ? 'DIVIDEND' : 'RIGHTS',
+    }));
+    const api = {
+      listCorporateActionImports: vi.fn().mockResolvedValueOnce(rows).mockResolvedValueOnce([]),
+      listCorporateActionImportResolutionHints: vi.fn(),
+      quickResolveCorporateActionImport: vi.fn(),
+      runCorporateActionScan: vi.fn(),
+      autoApproveCorporateActionImports: vi.fn(),
+      getSetting: vi.fn(),
+    } as unknown as PendingPreparationApi;
+    const result = await prepareCorporateActionPendingImports({
+      api, pageSize: 1001, expectedDatabasePath: 'E:/TEST-ONLY', explicitApprovalOnly: true,
+    });
+    expect(result.complete).toBe(true);
+    expect(result.rows).toEqual(rows);
+    // Clearing stale UI evidence is independent of scanner eligibility.
+    expect(result.validationImportIds).toEqual(rows.map((row) => row.id));
+    expect(result.validationRows).toEqual([]);
+    expect(result.errors).toEqual([]);
+    expect(api.runCorporateActionScan).not.toHaveBeenCalled();
+    expect(api.autoApproveCorporateActionImports).not.toHaveBeenCalled();
+    expect(api.getSetting).not.toHaveBeenCalled();
+  });
+
   it('loads every pending page once, deduplicates IDs, strictly resolves eligible rows, and validates only Split/Bonus targets', async () => {
     const pages = [
       [importRow(1, { reviewStatus: 'UNRESOLVED' }), importRow(2, { actionType: 'SPLIT', factor: 2 }), importRow(3)],
@@ -165,6 +265,81 @@ describe('Corporate Action pending preparation', () => {
     expect(result.autoApproval?.dispositions.find((item) => item.importId === 2)?.reason).toBe('manual review');
     expect(result.identityHints[4]?.recommendedIsinException).toBe(true);
     expect(result.errors).toEqual([]);
+  });
+
+  it('resolves only backend-proof-backed historical ISIN mismatches during explicit-only Load', async () => {
+    const proven = importRow(40, {
+      symbol: '20MICRONS', isin: 'INE144J01019', actionType: 'DIVIDEND',
+      reviewStatus: 'PENDING_ISIN_MISMATCH',
+    });
+    const unproven = importRow(41, {
+      symbol: 'TRENT', isin: 'INEHIST00002', actionType: 'BONUS', factor: 2,
+      reviewStatus: 'PENDING_ISIN_MISMATCH',
+    });
+    const listCorporateActionImportResolutionHints = vi.fn(async ({ importIds }: { importIds: number[] }) => ({
+      requested: importIds.length,
+      hints: importIds.map((id) => id === 40
+        ? hint(id, {
+            status: 'ONE_ACTIVE', quickResolvable: true,
+            recommendedIsinException: true, activeSuggestionCount: 1,
+            topSuggestionExchange: 'NSE', topSuggestionSymbol: '20MICRONS',
+          })
+        : hint(id, {
+            status: 'RECOMMENDED_ISIN_EXCEPTION', quickResolvable: false,
+            recommendedIsinException: true, activeSuggestionCount: 1,
+            topSuggestionExchange: 'NSE', topSuggestionSymbol: 'TRENT',
+          })),
+      message: '',
+    }));
+    const quickResolveCorporateActionImport = vi.fn(async () => ({
+      importRecord: importRow(40, { ...proven, reviewStatus: 'PENDING', approvedCorporateActionId: null }),
+      message: 'Verified pre-transition identity',
+    }));
+    const api = {
+      listCorporateActionImports: vi.fn().mockResolvedValueOnce([proven, unproven]).mockResolvedValueOnce([]),
+      refreshCorporateActionImportClassifications: vi.fn(async () => [unproven]),
+      listCorporateActionImportResolutionHints,
+      quickResolveCorporateActionImport,
+      runCorporateActionScan: vi.fn(async () => ({ scanRun: null, results: [] })),
+      autoApproveCorporateActionImports: vi.fn(),
+      getSetting: vi.fn(),
+    } as unknown as PendingPreparationApi;
+    const result = await prepareCorporateActionPendingImports({
+      api, pageSize: 100, expectedDatabasePath: 'E:/TEST-ONLY', explicitApprovalOnly: true,
+    });
+    expect(result.complete).toBe(true);
+    expect(quickResolveCorporateActionImport).toHaveBeenCalledTimes(1);
+    expect(quickResolveCorporateActionImport).toHaveBeenCalledWith({ importId: 40 });
+    expect(result.rows.find((row) => row.id === 40)?.reviewStatus).toBe('PENDING');
+    expect(result.rows.find((row) => row.id === 41)?.reviewStatus).toBe('PENDING_ISIN_MISMATCH');
+    expect(result.rows.find((row) => row.id === 40)?.approvedCorporateActionId).toBeNull();
+    expect(api.autoApproveCorporateActionImports).not.toHaveBeenCalled();
+    expect(api.getSetting).not.toHaveBeenCalled();
+    expect(result.identityHints[41]?.recommendedIsinException).toBe(true);
+  });
+
+  it('loads new pending Split/Bonus components and accepts a proven inactive historical hint without approving', async () => {
+    const purposeRaw = 'Bonus 1:1/Face Value Split From Rs 10 To Rs 2';
+    const bonus = importRow(71,{actionType:'BONUS',purposeRaw,factor:2});
+    const split = importRow(72,{actionType:'SPLIT',purposeRaw,factor:5,reviewStatus:'UNRESOLVED'});
+    const api = {
+      listCorporateActionImports: vi.fn().mockResolvedValueOnce([bonus]).mockResolvedValueOnce([bonus,split]),
+      refreshCorporateActionImportClassifications: vi.fn(async () => [bonus]),
+      listCorporateActionImportResolutionHints: vi.fn(async () => ({requested:1,hints:[hint(72,{
+        status:'ONE_HISTORICAL',quickResolvable:true,activeSuggestionCount:0,
+        topSuggestionSymbol:split.symbol,topSuggestionExchange:'NSE',
+      })],message:''})),
+      quickResolveCorporateActionImport: vi.fn(async () => ({importRecord:{...split,reviewStatus:'PENDING'},message:'Verified history'})),
+      runCorporateActionScan: vi.fn(async (_input: unknown) => ({scanRun:null,results:[]})),
+      autoApproveCorporateActionImports: vi.fn(),getSetting:vi.fn(),
+    };
+    const result = await prepareCorporateActionPendingImports({api,expectedDatabasePath:'E:/TEST-ONLY',explicitApprovalOnly:true});
+    expect(result.complete).toBe(true);
+    expect(result.rows.map(r=>r.id)).toEqual([71,72]);
+    expect(api.quickResolveCorporateActionImport).toHaveBeenCalledWith({importId:72});
+    expect(api.runCorporateActionScan.mock.calls[0]?.[0]).toMatchObject({importIds:[71,72]});
+    expect(api.autoApproveCorporateActionImports).not.toHaveBeenCalled();
+    expect(result.rows.every(r=>r.approvedCorporateActionId==null)).toBe(true);
   });
 
   it('fails closed on a repeated full page instead of claiming the pending queue is complete', async () => {

@@ -26,9 +26,46 @@ export interface XAxisTick {
   label: string;
   isMajor?: boolean;
   isYear?: boolean;
+  isContext?: boolean;
 }
 
-type BoundaryMode = 'year' | 'quarter' | 'month' | 'week' | 'step';
+export interface XAxisLabelPlacement {
+  tick: XAxisTick;
+  x: number;
+  width: number;
+}
+
+/** Resolve collisions after edge clamping, keeping calendar context first.
+ * The renderer supplies real font metrics; tick planning uses a conservative
+ * estimate so grid density and labels follow the same placement policy. */
+export function layoutXAxisLabels(
+  ticks: XAxisTick[],
+  scaleX: ScaleX,
+  canvasWidth: number,
+  measureLabel: (tick: XAxisTick) => number = (tick) => tick.label.length * 7,
+): XAxisLabelPlacement[] {
+  const padding = 6;
+  const gap = 8;
+  const candidates = ticks.flatMap((tick) => {
+    const pixel = scaleX.toPixel(tick.index);
+    if (!tick.label.trim() || !Number.isFinite(pixel) || pixel < 0 || pixel > canvasWidth) return [];
+    const width = measureLabel(tick);
+    if (!Number.isFinite(width) || width <= 0 || width + padding * 2 > canvasWidth) return [];
+    const x = Math.min(Math.max(pixel, width / 2 + padding), canvasWidth - width / 2 - padding);
+    return [{ tick, x, width }];
+  });
+  const priority = (tick: XAxisTick) => tick.isYear ? (tick.isContext ? 2 : 3) : tick.isMajor ? 1 : 0;
+  candidates.sort((a, b) => priority(b.tick) - priority(a.tick) || a.tick.index - b.tick.index);
+  const selected: XAxisLabelPlacement[] = [];
+  for (const candidate of candidates) {
+    if (selected.every((other) => Math.abs(candidate.x - other.x) >= (candidate.width + other.width) / 2 + gap)) {
+      selected.push(candidate);
+    }
+  }
+  return selected.sort((a, b) => a.tick.index - b.tick.index);
+}
+
+type BoundaryMode = 'year' | 'halfYear' | 'quarter' | 'month' | 'week' | 'step';
 
 export function buildScaleX(viewport: Viewport, canvasWidth: number, gutterPx = 10): ScaleX {
   void gutterPx;
@@ -292,6 +329,13 @@ export function niceXTicks(
     const isBoundaryTick = shouldRenderBoundaryTick(logicalDate, previousBarDate, boundaryMode);
     const hasExistingTick = tickByIndex.has(index);
 
+    // Coarse calendar views use one consistent cadence. Sampling arbitrary
+    // bars here can otherwise add an isolated month between year-only labels.
+    if (boundaryMode !== 'step' && boundaryMode !== 'week' && !isBoundaryTick) {
+      index += 1;
+      continue;
+    }
+
     if (!hasExistingTick && !isBoundaryTick && (index - start) % step !== 0) {
       previousDate = logicalDate;
       index += 1;
@@ -309,6 +353,7 @@ export function niceXTicks(
         label,
         isMajor: isBoundaryTick,
         isYear: isYearStart,
+        isContext: !previousBarDate,
       };
       tickByIndex.set(index, tick);
       ticks.push(tick);
@@ -339,7 +384,7 @@ export function niceXTicks(
     }
   }
 
-  if (!hasFutureTick && end >= bars.length) {
+  if (!hasFutureTick && end >= bars.length && (boundaryMode === 'step' || boundaryMode === 'week')) {
     const existingTicks = Array.from(tickByIndex.values()).sort((left, right) => left.index - right.index);
     const futureTick = buildFutureTick(bars, start, end, timeframe, scaleX, canvasWidth, minGapPx, existingTicks, visibleBars, previousDate);
     if (futureTick) {
@@ -347,7 +392,7 @@ export function niceXTicks(
     }
   }
 
-  return Array.from(tickByIndex.values()).sort((left, right) => left.index - right.index);
+  return layoutXAxisLabels(Array.from(tickByIndex.values()), scaleX, canvasWidth).map(({ tick }) => tick);
 }
 
 export function formatCrosshairLogicalDate(
@@ -391,18 +436,12 @@ function formatXAxisLabel(
     return format(date, 'yyyy');
   }
 
-  if (visibleBars > 1200) {
-    return isYearStart ? format(date, 'yyyy') : '';
-  }
-
-  if (visibleBars > 480) {
-    if (isYearStart) return format(date, 'yyyy');
-    if (isMonthStart && date.getMonth() === 0) return format(date, 'yyyy');
-    return '';
-  }
-
-  if (isYearStart && !isFirst) {
+  if (isYearStart) {
     return format(date, 'yyyy');
+  }
+
+  if (timeframe === 'M') {
+    return format(date, 'MMM');
   }
 
   if (visibleBars > 180) {
@@ -454,8 +493,13 @@ function resolveBoundaryMode(
     if (averageGap('month') >= 48) {
       return 'month';
     }
-    if (averageGap('quarter') >= 72) {
+    // Month names need the same label space at every calendar cadence. A
+    // larger quarter cutoff made small zoom changes jump directly to years.
+    if (averageGap('quarter') >= 48) {
       return 'quarter';
+    }
+    if (averageGap('halfYear') >= 48) {
+      return 'halfYear';
     }
     return 'year';
   }
@@ -464,15 +508,26 @@ function resolveBoundaryMode(
     if (averageGap('month') >= 80) {
       return 'month';
     }
-    if (averageGap('quarter') >= 72) {
+    if (averageGap('quarter') >= 48) {
       return 'quarter';
+    }
+    if (averageGap('halfYear') >= 48) {
+      return 'halfYear';
     }
     return 'year';
   }
 
   if (timeframe === 'M') {
-    if (visibleBars <= 36 && averageGap('quarter') >= 90) {
+    // Monthly candles still benefit from month/quarter context. Choose by
+    // available label space rather than forcing years above 36 candles.
+    if (averageGap('month') >= 48) {
+      return 'month';
+    }
+    if (averageGap('quarter') >= 48) {
       return 'quarter';
+    }
+    if (averageGap('halfYear') >= 48) {
+      return 'halfYear';
     }
     return 'year';
   }
@@ -503,6 +558,9 @@ function shouldRenderBoundaryTick(
 
   if (boundaryMode === 'year') {
     return currentYear !== prevYear;
+  }
+  if (boundaryMode === 'halfYear') {
+    return currentYear !== prevYear || Math.floor(currentMonth / 6) !== Math.floor(prevMonth / 6);
   }
   if (boundaryMode === 'quarter') {
     return currentYear !== prevYear || Math.floor(currentMonth / 3) !== Math.floor(prevMonth / 3);
@@ -562,6 +620,7 @@ function collectBoundaryTicks(
       label: formatXAxisLabel(logicalDate, timeframe, visibleBars, index === start, index === end, previousBarDate),
       isMajor: true,
       isYear: isYearStart,
+      isContext: !previousBarDate,
     });
   }
 
