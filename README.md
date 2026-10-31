@@ -5,9 +5,12 @@
 NSE/BSE Identity maintenance shares reviewed confirmations and saved reporting.
 BSE company-name history has native refresh/preview/Apply/receipt evidence; its
 Security ID history remains held for verified dated sources. The latest saved-report
-UI polish is implemented and checked, with native portable/clipboard/restart tests
-deferred until the user is ready. No additional Apply is needed for those checks.
-See [current handoff](HANDOFF.md) and [scope, validation and deferred checklist](docs/changes/2026-10-30-identity-report-polish/REPORT.md).
+UI polish has native user evidence for saved wording, original-reason hover,
+outcome views, search in All and exact path/hash copying. Display preferences
+survive restart according to the user. Search with a non-All filter, validation
+notice wording and clipboard failure handling remain unverified natively.
+No additional Apply is needed for these report checks.
+See [current handoff](HANDOFF.md) and [native evidence and remaining limits](docs/changes/2026-10-30-identity-report-polish/REPORT.md).
 
 ## Latest checkpoint: database issue takes priority — 26 October 2026
 

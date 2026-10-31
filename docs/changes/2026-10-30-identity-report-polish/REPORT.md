@@ -7,9 +7,11 @@ and native Recent Applied screenshots. This phase changes renderer presentation
 and display preferences only. It does not rewrite a receipt, reapply a plan,
 alter a source, or change backend identity/approval logic.
 
-**Status: implemented and checked; native portable acceptance deferred.** The user
-will test later. This documentation closeout adds no runtime change, test run,
-live Apply or scheduled follow-up.
+**Status: native saved-report display/filter/hover and clipboard success confirmed;
+restart persistence confirmed by the user.** Search with a non-All outcome filter,
+validation-notice wording and clipboard failure behavior retain the limits below.
+This documentation update adds no runtime change, application test, live Apply,
+portable build or scheduled follow-up.
 
 ## Changes
 
@@ -74,35 +76,62 @@ was performed in this phase.
   operation details. Table scrolling fits the available list area.
   [Saved-report screenshot](saved-report-preview.jpg) is an isolated UI preview.
   The temporary browser tab was closed and localhost server stopped after checks.
-- NOT TESTED: this polish in the rebuilt portable app, native Clipboard API
-  permissions/failure behavior, and preferences after closing/reopening that app.
-  The user rebuilds portable manually. A new Apply is not needed for these checks.
+- At initial implementation closeout, native portable polish/clipboard/restart
+  checks were deferred. The later user evidence below supersedes that blanket
+  deferral for the demonstrated behavior; clipboard failure remains untested.
 
 ## Earlier native evidence
 
 The user's Recent Applied screenshots already confirm the pre-polish saved run
 `bse-names-1793339156414000500`, 1,531 names at 11:15:56 IST, with source/plan hashes
 matching the earlier [read-only persisted audit](../2026-10-30-bse-name-history/native-apply-audit-20261030.json).
-Those screenshots close the earlier native report-viewing gap. This phase's new
-formatting/filter/copy behavior awaits native acceptance after rebuild/restart.
+Those screenshots close the earlier native report-viewing gap. The subsequent
+polish evidence below concerns the newer two-name run and preserves this earlier
+receipt acceptance.
 
-## Deferred user test checklist
+## Native user acceptance — 30 October 2026
 
-When ready, rebuild/restart portable using the existing user workflow, then:
+Evidence is the user's screenshots and pasted clipboard values supplied in this
+chat, around 13:04–13:09 IST, plus their explicit report that display preferences
+survive an app restart. No independent new DB audit or native execution was run
+by the agent for this update.
 
-1. Open BSE → Recent Applied and the existing 1,531-name run. Confirm APPLIED rows
-   say Saved; the original reason remains on hover, and skipped/duplicate rows
-   keep their recorded explanations.
-2. Switch Applied / All / Skipped / Duplicates and combine a filter with search.
-   Counts remain full-run counts; only visible rows change.
-3. Expand evidence. Check the friendly path display and Copy for the full stored
-   path/source hash/plan hash; verify native clipboard feedback.
-4. Choose a filter/search/disclosure state, close/reopen the app, and confirm
-   the same report context restores those display preferences.
-5. Confirm the validation notice explicitly refers to Corporate Actions readiness.
-   Load & Validate remains required before a later financial approval.
+- PASS, user build log: renderer and Rust release build succeeded without warnings;
+  portable executable verification reported SHA-256
+  `D09ADFF66F7B2E75DB14B18F616E4364887BFFBD85484031D7E102D50394FD10`.
+- PASS, screenshots: newer saved run `bse-names-1793339595079957000`, saved at
+  11:23:15 IST, shows Applied 2 / All 2,845 / Skipped 1,310 / Duplicates 1,533.
+  Visible-row summaries follow the selected outcome; counts remain full-run counts.
+  The totals reconcile: 2 + 1,310 + 1,533 = 2,845.
+- PASS, screenshots: applied rows use Saved company-name history and original
+  review reasons remain available on hover. Skipped/duplicate reasons are visible.
+- PASS, screenshots: search `kei` in All returns three matches, including ENKEI,
+  without changing the outcome counts. This does not prove search intersection
+  with a non-All outcome filter.
+- PASS, screenshots/pasted text: source path and source/plan hashes are readable;
+  the display omits the Windows extended-path prefix while the copied path retains
+  the original prefix. Native source-path copy success feedback is visible. The
+  pasted source hash is
+  `c2207bf427ce41f9fbb2508dbdaa0dcf09b0ff40dff52d275db1e1d590576b83`;
+  the pasted reviewed plan hash is
+  `a1f9315f43a0762c8557439c66f33ed945b32f08d37a4b2deafb5b8363795548`.
+  Both match the displayed evidence. This verifies copying, not an independent
+  recalculation of source-file or plan hashes.
+- PASS, user report: display preferences survive closing/reopening the app.
+- The earlier 11:15:56 IST, 1,531-name run remains listed. The separate Current
+  universe apply-history empty state does not describe company-name history.
 
-These checks use the existing saved report; no new Apply is required. Native
-clipboard, app restart persistence and the new polish remain open until the user
-provides evidence. The earlier BSE Apply/receipt/native report evidence remains
-accepted; intermediate progress and other native routes retain their stated limits.
+## Remaining native limits
+
+- Search combined with a non-All outcome filter and the clarified Corporate
+  Actions validation reminder were not shown. Their existing automated checks
+  remain separate evidence.
+- Native clipboard rejection/failure behavior and other NSE/current-universe
+  routes are not established by these BSE screenshots. Do not deliberately cause
+  a failure or repeat an Apply solely to close this saved-report checkpoint.
+- Existing intermediate-progress and other native route limits remain unchanged.
+  These report checks provide no new Corporate Actions approval authority.
+
+No application source, backend, database or receipt was changed in this acceptance
+update. No new application tests, live Apply, portable build, commit or push was
+performed as part of this documentation update.

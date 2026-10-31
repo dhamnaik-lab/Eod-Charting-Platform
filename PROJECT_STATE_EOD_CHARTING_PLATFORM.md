@@ -1,6 +1,6 @@
 # EOD Charting Platform - Project State
 
-## Identity maintenance implementation and deferred acceptance — 30 October 2026
+## Identity maintenance implementation and native report acceptance — 30 October 2026
 
 BSE company-name history refresh/preview, the in-app confirmation, successful
 1,531-name Apply, completed status and native saved-report/evidence display have
@@ -9,11 +9,16 @@ remain held until separate dated evidence is verified. Other financial-action
 workstreams retain their own dated checkpoints and approval requirements.
 
 The latest renderer-only report polish passed 41 focused tests, typecheck,
-CSS/documentation/whitespace checks and isolated UI/reload verification. Native
-polish, clipboard and close/reopen preference acceptance are deferred at the
-user's request to test later. No new Apply is needed; no release build or live
-test is part of this documentation closeout. See [handoff](HANDOFF.md) and
-[test checklist](docs/changes/2026-10-30-identity-report-polish/REPORT.md).
+CSS/documentation/whitespace checks and isolated UI/reload verification. Later
+user screenshots/pasted values confirm native saved wording, original-reason
+hover, outcome views, search in All and exact path/hash copying. The user confirms
+restart preference persistence and supplied a successful warning-free portable
+build. The newer saved run shows 2 Applied / 2,845 All / 1,310 Skipped / 1,533
+Duplicates; the earlier 1,531-name run remains listed. Search with a non-All
+filter, validation-notice wording, native clipboard failure and other native
+routes remain unverified. No new Apply, release build or live test is part of
+this documentation closeout. See [handoff](HANDOFF.md) and
+[native evidence and limits](docs/changes/2026-10-30-identity-report-polish/REPORT.md).
 
 ## Current priority and CA resume checkpoint — 26 October 2026
 

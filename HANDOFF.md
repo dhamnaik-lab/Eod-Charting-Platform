@@ -2,32 +2,39 @@
 
 ## Saved Identity report polish - 30 October 2026
 
-**Implemented; native acceptance deferred by the user.** The user will test later.
-Documentation closeout is complete. Do not initiate another build, Apply or live
-test as part of this checkpoint. On the user's return, use the short checklist
-in the linked report; retain the saved receipt and earlier native acceptance.
+**Native report display, outcome filters, hover evidence and clipboard success
+confirmed by user screenshots/pasted values; restart persistence confirmed by the
+user.** The earlier blanket native deferral is superseded for these checks.
+No new Apply, build or live test is required to repeat this evidence.
 
-User approved past-tense saved reasons, friendly source paths with Copy controls,
-counted report outcome filters and a clearer validation notice. Implemented as
-renderer-only changes: original receipt/review evidence stays intact; full stored
-paths/hashes are copied exactly; saved historical reports default to Applied and
-persist a validated display-only reportOutcome. Search and filters compose without
-changing the full-run counts or Apply authority. NSE/BSE share evidence controls.
-The known stale readiness notice now explicitly concerns Corporate Actions
-validation; diagnostic details and readiness/approval safeguards remain intact.
+The user rebuilt portable successfully without warnings after the 14-warning
+Rust cleanup; portable staging verified SHA-256
+`D09ADFF66F7B2E75DB14B18F616E4364887BFFBD85484031D7E102D50394FD10`.
+Native screenshots around 13:04–13:09 IST show saved BSE name-history run
+`bse-names-1793339595079957000` (11:23:15 IST): Applied 2 / All 2,845 /
+Skipped 1,310 / Duplicates 1,533. Counts reconcile and remain unchanged between
+outcome views. Applied reasons say Saved company-name history; hover preserves
+the original review reason. Expanded source/plan evidence is readable.
 
-PASS: 41 focused UI tests, renderer typecheck, CSS parsing, documentation references
-and scoped whitespace/UTF-8 checks. Isolated actual-component
-preview checked 1,531 Applied / 2,843 All / 1,310 Skipped / two Duplicates, search
-intersection, cleaned paths, mock copy success/failure and display-setting restore
-after reload. Temporary server/tab closed. Final CSS/docs checks recorded in report.
-No backend/DB/receipt changes, live Apply or agent portable build. Rebuild/restart
-is required for native polish/clipboard/preference acceptance; no new Apply needed.
+Search `kei` in All shows three matches, including ENKEI, while full-run counts
+stay unchanged. The user pasted the full source path including its original
+Windows extended-path prefix and both hashes; these match the displayed evidence.
+The friendly path omits the prefix, and native source-path copy success feedback
+is visible. App restart display-preference persistence is user-reported working.
+The earlier 1,531-name run remains listed; the separate Current universe history
+empty state does not indicate loss of company-name reports.
 
-The user's earlier native Recent Applied screenshots now confirm the saved run
-and expanded source/plan evidence against the persisted audit; that pre-polish
-report-viewing gap is closed. Native intermediate progress and app restart
-persistence remain unverified. See [scope, checks and preview](docs/changes/2026-10-30-identity-report-polish/REPORT.md).
+Limits: search combined with a non-All outcome filter, the clarified Corporate
+Actions validation notice, native clipboard denial/failure handling and other
+NSE/current-universe routes are not established by these screenshots. Keep their
+automated coverage distinct from native acceptance; do not infer financial
+approval or new live-data acceptance. Existing intermediate-progress limits remain.
+
+Prior automated evidence remains: 41 focused UI tests, renderer typecheck,
+CSS/docs/whitespace checks and an isolated production-component preview using
+synthetic rows/mock clipboard. This update changes documentation only; no app
+validation, backend/DB/receipt changes, live Apply or portable build was run.
+See [scope, evidence and remaining limits](docs/changes/2026-10-30-identity-report-polish/REPORT.md).
 
 ## Identity Apply confirmation replacement - 30 October 2026
 

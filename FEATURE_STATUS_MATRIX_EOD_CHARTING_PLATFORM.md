@@ -8,10 +8,11 @@
 | BSE company-name history | Native Refresh/Preview and successful 1,531-name Apply; persisted receipt audit has zero mismatches. |
 | BSE completed status / saved reporting | Native green 100%, APPLIED rows, disabled repeat Apply, Recent Applied and expanded hashes confirmed. |
 | Saved-report polish | Implemented: saved wording, path/hash Copy, counted outcome filters, display preferences and clarified readiness notice; 41 focused tests plus renderer/CSS/docs checks PASS. |
-| Native polish / clipboard / app restart persistence | Deferred by user: will test later using the existing saved run; no new Apply required. |
+| Native polish / clipboard / app restart persistence | User screenshots/pasted values confirm saved wording, hover, outcome views, search in All and exact path/hash copying; restart persistence is user-confirmed. Newer run: 2 Applied / 2,845 All / 1,310 Skipped / 1,533 Duplicates. |
+| Remaining native report limits | Search with a non-All outcome filter, validation-notice wording, clipboard failure and other native routes remain unverified. No new Apply required for report checks. |
 | BSE Security ID history | Held pending separately verified dated source evidence. |
 
-See [handoff](HANDOFF.md) and [deferred checklist](docs/changes/2026-10-30-identity-report-polish/REPORT.md).
+See [handoff](HANDOFF.md) and [native evidence and remaining limits](docs/changes/2026-10-30-identity-report-polish/REPORT.md).
 
 ## Latest CA acceptance and deferred work — 26 October 2026
 

@@ -13,14 +13,16 @@ Project root: `E:\TA Projects\EOD Charting Platform`
 
 ## Identity checkpoint — 30 October 2026
 
-The latest saved-report UI polish is implemented and checked; the user will test
-the rebuilt portable app later. Native BSE name Apply and pre-polish saved-report
-evidence are already accepted, with 1,531 names and a matching persisted audit.
-Do not replay Apply or start new runtime work from this checkpoint alone. When
-the user returns with testing evidence, follow the relevant handoff and the
-[deferred checklist](docs/changes/2026-10-30-identity-report-polish/REPORT.md).
-Native clipboard, new report-polish behavior and app restart persistence remain
-unverified. Security ID history remains held for separately verified dated evidence.
+The latest saved-report polish has user native evidence for saved wording,
+original-reason hover, outcome views, search in All and exact path/hash copying;
+restart preference persistence is user-confirmed. The newer saved run shows
+2 Applied / 2,845 All / 1,310 Skipped / 1,533 Duplicates. Earlier 1,531-name Apply
+acceptance and its persisted audit remain separate evidence. Do not replay Apply
+or start new runtime work from this checkpoint alone. Follow the relevant handoff
+and [native evidence and limits](docs/changes/2026-10-30-identity-report-polish/REPORT.md).
+Search with a non-All outcome filter, validation-notice wording, clipboard failure
+and other native routes remain unverified. Security ID history remains held for
+separately verified dated evidence.
 7. Report changes, focused validation results, and remaining risks. Do not infer financial approval or native acceptance from historical reports.
 
 ## Current task checkpoint — 26 October 2026

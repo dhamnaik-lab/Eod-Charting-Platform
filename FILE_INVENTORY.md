@@ -19,8 +19,10 @@
 - `src/platform/clipboard.ts`: deliberate Copy-action clipboard primitive.
 - `src/features/corporateActions/__tests__/identityReportPolish.test.tsx`: renderer
   regressions for immutable receipts, display wording, paths/copy, filters and notices.
-- [Report and deferred user checklist](docs/changes/2026-10-30-identity-report-polish/REPORT.md):
-  implementation/evidence closeout; native portable testing will be done later.
+- [Report, native evidence and remaining limits](docs/changes/2026-10-30-identity-report-polish/REPORT.md):
+  implementation and user native report/clipboard-success evidence; restart
+  preferences confirmed by the user. Non-All search intersection, notice wording,
+  clipboard failure and other native routes retain their acceptance limits.
 
 ## CA pause and database-priority documentation — 26 October 2026
 

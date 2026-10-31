@@ -8,14 +8,20 @@ IST; the read-only audit found zero mismatches. Native confirmation, completed
 100% status, Recent Applied and expanded source/plan evidence are confirmed.
 Security ID history remains held for separately verified dated evidence.
 
-The latest report polish is implemented: saved wording, friendly/copyable source
-evidence, counted historical outcome filters with display preferences, and a
-clearer Corporate Actions readiness notice. PASS: 41 focused tests, renderer
-typecheck, CSS/docs/whitespace checks and isolated UI/reload checks. Native polish,
-clipboard and restart persistence are **deferred: the user will test later**.
-No new Apply is required. This documentation closeout runs no application tests
-or live mutations. See [current handoff](../HANDOFF.md) and the
-[deferred test checklist](changes/2026-10-30-identity-report-polish/REPORT.md).
+The latest report polish now has native evidence: saved wording/original-reason
+hover, all four outcome views with stable counts, search in All, readable evidence
+and exact path/hash copying are confirmed by user screenshots and pasted values.
+The user confirms display preferences survive app restart. The newer 11:23:15 run
+shows 2 Applied / 2,845 All / 1,310 Skipped / 1,533 Duplicates; the earlier
+1,531-name run remains listed. The user also supplied a successful warning-free
+portable build after Rust warning cleanup.
+
+Search with a non-All outcome filter, validation-reminder wording, clipboard
+failure handling and other native routes remain unverified by this evidence.
+Prior 41 focused tests and isolated UI checks remain automated evidence. This
+update changes documentation only; no new Apply, application test or live mutation
+was run. See [current handoff](../HANDOFF.md) and the
+[native evidence and limits](changes/2026-10-30-identity-report-polish/REPORT.md).
 
 ## Chart UI native closeout - 29 October 2026
 
