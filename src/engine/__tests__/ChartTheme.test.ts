@@ -62,6 +62,17 @@ describe('getChartTheme with custom colors', () => {
     expect(theme.volumeDown).toBe('rgba(255, 0, 0, 0.24)');
   });
 
+  it('derives volume colors from valid three-digit hex overrides', () => {
+    const theme = getChartTheme('midnight-slate-pro', { candleUp: '#0aF' });
+    expect(theme.volumeUp).toBe('rgba(0, 170, 255, 0.24)');
+  });
+
+  it('falls back to the theme volume color for malformed hex overrides', () => {
+    // parseInt('aG', 16) returns 10; malformed hex must not produce a derived RGB color.
+    const theme = getChartTheme('midnight-slate-pro', { candleDown: '#12aG56' });
+    expect(theme.volumeDown).toBe(getChartTheme('midnight-slate-pro').volumeDown);
+  });
+
   it('guarantees custom candle, wick, and volume colors survive resolveChartTheme untouched', () => {
     const customTheme = getChartTheme('midnight-slate-pro', {
       candleUp: '#00ffaa',
