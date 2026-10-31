@@ -46,7 +46,9 @@ export function applyAppTheme(themeId: AppThemeId): void {
 }
 
 function hexToRgba(hex: string, alpha: number): string | null {
-  const clean = hex.replace('#', '').trim();
+  const clean = hex.trim().replace(/^#/, '');
+  // parseInt accepts valid prefixes (e.g. "aG" as 10), so reject malformed hex first.
+  if (!/^(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/.test(clean)) return null;
   if (clean.length === 3) {
     const r = parseInt(clean[0] + clean[0], 16);
     const g = parseInt(clean[1] + clean[1], 16);
