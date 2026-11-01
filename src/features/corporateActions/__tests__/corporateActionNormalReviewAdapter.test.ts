@@ -182,12 +182,15 @@ describe('Corporate Action normal Review adapter', () => {
       ],
     });
 
+    // Exception-first presentation keeps an unscanned Dividend ahead of a
+    // separately validated compound event; grouping must remain unchanged.
     expect(result.events.map((item) => item.event.eventKey)).toEqual([
-      'compound:authoritative-fp',
       'import:3',
+      'compound:authoritative-fp',
     ]);
-    expect(result.events[0].event.actionLabel).toBe('Split + Bonus');
-    expect(result.events[0].event.sourceRows.map((sourceRow) => sourceRow.importId)).toEqual([1, 2]);
+    const compound = result.events.find((item) => item.event.eventKey === 'compound:authoritative-fp');
+    expect(compound?.event.actionLabel).toBe('Split + Bonus');
+    expect(compound?.event.sourceRows.map((sourceRow) => sourceRow.importId)).toEqual([1, 2]);
   });
 
   it('loads existing event identity evidence in unchanged 500-id read-only batches', async () => {
