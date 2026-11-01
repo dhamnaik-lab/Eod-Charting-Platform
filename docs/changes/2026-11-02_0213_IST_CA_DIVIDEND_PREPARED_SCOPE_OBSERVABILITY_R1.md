@@ -63,7 +63,7 @@ Capture command outputs/exit codes, exact source hashes, IST timestamp, ZIP SHA-
 
 - Source-text tests may need adjustment after future intentional UI/layout refactors; static assertions do not substitute for actual runtime interaction.
 - The six-reset assertion protects existing behavior but should be complemented by focused dynamic lifecycle tests if production lifecycle logic changes.
-- This change does not address the other six failures shown in the older full-suite report, the 19 historical Rust failures, or manual UI acceptance.
+- This change does not address the three other failures (two compact-layout and one historical-identity test) in the older 11-failure full-suite report after accounting for the three PR #6 Safe V2 fixes and these five Dividend fixes. The historical 19 Rust failures and manual UI acceptance also remain outside scope.
 - Preserve the locally modified `src-tauri-shell\gen\schemas\desktop-schema.json` and `windows-schema.json`. No local files or production database were accessed during this GitHub change.
 - Roll back by restoring the original test blob `82f69951c155640a25365a0b176de246c3409f98` and removing this new change note on the review branch, without touching `main` or user data.
 
