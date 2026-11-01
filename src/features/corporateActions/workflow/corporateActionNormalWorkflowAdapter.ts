@@ -22,7 +22,7 @@ import {
 } from '../corporateActionEconomicEventViewModel';
 import {
   classifyCorporateActionValidation,
-  getCorporateActionApprovalState,
+  getCorporateActionNormalApprovalState,
   isSplitOrBonus,
   type CorporateActionApprovalState,
   type CorporateActionPriceValidationLabel,
@@ -441,12 +441,11 @@ function getNormalValidationImportIds(rows: readonly CorporateActionImportRow[])
     rows
       .filter(
         (row) =>
-          isSplitOrBonus(row) &&
+          (isSplitOrBonus(row) ? row.factor != null : row.actionType === 'DIVIDEND' || row.actionType === 'RIGHTS') &&
           row.parseStatus === 'PARSED' &&
           row.reviewStatus !== 'APPROVED' &&
           Boolean(row.symbol) &&
-          Boolean(row.exDate) &&
-          row.factor != null,
+          Boolean(row.exDate),
       )
       .map((row) => row.id),
   )];
@@ -515,7 +514,7 @@ export function classifyCorporateActionNormalRows(
 
   for (const row of rows) {
     const scan = scans.get(row.id);
-    const approvalState = getCorporateActionApprovalState(row, scan);
+    const approvalState = getCorporateActionNormalApprovalState(row, scan);
 
     if (approvalState === 'READY TO APPROVE') {
       ready += 1;
@@ -776,6 +775,12 @@ function normalReviewStatusReason(
   if (approvalState === 'NEEDS VALIDATION') {
     return 'Split/Bonus price validation is required';
   }
+  if (approvalState === 'SCHEDULED / UPCOMING') {
+    return 'Official ex-date has not occurred';
+  }
+  if (approvalState === 'WAITING FOR EOD DATA') {
+    return 'Local cum-date and ex-date EOD trading bars are required before approval';
+  }
   if (approvalState === 'NEEDS REVIEW' && validationLabel === 'NO PRICE DATA') {
     return 'Local price evidence is unavailable';
   }
@@ -807,7 +812,7 @@ function reviewEvidenceRows(
     if (eventIdentity?.resolved && !eventIdentity.eventSymbol) {
       throw new Error(`Corporate Action import ${row.id} has resolved identity without eventSymbol`);
     }
-    const approvalState = getCorporateActionApprovalState(row, scan);
+    const approvalState = getCorporateActionNormalApprovalState(row, scan);
     const validationLabel = isSplitOrBonus(row)
       ? classifyCorporateActionValidation(row, scan)
       : 'NOT REQUIRED';

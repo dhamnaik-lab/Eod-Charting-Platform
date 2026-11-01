@@ -6073,7 +6073,10 @@ function CorporateActionDialog({
           const reason=disposition.reason;
           label=/identity/i.test(reason)?'Awaiting identity evidence':/official.source|witness/i.test(reason)?'Awaiting official source evidence'
             :/close|trade date|EOD/i.test(reason)?'Waiting for EOD data':/cash|wording|components/i.test(reason)?'Cash evidence needs verification':'Needs evidence verification';
-        } else if (row.actionType === 'DIVIDEND' && row.parseStatus === 'PARSED' && row.reviewStatus === 'PENDING') {
+        } else if (row.actionType === 'DIVIDEND' && row.parseStatus === 'PARSED' && row.reviewStatus === 'PENDING' &&
+          /Ready to/i.test(label)) {
+          // Only financial eligibility may still be pending; preserve a
+          // specific EOD or historical identity blocker from the scan.
           label='Awaiting Dividend verification';
         } else if (/Ready to/i.test(label)) label='Not eligible for current workflow';
         category=/Awaiting|Waiting|Scheduled/i.test(label)?'waiting':'review';

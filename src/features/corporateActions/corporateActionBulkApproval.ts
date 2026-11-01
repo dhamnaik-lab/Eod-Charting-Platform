@@ -104,6 +104,14 @@ export function officialImportUserStatus(
     if (row.actionType === 'DIVIDEND' && row.purposeRaw.includes('%')) return 'Awaiting verified cash amount and face-value basis';
     return 'Awaiting verified announcement terms';
   }
+  // A verified historical price-route can be blocked by identity provenance
+  // rather than absent EOD bars. Preserve the backend's exact diagnostic
+  // instead of mislabelling this case as missing prices.
+  if (explicitApprovalOnly && scan?.corporateActionImportId === row.id &&
+      scan.scanStatus === 'NEEDS_REVIEW' &&
+      scan.message?.startsWith('Awaiting verified dated price-route identity:')) {
+    return 'Awaiting verified identity evidence';
+  }
   const validation = isSplitOrBonus(row) ? classifyCorporateActionValidation(row, scan) : 'NOT VALIDATED';
   const approval = explicitApprovalOnly
     ? getCorporateActionNormalApprovalState(row, scan)

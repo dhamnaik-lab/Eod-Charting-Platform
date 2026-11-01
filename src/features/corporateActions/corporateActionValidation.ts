@@ -15,7 +15,9 @@ export type CorporateActionApprovalState =
   | 'MATCH REQUIRED'
   | 'ISIN REVIEW REQUIRED'
   | 'APPROVED'
-  | 'NOT APPROVABLE';
+  | 'NOT APPROVABLE'
+  | 'SCHEDULED / UPCOMING'
+  | 'WAITING FOR EOD DATA';
 
 const FACTOR_EPSILON = 1e-9;
 

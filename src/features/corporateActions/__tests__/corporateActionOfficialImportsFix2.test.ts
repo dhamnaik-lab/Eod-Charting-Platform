@@ -79,6 +79,45 @@ describe('Official Imports FIX2 preparation and presentation', () => {
     assert.equal(counts['Could not check'],1);
     assert.equal(Object.values(counts).reduce((a,b)=>a+b,0),4);
   });
+  it('distinguishes missing local EOD bars from blocked historical identity proof', () => {
+    const pending = row(12);
+    const baseScan: CorporateActionScanResultRow = {
+      id: 100, scanRunId: 10, corporateActionImportId: 12, corporateActionId: null,
+      symbol: 'S12', exchange: 'NSE', scanStatus: 'NEEDS_REVIEW',
+      prevTradeDate: null, exTradeDate: null, prevClose: null, exOpen: null, exClose: null,
+      expectedFactor: null, actualOpenFactor: null, actualCloseFactor: null,
+      confidence: null, message: 'Awaiting verified dated price-route identity: missing full-ISIN evidence',
+      scannedAt: '2026-09-02T00:00:00Z',
+    };
+    assert.equal(
+      presentation.officialImportUserStatus(pending, baseScan, undefined, true, true),
+      'Awaiting verified identity evidence',
+    );
+    assert.equal(
+      presentation.officialImportUserStatus(pending, {
+        ...baseScan, scanStatus: 'NO_PRICE_DATA',
+        message: 'No local bars found on both sides of the official ex-date.',
+      }, undefined, true, true),
+      'Waiting for EOD Data',
+    );
+    assert.equal(
+      presentation.officialImportUserStatus(pending, {
+        ...baseScan, scanStatus: 'REVIEW',
+        prevTradeDate: '2026-08-31', exTradeDate: '2026-09-01',
+        prevClose: 100, exOpen: 99, exClose: 98,
+        message: 'Local EOD availability observation only',
+      }, undefined, true, true),
+      'Ready to approve',
+    );
+    // Never trust a foreign import's diagnostic for this row.
+    assert.equal(
+      presentation.officialImportUserStatus(pending, {
+        ...baseScan, corporateActionImportId: 999,
+      }, undefined, true, true),
+      'Waiting for EOD Data',
+    );
+  });
+
   it('explains missing percentage cash evidence and price mismatches as app checks', () => {
     const percent = row(8,{actionType:'DIVIDEND',purposeRaw:'Dividend 24%',parseStatus:'NEEDS_REVIEW',reviewStatus:'NEEDS_REVIEW',cashAmount:null});
     assert.equal(presentation.officialImportUserStatus(percent,undefined,undefined,true,true),'Awaiting verified cash amount and face-value basis');

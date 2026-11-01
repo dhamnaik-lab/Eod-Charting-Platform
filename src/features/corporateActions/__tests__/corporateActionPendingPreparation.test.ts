@@ -160,7 +160,12 @@ describe('Corporate Action pending preparation', () => {
       listCorporateActionImportResolutionHints: vi.fn(),
       quickResolveCorporateActionImport: vi.fn(),
       runCorporateActionScan: vi.fn(async ({ importIds }: { importIds?: number[] | null }) => ({
-        scanRun: null, results: (importIds ?? []).map(scanRow),
+        scanRun: null, results: (importIds ?? []).map((id) =>
+          id === 2 ? {
+            ...scanRow(id), scanStatus: 'REVIEW', expectedFactor: null,
+            actualOpenFactor: null, actualCloseFactor: null, confidence: null,
+            message: 'Local EOD availability evidence only',
+          } : scanRow(id)),
       })),
       autoApproveCorporateActionImports: vi.fn(),
       getSetting: vi.fn(async () => 'true'),
@@ -171,15 +176,16 @@ describe('Corporate Action pending preparation', () => {
     expect(result.complete).toBe(true);
     expect(result.validationImportIds).toEqual([1, 2]);
     expect(api.runCorporateActionScan).toHaveBeenCalledExactlyOnceWith({
-      scope: 'official_imports', importIds: [1],
+      scope: 'official_imports', importIds: [1, 2],
     });
-    expect(result.validationRows.map((row) => row.corporateActionImportId)).toEqual([1]);
+    expect(result.validationRows.map((row) => row.corporateActionImportId).sort()).toEqual([1, 2]);
+    expect(result.validationRows.find((row) => row.corporateActionImportId === 2)?.scanStatus).toBe('REVIEW');
     expect(result.autoApproval).toBeNull();
     expect(api.autoApproveCorporateActionImports).not.toHaveBeenCalled();
     expect(api.getSetting).not.toHaveBeenCalled();
   });
 
-  it('keeps Dividend/Rights pending without creating empty Split/Bonus scan batches', async () => {
+  it('checks 1001 Dividend/Rights EOD windows in bounded batches without auto-approval', async () => {
     const rows = Array.from({ length: 1001 }, (_, index) => importRow(index + 1, {
       actionType: index % 2 === 0 ? 'DIVIDEND' : 'RIGHTS',
     }));
@@ -187,7 +193,14 @@ describe('Corporate Action pending preparation', () => {
       listCorporateActionImports: vi.fn().mockResolvedValueOnce(rows).mockResolvedValueOnce([]),
       listCorporateActionImportResolutionHints: vi.fn(),
       quickResolveCorporateActionImport: vi.fn(),
-      runCorporateActionScan: vi.fn(),
+      runCorporateActionScan: vi.fn(async ({ importIds }: { importIds?: number[] | null }) => ({
+        scanRun: null,
+        results: (importIds ?? []).map((id) => ({
+          ...scanRow(id), scanStatus: 'REVIEW', expectedFactor: null,
+          actualOpenFactor: null, actualCloseFactor: null, confidence: null,
+          message: 'Local EOD availability evidence only',
+        })),
+      })),
       autoApproveCorporateActionImports: vi.fn(),
       getSetting: vi.fn(),
     } as unknown as PendingPreparationApi;
@@ -196,11 +209,20 @@ describe('Corporate Action pending preparation', () => {
     });
     expect(result.complete).toBe(true);
     expect(result.rows).toEqual(rows);
-    // Clearing stale UI evidence is independent of scanner eligibility.
     expect(result.validationImportIds).toEqual(rows.map((row) => row.id));
-    expect(result.validationRows).toEqual([]);
+    expect(result.validationRows).toHaveLength(1001);
+    expect(result.validationRows.every((entry) => entry.scanStatus === 'REVIEW')).toBe(true);
     expect(result.errors).toEqual([]);
-    expect(api.runCorporateActionScan).not.toHaveBeenCalled();
+    expect(api.runCorporateActionScan).toHaveBeenCalledTimes(3);
+    expect(api.runCorporateActionScan).toHaveBeenNthCalledWith(1, {
+      scope: 'official_imports', importIds: rows.slice(0, 500).map((row) => row.id),
+    });
+    expect(api.runCorporateActionScan).toHaveBeenNthCalledWith(2, {
+      scope: 'official_imports', importIds: rows.slice(500, 1000).map((row) => row.id),
+    });
+    expect(api.runCorporateActionScan).toHaveBeenNthCalledWith(3, {
+      scope: 'official_imports', importIds: [1001],
+    });
     expect(api.autoApproveCorporateActionImports).not.toHaveBeenCalled();
     expect(api.getSetting).not.toHaveBeenCalled();
   });

@@ -5,6 +5,13 @@ export const CLASSIC_ACTION_TYPES = ['SPLIT', 'BONUS', 'DIVIDEND', 'RIGHTS', 'DE
 export const CLASSIC_DEFAULT_SORT = { column: 'date', descending: true } as const;
 
 export type ClassicStatus = 'ready' | 'waiting' | 'review' | 'informational' | 'checking' | 'approved' | 'processed';
+export type ClassicStatusFilter = ClassicStatus | 'all' | 'issues';
+
+// Only actionable blocked/pending events are issues. Informational and
+// already-processed records remain available through their own filters.
+export function isClassicIssue(event: Pick<ClassicActionEvent, 'category'>): boolean {
+  return event.category === 'waiting' || event.category === 'review' || event.category === 'checking';
+}
 export interface ClassicActionRow {
   record: CorporateActionImportRow;
   ready: boolean;
@@ -69,7 +76,7 @@ export function classicVisibleReadyIds(events: readonly ClassicActionEvent[]): n
   return events.filter(event => event.ready).flatMap(event => event.rows.map(row => row.record.id));
 }
 
-export function classicVisibleEvents(events: readonly ClassicActionEvent[], status: ClassicStatus | 'all',
+export function classicVisibleEvents(events: readonly ClassicActionEvent[], status: ClassicStatusFilter,
   sort: { column: 'exchange' | 'symbol' | 'company' | 'action' | 'date' | 'terms' | 'status'; descending: boolean },
   search = '', exchange: 'all' | 'NSE' | 'BSE' = 'all'): ClassicActionEvent[] {
   const value = (event: ClassicActionEvent): string => {
@@ -78,7 +85,7 @@ export function classicVisibleEvents(events: readonly ClassicActionEvent[], stat
       date: r.exDate ?? '', terms: event.terms, status: event.status })[sort.column];
   };
   const query = normalizeCorporateActionSearch(search);
-  const ranked = events.filter(event => (status === 'all' || event.category === status)
+  const ranked = events.filter(event => (status === 'issues' ? isClassicIssue(event) : status === 'all' || event.category === status)
     && (exchange === 'all' || event.rows.every(row => row.record.exchange === exchange))).flatMap(event => {
     const ranks = event.rows.map(row => corporateActionSearchRank(row.record, query)).filter(rank => rank != null);
     return ranks.length ? [{ event, rank: Math.min(...ranks) }] : [];

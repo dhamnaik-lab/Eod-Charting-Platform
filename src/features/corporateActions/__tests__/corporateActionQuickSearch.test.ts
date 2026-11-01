@@ -67,6 +67,37 @@ describe('Corporate Actions local quick search', () => {
     expect(classicVisibleEvents(groupClassicActionRows(rows.slice(2)), 'all', CLASSIC_DEFAULT_SORT, 'hdb')).toEqual([]);
   });
 
+  it('defaults the actual Classic pending screen to Ready across symbols with separate Issues access', () => {
+    const operation = vi.fn();
+    const props: CorporateActionClassicWorkspaceProps = {
+      rows: [
+        row(1, 'NSE_READY'),
+        row(2, 'BSE_READY', { exchange: 'BSE' }),
+        { ...row(3, 'WAITING'), ready: false, category: 'waiting', status: 'Waiting for EOD Data' },
+      ],
+      loadedCount: 3, selectedIds: new Set(), busy: false,
+      hasDatabase: true, approved: false, exchange: 'BOTH', fromDate: '', toDate: '',
+      types: ['DIVIDEND'], search: '', message: '', canCancel: false,
+      onCancel: operation, onFetch: operation, onValidate: operation,
+      onViewChange: operation, onExchangeChange: operation, onDateChange: operation,
+      onTypesChange: operation, onSearchChange: operation, onCurrentSymbol: operation,
+      onToggleMany: operation, onFilterChange: operation, onApprove: operation,
+      renderDetails: () => null,
+    };
+    const pending = renderToStaticMarkup(React.createElement(CorporateActionClassicWorkspace, props));
+    expect(pending).toContain('title="NSE:NSE_READY"');
+    expect(pending).toContain('title="BSE:BSE_READY"');
+    expect(pending).not.toContain('title="NSE:WAITING"');
+    expect(pending).toContain('Issues (1)');
+    expect(pending).toContain('Shown 2 events');
+    expect(pending).toContain('Ready 2 actions');
+    const approved = renderToStaticMarkup(React.createElement(CorporateActionClassicWorkspace, {
+      ...props, approved: true,
+    }));
+    expect(approved).toContain('title="NSE:WAITING"');
+    expect(operation).not.toHaveBeenCalled();
+  });
+
   it('renders an explicit empty result and accessible clearing without invoking operations', () => {
     const operation = vi.fn();
     const props: CorporateActionClassicWorkspaceProps = {

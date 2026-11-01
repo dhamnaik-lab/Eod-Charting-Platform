@@ -11,6 +11,7 @@ mod dividend_validation_cache;
 mod identity_recheck;
 mod dated_symbol_chain;
 pub(super) mod event_price_route;
+mod price_validation_freshness;
 mod split_bonus_preparation;
 mod split_bonus_terms;
 pub use classification_refresh::refresh_corporate_action_import_classifications;
@@ -57,6 +58,7 @@ use repair_preview::{
 };
 
 use super::binary_eod::{date_to_u32, u32_to_date, BinaryEodFile};
+use super::storage_mode::{get_price_storage_mode, PriceStorageMode};
 use super::instrument_mutations::{
     upsert_instrument_isin_history_evidence,
 };
@@ -6838,6 +6840,11 @@ fn approve_corporate_action_import_without_transaction(
             &import_row,
             allow_price_validation_exception,
         )?;
+        // Metadata/factor freshness alone cannot prove unchanged OHLC bars.
+        // Re-read the authoritative EOD window within the approval transaction.
+        price_validation_freshness::ensure_scan_uses_current_price_window(
+            connection, folder_path, &import_row,
+        )?;
     }
 
     if let Some(existing_id) = find_existing_corporate_action(connection, &import_row)? {
@@ -7957,14 +7964,28 @@ fn load_scan_candidates(
     connection: &Connection,
     import_ids: Option<&[i64]>,
 ) -> AppResult<Vec<ScanCandidate>> {
-    let base_select = "
-      SELECT id, symbol, exchange, ex_date, factor
-      FROM corporate_action_imports
-      WHERE action_type IN ('SPLIT', 'BONUS')
-        AND parse_status = 'PARSED'
-        AND ex_date IS NOT NULL
-        AND factor IS NOT NULL
-    ";
+    // Broad legacy scans remain Split/Bonus-only. Explicitly targeted normal
+    // workflow scans may also establish EOD availability for Dividend/Rights,
+    // whose factor is intentionally computed later at approval time.
+    let base_select = if import_ids.is_some() {
+        "
+          SELECT id, symbol, exchange, ex_date, factor
+          FROM corporate_action_imports
+          WHERE action_type IN ('SPLIT', 'BONUS', 'DIVIDEND', 'RIGHTS')
+            AND parse_status = 'PARSED'
+            AND ex_date IS NOT NULL
+            AND (action_type IN ('DIVIDEND', 'RIGHTS') OR factor IS NOT NULL)
+        "
+    } else {
+        "
+          SELECT id, symbol, exchange, ex_date, factor
+          FROM corporate_action_imports
+          WHERE action_type IN ('SPLIT', 'BONUS')
+            AND parse_status = 'PARSED'
+            AND ex_date IS NOT NULL
+            AND factor IS NOT NULL
+        "
+    };
 
     if let Some(import_ids) = import_ids {
         let placeholders = std::iter::repeat("?")
@@ -8379,7 +8400,14 @@ fn scan_candidate(
         }
     };
 
-    let compound_context = load_same_date_split_bonus_compound_context(connection, candidate)?;
+    let non_ratio_event = get_import_row(connection, candidate.import_id)
+        .map(|row| matches!(row.action_type.as_str(), "DIVIDEND" | "RIGHTS"))
+        .unwrap_or(false);
+    let compound_context = if non_ratio_event {
+        None
+    } else {
+        load_same_date_split_bonus_compound_context(connection, candidate)?
+    };
     let validation_factor = compound_context
         .as_ref()
         .map(|context| context.combined_factor)
@@ -8414,6 +8442,31 @@ fn scan_candidate(
             scanned_at,
         ));
     };
+
+    if non_ratio_event {
+        // Readiness evidence only, never a theoretical dividend/rights factor
+        // match. The approval writer independently rechecks these local bars.
+        return Ok(CorporateActionScanResultRow {
+            id: 0,
+            scan_run_id,
+            corporate_action_import_id: Some(candidate.import_id),
+            corporate_action_id: None,
+            symbol: Some(symbol.to_string()),
+            exchange: candidate.exchange.clone(),
+            scan_status: "REVIEW".to_string(),
+            prev_trade_date: Some(previous.date),
+            ex_trade_date: Some(ex_bar.date),
+            prev_close: Some(previous.close),
+            ex_open: Some(ex_bar.open),
+            ex_close: Some(ex_bar.close),
+            expected_factor: None,
+            actual_open_factor: None,
+            actual_close_factor: None,
+            confidence: None,
+            message: Some("Local EOD availability observation only; Dividend/Rights terms are not price-factor validated.".to_string()),
+            scanned_at,
+        });
+    }
 
     let actual_open_factor = if ex_bar.open > 0.0 {
         Some(previous.close / ex_bar.open)
@@ -8655,11 +8708,19 @@ fn load_trade_window(
     exchange: &str,
     ex_date: &str,
 ) -> AppResult<Option<(ScannedBar, ScannedBar)>> {
+    let mode = get_price_storage_mode(connection);
+    let binary_path = |target: &str| {
+        folder_path.join("eod_data").join(exchange).join(format!("{target}.eod"))
+    };
     if let Some(window) = load_binary_trade_window(folder_path, symbol, exchange, ex_date)? {
         return Ok(Some(window));
     }
-    if let Some(window) = load_sqlite_trade_window(connection, symbol, exchange, ex_date)? {
-        return Ok(Some(window));
+    // Match the chart reader: SQLite is a fallback only in Hybrid mode, and
+    // only when the corresponding binary symbol file does not exist.
+    if mode == PriceStorageMode::Hybrid && !binary_path(symbol).exists() {
+        if let Some(window) = load_sqlite_trade_window(connection, symbol, exchange, ex_date)? {
+            return Ok(Some(window));
+        }
     }
 
     let Some(historical_symbol) =
@@ -8676,7 +8737,10 @@ fn load_trade_window(
     {
         return Ok(Some(window));
     }
-    load_sqlite_trade_window(connection, &historical_symbol, exchange, ex_date)
+    if mode == PriceStorageMode::Hybrid && !binary_path(&historical_symbol).exists() {
+        return load_sqlite_trade_window(connection, &historical_symbol, exchange, ex_date);
+    }
+    Ok(None)
 }
 
 fn load_binary_trade_window(
@@ -14981,6 +15045,27 @@ mod tests {
     }
 
     #[test]
+    fn ca_normal_targeted_eod_scan_includes_dividends_and_rights_without_factors() {
+        let connection = Connection::open_in_memory().unwrap();
+        connection.execute_batch(
+            "CREATE TABLE corporate_action_imports (
+               id INTEGER PRIMARY KEY, symbol TEXT, exchange TEXT, ex_date TEXT,
+               factor REAL, action_type TEXT, parse_status TEXT
+             );
+             INSERT INTO corporate_action_imports VALUES
+               (1,'SPLIT_A','NSE','2026-08-14',2,'SPLIT','PARSED'),
+               (2,'DIV_A','NSE','2026-08-14',NULL,'DIVIDEND','PARSED'),
+               (3,'RIGHT_A','NSE','2026-08-14',NULL,'RIGHTS','PARSED');",
+        ).unwrap();
+        let targeted = load_scan_candidates(&connection, Some(&[2, 3])).unwrap();
+        assert_eq!(targeted.len(), 2);
+        assert!(targeted.iter().all(|candidate| candidate.factor.is_none()));
+        let untargeted = load_scan_candidates(&connection, None).unwrap();
+        assert_eq!(untargeted.len(), 1);
+        assert_eq!(untargeted[0].import_id, 1);
+    }
+
+    #[test]
     fn phase1_v114e_scan_candidate_uses_event_symbol_without_rewriting_raw_import() {
         let connection = Connection::open_in_memory().unwrap();
         connection
@@ -15047,6 +15132,29 @@ mod tests {
             )
             .unwrap();
         assert_eq!(raw_symbol, "NAVA");
+    }
+
+    #[test]
+    fn ca_financial_integrity_binary_only_scan_rejects_orphan_sqlite_prices() {
+        let connection = Connection::open_in_memory().unwrap();
+        connection.execute_batch(
+            "CREATE TABLE settings (key TEXT PRIMARY KEY, value TEXT NOT NULL);
+             INSERT INTO settings(key, value) VALUES ('price_storage_mode', 'binary');
+             CREATE TABLE eod_prices (symbol TEXT, exchange TEXT, date TEXT, open REAL, close REAL);
+             INSERT INTO eod_prices VALUES
+               ('CA_BINARY_ONLY', 'NSE', '2026-08-13', 100, 100),
+               ('CA_BINARY_ONLY', 'NSE', '2026-08-14', 50, 50);",
+        ).unwrap();
+        let folder = std::env::temp_dir();
+        assert!(load_trade_window(
+            &connection, &folder, "CA_BINARY_ONLY", "NSE", "2026-08-14"
+        ).unwrap().is_none());
+        connection.execute(
+            "UPDATE settings SET value='hybrid' WHERE key='price_storage_mode'", [],
+        ).unwrap();
+        assert!(load_trade_window(
+            &connection, &folder, "CA_BINARY_ONLY", "NSE", "2026-08-14"
+        ).unwrap().is_some());
     }
 
     #[test]

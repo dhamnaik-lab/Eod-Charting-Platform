@@ -230,7 +230,10 @@ describe('Corporate Action normal Review adapter', () => {
     const result = await buildCorporateActionNormalReviewData({
       api,
       rows: [ready, isinConflict, priceConflict, unresolved],
-      scanRows: [scan(priceConflict, { scanStatus: 'MISMATCH', confidence: 0.4 })],
+      scanRows: [
+        scan(ready, { scanStatus: 'REVIEW', expectedFactor: null, confidence: null }),
+        scan(priceConflict, { scanStatus: 'MISMATCH', confidence: 0.4 }),
+      ],
     });
 
     expect(result.events.map((item) => item.event.status)).toEqual([
