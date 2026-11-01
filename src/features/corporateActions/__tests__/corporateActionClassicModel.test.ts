@@ -23,6 +23,26 @@ describe('classic CA presentation and exact approval scope', () => {
     expect(classicVisibleEvents(events,'all',CLASSIC_DEFAULT_SORT,'','all')).toHaveLength(3);
     expect(events.map(event=>event.key)).toEqual([1,2,3]);
   });
+  it('shows all-symbol Ready actions and routes genuine blockers to Issues without changing approval eligibility', () => {
+    const events = groupClassicActionRows([
+      row(1, 'DIVIDEND', { symbol: 'NSE_READY', exchange: 'NSE' }),
+      row(2, 'SPLIT', { symbol: 'BSE_READY', exchange: 'BSE', purposeRaw: 'Split face value 10 to 5' }),
+      { ...row(3, 'RIGHTS', { symbol: 'EOD_MISSING' }), ready: false, category: 'waiting', status: 'Waiting for EOD Data' },
+      { ...row(4, 'DIVIDEND', { symbol: 'TERMS_MISSING' }), ready: false, category: 'review', status: 'Awaiting verified announcement terms' },
+      { ...row(5, 'SPLIT', { symbol: 'CHECKING', purposeRaw: 'Split face value 10 to 5' }), ready: false, category: 'checking', status: 'Could not check' },
+      { ...row(6, 'OTHER', { symbol: 'INFORMATIONAL' }), ready: false, category: 'informational', status: 'Informational' },
+      { ...row(7, 'DIVIDEND', { symbol: 'PROCESSED' }), ready: false, category: 'processed', status: 'Already Processed' },
+    ]);
+    const ready = classicVisibleEvents(events, 'ready', CLASSIC_DEFAULT_SORT);
+    const issues = classicVisibleEvents(events, 'issues', CLASSIC_DEFAULT_SORT);
+    expect(ready.map(event => event.key).sort()).toEqual([1, 2]);
+    expect(classicVisibleReadyIds(ready).sort()).toEqual([1, 2]);
+    expect(issues.map(event => event.key).sort()).toEqual([3, 4, 5]);
+    expect(classicVisibleReadyIds(issues)).toEqual([]);
+    expect(classicVisibleEvents(events, 'issues', CLASSIC_DEFAULT_SORT, '', 'BSE')).toEqual([]);
+    expect(classicVisibleEvents(events, 'all', CLASSIC_DEFAULT_SORT)).toHaveLength(7);
+    expect(events).toHaveLength(7);
+  });
   it('defaults to newest ISO ex-date first, with undated events last', () => {
     const events = groupClassicActionRows([
       row(1,'DIVIDEND',{exDate:'2026-01-31'}),row(2,'DIVIDEND',{exDate:'2025-12-30'}),
