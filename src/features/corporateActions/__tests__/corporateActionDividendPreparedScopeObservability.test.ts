@@ -2,7 +2,8 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
-const source = readFileSync(resolve(process.cwd(), 'src/components/DatabaseToolsDialogs.tsx'), 'utf8');
+// Normalize Windows checkout line endings before inspecting JSX layout boundaries.
+const source = readFileSync(resolve(process.cwd(), 'src/components/DatabaseToolsDialogs.tsx'), 'utf8').replace(/\r\n/g, '\n');
 
 function sliceBetween(start: string, end: string): string {
   const startIndex = source.indexOf(start);
@@ -38,7 +39,7 @@ describe('Dividend prepared-scope P3C read-only observability', () => {
   it('renders the Dividend summary beside existing Safe V2 status without replacing it', () => {
     const status = sliceBetween(
       '<div data-ca-review-band="status"',
-      '</div>\n          </div>\n        ) : (',
+      '<div style={officialImportSectionCardStyle}>',
     );
     expect(status).toContain('<OfficialSafeV2OutcomeSummary result={currentOfficialAutoApproval} />');
     expect(status).toContain(
@@ -122,9 +123,15 @@ describe('Dividend prepared-scope P3C read-only observability', () => {
   });
 
   it('renders row observability only through the existing expanded review row', () => {
-    expect(occurrences('<OfficialDividendPreparedScopeDispositionDetails')).toBe(1);
+    // Classic detail rendering and expanded Advanced Pending rows each display
+    // the same backend disposition; Approved rows must not render either.
+    expect(occurrences('<OfficialDividendPreparedScopeDispositionDetails')).toBe(2);
+    const classicDetails = sliceBetween('renderDetails={row=><>', '  const renderImportsTab = () => (');
+    expect(classicDetails).toContain('officialDividendPreparedScopeDispositionByImportId.get(row.id)');
     const expandedRows = sliceBetween('{expanded ? group.rows.map((row) => {', '}) : null}');
     expect(expandedRows).toContain('officialDividendPreparedScopeDispositionByImportId.get(row.id)');
+    const approvedRows = sliceBetween(': visibleImportRows.map((row) => {', '              {importRows.length === 0 ? (');
+    expect(approvedRows).not.toContain('<OfficialDividendPreparedScopeDispositionDetails');
   });
 
   it('adds no new action control to either Dividend presentation helper', () => {
@@ -138,13 +145,21 @@ describe('Dividend prepared-scope P3C read-only observability', () => {
     expect(presentation).not.toContain('approveCorporateAction');
   });
 
-  it('does not feed the read-only outcome into manual Apply eligibility', () => {
+  it('requires verified Dividend readiness without using the raw read-only outcome as Apply authority', () => {
     const eligibility = sliceBetween(
       'const eligibleImportRows = visibleImportRows.filter(',
-      'const selectedEligibleImportRows = eligibleImportRows.filter(',
+      '\n  // Aggregate the complete loaded pending queue, independent of type/symbol UI filters.',
     );
+    expect(eligibility).toContain('isOfficialRowReady(row)');
     expect(eligibility).not.toContain('officialDividendPreparedScope');
     expect(eligibility).not.toContain('DividendPreparedScope');
+    const readiness = sliceBetween(
+      'const isOfficialRowReady = (row: CorporateActionImportRow): boolean => {',
+      'const eligibleImportRows = visibleImportRows.filter(',
+    );
+    expect(readiness).toContain('dividendPreparedImportIds.has(row.id)');
+    expect(readiness).toContain("disposition?.disposition === 'ELIGIBLE'");
+    expect(readiness).toContain('disposition.evidence != null');
   });
 
   it('preserves the existing successful preparation status authority', () => {
@@ -156,8 +171,15 @@ describe('Dividend prepared-scope P3C read-only observability', () => {
     expect(summary).not.toContain('setStatus(');
   });
 
-  it('preserves all seven existing P3B lifecycle clears', () => {
-    expect(occurrences('setOfficialDividendPreparedScopeOutcome(null)')).toBe(7);
+  it('invalidates stale Dividend evidence and retains only reconciled same-generation results', () => {
+    // Reset on database change, close, row reload, preparation start/failure,
+    // and failed approval reconciliation. Successful reconciliation publishes
+    // refreshed evidence rather than clearing it unconditionally.
+    expect(occurrences('setOfficialDividendPreparedScopeOutcome(null)')).toBe(6);
+    expect(source).toContain('setOfficialDividendPreparedScopeOutcome(refreshed.outcome);');
+    expect(source).toContain('if (!queueReconciled) {\n          setOfficialDividendPreparedScopeOutcome(null);');
+    expect(source).toContain('setOfficialDividendPreparedScopeOutcome(saved.dividendOutcome);');
+    expect(source).toContain('officialDividendPreparedScopeOutcome.generation === officialPreparationGenerationRef.current');
   });
 
   it('does not persist Dividend observability state', () => {
