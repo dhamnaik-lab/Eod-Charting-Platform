@@ -57,6 +57,7 @@ use repair_preview::{
 };
 
 use super::binary_eod::{date_to_u32, u32_to_date, BinaryEodFile};
+use super::storage_mode::{get_price_storage_mode, PriceStorageMode};
 use super::instrument_mutations::{
     upsert_instrument_isin_history_evidence,
 };
@@ -8655,11 +8656,19 @@ fn load_trade_window(
     exchange: &str,
     ex_date: &str,
 ) -> AppResult<Option<(ScannedBar, ScannedBar)>> {
+    let mode = get_price_storage_mode(connection);
+    let binary_path = |target: &str| {
+        folder_path.join("eod_data").join(exchange).join(format!("{target}.eod"))
+    };
     if let Some(window) = load_binary_trade_window(folder_path, symbol, exchange, ex_date)? {
         return Ok(Some(window));
     }
-    if let Some(window) = load_sqlite_trade_window(connection, symbol, exchange, ex_date)? {
-        return Ok(Some(window));
+    // Match the chart reader: SQLite is a fallback only in Hybrid mode, and
+    // only when the corresponding binary symbol file does not exist.
+    if mode == PriceStorageMode::Hybrid && !binary_path(symbol).exists() {
+        if let Some(window) = load_sqlite_trade_window(connection, symbol, exchange, ex_date)? {
+            return Ok(Some(window));
+        }
     }
 
     let Some(historical_symbol) =
@@ -8676,7 +8685,10 @@ fn load_trade_window(
     {
         return Ok(Some(window));
     }
-    load_sqlite_trade_window(connection, &historical_symbol, exchange, ex_date)
+    if mode == PriceStorageMode::Hybrid && !binary_path(&historical_symbol).exists() {
+        return load_sqlite_trade_window(connection, &historical_symbol, exchange, ex_date);
+    }
+    Ok(None)
 }
 
 fn load_binary_trade_window(
@@ -15047,6 +15059,29 @@ mod tests {
             )
             .unwrap();
         assert_eq!(raw_symbol, "NAVA");
+    }
+
+    #[test]
+    fn ca_financial_integrity_binary_only_scan_rejects_orphan_sqlite_prices() {
+        let connection = Connection::open_in_memory().unwrap();
+        connection.execute_batch(
+            "CREATE TABLE settings (key TEXT PRIMARY KEY, value TEXT NOT NULL);
+             INSERT INTO settings(key, value) VALUES ('price_storage_mode', 'binary');
+             CREATE TABLE eod_prices (symbol TEXT, exchange TEXT, date TEXT, open REAL, close REAL);
+             INSERT INTO eod_prices VALUES
+               ('CA_BINARY_ONLY', 'NSE', '2026-08-13', 100, 100),
+               ('CA_BINARY_ONLY', 'NSE', '2026-08-14', 50, 50);",
+        ).unwrap();
+        let folder = std::env::temp_dir();
+        assert!(load_trade_window(
+            &connection, &folder, "CA_BINARY_ONLY", "NSE", "2026-08-14"
+        ).unwrap().is_none());
+        connection.execute(
+            "UPDATE settings SET value='hybrid' WHERE key='price_storage_mode'", [],
+        ).unwrap();
+        assert!(load_trade_window(
+            &connection, &folder, "CA_BINARY_ONLY", "NSE", "2026-08-14"
+        ).unwrap().is_some());
     }
 
     #[test]
