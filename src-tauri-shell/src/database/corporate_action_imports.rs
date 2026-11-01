@@ -11,6 +11,7 @@ mod dividend_validation_cache;
 mod identity_recheck;
 mod dated_symbol_chain;
 pub(super) mod event_price_route;
+mod price_validation_freshness;
 mod split_bonus_preparation;
 mod split_bonus_terms;
 pub use classification_refresh::refresh_corporate_action_import_classifications;
@@ -6838,6 +6839,11 @@ fn approve_corporate_action_import_without_transaction(
             connection,
             &import_row,
             allow_price_validation_exception,
+        )?;
+        // Metadata/factor freshness alone cannot prove unchanged OHLC bars.
+        // Re-read the authoritative EOD window within the approval transaction.
+        price_validation_freshness::ensure_scan_uses_current_price_window(
+            connection, folder_path, &import_row,
         )?;
     }
 
