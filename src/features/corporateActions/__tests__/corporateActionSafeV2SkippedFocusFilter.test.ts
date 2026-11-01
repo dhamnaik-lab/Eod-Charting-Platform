@@ -47,6 +47,12 @@ function rows() {
 function visible(bindings: Record<string, unknown> = {}) {
   return expression('visibleImportRows', {
     importRows: rows(),
+    // Match the real Classic Pending Review filter context. Safe V2 skipped
+    // focus must intersect (never bypass) the existing action-type controls.
+    classicReview: true,
+    activeCorporateTab: 'imports',
+    activeOfficialImportSection: 'review',
+    classicTypeFilters: ['SPLIT', 'BONUS', 'DIVIDEND'],
     effectiveImportActionTypes: ['SPLIT', 'BONUS', 'DIVIDEND'],
     normalizedImportSearchQuery: '',
     matchesCorporateImportSearch: (row: { symbol: string }, query: string) => row.symbol.includes(query),
@@ -92,6 +98,14 @@ describe('Active Legacy Safe V2 skipped focus filter R1', () => {
       officialSafeV2SkippedFocusActive: true,
       normalizedImportSearchQuery: 'AAA',
     }).map((row) => row.id), []);
+    assert.deepEqual(visible({
+      officialSafeV2SkippedFocusActive: true,
+      classicTypeFilters: ['SPLIT'],
+    }).map((row) => row.id), []);
+    assert.deepEqual(visible({
+      officialSafeV2SkippedFocusActive: true,
+      classicTypeFilters: ['BONUS'],
+    }).map((row) => row.id), [2]);
   });
 
   it('F4 Approved view ignores the Safe V2 skipped focus', () => {
