@@ -87,10 +87,13 @@ function loadHarness(response: Promise<ReturnType<typeof preparation>>) {
   const generation = { current: 4 };
   const cancelled = { current: false };
   const running = { current: false };
+  // The live Load & Validate handler clears its cached pending Review snapshot.
+  // Bind the actual ref shape in this isolated AST harness to test that behavior.
+  const pendingReview = { current: { obsolete: true } as unknown };
   const bindings: Record<string, unknown> = {
     api: {}, activeDatabasePath: database.path,
     officialPreparationGenerationRef: generation, officialCancelPreparationRef: cancelled,
-    officialOperationRunningRef: running,
+    officialOperationRunningRef: running, pendingReviewRef: pendingReview,
     useChartStore: { getState: () => ({ snapshot: { activeDatabasePath: database.path } }) },
     prepareCorporateActionPendingImports: () => response,
     setOfficialAutoApproval: (value: unknown) => { state.outcome = value; },
@@ -105,7 +108,7 @@ function loadHarness(response: Promise<ReturnType<typeof preparation>>) {
     'setCorporateProgress', 'setOfficialTaskProgress', 'mergeOfficialValidationRows']) bindings[name] = () => {};
   bindings.setLoadedImportRows = expression('setLoadedImportRows', bindings);
   const load = expression('loadAndPrepareOfficialImports', bindings) as () => Promise<void>;
-  return { state, database, generation, cancelled, running, load };
+  return { state, database, generation, cancelled, running, pendingReview, load };
 }
 
 function deferred<T>() {
@@ -186,6 +189,7 @@ describe('Active Legacy Safe V2 outcome observability R1', () => {
     const pending = deferred<ReturnType<typeof preparation>>();
     const harness = loadHarness(pending.promise);
     const task = harness.load();
+    assert.equal(harness.pendingReview.current, null);
     assert.equal(harness.state.outcome, null);
     const reply = preparation();
     pending.fulfill(reply);
@@ -230,10 +234,13 @@ describe('Active Legacy Safe V2 outcome observability R1', () => {
   });
   it('R16 any authoritative queue reload clears the previous outcome', () => {
     let outcome: unknown = result();
-    expression('setLoadedImportRows', { setOfficialAutoApproval: (value: unknown) => { outcome = value; },
+    const pendingReview = { current: { obsolete: true } as unknown };
+    expression('setLoadedImportRows', { pendingReviewRef: pendingReview,
+      setOfficialAutoApproval: (value: unknown) => { outcome = value; },
       setOfficialDividendPreparedScopeOutcome: () => {},
       setImportRows: () => {}, setSelectedImportIds: () => {}, setSelectedIssueImportIds: () => {} })([]);
     assert.equal(outcome, null);
+    assert.equal(pendingReview.current, null);
   });
   it('R17 database reset and close clear ephemeral outcome state', () => {
     assert.match(databaseResetEffect(), /setOfficialAutoApproval\(null\)/);
