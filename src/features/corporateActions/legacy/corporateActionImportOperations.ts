@@ -512,10 +512,13 @@ export async function prepareCorporateActionPendingImports({
       row.parseStatus === 'PARSED' && row.reviewStatus !== 'APPROVED' &&
       Boolean(row.symbol) && Boolean(row.exDate)),
   ).map((row) => row.id);
-  // Preserve the wider scope above to clear stale UI validation rows. The
-  // official-import scanner only evaluates Split/Bonus; Dividend has its own
-  // read-only prepared-scope verifier, and Rights remains unsupported here.
-  const scanIds = refreshedRows.filter(isValidationTarget).map((row) => row.id);
+  // The targeted official-import scan can observe Dividend/Rights local EOD
+  // availability without treating their price drop as a factor match. Only the
+  // explicit-approval workflow expands to that scope; legacy automatic
+  // approval remains strictly Split/Bonus.
+  const scanIds = explicitApprovalOnly
+    ? validationIds
+    : refreshedRows.filter(isValidationTarget).map((row) => row.id);
   const validationRows: CorporateActionScanResultRow[] = [];
   let validated = 0;
   for (const batch of chunkIds(scanIds, PENDING_VALIDATION_BATCH_SIZE)) {
@@ -532,14 +535,14 @@ export async function prepareCorporateActionPendingImports({
       validationRows.push(...result.results);
     } catch (error) {
       if (error instanceof CorporateActionPendingPreparationStaleError) throw error;
-      const message = error instanceof Error ? error.message : 'Split/Bonus price validation failed.';
+      const message = error instanceof Error ? error.message : 'Corporate Action EOD validation failed.';
       for (const importId of batch) errors.push({ importId, stage: 'validating', message });
     }
     validated += batch.length;
     const failed = errors.filter((error) => error.stage === 'validating').length;
     emitPreparationProgress(onProgress, {
       stage: 'validating', completed: validated, total: scanIds.length,
-      message: `Split/Bonus checks returned: ${validated}/${scanIds.length}; ${failed} could not be checked.`,
+      message: `Local EOD checks returned: ${validated}/${scanIds.length}; ${failed} could not be checked.`,
     });
   }
 
