@@ -75,7 +75,7 @@ function createApi(initialPending: CorporateActionImportRow[], initialApproved: 
     listCorporateActionScanResults: vi.fn(async () => ({ scanRun: null, results: [] })),
     runCorporateActionScan: vi.fn(async (input) => ({
       scanRun: null,
-      results: (input?.importIds ?? []).flatMap((importId) => {
+      results: (input?.importIds ?? []).flatMap((importId: number) => {
         const candidate = pending.find((item) => item.id === importId);
         if (!candidate?.symbol) return [];
         return [{
