@@ -1,7 +1,7 @@
 import React, { useEffect, useId, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import type { CorporateActionImportRow } from '@/platform';
-import { CLASSIC_ACTION_TYPES, CLASSIC_DEFAULT_SORT, classicIdentityLabel, classicVisibleEvents, classicVisibleReadyIds, groupClassicActionRows, type ClassicActionRow, type ClassicStatus } from './corporateActionClassicModel';
+import { CLASSIC_ACTION_TYPES, CLASSIC_DEFAULT_SORT, classicIdentityLabel, classicVisibleEvents, classicVisibleReadyIds, groupClassicActionRows, type ClassicActionRow, type ClassicStatusFilter, isClassicIssue } from './corporateActionClassicModel';
 import './corporateActionClassicWorkspace.css';
 
 export interface ClassicMenuItem { label: string; onClick: () => void; disabled?: boolean }
@@ -133,7 +133,7 @@ function ClassicProgress({ progress }: { progress: NonNullable<CorporateActionCl
   return <span>{Math.floor(seconds/60)}m {seconds%60}s · {progress.completed}/{progress.total??'…'}</span>;
 }
 export function CorporateActionClassicWorkspace(p: CorporateActionClassicWorkspaceProps) {
-  const [statusFilter, setStatusFilter] = useState<ClassicStatus | 'all'>('all');
+  const [statusFilter, setStatusFilter] = useState<ClassicStatusFilter>(p.approved ? 'all' : 'ready');
   const [tableExchange, setTableExchange] = useState<'all' | 'NSE' | 'BSE'>('all');
   const [sort, setSort] = useState<{column: typeof columns[number][0]; descending: boolean}>(CLASSIC_DEFAULT_SORT);
   const [focusedId, setFocusedId] = useState<number | null>(null);
@@ -148,6 +148,7 @@ export function CorporateActionClassicWorkspace(p: CorporateActionClassicWorkspa
   const events = useMemo(() => groupClassicActionRows(p.rows), [p.rows]);
   const visible = useMemo(() => classicVisibleEvents(events,statusFilter,sort,p.search,tableExchange),[events,statusFilter,sort,p.search,tableExchange]);
   const readyIds = useMemo(() => classicVisibleReadyIds(visible),[visible]);
+  const issueCount = useMemo(() => events.filter(isClassicIssue).length, [events]);
   const selected = readyIds.filter(id => p.selectedIds.has(id));
   const focused = visible.find(event => event.key === focusedId) ?? visible[0];
   const start = Math.max(0, Math.min(visible.length - 1, Math.floor(scrollTop / rowHeight) - 8));
@@ -159,7 +160,7 @@ export function CorporateActionClassicWorkspace(p: CorporateActionClassicWorkspa
     observer.observe(element); return () => observer.disconnect();
   }, []);
   useEffect(() => { if (scrollRef.current) scrollRef.current.scrollTop=0; setScrollTop(0); },[statusFilter,tableExchange,sort,p.search,p.types,p.approved]);
-  useEffect(()=>{setStatusFilter('all');},[p.approved,p.filterResetKey]);
+  useEffect(()=>{setStatusFilter(p.approved ? 'all' : 'ready');},[p.approved,p.filterResetKey]);
   useEffect(()=>{setSort(CLASSIC_DEFAULT_SORT);},[p.filterResetKey]);
   useEffect(()=>{setTableExchange('all');},[p.filterResetKey]);
   const dateFields = <><span title="These dates limit official source collection. Load & Validate checks all outstanding pending dates.">Fetch dates only:</span>
@@ -198,8 +199,8 @@ export function CorporateActionClassicWorkspace(p: CorporateActionClassicWorkspa
         onChange={event=>{p.onFilterChange();setTableExchange(event.target.value as 'all'|'NSE'|'BSE');}}>
         <option value="all">All exchanges</option><option value="NSE">NSE</option><option value="BSE">BSE</option>
       </select></label>
-      <label>Status:<select aria-label="Action status" value={statusFilter} onChange={event=>{p.onFilterChange();setStatusFilter(event.target.value as ClassicStatus|'all');}}>
-        <option value="all">All</option><option value="ready">Ready</option><option value="waiting">Waiting for evidence/data</option><option value="review">Needs review</option>
+      <label>Status:<select aria-label="Action status" value={statusFilter} onChange={event=>{p.onFilterChange();setStatusFilter(event.target.value as ClassicStatusFilter);}}>
+        <option value="ready">Ready</option><option value="issues">Issues ({issueCount})</option><option value="all">All (diagnostics)</option><option value="waiting">Waiting for evidence/data</option><option value="review">Needs review</option>
         <option value="checking">Not validated / checking</option><option value="informational">Informational</option><option value="approved">Approved</option><option value="processed">Already Processed</option>
       </select></label>
       <div className="ca-classic-search-box">
@@ -255,7 +256,7 @@ export function CorporateActionClassicWorkspace(p: CorporateActionClassicWorkspa
             {end<visible.length?<tr aria-hidden="true"><td colSpan={columns.length+1} style={{height:(visible.length-end)*rowHeight,padding:0,border:0}} /></tr>:null}
           </tbody>
         </table>
-        {!visible.length?<p className="ca-classic-empty" role="status">{p.search.trim()?'No matching events. Clear search or adjust the filters.':p.busy?'Checking corporate actions…':p.loadedCount?'No actions match these filters.':'Fetch official actions, then choose Load & Validate.'}</p>:null}
+        {!visible.length?<p className="ca-classic-empty" role="status">{p.search.trim()?'No matching events. Clear search or adjust the filters.':p.busy?'Checking corporate actions…':p.loadedCount?(statusFilter === 'ready' ? 'No Ready actions. Open Issues to see what is still blocked.' : 'No actions match these filters.'):'Fetch official actions, then choose Load & Validate.'}</p>:null}
       </div>
       {detailsOpen && viewport.width>=1100?<aside className="ca-classic-inspector"><header><strong>Action details</strong><button type="button" onClick={()=>setDetailsOpen(false)}>Close</button></header>{details}</aside>:null}
     </div>
