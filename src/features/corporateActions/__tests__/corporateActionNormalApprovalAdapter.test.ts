@@ -73,7 +73,33 @@ function createApi(initialPending: CorporateActionImportRow[], initialApproved: 
       return rows.slice(0, input?.limit ?? rows.length);
     }),
     listCorporateActionScanResults: vi.fn(async () => ({ scanRun: null, results: [] })),
-    runCorporateActionScan: vi.fn(async () => ({ scanRun: null, results: [] })),
+    runCorporateActionScan: vi.fn(async (input) => ({
+      scanRun: null,
+      results: (input?.importIds ?? []).flatMap((importId) => {
+        const candidate = pending.find((item) => item.id === importId);
+        if (!candidate?.symbol) return [];
+        return [{
+          id: importId,
+          scanRunId: 1,
+          corporateActionImportId: importId,
+          corporateActionId: null,
+          symbol: candidate.symbol,
+          exchange: candidate.exchange,
+          scanStatus: 'REVIEW',
+          prevTradeDate: '2026-08-31',
+          exTradeDate: '2026-09-01',
+          prevClose: 100,
+          exOpen: 98,
+          exClose: 99,
+          expectedFactor: null,
+          actualOpenFactor: null,
+          actualCloseFactor: null,
+          confidence: null,
+          message: 'Local EOD availability evidence only',
+          scannedAt: '2026-09-02T00:00:00Z',
+        }];
+      }),
+    })),
     listCorporateActionImportResolutionHints: vi.fn(async () => ({ requested: 0, hints: [], message: '' })),
     listCorporateActionEventIdentities: vi.fn(async (input: CorporateActionEventIdentityListInput) => ({
       requested: input.importIds.length,
