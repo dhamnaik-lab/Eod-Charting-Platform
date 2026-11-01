@@ -113,19 +113,22 @@ describe('Corporate Action pending preparation', () => {
       listCorporateActionImports: vi.fn().mockResolvedValueOnce([legacy]).mockResolvedValueOnce([]),
       refreshCorporateActionImportClassifications: vi.fn(async () => [refreshed]),
       listCorporateActionImportResolutionHints: vi.fn(), quickResolveCorporateActionImport: vi.fn(),
-      runCorporateActionScan: vi.fn(), autoApproveCorporateActionImports: vi.fn(),getSetting:vi.fn(),
+      runCorporateActionScan: vi.fn(async () => ({ scanRun: null, results: [] })), autoApproveCorporateActionImports: vi.fn(),getSetting:vi.fn(),
     };
     const result = await prepareCorporateActionPendingImports({api,expectedDatabasePath:'E:/TEST-ONLY',explicitApprovalOnly:true});
     expect(api.refreshCorporateActionImportClassifications).toHaveBeenCalledWith({importIds:[91],expectedDatabasePath:'E:/TEST-ONLY'});
     expect(result.rows).toEqual([refreshed]);
     expect(result.complete).toBe(true);
-    expect(api.runCorporateActionScan).not.toHaveBeenCalled();
+    expect(api.runCorporateActionScan).toHaveBeenCalledExactlyOnceWith({ scope: 'official_imports', importIds: [91] });
+    expect(result.validationImportIds).toEqual([91]);
+    expect(result.validationRows).toEqual([]);
     expect(api.autoApproveCorporateActionImports).not.toHaveBeenCalled();
     api.listCorporateActionImports.mockReset().mockResolvedValueOnce([legacy]);
     api.refreshCorporateActionImportClassifications.mockResolvedValueOnce([]);
     const incomplete = await prepareCorporateActionPendingImports({api,expectedDatabasePath:'E:/TEST-ONLY',explicitApprovalOnly:true});
     expect(incomplete.complete).toBe(false);
     expect(incomplete.errors[0]?.message).toContain('incomplete scope');
+    expect(api.runCorporateActionScan).toHaveBeenCalledTimes(1);
     expect(api.quickResolveCorporateActionImport).not.toHaveBeenCalled();
   });
   it('rechecks dividend EOD scan identity and readiness before explicit operator approval', async () => {

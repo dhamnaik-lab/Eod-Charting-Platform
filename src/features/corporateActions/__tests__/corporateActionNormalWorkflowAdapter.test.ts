@@ -296,7 +296,7 @@ describe('Corporate Action normal Fetch + Load adapter', () => {
     api.listCorporateActionImports = vi.fn(async () => [dividend, rights, upcoming]);
     api.runCorporateActionScan = vi.fn(async (input) => ({
       scanRun: null,
-      results: (input?.importIds ?? []).filter((id) => id !== 3).map((id) =>
+      results: (input?.importIds ?? []).filter((id: number) => id !== 3).map((id: number) =>
         scan(id === 1 ? dividend : rights, 'REVIEW')),
     }));
 
