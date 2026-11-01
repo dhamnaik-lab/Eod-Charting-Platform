@@ -64,7 +64,9 @@ pub async fn apply_corporate_action(
             super::connection_registry::open_connection_for_folder(&folder_path, false)?;
 
         // 2. Perform the heavy SQLite work
-        let result = apply_corporate_action_internal(&connection, &input, Some(&folder_path))?;
+        let result = run_connection_transaction(&connection, |connection| {
+            apply_corporate_action_internal(connection, &input, Some(&folder_path))
+        })?;
 
         // 3. Invalidate the stats cache since we just modified data
         super::connection_registry::invalidate_cached_db_stats(&app_handle, &folder_path)?;
@@ -600,6 +602,43 @@ fn record_price_adjustment_action_with_basis(
 
     if duplicate.is_some() {
         return Err("This corporate action already exists.".to_string());
+    }
+
+    // The same economic Split/Bonus can arrive as share-ratio terms or as a
+    // face-value conversion. These differ in SQL columns, but must not create
+    // two independent adjustment multipliers for the same event/date.
+    if matches!(action_type, "SPLIT" | "BONUS") {
+        let mut statement = connection
+            .prepare(
+                "SELECT id, factor FROM corporate_actions
+                 WHERE exchange = ? AND effective_date = ? AND action_type = ?
+                   AND (symbol = ? OR (? IS NOT NULL AND isin = ?))",
+            )
+            .map_err(|error| error.to_string())?;
+        let prior = statement
+            .query_map(
+                params![
+                    exchange.as_str(),
+                    effective_date.as_str(),
+                    action_type,
+                    context.current_symbol.as_str(),
+                    context.isin.as_deref(),
+                    context.isin.as_deref(),
+                ],
+                |row| Ok((row.get::<_, i64>(0)?, row.get::<_, f64>(1)?)),
+            )
+            .map_err(|error| error.to_string())?
+            .collect::<rusqlite::Result<Vec<_>>>()
+            .map_err(|error| error.to_string())?;
+        if let Some((id, _)) = prior.into_iter().find(|(_, stored_factor)| {
+            stored_factor.is_finite()
+                && (stored_factor - factor).abs() <=
+                    1e-9_f64 * stored_factor.abs().max(factor.abs()).max(1.0)
+        }) {
+            return Err(format!(
+                "An economically equivalent {action_type} corporate action already exists (id {id}); a second adjustment is blocked."
+            ));
+        }
     }
 
     connection
@@ -1735,6 +1774,84 @@ fn load_previous_trade_close(
 mod tests {
     use super::*;
     use crate::database::prepare_database_connection;
+
+
+    #[test]
+    fn ca_financial_integrity_equivalent_split_ratio_and_face_value_cannot_double_adjust() {
+        let connection = Connection::open_in_memory().unwrap();
+        prepare_database_connection(&connection).unwrap();
+        connection.execute(
+            "INSERT INTO instruments (symbol, exchange, isin, name, is_active, series)
+             VALUES ('EQUIV', 'NSE', 'INE000A00011', 'Equivalent Test', 1, 'EQ')", [],
+        ).unwrap();
+        let mut input = CorporateActionInputPayload {
+            action_type: "SPLIT".to_string(),
+            exchange: "NSE".to_string(),
+            effective_date: "2026-06-12".to_string(),
+            symbol: Some("EQUIV".to_string()),
+            isin: Some("INE000A00011".to_string()),
+            record_date: None,
+            ratio_num: Some(2.0),
+            ratio_den: Some(1.0),
+            old_face_value: None,
+            new_face_value: None,
+            cash_amount: None,
+            adjust_volume: Some(true),
+            old_symbol: None,
+            old_name: None,
+            new_symbol: None,
+            new_name: None,
+            current_symbol: Some("EQUIV".to_string()),
+            current_name: None,
+            note: Some("Split 2:1".to_string()),
+            source: Some("MANUAL".to_string()),
+            source_ref: None,
+        };
+        apply_corporate_action_internal(&connection, &input, None).unwrap();
+        input.ratio_num = None;
+        input.ratio_den = None;
+        input.old_face_value = Some(10.0);
+        input.new_face_value = Some(5.0);
+        let error = apply_corporate_action_internal(&connection, &input, None).unwrap_err();
+        assert!(error.contains("economically equivalent"), "{error}");
+        let count: i64 = connection.query_row(
+            "SELECT COUNT(*) FROM corporate_actions WHERE symbol='EQUIV'", [], |row| row.get(0),
+        ).unwrap();
+        assert_eq!(count, 1);
+    }
+
+    #[test]
+    fn ca_financial_integrity_manual_action_and_isin_evidence_roll_back_together() {
+        let connection = Connection::open_in_memory().unwrap();
+        prepare_database_connection(&connection).unwrap();
+        connection.execute(
+            "INSERT INTO instruments (symbol, exchange, isin, name, is_active, series)
+             VALUES ('TXCA', 'NSE', 'INE000A00022', 'Rollback Test', 1, 'EQ')", [],
+        ).unwrap();
+        connection.execute_batch(
+            "CREATE TRIGGER ca_fail_isin_proof BEFORE INSERT ON instrument_isin_history
+             WHEN NEW.symbol='TXCA'
+             BEGIN SELECT RAISE(FAIL, 'injected CA ISIN evidence error'); END;",
+        ).unwrap();
+        let input = CorporateActionInputPayload {
+            action_type: "BONUS".to_string(), exchange: "NSE".to_string(),
+            effective_date: "2026-06-12".to_string(), symbol: Some("TXCA".to_string()),
+            isin: Some("INE000A00022".to_string()), record_date: None,
+            ratio_num: Some(1.0), ratio_den: Some(2.0), old_face_value: None,
+            new_face_value: None, cash_amount: None, adjust_volume: Some(true),
+            old_symbol: None, old_name: None, new_symbol: None, new_name: None,
+            current_symbol: Some("TXCA".to_string()), current_name: None,
+            note: None, source: Some("MANUAL".to_string()), source_ref: None,
+        };
+        let error = run_connection_transaction(&connection, |connection| {
+            apply_corporate_action_internal(connection, &input, None)
+        }).unwrap_err();
+        assert!(error.contains("injected CA ISIN evidence error"), "{error}");
+        let count: i64 = connection.query_row(
+            "SELECT COUNT(*) FROM corporate_actions WHERE symbol='TXCA'", [], |row| row.get(0),
+        ).unwrap();
+        assert_eq!(count, 0);
+    }
 
     #[test]
     fn dividend_basis_shared_seam_preserves_factor_math_and_trade_date() {
