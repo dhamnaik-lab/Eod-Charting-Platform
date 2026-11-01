@@ -248,7 +248,7 @@ describe('Corporate Action normal Fetch + Load adapter', () => {
       expect.objectContaining({ limit: 2000, excludeApproved: true }),
     );
     expect(result.rows).toBe(finalRows);
-    expect(result.counts).toEqual({ loaded: 1200, ready: 1200, needsReview: 0, conflicts: 0 });
+    expect(result.counts).toEqual({ loaded: 1200, ready: 0, needsReview: 1200, conflicts: 0 });
   });
 
   it('runs only eligible Split/Bonus price validation in the existing 500-id batches', async () => {
@@ -286,6 +286,26 @@ describe('Corporate Action normal Fetch + Load adapter', () => {
     expect(result.scanRows).toHaveLength(502);
     expect(result.counts.ready).toBe(502);
     expect(result.counts.needsReview).toBe(1);
+  });
+
+  it('scans Dividend/Rights for local EOD readiness without requiring imported factors', async () => {
+    const dividend = row(1, { actionType: 'DIVIDEND', factor: null, priceFactor: null });
+    const rights = row(2, { actionType: 'RIGHTS', factor: null, priceFactor: null });
+    const upcoming = row(3, { actionType: 'DIVIDEND', exDate: '2099-12-31', factor: null });
+    const api = apiBase();
+    api.listCorporateActionImports = vi.fn(async () => [dividend, rights, upcoming]);
+    api.runCorporateActionScan = vi.fn(async (input) => ({
+      scanRun: null,
+      results: (input?.importIds ?? []).filter((id) => id !== 3).map((id) =>
+        scan(id === 1 ? dividend : rights, 'REVIEW')),
+    }));
+
+    const result = await loadCorporateActionNormalData({ api });
+    expect(api.runCorporateActionScan).toHaveBeenCalledWith({
+      scope: 'official_imports', importIds: [1, 2, 3],
+    });
+    expect(result.validatedImportIds).toEqual([1, 2, 3]);
+    expect(result.counts).toEqual({ loaded: 3, ready: 2, needsReview: 1, conflicts: 0 });
   });
 
   it('checks strict ISIN-review recommendations without approving or resolving them', async () => {
@@ -347,7 +367,7 @@ describe('Corporate Action normal Fetch + Load adapter', () => {
           scan(splitConflict, 'MISMATCH'),
         ],
       ),
-    ).toEqual({ loaded: 7, ready: 2, needsReview: 3, conflicts: 2 });
+    ).toEqual({ loaded: 7, ready: 1, needsReview: 4, conflicts: 2 });
   });
 
   it('uses the Task 2 workflow model for Fetch retry, Load resume, and Review handoff', () => {
