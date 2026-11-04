@@ -1,0 +1,7 @@
+# Files pasted by the user:
+
+## "PS E:\\TA Projects\\EOD Charting Platform> npm run tauri:portable:win > eod-chart…": C:\Users\dharm\.codex/attachments/ae015093-7f5b-412e-bf5b-1394d87c0e61/Pasted text.txt
+
+## My request:
+Do not update. Review Only.
+It's about build warning.

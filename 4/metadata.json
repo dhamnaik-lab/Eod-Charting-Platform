@@ -1,0 +1,42 @@
+{
+  "cli_version": "0.12.2",
+  "checkpoint_id": "01M6K165Z6B43RTZA19PD354PM",
+  "session_id": "01a1a514-7ad7-7f12-8551-e65c4bb31e79",
+  "strategy": "manual-commit",
+  "created_at": "2026-11-04T10:20:51.6786Z",
+  "branch": "main",
+  "checkpoints_count": 1,
+  "save_step_count": 1,
+  "files_touched": [
+    "docs/evidence/2026-10-29-chart-native/adj-capital-wipro.png",
+    "docs/evidence/2026-10-29-chart-native/adj-raw-wipro.png",
+    "docs/evidence/2026-10-29-chart-native/daily-quarter-wipro.png",
+    "docs/evidence/2026-10-29-chart-native/monthly-half-year-wipro.png",
+    "docs/evidence/2026-10-29-chart-native/monthly-quarter-nifty.png",
+    "docs/evidence/2026-10-29-chart-native/monthly-quarter-wipro.png",
+    "docs/evidence/2026-10-29-chart-native/startup-settled.png",
+    "docs/evidence/2026-10-29-chart-native/weekly-half-year-wipro.png",
+    "docs/evidence/2026-10-29-chart-native/yearly-nifty.png"
+  ],
+  "agent": "Codex",
+  "model": "gpt-6.1-sol",
+  "turn_id": "6bc3295b52cc",
+  "compact_transcript_start": 0,
+  "redaction": {
+    "replacements": 14,
+    "layers": {
+      "betterleaks": 0,
+      "connection_string": 0,
+      "credential_key": 0,
+      "credential_value": 0,
+      "credentialed_uri": 0,
+      "entropy": 14,
+      "key_context": 0,
+      "provider_token": 0,
+      "shell_stdin": 0
+    }
+  },
+  "session_metrics": {
+    "turn_count": 1
+  }
+}
