@@ -3,7 +3,7 @@
   "checkpoint_id": "01M6K165Z6B43RTZA19PD354PM",
   "strategy": "manual-commit",
   "branch": "main",
-  "checkpoints_count": 52,
+  "checkpoints_count": 66,
   "files_touched": [
     "docs/changes/2026-10-28-identity-import-redesign/identity-tests.json",
     "docs/changes/2026-10-28-identity-import-redesign/implementation-evidence.json",
@@ -94,17 +94,24 @@
       "compact_transcript": "/2/transcript.jsonl",
       "content_hash": "/2/content_hash.txt",
       "prompt": "/2/prompt.txt"
+    },
+    {
+      "metadata": "/3/metadata.json",
+      "transcript": "/3/full.jsonl",
+      "compact_transcript": "/3/transcript.jsonl",
+      "content_hash": "/3/content_hash.txt",
+      "prompt": "/3/prompt.txt"
     }
   ],
   "redaction": {
-    "replacements": 99389,
+    "replacements": 99407,
     "layers": {
       "betterleaks": 5,
       "connection_string": 0,
       "credential_key": 0,
       "credential_value": 10,
       "credentialed_uri": 0,
-      "entropy": 100068,
+      "entropy": 100086,
       "key_context": 0,
       "provider_token": 0,
       "shell_stdin": 0
