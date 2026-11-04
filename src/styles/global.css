@@ -316,11 +316,8 @@ textarea {
   font-weight: 500;
 }
 
-/* Suppress outline for sidebar row buttons and pointer interactions */
-aside button,
-aside button:focus,
-aside button:focus-visible,
-aside button:active,
+/* Suppress pointer outlines, but retain visible keyboard focus on every theme. */
+aside button:not(:focus-visible),
 button:not(:focus-visible) {
   outline: none !important;
   box-shadow: none !important;

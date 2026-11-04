@@ -253,10 +253,6 @@ export function CommandPalette() {
     if (e.key === 'Escape') {
       e.preventDefault();
       setOpen(false);
-    } else if (e.key === 'Tab' && isSymbolMode) {
-      e.preventDefault();
-      setExchangeFilter((prev) => (prev === 'all' ? 'NSE' : prev === 'NSE' ? 'BSE' : 'all'));
-      setSelectedIndex(0);
     } else if (e.key === 'ArrowDown') {
       e.preventDefault();
       setSelectedIndex((prev) => Math.min(prev + 1, Math.max(0, allResults.length - 1)));
@@ -345,6 +341,7 @@ export function CommandPalette() {
               setSelectedIndex(0);
             }}
             onKeyDown={handleInputKeyDown}
+            aria-label={isSymbolMode ? 'Search symbols' : 'Search symbols and commands'}
             placeholder={
               isSymbolMode
                 ? 'Type symbol ticker or company name... (e.g. RELIANCE, TCS, INFY)'
@@ -445,7 +442,7 @@ export function CommandPalette() {
         {/* Footer Bar */}
         <div style={footerStyle}>
           <div style={footerShortcutsStyle}>
-            {isSymbolMode ? <span><kbd style={kbdStyle}>Tab</kbd> Filter Exchange</span> : null}
+            {isSymbolMode ? <span>Exchange: choose a filter button</span> : null}
             <span><kbd style={kbdStyle}>↑</kbd><kbd style={kbdStyle}>↓</kbd> Navigate</span>
             <span><kbd style={kbdStyle}>↵</kbd> Select</span>
             <span><kbd style={kbdStyle}>Esc</kbd> Close</span>

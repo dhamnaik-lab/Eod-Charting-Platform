@@ -82,7 +82,7 @@ export function StatusBar() {
 
         <span style={badgeStyle}>
           <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--text)' }}>
-            {clock.toLocaleTimeString('en-IN', { hour12: false })}
+            {clock.toLocaleTimeString('en-IN', { hour12: false, timeZone: 'Asia/Kolkata' })}
           </span>
           <span style={{ fontSize: 9.5, color: 'var(--text-mute)', fontWeight: 600 }}>IST</span>
         </span>

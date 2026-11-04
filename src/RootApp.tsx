@@ -212,6 +212,13 @@ export default function RootApp() {
 
   useEffect(() => {
     const suppressContextMenu = (event: MouseEvent) => {
+      const target = event.target;
+      if (
+        target instanceof HTMLElement &&
+        (target.isContentEditable || Boolean(target.closest('input, textarea, select, [contenteditable="true"]')))
+      ) {
+        return; // Preserve native Copy/Paste/Select All in editable controls.
+      }
       event.preventDefault();
     };
 
