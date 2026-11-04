@@ -15,6 +15,7 @@ const LOCAL_TZ_LABEL = (() => {
 })();
 import { shallow } from 'zustand/shallow';
 import { getDesktopApi, type InstrumentSummary, type SymbolExchangeFilter, type Watchlist } from '@/platform';
+import { getSymbolFilterVisibility } from '@/features/watchlists/symbolFilterVisibility';
 import { INDICATOR_CATALOG, INDICATOR_SUBCATEGORIES, getIndicatorSubcategory } from '@/indicators/catalog';
 import { WatchlistNameDialog } from '@/components/WatchlistDialogs';
 import { findSelectedWatchlist } from '@/features/watchlists/watchlistNavigationService';
@@ -416,6 +417,10 @@ export function Sidebar({ width, collapsed, pinned, onToggleCollapse, onTogglePi
     [lifecycleFilteredSymbolBrowserItems, selectedSeriesFilters],
   );
   const symbolFiltersActive = selectedSeriesFilters.length > 0 || selectedLifecycleFilters.length > 0;
+  const filterVisibility = getSymbolFilterVisibility(
+    exchangeScopedSymbolBrowserItems.length,
+    filteredSymbolBrowserItems.length,
+  );
   const displaySymbolBrowserItems = useMemo(
     () => orderSymbolBrowserItems(filteredSymbolBrowserItems, symbolExchangeFilter),
     [filteredSymbolBrowserItems, symbolExchangeFilter],
@@ -1531,7 +1536,7 @@ export function Sidebar({ width, collapsed, pinned, onToggleCollapse, onTogglePi
               <span>
                 {activeDatabasePath && (isSymbolBrowserLoading || symbolBrowserLoadedDatabasePath !== activeDatabasePath)
                   ? 'Loading...'
-                  : formatSymbolBrowserCount(symbolBrowserCounts, symbolExchangeFilter)}
+                  : `${formatSymbolBrowserCount(symbolBrowserCounts, symbolExchangeFilter)}${filterVisibility.hiddenCount > 0 ? ` · ${filterVisibility.hiddenCount} hidden` : ''}`}
               </span>
             </div>
             <div style={listFrameStyle}>
@@ -1655,7 +1660,20 @@ export function Sidebar({ width, collapsed, pinned, onToggleCollapse, onTogglePi
                           ? 'Opening database...'
                           : isSymbolBrowserLoading || symbolBrowserLoadedDatabasePath !== activeDatabasePath
                             ? 'Loading symbols...'
-                            : 'No symbols available.'}
+                            : filterVisibility.allLoadedSymbolsFilteredOut
+                              ? (
+                                <>
+                                  <div>Loaded symbols are hidden by the current Visibility/Series filters.</div>
+                                  <button
+                                    type="button"
+                                    style={{ ...seriesFilterClearStyle, marginTop: 6 }}
+                                    onClick={() => setSeriesFilterOpen(true)}
+                                  >
+                                    Adjust filters
+                                  </button>
+                                </>
+                              )
+                              : 'No symbols available.'}
                     </div>
                   )}
                 </div>
