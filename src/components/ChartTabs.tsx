@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useChartStore } from '@/store/chartStore';
+import { clampChartTabContextMenuPosition } from '@/features/charts/chartTabContextMenuLayout';
 
 interface TabContextMenuState {
   tabId: string;
@@ -42,7 +43,10 @@ export function ChartTabs() {
               onContextMenu={(event) => {
                 event.preventDefault();
                 activateChartTab(tab.id);
-                setContextMenu({ tabId: tab.id, x: event.clientX, y: event.clientY });
+                setContextMenu({
+                  tabId: tab.id,
+                  ...clampChartTabContextMenuPosition(event.clientX, event.clientY, window.innerWidth, window.innerHeight),
+                });
               }}
               role="button"
               tabIndex={0}
@@ -62,6 +66,7 @@ export function ChartTabs() {
                   closeChartTab(tab.id);
                 }}
                 title="Close tab"
+                aria-label={`Close chart tab ${tab.title}`}
               >
                 x
               </button>
@@ -73,6 +78,7 @@ export function ChartTabs() {
           style={newTabButtonStyle}
           onClick={() => createChartTab()}
           title="New chart tab"
+          aria-label="New chart tab"
         >
           +
         </button>
@@ -118,11 +124,11 @@ function tabContainerStyle(active: boolean): React.CSSProperties {
   return {
     display: 'flex',
     alignItems: 'center',
-    gap: 8,
+    gap: 6,
     minWidth: 90,
     maxWidth: 140,
     height: 26,
-    padding: '0 10px',
+    padding: '0 8px',
     background: active ? 'var(--bg)' : 'var(--bg2)',
     border: '1px solid var(--border)',
     borderBottom: active ? '1px solid var(--bg)' : '1px solid transparent',
@@ -146,8 +152,8 @@ function tabLabelStyle(active: boolean): React.CSSProperties {
 }
 
 const closeTabButtonStyle: React.CSSProperties = {
-  width: 16,
-  height: 16,
+  width: 22,
+  height: 22,
   border: 'none',
   background: 'transparent',
   color: 'var(--text-mute)',
