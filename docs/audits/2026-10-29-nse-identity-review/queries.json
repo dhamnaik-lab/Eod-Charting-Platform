@@ -1,4 +1,0 @@
-[
-  "SELECT symbol,exchange,isin,name,series,is_active,lifecycle_status,updated_at FROM instruments WHERE exchange='NSE'",
-  "SELECT * FROM instrument_identity_history WHERE exchange='NSE'"
-]
