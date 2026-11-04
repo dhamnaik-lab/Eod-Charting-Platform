@@ -21,7 +21,7 @@ describe('chart tab context menu layout', () => {
   });
 
   it('preserves existing tab geometry while making close controls easier to hit', () => {
-    const source = readFileSync(resolve(process.cwd(), 'src/components/ChartTabs.tsx'), 'utf8');
+    const source = readFileSync(resolve(process.cwd(), 'src/components/ChartTabs.tsx'), 'utf8').replace(/\r\n?/g, '\n');
     expect(source).toContain('clampChartTabContextMenuPosition(event.clientX, event.clientY, window.innerWidth, window.innerHeight)');
     expect(source).toContain('width: 22,\n  height: 22,');
     expect(source).toContain('gap: 6,\n    minWidth: 90,');
