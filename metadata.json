@@ -3,7 +3,7 @@
   "checkpoint_id": "01M6K0KTWEXF3SQSXYAYSS7Q8R",
   "strategy": "manual-commit",
   "branch": "main",
-  "checkpoints_count": 46,
+  "checkpoints_count": 56,
   "files_touched": [
     "ARCHITECTURE_CURRENT_EOD_CHARTING_PLATFORM.md",
     "FEATURE_STATUS_MATRIX_EOD_CHARTING_PLATFORM.md",
@@ -28,25 +28,32 @@
       "compact_transcript": "/1/transcript.jsonl",
       "content_hash": "/1/content_hash.txt",
       "prompt": "/1/prompt.txt"
+    },
+    {
+      "metadata": "/2/metadata.json",
+      "transcript": "/2/full.jsonl",
+      "compact_transcript": "/2/transcript.jsonl",
+      "content_hash": "/2/content_hash.txt",
+      "prompt": "/2/prompt.txt"
     }
   ],
   "token_usage": {
-    "input_tokens": 1151405,
+    "input_tokens": 1472699,
     "cache_creation_tokens": 0,
-    "cache_read_tokens": 49674752,
-    "output_tokens": 175593,
-    "api_call_count": 266,
+    "cache_read_tokens": 64771328,
+    "output_tokens": 258325,
+    "api_call_count": 384,
     "subagent_tokens_complete": true
   },
   "redaction": {
-    "replacements": 136780,
+    "replacements": 163408,
     "layers": {
-      "betterleaks": 5,
+      "betterleaks": 6,
       "connection_string": 0,
       "credential_key": 0,
       "credential_value": 10,
       "credentialed_uri": 0,
-      "entropy": 137456,
+      "entropy": 164092,
       "key_context": 0,
       "provider_token": 0,
       "shell_stdin": 0
