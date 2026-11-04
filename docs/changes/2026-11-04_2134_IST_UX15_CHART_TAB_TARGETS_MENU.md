@@ -47,3 +47,11 @@ The original `main` SHA remains untouched. Close the unmerged draft PR to discar
 
 ## Deferred acceptance
 Run `npm run test -- src/features/charts/__tests__/chartTabContextMenuLayout.test.ts`, relevant chart-tab regression suites, `npm run typecheck:renderer`, `npm run build:renderer`, then Windows manual checks at 960×640/1920×1080 and 100–200% display scaling. Test new/close/duplicate, keyboard activation, tab overflow/scroll, context menu at all four edges and no unintended chart state changes.
+
+## Validation update — 2026-11-04 23:55 IST
+
+The user's first isolated Windows integration run (`EOD_UI8_Validation_20261104_234817_IST`) completed `npm ci` (exit 0; `esbuild@0.25.12` install-script warning) and attempted all eight focused Vitest suites. Actual result: **30 passed, 1 failed**. The failure was the UX-15 source-text assertion looking for `width: 22,\n  height: 22,` using literal LF, whereas the Windows checkout appears to contain CRLF. GitHub's `ChartTabs.tsx` source retains the intended 22×22 values. A simulated CRLF checkout reproduces this exact string mismatch; normalizing CRLF/CR to LF resolves the three multiline source-text expectations without weakening them.
+
+**Correction:** `chartTabContextMenuLayout.test.ts` now normalizes line endings on the source string before running the same style/geometry assertions. No product code or chart dimensions changed. This is a test-only portability repair. GitHub source verification: **PASS**. **Rerun after correction: NOT YET EXECUTED**; typecheck, build, visual checks **NOT RUN** because the initial runner stopped at focused tests.
+
+**Rollback:** Revert this test-only commit through the draft PR, or close the draft PR. The original `main` remains unchanged.
