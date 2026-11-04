@@ -1,6 +1,7 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { getDesktopApi } from '@/platform';
 import { useChartStore } from '@/store/chartStore';
+import { deleteDatabasesSequentially, type DatabaseDeletionFailure } from '@/features/workspace/databaseDeletionFeedbackService';
 
 interface DeleteDatabaseDialogProps {
   onClose: () => void;
@@ -13,10 +14,18 @@ export function DeleteDatabaseDialog({ onClose }: DeleteDatabaseDialogProps) {
   const [selectedDatabases, setSelectedDatabases] = useState<Set<string>>(new Set());
   const [confirmText, setConfirmText] = useState('');
   const [isDeleting, setIsDeleting] = useState(false);
+  const deletionInFlightRef = useRef(false);
+  const [deletedPaths, setDeletedPaths] = useState<Set<string>>(new Set());
+  const [failure, setFailure] = useState<DatabaseDeletionFailure | null>(null);
 
   const knownDatabases = snapshot?.knownDatabases ?? [];
+  const pendingPaths = [...selectedDatabases].filter((path) => !deletedPaths.has(path));
+  const requestClose = () => {
+    if (!deletionInFlightRef.current) onClose();
+  };
 
   const toggleDatabase = (path: string) => {
+    if (deletionInFlightRef.current || deletedPaths.has(path)) return;
     setSelectedDatabases((prev) => {
       const next = new Set(prev);
       if (next.has(path)) {
@@ -29,21 +38,30 @@ export function DeleteDatabaseDialog({ onClose }: DeleteDatabaseDialogProps) {
   };
 
   const handleDelete = async () => {
-    if (!api || selectedDatabases.size === 0) return;
-    if (confirmText !== 'DELETE') return;
+    if (deletionInFlightRef.current || !api || pendingPaths.length === 0 || confirmText !== 'DELETE') return;
 
+    deletionInFlightRef.current = true;
     setIsDeleting(true);
+    setFailure(null);
     try {
-      for (const dbPath of selectedDatabases) {
-        await api.deleteDatabase(dbPath);
-        if (snapshot?.activeDatabasePath === dbPath) {
-          closeDatabase();
-        }
+      const result = await deleteDatabasesSequentially(
+        pendingPaths,
+        (dbPath) => api.deleteDatabase(dbPath),
+        (dbPath) => {
+          setDeletedPaths((prev) => new Set(prev).add(dbPath));
+          if (snapshot?.activeDatabasePath === dbPath) {
+            void closeDatabase();
+          }
+        },
+      );
+      if (result.failure) {
+        setFailure(result.failure);
+        setConfirmText(''); // Require deliberate confirmation before retrying remaining paths.
+        return;
       }
       onClose();
-    } catch (error) {
-      console.error('Failed to delete databases:', error);
     } finally {
+      deletionInFlightRef.current = false;
       setIsDeleting(false);
     }
   };
@@ -53,7 +71,7 @@ export function DeleteDatabaseDialog({ onClose }: DeleteDatabaseDialogProps) {
       <div style={windowStyle}>
         <div style={headerStyle}>
           <h2 style={titleStyle}>Delete Databases</h2>
-          <button style={closeButtonStyle} onClick={onClose}>×</button>
+          <button style={closeButtonStyle} onClick={requestClose} disabled={isDeleting} aria-label="Close Delete Databases">×</button>
         </div>
 
         <div style={contentStyle}>
@@ -71,21 +89,37 @@ export function DeleteDatabaseDialog({ onClose }: DeleteDatabaseDialogProps) {
                     type="checkbox"
                     checked={selectedDatabases.has(db.path)}
                     onChange={() => toggleDatabase(db.path)}
+                    disabled={isDeleting || deletedPaths.has(db.path)}
                     style={checkboxStyle}
                   />
                   <div style={itemContentStyle}>
                     <div style={itemNameStyle}>{db.label}</div>
                     <div style={itemPathStyle}>{db.path}</div>
+                    {deletedPaths.has(db.path) ? <div style={successStyle}>Deleted — not eligible for retry</div> : null}
                   </div>
                 </label>
               ))
             )}
           </div>
 
-          {selectedDatabases.size > 0 && (
+          {deletedPaths.size > 0 ? (
+            <div style={successStyle} role="status" aria-live="polite">
+              Deleted {deletedPaths.size} database(s). Completed deletions will not be retried.
+            </div>
+          ) : null}
+
+          {failure ? (
+            <div style={failureStyle} role="alert">
+              <strong>Deletion stopped at {knownDatabases.find((db) => db.path === failure.path)?.label ?? failure.path}.</strong>
+              <div>{failure.message}</div>
+              <div>Remaining selected databases were not attempted. Re-enter DELETE to retry only pending selections, or close this dialog.</div>
+            </div>
+          ) : null}
+
+          {pendingPaths.length > 0 && (
             <div style={confirmSectionStyle}>
               <p style={confirmLabelStyle}>
-                Type <strong>DELETE</strong> to confirm deletion of {selectedDatabases.size} database(s):
+                Type <strong>DELETE</strong> to confirm deletion of {pendingPaths.length} pending database(s):
               </p>
               <input
                 type="text"
@@ -102,7 +136,7 @@ export function DeleteDatabaseDialog({ onClose }: DeleteDatabaseDialogProps) {
         <div style={footerStyle}>
           <button
             style={cancelButtonStyle}
-            onClick={onClose}
+            onClick={requestClose}
             disabled={isDeleting}
           >
             Cancel
@@ -110,19 +144,38 @@ export function DeleteDatabaseDialog({ onClose }: DeleteDatabaseDialogProps) {
           <button
             style={{
               ...deleteButtonStyle,
-              opacity: selectedDatabases.size === 0 || confirmText !== 'DELETE' || isDeleting ? 0.5 : 1,
-              cursor: selectedDatabases.size === 0 || confirmText !== 'DELETE' || isDeleting ? 'not-allowed' : 'pointer',
+              opacity: pendingPaths.length === 0 || confirmText !== 'DELETE' || isDeleting ? 0.5 : 1,
+              cursor: pendingPaths.length === 0 || confirmText !== 'DELETE' || isDeleting ? 'not-allowed' : 'pointer',
             }}
             onClick={handleDelete}
-            disabled={selectedDatabases.size === 0 || confirmText !== 'DELETE' || isDeleting}
+            disabled={pendingPaths.length === 0 || confirmText !== 'DELETE' || isDeleting}
           >
-            {isDeleting ? 'Deleting...' : `Delete ${selectedDatabases.size} Database(s)`}
+            {isDeleting ? 'Deleting...' : `Delete ${pendingPaths.length} Database(s)`}
           </button>
         </div>
       </div>
     </div>
   );
 }
+
+const successStyle: React.CSSProperties = {
+  padding: '8px 12px',
+  border: '1px solid var(--border)',
+  borderRadius: 4,
+  color: 'var(--text)',
+  fontSize: 12,
+  lineHeight: 1.5,
+};
+
+const failureStyle: React.CSSProperties = {
+  padding: '10px 12px',
+  border: '1px solid var(--red)',
+  borderRadius: 4,
+  color: 'var(--text)',
+  fontSize: 12,
+  lineHeight: 1.5,
+  overflowWrap: 'anywhere',
+};
 
 const overlayStyle: React.CSSProperties = {
   position: 'fixed',

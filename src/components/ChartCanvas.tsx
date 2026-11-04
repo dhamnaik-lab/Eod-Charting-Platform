@@ -61,6 +61,7 @@ import {
 import { drawScreenshotPriceLegend } from '@/features/charts/chartScreenshotLegendRenderer';
 import { DEFAULT_CHART_VALUE_LABEL_SETTINGS } from '@/engine/valueLabelSettings';
 import { useChartDisplaySync } from '@/features/charts/useChartDisplaySync';
+import { shouldHandleChartViewportShortcut } from '@/features/charts/chartKeyboardFocusService';
 import { ChartContextMenu, type ChartContextMenuState } from './ChartContextMenu';
 import { ChartSettingsDialog } from './ChartSettingsDialog';
 import { ChartSettingsMenu, resolveChartSettingsMenuWidth } from './ChartSettingsMenu';
@@ -1565,8 +1566,8 @@ export function ChartCanvas({
   };
 
   const handleChartKeyDown = useCallback(
-    (event: KeyboardEvent | React.KeyboardEvent) => {
-      if (event.defaultPrevented || isEditableKeyboardTarget(event.target)) {
+    (event: React.KeyboardEvent<HTMLDivElement>) => {
+      if ((tabId !== null && tabId !== activeChartTabId) || !shouldHandleChartViewportShortcut(event)) {
         return;
       }
 
@@ -1663,6 +1664,8 @@ export function ChartCanvas({
       }
     },
     [
+      tabId,
+      activeChartTabId,
       activeDrawingTool,
       setDrawingTool,
       clearTransientDrawingUi,
@@ -1681,22 +1684,6 @@ export function ChartCanvas({
       deleteDrawingOrScannerOverlay,
     ],
   );
-
-  useEffect(() => {
-    const isActiveTab = !tabId || tabId === activeChartTabId;
-    if (!isActiveTab) {
-      return;
-    }
-
-    const onGlobalKeyDown = (event: KeyboardEvent) => {
-      handleChartKeyDown(event);
-    };
-
-    window.addEventListener('keydown', onGlobalKeyDown);
-    return () => {
-      window.removeEventListener('keydown', onGlobalKeyDown);
-    };
-  }, [tabId, activeChartTabId, handleChartKeyDown]);
 
   return (
     <div style={chartWrapStyle}>
@@ -2845,21 +2832,6 @@ function isWithinPriceScaleZone(
   }
 
   return localX >= width - axisWidth || (leftAxisWidth > 0 && localX <= leftAxisWidth);
-}
-
-function isEditableKeyboardTarget(target: EventTarget | null): boolean {
-  if (!(target instanceof HTMLElement)) {
-    return false;
-  }
-
-  const tagName = target.tagName.toLowerCase();
-  return (
-    target.isContentEditable ||
-    tagName === 'input' ||
-    tagName === 'textarea' ||
-    tagName === 'select' ||
-    Boolean(target.closest?.('[role="dialog"] input, [role="dialog"] textarea, [role="dialog"] select'))
-  );
 }
 
 function clampAxisSettingsTop(localY: number, priceHeight: number): number {

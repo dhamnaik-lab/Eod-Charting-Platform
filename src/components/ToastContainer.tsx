@@ -29,14 +29,31 @@ function ToastItem({ toast, onDismiss }: { toast: ToastMessage; onDismiss: () =>
 
   return (
     <div
+      role={isError || isWarning ? 'alert' : 'status'}
+      aria-live={isError || isWarning ? 'assertive' : 'polite'}
+      aria-atomic="true"
       style={{
         ...toastStyle,
         borderLeft: `3px solid ${accentColor}`,
       }}
       onClick={onDismiss}
     >
-      {toast.title ? <div style={titleStyle}>{toast.title}</div> : null}
-      <div style={messageStyle}>{toast.message}</div>
+      <div style={toastContentStyle}>
+        {toast.title ? <div style={titleStyle}>{toast.title}</div> : null}
+        <div style={messageStyle}>{toast.message}</div>
+      </div>
+      <button
+        type="button"
+        style={dismissButtonStyle}
+        aria-label={`Dismiss ${toast.type} notification`}
+        title="Dismiss notification"
+        onClick={(event) => {
+          event.stopPropagation();
+          onDismiss();
+        }}
+      >
+        ×
+      </button>
     </div>
   );
 }
@@ -63,9 +80,27 @@ const toastStyle: React.CSSProperties = {
   backdropFilter: 'blur(20px)',
   color: 'var(--text)',
   pointerEvents: 'auto', // make toast itself clickable
+  display: 'flex',
+  alignItems: 'flex-start',
+  gap: 12,
   cursor: 'pointer',
   transition: 'transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275), opacity 0.2s ease',
   animation: 'toast-slide-in 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275)',
+};
+
+const toastContentStyle: React.CSSProperties = {
+  flex: 1,
+  minWidth: 0,
+};
+
+const dismissButtonStyle: React.CSSProperties = {
+  width: 24,
+  height: 24,
+  flexShrink: 0,
+  borderRadius: 4,
+  color: 'var(--text-dim)',
+  fontSize: 18,
+  lineHeight: 1,
 };
 
 const titleStyle: React.CSSProperties = {
