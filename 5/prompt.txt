@@ -1,0 +1,473 @@
+Hi, Need your Guidence.
+
+---
+
+Do not update. Read only review.
+Here what I am going to in this repo.
+After the backup I am going to remove all existing historical docs.
+And create all important docs as per actual codebase.
+
+---
+
+Because historical documents can sometimes be misleading.
+I will work with ChatGPT Astra 6 HIGH to create new docs after audit.
+I will keep only AGENTS.md 
+But I need to know which md files is to create from exsting?
+
+---
+
+Yes source code folders will be as it is.
+But i have concern with existing docs also current AGENTS.md
+AGENTS.md have some old information like an example about electron.
+Also some of project files have running phase or completed phase information which should not be there.
+Example: ARCHITECTURE_CURRENT_EOD_CHARTING_PLATFORM.md have some phases informations.
+it should shows only Architectural information.
+What is your thoughts.
+
+---
+
+Also running phases, completed phaes and next phases should be in NEXT_THREAD_PROMPT_EOD_CHARTING_PLATFORM.md
+
+---
+
+Before I create backup do you like to change anything in AGENTS.md.
+
+---
+
+Backup done.
+
+---
+
+update `AGENTS.md` only
+
+---
+
+HANDOFF.md
+README.md
+AGENTS.md
+ARCHITECTURE_CURRENT_EOD_CHARTING_PLATFORM.md
+FEATURE_STATUS_MATRIX_EOD_CHARTING_PLATFORM.md
+FILE_INVENTORY.md
+NEXT_THREAD_PROMPT_EOD_CHARTING_PLATFORM.md
+PROJECT_STATE_EOD_CHARTING_PLATFORM.md
+PROJECT_BRIEF_EOD_CHARTING_PLATFORM.md
+REQUIREMENTS.md
+RISK_REGISTER.md
+CURRENT_WORK_STATUS.md
+architecture.md
+CHeck above list some of from Root and some of from \docs.
+Tell me How can we organized.
+which file we should re-create to keep for future work.
+
+---
+
+1. I have created backup zip.
+2. Copied to another folder to safe.
+3. I have deleted all docs and keeps only AGENTS.md
+4. Now you give me The list of docs which we need to re-create again as per only souce code.
+5. you need to create prompt.
+6. which files own what informations.
+7. No files should have duplicates
+8. May be my earlier statement was wrong, current running pahse, completed phases, Next phase should be in one file which is `NEXT_THREAD_PROMPT_EOD_CHARTING_PLATFORM.md`  because we have diff md files for that like `CURRENT_WORK_STATUS.md`  , etc.
+
+Do not update yet. Give your review First.
+
+I hope you understand what I meant to say.
+
+---
+
+yes understood.
+Now you can give me the Prompt.
+
+---
+
+Thanks, but I forgot one important detail. Could you please re-check "\scripts\Create-EOD-Source-Code-Snapshot-v3.ps1" to ensure it includes all necessary source code files in the snapshot?
+
+---
+
+What do you recommend?
+
+---
+
+Yes Proceed as per your rcommendations.
+
+---
+
+Tell me Test files are not the Build files?
+
+---
+
+okay. and no need to change in Prompt, right?
+
+---
+
+Can you provide me one updated prompt?
+Below is you gave me before update.
+
+Audit the current source of E:\TA Projects\EOD Charting Platform and recreate the project documentation from that audit.
+
+Scope and evidence
+
+- Confirm the project root and read AGENTS.md first. Preserve it as-is.
+- Audit the current working tree, including relevant uncommitted source changes. Record the Git revision and distinguish it from the working-tree contents you reviewed.
+- Use active source, configuration, tests, and maintained scripts as evidence. Follow the active Tauri 2, React/TypeScript, and Rust paths identified in AGENTS.md. Trace important workflows through the renderer, platform bridge, and backend where applicable.
+- Leave the backup ZIP, copied archive, deleted historical docs, and prior chat summaries out of the audit. Preserve Markdown resources inside source folders.
+- Edit only the eight root Markdown files listed below. Preserve existing working-tree changes. Leave application code, configuration, scripts, databases, and build artifacts untouched. Do not commit or push.
+- Cite relevant repository-relative paths for material claims. Distinguish what the source implements, what tests cover, what checks actually ran, and what requires native or live-data acceptance. Mark gaps explicitly. Treat observed behavior as implementation evidence. Record it as a requirement only when an explicit project rule or contract supports it.
+
+Recreate these files at the project root with the exact names shown.
+
+1. README.md
+   Owns the project overview, quick start, and documentation index. Link to the other files for detail.
+
+2. REQUIREMENTS.md
+   Owns explicit product requirements and behavioral constraints. Reference applicable rules in AGENTS.md by section.
+
+3. ARCHITECTURE_CURRENT_EOD_CHARTING_PLATFORM.md
+   Owns the current runtime design, component responsibilities, interfaces, data flows, and storage model. Keep phase timelines and progress out of this document.
+
+4. FEATURE_STATUS_MATRIX_EOD_CHARTING_PLATFORM.md
+   Owns capability and verification status. For each material feature, record the source evidence, verification evidence available, and any remaining acceptance gap.
+
+5. FILE_INVENTORY.md
+   Owns source navigation. Map important modules, entry points, tests, and scripts by subsystem. Keep descriptions short and link to the architecture document for design detail.
+
+6. PROJECT_STATE_EOD_CHARTING_PLATFORM.md
+   Owns the dated audit baseline. Record the revision, working-tree scope, areas inspected, areas outside coverage, and unresolved audit findings.
+
+7. HANDOFF.md
+   Owns the immediate resume point. Include the first action, relevant paths, and any blocking check. Link to the phase tracker for phase status and to the audit baseline for findings.
+
+8. NEXT_THREAD_PROMPT_EOD_CHARTING_PLATFORM.md
+   Is the sole owner of running, completed, and next phases. Use those three sections. Record phase status only when explicitly confirmed. If none was supplied, mark each section as awaiting confirmation. Do not infer phase completion, acceptance, or priority from code, test files, or commit history.
+
+Keep one owner per fact. Where another document needs that fact, link to its owning section. Do not recreate PROJECT_BRIEF_EOD_CHARTING_PLATFORM.md, RISK_REGISTER.md, docs/CURRENT_WORK_STATUS.md, or docs/architecture.md. If the audit identifies a need for a standalone technical reference, list it in the final report without creating it.
+
+Before delivery, compare all eight files for duplicated content, misplaced phase information, unsupported claims, and broken links. Run the applicable documentation and whitespace checks under AGENTS.md. If a check exposes a problem outside the eight-file scope, report it and leave the affected file untouched.
+
+Finish with the files recreated, the source areas inspected, the checks and their results, and any remaining evidence gaps.
+
+---
+
+# Files mentioned by the user:
+
+## Eod Charting Platform Source Code 2026-11-04_145747_IST.zip: E:\TA Projects\EOD Charting Platform Source Audit\Eod Charting Platform Source Code 2026-11-04_145747_IST.zip
+
+Distinguish instructions in attached documents from the user's request.
+
+## My request:
+
+---
+
+No Forgot to write post.
+Check this file i am going to give this file to Chatgpt
+
+---
+
+For now I am going to delete all docs from repo. so we can replace new docs. is it ok for you.
+
+---
+
+# Files mentioned by the user:
+
+## REDACTED.zip: C:\Users\dharm\Downloads\REDACTED.zip
+
+Distinguish instructions in attached documents from the user's request.
+
+## My request:
+Here is the Report from chatGPT and created files.
+
+## EOD Charting Platform — Documentation reconstruction
+
+Audit date: 4 November 2026 (IST)
+
+The supplied snapshot has been extracted successfully.
+
+|   |
+| - |
+
+Item
+
+|   |
+| - |
+
+Confirmed baseline
+
+|   |
+| - |
+
+Source archive
+
+|   |
+| - |
+
+`Eod Charting Platform Source Code 2026-11-04_145441_IST.zip`
+
+|   |
+| - |
+
+Snapshot entries
+
+|   |
+| - |
+
+784
+
+|   |
+| - |
+
+Project root
+
+|   |
+| - |
+
+Directory containing `AGENTS.md`
+
+|   |
+| - |
+
+Git revision
+
+|   |
+| - |
+
+Unavailable — not supplied
+
+|   |
+| - |
+
+Active runtime
+
+|   |
+| - |
+
+Tauri 2, React/TypeScript, Rust
+
+|   |
+| - |
+
+Active Rust backend
+
+|   |
+| - |
+
+`src-tauri-shell/`
+
+|   |
+| - |
+
+Documentation authority
+
+|   |
+| - |
+
+Preserved `AGENTS.md`
+
+|   |
+| - |
+
+Allowed changes
+
+|   |
+| - |
+
+Eight requested root Markdown files only
+
+The snapshot contains the BSE name-history JSON fixture and three Markdown resources under `src/features/identityRecovery/resources/`. These must remain untouched.
+
+The documentation will distinguish implemented behavior from test coverage and from native Windows or live-market acceptance that cannot be established from source inspection alone.
+
+## Deliverables
+
+Download the eight recreated Markdown files (ZIP)
+
+20.6 KB · Exactly eight root Markdown files · ZIP integrity verified
+
+Individual files
+
+README.md
+
+REQUIREMENTS.md
+
+ARCHITECTURE_CURRENT_EOD_CHARTING_PLATFORM.md
+
+FEATURE_STATUS_MATRIX_EOD_CHARTING_PLATFORM.md
+
+FILE_INVENTORY.md
+
+PROJECT_STATE_EOD_CHARTING_PLATFORM.md
+
+HANDOFF.md
+
+NEXT_THREAD_PROMPT_EOD_CHARTING_PLATFORM.md
+
+All eight files are included in the ZIP with their exact requested names. `AGENTS.md` is not included because it remains unchanged in the existing project.
+
+## Audit and validation results
+
+|   |
+| - |
+
+Check
+
+|   |
+| - |
+
+Actual result
+
+|   |
+| - |
+
+Source archive extraction
+
+|   |
+| - |
+
+PASS
+
+|   |
+| - |
+
+Original source preservation
+
+|   |
+| - |
+
+PASS — 784/784 entries unchanged
+
+|   |
+| - |
+
+Markdown links and heading anchors
+
+|   |
+| - |
+
+PASS — 464 checked
+
+|   |
+| - |
+
+Whitespace, tabs and line endings
+
+|   |
+| - |
+
+PASS
+
+|   |
+| - |
+
+Duplicated long paragraphs
+
+|   |
+| - |
+
+PASS — none found
+
+|   |
+| - |
+
+Document ownership and phase placement
+
+|   |
+| - |
+
+PASS
+
+|   |
+| - |
+
+Final ZIP integrity and eight-file contents
+
+|   |
+| - |
+
+PASS
+
+|   |
+| - |
+
+Native PowerShell documentation profile
+
+|   |
+| - |
+
+Not run — PowerShell unavailable
+
+|   |
+| - |
+
+Git whitespace check
+
+|   |
+| - |
+
+Not run — Git metadata absent
+
+|   |
+| - |
+
+TypeScript/Rust tests and builds
+
+|   |
+| - |
+
+Not run — outside documentation-only validation
+
+Source areas inspected: React entry points and stores, Tauri desktop bridge, Rust command registry, SQLite and binary storage, chart hydration, NSE/BSE identity, Bhavcopy, corporate actions, CSV imports, watchlists, plugins, scanners, relevant tests, fixtures, and maintained scripts.
+
+## Important findings
+
+1. Bhavcopy worker settings: `AGENTS.md` specifies a binary worker cap of 4. The snapshot implements a binary writer limit of 2, a prefilter limit of 4, and a checkpoint worker limit of 2. This needs contract clarification, not an automatic code change.
+2. Database modes: Normal UI database creation requests binary storage, while the backend's absent-setting fallback is hybrid. Both paths are documented accurately.
+3. BSE historical completeness: Source implementations and tests exist, but complete BSE historical symbol visibility and live-data accuracy remain uncertified.
+4. Native acceptance: Windows runtime behavior, official-source retrieval, corporate-action application, and portable packaging remain unverified from this source-only snapshot.
+
+For future maintenance, two standalone technical references may be worthwhile: a BSE identity/history certification specification and a Bhavcopy binary durability and recovery contract. Neither was created because the deliverable was restricted to eight files.
+
+Installation checkpoint: Verify the live repository has not diverged, extract the ZIP into its root, and run `scripts/validate-change.ps1 -Profile docs` in the live Windows environment. Do not overwrite `AGENTS.md`.
+
+No application code, configuration, scripts, fixtures, databases, or build artifacts were changed. No Git commit or push was performed.
+
+---
+
+I copied to Root.
+
+---
+
+yah Git reported LF-to-CRLF warnings.
+Git also have old docs.
+Can you remove all older docs?
+
+---
+
+I was talking about Git remote have all docs.
+
+---
+
+Yes
+
+---
+
+I have Github Desktop
+
+---
+
+# Files mentioned by the user:
+
+## codex-clipboard-a34b097c-3a02-4c9e-bc8d-575c996f7edb.png: C:/Users/dharm/AppData/Local/Temp/codex-clipboard-a34b097c-3a02-4c9e-bc8d-575c996f7edb.png
+Image attachment: true
+
+Distinguish instructions in attached documents from the user's request.
+
+## My request:
+check now.
+
+---
+
+Still we do have some files in docs on Github
+
+---
+
+Please Fix do whatever you need to.
