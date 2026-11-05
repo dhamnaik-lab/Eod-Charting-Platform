@@ -55,3 +55,22 @@ The first local isolated run used integration commit `06887d075db4841eeff00d0d92
 PR #15 was amended to `ff02e573f341c43c56d505ab7ff541e3688304c8`, and the integration source now uses its exact updated test and report blobs. **The amended integration has not yet been tested. TypeScript and renderer build are still NOT RUN.** The local worktree remains detached at the original candidate until the user explicitly synchronizes it. The previous validated 8/8 source pins for production UI files remain unchanged.
 
 Any further validation must first fetch the updated test branch, confirm its exact new HEAD, verify the original user's 78 working-tree entries remain unchanged, and update only the isolated test worktree.
+
+
+## Final consolidation
+
+6 November 2026 (IST). This section supersedes the candidate-stage status above. The eight proposals were consolidated into main as `787fe7c44fa08fa11176976aaf2b9975105695af`. [PR #16](https://github.com/dhamnaik-lab/Eod-Charting-Platform/pull/16) is the integration candidate.
+
+- [UX-03](2026-11-04_2101_IST_UX03_CHART_SHORTCUT_FOCUS_GUARD.md) · [PR #8](https://github.com/dhamnaik-lab/Eod-Charting-Platform/pull/8)
+- [UX-04](2026-11-04_2122_IST_UX04_DATABASE_DELETE_FEEDBACK.md) · [PR #9](https://github.com/dhamnaik-lab/Eod-Charting-Platform/pull/9)
+- [UX-01](2026-11-04_2124_IST_UX01_SIDEBAR_FOCUS_VISIBILITY.md) · [PR #10](https://github.com/dhamnaik-lab/Eod-Charting-Platform/pull/10)
+- [UX-09](2026-11-04_2126_IST_UX09_TOAST_ACCESSIBILITY.md) · [PR #11](https://github.com/dhamnaik-lab/Eod-Charting-Platform/pull/11)
+- [UX-14](2026-11-04_2128_IST_UX14_STATUS_CLOCK_TIMEZONE.md) · [PR #12](https://github.com/dhamnaik-lab/Eod-Charting-Platform/pull/12)
+- [UX-07](2026-11-04_2130_IST_UX07_PALETTE_TAB_NAVIGATION.md) · [PR #13](https://github.com/dhamnaik-lab/Eod-Charting-Platform/pull/13)
+- [UX-06](2026-11-04_2132_IST_UX06_EDITABLE_CONTEXT_MENU.md) · [PR #14](https://github.com/dhamnaik-lab/Eod-Charting-Platform/pull/14)
+- [UX-15](2026-11-04_2134_IST_UX15_CHART_TAB_TARGETS_MENU.md) · [PR #15](https://github.com/dhamnaik-lab/Eod-Charting-Platform/pull/15)
+
+- The first local apply ran `npm run test -- <eight test paths>` and recorded 30 passes and one clock assertion failure. Exact paths are in `tmp/UI8_LocalApply_20261105_020606_IST/01_FocusedVitest.log`. The clock test correction record and consolidation commit record the later focused pass (31/31), `npm run typecheck:renderer` PASS and `npm run build:renderer` PASS. The subsequent sync kept both the status date and viewport bar-count assertions in the local test. See the [sync record](2026-11-06_MAIN_SYNCHRONIZATION.md).
+- The integration full Vitest run failed. The consolidation commit records 11 unrelated failures reproduced on baseline. See `tmp/UI8_FullRegression_20261105_001811_IST/Summary.txt` and `tmp/UI8_BaselineProof_20261105_003625_IST/BaselineSummary.txt`.
+- The consolidation commit records a user-confirmed Windows portable build. The earlier native preflight ran no native launch. Finding-specific keyboard, screen reader, WebView, visual and disposable database observations remain unverified.
+- For rollback after consolidation, review an isolated inverse patch of the affected finding, preserving later shared-file edits. For a full UI8 rollback, review a revert of the consolidation commit on a separate branch. Local pre-apply originals are under `tmp/UI8_LocalApply_20261105_020606_IST/backup`.

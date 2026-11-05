@@ -14,6 +14,10 @@
 
 **Awaiting user confirmation.** No next-phase priority or authorization was supplied as authority with the snapshot request. Do not convert code gaps or audit findings into a user-approved phase plan.
 
+## Verified checkpoints for resuming work
+
+The [accepted UX-13 implementation](docs/changes/2026-11-06_UX13_BHAVCOPY_REQUEST_STOP.md) and [main synchronization](docs/changes/2026-11-06_MAIN_SYNCHRONIZATION.md) are recorded separately from phase assignments. The [UI/UX evidence index](FEATURE_STATUS_MATRIX_EOD_CHARTING_PLATFORM.md#uiux-audit-findings) tracks outstanding native checks. The next workstream remains pending user direction.
+
 ## Context for starting a new thread
 
 Workstream: **EOD Charting Platform**. Begin by reading [AGENTS.md](AGENTS.md), then the relevant portion of [HANDOFF.md](HANDOFF.md). Verify source authority and use [FILE_INVENTORY.md](FILE_INVENTORY.md) to locate the bounded issue before inspecting code. Consult the other owner documents only if relevant. Do not infer status from historical documentation; ask for explicit phase confirmation before editing the three phase sections above.

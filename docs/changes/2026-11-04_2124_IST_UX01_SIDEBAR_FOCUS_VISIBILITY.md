@@ -1,5 +1,7 @@
 # UX-01 — Restore keyboard-focus visibility for sidebar buttons
 
+> **6 November 2026 (IST)** · Landed in `787fe7c44fa08fa11176976aaf2b9975105695af` via the [UI8 consolidation](2026-11-04_2336_IST_UI8_INTEGRATION_CANDIDATE.md#final-consolidation). Original proposal [PR #10](https://github.com/dhamnaik-lab/Eod-Charting-Platform/pull/10). The later local focused suite passed. Finding-specific native acceptance remains unverified. The validation and rollback below describe the original proposal unless dated otherwise.
+
 **IST timestamp:** 2026-11-04 21:24 IST (UTC+05:30)  
 **Workstream:** EOD Charting Platform — `E:\TA Projects\EOD Charting Platform`  
 **GitHub source authority:** `dhamnaik-lab/Eod-Charting-Platform` at `main` commit `4cf6c66ce65c6cfe76a97af8e1636dbd16e9519a`  

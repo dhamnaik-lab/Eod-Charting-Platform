@@ -1,5 +1,12 @@
 # Handoff — immediate resume point
 
+## Documentation closure and synchronized main — 6 November 2026 (IST)
+
+- Resume from synchronized main `09d20595bdc2ccbb6f11320fea3caf32c606c940`. The [sync record](docs/changes/2026-11-06_MAIN_SYNCHRONIZATION.md) owns the historical 67-entry baseline and recovery references. Preserve those local workstreams when reviewing or publishing the documentation.
+- [UX-13](docs/changes/2026-11-06_UX13_BHAVCOPY_REQUEST_STOP.md) has local portable observations. Exact-merged-tree portable acceptance and independent database integrity remain open. The [UI/UX index](FEATURE_STATUS_MATRIX_EOD_CHARTING_PLATFORM.md#uiux-audit-findings) lists the other findings and pending native checks.
+- This documentation pass reviewed historical logs and used documentation-only validation. See `backups/pre_opencode_changes_20261106_011734_doc-closure` for pre-edit docs and the timestamped documentation closure evidence under `tmp/`. The next workstream awaits user direction.
+
+
 ## First action on the live checkout
 
 **Do not apply these files to an unverified checkout.** Verify that the intended live root contains the authoritative [AGENTS.md](AGENTS.md); compare it and the relevant current source against the [snapshot audit baseline](PROJECT_STATE_EOD_CHARTING_PLATFORM.md#snapshot-authority). This ZIP was captured from a working tree **without Git metadata**, so no commit/revision equivalence was established. If the live tree has changed, reconcile source-backed statements before copying documents.
