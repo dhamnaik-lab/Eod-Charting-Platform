@@ -16,6 +16,7 @@ const LOCAL_TZ_LABEL = (() => {
 import { shallow } from 'zustand/shallow';
 import { getDesktopApi, type InstrumentSummary, type SymbolExchangeFilter, type Watchlist } from '@/platform';
 import { getSymbolFilterVisibility } from '@/features/watchlists/symbolFilterVisibility';
+import { getSidebarListWindow } from '@/features/watchlists/sidebarListWindow';
 import { INDICATOR_CATALOG, INDICATOR_SUBCATEGORIES, getIndicatorSubcategory } from '@/indicators/catalog';
 import { WatchlistNameDialog } from '@/components/WatchlistDialogs';
 import { findSelectedWatchlist } from '@/features/watchlists/watchlistNavigationService';
@@ -386,11 +387,12 @@ export function Sidebar({ width, collapsed, pinned, onToggleCollapse, onTogglePi
   const [watchlistCreateName, setWatchlistCreateName] = useState('');
   const [watchlistCreateDialogOpen, setWatchlistCreateDialogOpen] = useState(false);
   const symbolListRef = useRef<HTMLDivElement>(null);
+  const recentSectionRef = useRef<HTMLDivElement>(null);
   const watchlistListRef = useRef<HTMLDivElement>(null);
+  const [symbolScroll, setSymbolScroll] = useState({ top: 0, height: 500, recentHeight: 0 });
+  const [watchlistScroll, setWatchlistScroll] = useState({ top: 0, height: 500 });
   const seriesFilterRef = useRef<HTMLDivElement>(null);
   const scrollIndexResetTimerRef = useRef<number | null>(null);
-  const symbolGroupHeaderRefs = useRef(new Map<string, HTMLDivElement | null>());
-  const symbolItemRefs = useRef(new Map<string, HTMLDivElement>());
   const selectedSeriesFilters = selectedSeriesFiltersByExchange[symbolExchangeFilter];
   const exchangeScopedSymbolBrowserItems = useMemo(
     () => filterSymbolBrowserItemsByExchange(symbolBrowserItems, symbolExchangeFilter),
@@ -440,9 +442,10 @@ export function Sidebar({ width, collapsed, pinned, onToggleCollapse, onTogglePi
     [seriesSettingsCatalogItems, seriesSettingsDraft, seriesSettingsExchange, symbolBrowserItems],
   );
 
-  const { symbolBrowserEntries, symbolGroupEntryIndexMap } = useMemo(() => {
+  const { symbolBrowserEntries, symbolGroupEntryIndexMap, symbolItemEntryIndexMap } = useMemo(() => {
     const entries: SymbolListEntry[] = [];
     const groupStartIndexes = new Map<string, number>();
+    const itemIndexes = new Map<string, number>();
     const seenGroups = new Set<string>();
 
     displaySymbolBrowserItems.forEach((item) => {
@@ -461,6 +464,7 @@ export function Sidebar({ width, collapsed, pinned, onToggleCollapse, onTogglePi
         });
       }
 
+      itemIndexes.set(buildInstrumentKey(item.symbol, item.exchange), entries.length);
       entries.push({
         kind: 'item',
         key: `${item.exchange}:${item.symbol}`,
@@ -472,18 +476,51 @@ export function Sidebar({ width, collapsed, pinned, onToggleCollapse, onTogglePi
     return {
       symbolBrowserEntries: entries,
       symbolGroupEntryIndexMap: groupStartIndexes,
+      symbolItemEntryIndexMap: itemIndexes,
     };
   }, [displaySymbolBrowserItems, symbolExchangeFilter]);
 
+  const symbolRowWindow = getSidebarListWindow(
+    symbolBrowserEntries.length,
+    symbolScroll.top,
+    symbolScroll.height,
+    VIRTUAL_ROW_HEIGHT,
+    symbolScroll.recentHeight,
+  );
+
+  useEffect(() => {
+    if (activePanel !== 'symbols') return;
+    const container = symbolListRef.current;
+    if (!container) return;
+
+    const measure = () => {
+      const nextTop = container.scrollTop;
+      const nextHeight = container.clientHeight;
+      const nextRecentHeight = recentSectionRef.current?.offsetHeight ?? 0;
+      setSymbolScroll((current) =>
+        current.top === nextTop && current.height === nextHeight && current.recentHeight === nextRecentHeight
+          ? current
+          : { top: nextTop, height: nextHeight, recentHeight: nextRecentHeight },
+      );
+    };
+    measure();
+    const observer = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(measure) : null;
+    observer?.observe(container);
+    if (recentSectionRef.current) observer?.observe(recentSectionRef.current);
+    window.addEventListener('resize', measure);
+    return () => {
+      observer?.disconnect();
+      window.removeEventListener('resize', measure);
+    };
+  }, [activePanel, visibleRecentSymbols.length, recentSectionCollapsed]);
+
   const scrollToIndex = useCallback((index: string) => {
     const container = symbolListRef.current;
-    const groupHeader = symbolGroupHeaderRefs.current.get(index);
-    if (container && groupHeader) {
-      const nextTop = Math.max(
-        0,
-        groupHeader.getBoundingClientRect().top - container.getBoundingClientRect().top + container.scrollTop,
-      );
+    const entryIndex = symbolGroupEntryIndexMap.get(index);
+    if (container && entryIndex !== undefined) {
+      const nextTop = Math.max(0, symbolScroll.recentHeight + entryIndex * VIRTUAL_ROW_HEIGHT);
       container.scrollTop = nextTop;
+      setSymbolScroll((current) => current.top === nextTop ? current : { ...current, top: nextTop });
     }
     setActiveScrollIndex(index);
     if (scrollIndexResetTimerRef.current !== null) {
@@ -493,7 +530,7 @@ export function Sidebar({ width, collapsed, pinned, onToggleCollapse, onTogglePi
       setActiveScrollIndex(null);
       scrollIndexResetTimerRef.current = null;
     }, 500);
-  }, [symbolGroupEntryIndexMap]);
+  }, [symbolGroupEntryIndexMap, symbolScroll.recentHeight]);
 
   useEffect(() => {
     if (!seriesFilterOpen) {
@@ -814,6 +851,34 @@ export function Sidebar({ width, collapsed, pinned, onToggleCollapse, onTogglePi
     });
   }, [selectedWatchlistItems, watchlistSortOrder]);
 
+  const watchlistRowWindow = getSidebarListWindow(
+    sortedWatchlistItems.length,
+    watchlistScroll.top,
+    watchlistScroll.height,
+    VIRTUAL_ROW_HEIGHT,
+  );
+
+  useEffect(() => {
+    if (activePanel !== 'watchlist') return;
+    const container = watchlistListRef.current;
+    if (!container) return;
+    const measure = () => {
+      const top = container.scrollTop;
+      const height = container.clientHeight;
+      setWatchlistScroll((current) =>
+        current.top === top && current.height === height ? current : { top, height },
+      );
+    };
+    measure();
+    const observer = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(measure) : null;
+    observer?.observe(container);
+    window.addEventListener('resize', measure);
+    return () => {
+      observer?.disconnect();
+      window.removeEventListener('resize', measure);
+    };
+  }, [activePanel, selectedWatchlistId]);
+
   const renderIndicatorRow = useCallback(
     (item: (typeof INDICATOR_CATALOG)[number]) => {
       const isFavorite = favoriteIndicatorIds.includes(item.id);
@@ -994,12 +1059,12 @@ export function Sidebar({ width, collapsed, pinned, onToggleCollapse, onTogglePi
     [],
   );
 
-  const keepVirtualRowInView = useCallback((container: HTMLDivElement | null, itemIndex: number) => {
+  const keepVirtualRowInView = useCallback((container: HTMLDivElement | null, itemIndex: number, leadingHeight = 0) => {
     if (!container || itemIndex < 0) {
       return;
     }
 
-    const rowTop = itemIndex * VIRTUAL_ROW_HEIGHT;
+    const rowTop = leadingHeight + itemIndex * VIRTUAL_ROW_HEIGHT;
     const rowBottom = rowTop + VIRTUAL_ROW_HEIGHT;
     if (rowTop < container.scrollTop) {
       container.scrollTop = rowTop;
@@ -1008,33 +1073,30 @@ export function Sidebar({ width, collapsed, pinned, onToggleCollapse, onTogglePi
     }
   }, []);
 
-  const keepElementInView = useCallback((container: HTMLDivElement | null, element: HTMLElement | null) => {
-    if (!container || !element) {
-      return;
-    }
-
-    const containerRect = container.getBoundingClientRect();
-    const elementRect = element.getBoundingClientRect();
-    const topDelta = elementRect.top - containerRect.top;
-    const bottomDelta = elementRect.bottom - containerRect.bottom;
-
-    if (topDelta < 0) {
-      container.scrollTop = Math.max(0, container.scrollTop + topDelta);
-    } else if (bottomDelta > 0) {
-      container.scrollTop = Math.max(0, container.scrollTop + bottomDelta);
-    }
-  }, []);
-
   const keepSymbolEntryInView = useCallback(
     (item: InstrumentSummary) => {
-      keepElementInView(symbolListRef.current, symbolItemRefs.current.get(buildInstrumentKey(item.symbol, item.exchange)) ?? null);
+      const index = symbolItemEntryIndexMap.get(buildInstrumentKey(item.symbol, item.exchange));
+      if (index === undefined) return;
+      const container = symbolListRef.current;
+      keepVirtualRowInView(container, index, symbolScroll.recentHeight);
+      if (container) {
+        setSymbolScroll((current) =>
+          current.top === container.scrollTop ? current : { ...current, top: container.scrollTop },
+        );
+      }
     },
-    [keepElementInView],
+    [keepVirtualRowInView, symbolItemEntryIndexMap, symbolScroll.recentHeight],
   );
 
   const keepWatchlistItemInView = useCallback(
     (itemIndex: number) => {
-      keepVirtualRowInView(watchlistListRef.current, itemIndex);
+      const container = watchlistListRef.current;
+      keepVirtualRowInView(container, itemIndex);
+      if (container) {
+        setWatchlistScroll((current) =>
+          current.top === container.scrollTop ? current : { ...current, top: container.scrollTop },
+        );
+      }
     },
     [keepVirtualRowInView],
   );
@@ -1103,7 +1165,10 @@ export function Sidebar({ width, collapsed, pinned, onToggleCollapse, onTogglePi
 
         event.preventDefault();
         handleOpenInstrument(nextItem);
-        keepWatchlistItemInView(nextIndex);
+        const visibleIndex = sortedWatchlistItems.findIndex(
+        (item) => item.symbol === nextItem.symbol && item.exchange === nextItem.exchange,
+      );
+      keepWatchlistItemInView(visibleIndex);
       }
     },
     [
@@ -1113,6 +1178,7 @@ export function Sidebar({ width, collapsed, pinned, onToggleCollapse, onTogglePi
       keepSymbolEntryInView,
       keepWatchlistItemInView,
       selectedWatchlistItems,
+      sortedWatchlistItems,
       displaySymbolBrowserItems,
       watchlistItemContextMenu,
     ],
@@ -1236,12 +1302,14 @@ export function Sidebar({ width, collapsed, pinned, onToggleCollapse, onTogglePi
   useEffect(() => {
     if (symbolListRef.current) {
       symbolListRef.current.scrollTop = 0;
+      setSymbolScroll((current) => current.top === 0 ? current : { ...current, top: 0 });
     }
   }, [symbolBrowserQuery, activeDatabasePath]);
 
   useEffect(() => {
     if (watchlistListRef.current) {
       watchlistListRef.current.scrollTop = 0;
+      setWatchlistScroll((current) => current.top === 0 ? current : { ...current, top: 0 });
     }
   }, [selectedWatchlistId]);
 
@@ -1549,11 +1617,15 @@ export function Sidebar({ width, collapsed, pinned, onToggleCollapse, onTogglePi
                   ref={symbolListRef}
                   className="chart-native-scrollbar"
                   style={symbolListScrollStyle}
+                  onScroll={(event) => {
+                    const top = event.currentTarget.scrollTop;
+                    setSymbolScroll((current) => current.top === top ? current : { ...current, top });
+                  }}
                 >
                   {displaySymbolBrowserItems.length > 0 || visibleRecentSymbols.length > 0 ? (
                     <div style={symbolListContentStyle}>
                       {visibleRecentSymbols.length > 0 ? (
-                        <div style={{ marginBottom: 4 }}>
+                        <div ref={recentSectionRef} style={{ marginBottom: 4 }}>
                           <div
                             style={{
                               ...groupHeaderStyle,
@@ -1607,14 +1679,14 @@ export function Sidebar({ width, collapsed, pinned, onToggleCollapse, onTogglePi
                         </div>
                       ) : null}
 
-                      {symbolBrowserEntries.map((entry) => {
+                      {symbolRowWindow.topSpacer > 0 ? (
+                        <div aria-hidden="true" style={{ height: symbolRowWindow.topSpacer, flex: '0 0 auto' }} />
+                      ) : null}
+                      {symbolBrowserEntries.slice(symbolRowWindow.start, symbolRowWindow.end).map((entry) => {
                         if (entry.kind === 'group') {
                           return (
                             <div
                               key={entry.key}
-                              ref={(node) => {
-                                symbolGroupHeaderRefs.current.set(entry.groupKey, node);
-                              }}
                               style={{
                                 ...groupHeaderStyle,
                                 minHeight: VIRTUAL_ROW_HEIGHT,
@@ -1631,13 +1703,6 @@ export function Sidebar({ width, collapsed, pinned, onToggleCollapse, onTogglePi
                         return (
                           <div
                             key={entry.key}
-                            ref={(node) => {
-                              if (node) {
-                                symbolItemRefs.current.set(itemKey, node);
-                              } else {
-                                symbolItemRefs.current.delete(itemKey);
-                              }
-                            }}
                           >
                             <SymbolListRow
                               item={item}
@@ -1651,6 +1716,9 @@ export function Sidebar({ width, collapsed, pinned, onToggleCollapse, onTogglePi
                           </div>
                         );
                       })}
+                      {symbolRowWindow.bottomSpacer > 0 ? (
+                        <div aria-hidden="true" style={{ height: symbolRowWindow.bottomSpacer, flex: '0 0 auto' }} />
+                      ) : null}
                     </div>
                   ) : (
                     <div style={emptyStateStyle}>
@@ -1978,10 +2046,17 @@ export function Sidebar({ width, collapsed, pinned, onToggleCollapse, onTogglePi
                 ref={watchlistListRef}
                 className="chart-native-scrollbar"
                 style={symbolListScrollStyle}
+                onScroll={(event) => {
+                  const top = event.currentTarget.scrollTop;
+                  setWatchlistScroll((current) => current.top === top ? current : { ...current, top });
+                }}
               >
                 {sortedWatchlistItems.length ? (
                   <div style={symbolListContentStyle}>
-                    {sortedWatchlistItems.map((item) => (
+                    {watchlistRowWindow.topSpacer > 0 ? (
+                      <div aria-hidden="true" style={{ height: watchlistRowWindow.topSpacer, flex: '0 0 auto' }} />
+                    ) : null}
+                    {sortedWatchlistItems.slice(watchlistRowWindow.start, watchlistRowWindow.end).map((item) => (
                       <div key={`${item.exchange}:${item.symbol}`}>
                         <SymbolListRow
                           item={item as InstrumentSummary}
@@ -1992,6 +2067,9 @@ export function Sidebar({ width, collapsed, pinned, onToggleCollapse, onTogglePi
                         />
                       </div>
                     ))}
+                    {watchlistRowWindow.bottomSpacer > 0 ? (
+                      <div aria-hidden="true" style={{ height: watchlistRowWindow.bottomSpacer, flex: '0 0 auto' }} />
+                    ) : null}
                   </div>
                 ) : (
                   <div style={emptyStateStyle}>No symbols in the selected watchlist.</div>
