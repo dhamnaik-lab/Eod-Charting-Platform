@@ -16,6 +16,7 @@ const LOCAL_TZ_LABEL = (() => {
 import { shallow } from 'zustand/shallow';
 import { getDesktopApi, type InstrumentSummary, type SymbolExchangeFilter, type Watchlist } from '@/platform';
 import { getSymbolFilterVisibility } from '@/features/watchlists/symbolFilterVisibility';
+import { getSidebarListWindow } from '@/features/watchlists/sidebarListWindow';
 import { INDICATOR_CATALOG, INDICATOR_SUBCATEGORIES, getIndicatorSubcategory } from '@/indicators/catalog';
 import { WatchlistNameDialog } from '@/components/WatchlistDialogs';
 import { findSelectedWatchlist } from '@/features/watchlists/watchlistNavigationService';
@@ -386,11 +387,12 @@ export function Sidebar({ width, collapsed, pinned, onToggleCollapse, onTogglePi
   const [watchlistCreateName, setWatchlistCreateName] = useState('');
   const [watchlistCreateDialogOpen, setWatchlistCreateDialogOpen] = useState(false);
   const symbolListRef = useRef<HTMLDivElement>(null);
+  const recentSectionRef = useRef<HTMLDivElement>(null);
   const watchlistListRef = useRef<HTMLDivElement>(null);
+  const [symbolScroll, setSymbolScroll] = useState({ top: 0, height: 500, recentHeight: 0 });
+  const [watchlistScroll, setWatchlistScroll] = useState({ top: 0, height: 500 });
   const seriesFilterRef = useRef<HTMLDivElement>(null);
   const scrollIndexResetTimerRef = useRef<number | null>(null);
-  const symbolGroupHeaderRefs = useRef(new Map<string, HTMLDivElement | null>());
-  const symbolItemRefs = useRef(new Map<string, HTMLDivElement>());
   const selectedSeriesFilters = selectedSeriesFiltersByExchange[symbolExchangeFilter];
   const exchangeScopedSymbolBrowserItems = useMemo(
     () => filterSymbolBrowserItemsByExchange(symbolBrowserItems, symbolExchangeFilter),
@@ -440,9 +442,10 @@ export function Sidebar({ width, collapsed, pinned, onToggleCollapse, onTogglePi
     [seriesSettingsCatalogItems, seriesSettingsDraft, seriesSettingsExchange, symbolBrowserItems],
   );
 
-  const { symbolBrowserEntries, symbolGroupEntryIndexMap } = useMemo(() => {
+  const { symbolBrowserEntries, symbolGroupEntryIndexMap, symbolItemEntryIndexMap } = useMemo(() => {
     const entries: SymbolListEntry[] = [];
     const groupStartIndexes = new Map<string, number>();
+    const itemIndexes = new Map<string, number>();
     const seenGroups = new Set<string>();
 
     displaySymbolBrowserItems.forEach((item) => {
@@ -461,6 +464,7 @@ export function Sidebar({ width, collapsed, pinned, onToggleCollapse, onTogglePi
         });
       }
 
+      itemIndexes.set(buildInstrumentKey(item.symbol, item.exchange), entries.length);
       entries.push({
         kind: 'item',
         key: `${item.exchange}:${item.symbol}`,
@@ -472,18 +476,17 @@ export function Sidebar({ width, collapsed, pinned, onToggleCollapse, onTogglePi
     return {
       symbolBrowserEntries: entries,
       symbolGroupEntryIndexMap: groupStartIndexes,
+      symbolItemEntryIndexMap: itemIndexes,
     };
   }, [displaySymbolBrowserItems, symbolExchangeFilter]);
 
   const scrollToIndex = useCallback((index: string) => {
     const container = symbolListRef.current;
-    const groupHeader = symbolGroupHeaderRefs.current.get(index);
-    if (container && groupHeader) {
-      const nextTop = Math.max(
-        0,
-        groupHeader.getBoundingClientRect().top - container.getBoundingClientRect().top + container.scrollTop,
-      );
+    const entryIndex = symbolGroupEntryIndexMap.get(index);
+    if (container && entryIndex !== undefined) {
+      const nextTop = Math.max(0, symbolScroll.recentHeight + entryIndex * VIRTUAL_ROW_HEIGHT);
       container.scrollTop = nextTop;
+      setSymbolScroll((current) => current.top === nextTop ? current : { ...current, top: nextTop });
     }
     setActiveScrollIndex(index);
     if (scrollIndexResetTimerRef.current !== null) {
@@ -493,7 +496,7 @@ export function Sidebar({ width, collapsed, pinned, onToggleCollapse, onTogglePi
       setActiveScrollIndex(null);
       scrollIndexResetTimerRef.current = null;
     }, 500);
-  }, [symbolGroupEntryIndexMap]);
+  }, [symbolGroupEntryIndexMap, symbolScroll.recentHeight]);
 
   useEffect(() => {
     if (!seriesFilterOpen) {
