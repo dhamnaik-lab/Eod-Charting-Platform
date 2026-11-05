@@ -1,4 +1,4 @@
-import { Suspense, lazy, useEffect, useState } from 'react';
+import { lazy, useEffect, useState } from 'react';
 import { ChartCanvas } from '@/components/ChartCanvas';
 import { TileHeader } from '@/components/TileHeader';
 import { ChartToolDock } from '@/components/ChartToolDock';
@@ -80,6 +80,7 @@ const LazyIndicatorPickerDialog = lazy(async () => ({
 
 import { SettingsDialog } from '@/components/SettingsDialog';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
+import { LazyToolBoundary } from '@/components/LazyToolBoundary';
 
 export default function RootApp() {
   const init = useChartStore((state) => state.init);
@@ -404,94 +405,80 @@ export default function RootApp() {
       </div>
       {uiFlags.statusBarVisible ? <StatusBar /> : null}
       {bhavcopyWindowOpen ? (
-        <ErrorBoundary name="BhavcopyDownload" fallback={null}>
-          <Suspense fallback={null}>
-            <LazyBhavcopyDownloadWindow onClose={closeBhavcopyWindow} />
-          </Suspense>
-        </ErrorBoundary>
+        <LazyToolBoundary name="Bhavcopy downloads">
+          <LazyBhavcopyDownloadWindow onClose={closeBhavcopyWindow} />
+        </LazyToolBoundary>
       ) : null}
       {scannerWindowOpen ? (
-        <ErrorBoundary name="Scanner" fallback={null}>
-          <Suspense fallback={null}>
-            <LazyScannerWindow />
-          </Suspense>
-        </ErrorBoundary>
+        <LazyToolBoundary name="Scanner">
+          <LazyScannerWindow />
+        </LazyToolBoundary>
       ) : null}
       {alertManagerOpen ? (
-        <ErrorBoundary name="AlertManager" fallback={null}>
-          <Suspense fallback={null}>
-            <LazyAlertManagerWindow />
-          </Suspense>
-        </ErrorBoundary>
+        <LazyToolBoundary name="Alert manager">
+          <LazyAlertManagerWindow />
+        </LazyToolBoundary>
       ) : null}
       {deleteDatabaseDialogOpen ? (
-        <Suspense fallback={null}>
+        <LazyToolBoundary name="Delete database">
           <LazyDeleteDatabaseDialog onClose={closeDeleteDatabaseDialog} />
-        </Suspense>
+        </LazyToolBoundary>
       ) : null}
       {recentDatabasesDialogOpen ? (
-        <Suspense fallback={null}>
+        <LazyToolBoundary name="Recent databases">
           <LazyRecentDatabasesDialog onClose={closeRecentDatabasesDialog} />
-        </Suspense>
+        </LazyToolBoundary>
       ) : null}
       {layoutManagerDialogOpen ? (
-        <Suspense fallback={null}>
+        <LazyToolBoundary name="Layout manager">
           <LazyLayoutManagerDialog onClose={closeLayoutManagerDialog} />
-        </Suspense>
+        </LazyToolBoundary>
       ) : null}
       {watchlistManagerDialogOpen ? (
-        <Suspense fallback={null}>
+        <LazyToolBoundary name="Watchlist manager">
           <LazyWatchlistManagerDialog onClose={closeWatchlistManagerDialog} />
-        </Suspense>
+        </LazyToolBoundary>
       ) : null}
       {faqDialogOpen ? (
-        <Suspense fallback={null}>
+        <LazyToolBoundary name="FAQ">
           <LazyFAQDialog />
-        </Suspense>
+        </LazyToolBoundary>
       ) : null}
       {keyboardShortcutsDialogOpen ? (
-        <Suspense fallback={null}>
+        <LazyToolBoundary name="Keyboard shortcuts">
           <LazyKeyboardShortcutsDialog />
-        </Suspense>
+        </LazyToolBoundary>
       ) : null}
       {aboutDialogOpen ? (
-        <Suspense fallback={null}>
+        <LazyToolBoundary name="About">
           <LazyAboutDialog />
-        </Suspense>
+        </LazyToolBoundary>
       ) : null}
       {settingsDialogOpen ? <SettingsDialog /> : null}
-      <ErrorBoundary name="CommandPalette" fallback={null}>
+      <ErrorBoundary name="CommandPalette">
         <CommandPalette />
       </ErrorBoundary>
       {importDialogOpen ? (
-        <ErrorBoundary name="ImportCSV" fallback={null}>
-          <Suspense fallback={null}>
-            <LazyImportCsvDialog />
-          </Suspense>
-        </ErrorBoundary>
+        <LazyToolBoundary name="Import CSV">
+          <LazyImportCsvDialog />
+        </LazyToolBoundary>
       ) : null}
       {officialWatchlistImportDialogOpen ? (
-        <ErrorBoundary name="OfficialWatchlistImport" fallback={null}>
-          <Suspense fallback={null}>
-            <LazyOfficialWatchlistImportDialog />
-          </Suspense>
-        </ErrorBoundary>
+        <LazyToolBoundary name="Official watchlist import">
+          <LazyOfficialWatchlistImportDialog />
+        </LazyToolBoundary>
       ) : null}
       
       
       {databaseToolsDialogOpen ? (
-        <ErrorBoundary name="DatabaseTools" fallback={null}>
-          <Suspense fallback={null}>
-            <LazyDatabaseToolsDialogs />
-          </Suspense>
-        </ErrorBoundary>
+        <LazyToolBoundary name="Database tools">
+          <LazyDatabaseToolsDialogs />
+        </LazyToolBoundary>
       ) : null}
       {indicatorPickerOpen ? (
-        <ErrorBoundary name="IndicatorPicker" fallback={null}>
-          <Suspense fallback={null}>
-            <LazyIndicatorPickerDialog onClose={closeIndicatorPicker} />
-          </Suspense>
-        </ErrorBoundary>
+        <LazyToolBoundary name="Indicator picker">
+          <LazyIndicatorPickerDialog onClose={closeIndicatorPicker} />
+        </LazyToolBoundary>
       ) : null}
       <FavoriteToolsToolbar />
       <WindowTray />
