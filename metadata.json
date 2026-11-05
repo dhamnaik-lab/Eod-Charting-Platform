@@ -1,0 +1,55 @@
+{
+  "cli_version": "0.12.2",
+  "checkpoint_id": "01M6PGSF8AQYGWQDEC519JFTZ4",
+  "strategy": "manual-commit",
+  "checkpoints_count": 9,
+  "files_touched": [
+    "FEATURE_STATUS_MATRIX_EOD_CHARTING_PLATFORM.md",
+    "src-tauri-shell/src/bhavcopy/batch_runtime.rs",
+    "src-tauri-shell/src/bhavcopy/index_fallback.rs",
+    "src-tauri-shell/src/bhavcopy/index_fallback/fixtures/finnifty-20260525-20260529.json",
+    "src-tauri-shell/src/bhavcopy/index_fallback/fixtures/midcap-select-20260525-20260529.json",
+    "src-tauri-shell/src/bhavcopy/index_fallback/fixtures/midcap100-20160708-20160715.json",
+    "src-tauri-shell/src/bhavcopy/index_fallback/fixtures/midcap150-20260525-20260529.json",
+    "src-tauri-shell/src/bhavcopy/index_fallback/fixtures/nifty500-20110103-20110107.json",
+    "src-tauri-shell/src/bhavcopy/index_fallback/fixtures/nse-indices-20261103.csv",
+    "src-tauri-shell/src/bhavcopy/index_fallback/fixtures/smallcap100-20160708-20160715.json",
+    "src-tauri-shell/src/bhavcopy/index_fallback/fixtures/smallcap250-20260525-20260529.json",
+    "src-tauri-shell/src/bhavcopy/index_fallback/tests.rs",
+    "src-tauri-shell/src/bhavcopy/ingestion.rs",
+    "src-tauri-shell/src/bhavcopy/mod.rs",
+    "src-tauri-shell/src/bhavcopy/parsers/csv.rs",
+    "src-tauri-shell/src/bhavcopy/tests.rs",
+    "src-tauri-shell/src/bhavcopy/types.rs",
+    "src-tauri-shell/src/database/index_aliases.rs",
+    "src/components/BhavcopyDownloadWindow.tsx",
+    "src/components/__tests__/BhavcopyDownloadRerun.test.ts",
+    "src/features/bhavcopy/__tests__/downloadRunState.test.ts",
+    "src/features/bhavcopy/__tests__/fallbackProgress.test.ts",
+    "src/features/bhavcopy/downloadRunState.ts",
+    "src/store/bhavcopyStore.ts"
+  ],
+  "sessions": [
+    {
+      "metadata": "/0/metadata.json",
+      "transcript": "/0/full.jsonl",
+      "compact_transcript": "/0/transcript.jsonl",
+      "content_hash": "/0/content_hash.txt",
+      "prompt": "/0/prompt.txt"
+    }
+  ],
+  "redaction": {
+    "replacements": 18,
+    "layers": {
+      "betterleaks": 0,
+      "connection_string": 0,
+      "credential_key": 0,
+      "credential_value": 0,
+      "credentialed_uri": 0,
+      "entropy": 18,
+      "key_context": 0,
+      "provider_token": 0,
+      "shell_stdin": 0
+    }
+  }
+}

@@ -1,0 +1,58 @@
+{
+  "cli_version": "0.12.2",
+  "checkpoint_id": "01M6PGSF8AQYGWQDEC519JFTZ4",
+  "session_id": "01a1a356-3fa0-7b71-ae89-6c28de031609",
+  "strategy": "manual-commit",
+  "created_at": "2026-11-05T18:50:58.358216Z",
+  "checkpoints_count": 9,
+  "save_step_count": 10,
+  "files_touched": [
+    "FEATURE_STATUS_MATRIX_EOD_CHARTING_PLATFORM.md",
+    "src-tauri-shell/src/bhavcopy/batch_runtime.rs",
+    "src-tauri-shell/src/bhavcopy/index_fallback.rs",
+    "src-tauri-shell/src/bhavcopy/index_fallback/fixtures/finnifty-20260525-20260529.json",
+    "src-tauri-shell/src/bhavcopy/index_fallback/fixtures/midcap-select-20260525-20260529.json",
+    "src-tauri-shell/src/bhavcopy/index_fallback/fixtures/midcap100-20160708-20160715.json",
+    "src-tauri-shell/src/bhavcopy/index_fallback/fixtures/midcap150-20260525-20260529.json",
+    "src-tauri-shell/src/bhavcopy/index_fallback/fixtures/nifty500-20110103-20110107.json",
+    "src-tauri-shell/src/bhavcopy/index_fallback/fixtures/nse-indices-20261103.csv",
+    "src-tauri-shell/src/bhavcopy/index_fallback/fixtures/smallcap100-20160708-20160715.json",
+    "src-tauri-shell/src/bhavcopy/index_fallback/fixtures/smallcap250-20260525-20260529.json",
+    "src-tauri-shell/src/bhavcopy/index_fallback/tests.rs",
+    "src-tauri-shell/src/bhavcopy/ingestion.rs",
+    "src-tauri-shell/src/bhavcopy/mod.rs",
+    "src-tauri-shell/src/bhavcopy/parsers/csv.rs",
+    "src-tauri-shell/src/bhavcopy/tests.rs",
+    "src-tauri-shell/src/bhavcopy/types.rs",
+    "src-tauri-shell/src/database/index_aliases.rs",
+    "src/components/BhavcopyDownloadWindow.tsx",
+    "src/components/__tests__/BhavcopyDownloadRerun.test.ts",
+    "src/features/bhavcopy/__tests__/downloadRunState.test.ts",
+    "src/features/bhavcopy/__tests__/fallbackProgress.test.ts",
+    "src/features/bhavcopy/downloadRunState.ts",
+    "src/store/bhavcopyStore.ts"
+  ],
+  "agent": "Codex",
+  "model": "gpt-6.1-sol",
+  "turn_id": "62d288cb84c1",
+  "checkpoint_transcript_start": 1553,
+  "transcript_lines_at_start": 1553,
+  "compact_transcript_start": 229,
+  "redaction": {
+    "replacements": 18,
+    "layers": {
+      "betterleaks": 0,
+      "connection_string": 0,
+      "credential_key": 0,
+      "credential_value": 0,
+      "credentialed_uri": 0,
+      "entropy": 18,
+      "key_context": 0,
+      "provider_token": 0,
+      "shell_stdin": 0
+    }
+  },
+  "session_metrics": {
+    "turn_count": 23
+  }
+}
