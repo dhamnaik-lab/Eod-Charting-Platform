@@ -480,6 +480,40 @@ export function Sidebar({ width, collapsed, pinned, onToggleCollapse, onTogglePi
     };
   }, [displaySymbolBrowserItems, symbolExchangeFilter]);
 
+  const symbolRowWindow = getSidebarListWindow(
+    symbolBrowserEntries.length,
+    symbolScroll.top,
+    symbolScroll.height,
+    VIRTUAL_ROW_HEIGHT,
+    symbolScroll.recentHeight,
+  );
+
+  useEffect(() => {
+    if (activePanel !== 'symbols') return;
+    const container = symbolListRef.current;
+    if (!container) return;
+
+    const measure = () => {
+      const nextTop = container.scrollTop;
+      const nextHeight = container.clientHeight;
+      const nextRecentHeight = recentSectionRef.current?.offsetHeight ?? 0;
+      setSymbolScroll((current) =>
+        current.top === nextTop && current.height === nextHeight && current.recentHeight === nextRecentHeight
+          ? current
+          : { top: nextTop, height: nextHeight, recentHeight: nextRecentHeight },
+      );
+    };
+    measure();
+    const observer = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(measure) : null;
+    observer?.observe(container);
+    if (recentSectionRef.current) observer?.observe(recentSectionRef.current);
+    window.addEventListener('resize', measure);
+    return () => {
+      observer?.disconnect();
+      window.removeEventListener('resize', measure);
+    };
+  }, [activePanel, visibleRecentSymbols.length, recentSectionCollapsed]);
+
   const scrollToIndex = useCallback((index: string) => {
     const container = symbolListRef.current;
     const entryIndex = symbolGroupEntryIndexMap.get(index);
