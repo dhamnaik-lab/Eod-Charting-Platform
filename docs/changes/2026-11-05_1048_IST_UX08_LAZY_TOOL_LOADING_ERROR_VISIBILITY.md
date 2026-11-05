@@ -52,3 +52,10 @@ The user then performs `npm run tauri:portable:win` and Windows UI smoke checks 
 
 ## Rollback
 Before merge: close the isolated draft PR/branch; `main` is unchanged. After merge: create a reviewed revert PR limited to the files above. No local backups were created because no live local project files were edited.
+
+
+## Main reconciliation — 6 November 2026 (IST)
+
+Landed as `47e2843433734da43bf40c95c281fb1225ea12bc` from [PR #18](https://github.com/dhamnaik-lab/Eod-Charting-Platform/pull/18). The landed diff adds `src/components/LazyToolBoundary.tsx` and `src/features/app/__tests__/lazyToolBoundary.test.tsx`, updates `src/RootApp.tsx`, and includes this record. Local Command Palette changes were retained during reconciliation. The local-only reconciliation record `2026-11-05_1118_IST_UX08_LOCAL_RECONCILIATION.md` records that context.
+
+The Windows logs under `tmp/UX08_Apply_20261105_111827_IST` record `npm run test -- src/features/app/__tests__/lazyToolBoundary.test.tsx src/features/app/__tests__/sidebarKeyboardFocus.test.ts src/components/__tests__/ToastAccessibility.test.ts` PASS (11/11), `npm run typecheck:renderer` PASS and `npm run build:renderer` PASS. Missing-chunk behavior and manual Windows UI acceptance remain pending. For rollback on main, review an isolated revert of the landed commit, preserving separate Command Palette edits.

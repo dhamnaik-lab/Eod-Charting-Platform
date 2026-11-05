@@ -21,6 +21,8 @@ Charting workspaces, instruments and identity resolution, `.eod` binary price fi
 | [REQUIREMENTS.md](REQUIREMENTS.md) | Explicit contractual behavior and preservation constraints |
 | [ARCHITECTURE_CURRENT_EOD_CHARTING_PLATFORM.md](ARCHITECTURE_CURRENT_EOD_CHARTING_PLATFORM.md) | Current runtime design, interfaces, storage, and traced flows |
 | [FEATURE_STATUS_MATRIX_EOD_CHARTING_PLATFORM.md](FEATURE_STATUS_MATRIX_EOD_CHARTING_PLATFORM.md) | Feature implementation evidence, test-source coverage, acceptance gaps |
+| [UI/UX audit findings](FEATURE_STATUS_MATRIX_EOD_CHARTING_PLATFORM.md#uiux-audit-findings) | Finding-level implementation, validation and pending native checks |
+| [Git main synchronization](docs/changes/2026-11-06_MAIN_SYNCHRONIZATION.md) | Dated sync baseline, local work preservation and rollback evidence |
 | [FILE_INVENTORY.md](FILE_INVENTORY.md) | Short source navigation map |
 | [PROJECT_STATE_EOD_CHARTING_PLATFORM.md](PROJECT_STATE_EOD_CHARTING_PLATFORM.md) | Dated snapshot audit baseline, findings and check results |
 | [HANDOFF.md](HANDOFF.md) | Immediate resume/checkpoint instructions |
