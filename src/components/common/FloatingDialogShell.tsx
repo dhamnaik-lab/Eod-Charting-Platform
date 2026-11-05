@@ -1,5 +1,6 @@
-import React, { type ReactNode } from 'react';
+import React, { useId, type ReactNode } from 'react';
 import { useDraggableFloatingWindow } from './useDraggableFloatingWindow';
+import { getFloatingWindowArrowDelta } from './floatingWindowKeyboard';
 
 export interface FloatingDialogShellProps {
   title: string;
@@ -28,11 +29,21 @@ export function FloatingDialogShell({
   footerContent,
   isModeless = true,
 }: FloatingDialogShellProps) {
-  const { position, handlePointerDown, isDragging, resetPosition } = useDraggableFloatingWindow({
+  const { position, handlePointerDown, isDragging, resetPosition, moveByKeyboard } = useDraggableFloatingWindow({
     storageKey,
     width,
     height,
   });
+
+  const titleId = useId();
+  const handleHeaderKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
+    if (event.target !== event.currentTarget) return;
+    const delta = getFloatingWindowArrowDelta(event.key);
+    if (!delta) return;
+    event.preventDefault();
+    event.stopPropagation();
+    moveByKeyboard(delta.x, delta.y);
+  };
 
   return (
     <>
@@ -47,6 +58,9 @@ export function FloatingDialogShell({
 
       <div
         className="floating-dialog-panel"
+        role="dialog"
+        aria-modal={!isModeless}
+        aria-labelledby={titleId}
         style={{
           ...floatingPanelStyle,
           left: position.x,
@@ -61,13 +75,17 @@ export function FloatingDialogShell({
         <div
           style={floatingHeaderStyle}
           onPointerDown={handlePointerDown}
-          title="Click and drag to move window anywhere on chart"
+          onKeyDown={handleHeaderKeyDown}
+          tabIndex={0}
+          role="group"
+          aria-label={`Move ${title} window with arrow keys`}
+          title="Drag to move window, or use arrow keys"
         >
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, userSelect: 'none', minWidth: 0 }}>
             {icon ? <span style={{ fontSize: 16, lineHeight: 1 }}>{icon}</span> : null}
             <div style={{ minWidth: 0 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <strong style={headerTitleStyle}>{title}</strong>
+                <strong id={titleId} style={headerTitleStyle}>{title}</strong>
                 <span style={dragHandleHintStyle}>⠿ Drag to move</span>
               </div>
               {subtitle ? <div style={headerSubtitleStyle}>{subtitle}</div> : null}
@@ -81,6 +99,7 @@ export function FloatingDialogShell({
               style={headerIconButtonStyle}
               onClick={resetPosition}
               title="Reset window position to center"
+              aria-label={`Reset ${title} position`}
             >
               ⤢
             </button>
@@ -89,7 +108,7 @@ export function FloatingDialogShell({
               style={headerIconButtonStyle}
               onClick={onClose}
               title="Close window (Escape)"
-              aria-label="Close"
+              aria-label={`Close ${title}`}
             >
               ✕
             </button>

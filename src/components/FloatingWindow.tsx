@@ -1,5 +1,6 @@
 import React, { useEffect, useRef } from 'react';
 import { useWindowStore } from '@/store/windowStore';
+import { getFloatingWindowArrowDelta } from '@/components/common/floatingWindowKeyboard';
 
 interface FloatingWindowProps {
   id: string;
@@ -152,6 +153,34 @@ export function FloatingWindow({
     window.addEventListener('mouseup', handleMouseUpStable);
   };
 
+  const handleTitleKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
+    if (event.target !== event.currentTarget || isMaximized) return;
+    const delta = getFloatingWindowArrowDelta(event.key);
+    if (!delta) return;
+    event.preventDefault();
+    event.stopPropagation();
+    focusWindow(id);
+    moveWindow(
+      id,
+      Math.max(-bounds.width + 100, Math.min(bounds.x + delta.x, window.innerWidth - 100)),
+      Math.max(0, Math.min(bounds.y + delta.y, window.innerHeight - 40)),
+    );
+  };
+
+  const handleResizeKeyDown = (event: React.KeyboardEvent<HTMLButtonElement>) => {
+    if (isMaximized) return;
+    const delta = getFloatingWindowArrowDelta(event.key);
+    if (!delta) return;
+    event.preventDefault();
+    event.stopPropagation();
+    focusWindow(id);
+    resizeWindow(
+      id,
+      Math.min(bounds.width + delta.x, Math.max(windowState.minWidth, window.innerWidth - bounds.x)),
+      Math.min(bounds.height + delta.y, Math.max(windowState.minHeight, window.innerHeight - bounds.y)),
+    );
+  };
+
   const handleResizeMouseDown = (e: React.MouseEvent) => {
     if (isMaximized) return;
     e.preventDefault();
@@ -195,6 +224,10 @@ export function FloatingWindow({
         style={headerStyle}
         onMouseDown={handleTitleMouseDown}
         onDoubleClick={() => (isMaximized ? restoreWindow(id) : maximizeWindow(id))}
+        onKeyDown={handleTitleKeyDown}
+        tabIndex={0}
+        role="group"
+        aria-label={`Move ${title} window with arrow keys`}
       >
         <div id={`${id}-title`} style={titleStyle}>{title}</div>
         <div style={actionsStyle}>
@@ -203,6 +236,7 @@ export function FloatingWindow({
             style={actionButtonStyle}
             onClick={(e) => { e.stopPropagation(); minimizeWindow(id); }}
             title="Minimize"
+            aria-label={`Minimize ${title}`}
           >
             —
           </button>
@@ -211,6 +245,7 @@ export function FloatingWindow({
             style={actionButtonStyle}
             onClick={(e) => { e.stopPropagation(); isMaximized ? restoreWindow(id) : maximizeWindow(id); }}
             title={isMaximized ? "Restore" : "Maximize"}
+            aria-label={`${isMaximized ? "Restore" : "Maximize"} ${title}`}
           >
             {isMaximized ? '❒' : '☐'}
           </button>
@@ -219,6 +254,7 @@ export function FloatingWindow({
             style={{ ...actionButtonStyle, color: 'var(--red)' }}
             onClick={(e) => { e.stopPropagation(); handleClose(); }}
             title="Close"
+            aria-label={`Close ${title}`}
           >
             ✕
           </button>
@@ -228,10 +264,13 @@ export function FloatingWindow({
         {children}
       </div>
       {!isMaximized && (
-        <div
+        <button
+          type="button"
           style={resizeHandleStyle}
           onMouseDown={handleResizeMouseDown}
-          title="Resize"
+          onKeyDown={handleResizeKeyDown}
+          aria-label={`Resize ${title} window with arrow keys`}
+          title="Drag to resize, or use arrow keys"
         />
       )}
     </div>
@@ -292,6 +331,9 @@ const bodyStyle: React.CSSProperties = {
 
 const resizeHandleStyle: React.CSSProperties = {
   position: 'absolute',
+  border: 'none',
+  background: 'transparent',
+  padding: 0,
   right: 0,
   bottom: 0,
   width: 16,
