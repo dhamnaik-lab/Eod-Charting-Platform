@@ -1076,9 +1076,37 @@ fn index_alias_prefilter_reports_exchange_completion_and_unverified_large_ranges
         workers: 2, excluded_series: Vec::new(), nse_equity_url_override: None,
         nse_index_url_override: None, bse_equity_url_override: None, bse_index_url_override: None,
     }).unwrap();
-    assert!(plan.tasks.is_empty());
-    assert!(plan.info_messages.iter().any(|message| message.contains("not complete per-index history")));
-    assert!(plan.info_messages.iter().any(|message| message.contains("40 imported dates exceed the 31-date scan limit")));
+    // All 40 exchange-day markers are present and exceed the binary scan
+    // limit. They do not establish which individual indices were imported.
+    let metadata = storage_mode_load_imported_trade_dates(
+        &connection, "NSE_INDEX", "2015-01-01", "2015-02-09",
+    ).unwrap();
+    assert_eq!(metadata.dates.len(), 40);
+    assert!(metadata.dates.len() > BINARY_PREFILTER_RECONCILE_MAX_DATES);
+    assert_eq!(metadata.binary_reconcile_target_dates, 0);
+    assert_eq!(metadata.binary_reconcile_files_scanned, 0);
+
+    let expected_dates: Vec<_> = (0..40)
+        .map(|offset| start + chrono::Duration::days(offset))
+        .filter(|date| date.weekday().number_from_monday() <= 5)
+        .map(|date| date.format("%Y-%m-%d").to_string())
+        .collect();
+    assert_eq!(
+        plan.tasks.iter().map(|task| &task.trade_date).collect::<Vec<_>>(),
+        expected_dates.iter().collect::<Vec<_>>(),
+    );
+    assert_eq!(plan.calendar_skip_results.len(), 12);
+    assert!(plan.tasks.iter().all(|task| {
+        task.exchange == "NSE_INDEX" && task.nse_index_history.is_none() && !task.candidates.is_empty()
+    }));
+    assert!(plan.info_messages.iter().any(|message| {
+        message.contains("Daily archives first")
+            && message.contains("chunks up to 366 days")
+            && message.contains("no full-history certification")
+    }));
+    assert!(!plan.info_messages.iter().any(|message| {
+        message.contains("already imported trading days") || message.contains("31-date scan limit")
+    }));
 }
 
 #[test]
@@ -1400,6 +1428,40 @@ fn test_nse_index_history_chunks_split_selected_range() {
     assert_eq!(tasks[1].trade_date, "1993-01-01..1993-12-31 BANKNIFTY");
     assert_eq!(tasks[2].trade_date, "1994-01-01..1994-01-15 NIFTY");
     assert_eq!(tasks[3].trade_date, "1994-01-01..1994-01-15 BANKNIFTY");
+}
+
+#[test]
+fn nifty_daily_index_rejects_mixed_dates_and_invalid_ohlc() {
+    let mixed = "Index Name,Index Date,Open Index Value,High Index Value,Low Index Value,Closing Index Value\nNIFTY 50,02-01-2024,100,110,90,105\nNIFTY BANK,03-01-2024,100,110,90,105\n";
+    assert!(parse_bhavcopy_csv(mixed,"NSE_INDEX","2024-01-02",&[]).is_err());
+    let invalid = mixed.replace("03-01-2024","02-01-2024").replace("100,110,90,105","100,99,90,105");
+    assert!(parse_bhavcopy_csv(&invalid,"NSE_INDEX","2024-01-02",&[]).is_err());
+}
+
+#[test]
+fn nifty_legacy_history_writer_is_blocked_before_any_database_write() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("must-not-exist.sqlite3");
+    let result = insert_nse_index_history_rows(&path,"NSE_INDEX",&NseIndexHistoryNormalizeResult { rows: vec![], close_only_skipped: 0 });
+    assert!(result.err().unwrap().contains("Historical Review"));
+    assert!(!path.exists());
+}
+
+#[test]
+fn nifty_range_update_full_history_keep_daily_planning_semantics() {
+    let conn = setup_test_db();
+    let mut messages = Vec::new();
+    let range = resolve_exchange_date_window(&conn,&DownloadMode::Range,"NSE_INDEX","2024-01-20","2024-01-20",&mut messages).unwrap().unwrap();
+    assert_eq!(range,("2024-01-20".into(),"2024-01-20".into()));
+    for (exchange, baseline) in [("NSE","1994-11-03"),("NSE_INDEX","1990-07-03"),("BSE","1990-01-01"),("BSE_INDEX","1990-01-01")] {
+        let window = resolve_exchange_date_window(&conn,&DownloadMode::FullHistory,exchange,"2000-01-01","2000-01-02",&mut messages).unwrap().unwrap();
+        assert_eq!(window.0,baseline);assert_eq!(window.1,today_trade_date());
+    }
+    conn.execute("INSERT INTO eod_prices(date,symbol,exchange,close,volume) VALUES('2024-01-02','BANKNIFTY','NSE_INDEX',100,1)",[]).unwrap();
+    let update = resolve_exchange_date_window(&conn,&DownloadMode::Update,"NSE_INDEX","1990-07-03","2024-01-02",&mut messages).unwrap().unwrap();
+    assert_eq!(update.0,"2024-01-03");
+    // Exchange-level Update is intentionally NOT proof of NIFTY coverage.
+    assert_eq!(update.1,update_end_trade_date());
 }
 
 #[test]

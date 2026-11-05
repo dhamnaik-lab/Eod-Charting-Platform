@@ -49,6 +49,10 @@ pub(super) fn retry_busy<T>(
 pub(super) struct BatchStop(Arc<AtomicBool>);
 
 impl BatchStop {
+    pub(super) fn flag(&self) -> &AtomicBool {
+        &self.0
+    }
+
     pub(super) fn is_requested(&self) -> bool {
         self.0.load(Ordering::SeqCst)
     }

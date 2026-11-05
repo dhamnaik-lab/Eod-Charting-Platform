@@ -1598,13 +1598,17 @@ pub(crate) fn recover_pending_bhavcopy_sessions(
         }
 
         update_session_state(&mut handle, RecoverySessionState::Applying, None)?;
-        let parsed_files = parsed_files_from_recovery_session(&session)?;
+        let mut parsed_files = parsed_files_from_recovery_session(&session)?;
         let recovery_result = (|| -> AppResult<()> {
             restore_buffered_binary_baselines(
                 database_folder,
                 &session.manifest.binary_baselines,
                 &session.rows,
             )?;
+            let outcomes = super::index_fallback::guard_additive(database_file_path, &mut parsed_files)?;
+            if outcomes.values().any(|o| o.conflicts > 0 || o.invalid > 0) {
+                return Err("NSE index recovery conflict: existing quotations preserved; operator review required.".into());
+            }
             let (parsed_results, timing) = insert_parsed_bhavcopy_files_with_durability(
                 database_file_path,
                 &parsed_files,
@@ -1619,11 +1623,14 @@ pub(crate) fn recover_pending_bhavcopy_sessions(
 
             let connection = open_database_connection(database_file_path)?;
             for (parsed, parsed_result) in parsed_files.iter().zip(parsed_results) {
+                let journal_row_count = session.manifest.jobs.iter()
+                    .find(|job| job.exchange == parsed.exchange && job.trade_date == parsed.trade_date)
+                    .map(|job| job.row_count).unwrap_or(parsed.rows.len());
                 let log_result = DownloadResult {
                     success: true,
                     trade_date: parsed.trade_date.clone(),
                     exchange: parsed.exchange.clone(),
-                    rows_inserted: parsed.rows.len(),
+                    rows_inserted: journal_row_count,
                     max_volume: parsed_result.max_volume,
                     message: format!(
                         "Recovered Bhavcopy session {}; canonical rows {}",
@@ -1733,6 +1740,39 @@ pub(super) fn import_staged_csv_downloads(
     }
 
     let parse_ms = parse_started.elapsed().as_millis();
+
+    let index_outcomes = super::index_fallback::guard_additive(database_file_path, &mut parsed_files)?;
+    if !index_outcomes.is_empty() {
+        let evidence = serde_json::to_vec_pretty(&serde_json::json!({
+            "createdAt": chrono::Utc::now().to_rfc3339(),
+            "status": "PRE_WRITE_ADDITIVE_CHECK", "outcomes": index_outcomes,
+        })).map_err(|e| e.to_string())?;
+        super::index_fallback::save_evidence(database_file_path, "additive-check", &evidence)?;
+        // Consolidate archive and fallback rows for the same date into one job.
+        let mut combined = Vec::<ParsedBhavcopyFile>::new();
+        for parsed in parsed_files {
+            if parsed.exchange == "NSE_INDEX" {
+                if let Some(existing) = combined.iter_mut().find(|f| f.exchange == parsed.exchange && f.trade_date == parsed.trade_date) {
+                    existing.max_volume = existing.max_volume.max(parsed.max_volume);
+                    existing.rows.extend(parsed.rows);
+                    continue;
+                }
+            }
+            combined.push(parsed);
+        }
+        parsed_files = combined;
+        parsed_files.retain(|file| {
+            if file.exchange != "NSE_INDEX" || !file.rows.is_empty() { return true; }
+            let outcome = &index_outcomes[&file.trade_date];
+            results.push(DownloadResult {
+                success: outcome.conflicts == 0 && outcome.invalid == 0,
+                exchange: file.exchange.clone(), trade_date: file.trade_date.clone(),
+                rows_inserted: 0, max_volume: 0,
+                message: format!("NSE index subset: inserted 0, identical existing {}, conflicting existing {}, invalid {}; existing prices preserved. {}", outcome.identical, outcome.conflicts, outcome.invalid, outcome.details.join("; ")),
+            });
+            false
+        });
+    }
 
     // After journal preparation begins, finish the entire symbol-batched
     // import and its recovery transitions before observing another stop.
@@ -1993,7 +2033,7 @@ pub(super) fn import_staged_csv_downloads(
             let log_write_started = Instant::now();
             let mut log_entries_written = 0_usize;
             for (parsed, parsed_result) in parsed_files.iter().zip(parsed_results) {
-                let message = if parsed_result.rows_inserted == 0 && !parsed.rows.is_empty() {
+                let mut message = if parsed_result.rows_inserted == 0 && !parsed.rows.is_empty() {
                     format!(
                         "Already present; 0 new rows ({} parsed rows)",
                         parsed.rows.len()
@@ -2004,8 +2044,14 @@ pub(super) fn import_staged_csv_downloads(
                         parsed_result.rows_inserted
                     )
                 };
+                let mut success = true;
+                if let Some(outcome) = index_outcomes.get(&parsed.trade_date).filter(|_| parsed.exchange == "NSE_INDEX") {
+                    success = outcome.conflicts == 0 && outcome.invalid == 0;
+                    message = format!("NSE index subset: inserted {}, identical existing {}, conflicting existing {}, invalid {}; other indices/dates may remain unresolved. {}",
+                        parsed_result.rows_inserted, outcome.identical, outcome.conflicts, outcome.invalid, outcome.details.join("; "));
+                }
                 let result = DownloadResult {
-                    success: true,
+                    success,
                     trade_date: parsed.trade_date.clone(),
                     exchange: parsed.exchange.clone(),
                     rows_inserted: parsed_result.rows_inserted,
@@ -2136,6 +2182,13 @@ pub(super) fn import_staged_csv_downloads(
             ),
         );
     }
+    if !index_outcomes.is_empty() {
+        let evidence = serde_json::to_vec_pretty(&serde_json::json!({
+            "createdAt": chrono::Utc::now().to_rfc3339(), "status": "IMPORT_COMPLETED",
+            "results": results.iter().filter(|r| r.exchange == "NSE_INDEX").collect::<Vec<_>>(),
+        })).map_err(|e| e.to_string())?;
+        super::index_fallback::save_evidence(database_file_path, "import-result", &evidence)?;
+    }
 
     Ok(results)
 }
@@ -2147,144 +2200,14 @@ pub(crate) fn lock_bhavcopy_write(write_lock: &Mutex<()>) -> AppResult<MutexGuar
 }
 
 pub(crate) fn insert_nse_index_history_rows(
-    database_file_path: &Path,
-    exchange: &str,
-    normalized: &NseIndexHistoryNormalizeResult,
+    _database_file_path: &Path,
+    _exchange: &str,
+    _normalized: &NseIndexHistoryNormalizeResult,
 ) -> AppResult<NseIndexHistoryInsertResult> {
-    if normalized.rows.is_empty() {
-        return Ok(NseIndexHistoryInsertResult {
-            rows_inserted: 0,
-            max_volume: 0,
-            close_only_skipped: normalized.close_only_skipped,
-        });
-    }
-
-    let normalized_exchange = exchange.to_uppercase();
-    let mut connection = open_database_connection(database_file_path)?;
-    let storage_mode = get_price_storage_mode(&connection);
-    let binary_only = storage_mode == PriceStorageMode::Binary;
-    let transaction = connection
-        .transaction()
-        .map_err(|error| error.to_string())?;
-    let mut insert_instrument = transaction
-        .prepare(
-            "
-              INSERT OR IGNORE INTO instruments (symbol, exchange, name, updated_at)
-              VALUES (?, ?, ?, datetime('now'))
-            ",
-        )
-        .map_err(|error| error.to_string())?;
-    let mut insert_eod = transaction
-        .prepare(
-            "
-              INSERT OR REPLACE INTO eod_prices
-              (symbol, exchange, date, open, high, low, close, prev_close, volume, open_interest, trades)
-              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            ",
-        )
-        .map_err(|error| error.to_string())?;
-
-    let mut rows_inserted = 0_usize;
-    let mut max_volume = 0_u64;
-    let mut binary_records = HashMap::<String, Vec<EodRecord>>::new();
-    let mut date_counts = HashMap::<String, (usize, u64)>::new();
-
-    for row in &normalized.rows {
-        insert_instrument
-            .execute(params![
-                &row.symbol,
-                &normalized_exchange,
-                &row.instrument_name
-            ])
-            .map_err(|error| error.to_string())?;
-
-        if !binary_only {
-            insert_eod
-                .execute(params![
-                    &row.symbol,
-                    &normalized_exchange,
-                    &row.trade_date,
-                    row.open,
-                    row.high,
-                    row.low,
-                    row.close,
-                    Option::<f64>::None,
-                    row.volume as i64,
-                    0_i64,
-                    Option::<i64>::None,
-                ])
-                .map_err(|error| error.to_string())?;
-        }
-
-        max_volume = max_volume.max(row.volume);
-        let date_entry = date_counts.entry(row.trade_date.clone()).or_insert((0, 0));
-        date_entry.0 += 1;
-        date_entry.1 = date_entry.1.max(row.volume);
-        binary_records
-            .entry(row.symbol.clone())
-            .or_default()
-            .push(EodRecord {
-                date: date_to_u32(&row.trade_date),
-                flags: 0,
-                open: (row.open * DEFAULT_SCALE as f64).round() as i64,
-                high: (row.high * DEFAULT_SCALE as f64).round() as i64,
-                low: (row.low * DEFAULT_SCALE as f64).round() as i64,
-                close: (row.close * DEFAULT_SCALE as f64).round() as i64,
-                prev_close: 0,
-                volume: row.volume,
-                oi: 0,
-            });
-        rows_inserted += 1;
-    }
-
-    drop(insert_instrument);
-    drop(insert_eod);
-    transaction.commit().map_err(|error| error.to_string())?;
-
-    if let Some(folder_path) = database_file_path.parent() {
-        for (symbol, records) in binary_records {
-            let bin_path = folder_path
-                .join("eod_data")
-                .join(&normalized_exchange)
-                .join(format!("{}.eod", symbol));
-
-            if let Err(error) = BinaryEodFile::append_or_merge_records(
-                &bin_path,
-                &symbol,
-                &normalized_exchange,
-                DEFAULT_SCALE,
-                records,
-            ) {
-                eprintln!(
-                    "Binary write failure for {}:{}: {}: {}",
-                    normalized_exchange,
-                    symbol,
-                    bin_path.display(),
-                    error
-                );
-            }
-        }
-    }
-
-    for (trade_date, (rows_for_date, max_volume_for_date)) in date_counts {
-        upsert_download_log_entry(
-            &connection,
-            &DownloadResult {
-                success: true,
-                trade_date,
-                exchange: normalized_exchange.clone(),
-                rows_inserted: rows_for_date,
-                max_volume: max_volume_for_date,
-                message: "Downloaded from NSE historical index API".to_string(),
-            },
-        )?;
-    }
-
-    Ok(NseIndexHistoryInsertResult {
-        rows_inserted,
-        max_volume,
-        close_only_skipped: normalized.close_only_skipped,
-    })
+    // This legacy path committed metadata before binary writes and swallowed
+    // storage failures. Historical observations now require a reviewed preview
+    // and the durable Manual Import journal; never activate this as a fallback.
+    Err("Historical index auto-import is disabled. Use NIFTY Historical Review to verify and approve a recovery-backed import.".to_string())
 }
 
 pub(crate) fn parse_and_insert(
@@ -3277,24 +3200,28 @@ fn upsert_download_log_entry_once(
     result: &DownloadResult,
     preserve_success: bool,
 ) -> rusqlite::Result<()> {
-    if result.success {
+    if result.success || (result.exchange == "NSE_INDEX" && result.rows_inserted > 0) {
         connection
             .execute(
                 "
                   INSERT INTO download_log (trade_date, exchange, rows_inserted, max_volume, status, note)
-                  VALUES (?, ?, ?, ?, 'ok', NULL)
+                  VALUES (?, ?, ?, ?, CASE WHEN ? = 'NSE_INDEX' THEN 'partial' ELSE 'ok' END, ?)
                   ON CONFLICT(trade_date, exchange) DO UPDATE SET
                     rows_inserted = excluded.rows_inserted,
                     max_volume = excluded.max_volume,
                     downloaded_at = datetime('now'),
                     status = excluded.status,
-                    note = NULL
+                    note = excluded.note
+                  WHERE NOT ? OR excluded.status = 'ok' OR download_log.status <> 'ok'
                 ",
                 params![
                     &result.trade_date,
                     &result.exchange,
                     result.rows_inserted as i64,
                     result.max_volume as i64,
+                    &result.exchange,
+                    if result.exchange == "NSE_INDEX" { Some(result.message.as_str()) } else { None },
+                    preserve_success,
                 ],
             )?;
     } else {
@@ -3304,10 +3231,13 @@ fn upsert_download_log_entry_once(
                   INSERT INTO download_log (trade_date, exchange, rows_inserted, max_volume, status, note)
                   VALUES (?, ?, 0, 0, 'error', ?)
                   ON CONFLICT(trade_date, exchange) DO UPDATE SET
-                    rows_inserted = excluded.rows_inserted,
-                    max_volume = excluded.max_volume,
+                    rows_inserted = CASE WHEN download_log.exchange = 'NSE_INDEX' AND download_log.rows_inserted > 0
+                      AND download_log.status IN ('ok', 'partial') THEN download_log.rows_inserted ELSE excluded.rows_inserted END,
+                    max_volume = CASE WHEN download_log.exchange = 'NSE_INDEX' AND download_log.rows_inserted > 0
+                      AND download_log.status IN ('ok', 'partial') THEN download_log.max_volume ELSE excluded.max_volume END,
                     downloaded_at = datetime('now'),
-                    status = excluded.status,
+                    status = CASE WHEN download_log.exchange = 'NSE_INDEX' AND download_log.rows_inserted > 0
+                      AND download_log.status IN ('ok', 'partial') THEN 'partial' ELSE excluded.status END,
                     note = excluded.note
                   WHERE NOT ? OR download_log.status <> 'ok'
                 ",
@@ -3352,7 +3282,7 @@ pub(crate) fn metadata_get_latest_imported_trade_date(
               SELECT MAX(trade_date)
               FROM download_log
               WHERE exchange = ?
-                AND status = 'ok'
+                AND (status = 'ok' OR (exchange = 'NSE_INDEX' AND status = 'partial'))
                 AND rows_inserted > 0
             ",
             params![exchange],

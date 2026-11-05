@@ -17,11 +17,17 @@ export function applyDownloadProgress(current: DownloadRun, progress: number, me
   return { ...current, progress: Math.max(0, Math.min(100, progress)), message };
 }
 
+export function dismissDownloadRun(current: DownloadRun): DownloadRun {
+  if (current.running) return current;
+  return { running: false, progress: 0, message: '', error: null };
+}
+
 export function finishDownloadRun(
   current: DownloadRun,
   error: string | null,
-  cancelled = false,
+  { cancelled = false, visible = true }: { cancelled?: boolean; visible?: boolean } = {},
 ): DownloadRun {
+  if (!visible) return dismissDownloadRun({ ...current, running: false });
   if (cancelled) {
     return {
       running: false,

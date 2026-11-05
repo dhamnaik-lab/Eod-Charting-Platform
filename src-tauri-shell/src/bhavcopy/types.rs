@@ -197,6 +197,9 @@ pub struct ParseInsertResult {
     pub debug: Option<String>,
 }
 
+// Normalization remains covered by tests, while the legacy history writer
+// rejects the import without reading these fields.
+#[allow(dead_code)]
 pub struct NseIndexHistoryInsertRow {
     pub symbol: String,
     pub instrument_name: String,
@@ -208,6 +211,7 @@ pub struct NseIndexHistoryInsertRow {
     pub volume: u64,
 }
 
+#[allow(dead_code)]
 pub struct NseIndexHistoryNormalizeResult {
     pub rows: Vec<NseIndexHistoryInsertRow>,
     pub close_only_skipped: usize,

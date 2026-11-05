@@ -16,6 +16,7 @@ export interface RunSummary {
   successCount: number;
   skippedCount: number;
   failedCount: number;
+  partialCount: number;
   totalRowsInserted: number;
   completedCount: number;
 }
@@ -64,6 +65,7 @@ const EMPTY_RUN_SUMMARY: RunSummary = {
   successCount: 0,
   skippedCount: 0,
   failedCount: 0,
+  partialCount: 0,
   totalRowsInserted: 0,
   completedCount: 0,
 };
@@ -72,8 +74,12 @@ function getDownloadResultKey(result: DownloadResult): string {
   return `${result.exchange}::${result.tradeDate}`;
 }
 
-function isSkippedResult(result: DownloadResult): boolean {
-  return result.success && result.rowsInserted === 0;
+export function isPartialCoverageResult(result: DownloadResult): boolean {
+  return !result.success && result.exchange === 'NSE_INDEX' && result.message.startsWith('Historical subset:');
+}
+
+export function isSkippedResult(result: DownloadResult): boolean {
+  return result.success && result.rowsInserted === 0 && !result.message.startsWith('Historical subset:');
 }
 
 function formatExchangeLabel(value: string): string {
@@ -84,7 +90,7 @@ function formatExchangeLabel(value: string): string {
       return 'BSE';
     case 'NSEINDEX':
     case 'NSE_INDEX':
-      return 'NSE Index Symbols / Full Index List';
+      return 'NSE Indices';
     case 'BSEINDEX':
     case 'BSE_INDEX':
       return 'BSE Index';
@@ -104,7 +110,9 @@ function mergeRunSummary(
 ): RunSummary {
   const summary = { ...currentSummary };
   const applyContribution = (result: DownloadResult, direction: 1 | -1) => {
-    if (isSkippedResult(result)) {
+    if (isPartialCoverageResult(result)) {
+      summary.partialCount += direction;
+    } else if (isSkippedResult(result)) {
       summary.skippedCount += direction;
     } else if (result.success) {
       summary.successCount += direction;
@@ -226,11 +234,13 @@ export const useBhavcopyStore = create<BhavcopyStoreState>((set, get) => ({
     });
 
     const exchangeLabel = formatExchangeLabel(result.exchange);
-    if (result.success) {
+    if (isPartialCoverageResult(result)) {
+      get().addLog('warning', `[${exchangeLabel}] ${result.tradeDate}: ${result.message}`);
+    } else if (result.success) {
       if (result.rowsInserted === 0 && result.message) {
         get().addLog('warning', `[${exchangeLabel}] ${result.tradeDate}: ${result.message}`);
       } else {
-        get().addLog('success', `[${exchangeLabel}] ${result.tradeDate}: ${result.rowsInserted} rows`);
+        get().addLog('success', `[${exchangeLabel}] ${result.tradeDate}: ${result.rowsInserted} rows${result.exchange === 'NSE_INDEX' ? `; ${result.message}` : ''}`);
       }
     } else {
       get().addLog('error', `[${exchangeLabel}] ${result.tradeDate}: ${result.message}`);

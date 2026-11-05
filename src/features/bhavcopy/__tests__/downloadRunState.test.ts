@@ -1,9 +1,21 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { useBhavcopyStore } from '@/store/bhavcopyStore';
 import type { BhavcopyBatchStopReply } from '@/platform';
-import { applyDownloadProgress, beginDownloadRun, finishDownloadRun, isBackgroundCheckpointProgress } from '../downloadRunState';
+import { applyDownloadProgress, beginDownloadRun, dismissDownloadRun, finishDownloadRun, isBackgroundCheckpointProgress } from '../downloadRunState';
 
 describe('download command lifetime', () => {
+  it.each([null, 'source failed', 'cancelled'])('dismisses terminal status: %s', (error) => {
+    const dismissed = dismissDownloadRun(finishDownloadRun(beginDownloadRun(), error));
+    expect(dismissed).toEqual({ running: false, progress: 0, message: '', error: null });
+    expect(applyDownloadProgress(dismissed, 90, 'Late event')).toBe(dismissed);
+  });
+  it('keeps a hidden active run and clears its status when it finishes hidden', () => {
+    const active = applyDownloadProgress(beginDownloadRun(), 30, 'Downloading');
+    expect(dismissDownloadRun(active)).toBe(active);
+    expect(finishDownloadRun(active, 'failed', { visible: false })).toEqual({ running: false, progress: 0, message: '', error: null });
+    const newer = beginDownloadRun();
+    expect(dismissDownloadRun(newer)).toBe(newer);
+  });
   it('stops on failure and ignores queued events instead of restoring a stale 3% run', () => {
     const active = applyDownloadProgress(beginDownloadRun(), 3, 'Staging');
     const failed = finishDownloadRun(active, 'database is locked');
@@ -20,11 +32,15 @@ describe('download command lifetime', () => {
 
   it('keeps cancelled progress below 100 and retains any completed job failures', () => {
     const active = applyDownloadProgress(beginDownloadRun(), 100, 'Queued event');
-    expect(finishDownloadRun(active, '1 job failed', true)).toEqual({
+    expect(finishDownloadRun(active, '1 job failed', { cancelled: true })).toEqual({
       running: false, progress: 99, message: 'Download cancelled', error: '1 job failed',
     });
   });
 
+  it('dismisses a cancelled batch that finishes while hidden', () => {
+    expect(finishDownloadRun(beginDownloadRun(), null, { visible: false, cancelled: true }))
+      .toEqual({ running: false, progress: 0, message: '', error: null });
+  });
   it('does not finish early at 100% and does not restart after command completion', () => {
     const stillActive = applyDownloadProgress(beginDownloadRun(), 100, 'Refreshing chart');
     expect(stillActive.running).toBe(true);

@@ -48,6 +48,7 @@ pub mod bse_price_history;
 pub use bse_price_history::{cancel_bse_price_history_download, download_bse_price_history};
 mod batch_runtime;
 mod bse_browser_fallback;
+mod index_fallback;
 
 #[tauri::command]
 pub async fn download_bhavcopy(app: AppHandle, date: Option<String>) -> AppResult<DownloadResult> {
@@ -334,6 +335,8 @@ fn run_bhavcopy_batch(
     let mut staged_downloads = Vec::<StagedDownload>::new();
     let mut completed = 0_usize;
     let total_tasks = tasks.len();
+    let index_dates = tasks.iter().filter(|task| task.exchange == "NSE_INDEX")
+        .map(|task| task.trade_date.clone()).collect();
     let task_queue = Arc::new(Mutex::new(VecDeque::from(tasks)));
     let write_lock = Arc::new(Mutex::new(()));
     let (result_tx, result_rx) = mpsc::channel::<StagedDownloadOutcome>();
@@ -403,7 +406,11 @@ fn run_bhavcopy_batch(
                 );
                 staged_downloads.push(staged);
             }
-            StagedDownloadOutcome::Result(result) => {
+            StagedDownloadOutcome::Result(mut result) => {
+                if result.exchange == "NSE_INDEX" {
+                    // Keep archive diagnostics distinct from the date's import result.
+                    result.trade_date = format!("{} archive", result.trade_date);
+                }
                 if should_write_download_log(&result) {
                     let _write_guard = lock_bhavcopy_write(&write_lock)?;
                     upsert_batch_download_log_entry(&connection, &result)?;
@@ -424,6 +431,29 @@ fn run_bhavcopy_batch(
     download_workers.finish()?;
     if completed != total_tasks && !stop.is_requested() {
         return Err(format!("Bhavcopy staging stopped early: {completed}/{total_tasks} jobs returned; all workers stopped."));
+    }
+
+    if get_active_database_file_path(&app_handle)?.as_ref() != Some(&database_file_path) {
+        return Err("Active database changed during download; staged prices were not imported.".into());
+    }
+    if !stop.is_requested() {
+        let prior_result_count = results.len();
+        let fallback = index_fallback::stage_fallback(
+            &app_handle, &client, &database_file_path, &normalized_config, &index_dates,
+            &mut staged_downloads, &mut results, stop.flag(),
+        );
+        match fallback {
+            Err(error) if stop.is_requested() && error == "Index fallback cancelled" => {}
+            outcome => outcome?,
+        }
+        if stop.is_requested() && results.len() > prior_result_count
+            && results.last().is_some_and(|result| result.message == "Historical source failure: Index fallback cancelled")
+        {
+            results.pop();
+        }
+    }
+    if get_active_database_file_path(&app_handle)?.as_ref() != Some(&database_file_path) {
+        return Err("Active database changed during download; staged prices were not imported.".into());
     }
 
     staged_downloads.sort_by(|left, right| compare_download_task(&left.task, &right.task));
@@ -623,6 +653,10 @@ fn build_batch_plan(connection: &Connection, config: &BatchDownloadConfig) -> Ap
     let mut tasks = Vec::<DownloadTask>::new();
 
     for exchange in selected_exchanges(&config.exchanges) {
+        if exchange == "NSE_INDEX" {
+            let supported = index_fallback::SUPPORTED.iter().map(|index| index.name).collect::<Vec<_>>().join(", ");
+            info_messages.push(format!("[NSE Index] Daily archives first; missing supported indices use historical fallback in chunks up to 366 days. Supported subset: {supported}. Other indices and unavailable dates remain unresolved; no full-history certification. Existing prices are preserved."));
+        }
         let Some((start_date, end_date)) = resolve_exchange_date_window(
             connection,
             &config.mode,
@@ -635,8 +669,12 @@ fn build_batch_plan(connection: &Connection, config: &BatchDownloadConfig) -> Ap
             continue;
         };
 
-        let imported_dates =
-            storage_mode_load_imported_trade_dates(connection, &exchange, &start_date, &end_date)?;
+        let imported_dates = if exchange == "NSE_INDEX" {
+            // An exchange-date marker cannot establish per-index coverage.
+            ImportedTradeDates::default()
+        } else {
+            storage_mode_load_imported_trade_dates(connection, &exchange, &start_date, &end_date)?
+        };
         if imported_dates.metadata_lookup_ms > 0
             || imported_dates.binary_reconcile_ms > 0
             || imported_dates.binary_reconcile_files_scanned > 0
@@ -775,6 +813,9 @@ fn stage_download_task(
 ) -> AppResult<StagedDownloadOutcome> {
     if stop.is_requested() {
         return Ok(StagedDownloadOutcome::Cancelled);
+    }
+    if task.exchange == "NSE_INDEX" && task.nse_index_history.is_none() {
+        return stage_single_download(client, task, stop);
     }
     let connection = batch_runtime::open_staging_connection(database_file_path)?;
     let existing_log_id = connection
@@ -941,6 +982,17 @@ fn stage_single_download(
                 if is_html_response(&csv_content) {
                     last_hard_error = Some("Official source returned HTML instead of Bhavcopy data.".into());
                     continue;
+                }
+                if task.exchange == "NSE_INDEX" {
+                    let validation = parse_bhavcopy_csv(&csv_content, &task.exchange, &task.trade_date, &[]);
+                    let error = match validation {
+                        Ok(parsed) => parsed.debug,
+                        Err(error) => Some(error),
+                    };
+                    if let Some(error) = error {
+                        last_hard_error = Some(format!("Index archive integrity: {error}"));
+                        continue;
+                    }
                 }
                 return Ok(StagedDownloadOutcome::Ready(StagedDownload {
                     task: task.clone(),
