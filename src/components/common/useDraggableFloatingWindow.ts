@@ -14,6 +14,7 @@ export interface UseDraggableFloatingWindowReturn {
   isDragging: boolean;
   resetPosition: () => void;
   setPosition: (pos: { x: number; y: number }) => void;
+  moveByKeyboard: (deltaX: number, deltaY: number) => void;
 }
 
 export function clampCoordinate(value: number, min: number, max: number): number {
@@ -114,6 +115,19 @@ export function useDraggableFloatingWindow(
     }
   }, [width, height, storageKey, storage]);
 
+  // Arrow-key moves use the same viewport limits and persistent storage as pointer dragging.
+  const moveByKeyboard = useCallback((deltaX: number, deltaY: number) => {
+    const next = {
+      x: clampCoordinate(position.x + deltaX, 0, Math.max(0, window.innerWidth - 120)),
+      y: clampCoordinate(position.y + deltaY, 0, Math.max(0, window.innerHeight - 80)),
+    };
+    if (next.x === position.x && next.y === position.y) return;
+    setPosition(next);
+    if (storageKey) {
+      saveStoredFloatingPosition(storageKey, next, storage);
+    }
+  }, [position.x, position.y, storageKey, storage]);
+
   const handlePointerDown = useCallback(
     (e: ReactPointerEvent<HTMLElement>) => {
       // Only drag with primary mouse button
@@ -192,5 +206,6 @@ export function useDraggableFloatingWindow(
     isDragging,
     resetPosition,
     setPosition,
+    moveByKeyboard,
   };
 }
