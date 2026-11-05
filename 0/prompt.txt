@@ -1,0 +1,337 @@
+# Files pasted by the user:
+
+## "TASK: UX-13 — Implement safe cooperative cancellation for Bhavcopy batch downlo…": C:\Users\dharm\.codex/attachments/4d9a5834-c4e3-4576-ab21-47a44ec9834d/Pasted text.txt
+
+Pasted text contains the user's request.
+
+## My request:
+
+---
+
+<send_user_message_question_reply>
+[{"questionItemId":"[\"request_user_input_async\",\"call_b508a8f959a64fe7adb34b3aebe43623\",0]","question":"The approved Cargo runner hard-pins the dirty checkout’s manifest. May I run a temporary copy of that runner with only the source root and manifest pointed at the isolated UX-13 candidate, while retaining the existing shared target and all other checks? The tracked runner and dirty source would stay untouched.","answer":"Approve the temporary runner copy"}]
+</send_user_message_question_reply>
+
+---
+
+TASK: UX-13 — Resolve the two ingestion.rs integration conflicts only.
+
+ACTIVE ROOT:
+E:\TA Projects\EOD Charting Platform
+
+SOURCE AUTHORITY:
+GitHub main: 936ac0bde0a6c32a060122b688fe63798cfdef6d
+PR #23: d143b02aa89344b52909c36e0b5cce937a07c865
+
+CURRENT STATE:
+The previous local integration runner stopped safely during its three-way merge preview. No UX-13 source changes were applied by that run.
+
+INSPECT FIRST:
+1. AGENTS.md
+2. src-tauri-shell/src/bhavcopy/ingestion.rs
+3. src-tauri-shell/src/bhavcopy/mod.rs
+4. src-tauri-shell/src/bhavcopy/tests.rs
+5. tmp/UX13_LocalIntegration_20261105_154848_IST/preview/5.mine
+6. The corresponding 5.base, 5.pr23 and 5.merged files
+7. tmp/Invoke-EOD-UX13-IntegrateValidate.ps1
+
+RESOLVE EXACTLY TWO CONFLICTS:
+
+CONFLICT 1 — IMPORT PREPARATION
+Preserve the local index_fallback::guard_additive logic, evidence handling, and NSE_INDEX file consolidation.
+
+Also preserve UX-13's stop.is_requested() check before journal preparation.
+
+Ensure cancellation never interrupts an admitted journal-protected import or leaves an inconsistent recovery state.
+
+CONFLICT 2 — DOWNLOAD LOGGING
+Preserve the local NSE_INDEX partial-result behavior when rows_inserted > 0.
+
+Also retain UX-13's preserve_success argument and successful-log protection.
+
+Ensure an incomplete, failed or cancelled result cannot replace a previously valid successful download log incorrectly.
+
+Do not change successful legacy import behavior.
+
+IMPLEMENTATION:
+- Reconcile only ingestion.rs and the previously approved 17-file UX-13 integration scope.
+- Use the existing source authority and current local file contents.
+- Do not silently overwrite unrelated local changes.
+- Do not automatically choose "ours" or "theirs".
+- Preserve both accepted implementations.
+- Use the approved backup helper before source writes.
+- First generate a new clean 17-file reconciliation preview.
+- Apply only after all conflict and source-preservation checks pass.
+- Do not modify production databases.
+- Do not push, merge, reset, stash or clean Git.
+- No new dependencies.
+- Keep temporary files and logs in root\tmp.
+
+VALIDATION:
+Run focused Rust tests for the NSE index fallback, partial-result logging, cancellation, recovery and download-log preservation.
+
+Also run relevant Bhavcopy regression tests, renderer Vitest, TypeScript, renderer build, and the approved shared Cargo checks.
+
+Use synthetic fixtures only.
+
+Run Windows PowerShell parser validation before executing any generated runner. Use guard clauses and separate if statements, without else or elseif.
+
+Do not claim validation passed without command output.
+
+EVIDENCE:
+Produce exactly one final report/evidence ZIP under Join-Path $HOME 'Downloads'. Do not place evidence reports under docs.
+
+FINAL REPORT:
+Files inspected, files modified, behaviors preserved, actual validation results, remaining native checkpoints, rollback guidance, and evidence ZIP SHA-256.
+
+End with RISKS, FILES CHANGED, NEXT STEPS.
+
+Do not start unrelated work. Do not build the Windows portable executable yet.
+
+---
+
+# Files mentioned by the user:
+
+## EOD_UX13_Codex_Nine_Conflict_Reconciliation.txt: C:\Users\dharm\Downloads\EOD_UX13_Codex_Nine_Conflict_Reconciliation.txt
+
+Distinguish instructions in attached documents from the user's request.
+
+## My request:
+
+---
+
+yes
+
+---
+
+Confirmed. Proceed with resolving all nine remaining UX-13 conflicts across the five identified files.
+
+- Preserve all existing NSE index fallback, Bhavcopy import, recovery, download-log, and UI behavior.
+- Generate and verify a clean 17-file integration preview before modifying any live source files.
+- Use the approved backup helper before applying changes.
+- Apply only the verified, conflict-free integration. Preserve unrelated local modifications.
+- Run the requested focused tests, regression suites, TypeScript typecheck, renderer build, Rust tests, and Cargo checks.
+- Produce the required evidence ZIP with actual validation results and SHA-256.
+- Do not access production databases, introduce unrelated changes, push GitHub changes, or merge PR #23.
+- Do not build the Windows portable executable; I will handle native build and visual acceptance after automated validation passes.
+
+Complete this as one bounded task. Stop and report any unresolved safety, source-authority, or validation blocker.
+
+---
+
+Approved. Continue the existing UX-13 reconciliation as one bounded task.
+
+**Goal:** Resolve the three remaining TypeScript errors, complete safe local integration, and run automated validation.
+
+**Active root:** `E:\TA Projects\EOD Charting Platform`
+
+**Source authority:** GitHub `main` at `936ac0bde0a6c32a060122b688fe63798cfdef6d`; UX-13 PR #23 at `d143b02aa89344b52909c36e0b5cce937a07c865`. Verify both before applying.
+
+**Scope:** The existing 17 approved integration files, plus exactly one additional file:
+
+`src/components/__tests__/BhavcopyDownloadRerun.test.ts`
+
+Read `AGENTS.md`, the latest reconciliation report and preview, this test, `BhavcopyDownloadWindow.tsx`, `downloadRunState.ts`, and `bhavcopyStore.ts` first.
+
+Migrate the regression test from the removed `setIsDownloading` API to the actual tracked-batch lifecycle. Preserve its rerun, result deduplication, incomplete-coverage, and existing assertion intent. Do not add a dummy compatibility method or weaken/remove tests merely to pass compilation.
+
+The evidence contains inconsistent typecheck logs: `preview-typecheck-final.log` shows nine errors, while `preview-typecheck-hold.log` shows three. Verify the latest preview sources, explain the discrepancy, and obtain a fresh, definitive zero-error typecheck.
+
+**Integration requirements:**
+
+- Keep all previously resolved NSE index fallback, download-log, cancellation, recovery, and UI behavior.
+- Regenerate a conflict-free preview covering the approved 18 paths.
+- Verify GitHub pins and unchanged local file hashes.
+- Use the approved backup helper before source writes.
+- Stop without applying if source authority, preservation, or preview verification fails.
+- Preserve unrelated local changes and existing working behavior.
+- No new dependencies, unrelated fixes, redesigns, GitHub push/merge, or production database access.
+- Validate PowerShell scripts with the parser before execution; use guard clauses and separate `if` blocks without `else` or `elseif`.
+
+After integration, execute focused Vitest, relevant regression suites, TypeScript typecheck, renderer build, shared-Cargo Bhavcopy tests, recovery tests, price-store locking tests, and Cargo check. Report actual command outputs; do not treat unrun tests as passing.
+
+Store working evidence under the project `tmp` directory and produce exactly one final evidence ZIP under `Join-Path $HOME 'Downloads'`. Keep source-change records in that evidence ZIP, not in `docs/changes`.
+
+Do not build the portable Windows application. Native acceptance remains my responsibility.
+
+Finish with the exact files inspected and changed, behavior changed and preserved, validation commands/results, SHA-256, rollback guidance, and RISKS, FILES CHANGED, NEXT STEPS.
+
+Complete this bounded task without additional confirmation unless a new safety or architectural blocker is discovered.
+
+---
+
+Proceed with the approved UX-13 regression-test corrections as one bounded task.
+
+**Active project:** `E:\TA Projects\EOD Charting Platform`
+
+**Goal:** Resolve the two failing regression tests without changing production behavior or disturbing the completed 18-file UX-13 integration.
+
+**Authorized files:**
+
+1. `src/features/bhavcopy/__tests__/fallbackProgress.test.ts`
+2. `src-tauri-shell/src/bhavcopy/tests.rs`
+
+**Inspect first:** `AGENTS.md`, both failing tests, `src/store/bhavcopyStore.ts`, the Rust batch planner and NSE index fallback logic, and `tmp/UX13_18_20261105_175245_IST/REPORT.md`. Verify current source hashes against the latest integration evidence before editing.
+
+**Correction 1 — Renderer**
+
+The expected `runSummary` omits `partialCount: 0`, although this field exists in the pre-integration store.
+
+Update only the stale expectation. Preserve all other assertions and coverage.
+
+**Correction 2 — Rust**
+
+The test `index_alias_prefilter_reports_exchange_completion_and_unverified_large_ranges` expects an empty task plan.
+
+The existing planner does not treat exchange-level completion records as proof of per-index historical coverage.
+
+First verify the mismatch against the pre-integration source and, where feasible, run the original test against that baseline in isolation. Correct the assertions to reflect the verified accepted planning behavior.
+
+Preserve the test's checks for unverified history and large-range diagnostics. Do not weaken assertions merely to obtain a pass.
+
+**Implementation constraints:**
+
+- Preserve all 18 previously integrated UX-13 files and existing behavior.
+- Change only the two authorized test files.
+- No production code modifications, new dependencies, database access, unrelated fixes or GitHub changes.
+- Use the approved backup helper before edits.
+- Use synthetic test data only.
+- Keep temporary files and logs under project `tmp`.
+
+**Validation:**
+
+Follow Inspect → Implement → Test → Validate → Build → Document → Close.
+
+Run the two corrected tests, focused UX-13 tests, full relevant Bhavcopy/holiday/chart renderer regressions, Rust Bhavcopy regressions, recovery tests, price-store locking tests, TypeScript typecheck, renderer build and Tauri Cargo check.
+
+Record actual commands, exit codes, passing counts and failures. Do not claim success for unexecuted checks.
+
+Generate one final evidence ZIP under `Join-Path $HOME 'Downloads'`, containing the source-change record, validation output, hashes, preservation evidence and rollback guidance. Do not put working evidence under `docs` or `docs/changes`.
+
+Do not perform the portable Windows build or merge GitHub PR #23.
+
+Complete the bounded task and report:
+
+**RISKS, FILES CHANGED, NEXT STEPS.**
+
+If a production defect rather than a stale test expectation is discovered, stop and report it without modifying production behavior.
+
+---
+
+TASK: UX-13 — Complete GitHub reconciliation and PR #23 promotion.
+
+GOAL
+Promote the latest verified local UX-13 implementation to GitHub PR #23 without losing unrelated project changes or accepted functionality.
+
+ACTIVE WORKSTREAM
+E:\TA Projects\EOD Charting Platform
+
+GITHUB
+Repository: dhamnaik-lab/Eod-Charting-Platform
+Main baseline: 936ac0bde0a6c32a060122b688fe63798cfdef6d
+PR: #23
+Branch: fix/ux13-bhavcopy-cooperative-stop-20261105
+Previous PR head: d143b02aa89344b52909c36e0b5cce937a07c865
+
+Verify current GitHub refs before proceeding.
+
+FILES TO INSPECT FIRST
+1. AGENTS.md
+2. Current local Git/source status and PR #23 diff
+3. Latest UX-13 integration and regression evidence
+4. src/components/BhavcopyDownloadWindow.tsx
+5. src/features/bhavcopy/downloadRunState.ts
+6. src/features/bhavcopy/__tests__/downloadRunState.test.ts
+7. src/components/__tests__/BhavcopyDownloadRerun.test.ts
+8. src/features/bhavcopy/__tests__/fallbackProgress.test.ts
+9. src/store/bhavcopyStore.ts
+10. src-tauri-shell/src/bhavcopy/mod.rs
+11. src-tauri-shell/src/bhavcopy/ingestion.rs
+12. src-tauri-shell/src/bhavcopy/tests.rs
+13. Relevant platform bridge, worker, recovery and index fallback files
+
+SOURCE AUTHORITY
+The latest accepted implementation is the reconciled local UX-13 source that passed automated validation and produced the successful Windows portable build.
+
+Use the latest validation evidence and SHA-256 manifests to identify those exact files. Do not assume the original PR branch or Codex candidate is current.
+
+LATEST VERIFIED TEST EVIDENCE
+- Focused UX-13 Vitest: 15 PASS
+- Renderer regressions: 52 PASS
+- Rust Bhavcopy: 120 PASS, 4 ignored
+- Rust recovery: 16 PASS
+- Price-store locking: 3 PASS
+- TypeScript: PASS
+- Renderer build: PASS
+- Tauri Cargo check: PASS
+- Native portable build: PASS
+- Portable executable SHA-256:
+  63EF06EAA071C129747837669E567708D959E1942C48D6DD839EFF4EFC008E6D
+
+NATIVE ACCEPTANCE EVIDENCE
+- Request Stop works during staging.
+- Stopping… state appeared during active import.
+- Import continued through its protected write boundary.
+- Final cancellation retained 84 successful jobs, 36 calendar skips, 0 failures and 179,325 reported imported rows.
+- Restart after cancellation succeeded.
+- Completed and cancelled results remained visible after reopening.
+
+Independent database-integrity certification is not established by screenshots alone. Do not overstate it.
+
+IMPLEMENTATION RULES
+1. Inspect and verify source authority first.
+2. Preserve all unrelated local modifications.
+3. Preserve NSE index historical fallback, partial results, successful download logs, recovery journals, checkpoints, worker limits and existing UI behavior.
+4. Reconcile the latest approved local implementation into an isolated Git workspace.
+5. Compare all intended files and hashes before committing.
+6. Include the two final regression corrections and the tracked-batch rerun test migration.
+7. Keep the PR narrowly scoped to UX-13.
+8. No unrelated refactoring, new dependencies or redesign.
+9. No production database access.
+10. Do not overwrite or force-push unrelated Git history.
+
+GITHUB AUTHORIZATION
+You are authorized to commit and push the verified UX-13 changes to the existing PR #23 branch and update its description and validation evidence.
+
+Do not create a duplicate PR.
+
+Do not merge into main without my final approval.
+
+VALIDATION
+Follow Inspect → Implement → Test → Validate → Build → Document → Close.
+
+Before pushing, run:
+- Focused UX-13 Vitest
+- Relevant Bhavcopy, holiday and chart regressions
+- Renderer typecheck
+- Renderer build
+- Focused Rust Bhavcopy regressions
+- Recovery and price-store locking tests
+- Tauri Cargo check
+
+After pushing:
+- Verify actual GitHub commit SHA.
+- Verify PR changed-file scope and source hashes.
+- Check PR mergeability and available CI results.
+- Confirm main remains unchanged.
+- Report any outstanding blockers.
+
+EVIDENCE
+Temporary files/logs: Root\tmp
+Exactly one final report/evidence ZIP:
+Join-Path $HOME 'Downloads'
+
+Do not put temporary reports or validation evidence in docs or docs/changes.
+
+FINAL REPORT
+Include actual commands and results, files inspected/changed, preserved behavior, GitHub branch/commit, PR URL, remaining risks, evidence ZIP SHA-256 and rollback guidance.
+
+End with:
+RISKS
+FILES CHANGED
+NEXT STEPS
+
+TARGET STATUS:
+UX13_GITHUB_PR23_UPDATED_AND_VERIFIED__MERGE_PENDING
+
+Complete this as one bounded task without unnecessary intermediate phases.
