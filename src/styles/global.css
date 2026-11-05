@@ -14,7 +14,7 @@
   --border2: #334151;
   --text: #e6edf3;
   --text-dim: #9aa8b8;
-  --text-mute: #667586;
+  --text-mute: #7e8e9f;
   --green: #22c55e;
   --red: #ef4444;
   --accent: #3b82f6;
@@ -52,7 +52,7 @@
   --border2: #2f3a48;
   --text: #f8fafc;
   --text-dim: #a7b2bf;
-  --text-mute: #64748b;
+  --text-mute: #718097;
   --green: #20c997;
   --red: #ff4d4f;
   --accent: #38bdf8;
@@ -89,7 +89,7 @@
   --border2: #b8c0cc;
   --text: #111827;
   --text-dim: #4b5563;
-  --text-mute: #6b7280;
+  --text-mute: #616a78;
   --green: #059669;
   --red: #dc2626;
   --accent: #2563eb;
@@ -102,7 +102,7 @@
   --control-bg-hover: #f3f4f6;
   --control-bg-active: rgba(37, 99, 235, 0.12);
   --legend-text: #1f2937;
-  --legend-muted: #64748b;
+  --legend-muted: #5f697d;
   --legend-bg: rgba(255, 255, 255, 0.78);
   --chart-overlay-text-shadow: 0 1px 0 rgba(255, 255, 255, 0.9);
   --workspace-bg: linear-gradient(180deg, #f6f8fb 0%, #eef2f7 100%);
@@ -128,7 +128,7 @@
   --border2: #c7d3e0;
   --text: #1e293b;
   --text-dim: #475569;
-  --text-mute: #64748b;
+  --text-mute: #5b6779;
   --green: #059669;
   --red: #dc2626;
   --accent: #2563eb;
@@ -141,7 +141,7 @@
   --control-bg-hover: #f1f5fb;
   --control-bg-active: rgba(37, 99, 235, 0.11);
   --legend-text: #1f2937;
-  --legend-muted: #64748b;
+  --legend-muted: #5f697d;
   --legend-bg: rgba(255, 255, 255, 0.78);
   --chart-overlay-text-shadow: 0 1px 0 rgba(255, 255, 255, 0.9);
   --workspace-bg: linear-gradient(180deg, #f4f7fb 0%, #edf3f9 100%);
@@ -166,7 +166,7 @@
   --border2: #94a3b8;
   --text: #0f172a;
   --text-dim: #334155;
-  --text-mute: #64748b;
+  --text-mute: #586373;
   --green: #047857;
   --red: #b91c1c;
   --accent: #1d4ed8;
@@ -203,11 +203,12 @@
   --border: #1e293b;
   --border2: #334155;
   --text: #f8fafc;
-  --text-dim: #94a3b8;
-  --text-mute: #64748b;
+  --text-dim: #a0afbf;
+  --text-mute: #a8b5c4;
   --green: #10b981;
   --red: #f43f5e;
   --accent: #0284c7;
+  --focus-ring: #38bdf8;
   --accent-strong: #0369a1;
   --accent-soft: rgba(2, 132, 199, 0.22);
   --accent-faint: rgba(2, 132, 199, 0.08);
@@ -217,7 +218,7 @@
   --control-bg-hover: #152035;
   --control-bg-active: rgba(2, 132, 199, 0.22);
   --legend-text: #f8fafc;
-  --legend-muted: #94a3b8;
+  --legend-muted: #a0afbf;
   --legend-bg: rgba(15, 23, 42, 0.82);
   --chart-overlay-text-shadow: 0 1px 0 rgba(0, 0, 0, 0.55);
   --workspace-bg: linear-gradient(180deg, #080e18 0%, #04070d 100%);
@@ -241,8 +242,8 @@
   --border: #333842;
   --border2: #4b5263;
   --text: #abb2bf;
-  --text-dim: #828997;
-  --text-mute: #5c6370;
+  --text-dim: #a7b1bf;
+  --text-mute: #a5afbd;
   --green: #26a69a;
   --red: #ef5350;
   --accent: #61afef;
@@ -255,7 +256,7 @@
   --control-bg-hover: #282c34;
   --control-bg-active: rgba(97, 175, 239, 0.2);
   --legend-text: #abb2bf;
-  --legend-muted: #7f848e;
+  --legend-muted: #a5afbd;
   --legend-bg: rgba(33, 37, 43, 0.82);
   --chart-overlay-text-shadow: 0 1px 0 rgba(0, 0, 0, 0.5);
   --workspace-bg: linear-gradient(180deg, #181a1f 0%, #14161a 100%);
@@ -331,7 +332,7 @@ aside button:hover,
 }
 
 button:focus-visible {
-  outline: 2px solid var(--accent);
+  outline: 2px solid var(--focus-ring, var(--accent));
   outline-offset: 1px;
 }
 
@@ -378,7 +379,7 @@ button:disabled {
 }
 
 .chart-native-scrollbar:focus-visible {
-  outline: 1px solid var(--accent);
+  outline: 1px solid var(--focus-ring, var(--accent));
   outline-offset: 1px;
 }
 
@@ -393,7 +394,7 @@ button:disabled {
 
 /* Keyboard focus ring for non-button focusable elements (e.g. pane resize handles) */
 [role="separator"]:focus-visible {
-  outline: 2px solid var(--accent);
+  outline: 2px solid var(--focus-ring, var(--accent));
   outline-offset: 1px;
 }
 
@@ -424,7 +425,7 @@ html[data-theme="classic-light-refined"] aside button.eod-refined-sidebar-contro
 }
 
 html[data-theme="classic-light-refined"] aside button:focus-visible {
-  outline: 2px solid var(--accent) !important;
+  outline: 2px solid var(--focus-ring, var(--accent)) !important;
   outline-offset: 1px;
   box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.9) !important;
 }
