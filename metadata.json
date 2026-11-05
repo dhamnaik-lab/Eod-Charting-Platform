@@ -2,7 +2,7 @@
   "cli_version": "0.12.2",
   "checkpoint_id": "01M6NJ5MEG5Q2Y2SM0JJWB2J91",
   "strategy": "manual-commit",
-  "checkpoints_count": 99,
+  "checkpoints_count": 115,
   "files_touched": [
     "FEATURE_STATUS_MATRIX_EOD_CHARTING_PLATFORM.md",
     "src-tauri-shell/src/bhavcopy/batch_runtime.rs",
@@ -82,25 +82,32 @@
       "compact_transcript": "/8/transcript.jsonl",
       "content_hash": "/8/content_hash.txt",
       "prompt": "/8/prompt.txt"
+    },
+    {
+      "metadata": "/9/metadata.json",
+      "transcript": "/9/full.jsonl",
+      "compact_transcript": "/9/transcript.jsonl",
+      "content_hash": "/9/content_hash.txt",
+      "prompt": "/9/prompt.txt"
     }
   ],
   "token_usage": {
-    "input_tokens": 351552,
+    "input_tokens": 509141,
     "cache_creation_tokens": 0,
-    "cache_read_tokens": 28029952,
-    "output_tokens": 46783,
-    "api_call_count": 137,
+    "cache_read_tokens": 34133632,
+    "output_tokens": 62802,
+    "api_call_count": 209,
     "subagent_tokens_complete": true
   },
   "redaction": {
-    "replacements": 229084,
+    "replacements": 248355,
     "layers": {
       "betterleaks": 7,
       "connection_string": 0,
       "credential_key": 0,
       "credential_value": 10,
       "credentialed_uri": 0,
-      "entropy": 229773,
+      "entropy": 249045,
       "key_context": 0,
       "provider_token": 0,
       "shell_stdin": 0
