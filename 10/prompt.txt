@@ -1,0 +1,353 @@
+TASK: TokenEconomizer effectiveness and Codex token-consumption audit
+
+PROJECT:
+E:\TA Projects\EOD Charting Platform
+
+ENVIRONMENT:
+Windows PowerShell 7, Codex Desktop and CLI, Microsoft TokenEconomizer 0.1.0.
+TokenEconomizer is installed globally. For this repository, toolprune=propose and shadow=False.
+
+GOAL:
+Determine whether TokenEconomizer is functioning correctly, whether it has produced measurable token savings, and what causes high Codex token consumption.
+
+MODE: STRICTLY READ-ONLY. DO NOT IMPLEMENT OPTIMIZATIONS.
+
+SOURCE PRIORITY:
+1. Read project AGENTS.md first for applicable instructions.
+2. Inspect the current repository's Git status without modifying it.
+3. Inspect the installed TokenEconomizer CLI, configuration, hooks, state, and available reports under $HOME\.tokeneconomizer.
+4. Inspect available Codex session telemetry under $HOME\.codex, including relevant archived sessions.
+5. Inspect existing sanitized V1/V2 audit reports in $HOME\Downloads if available.
+
+INVESTIGATION:
+- Verify lifecycle hooks and identify any failures.
+- Reconcile raw, cached, uncached, output, reasoning, and TokenEconomizer effective-token metrics.
+- Detect duplicate events, inherited cumulative counters, and overlapping rollout files.
+- Analyze the most expensive sessions, tool-call frequency, oversized outputs, and context-compaction behavior.
+- Determine whether any capability was actually pruned, not merely proposed.
+- Examine LoopGuard interventions and their supporting evidence.
+- Estimate potential savings only where defensible; state assumptions and uncertainty.
+- Distinguish verified savings, hypothetical savings, plugin overhead, and subscription usage limits.
+- Explain what evidence is missing for a controlled A/B test.
+
+EFFICIENCY REQUIREMENTS:
+- Reuse existing evidence; avoid full rescans unless justified.
+- Keep command outputs bounded and avoid dumping entire transcripts.
+- Do not run Codex recursively, call paid model APIs, or execute benchmarks requiring new model tokens.
+- No network access or additional dependencies.
+- Stop after two repeated failures and report the blocker.
+- Do not change source, project settings, Git state, plugins, hooks, or existing audit files.
+- Do not expose prompts, secrets, credentials, or source content in the report.
+
+DELIVERABLE:
+Produce a concise, evidence-backed report with:
+1. PASS/FAIL for TokenEconomizer runtime operation.
+2. Verified savings versus unverified claims.
+3. Main token-consumption drivers ranked by impact.
+4. Reliability and limitations of the available measurements.
+5. Recommended optimizations ranked by expected benefit and risk.
+6. A safe controlled A/B measurement plan.
+7. Risks, files changed (expected: none), and next steps.
+
+Save only sanitized audit outputs under $HOME\Downloads in a timestamped folder. Do not modify the project or automatically implement recommendations.
+
+---
+
+# TokenEconomizer 0.1.0 — Isolated Accounting Repair and Regression Tests
+
+## Goal
+
+Investigate and repair the confirmed TokenEconomizer accounting defect and transcript-folding failures. Produce a tested candidate without modifying the live installation or any production repository.
+
+## Environment
+
+- Windows, PowerShell 7
+- Python 3.14.8
+- Codex CLI 0.166.0 and Codex Desktop
+- TokenEconomizer 0.1.0
+
+**Source repository:** `C:\Users\dharm\CodexTE-Lab\TokenEconomizer`
+
+**Production project — READ ONLY:** `E:\TA Projects\EOD Charting Platform`
+
+**Installed plugin — DO NOT MODIFY:** `$HOME\.codex\plugins\cache\tokeneconomizer\tokeneconomizer\0.1.0`
+
+**Evidence report:** `$HOME\Downloads\REDACTED\audit.md`
+
+Use `$HOME` to resolve user directories. Do not hardcode the Windows username.
+
+## Phase 1 — Isolated preparation
+
+1. Read the evidence report and source repository instructions, including `AGENTS.md` if present.
+2. Record source revision, Git status, installed plugin version, and relevant configuration.
+3. Identify the source files responsible for Codex usage extraction, effective-token weighting, session folding, and transcript discovery.
+4. Create a completely separate working copy under a timestamped directory in `$HOME\Downloads`. Clone locally, without network access.
+5. Make all subsequent code changes inside this isolated working copy only.
+
+Do not change the original clone, installed plugin, Codex configuration, project source, or existing session records.
+
+## Phase 2 — Repair accounting
+
+The audit identified a confirmed double-counting defect:
+
+- Codex `output_tokens` already includes reasoning tokens in the matched records.
+- TokenEconomizer additionally adds `reasoning_output_tokens`.
+- Example: actual output 49,751; reasoning 12,928; plugin-counted output 62,679.
+- This inflated the example's weighted effective usage by 77,568 equivalents.
+
+Repair the calculation while preserving the original accounting fields and distinguishing raw tokens from weighted estimates.
+
+Add regression tests covering:
+
+- Reasoning included in output without double-counting.
+- Cached input as a subset of input.
+- Per-call versus cumulative counters.
+- Repeated snapshots and inherited cumulative totals.
+- Missing and incomplete usage records.
+- Counter resets and multi-rollout session segments.
+- Preservation of existing valid session-accounting behavior.
+
+Do not silently manufacture usage values when records are missing or ambiguous.
+
+## Phase 3 — Investigate transcript folding
+
+The audit recorded:
+
+- Two folds failed with `transcript unreadable`.
+- Four additional folds lacked usage.
+
+Determine which failures are reproducible from available evidence.
+
+Repair only defects supported by reproducible tests. Distinguish genuinely missing transcripts from parser failures, access failures, and unsupported formats.
+
+Missing transcripts must remain explicitly reported as incomplete, not silently counted as zero usage.
+
+## Phase 4 — Offline verification
+
+Run focused existing tests and the new regressions using local dependencies.
+
+Requirements:
+
+- No external API calls.
+- No Codex subprocess invocation.
+- No paid model benchmark.
+- No new dependencies without approval.
+- No modifications to live plugin hooks or configurations.
+- Preserve existing working behavior.
+- No changes outside the repair scope.
+
+Bound terminal output. Save large test logs locally and display only meaningful failures and summaries. Avoid unnecessary repository-wide rescanning.
+
+If the repairs cannot be validated safely, stop and explain the blocker rather than proceeding.
+
+## Deliverables
+
+Save a sanitized evidence package under `$HOME\Downloads` containing:
+
+1. Original defect reproduction results.
+2. Exact isolated source changes.
+3. Before/after regression results.
+4. Test coverage and remaining limitations.
+5. Comparison of original versus corrected accounting on synthetic fixtures.
+6. Rollback and future promotion instructions.
+7. A proposed controlled A/B benchmark that has **not** been executed.
+
+Do not install or promote the candidate automatically.
+
+End the report with **status, risks, files changed, and next steps**.
+
+## Acceptance criteria
+
+- Reasoning-output double counting eliminated.
+- Existing valid accounting remains unchanged.
+- Incomplete usage is explicitly identified.
+- All focused regressions pass.
+- Original TokenEconomizer installation unchanged.
+- EOD Charting Platform unchanged.
+- No live-model calls or paid benchmarks.
+- Candidate clearly marked **TESTED / HOLD FOR REVIEW**, not production-certified.
+
+---
+
+TASK: TokenEconomizer accounting repair R2 — close patch-review gaps
+
+GOAL
+Harden the existing TESTED / HOLD FOR REVIEW candidate for TokenEconomizer 0.1.0 without promoting it.
+
+PROJECT
+Original source: $HOME\CodexTE-Lab\TokenEconomizer
+Prior repair: $HOME\Downloads\REDACTED
+Evidence: evidence/report.md, evidence/repair.patch, evidence/test-results.txt inside that repair package.
+Work only in the existing isolated candidate or create another isolated worktree. Locate the exact candidate using the evidence; do not assume paths not verified.
+
+READ FIRST
+1. Applicable AGENTS.md / CLAUDE.md project instructions.
+2. Previous repair report and patch.
+3. tokeneconomizer/trace/codex.py
+4. tokeneconomizer/plugin/fold.py
+5. tests/test_codex_accounting.py and relevant tests in tests/test_live_core.py
+
+REVIEW FINDINGS
+1. A valid rollout after an invalid or missing first path is currently ignored by codex_session_segments. Reproduce this and make recovery deterministic and safe.
+2. An incomplete fold is finalized by the once-per-session ledger policy. Investigate a safe recovery or explicit permanent-incomplete policy without duplicate ledger entries.
+3. Verify discovered rollout identity and repository provenance before combining usage.
+4. Preserve strict handling of ambiguous overlapping segments, invalid counters, and missing usage.
+5. Preserve the confirmed reasoning-output fix: output_tokens already includes reasoning_output_tokens.
+
+REQUIREMENTS
+- Strictly offline; no Codex subprocess or paid-model calls.
+- No changes to installed plugins, original source clone, production project, or existing ledger.
+- No new dependencies without approval.
+- Preserve existing working behavior outside scope.
+- Add regression tests for each repaired edge case.
+- Run focused tests and the relevant broader test suite.
+- Report baseline failures, corrected results, skipped tests, and remaining limitations.
+- Bound command output and avoid unnecessary rescans.
+- Do not promote the candidate automatically.
+
+DELIVERABLE
+Produce a sanitized R2 evidence package under $HOME\Downloads containing the exact patch, test results, and a promotion-readiness assessment.
+
+Finish with STATUS (PASS/HOLD), RISKS, FILES CHANGED, and NEXT STEPS.
+
+---
+
+# TokenEconomizer R4 — Windows Disposable-Profile Verification
+
+## Goal
+
+Validate the R1–R3 repaired TokenEconomizer candidate on Windows before any production promotion.
+
+**Mode:** Offline verification only. No live Codex model calls, network calls, or production installation.
+
+## Environment
+
+- Windows / PowerShell 7
+- Python 3.14
+- Codex Desktop and CLI installed
+- TokenEconomizer 0.1.0
+
+## Relevant paths
+
+- Original source: `$HOME\CodexTE-Lab\TokenEconomizer`
+- R1 evidence: `$HOME\Downloads\REDACTED`
+- R2 evidence: `$HOME\Downloads\TokenEconomizer_Repair_R2_20261104_195429_IST`
+- R3 evidence: `TokenEconomizer_R3_Offline_Verification_20261104.zip`
+- Production project: `E:\TA Projects\EOD Charting Platform`
+
+Resolve paths dynamically where possible. Confirm each file exists. If R3 evidence is not present locally, stop and report the missing prerequisite.
+
+## Phase 1 — Preflight
+
+1. Read applicable project instructions and R1–R3 reports.
+2. Verify source revisions and patch checksums.
+3. Reconstruct the R3 candidate in a new isolated directory.
+4. Verify the installed TokenEconomizer files and configuration without modifying them.
+5. Identify all TokenEconomizer state paths and how they are resolved. Confirm the disposable environment cannot redirect writes into the live profile.
+
+## Phase 2 — Windows integration tests
+
+Use disposable directories under `$HOME\Downloads` for test repositories, configuration, ledger, and synthetic Codex rollouts.
+
+Test:
+
+- SessionStart, UserPromptSubmit, PostToolUse, Stop, and SessionEnd.
+- Correct Windows path handling.
+- Native PowerShell and Python hook invocation.
+- Reasoning-token accounting without double-counting.
+- Archived rollout recovery.
+- Missing, invalid, duplicate, and overlapping session records.
+- Repeated and interrupted hook calls.
+- Ledger idempotency.
+- Missing-index recovery.
+- Correct handling of incomplete folds.
+- No unauthorized pruning or configuration changes.
+- No writes outside the explicitly approved disposable directories.
+
+Do not invoke the real Codex CLI/Desktop host during R4. Test hook entry points with synthetic events. Set isolation variables only in child processes, never persist changes to the user's environment.
+
+## Phase 3 — Regression verification
+
+Run the relevant offline regression tests.
+
+Do not add dependencies without approval. Preserve existing behavior. Avoid excessive terminal output and repeated investigations.
+
+## Phase 4 — Evidence
+
+Create a sanitized R4 evidence package under `$HOME\Downloads` containing:
+
+- Source and patch integrity checks.
+- Hook execution results.
+- Regression-test results.
+- Disposable-profile isolation verification.
+- File-write inventory.
+- Remaining risks and limitations.
+- Recommendation for R5 real-host verification.
+
+**Acceptance criteria:** All required Windows offline checks pass; no production changes; no paid model calls; no network access.
+
+End with STATUS, RISKS, FILES CHANGED, and NEXT STEPS.
+
+Do not install, enable, replace, or promote the repaired plugin.
+
+---
+
+# TokenEconomizer R5A — Real-Host Isolation Preflight
+
+**Goal:** Prepare and verify a safely isolated Windows Codex CLI profile for testing the repaired TokenEconomizer candidate.
+
+**Mode:** PREVIEW ONLY. No production installation or live-host test execution.
+
+## Environment
+
+- Windows / PowerShell 7
+- Codex CLI and Desktop
+- Python 3.14
+- Original TokenEconomizer source: `$HOME\CodexTE-Lab\TokenEconomizer`
+- R4 package: `$HOME\Downloads\TokenEconomizer_R4_20261104_230655_IST\R4_evidence.zip`
+- R4 candidate: `$HOME\Downloads\TokenEconomizer_R4_20261104_230655_IST\candidate`
+- Protected EOD repository: `E:\TA Projects\EOD Charting Platform`
+
+Verify each path before using it.
+
+## Instructions
+
+1. Read the R4 verification report, candidate repository instructions, hook manifest, and relevant configuration-loading code.
+2. Verify the R4 candidate's identity, source integrity, and configuration.
+3. Identify every state, plugin, credentials, hook, ledger, and session path used by Codex CLI and TokenEconomizer.
+4. Design a disposable `CODEX_HOME` and `TOKENECONOMIZER_HOME` environment.
+5. Establish that the CLI can resolve its plugin, hook, and trust configuration exclusively from the intended test profile.
+6. Identify any global settings, credential sharing, background workers, or host behavior that cannot be isolated.
+7. Verify that the disposable test will not alter the installed plugin, live Codex configuration, historical ledger, or EOD project.
+8. Prepare a bounded R5B test plan covering actual hook delivery, trust handling, detached folding, interruption recovery, idempotency, and rollback.
+
+Do not launch Codex recursively, run paid model benchmarks, modify production files, install dependencies, or promote the candidate.
+
+Keep existing working behavior intact. Make no changes outside a verified disposable evidence directory.
+
+## Acceptance criteria
+
+- Profile and state isolation demonstrated.
+- Candidate source integrity verified.
+- No unexpected production paths accessed for writes.
+- Real-host test plan specifies exact commands, expected outputs, stop conditions, and rollback.
+- Any unresolved isolation risk results in HOLD.
+
+Save a sanitized report under `$HOME\Downloads`.
+
+End with STATUS, RISKS, FILES CHANGED, and NEXT STEPS.
+
+**Do not execute R5B without separate authorization.**
+
+---
+
+Tell me are we testing or fixing?
+Because our original goal of reducing Codex usage-limit consumption
+
+---
+
+Yes
+
+---
+
+ok.
