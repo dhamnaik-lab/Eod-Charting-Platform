@@ -1,0 +1,13 @@
+# Files pasted by the user:
+
+## "TASK: UX-13 — Implement safe cooperative cancellation for Bhavcopy batch downlo…": C:\Users\dharm\.codex/attachments/4d9a5834-c4e3-4576-ab21-47a44ec9834d/Pasted text.txt
+
+Pasted text contains the user's request.
+
+## My request:
+
+---
+
+<send_user_message_question_reply>
+[{"questionItemId":"[\"request_user_input_async\",\"call_b508a8f959a64fe7adb34b3aebe43623\",0]","question":"The approved Cargo runner hard-pins the dirty checkout’s manifest. May I run a temporary copy of that runner with only the source root and manifest pointed at the isolated UX-13 candidate, while retaining the existing shared target and all other checks? The tracked runner and dirty source would stay untouched.","answer":"Approve the temporary runner copy"}]
+</send_user_message_question_reply>
