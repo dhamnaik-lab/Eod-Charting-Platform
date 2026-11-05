@@ -1,0 +1,48 @@
+# Files pasted by the user:
+
+## "# EOD Charting Platform — Full Local Git Verification & Synchronization **Date:…": C:\Users\dharm\.codex/attachments/762dbc7a-188f-472f-bd17-7bd4a56a42df/Pasted text.txt
+
+Pasted text contains the user's request.
+
+## My request:
+
+---
+
+Approved. Continue the existing EOD Git synchronization task with a bounded reconciliation of the 11 overlapping paths identified in the latest evidence.
+
+**Root:** `E:\TA Projects\EOD Charting Platform`
+
+**GitHub main:** `09d20595bdc2ccbb6f11320fea3caf32c606c940`
+
+**Current local main:** `4cf6c66ce65c6cfe76a97af8e1636dbd16e9519a`
+
+Verify these refs again before proceeding.
+
+Inspect `AGENTS.md`, the current source files, and `tmp/EOD_GitSync_20261106_003941_IST/REPORT.md`, `inventory.json`, the three diff3 previews, two addition diffs, and source-hash evidence.
+
+**Requirements:**
+
+1. Resolve the three tracked content conflicts, preserving both the accepted local behavior and the GitHub changes.
+2. Reconcile the two differing untracked test files without removing or weakening accepted regression coverage.
+3. Review the six clean-but-differing overlaps for behavioral compatibility.
+4. Treat the architecture-document blocker as a working-tree/index preservation issue, not a reason to rewrite the document.
+5. Preserve all 136 existing local changes, including unrelated scanner, corporate actions, NIFTY History, BSE history, renderer/UI, and generated metadata work.
+6. Do not introduce fixes or redesigns in those separate workstreams. If reconciliation would require changing their implementation or architecture, HOLD and report the exact requirement.
+7. Prepare a complete, conflict-free isolated integration preview and verify source authority, file hashes, and preservation.
+8. Use the approved project backup helper before any live source or index modification. Verify the backup contents and hashes.
+9. Advance local `main` safely to the verified GitHub `main` only when the complete preservation and reconciliation gates pass.
+10. Do not use reset, clean, force-push, blind stash, or bulk staging.
+11. Do not push the 136 existing changes or publish unrelated local work.
+12. Do not access production databases.
+
+**Validation:** Run relevant focused Vitest and Rust regressions, TypeScript typecheck, renderer build, Tauri Cargo check, Git integrity, commit ancestry, and before/after source-hash verification. Record actual results.
+
+Use `Root\tmp` for all working evidence. Produce exactly one final report/evidence ZIP under `Join-Path $HOME 'Downloads'`. Do not place temporary reports or validation evidence inside `docs`.
+
+For generated PowerShell runners, use guard clauses and separate `if` blocks only, without `else` or `elseif`; parse-check scripts before execution.
+
+**Completion:** Report the final local and remote HEADs, index state, all 136 originally dirty entries accounted for, any remaining local-only changes, validation results, exact changes, risks and rollback instructions.
+
+Target: `EOD_GIT_MAIN_RECONCILED__LOCAL_CHANGES_PRESERVED`.
+
+If any source-preservation, scope, or validation check fails, stop before destructive operations and report HOLD. Do not falsely declare synchronization complete.
