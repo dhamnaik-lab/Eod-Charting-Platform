@@ -556,7 +556,7 @@ fn bse_maintenance_import_through_normal_batch_engine() {
             });
         }
         let imported = import_staged_csv_downloads(
-            &handle, &database_file, staged, &job.config, &Mutex::new(()),
+            &handle, &database_file, staged, &job.config, &Mutex::new(()), &BatchStop::default(),
         );
         drop(permit);
         imported
@@ -570,6 +570,88 @@ fn bse_maintenance_import_through_normal_batch_engine() {
     let receipt: serde_json::Value = serde_json::from_slice(&fs::read(&job.report_file).unwrap()).unwrap();
     assert!(receipt["result"].get("Ok").is_some(), "Batch engine failed; inspect receipt");
     assert!(receipt["recovery"].get("Ok").is_some(), "Recovery incomplete; inspect receipt");
+}
+
+#[test]
+fn batch_stop_lets_a_started_http_attempt_finish_without_trying_the_next_url() {
+    use std::{
+        io::{Read, Write},
+        net::TcpListener,
+        thread,
+        time::Duration,
+    };
+
+    let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+    let address = listener.local_addr().unwrap();
+    let controller = BatchCancellation::default();
+    let run = controller.start("http-staging".into()).unwrap();
+    let client = Client::builder().no_proxy().timeout(Duration::from_secs(3)).build().unwrap();
+    let task = DownloadTask {
+        exchange: "NSE".into(),
+        trade_date: "2026-01-02".into(),
+        mode: DownloadMode::Range,
+        candidates: ["first", "second"].into_iter()
+            .map(|route| Candidate::direct(format!("http://{address}/{route}"), false))
+            .collect(),
+        nse_index_history: None,
+    };
+
+    thread::scope(|scope| {
+        let server = scope.spawn(|| {
+            let (mut stream, _) = listener.accept().unwrap();
+            stream.set_read_timeout(Some(Duration::from_secs(3))).unwrap();
+            let mut request = [0; 1024];
+            let read = stream.read(&mut request).unwrap();
+            assert!(String::from_utf8_lossy(&request[..read]).starts_with("GET /first "));
+            assert_eq!(controller.request("http-staging"), BatchStopReply::Accepted);
+            stream.write_all(b"HTTP/1.1 404 Not Found\r\nContent-Length: 0\r\nConnection: close\r\n\r\n").unwrap();
+        });
+
+        assert!(matches!(
+            stage_single_download(&client, &task, &run.stop).unwrap(),
+            StagedDownloadOutcome::Cancelled
+        ));
+        server.join().unwrap();
+    });
+    listener.set_nonblocking(true).unwrap();
+    assert_eq!(listener.accept().unwrap_err().kind(), std::io::ErrorKind::WouldBlock);
+    assert!(run.finish());
+}
+
+#[test]
+fn batch_download_log_keeps_historical_success_until_a_successful_replacement() {
+    let db = Connection::open_in_memory().unwrap();
+    db.execute_batch("
+        CREATE TABLE download_log (
+            trade_date TEXT, exchange TEXT, rows_inserted INTEGER, max_volume INTEGER,
+            status TEXT, note TEXT, downloaded_at TEXT, UNIQUE(trade_date, exchange)
+        );
+        INSERT INTO download_log VALUES ('2026-01-02', 'NSE', 10, 20, 'ok', NULL, 'original');
+    ").unwrap();
+    let failed = failed_download_result("NSE", "2026-01-02", "source failed");
+    upsert_batch_download_log_entry(&db, &failed).unwrap();
+    let read_log = || {
+        db.query_row(
+            "SELECT status, rows_inserted, max_volume, downloaded_at FROM download_log",
+            [],
+            |row| Ok((row.get::<_, String>(0)?, row.get::<_, i64>(1)?,
+                row.get::<_, i64>(2)?, row.get::<_, String>(3)?)),
+        ).unwrap()
+    };
+    assert_eq!(read_log(), ("ok".into(), 10, 20, "original".into()));
+
+    let replacement = DownloadResult { success: true, rows_inserted: 12, max_volume: 30, ..failed };
+    upsert_batch_download_log_entry(&db, &replacement).unwrap();
+    let (status, rows, max_volume, timestamp) = read_log();
+    assert_eq!((status.as_str(), rows, max_volume), ("ok", 12, 30));
+    assert_ne!(timestamp, "original");
+
+    let failed_new_date = failed_download_result("NSE", "2026-01-05", "new job failed");
+    upsert_batch_download_log_entry(&db, &failed_new_date).unwrap();
+    assert_eq!(
+        db.query_row("SELECT note FROM download_log WHERE status = 'error'", [], |r| r.get::<_, String>(0)).unwrap(),
+        "new job failed"
+    );
 }
 
 #[test]

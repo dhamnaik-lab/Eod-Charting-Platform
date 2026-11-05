@@ -1,10 +1,11 @@
 //! Batch-scoped worker lifetime and bounded SQLite log-write retries.
 use rusqlite::{Connection, Error, ErrorCode, OpenFlags};
 use std::{
+    collections::VecDeque,
     path::Path,
     sync::{
         atomic::{AtomicBool, Ordering},
-        Arc,
+        Arc, Mutex,
     },
     thread::{self, JoinHandle},
     time::Duration,
@@ -44,6 +45,90 @@ pub(super) fn retry_busy<T>(
     unreachable!()
 }
 
+#[derive(Clone, Default)]
+pub(super) struct BatchStop(Arc<AtomicBool>);
+
+impl BatchStop {
+    pub(super) fn is_requested(&self) -> bool {
+        self.0.load(Ordering::SeqCst)
+    }
+
+    pub(super) fn next_task<T>(&self, queue: &Mutex<VecDeque<T>>) -> Option<T> {
+        let mut queue = queue.lock().expect("Bhavcopy download queue poisoned");
+        if self.is_requested() {
+            return None;
+        }
+        queue.pop_front()
+    }
+
+    // A successful check admits one whole phase. Its writer, journal and
+    // checkpoint code must run to their existing completion boundaries.
+    pub(super) fn run_if_active<T>(&self, phase: impl FnOnce() -> T) -> Option<T> {
+        if self.is_requested() {
+            return None;
+        }
+        Some(phase())
+    }
+}
+
+#[derive(Default)]
+pub(super) struct BatchCancellation {
+    active: Mutex<Option<(String, BatchStop)>>,
+}
+
+impl BatchCancellation {
+    pub(super) fn start(&self, run_id: String) -> Result<BatchRun<'_>, String> {
+        let mut active = self.active.lock().expect("Bhavcopy batch owner poisoned");
+        if active.is_some() {
+            return Err("A tracked Bhavcopy batch is already running.".into());
+        }
+        let stop = BatchStop::default();
+        *active = Some((run_id, stop.clone()));
+        Ok(BatchRun { controller: self, stop })
+    }
+
+    pub(super) fn request(&self, run_id: &str) -> super::BatchStopReply {
+        use super::BatchStopReply::*;
+        let active = self.active.lock().expect("Bhavcopy batch owner poisoned");
+        match active.as_ref() {
+            Some((id, stop)) if id == run_id => {
+                if stop.0.swap(true, Ordering::SeqCst) {
+                    AlreadyRequested
+                } else {
+                    Accepted
+                }
+            }
+            _ => NoMatchingRun,
+        }
+    }
+}
+
+pub(super) struct BatchRun<'a> {
+    controller: &'a BatchCancellation,
+    pub(super) stop: BatchStop,
+}
+
+impl BatchRun<'_> {
+    // Seal the result and release ownership under the same lock used by Stop.
+    pub(super) fn finish(self) -> bool {
+        self.release()
+    }
+
+    fn release(&self) -> bool {
+        let mut active = self.controller.active.lock().expect("Bhavcopy batch owner poisoned");
+        if active.as_ref().is_some_and(|(_, stop)| Arc::ptr_eq(&self.stop.0, &stop.0)) {
+            *active = None;
+        }
+        self.stop.is_requested()
+    }
+}
+
+impl Drop for BatchRun<'_> {
+    fn drop(&mut self) {
+        self.release();
+    }
+}
+
 #[derive(Default)]
 pub(super) struct DownloadWorkers {
     stop: Arc<AtomicBool>,
@@ -77,7 +162,104 @@ impl Drop for DownloadWorkers {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::sync::mpsc;
+    use super::super::BatchStopReply::*;
+    use std::sync::{mpsc, Barrier};
+
+    #[test]
+    fn stop_before_work_and_repeated_stops_are_scoped_to_the_active_owner() {
+        let controller = BatchCancellation::default();
+        assert_eq!(controller.request("first"), NoMatchingRun);
+        let first = controller.start("first".into()).unwrap();
+        assert!(controller.start("second".into()).is_err());
+        assert_eq!(controller.request("first"), Accepted);
+        assert_eq!(controller.request("first"), AlreadyRequested);
+        assert!(first.stop.run_if_active(|| panic!("phase must not start")).is_none());
+        assert!(first.finish());
+        let second = controller.start("second".into()).unwrap();
+        assert_eq!(controller.request("first"), NoMatchingRun);
+        assert!(!second.finish());
+        assert_eq!(controller.request("second"), NoMatchingRun);
+    }
+
+    #[test]
+    fn finishing_and_requesting_stop_agree_on_whether_stop_was_accepted() {
+        let controller = BatchCancellation::default();
+        for _ in 0..32 {
+            let run = controller.start("racing".into()).unwrap();
+            let barrier = Barrier::new(2);
+            thread::scope(|scope| {
+                let stop = scope.spawn(|| {
+                    barrier.wait();
+                    controller.request("racing")
+                });
+                barrier.wait();
+                assert_eq!(run.finish(), stop.join().unwrap() == Accepted);
+            });
+        }
+    }
+
+    #[test]
+    fn stop_during_staging_finishes_claimed_work_and_joins_without_claiming_pending_jobs() {
+        let controller = BatchCancellation::default();
+        let run = controller.start("staging".into()).unwrap();
+        let stop = run.stop.clone();
+        let queue = Arc::new(Mutex::new(VecDeque::from([1, 2])));
+        let worker_queue = queue.clone();
+        let (claimed, claim) = mpsc::channel();
+        let (resume, release) = mpsc::channel();
+        let (completed, result) = mpsc::channel();
+        let mut workers = DownloadWorkers::default();
+        workers.spawn(move |_| {
+            let work = stop.next_task(&worker_queue).unwrap();
+            claimed.send(work).unwrap();
+            release.recv_timeout(Duration::from_secs(5)).unwrap();
+            completed.send(work).unwrap();
+            assert!(stop.next_task(&worker_queue).is_none());
+        });
+        assert_eq!(claim.recv_timeout(Duration::from_secs(5)).unwrap(), 1);
+        assert_eq!(controller.request("staging"), Accepted);
+        resume.send(()).unwrap();
+        workers.finish().unwrap();
+        assert_eq!(result.try_recv().unwrap(), 1);
+        assert_eq!(*queue.lock().unwrap(), VecDeque::from([2]));
+        assert!(run.finish());
+    }
+
+    #[test]
+    fn stop_during_an_admitted_import_preserves_its_commit_and_skips_the_next_import() {
+        let controller = BatchCancellation::default();
+        let run = controller.start("import".into()).unwrap();
+        let mut db = Connection::open_in_memory().unwrap();
+        db.execute_batch("CREATE TABLE prices(value INTEGER)").unwrap();
+        run.stop.run_if_active(|| {
+            let tx = db.transaction().unwrap();
+            tx.execute("INSERT INTO prices VALUES(7)", []).unwrap();
+            assert_eq!(controller.request("import"), Accepted);
+            tx.commit().unwrap();
+        }).unwrap();
+        assert!(run.stop.run_if_active(|| panic!("second import must not start")).is_none());
+        assert_eq!(
+            db.query_row("SELECT sum(value) FROM prices", [], |row| row.get::<_, i64>(0)).unwrap(),
+            7
+        );
+        assert!(run.finish());
+    }
+
+    #[test]
+    fn panic_joins_other_workers_and_owner_drop_releases_the_run() {
+        let controller = BatchCancellation::default();
+        let run = controller.start("panic".into()).unwrap();
+        let (done, finished) = mpsc::channel();
+        let mut workers = DownloadWorkers::default();
+        workers.spawn(|_| panic!("synthetic worker panic"));
+        workers.spawn(move |_| done.send(()).unwrap());
+        assert!(workers.finish().unwrap_err().contains("worker panicked"));
+        finished.try_recv().unwrap();
+        drop(run);
+        assert_eq!(controller.request("panic"), NoMatchingRun);
+        assert!(controller.start("after-panic".into()).is_ok());
+    }
+
     #[test]
     fn error_unwind_stops_and_joins_workers_before_returning() {
         let (ready, started) = mpsc::channel();

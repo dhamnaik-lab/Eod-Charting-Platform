@@ -1,6 +1,8 @@
 import { create } from 'zustand';
+import { isBackgroundCheckpointProgress } from '@/features/bhavcopy/downloadRunState';
 import {
   getDesktopApi,
+  type BhavcopyBatchStopReply,
   type DownloadResult,
 } from '@/platform';
 
@@ -23,8 +25,18 @@ export interface DownloadProgress {
   message: string;
 }
 
+type StopBatch = (runId: string) => Promise<BhavcopyBatchStopReply>;
+
+type ActiveBatch = {
+  runId: string;
+  phase: 'starting' | 'running' | 'stopQueued' | 'requestingStop' | 'stopping';
+};
+
+type BatchOutcome = 'completed' | 'cancelled' | 'failed';
+
 interface BhavcopyStoreState {
-  isDownloading: boolean;
+  activeBatch: ActiveBatch | null;
+  batchOutcome: BatchOutcome | null;
   logs: LogEntry[];
   runSummary: RunSummary;
   totalLogEntries: number;
@@ -34,7 +46,10 @@ interface BhavcopyStoreState {
   reportedDownloadResults: Set<string>;
   resultIndex: Map<string, DownloadResult>;
 
-  setIsDownloading: (isDownloading: boolean) => void;
+  startBatch: (runId: string) => boolean;
+  acknowledgeBatch: (runId: string, stop: StopBatch) => void;
+  requestBatchStop: (stop: StopBatch) => Promise<void>;
+  finishBatch: (runId: string, outcome: BatchOutcome) => void;
   addLog: (level: LogEntry['level'], message: string) => void;
   clearLogs: () => void;
   reportDownloadResult: (result: DownloadResult) => void;
@@ -108,7 +123,8 @@ function mergeRunSummary(
 }
 
 export const useBhavcopyStore = create<BhavcopyStoreState>((set, get) => ({
-  isDownloading: false,
+  activeBatch: null,
+  batchOutcome: null,
   logs: [],
   runSummary: { ...EMPTY_RUN_SUMMARY },
   totalLogEntries: 0,
@@ -116,7 +132,53 @@ export const useBhavcopyStore = create<BhavcopyStoreState>((set, get) => ({
   reportedDownloadResults: new Set(),
   resultIndex: new Map(),
 
-  setIsDownloading: (isDownloading) => set({ isDownloading }),
+  startBatch: (runId) => {
+    if (get().activeBatch) return false;
+    set({ activeBatch: { runId, phase: 'starting' }, batchOutcome: null });
+    get().clearLogs();
+    return true;
+  },
+
+  acknowledgeBatch: (runId, stop) => {
+    const active = get().activeBatch;
+    if (active?.runId !== runId || (active.phase !== 'starting' && active.phase !== 'stopQueued')) {
+      return;
+    }
+    set({ activeBatch: { runId, phase: 'running' } });
+    if (active.phase === 'stopQueued') void get().requestBatchStop(stop);
+  },
+
+  requestBatchStop: async (stop) => {
+    const active = get().activeBatch;
+    if (!active) return;
+    const { runId, phase } = active;
+    if (phase === 'starting') {
+      set({ activeBatch: { runId, phase: 'stopQueued' } });
+      return;
+    }
+    if (phase !== 'running') return;
+    set({ activeBatch: { runId, phase: 'requestingStop' } });
+    try {
+      const reply = await stop(runId);
+      if (get().activeBatch?.runId !== runId) return;
+      if (reply === 'noMatchingRun') {
+        set({ activeBatch: { runId, phase: 'running' } });
+        get().addLog('info', 'The backend no longer has a matching Bhavcopy batch to stop.');
+      } else {
+        set({ activeBatch: { runId, phase: 'stopping' } });
+      }
+    } catch (error) {
+      if (get().activeBatch?.runId !== runId) return;
+      set({ activeBatch: { runId, phase: 'running' } });
+      get().addLog('error', `Could not request Bhavcopy stop: ${String(error)}`);
+    }
+  },
+
+  finishBatch: (runId, outcome) => {
+    if (get().activeBatch?.runId === runId) {
+      set({ activeBatch: null, batchOutcome: outcome });
+    }
+  },
 
   addLog: (level, message) => {
     const time = new Date().toLocaleTimeString('en-IN', { hour12: false });
@@ -193,7 +255,7 @@ export const useBhavcopyStore = create<BhavcopyStoreState>((set, get) => ({
         progress !== progressMeta.lastProgress ||
         message !== progressMeta.lastMessage;
 
-      if (shouldUpdateUi) {
+      if (shouldUpdateUi && !isBackgroundCheckpointProgress(message)) {
         progressMeta.lastUiUpdateAt = now;
         progressMeta.lastProgress = progress;
         progressMeta.lastMessage = message;

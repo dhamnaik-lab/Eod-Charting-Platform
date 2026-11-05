@@ -169,6 +169,7 @@ pub enum StagedDownloadContent {
 }
 
 pub enum StagedDownloadOutcome {
+    Cancelled,
     Ready(StagedDownload),
     Result(DownloadResult),
 }

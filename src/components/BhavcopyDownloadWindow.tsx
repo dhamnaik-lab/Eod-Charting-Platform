@@ -192,8 +192,11 @@ function filterLabel(filter: LogFilter) {
 }
 
 export function BhavcopyDownloadWindow({ onClose }: BhavcopyDownloadWindowProps) {
-  const isDownloading = useBhavcopyStore((state) => state.isDownloading);
-  const setIsDownloading = useBhavcopyStore((state) => state.setIsDownloading);
+  const activeBatch = useBhavcopyStore((state) => state.activeBatch);
+  const batchOutcome = useBhavcopyStore((state) => state.batchOutcome);
+  const isDownloading = activeBatch !== null;
+  const requestingStop = activeBatch?.phase === 'stopQueued' || activeBatch?.phase === 'requestingStop';
+  const stopping = activeBatch?.phase === 'stopping';
   const logs = useBhavcopyStore((state) => state.logs);
   const runSummary = useBhavcopyStore((state) => state.runSummary);
   const totalLogEntries = useBhavcopyStore((state) => state.totalLogEntries);
@@ -201,7 +204,6 @@ export function BhavcopyDownloadWindow({ onClose }: BhavcopyDownloadWindowProps)
   const addLog = useBhavcopyStore((state) => state.addLog);
   const clearLogs = useBhavcopyStore((state) => state.clearLogs);
   const reportDownloadResult = useBhavcopyStore((state) => state.reportDownloadResult);
-  const reportedDownloadResults = useBhavcopyStore((state) => state.reportedDownloadResults);
   const activeDatabasePath = useChartStore((state) => state.snapshot?.activeDatabasePath ?? null);
 
   const bhavcopyOpenRequestCount = useUiStore((state) => state.bhavcopyOpenRequestCount);
@@ -231,7 +233,6 @@ export function BhavcopyDownloadWindow({ onClose }: BhavcopyDownloadWindowProps)
       bseIndexUrlOverride: null,
     };
   });
-  const [runError, setRunError] = useState<string | null>(null);
   const [settingsLoaded, setSettingsLoaded] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [logFilter, setLogFilter] = useState<LogFilter>('all');
@@ -750,20 +751,6 @@ export function BhavcopyDownloadWindow({ onClose }: BhavcopyDownloadWindowProps)
     updateConfig((previous) => ({ ...previous, mode }));
   };
 
-  const startRun = () => {
-    clearLogs();
-    setRunError(null);
-    setIsDownloading(true);
-    useChartStore.getState().setDownloadProgress(beginDownloadRun());
-  };
-
-  const stopRun = (error: string | null) => {
-    setRunError(error);
-    setIsDownloading(false);
-    const chart = useChartStore.getState();
-    chart.setDownloadProgress(finishDownloadRun(chart.downloadProgress, error));
-  };
-
   const handleDownload = async () => {
     if (!api) {
       addLog('error', 'Desktop API bridge not available');
@@ -790,7 +777,10 @@ export function BhavcopyDownloadWindow({ onClose }: BhavcopyDownloadWindowProps)
       }
     }
 
-    startRun();
+    const runId = crypto.randomUUID();
+    const batch = useBhavcopyStore.getState();
+    if (!batch.startBatch(runId)) return;
+    useChartStore.getState().setDownloadProgress(beginDownloadRun());
     addLog('info', `Mode: ${getDownloadModeLabel(config.mode)}`);
     addLog('info', `Starting download for: ${selectedExchangeLabels.join(', ')}`);
     if (config.mode === 'range') {
@@ -801,8 +791,9 @@ export function BhavcopyDownloadWindow({ onClose }: BhavcopyDownloadWindowProps)
     addLog('info', `Workers: ${config.workers}`);
 
     let failure: string | null = null;
+    let cancelled = false;
     try {
-      const result = await api.downloadBhavcopyBatch({
+      const response = await api.runTrackedBhavcopyBatch({
         mode: config.mode,
         exchanges: config.exchanges,
         startDate: config.startDate,
@@ -813,14 +804,10 @@ export function BhavcopyDownloadWindow({ onClose }: BhavcopyDownloadWindowProps)
         nseIndexUrlOverride: config.nseIndexUrlOverride,
         bseEquityUrlOverride: config.bseEquityUrlOverride,
         bseIndexUrlOverride: config.bseIndexUrlOverride,
-      });
-
-      result.forEach((entry) => {
-        const key = `${entry.exchange}::${entry.tradeDate}`;
-        if (!reportedDownloadResults.has(key)) {
-          reportDownloadResult(entry);
-        }
-      });
+      }, runId, () => batch.acknowledgeBatch(runId, api.cancelBhavcopyBatch));
+      const { results: result } = response;
+      cancelled = response.cancelled;
+      result.forEach(reportDownloadResult);
 
       const successCount = result.filter((r) => r.success && !isSkippedResult(r)).length;
       const skippedCount = result.filter((r) => isSkippedResult(r)).length;
@@ -829,18 +816,22 @@ export function BhavcopyDownloadWindow({ onClose }: BhavcopyDownloadWindowProps)
       const importedRows = result.reduce((total, entry) => total + entry.rowsInserted, 0);
       addLog(
         'info',
-        `Download complete: ${successCount} success, ${skippedCount} skipped, ${failCount} failed, imported rows: ${importedRows}`,
+        `${cancelled ? 'Download cancelled' : 'Download complete'}: ${successCount} success, ${skippedCount} skipped, ${failCount} failed, imported rows: ${importedRows}`,
       );
     } catch (error) {
       failure = getErrorMessage(error);
       addLog('error', failure);
     } finally {
-      stopRun(failure);
+      batch.finishBatch(runId, cancelled ? 'cancelled' : failure ? 'failed' : 'completed');
+      const chart = useChartStore.getState();
+      chart.setDownloadProgress(finishDownloadRun(chart.downloadProgress, failure, cancelled));
     }
   };
   const selectedExchangesCount = Object.values(config.exchanges).filter(Boolean).length;
   const { skippedCount, successCount, failedCount, totalRowsInserted, completedCount } = runSummary;
-  const runStatus = isDownloading ? 'Running' : runError ? 'Stopped With Errors' : completedCount > 0 ? (failedCount > 0 ? 'Completed With Errors' : 'Completed') : 'Idle';
+  const runStatus = stopping ? 'Stopping...' : requestingStop ? 'Requesting stop...'
+    : isDownloading ? 'Running' : batchOutcome === 'cancelled' ? 'Cancelled'
+    : batchOutcome === 'failed' ? 'Stopped With Errors' : batchOutcome === 'completed' ? 'Completed' : 'Idle';
   const filteredLogs = useMemo(() => {
     if (logFilter === 'all') return logs;
     return logs.filter((log) => log.level === logFilter);
@@ -1111,11 +1102,12 @@ export function BhavcopyDownloadWindow({ onClose }: BhavcopyDownloadWindowProps)
             <div
               style={{
                 ...statusBadgeStyle,
-                ...(isDownloading ? statusBadgeRunningStyle : runError || failedCount > 0 ? statusBadgeErrorStyle : completedCount > 0 ? statusBadgeSuccessStyle : null),
+                ...(isDownloading ? statusBadgeRunningStyle : batchOutcome === 'failed' || failedCount > 0
+                  ? statusBadgeErrorStyle : batchOutcome === 'completed' ? statusBadgeSuccessStyle : null),
               }}
             >
               <span style={statusDotStyle} />
-              <span>{runStatus}</span>
+              <span role="status">{runStatus}</span>
             </div>
             {isDownloading && downloadProgress.progress > 0 ? (
               <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
@@ -1147,6 +1139,15 @@ export function BhavcopyDownloadWindow({ onClose }: BhavcopyDownloadWindowProps)
             >
               Clear
             </button>
+            {isDownloading && (
+              <button
+                style={secondaryButtonStyle}
+                onClick={() => api && void useBhavcopyStore.getState().requestBatchStop(api.cancelBhavcopyBatch)}
+                disabled={requestingStop || stopping}
+              >
+                Request Stop
+              </button>
+            )}
             <button
               style={{
                 ...primaryButtonStyle,

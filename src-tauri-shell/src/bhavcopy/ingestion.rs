@@ -1681,12 +1681,13 @@ pub(crate) fn recover_pending_bhavcopy_sessions(
     Ok(())
 }
 
-pub(crate) fn import_staged_csv_downloads(
+pub(super) fn import_staged_csv_downloads(
     app_handle: &AppHandle,
     database_file_path: &Path,
     staged_downloads: Vec<StagedDownload>,
     config: &BatchDownloadConfig,
     write_lock: &Mutex<()>,
+    stop: &super::BatchStop,
 ) -> AppResult<Vec<DownloadResult>> {
     let parse_started = Instant::now();
     let mut parsed_files = Vec::<ParsedBhavcopyFile>::new();
@@ -1694,6 +1695,9 @@ pub(crate) fn import_staged_csv_downloads(
     let mut parsed_rows = 0_usize;
 
     for staged in staged_downloads {
+        if stop.is_requested() {
+            break;
+        }
         let StagedDownloadContent::Csv(csv_content) = staged.content else {
             continue;
         };
@@ -1730,7 +1734,9 @@ pub(crate) fn import_staged_csv_downloads(
 
     let parse_ms = parse_started.elapsed().as_millis();
 
-    if !parsed_files.is_empty() {
+    // After journal preparation begins, finish the entire symbol-batched
+    // import and its recovery transitions before observing another stop.
+    if !parsed_files.is_empty() && !stop.is_requested() {
         let (mut recovery_session, state_shadow_stats, baseline_fast_path_stats) =
             prepare_bhavcopy_recovery_session(database_file_path, config, &parsed_files)?;
         emit_progress(
@@ -2016,14 +2022,14 @@ pub(crate) fn import_staged_csv_downloads(
                     ..result.clone()
                 };
                 if should_write_download_log(&log_result) {
-                    upsert_download_log_entry(&connection, &log_result)?;
+                    upsert_batch_download_log_entry(&connection, &log_result)?;
                     log_entries_written += 1;
                 }
                 results.push(result);
             }
             for result in results.iter().filter(|result| !result.success) {
                 if should_write_download_log(result) {
-                    upsert_download_log_entry(&connection, result)?;
+                    upsert_batch_download_log_entry(&connection, result)?;
                     log_entries_written += 1;
                 }
             }
@@ -2113,7 +2119,7 @@ pub(crate) fn import_staged_csv_downloads(
         let mut log_entries_written = 0_usize;
         for result in &results {
             if should_write_download_log(result) {
-                upsert_download_log_entry(&connection, result)?;
+                upsert_batch_download_log_entry(&connection, result)?;
                 log_entries_written += 1;
             }
         }
@@ -3256,10 +3262,21 @@ pub(crate) fn should_write_download_log(result: &DownloadResult) -> bool {
 }
 
 pub(crate) fn upsert_download_log_entry(connection: &Connection, result: &DownloadResult) -> AppResult<()> {
-    super::batch_runtime::retry_busy(|| upsert_download_log_entry_once(connection, result))
+    super::batch_runtime::retry_busy(|| upsert_download_log_entry_once(connection, result, false))
 }
 
-fn upsert_download_log_entry_once(connection: &Connection, result: &DownloadResult) -> rusqlite::Result<()> {
+pub(super) fn upsert_batch_download_log_entry(
+    connection: &Connection,
+    result: &DownloadResult,
+) -> AppResult<()> {
+    super::batch_runtime::retry_busy(|| upsert_download_log_entry_once(connection, result, true))
+}
+
+fn upsert_download_log_entry_once(
+    connection: &Connection,
+    result: &DownloadResult,
+    preserve_success: bool,
+) -> rusqlite::Result<()> {
     if result.success {
         connection
             .execute(
@@ -3292,8 +3309,9 @@ fn upsert_download_log_entry_once(connection: &Connection, result: &DownloadResu
                     downloaded_at = datetime('now'),
                     status = excluded.status,
                     note = excluded.note
+                  WHERE NOT ? OR download_log.status <> 'ok'
                 ",
-                params![&result.trade_date, &result.exchange, &result.message],
+                params![&result.trade_date, &result.exchange, &result.message, preserve_success],
             )?;
     }
 
