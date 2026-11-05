@@ -10,6 +10,8 @@ export type {
   AppProfileSettingsSaveInput,
   AppSnapshot,
   BatchDownloadConfig,
+  BhavcopyBatchStopReply,
+  TrackedBhavcopyBatchResult,
   BseHistoryDownloadInput,
   BseHistoryDownloadSummary,
   BhavcopySettings,
@@ -367,6 +369,8 @@ export type DesktopApi = Pick<
   | 'undoManualImportRecovery'
   | 'downloadBhavcopy'
   | 'downloadBhavcopyBatch'
+  | 'runTrackedBhavcopyBatch'
+  | 'cancelBhavcopyBatch'
   | 'downloadBsePriceHistory'
   | 'cancelBsePriceHistoryDownload'
   | 'getBhavcopySettings'

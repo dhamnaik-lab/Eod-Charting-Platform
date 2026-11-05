@@ -2,6 +2,8 @@
 //! Explicit equivalences only; never infer identity from a prefix or price.
 //! 2015 names: https://niftyindices.com/docs/default-source/press-release-upload/ind_prs22092015.pdf
 //! SPCNXNIFTY retains the equivalence already accepted by the CSV importer.
+//! SPCNX500 is the exact historical name in the retained official NIFTY 500
+//! response for 3-7 January 2011. See docs/changes/2026-11-04_NIFTY500_ALIAS_RERUN_LOG.md.
 
 pub(crate) struct IndexAliasFamily {
     pub canonical: &'static str,
@@ -33,7 +35,7 @@ const NSE_INDEX_FAMILIES: &[IndexAliasFamily] = &[
     },
     IndexAliasFamily {
         canonical: "NIFTY500",
-        symbols: &["NIFTY500", "CNX500"],
+        symbols: &["NIFTY500", "CNX500", "SPCNX500"],
     },
     IndexAliasFamily {
         canonical: "NIFTY100LIQUID15",
@@ -48,8 +50,26 @@ const NSE_INDEX_FAMILIES: &[IndexAliasFamily] = &[
         symbols: &["NIFTYMIDCAP100", "CNXMIDCAP"],
     },
     IndexAliasFamily {
+        canonical: "MIDCPNIFTY",
+        symbols: &["MIDCPNIFTY", "NIFTYMIDCAPSELECT", "NIFTYMIDSELECT"],
+    },
+    IndexAliasFamily {
+        canonical: "NIFTYMIDCAP150",
+        symbols: &["NIFTYMIDCAP150"],
+    },
+    IndexAliasFamily {
+        canonical: "NIFTYSMALLCAP250",
+        symbols: &["NIFTYSMALLCAP250", "NIFTYSMLCAP250"],
+    },
+    IndexAliasFamily {
         canonical: "SMALLCAP100",
-        symbols: &["SMALLCAP100", "NIFTYSMALLCAP100", "CNXSMALLCAP"],
+        // The historical endpoint returns NIFTY SMLCAP 100 for NIFTY SMALLCAP 100.
+        symbols: &[
+            "SMALLCAP100",
+            "NIFTYSMALLCAP100",
+            "NIFTYSMLCAP100",
+            "CNXSMALLCAP",
+        ],
     },
     IndexAliasFamily {
         canonical: "NIFTYAUTO",

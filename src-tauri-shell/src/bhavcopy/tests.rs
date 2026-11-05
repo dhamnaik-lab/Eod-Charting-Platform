@@ -556,7 +556,7 @@ fn bse_maintenance_import_through_normal_batch_engine() {
             });
         }
         let imported = import_staged_csv_downloads(
-            &handle, &database_file, staged, &job.config, &Mutex::new(()),
+            &handle, &database_file, staged, &job.config, &Mutex::new(()), &BatchStop::default(),
         );
         drop(permit);
         imported
@@ -570,6 +570,88 @@ fn bse_maintenance_import_through_normal_batch_engine() {
     let receipt: serde_json::Value = serde_json::from_slice(&fs::read(&job.report_file).unwrap()).unwrap();
     assert!(receipt["result"].get("Ok").is_some(), "Batch engine failed; inspect receipt");
     assert!(receipt["recovery"].get("Ok").is_some(), "Recovery incomplete; inspect receipt");
+}
+
+#[test]
+fn batch_stop_lets_a_started_http_attempt_finish_without_trying_the_next_url() {
+    use std::{
+        io::{Read, Write},
+        net::TcpListener,
+        thread,
+        time::Duration,
+    };
+
+    let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+    let address = listener.local_addr().unwrap();
+    let controller = BatchCancellation::default();
+    let run = controller.start("http-staging".into()).unwrap();
+    let client = Client::builder().no_proxy().timeout(Duration::from_secs(3)).build().unwrap();
+    let task = DownloadTask {
+        exchange: "NSE".into(),
+        trade_date: "2026-01-02".into(),
+        mode: DownloadMode::Range,
+        candidates: ["first", "second"].into_iter()
+            .map(|route| Candidate::direct(format!("http://{address}/{route}"), false))
+            .collect(),
+        nse_index_history: None,
+    };
+
+    thread::scope(|scope| {
+        let server = scope.spawn(|| {
+            let (mut stream, _) = listener.accept().unwrap();
+            stream.set_read_timeout(Some(Duration::from_secs(3))).unwrap();
+            let mut request = [0; 1024];
+            let read = stream.read(&mut request).unwrap();
+            assert!(String::from_utf8_lossy(&request[..read]).starts_with("GET /first "));
+            assert_eq!(controller.request("http-staging"), BatchStopReply::Accepted);
+            stream.write_all(b"HTTP/1.1 404 Not Found\r\nContent-Length: 0\r\nConnection: close\r\n\r\n").unwrap();
+        });
+
+        assert!(matches!(
+            stage_single_download(&client, &task, &run.stop).unwrap(),
+            StagedDownloadOutcome::Cancelled
+        ));
+        server.join().unwrap();
+    });
+    listener.set_nonblocking(true).unwrap();
+    assert_eq!(listener.accept().unwrap_err().kind(), std::io::ErrorKind::WouldBlock);
+    assert!(run.finish());
+}
+
+#[test]
+fn batch_download_log_keeps_historical_success_until_a_successful_replacement() {
+    let db = Connection::open_in_memory().unwrap();
+    db.execute_batch("
+        CREATE TABLE download_log (
+            trade_date TEXT, exchange TEXT, rows_inserted INTEGER, max_volume INTEGER,
+            status TEXT, note TEXT, downloaded_at TEXT, UNIQUE(trade_date, exchange)
+        );
+        INSERT INTO download_log VALUES ('2026-01-02', 'NSE', 10, 20, 'ok', NULL, 'original');
+    ").unwrap();
+    let failed = failed_download_result("NSE", "2026-01-02", "source failed");
+    upsert_batch_download_log_entry(&db, &failed).unwrap();
+    let read_log = || {
+        db.query_row(
+            "SELECT status, rows_inserted, max_volume, downloaded_at FROM download_log",
+            [],
+            |row| Ok((row.get::<_, String>(0)?, row.get::<_, i64>(1)?,
+                row.get::<_, i64>(2)?, row.get::<_, String>(3)?)),
+        ).unwrap()
+    };
+    assert_eq!(read_log(), ("ok".into(), 10, 20, "original".into()));
+
+    let replacement = DownloadResult { success: true, rows_inserted: 12, max_volume: 30, ..failed };
+    upsert_batch_download_log_entry(&db, &replacement).unwrap();
+    let (status, rows, max_volume, timestamp) = read_log();
+    assert_eq!((status.as_str(), rows, max_volume), ("ok", 12, 30));
+    assert_ne!(timestamp, "original");
+
+    let failed_new_date = failed_download_result("NSE", "2026-01-05", "new job failed");
+    upsert_batch_download_log_entry(&db, &failed_new_date).unwrap();
+    assert_eq!(
+        db.query_row("SELECT note FROM download_log WHERE status = 'error'", [], |r| r.get::<_, String>(0)).unwrap(),
+        "new job failed"
+    );
 }
 
 #[test]
@@ -994,9 +1076,37 @@ fn index_alias_prefilter_reports_exchange_completion_and_unverified_large_ranges
         workers: 2, excluded_series: Vec::new(), nse_equity_url_override: None,
         nse_index_url_override: None, bse_equity_url_override: None, bse_index_url_override: None,
     }).unwrap();
-    assert!(plan.tasks.is_empty());
-    assert!(plan.info_messages.iter().any(|message| message.contains("not complete per-index history")));
-    assert!(plan.info_messages.iter().any(|message| message.contains("40 imported dates exceed the 31-date scan limit")));
+    // All 40 exchange-day markers are present and exceed the binary scan
+    // limit. They do not establish which individual indices were imported.
+    let metadata = storage_mode_load_imported_trade_dates(
+        &connection, "NSE_INDEX", "2015-01-01", "2015-02-09",
+    ).unwrap();
+    assert_eq!(metadata.dates.len(), 40);
+    assert!(metadata.dates.len() > BINARY_PREFILTER_RECONCILE_MAX_DATES);
+    assert_eq!(metadata.binary_reconcile_target_dates, 0);
+    assert_eq!(metadata.binary_reconcile_files_scanned, 0);
+
+    let expected_dates: Vec<_> = (0..40)
+        .map(|offset| start + chrono::Duration::days(offset))
+        .filter(|date| date.weekday().number_from_monday() <= 5)
+        .map(|date| date.format("%Y-%m-%d").to_string())
+        .collect();
+    assert_eq!(
+        plan.tasks.iter().map(|task| &task.trade_date).collect::<Vec<_>>(),
+        expected_dates.iter().collect::<Vec<_>>(),
+    );
+    assert_eq!(plan.calendar_skip_results.len(), 12);
+    assert!(plan.tasks.iter().all(|task| {
+        task.exchange == "NSE_INDEX" && task.nse_index_history.is_none() && !task.candidates.is_empty()
+    }));
+    assert!(plan.info_messages.iter().any(|message| {
+        message.contains("Daily archives first")
+            && message.contains("chunks up to 366 days")
+            && message.contains("no full-history certification")
+    }));
+    assert!(!plan.info_messages.iter().any(|message| {
+        message.contains("already imported trading days") || message.contains("31-date scan limit")
+    }));
 }
 
 #[test]
@@ -1318,6 +1428,40 @@ fn test_nse_index_history_chunks_split_selected_range() {
     assert_eq!(tasks[1].trade_date, "1993-01-01..1993-12-31 BANKNIFTY");
     assert_eq!(tasks[2].trade_date, "1994-01-01..1994-01-15 NIFTY");
     assert_eq!(tasks[3].trade_date, "1994-01-01..1994-01-15 BANKNIFTY");
+}
+
+#[test]
+fn nifty_daily_index_rejects_mixed_dates_and_invalid_ohlc() {
+    let mixed = "Index Name,Index Date,Open Index Value,High Index Value,Low Index Value,Closing Index Value\nNIFTY 50,02-01-2024,100,110,90,105\nNIFTY BANK,03-01-2024,100,110,90,105\n";
+    assert!(parse_bhavcopy_csv(mixed,"NSE_INDEX","2024-01-02",&[]).is_err());
+    let invalid = mixed.replace("03-01-2024","02-01-2024").replace("100,110,90,105","100,99,90,105");
+    assert!(parse_bhavcopy_csv(&invalid,"NSE_INDEX","2024-01-02",&[]).is_err());
+}
+
+#[test]
+fn nifty_legacy_history_writer_is_blocked_before_any_database_write() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("must-not-exist.sqlite3");
+    let result = insert_nse_index_history_rows(&path,"NSE_INDEX",&NseIndexHistoryNormalizeResult { rows: vec![], close_only_skipped: 0 });
+    assert!(result.err().unwrap().contains("Historical Review"));
+    assert!(!path.exists());
+}
+
+#[test]
+fn nifty_range_update_full_history_keep_daily_planning_semantics() {
+    let conn = setup_test_db();
+    let mut messages = Vec::new();
+    let range = resolve_exchange_date_window(&conn,&DownloadMode::Range,"NSE_INDEX","2024-01-20","2024-01-20",&mut messages).unwrap().unwrap();
+    assert_eq!(range,("2024-01-20".into(),"2024-01-20".into()));
+    for (exchange, baseline) in [("NSE","1994-11-03"),("NSE_INDEX","1990-07-03"),("BSE","1990-01-01"),("BSE_INDEX","1990-01-01")] {
+        let window = resolve_exchange_date_window(&conn,&DownloadMode::FullHistory,exchange,"2000-01-01","2000-01-02",&mut messages).unwrap().unwrap();
+        assert_eq!(window.0,baseline);assert_eq!(window.1,today_trade_date());
+    }
+    conn.execute("INSERT INTO eod_prices(date,symbol,exchange,close,volume) VALUES('2024-01-02','BANKNIFTY','NSE_INDEX',100,1)",[]).unwrap();
+    let update = resolve_exchange_date_window(&conn,&DownloadMode::Update,"NSE_INDEX","1990-07-03","2024-01-02",&mut messages).unwrap().unwrap();
+    assert_eq!(update.0,"2024-01-03");
+    // Exchange-level Update is intentionally NOT proof of NIFTY coverage.
+    assert_eq!(update.1,update_end_trade_date());
 }
 
 #[test]

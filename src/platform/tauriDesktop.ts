@@ -71,7 +71,7 @@ async function getTauriEvent() {
   return import('@tauri-apps/api/event');
 }
 
-const MUTATING_EOD_COMMANDS = new Set(["create_database_interactive","open_database_interactive","activate_database_path","close_database","delete_database","upsert_quote","delete_quote","delete_quote_range","delete_quote_date","merge_symbols","apply_corporate_action","apply_nse_historical_identity_archive","apply_nse_current_universe_sync","apply_bse_current_universe_sync","approve_corporate_action_import","approve_corporate_action_import_with_isin_mismatch","approve_corporate_action_import_with_price_validation_exception","approve_corporate_action_imports","auto_approve_corporate_action_imports","approve_recommended_corporate_action_isin_mismatches","import_csv","undo_manual_import_recovery","download_bhavcopy","download_bhavcopy_batch","set_setting","set_price_storage_mode"]);
+const MUTATING_EOD_COMMANDS = new Set(["create_database_interactive","open_database_interactive","activate_database_path","close_database","delete_database","upsert_quote","delete_quote","delete_quote_range","delete_quote_date","merge_symbols","apply_corporate_action","apply_nse_historical_identity_archive","apply_nse_current_universe_sync","apply_bse_current_universe_sync","approve_corporate_action_import","approve_corporate_action_import_with_isin_mismatch","approve_corporate_action_import_with_price_validation_exception","approve_corporate_action_imports","auto_approve_corporate_action_imports","approve_recommended_corporate_action_isin_mismatches","import_csv","undo_manual_import_recovery","download_bhavcopy","download_bhavcopy_batch","run_tracked_bhavcopy_batch","set_setting","set_price_storage_mode"]);
 
 async function tauriInvoke<T>(command: string, payload?: Record<string, unknown>): Promise<T> {
   const { invoke } = await getTauriCore();
@@ -523,6 +523,14 @@ export function getTauriDesktopApi(): DesktopApi | null {
     },
     downloadBhavcopyBatch: async (config) => {
       return tauriInvoke('download_bhavcopy_batch', { config });
+    },
+    runTrackedBhavcopyBatch: async (config, runId, onStarted) => {
+      const { Channel } = await getTauriCore();
+      const started = new Channel<null>(onStarted);
+      return tauriInvoke('run_tracked_bhavcopy_batch', { config, runId, started });
+    },
+    cancelBhavcopyBatch: async (runId) => {
+      return tauriInvoke('cancel_bhavcopy_batch', { runId });
     },
     downloadBsePriceHistory: async (input) => {
       return tauriInvoke('download_bse_price_history', { input });

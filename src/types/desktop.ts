@@ -1754,6 +1754,13 @@ export interface DownloadResult {
   message: string;
 }
 
+export type BhavcopyBatchStopReply = 'accepted' | 'alreadyRequested' | 'noMatchingRun';
+
+export interface TrackedBhavcopyBatchResult {
+  cancelled: boolean;
+  results: DownloadResult[];
+}
+
 export interface BatchDownloadConfig {
   mode: DownloadMode;
   exchanges: {
@@ -2233,6 +2240,12 @@ export interface DesktopBridgeApi {
   undoManualImportRecovery(input: { sessionId: string }): Promise<ManualImportUndoResult>;
   downloadBhavcopy(date?: string): Promise<DownloadResult>;
   downloadBhavcopyBatch(config: BatchDownloadConfig): Promise<DownloadResult[]>;
+  runTrackedBhavcopyBatch(
+    config: BatchDownloadConfig,
+    runId: string,
+    onStarted: () => void,
+  ): Promise<TrackedBhavcopyBatchResult>;
+  cancelBhavcopyBatch(runId: string): Promise<BhavcopyBatchStopReply>;
   downloadBsePriceHistory(input: BseHistoryDownloadInput): Promise<BseHistoryDownloadSummary>;
   cancelBsePriceHistoryDownload(): Promise<boolean>;
   getBhavcopySettings(): Promise<BhavcopySettings>;

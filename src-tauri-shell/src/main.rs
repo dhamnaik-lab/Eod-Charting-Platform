@@ -1257,6 +1257,8 @@ fn main() {
             undo_manual_import_recovery,
             download_bhavcopy,
             download_bhavcopy_batch,
+            run_tracked_bhavcopy_batch,
+            cancel_bhavcopy_batch,
             download_bse_price_history,
             cancel_bse_price_history_download,
             get_bhavcopy_settings,

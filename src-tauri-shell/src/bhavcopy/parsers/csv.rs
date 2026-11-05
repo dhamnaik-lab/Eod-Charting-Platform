@@ -237,6 +237,16 @@ pub fn parse_bhavcopy_csv(
             continue;
         }
 
+        // Daily index archives must match on every row, not just the first row.
+        if is_index_data {
+            if let Some(idx) = date_idx {
+                let raw = get_csv_value(row, idx);
+                if normalize_trade_date_value(&raw).as_deref() != Some(trade_date) {
+                    return Err(format!("Index archive date mismatch for {raw_symbol}: requested {trade_date}, row contains {raw}"));
+                }
+            }
+        }
+
         let symbol = if is_index_data {
             let mapped = map_index_symbol(&raw_symbol);
             if mapped.is_empty() {
@@ -275,6 +285,10 @@ pub fn parse_bhavcopy_csv(
         let high_value = parse_decimal(&high_raw);
         let low_value = parse_decimal(&low_raw);
         let close_value = parse_decimal(&close_raw);
+        if is_index_data {
+            validate_index_ohlc([open_value, high_value, low_value, close_value])
+                .map_err(|error| format!("Invalid index OHLC for {raw_symbol}: {error}"))?;
+        }
         if close_value == 0.0 && !is_index_data {
             continue;
         }
@@ -369,6 +383,19 @@ pub fn get_csv_value(row: &[String], index: usize) -> String {
 
 pub fn parse_decimal(value: &str) -> f64 {
     value.replace(',', "").parse::<f64>().unwrap_or(0.0)
+}
+
+fn validate_index_ohlc(p: [f64; 4]) -> Result<(), String> {
+    if p.iter()
+        .any(|v| !v.is_finite() || *v <= 0.0 || *v > 1_000_000_000.0)
+    {
+        return Err("Prices must be positive, finite and representable".into());
+    }
+    let [o, h, l, c] = p;
+    if h < o.max(c).max(l) || l > o.min(c).min(h) {
+        return Err("Invalid OHLC relationships".into());
+    }
+    Ok(())
 }
 
 pub fn normalize_trade_date_value(value: &str) -> Option<String> {

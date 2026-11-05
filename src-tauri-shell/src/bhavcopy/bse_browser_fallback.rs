@@ -279,7 +279,7 @@ pub(super) fn should_recover(
     match outcome {
         Err(_) => true,
         Ok(StagedDownloadOutcome::Result(result)) => !result.success,
-        Ok(StagedDownloadOutcome::Ready(_)) => false,
+        Ok(StagedDownloadOutcome::Ready(_) | StagedDownloadOutcome::Cancelled) => false,
     }
 }
 
@@ -316,10 +316,14 @@ impl BrowserFallback {
         &self,
         app: &AppHandle,
         task: &DownloadTask,
-        stop: Arc<AtomicBool>,
+        worker_stop: Arc<AtomicBool>,
+        user_stop: &super::BatchStop,
     ) -> Result<Option<StagedDownload>, String> {
-        self.recover_with(app, task, stop.clone(), |scope| {
-            browser_response(collect_official(app.clone(), scope, stop.clone()))
+        self.recover_with(app, task, worker_stop.clone(), |scope| {
+            // Let a browser request already in flight finish normally.
+            user_stop.run_if_active(|| {
+                browser_response(collect_official(app.clone(), scope, worker_stop.clone()))
+            }).unwrap_or(Ok(None))
         })
     }
 

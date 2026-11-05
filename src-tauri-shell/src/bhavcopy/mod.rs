@@ -24,7 +24,8 @@ use std::fs;
 use std::path::Path;
 use std::sync::{mpsc, Arc, Mutex};
 use std::time::Instant;
-use tauri::AppHandle;
+use tauri::{ipc::Channel, AppHandle};
+use batch_runtime::{BatchCancellation, BatchStop};
 
 pub mod types;
 pub use types::*;
@@ -47,6 +48,7 @@ pub mod bse_price_history;
 pub use bse_price_history::{cancel_bse_price_history_download, download_bse_price_history};
 mod batch_runtime;
 mod bse_browser_fallback;
+mod index_fallback;
 
 #[tauri::command]
 pub async fn download_bhavcopy(app: AppHandle, date: Option<String>) -> AppResult<DownloadResult> {
@@ -147,6 +149,49 @@ pub async fn download_bhavcopy(app: AppHandle, date: Option<String>) -> AppResul
     .map_err(|error| error.to_string())?
 }
 
+static TRACKED_BATCH: std::sync::LazyLock<BatchCancellation> =
+    std::sync::LazyLock::new(BatchCancellation::default);
+
+#[derive(Debug, PartialEq, Eq, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub enum BatchStopReply {
+    Accepted,
+    AlreadyRequested,
+    NoMatchingRun,
+}
+
+#[derive(serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TrackedBhavcopyBatchResult {
+    cancelled: bool,
+    results: Vec<DownloadResult>,
+}
+
+#[tauri::command]
+pub fn cancel_bhavcopy_batch(run_id: String) -> BatchStopReply {
+    TRACKED_BATCH.request(&run_id)
+}
+
+#[tauri::command]
+pub async fn run_tracked_bhavcopy_batch(
+    app: AppHandle,
+    config: BatchDownloadConfig,
+    run_id: String,
+    started: Channel<()>,
+) -> AppResult<TrackedBhavcopyBatchResult> {
+    let database_file_path = get_active_database_file_path(&app)?
+        .ok_or_else(|| "Open a database before downloading bhavcopy data.".to_string())?;
+    let run = TRACKED_BATCH.start(run_id)?;
+    started.send(()).map_err(|error| error.to_string())?;
+    tauri::async_runtime::spawn_blocking(move || {
+        let results = run_bhavcopy_batch(app.clone(), database_file_path, config, &run.stop);
+        let cancelled = run.finish();
+        finish_batch_progress(&app, results, cancelled)
+    })
+    .await
+    .map_err(|error| error.to_string())?
+}
+
 #[tauri::command]
 pub async fn download_bhavcopy_batch(
     app: AppHandle,
@@ -154,379 +199,452 @@ pub async fn download_bhavcopy_batch(
 ) -> AppResult<Vec<DownloadResult>> {
     let database_file_path = get_active_database_file_path(&app)?
         .ok_or_else(|| "Open a database before downloading bhavcopy data.".to_string())?;
-    let app_handle = app.clone();
     tauri::async_runtime::spawn_blocking(move || {
-        let started_at = Instant::now();
-        let normalized_config = normalize_batch_config(config)?;
-        let _price_store_operation_permit =
-            try_acquire_price_store_operation(PriceStoreOperationKind::BhavcopyWrite)?;
-        recover_pending_bhavcopy_sessions(&app_handle, &database_file_path)?;
-        let connection = open_database_connection(&database_file_path)?;
-        let BatchPlan {
-            info_messages,
-            calendar_skip_results,
-            tasks,
-        } = build_batch_plan(&connection, &normalized_config)?;
+        let results = run_bhavcopy_batch(app.clone(), database_file_path, config, &BatchStop::default());
+        Ok(finish_batch_progress(&app, results, false)?.results)
+    })
+    .await
+    .map_err(|error| error.to_string())?
+}
+
+fn run_bhavcopy_batch(
+    app_handle: AppHandle,
+    database_file_path: std::path::PathBuf,
+    config: BatchDownloadConfig,
+    stop: &BatchStop,
+) -> AppResult<Vec<DownloadResult>> {
+    let started_at = Instant::now();
+    if stop.is_requested() {
+        return Ok(Vec::new());
+    }
+    let normalized_config = normalize_batch_config(config)?;
+    let _price_store_operation_permit =
+        try_acquire_price_store_operation(PriceStoreOperationKind::BhavcopyWrite)?;
+    if stop.is_requested() {
+        return Ok(Vec::new());
+    }
+    recover_pending_bhavcopy_sessions(&app_handle, &database_file_path)?;
+    if stop.is_requested() {
+        return Ok(Vec::new());
+    }
+    let connection = open_database_connection(&database_file_path)?;
+    let BatchPlan {
+        info_messages,
+        calendar_skip_results,
+        tasks,
+    } = build_batch_plan(&connection, &normalized_config)?;
+    log_runtime_event(
+        &app_handle,
+        "INFO",
+        "bhavcopy-write-start",
+        Some(&format!(
+            "kind=batch mode={:?} fromDate={} toDate={} jobs={} calendarSkips={} workers={}",
+            normalized_config.mode,
+            normalized_config.start_date,
+            normalized_config.end_date,
+            tasks.len(),
+            calendar_skip_results.len(),
+            normalized_config.workers
+        )),
+    );
+
+    let active_trading_days = tasks
+        .iter()
+        .map(|task| task.trade_date.as_str())
+        .collect::<HashSet<_>>()
+        .len();
+    let source_categories = summarize_source_categories(&tasks);
+    for message in info_messages {
+        emit_progress(&app_handle, 0, message);
+    }
+    emit_progress(
+        &app_handle,
+        0,
+        if calendar_skip_results.is_empty() {
+            format!("Found {active_trading_days} trading days")
+        } else {
+            format!(
+                "Found {active_trading_days} active trading days ({} non-trading calendar days logged)",
+                calendar_skip_results.len()
+            )
+        },
+    );
+    if !source_categories.is_empty() {
+        emit_progress(
+            &app_handle,
+            0,
+            format!("Source categories: {source_categories}"),
+        );
+    }
+    emit_progress(
+        &app_handle,
+        0,
+        format!("Download jobs: {}", tasks.len()),
+    );
+    for result in &calendar_skip_results {
+        emit_download_result(&app_handle, result);
+    }
+
+    if stop.is_requested() {
+        return Ok(calendar_skip_results);
+    }
+    if tasks.is_empty() {
+        let imported_rows = calendar_skip_results
+            .iter()
+            .map(|result| result.rows_inserted)
+            .sum::<usize>();
         log_runtime_event(
             &app_handle,
             "INFO",
-            "bhavcopy-write-start",
+            "bhavcopy-write-complete",
             Some(&format!(
-                "kind=batch mode={:?} fromDate={} toDate={} jobs={} calendarSkips={} workers={}",
+                "kind=batch mode={:?} fromDate={} toDate={} jobs=0 calendarSkips={} rowsInserted={} elapsedMs={}",
                 normalized_config.mode,
                 normalized_config.start_date,
                 normalized_config.end_date,
-                tasks.len(),
                 calendar_skip_results.len(),
-                normalized_config.workers
+                imported_rows,
+                started_at.elapsed().as_millis()
             )),
         );
+        return Ok(calendar_skip_results);
+    }
 
-        let active_trading_days = tasks
-            .iter()
-            .map(|task| task.trade_date.as_str())
-            .collect::<HashSet<_>>()
-            .len();
-        let source_categories = summarize_source_categories(&tasks);
-        for message in info_messages {
-            emit_progress(&app_handle, 0, message);
-        }
-        emit_progress(
-            &app_handle,
-            0,
-            if calendar_skip_results.is_empty() {
-                format!("Found {active_trading_days} trading days")
-            } else {
-                format!(
-                    "Found {active_trading_days} active trading days ({} non-trading calendar days logged)",
-                    calendar_skip_results.len()
-                )
-            },
-        );
-        if !source_categories.is_empty() {
-            emit_progress(
-                &app_handle,
-                0,
-                format!("Source categories: {source_categories}"),
-            );
-        }
-        emit_progress(
-            &app_handle,
-            0,
-            format!("Download jobs: {}", tasks.len()),
-        );
-        for result in &calendar_skip_results {
-            emit_download_result(&app_handle, result);
-        }
+    let client = create_http_client()?;
+    stop.run_if_active(|| warm_session(&client, NSE_BASE_URL));
+    if tasks.iter().any(|task| task.nse_index_history.is_some()) {
+        stop.run_if_active(|| warm_session(&client, NSE_INDEX_HISTORY_PAGE_URL));
+    }
+    stop.run_if_active(|| warm_session(&client, BSE_BASE_URL));
+    emit_progress(
+        &app_handle,
+        0,
+        if calendar_skip_results.is_empty() {
+            format!("Starting {} download jobs...", tasks.len())
+        } else {
+            format!(
+                "Starting {} download jobs after logging {} non-trading calendar days...",
+                tasks.len(),
+                calendar_skip_results.len()
+            )
+        },
+    );
 
-        if tasks.is_empty() {
-            let imported_rows = calendar_skip_results
-                .iter()
-                .map(|result| result.rows_inserted)
-                .sum::<usize>();
-            log_runtime_event(
-                &app_handle,
-                "INFO",
-                "bhavcopy-write-complete",
-                Some(&format!(
-                    "kind=batch mode={:?} fromDate={} toDate={} jobs=0 calendarSkips={} rowsInserted={} elapsedMs={}",
-                    normalized_config.mode,
-                    normalized_config.start_date,
-                    normalized_config.end_date,
-                    calendar_skip_results.len(),
-                    imported_rows,
-                    started_at.elapsed().as_millis()
-                )),
-            );
-            return Ok(calendar_skip_results);
-        }
+    let workers = normalized_config.workers.clamp(1, 10) as usize;
+    let mut results = Vec::<DownloadResult>::new();
+    let mut staged_downloads = Vec::<StagedDownload>::new();
+    let mut completed = 0_usize;
+    let total_tasks = tasks.len();
+    let index_dates = tasks.iter().filter(|task| task.exchange == "NSE_INDEX")
+        .map(|task| task.trade_date.clone()).collect();
+    let task_queue = Arc::new(Mutex::new(VecDeque::from(tasks)));
+    let write_lock = Arc::new(Mutex::new(()));
+    let (result_tx, result_rx) = mpsc::channel::<StagedDownloadOutcome>();
+    let mut download_workers = batch_runtime::DownloadWorkers::default();
+    let browser_fallback = Arc::new(bse_browser_fallback::BrowserFallback::default());
 
-        let client = create_http_client()?;
-        warm_session(&client, NSE_BASE_URL);
-        if tasks.iter().any(|task| task.nse_index_history.is_some()) {
-            warm_session(&client, NSE_INDEX_HISTORY_PAGE_URL);
+    for _ in 0..workers {
+        if stop.is_requested() {
+            break;
         }
-        warm_session(&client, BSE_BASE_URL);
-        emit_progress(
-            &app_handle,
-            0,
-            if calendar_skip_results.is_empty() {
-                format!("Starting {} download jobs...", tasks.len())
-            } else {
-                format!(
-                    "Starting {} download jobs after logging {} non-trading calendar days...",
-                    tasks.len(),
-                    calendar_skip_results.len()
-                )
-            },
-        );
-
-        let workers = normalized_config.workers.clamp(1, 10) as usize;
-        let mut results = Vec::<DownloadResult>::new();
-        let mut staged_downloads = Vec::<StagedDownload>::new();
-        let mut completed = 0_usize;
-        let total_tasks = tasks.len();
-        let task_queue = Arc::new(Mutex::new(VecDeque::from(tasks)));
-        let write_lock = Arc::new(Mutex::new(()));
-        let (result_tx, result_rx) = mpsc::channel::<StagedDownloadOutcome>();
-        let mut download_workers = batch_runtime::DownloadWorkers::default();
-        let browser_fallback = Arc::new(bse_browser_fallback::BrowserFallback::default());
-
-        for _ in 0..workers {
-            let app = app_handle.clone();
-            let browser_fallback = browser_fallback.clone();
-            let client = client.clone();
-            let database_file_path = database_file_path.clone();
-            let task_queue = Arc::clone(&task_queue);
-            let write_lock = Arc::clone(&write_lock);
-            let result_tx = result_tx.clone();
-            download_workers.spawn(move |stop| loop {
-                if stop.load(std::sync::atomic::Ordering::SeqCst) { return; }
-                let task = {
-                    let mut queue = match task_queue.lock() {
-                        Ok(queue) => queue,
-                        Err(_) => return,
-                    };
-                    queue.pop_front()
-                };
-                let Some(task) = task else {
-                    return;
-                };
-                if stop.load(std::sync::atomic::Ordering::SeqCst) { return; }
-                let result = match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-                    stage_download_task(&app, &client, &database_file_path, &task, &write_lock, &browser_fallback, stop.clone())
-                })) {
-                    Ok(Ok(result)) => result,
-                    Ok(Err(error)) => StagedDownloadOutcome::Result(failed_download_result(
-                        &task.exchange,
-                        &task.trade_date,
-                        error,
-                    )),
-                    Err(_) => StagedDownloadOutcome::Result(failed_download_result(
-                        &task.exchange,
-                        &task.trade_date,
-                        "Bhavcopy download worker thread panicked.",
-                    )),
-                };
-                if stop.load(std::sync::atomic::Ordering::SeqCst) || result_tx.send(result).is_err() {
-                    return;
-                }
-            });
-        }
-        drop(result_tx);
-
-        for outcome in result_rx {
-            completed += 1;
-            let progress = ((completed as f64 / total_tasks as f64) * 60.0)
-                .round()
-                .clamp(0.0, 60.0) as u32;
-            browser_fallback.set_progress(progress);
-            match outcome {
-                StagedDownloadOutcome::Ready(staged) => {
-                    emit_progress(
-                        &app_handle,
-                        progress,
-                        format!(
-                            "Staged {completed}/{total_tasks}: [{}] {}",
-                            staged.task.exchange, staged.task.trade_date
-                        ),
-                    );
-                    staged_downloads.push(staged);
-                }
-                StagedDownloadOutcome::Result(result) => {
-                    if should_write_download_log(&result) {
-                        let _write_guard = lock_bhavcopy_write(&write_lock)?;
-                        upsert_download_log_entry(&connection, &result)?;
-                    }
-                    emit_progress(
-                        &app_handle,
-                        progress,
-                        format!(
-                            "{completed}/{total_tasks}: [{}] {}",
-                            result.exchange, result.trade_date
-                        ),
-                    );
-                    emit_download_result(&app_handle, &result);
-                    results.push(result);
-                }
-            }
-        }
-        download_workers.finish()?;
-        if completed != total_tasks {
-            return Err(format!("Bhavcopy staging stopped early: {completed}/{total_tasks} jobs returned; all workers stopped."));
-        }
-
-        staged_downloads.sort_by(|left, right| compare_download_task(&left.task, &right.task));
-        let staged_total = staged_downloads.len();
-        if staged_total > 0 {
-            emit_progress(
-                &app_handle,
-                60,
-                format!("Importing staged download jobs: {staged_total}"),
-            );
-        }
-
-        let mut staged_csv_downloads = Vec::new();
-        let mut staged_other_downloads = Vec::new();
-        for staged in staged_downloads {
-            if matches!(&staged.content, StagedDownloadContent::Csv(_)) {
-                staged_csv_downloads.push(staged);
-            } else {
-                staged_other_downloads.push(staged);
-            }
-        }
-
-        if !staged_csv_downloads.is_empty() {
-            emit_progress(
-                &app_handle,
-                70,
-                format!(
-                    "Importing staged CSV jobs by symbol: {}",
-                    staged_csv_downloads.len()
-                ),
-            );
-            let csv_results = match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-                import_staged_csv_downloads(
-                    &app_handle,
-                    &database_file_path,
-                    staged_csv_downloads,
-                    &normalized_config,
-                    &write_lock,
+        let user_stop = stop.clone();
+        let app = app_handle.clone();
+        let browser_fallback = browser_fallback.clone();
+        let client = client.clone();
+        let database_file_path = database_file_path.clone();
+        let task_queue = Arc::clone(&task_queue);
+        let result_tx = result_tx.clone();
+        download_workers.spawn(move |stop| loop {
+            if stop.load(std::sync::atomic::Ordering::SeqCst) { return; }
+            let Some(task) = user_stop.next_task(&task_queue) else {
+                return;
+            };
+            if stop.load(std::sync::atomic::Ordering::SeqCst) { return; }
+            let result = match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                stage_download_task(
+                    &app, &client, &database_file_path, &task, &browser_fallback, stop.clone(), &user_stop,
                 )
             })) {
-                Ok(Ok(results)) => results,
-                Ok(Err(error)) => vec![failed_download_result("BHAVCOPY", "staged-csv", error)],
-                Err(_) => vec![failed_download_result(
-                    "BHAVCOPY",
-                    "staged-csv",
-                    "Bhavcopy staged CSV import worker thread panicked.",
-                )],
+                Ok(Ok(result)) => result,
+                Ok(Err(error)) => StagedDownloadOutcome::Result(failed_download_result(
+                    &task.exchange,
+                    &task.trade_date,
+                    error,
+                )),
+                Err(_) => StagedDownloadOutcome::Result(failed_download_result(
+                    &task.exchange,
+                    &task.trade_date,
+                    "Bhavcopy download worker thread panicked.",
+                )),
             };
-            for result in csv_results {
+            if stop.load(std::sync::atomic::Ordering::SeqCst) || result_tx.send(result).is_err() {
+                return;
+            }
+        });
+    }
+    drop(result_tx);
+
+    for outcome in result_rx {
+        if matches!(outcome, StagedDownloadOutcome::Cancelled) {
+            continue;
+        }
+        completed += 1;
+        let progress = ((completed as f64 / total_tasks as f64) * 60.0)
+            .round()
+            .clamp(0.0, 60.0) as u32;
+        browser_fallback.set_progress(progress);
+        match outcome {
+            StagedDownloadOutcome::Cancelled => unreachable!("cancelled staging was skipped"),
+            StagedDownloadOutcome::Ready(staged) => {
+                emit_progress(
+                    &app_handle,
+                    progress,
+                    format!(
+                        "Staged {completed}/{total_tasks}: [{}] {}",
+                        staged.task.exchange, staged.task.trade_date
+                    ),
+                );
+                staged_downloads.push(staged);
+            }
+            StagedDownloadOutcome::Result(mut result) => {
+                if result.exchange == "NSE_INDEX" {
+                    // Keep archive diagnostics distinct from the date's import result.
+                    result.trade_date = format!("{} archive", result.trade_date);
+                }
+                if should_write_download_log(&result) {
+                    let _write_guard = lock_bhavcopy_write(&write_lock)?;
+                    upsert_batch_download_log_entry(&connection, &result)?;
+                }
+                emit_progress(
+                    &app_handle,
+                    progress,
+                    format!(
+                        "{completed}/{total_tasks}: [{}] {}",
+                        result.exchange, result.trade_date
+                    ),
+                );
                 emit_download_result(&app_handle, &result);
                 results.push(result);
             }
         }
+    }
+    download_workers.finish()?;
+    if completed != total_tasks && !stop.is_requested() {
+        return Err(format!("Bhavcopy staging stopped early: {completed}/{total_tasks} jobs returned; all workers stopped."));
+    }
 
-        let other_total = staged_other_downloads.len();
-        for (index, staged) in staged_other_downloads.into_iter().enumerate() {
-            let import_number = index + 1;
-            let progress = 80
-                + ((import_number as f64 / other_total.max(1) as f64) * 19.0)
-                    .round()
-                    .clamp(0.0, 19.0) as u32;
-            emit_progress(
+    if get_active_database_file_path(&app_handle)?.as_ref() != Some(&database_file_path) {
+        return Err("Active database changed during download; staged prices were not imported.".into());
+    }
+    if !stop.is_requested() {
+        let prior_result_count = results.len();
+        let fallback = index_fallback::stage_fallback(
+            &app_handle, &client, &database_file_path, &normalized_config, &index_dates,
+            &mut staged_downloads, &mut results, stop.flag(),
+        );
+        match fallback {
+            Err(error) if stop.is_requested() && error == "Index fallback cancelled" => {}
+            outcome => outcome?,
+        }
+        if stop.is_requested() && results.len() > prior_result_count
+            && results.last().is_some_and(|result| result.message == "Historical source failure: Index fallback cancelled")
+        {
+            results.pop();
+        }
+    }
+    if get_active_database_file_path(&app_handle)?.as_ref() != Some(&database_file_path) {
+        return Err("Active database changed during download; staged prices were not imported.".into());
+    }
+
+    staged_downloads.sort_by(|left, right| compare_download_task(&left.task, &right.task));
+    let staged_total = staged_downloads.len();
+    if staged_total > 0 && !stop.is_requested() {
+        emit_progress(
+            &app_handle,
+            60,
+            format!("Importing staged download jobs: {staged_total}"),
+        );
+    }
+
+    let mut staged_csv_downloads = Vec::new();
+    let mut staged_other_downloads = Vec::new();
+    for staged in staged_downloads {
+        if matches!(&staged.content, StagedDownloadContent::Csv(_)) {
+            staged_csv_downloads.push(staged);
+        } else {
+            staged_other_downloads.push(staged);
+        }
+    }
+
+    if !staged_csv_downloads.is_empty() && !stop.is_requested() {
+        emit_progress(
+            &app_handle,
+            70,
+            format!(
+                "Importing staged CSV jobs by symbol: {}",
+                staged_csv_downloads.len()
+            ),
+        );
+        let csv_results = match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            import_staged_csv_downloads(
                 &app_handle,
-                progress.min(99),
-                format!(
-                    "Importing staged fallback job {import_number}/{other_total}: [{}] {}",
-                    staged.task.exchange, staged.task.trade_date
-                ),
-            );
-            let exchange = staged.task.exchange.clone();
-            let trade_date = staged.task.trade_date.clone();
-            let result = match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                &database_file_path,
+                staged_csv_downloads,
+                &normalized_config,
+                &write_lock,
+                stop,
+            )
+        })) {
+            Ok(Ok(results)) => results,
+            Ok(Err(error)) => vec![failed_download_result("BHAVCOPY", "staged-csv", error)],
+            Err(_) => vec![failed_download_result(
+                "BHAVCOPY",
+                "staged-csv",
+                "Bhavcopy staged CSV import worker thread panicked.",
+            )],
+        };
+        for result in csv_results {
+            emit_download_result(&app_handle, &result);
+            results.push(result);
+        }
+    }
+
+    let other_total = staged_other_downloads.len();
+    for (index, staged) in staged_other_downloads.into_iter().enumerate() {
+        if stop.is_requested() {
+            break;
+        }
+        let import_number = index + 1;
+        let progress = 80
+            + ((import_number as f64 / other_total.max(1) as f64) * 19.0)
+                .round()
+                .clamp(0.0, 19.0) as u32;
+        emit_progress(
+            &app_handle,
+            progress.min(99),
+            format!(
+                "Importing staged fallback job {import_number}/{other_total}: [{}] {}",
+                staged.task.exchange, staged.task.trade_date
+            ),
+        );
+        let exchange = staged.task.exchange.clone();
+        let trade_date = staged.task.trade_date.clone();
+        let Some(import) = stop.run_if_active(|| {
+            std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
                 import_staged_download(
                     &database_file_path,
                     staged,
                     &normalized_config.excluded_series,
                     &write_lock,
                 )
-            })) {
-                Ok(Ok(result)) => result,
-                Ok(Err(error)) => failed_download_result(&exchange, &trade_date, error),
-                Err(_) => failed_download_result(
-                    &exchange,
-                    &trade_date,
-                    "Bhavcopy import worker thread panicked.",
-                ),
-            };
-            if !result.success && should_write_download_log(&result) {
-                let _write_guard = lock_bhavcopy_write(&write_lock)?;
-                upsert_download_log_entry(&connection, &result)?;
-            }
-            emit_download_result(&app_handle, &result);
-            results.push(result);
+            }))
+        }) else {
+            break;
+        };
+        let result = match import {
+            Ok(Ok(result)) => result,
+            Ok(Err(error)) => failed_download_result(&exchange, &trade_date, error),
+            Err(_) => failed_download_result(
+                &exchange,
+                &trade_date,
+                "Bhavcopy import worker thread panicked.",
+            ),
+        };
+        if !result.success && should_write_download_log(&result) {
+            let _write_guard = lock_bhavcopy_write(&write_lock)?;
+            upsert_batch_download_log_entry(&connection, &result)?;
         }
+        emit_download_result(&app_handle, &result);
+        results.push(result);
+    }
 
-        let mut combined_results = calendar_skip_results;
-        combined_results.extend(results);
-        combined_results.sort_by(compare_download_results);
-        let completed_download_jobs = combined_results
-            .iter()
-            .filter(|result| !is_calendar_skip_result(result))
-            .count();
-        let non_trading_calendar_days = combined_results
-            .iter()
-            .filter(|result| is_calendar_skip_result(result))
-            .count();
-        let imported_rows: usize = combined_results
-            .iter()
-            .map(|result| result.rows_inserted)
-            .sum();
+    let mut combined_results = calendar_skip_results;
+    combined_results.extend(results);
+    combined_results.sort_by(compare_download_results);
+    let completed_download_jobs = combined_results
+        .iter()
+        .filter(|result| !is_calendar_skip_result(result))
+        .count();
+    let non_trading_calendar_days = combined_results
+        .iter()
+        .filter(|result| is_calendar_skip_result(result))
+        .count();
+    let imported_rows: usize = combined_results
+        .iter()
+        .map(|result| result.rows_inserted)
+        .sum();
+    if imported_rows > 0 {
+        // Keep checkpointing applied imports even if Stop was requested
+        // or chart refresh fails.
+        spawn_background_bhavcopy_checkpoint(app_handle.clone(), database_file_path.clone());
+    }
+
+    if combined_results.iter().any(|r| r.rows_inserted > 0) {
+        let invalidate_stats_started = Instant::now();
+        if let Some(folder_path) = database_file_path.parent() {
+            invalidate_cached_db_stats(&app_handle, folder_path)?;
+        }
+        let invalidate_stats_ms = invalidate_stats_started.elapsed().as_millis();
+
+        let snapshot_started = Instant::now();
+        let snapshot = get_app_snapshot_internal(
+            &app_handle,
+            Some(&SnapshotOptions {
+                include_stats: Some(false),
+                include_watchlists: Some(false),
+            }),
+        )?;
+        let snapshot_ms = snapshot_started.elapsed().as_millis();
+
+        let emit_database_changed_started = Instant::now();
+        emit_database_changed(&app_handle, &snapshot)?;
+        let emit_database_changed_ms = emit_database_changed_started.elapsed().as_millis();
+
         emit_progress(
             &app_handle,
-            100,
+            99,
             format!(
-                "Completed download jobs: {completed_download_jobs}; non-trading calendar days: {non_trading_calendar_days}; imported rows: {imported_rows}"
+                "Bhavcopy refresh timings: invalidate stats {} ms; snapshot {} ms; emit change {} ms",
+                invalidate_stats_ms,
+                snapshot_ms,
+                emit_database_changed_ms
             ),
         );
+    }
 
-        if combined_results.iter().any(|r| r.rows_inserted > 0) {
-            let invalidate_stats_started = Instant::now();
-            if let Some(folder_path) = database_file_path.parent() {
-                invalidate_cached_db_stats(&app_handle, folder_path)?;
-            }
-            let invalidate_stats_ms = invalidate_stats_started.elapsed().as_millis();
+    log_runtime_event(
+        &app_handle,
+        "INFO",
+        "bhavcopy-write-complete",
+        Some(&format!(
+            "kind=batch mode={:?} fromDate={} toDate={} jobs={} calendarSkips={} rowsInserted={} elapsedMs={}",
+            normalized_config.mode,
+            normalized_config.start_date,
+            normalized_config.end_date,
+            completed_download_jobs,
+            non_trading_calendar_days,
+            imported_rows,
+            started_at.elapsed().as_millis()
+        )),
+    );
+    Ok(combined_results)
+}
 
-            let snapshot_started = Instant::now();
-            let snapshot = get_app_snapshot_internal(
-                &app_handle,
-                Some(&SnapshotOptions {
-                    include_stats: Some(false),
-                    include_watchlists: Some(false),
-                }),
-            )?;
-            let snapshot_ms = snapshot_started.elapsed().as_millis();
-
-            let emit_database_changed_started = Instant::now();
-            emit_database_changed(&app_handle, &snapshot)?;
-            let emit_database_changed_ms = emit_database_changed_started.elapsed().as_millis();
-
-            emit_progress(
-                &app_handle,
-                100,
-                format!(
-                    "Bhavcopy refresh timings: invalidate stats {} ms; snapshot {} ms; emit change {} ms",
-                    invalidate_stats_ms,
-                    snapshot_ms,
-                    emit_database_changed_ms
-                ),
-            );
-        }
-
-        log_runtime_event(
-            &app_handle,
-            "INFO",
-            "bhavcopy-write-complete",
-            Some(&format!(
-                "kind=batch mode={:?} fromDate={} toDate={} jobs={} calendarSkips={} rowsInserted={} elapsedMs={}",
-                normalized_config.mode,
-                normalized_config.start_date,
-                normalized_config.end_date,
-                completed_download_jobs,
-                non_trading_calendar_days,
-                imported_rows,
-                started_at.elapsed().as_millis()
-            )),
-        );
-        if imported_rows > 0 {
-            spawn_background_bhavcopy_checkpoint(app_handle.clone(), database_file_path.clone());
-        }
-        Ok(combined_results)
-    })
-    .await
-    .map_err(|error| error.to_string())?
+fn finish_batch_progress(
+    app: &AppHandle,
+    results: AppResult<Vec<DownloadResult>>,
+    cancelled: bool,
+) -> AppResult<TrackedBhavcopyBatchResult> {
+    let results = results?;
+    if !cancelled {
+        let calendar_skips = results.iter().filter(|result| is_calendar_skip_result(result)).count();
+        let jobs = results.len() - calendar_skips;
+        let rows: usize = results.iter().map(|result| result.rows_inserted).sum();
+        emit_progress(app, 100, format!(
+            "Completed download jobs: {jobs}; non-trading calendar days: {calendar_skips}; imported rows: {rows}"
+        ));
+    }
+    Ok(TrackedBhavcopyBatchResult { cancelled, results })
 }
 
 fn build_batch_plan(connection: &Connection, config: &BatchDownloadConfig) -> AppResult<BatchPlan> {
@@ -535,6 +653,10 @@ fn build_batch_plan(connection: &Connection, config: &BatchDownloadConfig) -> Ap
     let mut tasks = Vec::<DownloadTask>::new();
 
     for exchange in selected_exchanges(&config.exchanges) {
+        if exchange == "NSE_INDEX" {
+            let supported = index_fallback::SUPPORTED.iter().map(|index| index.name).collect::<Vec<_>>().join(", ");
+            info_messages.push(format!("[NSE Index] Daily archives first; missing supported indices use historical fallback in chunks up to 366 days. Supported subset: {supported}. Other indices and unavailable dates remain unresolved; no full-history certification. Existing prices are preserved."));
+        }
         let Some((start_date, end_date)) = resolve_exchange_date_window(
             connection,
             &config.mode,
@@ -547,8 +669,12 @@ fn build_batch_plan(connection: &Connection, config: &BatchDownloadConfig) -> Ap
             continue;
         };
 
-        let imported_dates =
-            storage_mode_load_imported_trade_dates(connection, &exchange, &start_date, &end_date)?;
+        let imported_dates = if exchange == "NSE_INDEX" {
+            // An exchange-date marker cannot establish per-index coverage.
+            ImportedTradeDates::default()
+        } else {
+            storage_mode_load_imported_trade_dates(connection, &exchange, &start_date, &end_date)?
+        };
         if imported_dates.metadata_lookup_ms > 0
             || imported_dates.binary_reconcile_ms > 0
             || imported_dates.binary_reconcile_files_scanned > 0
@@ -681,10 +807,16 @@ fn stage_download_task(
     client: &Client,
     database_file_path: &Path,
     task: &DownloadTask,
-    write_lock: &Mutex<()>,
     browser: &bse_browser_fallback::BrowserFallback,
-    stop: Arc<std::sync::atomic::AtomicBool>,
+    worker_stop: Arc<std::sync::atomic::AtomicBool>,
+    stop: &BatchStop,
 ) -> AppResult<StagedDownloadOutcome> {
+    if stop.is_requested() {
+        return Ok(StagedDownloadOutcome::Cancelled);
+    }
+    if task.exchange == "NSE_INDEX" && task.nse_index_history.is_none() {
+        return stage_single_download(client, task, stop);
+    }
     let connection = batch_runtime::open_staging_connection(database_file_path)?;
     let existing_log_id = connection
         .query_row(
@@ -700,7 +832,7 @@ fn stage_download_task(
         .optional()
         .map_err(|error| error.to_string())?;
 
-    if let Some(log_id) = existing_log_id {
+    if existing_log_id.is_some() {
         let has_imported_rows =
             storage_mode_has_imported_rows_for_date(&connection, &task.trade_date, &task.exchange)?;
         let has_stale_zero_volume_rows = storage_mode_has_stale_zero_volume_rows_for_date(
@@ -719,20 +851,27 @@ fn stage_download_task(
                 message: "Already downloaded".to_string(),
             }));
         }
-        {
-            let _write_guard = lock_bhavcopy_write(write_lock)?;
-            batch_runtime::retry_busy(|| connection.execute("DELETE FROM download_log WHERE id = ?", params![log_id]))?;
-        }
+        // A replacement can update the successful log only after import.
     }
     drop(connection);
 
+    if stop.is_requested() {
+        return Ok(StagedDownloadOutcome::Cancelled);
+    }
     if let Some(history_task) = &task.nse_index_history {
         return stage_nse_index_history_task(client, task, history_task);
     }
 
-    let normal = stage_single_download(client, task);
+    let normal = stage_single_download(client, task, stop);
     if bse_browser_fallback::should_recover(task, &normal) {
-        match browser.recover(app, task, stop) {
+        if stop.is_requested() {
+            return Ok(StagedDownloadOutcome::Cancelled);
+        }
+        let recovered = browser.recover(app, task, worker_stop, stop);
+        if stop.is_requested() {
+            return Ok(StagedDownloadOutcome::Cancelled);
+        }
+        match recovered {
             Ok(Some(staged)) => return Ok(StagedDownloadOutcome::Ready(staged)),
             Ok(None) => {},
             Err(error) => {
@@ -801,7 +940,11 @@ fn candidate_scan_should_skip(
         && (soft_mismatch_count == candidate_count
             || (is_bse_exchange(exchange) && bse_api_reported_no_file))
 }
-fn stage_single_download(client: &Client, task: &DownloadTask) -> AppResult<StagedDownloadOutcome> {
+fn stage_single_download(
+    client: &Client,
+    task: &DownloadTask,
+    stop: &BatchStop,
+) -> AppResult<StagedDownloadOutcome> {
     let mut last_hard_error: Option<String> = None;
     let mut primary_hard_error: Option<String> = None;
     let mut not_found_count = 0_usize;
@@ -809,6 +952,9 @@ fn stage_single_download(client: &Client, task: &DownloadTask) -> AppResult<Stag
     let mut bse_api_reported_no_file = false;
 
     for (candidate_idx, candidate) in task.candidates.iter().enumerate() {
+        if stop.is_requested() {
+            return Ok(StagedDownloadOutcome::Cancelled);
+        }
         match fetch_candidate_content_bytes(client, candidate, referer, 3) {
             Ok(Some(bytes)) => {
                 let csv_content = if candidate.bse_index_archive_json {
@@ -836,6 +982,17 @@ fn stage_single_download(client: &Client, task: &DownloadTask) -> AppResult<Stag
                 if is_html_response(&csv_content) {
                     last_hard_error = Some("Official source returned HTML instead of Bhavcopy data.".into());
                     continue;
+                }
+                if task.exchange == "NSE_INDEX" {
+                    let validation = parse_bhavcopy_csv(&csv_content, &task.exchange, &task.trade_date, &[]);
+                    let error = match validation {
+                        Ok(parsed) => parsed.debug,
+                        Err(error) => Some(error),
+                    };
+                    if let Some(error) = error {
+                        last_hard_error = Some(format!("Index archive integrity: {error}"));
+                        continue;
+                    }
                 }
                 return Ok(StagedDownloadOutcome::Ready(StagedDownload {
                     task: task.clone(),

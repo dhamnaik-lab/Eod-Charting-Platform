@@ -1,6 +1,8 @@
 import { create } from 'zustand';
+import { isBackgroundCheckpointProgress } from '@/features/bhavcopy/downloadRunState';
 import {
   getDesktopApi,
+  type BhavcopyBatchStopReply,
   type DownloadResult,
 } from '@/platform';
 
@@ -14,6 +16,7 @@ export interface RunSummary {
   successCount: number;
   skippedCount: number;
   failedCount: number;
+  partialCount: number;
   totalRowsInserted: number;
   completedCount: number;
 }
@@ -23,8 +26,18 @@ export interface DownloadProgress {
   message: string;
 }
 
+type StopBatch = (runId: string) => Promise<BhavcopyBatchStopReply>;
+
+type ActiveBatch = {
+  runId: string;
+  phase: 'starting' | 'running' | 'stopQueued' | 'requestingStop' | 'stopping';
+};
+
+type BatchOutcome = 'completed' | 'cancelled' | 'failed';
+
 interface BhavcopyStoreState {
-  isDownloading: boolean;
+  activeBatch: ActiveBatch | null;
+  batchOutcome: BatchOutcome | null;
   logs: LogEntry[];
   runSummary: RunSummary;
   totalLogEntries: number;
@@ -34,7 +47,10 @@ interface BhavcopyStoreState {
   reportedDownloadResults: Set<string>;
   resultIndex: Map<string, DownloadResult>;
 
-  setIsDownloading: (isDownloading: boolean) => void;
+  startBatch: (runId: string) => boolean;
+  acknowledgeBatch: (runId: string, stop: StopBatch) => void;
+  requestBatchStop: (stop: StopBatch) => Promise<void>;
+  finishBatch: (runId: string, outcome: BatchOutcome) => void;
   addLog: (level: LogEntry['level'], message: string) => void;
   clearLogs: () => void;
   reportDownloadResult: (result: DownloadResult) => void;
@@ -49,6 +65,7 @@ const EMPTY_RUN_SUMMARY: RunSummary = {
   successCount: 0,
   skippedCount: 0,
   failedCount: 0,
+  partialCount: 0,
   totalRowsInserted: 0,
   completedCount: 0,
 };
@@ -57,8 +74,12 @@ function getDownloadResultKey(result: DownloadResult): string {
   return `${result.exchange}::${result.tradeDate}`;
 }
 
-function isSkippedResult(result: DownloadResult): boolean {
-  return result.success && result.rowsInserted === 0;
+export function isPartialCoverageResult(result: DownloadResult): boolean {
+  return !result.success && result.exchange === 'NSE_INDEX' && result.message.startsWith('Historical subset:');
+}
+
+export function isSkippedResult(result: DownloadResult): boolean {
+  return result.success && result.rowsInserted === 0 && !result.message.startsWith('Historical subset:');
 }
 
 function formatExchangeLabel(value: string): string {
@@ -69,7 +90,7 @@ function formatExchangeLabel(value: string): string {
       return 'BSE';
     case 'NSEINDEX':
     case 'NSE_INDEX':
-      return 'NSE Index Symbols / Full Index List';
+      return 'NSE Indices';
     case 'BSEINDEX':
     case 'BSE_INDEX':
       return 'BSE Index';
@@ -89,7 +110,9 @@ function mergeRunSummary(
 ): RunSummary {
   const summary = { ...currentSummary };
   const applyContribution = (result: DownloadResult, direction: 1 | -1) => {
-    if (isSkippedResult(result)) {
+    if (isPartialCoverageResult(result)) {
+      summary.partialCount += direction;
+    } else if (isSkippedResult(result)) {
       summary.skippedCount += direction;
     } else if (result.success) {
       summary.successCount += direction;
@@ -108,7 +131,8 @@ function mergeRunSummary(
 }
 
 export const useBhavcopyStore = create<BhavcopyStoreState>((set, get) => ({
-  isDownloading: false,
+  activeBatch: null,
+  batchOutcome: null,
   logs: [],
   runSummary: { ...EMPTY_RUN_SUMMARY },
   totalLogEntries: 0,
@@ -116,7 +140,53 @@ export const useBhavcopyStore = create<BhavcopyStoreState>((set, get) => ({
   reportedDownloadResults: new Set(),
   resultIndex: new Map(),
 
-  setIsDownloading: (isDownloading) => set({ isDownloading }),
+  startBatch: (runId) => {
+    if (get().activeBatch) return false;
+    set({ activeBatch: { runId, phase: 'starting' }, batchOutcome: null });
+    get().clearLogs();
+    return true;
+  },
+
+  acknowledgeBatch: (runId, stop) => {
+    const active = get().activeBatch;
+    if (active?.runId !== runId || (active.phase !== 'starting' && active.phase !== 'stopQueued')) {
+      return;
+    }
+    set({ activeBatch: { runId, phase: 'running' } });
+    if (active.phase === 'stopQueued') void get().requestBatchStop(stop);
+  },
+
+  requestBatchStop: async (stop) => {
+    const active = get().activeBatch;
+    if (!active) return;
+    const { runId, phase } = active;
+    if (phase === 'starting') {
+      set({ activeBatch: { runId, phase: 'stopQueued' } });
+      return;
+    }
+    if (phase !== 'running') return;
+    set({ activeBatch: { runId, phase: 'requestingStop' } });
+    try {
+      const reply = await stop(runId);
+      if (get().activeBatch?.runId !== runId) return;
+      if (reply === 'noMatchingRun') {
+        set({ activeBatch: { runId, phase: 'running' } });
+        get().addLog('info', 'The backend no longer has a matching Bhavcopy batch to stop.');
+      } else {
+        set({ activeBatch: { runId, phase: 'stopping' } });
+      }
+    } catch (error) {
+      if (get().activeBatch?.runId !== runId) return;
+      set({ activeBatch: { runId, phase: 'running' } });
+      get().addLog('error', `Could not request Bhavcopy stop: ${String(error)}`);
+    }
+  },
+
+  finishBatch: (runId, outcome) => {
+    if (get().activeBatch?.runId === runId) {
+      set({ activeBatch: null, batchOutcome: outcome });
+    }
+  },
 
   addLog: (level, message) => {
     const time = new Date().toLocaleTimeString('en-IN', { hour12: false });
@@ -164,11 +234,13 @@ export const useBhavcopyStore = create<BhavcopyStoreState>((set, get) => ({
     });
 
     const exchangeLabel = formatExchangeLabel(result.exchange);
-    if (result.success) {
+    if (isPartialCoverageResult(result)) {
+      get().addLog('warning', `[${exchangeLabel}] ${result.tradeDate}: ${result.message}`);
+    } else if (result.success) {
       if (result.rowsInserted === 0 && result.message) {
         get().addLog('warning', `[${exchangeLabel}] ${result.tradeDate}: ${result.message}`);
       } else {
-        get().addLog('success', `[${exchangeLabel}] ${result.tradeDate}: ${result.rowsInserted} rows`);
+        get().addLog('success', `[${exchangeLabel}] ${result.tradeDate}: ${result.rowsInserted} rows${result.exchange === 'NSE_INDEX' ? `; ${result.message}` : ''}`);
       }
     } else {
       get().addLog('error', `[${exchangeLabel}] ${result.tradeDate}: ${result.message}`);
@@ -193,7 +265,7 @@ export const useBhavcopyStore = create<BhavcopyStoreState>((set, get) => ({
         progress !== progressMeta.lastProgress ||
         message !== progressMeta.lastMessage;
 
-      if (shouldUpdateUi) {
+      if (shouldUpdateUi && !isBackgroundCheckpointProgress(message)) {
         progressMeta.lastUiUpdateAt = now;
         progressMeta.lastProgress = progress;
         progressMeta.lastMessage = message;
