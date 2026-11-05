@@ -851,6 +851,34 @@ export function Sidebar({ width, collapsed, pinned, onToggleCollapse, onTogglePi
     });
   }, [selectedWatchlistItems, watchlistSortOrder]);
 
+  const watchlistRowWindow = getSidebarListWindow(
+    sortedWatchlistItems.length,
+    watchlistScroll.top,
+    watchlistScroll.height,
+    VIRTUAL_ROW_HEIGHT,
+  );
+
+  useEffect(() => {
+    if (activePanel !== 'watchlist') return;
+    const container = watchlistListRef.current;
+    if (!container) return;
+    const measure = () => {
+      const top = container.scrollTop;
+      const height = container.clientHeight;
+      setWatchlistScroll((current) =>
+        current.top === top && current.height === height ? current : { top, height },
+      );
+    };
+    measure();
+    const observer = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(measure) : null;
+    observer?.observe(container);
+    window.addEventListener('resize', measure);
+    return () => {
+      observer?.disconnect();
+      window.removeEventListener('resize', measure);
+    };
+  }, [activePanel, selectedWatchlistId]);
+
   const renderIndicatorRow = useCallback(
     (item: (typeof INDICATOR_CATALOG)[number]) => {
       const isFavorite = favoriteIndicatorIds.includes(item.id);
@@ -1031,12 +1059,12 @@ export function Sidebar({ width, collapsed, pinned, onToggleCollapse, onTogglePi
     [],
   );
 
-  const keepVirtualRowInView = useCallback((container: HTMLDivElement | null, itemIndex: number) => {
+  const keepVirtualRowInView = useCallback((container: HTMLDivElement | null, itemIndex: number, leadingHeight = 0) => {
     if (!container || itemIndex < 0) {
       return;
     }
 
-    const rowTop = itemIndex * VIRTUAL_ROW_HEIGHT;
+    const rowTop = leadingHeight + itemIndex * VIRTUAL_ROW_HEIGHT;
     const rowBottom = rowTop + VIRTUAL_ROW_HEIGHT;
     if (rowTop < container.scrollTop) {
       container.scrollTop = rowTop;
@@ -1064,14 +1092,28 @@ export function Sidebar({ width, collapsed, pinned, onToggleCollapse, onTogglePi
 
   const keepSymbolEntryInView = useCallback(
     (item: InstrumentSummary) => {
-      keepElementInView(symbolListRef.current, symbolItemRefs.current.get(buildInstrumentKey(item.symbol, item.exchange)) ?? null);
+      const index = symbolItemEntryIndexMap.get(buildInstrumentKey(item.symbol, item.exchange));
+      if (index === undefined) return;
+      const container = symbolListRef.current;
+      keepVirtualRowInView(container, index, symbolScroll.recentHeight);
+      if (container) {
+        setSymbolScroll((current) =>
+          current.top === container.scrollTop ? current : { ...current, top: container.scrollTop },
+        );
+      }
     },
-    [keepElementInView],
+    [keepVirtualRowInView, symbolItemEntryIndexMap, symbolScroll.recentHeight],
   );
 
   const keepWatchlistItemInView = useCallback(
     (itemIndex: number) => {
-      keepVirtualRowInView(watchlistListRef.current, itemIndex);
+      const container = watchlistListRef.current;
+      keepVirtualRowInView(container, itemIndex);
+      if (container) {
+        setWatchlistScroll((current) =>
+          current.top === container.scrollTop ? current : { ...current, top: container.scrollTop },
+        );
+      }
     },
     [keepVirtualRowInView],
   );
@@ -1140,7 +1182,10 @@ export function Sidebar({ width, collapsed, pinned, onToggleCollapse, onTogglePi
 
         event.preventDefault();
         handleOpenInstrument(nextItem);
-        keepWatchlistItemInView(nextIndex);
+        const visibleIndex = sortedWatchlistItems.findIndex(
+        (item) => item.symbol === nextItem.symbol && item.exchange === nextItem.exchange,
+      );
+      keepWatchlistItemInView(visibleIndex);
       }
     },
     [
@@ -1150,6 +1195,7 @@ export function Sidebar({ width, collapsed, pinned, onToggleCollapse, onTogglePi
       keepSymbolEntryInView,
       keepWatchlistItemInView,
       selectedWatchlistItems,
+      sortedWatchlistItems,
       displaySymbolBrowserItems,
       watchlistItemContextMenu,
     ],
@@ -1273,12 +1319,14 @@ export function Sidebar({ width, collapsed, pinned, onToggleCollapse, onTogglePi
   useEffect(() => {
     if (symbolListRef.current) {
       symbolListRef.current.scrollTop = 0;
+      setSymbolScroll((current) => current.top === 0 ? current : { ...current, top: 0 });
     }
   }, [symbolBrowserQuery, activeDatabasePath]);
 
   useEffect(() => {
     if (watchlistListRef.current) {
       watchlistListRef.current.scrollTop = 0;
+      setWatchlistScroll((current) => current.top === 0 ? current : { ...current, top: 0 });
     }
   }, [selectedWatchlistId]);
 
