@@ -1,0 +1,40 @@
+{
+  "cli_version": "0.12.2",
+  "checkpoint_id": "01M6NJ5MEG5Q2Y2SM0JJWB2J91",
+  "session_id": "01a19b17-e6cc-76b1-a5b4-506be8a1036e",
+  "strategy": "manual-commit",
+  "created_at": "2026-11-05T09:56:18.3731026Z",
+  "checkpoints_count": 10,
+  "save_step_count": 1,
+  "files_touched": [
+    "src-tauri-shell/src/bhavcopy/ingestion.rs",
+    "src-tauri-shell/src/bhavcopy/mod.rs",
+    "src-tauri-shell/src/bhavcopy/tests.rs",
+    "src-tauri-shell/src/main.rs",
+    "src/components/BhavcopyDownloadWindow.tsx",
+    "src/platform/tauriDesktop.ts",
+    "src/platform/types.ts",
+    "src/types/desktop.ts"
+  ],
+  "agent": "Codex",
+  "model": "gpt-6-astra",
+  "turn_id": "a49c86533445",
+  "compact_transcript_start": 0,
+  "redaction": {
+    "replacements": 26628,
+    "layers": {
+      "betterleaks": 1,
+      "connection_string": 0,
+      "credential_key": 0,
+      "credential_value": 0,
+      "credentialed_uri": 0,
+      "entropy": 26636,
+      "key_context": 0,
+      "provider_token": 0,
+      "shell_stdin": 0
+    }
+  },
+  "session_metrics": {
+    "turn_count": 10
+  }
+}
