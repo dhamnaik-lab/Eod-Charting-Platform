@@ -2,7 +2,7 @@
   "cli_version": "0.12.2",
   "checkpoint_id": "01M6NJ5MEG5Q2Y2SM0JJWB2J91",
   "strategy": "manual-commit",
-  "checkpoints_count": 63,
+  "checkpoints_count": 64,
   "files_touched": [
     "src-tauri-shell/src/bhavcopy/batch_runtime.rs",
     "src-tauri-shell/src/bhavcopy/ingestion.rs",
@@ -38,17 +38,24 @@
       "compact_transcript": "/2/transcript.jsonl",
       "content_hash": "/2/content_hash.txt",
       "prompt": "/2/prompt.txt"
+    },
+    {
+      "metadata": "/3/metadata.json",
+      "transcript": "/3/full.jsonl",
+      "compact_transcript": "/3/transcript.jsonl",
+      "content_hash": "/3/content_hash.txt",
+      "prompt": "/3/prompt.txt"
     }
   ],
   "redaction": {
-    "replacements": 199956,
+    "replacements": 199982,
     "layers": {
       "betterleaks": 7,
       "connection_string": 0,
       "credential_key": 0,
       "credential_value": 10,
       "credentialed_uri": 0,
-      "entropy": 200640,
+      "entropy": 200668,
       "key_context": 0,
       "provider_token": 0,
       "shell_stdin": 0
