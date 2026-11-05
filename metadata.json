@@ -1,0 +1,43 @@
+{
+  "cli_version": "0.12.2",
+  "checkpoint_id": "01M6NJ5MEG5Q2Y2SM0JJWB2J91",
+  "strategy": "manual-commit",
+  "checkpoints_count": 30,
+  "files_touched": [
+    "src-tauri-shell/src/bhavcopy/batch_runtime.rs",
+    "src-tauri-shell/src/bhavcopy/ingestion.rs",
+    "src-tauri-shell/src/bhavcopy/mod.rs",
+    "src-tauri-shell/src/bhavcopy/tests.rs",
+    "src-tauri-shell/src/main.rs",
+    "src/components/BhavcopyDownloadWindow.tsx",
+    "src/features/bhavcopy/__tests__/downloadRunState.test.ts",
+    "src/features/bhavcopy/downloadRunState.ts",
+    "src/platform/tauriDesktop.ts",
+    "src/platform/types.ts",
+    "src/store/bhavcopyStore.ts",
+    "src/types/desktop.ts"
+  ],
+  "sessions": [
+    {
+      "metadata": "/0/metadata.json",
+      "transcript": "/0/full.jsonl",
+      "compact_transcript": "/0/transcript.jsonl",
+      "content_hash": "/0/content_hash.txt",
+      "prompt": "/0/prompt.txt"
+    }
+  ],
+  "redaction": {
+    "replacements": 80239,
+    "layers": {
+      "betterleaks": 5,
+      "connection_string": 0,
+      "credential_key": 0,
+      "credential_value": 10,
+      "credentialed_uri": 0,
+      "entropy": 80915,
+      "key_context": 0,
+      "provider_token": 0,
+      "shell_stdin": 0
+    }
+  }
+}
