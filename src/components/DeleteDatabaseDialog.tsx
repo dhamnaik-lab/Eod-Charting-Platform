@@ -1,7 +1,8 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from 'react';
 import { getDesktopApi } from '@/platform';
 import { useChartStore } from '@/store/chartStore';
 import { deleteDatabasesSequentially, type DatabaseDeletionFailure } from '@/features/workspace/databaseDeletionFeedbackService';
+import { getModalTabWrapTarget } from '@/features/app/modalFocusNavigation';
 
 interface DeleteDatabaseDialogProps {
   onClose: () => void;
@@ -15,13 +16,59 @@ export function DeleteDatabaseDialog({ onClose }: DeleteDatabaseDialogProps) {
   const [confirmText, setConfirmText] = useState('');
   const [isDeleting, setIsDeleting] = useState(false);
   const deletionInFlightRef = useRef(false);
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const closeButtonRef = useRef<HTMLButtonElement>(null);
   const [deletedPaths, setDeletedPaths] = useState<Set<string>>(new Set());
   const [failure, setFailure] = useState<DatabaseDeletionFailure | null>(null);
+
+  useEffect(() => {
+    const previouslyFocused = document.activeElement;
+    closeButtonRef.current?.focus();
+
+    return () => {
+      if (previouslyFocused instanceof HTMLElement && previouslyFocused.isConnected) {
+        previouslyFocused.focus();
+      }
+    };
+  }, []);
 
   const knownDatabases = snapshot?.knownDatabases ?? [];
   const pendingPaths = [...selectedDatabases].filter((path) => !deletedPaths.has(path));
   const requestClose = () => {
     if (!deletionInFlightRef.current) onClose();
+  };
+
+  const handleDialogKeyDown = (event: ReactKeyboardEvent<HTMLDivElement>) => {
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      event.stopPropagation();
+      requestClose();
+      return;
+    }
+
+    if (event.key !== 'Tab' || !dialogRef.current) {
+      return;
+    }
+
+    const focusable = Array.from(
+      dialogRef.current.querySelectorAll<HTMLElement>('button:not([disabled]), input:not([disabled])'),
+    );
+
+    if (focusable.length === 0) {
+      event.preventDefault();
+      dialogRef.current.focus();
+      return;
+    }
+
+    const next = getModalTabWrapTarget(
+      focusable,
+      document.activeElement as HTMLElement | null,
+      event.shiftKey,
+    );
+    if (next) {
+      event.preventDefault();
+      next.focus();
+    }
   };
 
   const toggleDatabase = (path: string) => {
@@ -68,14 +115,23 @@ export function DeleteDatabaseDialog({ onClose }: DeleteDatabaseDialogProps) {
 
   return (
     <div style={overlayStyle}>
-      <div style={windowStyle}>
+      <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="delete-databases-title"
+        aria-describedby="delete-databases-warning"
+        tabIndex={-1}
+        onKeyDown={handleDialogKeyDown}
+        style={windowStyle}
+      >
         <div style={headerStyle}>
-          <h2 style={titleStyle}>Delete Databases</h2>
-          <button style={closeButtonStyle} onClick={requestClose} disabled={isDeleting} aria-label="Close Delete Databases">×</button>
+          <h2 id="delete-databases-title" style={titleStyle}>Delete Databases</h2>
+          <button ref={closeButtonRef} type="button" style={closeButtonStyle} onClick={requestClose} disabled={isDeleting} aria-label="Close Delete Databases">×</button>
         </div>
 
         <div style={contentStyle}>
-          <p style={warningStyle}>
+          <p id="delete-databases-warning" style={warningStyle}>
             ⚠️ This action cannot be undone. All selected databases and their data will be permanently deleted.
           </p>
 
