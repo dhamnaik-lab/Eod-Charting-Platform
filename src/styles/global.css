@@ -208,6 +208,7 @@
   --green: #10b981;
   --red: #f43f5e;
   --accent: #0284c7;
+  --focus-ring: #38bdf8;
   --accent-strong: #0369a1;
   --accent-soft: rgba(2, 132, 199, 0.22);
   --accent-faint: rgba(2, 132, 199, 0.08);
@@ -331,7 +332,7 @@ aside button:hover,
 }
 
 button:focus-visible {
-  outline: 2px solid var(--accent);
+  outline: 2px solid var(--focus-ring, var(--accent));
   outline-offset: 1px;
 }
 
@@ -378,7 +379,7 @@ button:disabled {
 }
 
 .chart-native-scrollbar:focus-visible {
-  outline: 1px solid var(--accent);
+  outline: 1px solid var(--focus-ring, var(--accent));
   outline-offset: 1px;
 }
 
@@ -393,7 +394,7 @@ button:disabled {
 
 /* Keyboard focus ring for non-button focusable elements (e.g. pane resize handles) */
 [role="separator"]:focus-visible {
-  outline: 2px solid var(--accent);
+  outline: 2px solid var(--focus-ring, var(--accent));
   outline-offset: 1px;
 }
 
@@ -424,7 +425,7 @@ html[data-theme="classic-light-refined"] aside button.eod-refined-sidebar-contro
 }
 
 html[data-theme="classic-light-refined"] aside button:focus-visible {
-  outline: 2px solid var(--accent) !important;
+  outline: 2px solid var(--focus-ring, var(--accent)) !important;
   outline-offset: 1px;
   box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.9) !important;
 }
