@@ -967,10 +967,17 @@ fn stage_single_download(
                     }
                 } else {
                     let csv_bytes = if candidate.zipped {
-                        match extract_first_csv_from_zip(&bytes)? {
-                            Some(extracted) => extracted,
-                            None => {
+                        match extract_first_csv_from_zip(&bytes) {
+                            Ok(Some(extracted)) => extracted,
+                            Ok(None) => {
                                 not_found_count += 1;
+                                continue;
+                            }
+                            Err(error) => {
+                                if candidate_idx == 0 {
+                                    primary_hard_error = Some(error.clone());
+                                }
+                                last_hard_error = Some(error);
                                 continue;
                             }
                         }
@@ -1212,10 +1219,17 @@ fn download_single(
                     }
                 } else {
                     let csv_bytes = if candidate.zipped {
-                        match extract_first_csv_from_zip(&bytes)? {
-                            Some(extracted) => extracted,
-                            None => {
+                        match extract_first_csv_from_zip(&bytes) {
+                            Ok(Some(extracted)) => extracted,
+                            Ok(None) => {
                                 not_found_count += 1;
+                                continue;
+                            }
+                            Err(error) => {
+                                if candidate_idx == 0 {
+                                    primary_hard_error = Some(error.clone());
+                                }
+                                last_hard_error = Some(error);
                                 continue;
                             }
                         }
