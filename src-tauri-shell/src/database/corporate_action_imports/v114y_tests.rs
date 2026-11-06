@@ -46,9 +46,17 @@ fn v114y_red_approved_view_hydrates_and_replaces_validation_cache() {
         desktop.contains("importIds?: number[] | null;"),
         "V1.14Y-A renderer contract must expose targeted scan-list import IDs"
     );
+    // The batched hydration loop now lives in the shared import-operations module.
+    let operations =
+        read_project_file("src/features/corporateActions/legacy/corporateActionImportOperations.ts");
     assert!(
-        ui.contains("for (let start = 0; start < validationImportIds.length; start += 500)")
-            && ui.contains("importIds: batch"),
+        ui.contains("loadCorporateActionImportRows(")
+            && ui.contains("includeApprovedValidation: view === 'approved'")
+            && operations.contains("const APPROVED_VALIDATION_BATCH_SIZE = 500;")
+            && operations.contains(
+                "for (let start = 0; start < validationImportIds.length; start += APPROVED_VALIDATION_BATCH_SIZE)"
+            )
+            && operations.contains("listCorporateActionScanResults({ importIds: batch })"),
         "V1.14Y-A Approved view must hydrate validation evidence in backend-safe targeted batches"
     );
     assert!(

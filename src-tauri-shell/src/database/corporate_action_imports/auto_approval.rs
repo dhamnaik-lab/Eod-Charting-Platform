@@ -2674,6 +2674,8 @@ mod tests {
         connection.execute("INSERT INTO corporate_actions(symbol,exchange,isin,effective_date,action_type,factor,ratio_num,ratio_den) VALUES ('TEST','NSE','INEAUTO01001','2026-08-14','SPLIT',2,2,1)",[]).unwrap();
         // Linking still requires actual local EOD bars, not only a stored scan.
         connection.execute("INSERT INTO eod_prices(symbol,exchange,date,open,high,low,close) VALUES('TEST','NSE','2026-08-13',100,100,100,100),('TEST','NSE','2026-08-14',50,50,50,50)",[]).unwrap();
+        // The approval writer re-reads this window and requires the scan to have observed it.
+        connection.execute("UPDATE corporate_action_scan_results SET prev_close=100, ex_open=50, ex_close=50 WHERE corporate_action_import_id=1",[]).unwrap();
         let result=auto_approve_corporate_action_imports_in_connection(&connection,folder.path(),&CorporateActionAutoApprovalInput{import_ids:vec![1],expected_database_path:folder.path().to_string_lossy().to_string()}).unwrap();
         assert_eq!(result.requested,1); assert_eq!(result.eligible,1); assert_eq!(result.linked_existing,1); assert_eq!(result.failed,0);
         let row1=get_import_row(&connection,1).unwrap(); assert_eq!(row1.review_status,"APPROVED"); assert!(row1.approved_corporate_action_id.is_some());

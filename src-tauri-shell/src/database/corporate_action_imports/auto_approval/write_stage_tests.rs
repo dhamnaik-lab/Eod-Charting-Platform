@@ -1168,7 +1168,8 @@ fn p4a_37_complete_is_false_only_when_operational_item_failure_count_is_nonzero(
 
 #[test]
 fn p4a_38_private_write_input_accepts_scope_protocol_only_not_frontend_p3c_evidence() {
-    let source = include_str!("../auto_approval.rs");
+    // The end marker uses `\n`; a Windows checkout may store the source with CRLF.
+    let source = include_str!("../auto_approval.rs").replace("\r\n", "\n");
     let start = source
         .find("pub(super) struct SimpleCashDividendWriteStageInput")
         .unwrap();

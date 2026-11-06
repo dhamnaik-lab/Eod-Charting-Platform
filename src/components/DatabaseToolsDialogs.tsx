@@ -2274,8 +2274,10 @@ function CorporateActionDialog({
       if (isAdjustmentAction || actionType === 'DIVIDEND' || actionType === 'RIGHTS') {
         payload.ratioNum = ratio?.newValue ?? null;
         payload.ratioDen = ratio?.oldValue ?? null;
-        payload.oldFaceValue = toNullableNumber(oldFaceValue);
-        payload.newFaceValue = toNullableNumber(newFaceValue);
+        // Face values are Split terms only. A Bonus factor comes from its ratio,
+        // matching the factor preview; stale hidden values must not be sent.
+        payload.oldFaceValue = actionType === 'SPLIT' ? toNullableNumber(oldFaceValue) : null;
+        payload.newFaceValue = actionType === 'SPLIT' ? toNullableNumber(newFaceValue) : null;
         payload.cashAmount = toNullableNumber(cashAmountText);
         payload.adjustVolume = isAdjustmentAction ? adjustVolume : false;
       } else {
@@ -3896,45 +3898,6 @@ function CorporateActionDialog({
     }
   };
 
-  const approveOfficialImport = async (row: CorporateActionImportRow) => {
-    if (!api) {
-      return;
-    }
-
-    setBusy(true);
-    setStatus('');
-    try {
-      const result = await api.approveCorporateActionImport({ importId: row.id, expectedDatabasePath: activeDatabasePath ?? '' });
-      const rows = await api.listCorporateActionImports({
-        ...buildOfficialImportListInput(importLoadLimit),
-      });
-      setLoadedImportRows(rows);
-      await onRefresh();
-      let refreshNote: string | null = null;
-      if (result.approvedRecord) {
-        await onReloadInstrument(result.approvedRecord.currentSymbol, result.approvedRecord.exchange, {
-          forceReload: true,
-          preserveViewport: true,
-        });
-        refreshNote = buildCorporateActionRefreshNote({
-          actionType: result.approvedRecord.actionType,
-          symbol: result.approvedRecord.currentSymbol,
-          exchange: result.approvedRecord.exchange,
-          activeInstrument,
-          activeRequestedInstrument,
-          adjustedMode,
-          includeDividendAdjustments,
-          includeRightsAdjustments,
-        });
-      }
-      setStatus(refreshNote ? `${result.message} ${refreshNote}` : result.message);
-    } catch (error) {
-      setStatus(getErrorMessage(error, 'Could not approve the official import.'));
-    } finally {
-      setBusy(false);
-    }
-  };
-
   const approveOfficialImportWithIsinMismatch = async () => {
     if (!api || !resolveTargetRow || resolveTargetRow.reviewStatus !== 'PENDING_ISIN_MISMATCH') {
       return;
@@ -5183,7 +5146,7 @@ function CorporateActionDialog({
                   />
                 </>
               ) : null}
-              {actionType === 'SPLIT' || actionType === 'BONUS' ? (
+              {actionType === 'SPLIT' ? (
                 <>
                   <div style={utilityFieldLabelStyle}>Old FV:</div>
                   <input
@@ -7724,7 +7687,6 @@ function CorporateActionDialog({
         <div style={quotesBodyStyle}>
           {issueImportRows.map((row) => {
             const canResolve = row.reviewStatus === 'UNRESOLVED';
-            const canApprove = isApprovableCorporateImport(row);
             const resolveHint = canResolve ? issueResolveHints[row.id] : null;
             const eventIdentity = eventIdentityByImportId[row.id] ?? null;
             return (
@@ -7757,8 +7719,8 @@ function CorporateActionDialog({
                   <button
                     type="button"
                     style={modalButtonStyle}
-                    onClick={() => (canResolve ? void quickResolveIssueImport(row) : canApprove ? void approveOfficialImport(row) : undefined)}
-                    disabled={busy || (!canResolve && !canApprove)}
+                    onClick={() => (canResolve ? void quickResolveIssueImport(row) : undefined)}
+                    disabled={busy || !canResolve}
                     title={
                       canResolve
                         ? resolveHint?.message ??
@@ -7766,7 +7728,7 @@ function CorporateActionDialog({
                         : undefined
                     }
                   >
-                    {canResolve ? 'Quick Resolve' : canApprove ? 'Approve' : 'View'}
+                    {canResolve ? 'Quick Resolve' : 'View'}
                   </button>
                   {canResolve ? (
                     <span

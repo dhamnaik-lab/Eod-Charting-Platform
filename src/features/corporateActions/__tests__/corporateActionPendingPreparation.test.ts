@@ -106,6 +106,27 @@ function skippedAutoApproval(importId: number) {
 }
 
 describe('Corporate Action pending preparation', () => {
+  it('ca phase3 closes informational notices before loading the pending queue, without approving', async () => {
+    const order: string[] = [];
+    const api = {
+      syncCorporateActionInformationalClosures: vi.fn(async () => {
+        order.push('close');
+        return { closed: 3, reopened: 1, totalClosed: 15 };
+      }),
+      listCorporateActionImports: vi.fn(async () => { order.push('list'); return []; }),
+      listCorporateActionImportResolutionHints: vi.fn(), quickResolveCorporateActionImport: vi.fn(),
+      runCorporateActionScan: vi.fn(async () => ({ scanRun: null, results: [] })), autoApproveCorporateActionImports: vi.fn(), getSetting: vi.fn(),
+    };
+    const result = await prepareCorporateActionPendingImports({ api, expectedDatabasePath: 'E:/TEST-ONLY', explicitApprovalOnly: true });
+    expect(api.syncCorporateActionInformationalClosures).toHaveBeenCalledExactlyOnceWith({ expectedDatabasePath: 'E:/TEST-ONLY' });
+    expect(order[0]).toBe('close');
+    expect(result.complete).toBe(true);
+    expect(result.message).toContain('Informational notices closed: 15 (3 new, 1 reopened).');
+    expect(api.autoApproveCorporateActionImports).not.toHaveBeenCalled();
+    api.syncCorporateActionInformationalClosures.mockClear();
+    await prepareCorporateActionPendingImports({ api, expectedDatabasePath: 'E:/TEST-ONLY' });
+    expect(api.syncCorporateActionInformationalClosures).not.toHaveBeenCalled();
+  });
   it('refreshes legacy classifications in the reviewed database before matching, without approving', async () => {
     const legacy = importRow(91,{actionType:'OTHER',reviewStatus:'UNSUPPORTED',purposeRaw:'Agm/Div-Rs.2/- Per Share',cashAmount:null});
     const refreshed = importRow(91,{purposeRaw:legacy.purposeRaw,cashAmount:2});

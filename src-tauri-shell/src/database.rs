@@ -76,7 +76,8 @@ pub use self::corporate_action_imports::{
     list_historical_capital_action_major_liquid_candidates,
     list_historical_capital_action_sparse_candidates, preview_corporate_action_repairs,
     quick_resolve_corporate_action_import, recheck_corporate_action_imports,
-    resolve_corporate_action_import, run_corporate_action_scan,
+    reopen_corporate_action_informational_closure, resolve_corporate_action_import,
+    run_corporate_action_scan, sync_corporate_action_informational_closures,
 };
 pub(crate) use self::corporate_action_imports::{
     try_run_controlled_identity_repair_maintenance, try_run_event_identity_resolution_maintenance,

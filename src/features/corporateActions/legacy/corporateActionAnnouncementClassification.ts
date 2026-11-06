@@ -3,10 +3,19 @@ import type { CorporateActionImportRow } from '@/platform';
 type Announcement = Pick<CorporateActionImportRow, 'actionType'> & Partial<Pick<CorporateActionImportRow,
   'purposeRaw' | 'cashAmount' | 'factor' | 'priceFactor' | 'ratioNum' | 'ratioDen' | 'oldFaceValue' | 'newFaceValue'>>;
 
-// Deliberately exact: AGM + dividend/bonus/etc. must stay in the financial flow.
+// Notices that never change an equity price. Each pattern matches the whole
+// purpose, so AGM + dividend/bonus/split etc. stay in the financial flow.
+const REVISED_NOTE = String.raw`(?:\s*\(?\s*(?:(?:PURPOSE|BC|BOOK|CLOSURE|DATES?|START|END)\s+)+REVISED\s*\)?)?`;
+const INFORMATIONAL_PURPOSES: readonly RegExp[] = [
+  new RegExp(String.raw`^(?:\d{1,3}(?:ST|ND|RD|TH)\s+)?(?:AGM|EGM|ANNUAL GENERAL MEETING|EXTRA[ -]?ORDINARY GENERAL MEETING)\.?${REVISED_NOTE}$`),
+  new RegExp(String.raw`^ANNUAL (?:BOOK )?CLOSURE\.?${REVISED_NOTE}$`),
+  /^(?:INTEREST PAYMENT|E[ -]?VOTING|NIL|BUY ?BACK(?: OF SHARES)?)\.?$/,
+];
+
 export function isInformationalCorporateAnnouncement(row: Announcement): boolean {
+  const purpose = (row.purposeRaw ?? '').trim().replace(/\s+/g, ' ').toUpperCase();
   return row.actionType === 'OTHER'
-    && /^(AGM|ANNUAL GENERAL MEETING)\.?$/i.test((row.purposeRaw ?? '').trim().replace(/\s+/g, ' '))
+    && INFORMATIONAL_PURPOSES.some(pattern => pattern.test(purpose))
     && [row.cashAmount, row.factor, row.priceFactor, row.ratioNum, row.ratioDen,
       row.oldFaceValue, row.newFaceValue].every(value => value == null);
 }

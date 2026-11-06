@@ -70,7 +70,7 @@ describe('Identity I4 NSE historical reviewed atomic apply', () => {
 
     expect(mutations).toContain('connection.is_autocommit()');
     expect(mutations).toContain('persist_identity_change_in_open_transaction');
-    expect(backend).toContain('upsert_security_master_rows_in_open_transaction');
+    // d7f8c79 removed the security-master upsert helper along with its only caller.
     expect(backend).toContain('apply_nse_current_universe_sync_plan_in_open_transaction');
   });
 

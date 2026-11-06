@@ -125,7 +125,7 @@ type CorporateActionPendingPreparationApi = Pick<
   | 'runCorporateActionScan'
   | 'autoApproveCorporateActionImports'
   | 'getSetting'
-> & Partial<Pick<DesktopApi, 'refreshCorporateActionImportClassifications'>>;
+> & Partial<Pick<DesktopApi, 'refreshCorporateActionImportClassifications' | 'syncCorporateActionInformationalClosures'>>;
 
 export interface PrepareCorporateActionPendingImportsInput {
   api: CorporateActionPendingPreparationApi;
@@ -417,6 +417,19 @@ export async function prepareCorporateActionPendingImports({
   expectedDatabasePath,
   explicitApprovalOnly = false,
 }: PrepareCorporateActionPendingImportsInput): Promise<CorporateActionPendingPreparationResult> {
+  // Phase 3: close informational notices once, so they leave the pending queue.
+  // Status-only and logged; no price, factor or approval change.
+  let closureSummary = '';
+  if (explicitApprovalOnly && api.syncCorporateActionInformationalClosures) {
+    assertPreparationCurrent(shouldContinue);
+    emitPreparationProgress(onProgress, {
+      stage: 'loading', completed: 0, total: null,
+      message: 'Closing informational notices (no price change)...',
+    });
+    const closure = await api.syncCorporateActionInformationalClosures({ expectedDatabasePath });
+    assertPreparationCurrent(shouldContinue);
+    closureSummary = ` Informational notices closed: ${closure.totalClosed} (${closure.closed} new, ${closure.reopened} reopened).`;
+  }
   const loaded = await loadAllPendingCorporateActionImports({ api, shouldContinue, onProgress, pageSize });
   const errors = [...loaded.errors];
   const rowsById = new Map(loaded.rows.map((row) => [row.id, row]));
@@ -624,9 +637,10 @@ export async function prepareCorporateActionPendingImports({
     errors,
     complete: true,
     message:
-      blockedCount > 0
+      (blockedCount > 0
         ? `Prepared ${finalRows.length} row(s) from the pending queue. ${autoApprovalSummary}. ${blockedCount} row(s) are blocked because a required check failed.`
-        : `Prepared ${finalRows.length} row(s) from the pending queue. ${autoApprovalSummary}; review the remaining actions and use the existing manual Apply controls where appropriate.`,
+        : `Prepared ${finalRows.length} row(s) from the pending queue. ${autoApprovalSummary}; review the remaining actions and use the existing manual Apply controls where appropriate.`)
+        + closureSummary,
   };
 }
 

@@ -10,7 +10,8 @@ pub(super) fn machine_identity_is_unproven(
     }
     let machine: bool = c.query_row("SELECT EXISTS(SELECT 1 FROM corporate_action_import_decisions
         WHERE import_id=? AND decision_type IN ('VERIFIED_QUICK_RESOLUTION',
-        'VERIFIED_EVENT_IDENTITY_RESOLUTION','VERIFIED_HISTORICAL_ISIN_TRANSITION','COMPOUND_COMPONENT_PREPARED','VERIFIED_DATED_SYMBOL_CHAIN_R1'))",
+        'VERIFIED_EVENT_IDENTITY_RESOLUTION','VERIFIED_HISTORICAL_ISIN_TRANSITION','COMPOUND_COMPONENT_PREPARED','VERIFIED_DATED_SYMBOL_CHAIN_R1',
+        'VERIFIED_SPLIT_ISIN_PRICE_PROOF'))",
         [row.id], |r| r.get(0)).map_err(|e| e.to_string())?;
     if !machine {
         return Ok(false);

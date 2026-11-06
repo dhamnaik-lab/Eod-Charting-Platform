@@ -33,6 +33,28 @@ fn refresh_classifications(
     connection: &Connection,
     ids: &[i64],
 ) -> AppResult<Vec<CorporateActionImportRow>> {
+    let before = read_import_rows_by_ids(connection, ids)?;
+    refresh_classifications_once(connection, ids)?;
+    // An Other row reclassified into a combined Split + Bonus needs one more pass
+    // so its components are prepared in this Load & Validate, not the next one.
+    let reclassified = read_import_rows_by_ids(connection, ids)?
+        .into_iter()
+        .filter(|row| {
+            matches!(row.action_type.as_str(), "SPLIT" | "BONUS")
+                && before.iter().any(|old| old.id == row.id && old.action_type == "OTHER")
+        })
+        .map(|row| row.id)
+        .collect::<Vec<_>>();
+    if !reclassified.is_empty() {
+        refresh_classifications_once(connection, &reclassified)?;
+    }
+    read_import_rows_by_ids(connection, ids)
+}
+
+fn refresh_classifications_once(
+    connection: &Connection,
+    ids: &[i64],
+) -> AppResult<Vec<CorporateActionImportRow>> {
     let rows = read_import_rows_by_ids(connection, ids)?;
     for row in &rows {
         if row.review_status == "APPROVED" || row.approved_corporate_action_id.is_some() {
