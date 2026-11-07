@@ -15,6 +15,7 @@ function h(tag: unknown, props: Record<string, any> | null, ...children: any[]):
 }
 const UI_PATH = resolve(process.cwd(), 'src/components/DatabaseToolsDialogs.tsx');
 const source = readFileSync(UI_PATH, 'utf8');
+const workspaceCss = readFileSync(resolve(process.cwd(), 'src/features/corporateActions/identity/identityImportWorkspace.css'), 'utf8');
 const ast = ts.createSourceFile(UI_PATH, source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
 const definitions = new Map<string, ts.Node>();
 function visit(node: ts.Node): void {
@@ -74,7 +75,7 @@ function text(view: any): string {
 export function renderFixture(options: {
   historyCount?: number; exchange?: string; eligible?: boolean;
   activeOnly?: boolean; withReview?: boolean; noDiscovery?: boolean;
-} = {}): { view: View; shellStyle: object; commonPanelStyle: object; calls: string[] } {
+} = {}): { view: View; commonPanelStyle: object; calls: string[] } {
   const sourceKey = 'NSE_CURRENT_EQUITY_MASTER';
   const authority = {
     sourceKey, exchange: options.exchange ?? 'NSE',
@@ -92,6 +93,10 @@ export function renderFixture(options: {
   const calls: string[] = [];
   const context: Record<string, unknown> = {
     busy: false, hasDatabase: true, identityExchange: 'NSE', identitySourceMode: 'official',
+    activeDatabasePath: 'OFFLINE_FIXTURE', officialSourceAuthority: { sources: [authority] },
+    officialSourceUrlStatus: '',
+    // Imported components are opaque JSX children: only ER4 source-panel logic is evaluated.
+    IdentitySourceHealth: 'IdentitySourceHealth', IdentitySourceHistory: 'IdentitySourceHistory',
     officialSourceHealthReport: {
       assessedAtUtc: '2026-09-17T13:17:36Z',
       results: Array.from({ length: 11 }, (_, index) => ({
@@ -134,22 +139,22 @@ export function renderFixture(options: {
     promoteOfficialSourceCandidate: () => calls.push('promote'),
     recordOfficialSourceCandidateDecision: () => calls.push('decision'),
   };
-  context.renderOfficialSourceHealthPanel =
-    evaluate(['renderOfficialSourceHealthPanel'], context)[0];
-  const [render, shellStyle, commonPanelStyle] = evaluate(
-    ['renderIdentityTab', 'corporateActionShellStyle', 'corporateActionPanelStyle'], context,
+  // Test the active diagnostics panel, not the retired monolithic Identity tab.
+  const [render, commonPanelStyle] = evaluate(
+    ['renderOfficialSourceHealthPanel', 'corporateActionPanelStyle'], context,
   );
-  return { view: render(), shellStyle, commonPanelStyle, calls };
+  return { view: render(), commonPanelStyle, calls };
 }
 
 describe('ER4 FIX3 history reachability and preserved eligibility', () => {
-  it('ER4_FIX3_SCROLL_OWNER: Identity root owns bounded vertical scrolling', () => {
-    const { view } = renderFixture();
-    assert.ok(['auto', 'scroll'].includes(view.props.style.overflowY),
-      'ER4_FIX3_SCROLL_OWNER: Identity root must scroll overflow, not leave history below the clipped window');
-    assert.equal(view.props.style.minHeight, 0);
-    assert.equal(view.props.style.minWidth, 0);
-    assert.equal(view.props.style.flex, 1);
+  it('ER4_FIX3_SCROLL_OWNER: diagnostics scroll inside the bounded Identity workspace', () => {
+    const identityTab = definition('renderIdentityTab').getText(ast);
+    assert.match(identityTab, /<IdentityImportWorkspace\b/);
+    assert.match(identityTab, /diagnostics=\{<>/);
+    assert.match(identityTab, /\{renderOfficialSourceHealthPanel\(\)\}/);
+    assert.match(workspaceCss, /\.identity-import-workspace\s*\{[^}]*flex:1;[^}]*min-height:0;[^}]*overflow:hidden;/);
+    assert.match(workspaceCss, /\.identity-workspace-content\s*\{[^}]*flex:1;[^}]*min-height:80px;[^}]*overflow:hidden;/);
+    assert.match(workspaceCss, /\.identity-diagnostics-content\s*\{\s*overflow:auto;/);
   });
   it('keeps zero-candidate history and eligible prior rollback controls rendered', () => {
     const { view, calls } = renderFixture();
