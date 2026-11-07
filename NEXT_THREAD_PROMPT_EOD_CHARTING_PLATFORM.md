@@ -4,7 +4,7 @@
 
 ## Running phases
 
-Corporate Actions remaining-NSE Tasks 1–2 are implemented on `feat/ca-nse-remaining-20261107`, from the unmerged later-reason branch. Tasks 3–4 are documented against the pinned SQLite main file in `tmp/fixtures/ca-diagnosis-20261107/NSE_REMAINING_REPORT.md`; saved scans are available, authoritative price windows are absent. No approval or identity rule changes. Typecheck PASS; UI PASS 562/562; focused Rust PASS 6/6; final seven-filter Rust PASS 818, 0 failed, 26 ignored (baseline 816 + 2 new tests). A first seven-filter run failed on dangling `AGM/`; corrected and rechecked. Docs/whitespace and CRLF checks PASS. See the top CA handoff for checks, backups and exact evidence limits.
+Corporate Actions remaining-NSE Tasks 1–2 are implemented on `feat/ca-nse-remaining-20261107`, from the unmerged later-reason branch. Tasks 3–4 are documented against the pinned SQLite main file in `tmp/fixtures/ca-diagnosis-20261107/NSE_REMAINING_REPORT.md`; the follow-up user-authorized copy/hash block passed for all seven EOD1 files, and their windows reproduce saved scans. SBIN/JSWSTEEL continuity is confirmed without proving prior adjustment; BRITANNIA has mixed levels; AJANTPHARM/NAVKARURB have shared gaps; PCBL starts in 2022. No approval or identity rule changes. Typecheck PASS; UI PASS 562/562; focused Rust PASS 6/6; final seven-filter Rust PASS 818, 0 failed, 26 ignored (baseline 816 + 2 new tests). A first seven-filter run failed on dangling `AGM/`; corrected and rechecked. Docs/whitespace and CRLF checks PASS. See the top CA handoff for checks, backups and exact evidence limits.
 
 **Corporate Actions Tasks A/B (7 November 2026):** diagnosis and automated verification are complete; runtime acceptance for NSE wording and Later is pending the portable rebuild. Other running-phase assignments await user confirmation.
 
@@ -14,7 +14,7 @@ Corporate Actions remaining-NSE Tasks 1–2 are implemented on `feat/ca-nse-rema
 
 ## Next phases
 
-**Next for remaining-NSE Tasks 1–4:** user portable rebuild and copy-only native acceptance; obtain copied, hash-pinned authoritative price windows before certifying adjacent sessions or already-adjusted history. Any later exception needs an evidence-backed proposal and explicit approval; none is implemented. Preserve identity-owner exclusions and explicit financial approval. The older Tasks A/B native checklist below remains useful.
+**Next for remaining-NSE Tasks 1–4:** user portable rebuild and copy-only native acceptance; the copied, hash-pinned price windows are now diagnosed. Investigate mixed price levels/shared coverage gaps and obtain independent source provenance before certifying already-adjusted history. Do not infer an official date correction from a missing month. Any later exception needs an evidence-backed proposal and explicit approval; none is implemented. Preserve identity-owner exclusions and explicit financial approval. The older Tasks A/B native checklist below remains useful.
 
 **Next for the assigned Tasks A/B:** the user rebuilds the portable app and checks Later and reclassification on a copy. Source delivery belongs on `feat/ca-nse-later-group-20261107`. The existing CA window redesign and BSE Phase 2c remain later work; this task does not implement them. Other priorities await user confirmation.
 
