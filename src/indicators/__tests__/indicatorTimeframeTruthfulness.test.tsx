@@ -27,7 +27,7 @@ const bars: OHLCBar[] = Array.from({ length: 30 }, (_, index) => ({
 }));
 
 describe('B01: indicator timeframe presentation is truthful', () => {
-  it('hides the unsupported per-indicator timeframe selector but retains existing inputs', () => {
+  it('hides unsupported per-indicator timeframe and generic offset controls but retains existing inputs', () => {
     const html = renderToStaticMarkup(createElement(IndicatorSettingsDialog, {
       indicator: { ...ema, timeframe: 'W' },
       onSave: () => undefined,
