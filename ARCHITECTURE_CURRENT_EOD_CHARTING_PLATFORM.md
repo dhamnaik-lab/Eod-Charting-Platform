@@ -1,13 +1,18 @@
 # Current architecture — EOD Charting Platform
 
-Corporate Actions identity boundary: `dated_symbol_chain` proves historical
-DIVIDEND identity for a current same-symbol import through a multi-edge official
-rename chain. It does not retarget an old-symbol Split to a new symbol.
-`split_isin_price_proof` also requires the same active symbol; dated price routing
-does not itself authorize cross-symbol financial adjustment. See the
-[A1 evidence and unsupported route](docs/plans/2026-11-08_CA_A1_IDENTITY_FINDINGS.md).
-The [proposed A1 extension](docs/plans/2026-11-08_CA_A1_CROSS_SYMBOL_DESIGN.md)
-is awaiting approval; the current runtime still enforces this boundary.
+Corporate Actions identity boundary: `dated_symbol_chain` retains its historical
+DIVIDEND-only, same-symbol, multi-edge contract. The separate
+`split_bonus_symbol_chain` prepares a single official NSE rename route with an
+explicit current adjustment owner while preserving raw import identity and
+activity. Its versioned proof binds retained official source/event evidence,
+audited identity, owners, component terms, scan and full selected price records.
+Only fresh proof exposes `verifiedAdjustmentTarget`; raw inactivity is not
+overridden. Approval rechecks the proof under a route-only price-store permit and
+transaction, preserves explicit Closed/Rejected dispositions, deduplicates only proven aliases with exact terms, and uses the
+existing adjustment writer and chart readers. Ordinary manual approval lock scope,
+dividend admission and raw EOD bytes are unchanged. See the
+[approved A1 design](docs/plans/2026-11-08_CA_A1_CROSS_SYMBOL_DESIGN.md) and
+[source evidence limits](docs/plans/2026-11-08_CA_A1_IDENTITY_FINDINGS.md).
 
 ## Runtime composition
 

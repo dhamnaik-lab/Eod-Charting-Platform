@@ -2,7 +2,10 @@
 
 Scope: A1 only, based on updated `origin/main` at `bc47208` on
 `feat/ca-identity-gaps-20261108`. This is a diagnosis and safety regression,
-not completed acceptance of a GUJGASLTD split route. No production logic changed.
+not completed acceptance of a GUJGASLTD split route. The diagnostic commit changed
+no production logic. The subsequently approved implementation is described in
+the [A1 cross-symbol contract](2026-11-08_CA_A1_CROSS_SYMBOL_DESIGN.md); its real-event
+price and native acceptance remain pending.
 
 ## Evidence and dispositions
 
@@ -15,7 +18,7 @@ Retained capture and query output are ignored evidence under the original root's
 | Event | Verified evidence | Disposition |
 |---|---|---|
 | AVANTIFEED, 2018-06-26, Bonus + Split | No old/new symbol in the complete current CSV contains AVANTI. Supplied SQLite copy has no AVANTIFEED identity transition. | Leave blocked. Do not manufacture AVANTI → AVANTIFEED, infer it from names/shared ISIN, or change the importer to admit absent evidence. Absence from this current file does not prove a historical rename never occurred. |
-| GUJGASLTD, 2019-01-15, Split | Official CSV row 306 records GUJGASLTD → GUJENERGY effective 01-JUL-2026, matching the supplied copy's identity history. | Rename verified; historical Split routing remains unsupported by the existing dated-chain identity proof. Keep blocked pending an explicitly reviewed extension and fresh price evidence. |
+| GUJGASLTD, 2019-01-15, Split | Official CSV row 306 records GUJGASLTD → GUJENERGY effective 01-JUL-2026, matching the supplied copy's identity history. | Rename verified. The new approved single-edge Split/Bonus proof is implemented separately from the dividend resolver. Real-row readiness remains unverified without the missing copied prices and fresh proof. |
 | PCBL, 2018-04-19, Split | Hash-checked supplied PCBL EOD1 copy starts 2022-01-13. | Needs you: no price data for the 2018 event. No identity exception or threshold change. |
 
 SQLite input: the existing user-supplied copy at
@@ -26,7 +29,7 @@ after inspection. This older copy cannot certify the current live database.
 No live database or original price file was opened. The copied AVANTI,
 AVANTIFEED, GUJGASLTD and GUJENERGY price files are absent.
 
-## Why the existing proof does not route GUJGASLTD
+## Baseline: why the existing dividend proof does not route GUJGASLTD
 
 `dated_symbol_chain::evaluate` admits DIVIDEND only, requires the suggestion
 symbol to equal the import symbol and requires one active exact-symbol target.
@@ -44,8 +47,8 @@ It documents the unmet prerequisite rather than claiming the requested route wor
 
 ## Review decision needed before extending behavior
 
-The [concrete proposed design](2026-11-08_CA_A1_CROSS_SYMBOL_DESIGN.md) is now
-available for approval. No production behavior has changed.
+The [concrete design](2026-11-08_CA_A1_CROSS_SYMBOL_DESIGN.md) was approved and
+implemented in a separate module; the original dividend proof remains unchanged.
 
 A future implementation must explicitly support a single official rename edge,
 resolve the event-date symbol to a unique current security, and distinguish the
@@ -53,14 +56,15 @@ resolve the event-date symbol to a unique current security, and distinguish the
 `purpose_raw`, raw EOD bytes, approval-time source/identity/price rechecks,
 transactional adjustment records and deliberate user Approve. Define which symbol
 owns the adjustment and how charts and caches consume it; do not simply mark the
-old symbol active or replace source identifiers. This extension is not implemented.
+old symbol active or replace source identifiers. The implementation and remaining
+acceptance are tracked in the top CA handoff.
 
 For price verification, the user must supply hash-checked copies of
 `AVANTI.eod`, `AVANTIFEED.eod`, `GUJGASLTD.eod` and `GUJENERGY.eod` under
 `tmp/fixtures/ca-a1-20261108/eod_data/NSE/` with the app closed. Only the user
 copies from `EOD DATABASE/eod_data/NSE/`; diagnosis opens the copies read-only.
 
-## Validation and app acceptance
+## Diagnostic-commit validation and later app acceptance
 
 Focused Rust regression: PASS (1 passed, 0 failed; compile/link 1m14s).
 Renderer typecheck: PASS. Required Vitest: PASS (567 tests in 73 files; no tmp
@@ -72,6 +76,8 @@ from the clean worktree; those reports exist in the original checkout.
 The worktree uses updated main; its Rust test patch is mirrored into the original
 checkout for the mandated root-pinned shared Cargo wrapper. Tests there include
 unrelated local source changes and cannot certify the exact PR tree.
-No release/portable build or live approval is performed. No rebuild is needed
-for this tests/docs-only change. The app should continue to block these cases;
-do not approve them on the strength of this report.
+These are diagnostic-commit results, not the subsequent implementation's final
+checks. No release/portable build or live approval was performed. The new source
+implementation requires the user's portable rebuild after promotion. Do not
+approve the real cases on the strength of this report; follow the current CA
+handoff for copied evidence, fresh validation and native acceptance.

@@ -1642,6 +1642,9 @@ pub(super) fn evaluate_auto_approval_r1(
     if import_row.approved_corporate_action_id.is_some() || import_row.review_status == "APPROVED" {
         return Ok(AutoApprovalEligibility::AlreadyApproved);
     }
+    if super::split_bonus_symbol_chain::has_decision(connection, import_id)? {
+        return Ok(AutoApprovalEligibility::Ineligible("Verified rename routes require explicit user approval.".into()));
+    }
     if import_row.exchange != "NSE" {
         return Ok(AutoApprovalEligibility::Ineligible(
             "R1 auto-approval is NSE-only.".to_string(),

@@ -1120,6 +1120,8 @@ pub struct CorporateActionScanListInput {
 #[derive(Clone, Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CorporateActionImportRow {
+    /// Fresh verified target only; raw identity and its activity remain unchanged.
+    pub verified_adjustment_target: Option<String>,
     /// Presentation metadata only; no financial authority or persisted status.
     pub instrument_is_active: Option<bool>,
     pub id: i64,

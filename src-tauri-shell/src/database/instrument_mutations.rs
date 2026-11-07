@@ -492,9 +492,21 @@ pub(super) fn apply_official_import_price_adjustment(
     connection: &Connection, input: &CorporateActionInputPayload, folder: &Path,
     import: &super::CorporateActionImportRow,
 ) -> AppResult<CorporateActionResult> {
-    if input.symbol != import.symbol || input.exchange != import.exchange || Some(&input.effective_date) != import.ex_date.as_ref()
+    let target = super::corporate_action_imports::split_bonus_symbol_chain::verified(connection,folder,import)?;
+    let expected_symbol = target.as_ref().map(|proof| proof.target.as_str()).or(import.symbol.as_deref());
+    if input.symbol.as_deref() != expected_symbol || input.exchange != import.exchange || Some(&input.effective_date) != import.ex_date.as_ref()
         || input.action_type != import.action_type || input.cash_amount != import.cash_amount {
         return Err("Official adjustment context changed.".into());
+    }
+    if let Some(proof) = target {
+        if input.isin != import.isin || input.record_date != import.record_date
+            || (input.ratio_num,input.ratio_den,input.old_face_value,input.new_face_value)
+                != (import.ratio_num,import.ratio_den,import.old_face_value,import.new_face_value) {
+            return Err("Verified rename adjustment terms changed.".into());
+        }
+        let mut bound = input.clone();
+        bound.note = Some(format!("{}\n[splitBonusSymbolChainR1={}]",input.note.as_deref().unwrap_or_default(),proof.fingerprint()?));
+        return record_price_adjustment_action_with_basis(connection,&bound,&bound.action_type,Some(folder),Some(proof.previous()));
     }
     if !matches!(input.action_type.as_str(), "DIVIDEND"|"SPLIT"|"BONUS"|"RIGHTS") {
         return apply_corporate_action_internal(connection,input,Some(folder));

@@ -177,6 +177,12 @@ fn run_migrations(connection: &Connection) -> AppResult<()> {
               note TEXT
             );
 
+            CREATE TABLE IF NOT EXISTS corporate_action_split_bonus_chain_proofs (
+              import_id INTEGER PRIMARY KEY REFERENCES corporate_action_imports(id) ON DELETE CASCADE,
+              proof_json TEXT NOT NULL,
+              fingerprint TEXT NOT NULL
+            );
+
             CREATE TABLE IF NOT EXISTS corporate_action_import_decisions (
               id INTEGER PRIMARY KEY AUTOINCREMENT,
               import_id INTEGER NOT NULL REFERENCES corporate_action_imports(id) ON DELETE CASCADE,

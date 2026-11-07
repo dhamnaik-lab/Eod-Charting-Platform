@@ -1,4 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
+import { getCorporateActionNormalApprovalState } from '../corporateActionValidation';
+import { isLaterCorporateAction } from '../legacy/corporateActionLater';
 import type {
   CorporateActionImportResolutionHint,
   CorporateActionImportRow,
@@ -106,6 +108,36 @@ function skippedAutoApproval(importId: number) {
 }
 
 describe('Corporate Action pending preparation', () => {
+  it('rereads a prepared cross-symbol owner after scanning without approving or rewriting the raw row', async () => {
+    const raw = importRow(1, { source: 'NSE_API', symbol: 'GUJGASLTD', actionType: 'SPLIT',
+      isin: 'INE844O01022', exDate: '2019-01-15', cashAmount: null,
+      purposeRaw: 'Face Value Split (Sub-Division) - From Rs 10/- Per Share To Rs 2/- Per Share',
+      oldFaceValue: 10, newFaceValue: 2, factor: 5, priceFactor: 0.2,
+      reviewStatus: 'UNRESOLVED', instrumentIsActive: false });
+    const prepared = { ...raw, reviewStatus: 'PENDING' as const, verifiedAdjustmentTarget: 'GUJENERGY' };
+    const matched = { ...scanRow(1), symbol: 'GUJGASLTD', expectedFactor: 5,
+      prevTradeDate: '2019-01-14', exTradeDate: '2019-01-15', prevClose: 1000,
+      exOpen: 200, exClose: 200, actualOpenFactor: 5, actualCloseFactor: 5 };
+    const api = {
+      listCorporateActionImports: vi.fn().mockResolvedValueOnce([raw]).mockResolvedValueOnce([]),
+      refreshCorporateActionImportClassifications: vi.fn(async () => [raw]),
+      listCorporateActionImportResolutionHints: vi.fn(async () => ({ requested: 1, hints: [hint(1)], message: '' })),
+      quickResolveCorporateActionImport: vi.fn(),
+      runCorporateActionScan: vi.fn(async () => ({ scanRun: null, results: [matched] })),
+      getCorporateActionImportsByIds: vi.fn(async () => [prepared]),
+      autoApproveCorporateActionImports: vi.fn(), getSetting: vi.fn(),
+    };
+    const result = await prepareCorporateActionPendingImports({ api, expectedDatabasePath: 'E:/TEST-ONLY', explicitApprovalOnly: true });
+    expect(api.getCorporateActionImportsByIds).toHaveBeenCalledWith({ importIds: [1], expectedDatabasePath: 'E:/TEST-ONLY' });
+    expect(result.rows[0]).toMatchObject({ symbol: 'GUJGASLTD', instrumentIsActive: false,
+      reviewStatus: 'PENDING', verifiedAdjustmentTarget: 'GUJENERGY' });
+    expect(api.autoApproveCorporateActionImports).not.toHaveBeenCalled();
+    expect(raw.reviewStatus).toBe('UNRESOLVED');
+    expect(result.errors).toEqual([]);
+    expect(getCorporateActionNormalApprovalState(result.rows[0], result.validationRows[0], '2026-11-08')).toBe('READY TO APPROVE');
+    expect(isLaterCorporateAction(result.rows[0])).toBe(false);
+    expect(isLaterCorporateAction({ ...result.rows[0], verifiedAdjustmentTarget: null })).toBe(true);
+  });
   it('ca phase3 closes informational notices before loading the pending queue, without approving', async () => {
     const order: string[] = [];
     const api = {

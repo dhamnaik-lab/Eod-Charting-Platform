@@ -14,6 +14,7 @@ pub use informational_closure::{
     reopen_corporate_action_informational_closure, sync_corporate_action_informational_closures,
 };
 mod dated_symbol_chain;
+pub(in crate::database) mod split_bonus_symbol_chain;
 pub(super) mod event_price_route;
 mod price_validation_freshness;
 mod split_bonus_preparation;
@@ -5367,7 +5368,9 @@ fn approve_corporate_action_import_internal(
     input: &CorporateActionImportApprovalInput,
 ) -> AppResult<CorporateActionImportApprovalResult> {
     verify_import_lookup_database(folder_path, &input.expected_database_path)?;
+    let _route_permit = split_bonus_symbol_chain::approval_permit(connection, &[input.import_id])?;
     run_connection_transaction(connection, |connection| {
+        split_bonus_symbol_chain::ensure_permit(connection, &[input.import_id], _route_permit.is_some())?;
         approve_corporate_action_import_without_transaction(
             connection,
             folder_path,
@@ -5460,6 +5463,7 @@ fn approve_corporate_action_imports_internal(
     input: &CorporateActionImportBulkApprovalInput,
 ) -> AppResult<CorporateActionImportBulkApprovalResult> {
     verify_import_lookup_database(folder_path, &input.expected_database_path)?;
+    let _route_permit = split_bonus_symbol_chain::approval_permit(connection, &input.import_ids)?;
     let mut seen = HashSet::new();
     let import_ids: Vec<i64> = input
         .import_ids
@@ -5483,6 +5487,7 @@ fn approve_corporate_action_imports_internal(
     }
 
     run_connection_transaction(connection, |connection| {
+        split_bonus_symbol_chain::ensure_permit(connection, &import_ids, _route_permit.is_some())?;
         let mut results = Vec::new();
         let mut errors = Vec::new();
         let mut approved = 0_u32;
@@ -6848,6 +6853,11 @@ fn approve_corporate_action_import_without_transaction(
     if !allow_isin_mismatch && identity_recheck::machine_identity_is_unproven(connection, &import_row)? {
         return Err("Stored machine identity no longer has verified evidence. Load & Validate must recheck identity before approval.".to_string());
     }
+    let verified_target = split_bonus_symbol_chain::verified(connection, folder_path, &import_row)?;
+    if split_bonus_symbol_chain::has_decision(connection, import_row.id)?
+        && (allow_isin_mismatch || allow_price_validation_exception || verified_target.is_none()) {
+        return Err("The verified rename route requires ordinary explicit approval with all current proofs.".into());
+    }
     split_bonus_preparation::ensure_components_prepared(connection, &import_row)?;
 
     let Some(symbol) = import_row.symbol.clone() else {
@@ -6870,7 +6880,11 @@ fn approve_corporate_action_import_without_transaction(
         )?;
     }
 
-    if let Some(existing_id) = find_existing_corporate_action(connection, &import_row)? {
+    let existing = match &verified_target {
+        Some(proof) => split_bonus_symbol_chain::existing(connection, &import_row, proof)?,
+        None => find_existing_corporate_action(connection, &import_row)?,
+    };
+    if let Some(existing_id) = existing {
         mark_import_approved(connection, import_row.id, existing_id)?;
         let linked_row = get_import_row(connection, import_row.id)?;
         return Ok(CorporateActionImportApprovalResult {
@@ -6888,7 +6902,7 @@ fn approve_corporate_action_import_without_transaction(
         action_type: import_row.action_type.clone(),
         exchange: import_row.exchange.clone(),
         effective_date: effective_date.clone(),
-        symbol: Some(symbol.clone()),
+        symbol: Some(verified_target.as_ref().map(|p| p.target.clone()).unwrap_or_else(|| symbol.clone())),
         isin: import_row.isin.clone(),
         record_date: import_row.record_date.clone(),
         ratio_num: import_row.ratio_num,
@@ -6901,7 +6915,7 @@ fn approve_corporate_action_import_without_transaction(
         old_name: None,
         new_symbol: None,
         new_name: None,
-        current_symbol: import_row.symbol.clone(),
+        current_symbol: verified_target.as_ref().map(|p| p.target.clone()).or_else(|| import_row.symbol.clone()),
         current_name: import_row.company_name.clone(),
         note: Some(import_row.purpose_raw.clone()),
         source: Some(approved_corporate_action_source(&import_row.source)),
@@ -6911,7 +6925,11 @@ fn approve_corporate_action_import_without_transaction(
     let approved = match super::instrument_mutations::apply_official_import_price_adjustment(connection, &payload, folder_path, &import_row) {
         Ok(result) => result,
         Err(error) if error.contains("already exists") => {
-            if let Some(existing_id) = find_existing_corporate_action(connection, &import_row)? {
+            let existing = match &verified_target {
+                Some(proof) => split_bonus_symbol_chain::existing(connection, &import_row, proof)?,
+                None => find_existing_corporate_action(connection, &import_row)?,
+            };
+            if let Some(existing_id) = existing {
                 mark_import_approved(connection, import_row.id, existing_id)?;
                 let linked_row = get_import_row(connection, import_row.id)?;
                 return Ok(CorporateActionImportApprovalResult {
@@ -7047,6 +7065,11 @@ fn hydrate_import_instrument_activity(connection: &Connection, rows: &mut [Corpo
         row.instrument_is_active = statement.query_row(
             params![row.symbol, row.exchange], |result| result.get::<_, Option<i64>>(0),
         ).optional().map_err(|error| error.to_string())?.flatten().map(|value| value != 0);
+        if row.instrument_is_active == Some(false) && matches!(row.action_type.as_str(), "SPLIT" | "BONUS") {
+            row.verified_adjustment_target = split_bonus_symbol_chain::verified(
+                connection, &split_isin_price_proof::database_folder(connection)?, row,
+            )?.map(|proof| proof.target);
+        }
     }
     Ok(())
 }
@@ -7634,6 +7657,7 @@ fn map_import_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<CorporateActionIm
         .collect();
     Ok(CorporateActionImportRow {
         instrument_is_active: None,
+        verified_adjustment_target: None,
         id: row.get(0)?,
         exchange: row.get(1)?,
         source: row.get(2)?,
@@ -7722,6 +7746,19 @@ fn run_corporate_action_scan_internal(
             ],
         )
         .map_err(|error| error.to_string())?;
+
+    // Complete scans may prepare identity metadata, never financial approval.
+    if scope == "official_imports" {
+        let mut statement = connection.prepare(
+            "SELECT corporate_action_import_id FROM corporate_action_scan_results WHERE scan_run_id=? AND corporate_action_import_id IS NOT NULL",
+        ).map_err(|e| e.to_string())?;
+        let ids = statement.query_map([scan_run_id], |r| r.get::<_, i64>(0))
+            .map_err(|e| e.to_string())?.collect::<Result<Vec<_>, _>>().map_err(|e| e.to_string())?;
+        for id in ids {
+            let row = get_import_row(connection, id)?;
+            split_bonus_symbol_chain::prepare(connection, folder_path, &row)?;
+        }
+    }
 
     list_scan_results(
         connection,
@@ -8464,16 +8501,24 @@ fn scan_candidate(
         .unwrap_or(expected_factor);
 
     // Preserve event-symbol scanner contexts and minimal read-only scan
-    // fixtures. A new route may only supplement a missing legacy window for
-    // a complete, exactly matching stored import; never fabricate an import.
-    let window_result = match load_trade_window(connection,folder_path,symbol,&candidate.exchange,ex_date)? {
+    // fixtures. An admitted A1 route uses the strict event-alias window shared
+    // with approval. All other rows retain the legacy lookup; never fabricate an import.
+    let stored = get_import_row(connection,candidate.import_id).ok().filter(|row|
+        row.symbol.as_deref()==Some(symbol) && row.exchange==candidate.exchange && row.ex_date.as_deref()==Some(ex_date));
+    let strict_route = match &stored {
+        Some(row) => split_bonus_symbol_chain::has_identity_route(connection,row)?,
+        None => false,
+    };
+    let window_result = if strict_route {
+        split_bonus_symbol_chain::trade_window(connection,folder_path,stored.as_ref().unwrap())
+    } else { match load_trade_window(connection,folder_path,symbol,&candidate.exchange,ex_date)? {
         Some(window) => Ok(Some(window)),
         None => match get_import_row(connection,candidate.import_id) {
             Ok(row) if row.symbol.as_deref()==Some(symbol) && row.exchange==candidate.exchange && row.ex_date.as_deref()==Some(ex_date) =>
                 load_import_trade_window(connection,folder_path,&row,symbol,&candidate.exchange,ex_date),
             _ => Ok(None),
         },
-    };
+    }};
     let window = match window_result {
         Ok(window) => window,
         Err(reason) if reason.starts_with("Awaiting verified dated price-route identity:") || reason.starts_with("Waiting for EOD Data:") || reason.starts_with("Scheduled / Upcoming:") => {
@@ -8743,6 +8788,9 @@ fn load_import_trade_window(
 ) -> AppResult<Option<(ScannedBar, ScannedBar)>> {
     if row.symbol.as_deref() != Some(symbol) || row.exchange != exchange || row.ex_date.as_deref() != Some(date) {
         return Err("Official event-price lookup context changed.".into());
+    }
+    if split_bonus_symbol_chain::has_identity_route(connection,row)? {
+        return split_bonus_symbol_chain::trade_window(connection,folder,row);
     }
     let legacy = load_trade_window(connection,folder,symbol,exchange,date)?;
     let today = chrono::Utc::now().with_timezone(&chrono::FixedOffset::east_opt(19800).unwrap()).date_naive();
@@ -15850,6 +15898,7 @@ mod tests {
     fn phase1_recommended_isin_import_row() -> CorporateActionImportRow {
         CorporateActionImportRow {
             instrument_is_active: None,
+            verified_adjustment_target: None,
             id: 1,
             exchange: "NSE".to_string(),
             source: "NSE_API".to_string(),

@@ -30,6 +30,7 @@ export interface ClassicActionEvent {
 }
 
 export function classicIdentityLabel(row: CorporateActionImportRow): string {
+  if (row.symbol && row.verifiedAdjustmentTarget) return `${row.symbol} → ${row.verifiedAdjustmentTarget}`;
   return row.symbol ?? row.isin ?? (row.exchange === 'BSE' && row.bseScripCode
     ? `BSE ${row.bseScripCode} (unmatched)` : 'Unmatched');
 }

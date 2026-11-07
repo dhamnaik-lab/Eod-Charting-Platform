@@ -1,11 +1,17 @@
 # A1 design: historical NSE Split/Bonus through a verified rename
 
-Date: 8 November 2026, IST. Status: **proposed; user approval required before code**.
+Date: 8 November 2026, IST. Status: **user approved; source implementation tested; PR/native acceptance pending**.
 Scope: Phase A, A1 only. Base: `bc47208`; evidence and safety regression: `a3998fa`.
 See [A1 findings](2026-11-08_CA_A1_IDENTITY_FINDINGS.md) for source hashes and limits.
-This document proposes new behavior; it does not describe an implemented route.
+This is the approved contract. The implementation follows it; exact checks and
+remaining copied-price/native acceptance are recorded in the top CA handoff.
 
-## Decision proposed for approval
+Implementation checks on the combined local tree: focused Rust 14/14, renderer
+typecheck PASS, Vitest 571/571, seven-filter Rust 841 passed/0 failed/26 ignored.
+These do not certify the exact PR tree or the real GUJ event. No live database
+or production prices were opened; the four requested copied files remain absent.
+
+## Approved decision
 
 Keep the official import unchanged. Add a separate, persisted, versioned proof
 that connects an event-date symbol to one current adjustment owner. For the GUJ
@@ -39,7 +45,7 @@ borrow this route. Duplicate/conflicting official rows fail closed in version 1.
 
 ## Persisted proof and immutable source data
 
-Propose an additive proof table keyed by import ID, with versioned canonical JSON
+Use `corporate_action_split_bonus_chain_proofs`, an additive table keyed by import ID, with versioned canonical JSON
 and a fingerprint. Bind database context, raw event fields, official source
 URL/hash/capture and exact edge, event-witness IDs/hashes, dated identity-history
 records, old/current activity and ownership, target symbol/exchange/current ISIN,
@@ -67,7 +73,10 @@ row, lifecycle flag or EOD file is created or rewritten by preparation.
    may use a verified active target only while all required evidence is valid.
    Missing metadata preserves the current blocked behavior.
 4. On the deliberate user Approve click, acquire the existing price-store lock
-   and transaction. Recompute the complete proof and authoritative price window
+   and transaction. Only this new route acquires a permit; ordinary manual
+   approval keeps its prior lock scope. Recheck permit ownership inside the
+   transaction to reject a route prepared after the preliminary permit read.
+   Recompute the complete proof and authoritative price window
    before duplicate linking or financial writes. Check this new decision type
    before exact-ISIN shortcuts in `identity_recheck`, so shortcuts cannot bypass
    source, route or target changes. Invalid proof returns to unresolved/readiness
@@ -98,14 +107,20 @@ aliases using existing refresh paths; tests must establish that coverage.
 
 ## Implementation map and required evidence
 
-Proposed new module: `corporate_action_imports/split_bonus_symbol_chain.rs`, with
-tests and additive schema setup through the owning database migration mechanism.
-Integration points: `corporate_action_imports.rs` (suggestions, preparation,
-duplicate lookup and approval), `identity_recheck.rs`, `split_isin_price_proof.rs`,
-`price_validation_freshness.rs`, `event_price_route.rs`, `instrument_mutations.rs`
-and `eod_data.rs`. Renderer/platform types and Later readiness need the optional
-verified target. Inspect the exact owning helpers before implementation; these
-are proposed touch points, not permission for unrelated refactors.
+Implemented module: `corporate_action_imports/split_bonus_symbol_chain.rs`, with
+tests and additive schema setup in `database/bootstrap.rs`. Integration lives in
+`corporate_action_imports.rs` (post-scan preparation, metadata, duplicate lookup,
+approval), `identity_recheck.rs`, the shared split-ISIN predicates and official
+event-witness helper, `auto_approval.rs` and `instrument_mutations.rs`.
+Scanning, import-window readiness and `price_validation_freshness.rs` use the new
+strict event-alias loader for admitted A1 routes. Other rows retain the existing
+legacy-first lookup. Component preparation and `eod_data` chart helpers are reused;
+no general history merge was added. The new proof additionally
+binds the complete selected EOD/SQL records and rejects a wrong binary header.
+Renderer/platform types, Later readiness, raw/owner labels and post-scan/approval
+queue refresh carry the optional verified target. A derived component may use
+its unchanged original capture only when the whole captured purpose proves the
+exact prepared component; no source action label is rewritten.
 
 The user must supply hash-checked copied GUJGASLTD/GUJENERGY EOD files to certify
 the real GUJ case; AVANTI/AVANTIFEED copies are also still missing for A1 diagnosis.
@@ -133,7 +148,7 @@ the original import remains available and unresolved. After an approval, disabli
 the resolver must not remove or duplicate an adjustment. Revoking an approved
 adjustment is separate Phase E/H1 work; never delete financial rows as rollback.
 
-Approval requested: the explicit-target model, the single-edge scope, GUJENERGY
-as adjustment owner, and these unchanged financial checks. Stop here until the
-user approves this design. Approval does not supply missing evidence or certify
-the real event as Ready.
+The user approved the explicit-target model, single-edge scope, GUJENERGY owner
+and unchanged financial checks on 8 November 2026. This authorizes implementation;
+it does not supply missing evidence, certify the real event as Ready or authorize
+financial approval. Real-event acceptance remains separate from synthetic tests.

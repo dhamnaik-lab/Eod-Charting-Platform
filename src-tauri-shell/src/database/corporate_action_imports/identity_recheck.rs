@@ -8,6 +8,14 @@ pub(super) fn machine_identity_is_unproven(
     if row.approved_corporate_action_id.is_some() || row.review_status == "APPROVED" {
         return Ok(false);
     }
+    // A route decision must be revalidated before the exact-ISIN shortcut.
+    if split_bonus_symbol_chain::has_decision(c, row.id)? {
+        if !matches!(row.review_status.as_str(), "PENDING" | "UNRESOLVED" | "PENDING_ISIN_MISMATCH") {
+            return Ok(false);
+        }
+        return Ok(split_bonus_symbol_chain::verified(c,
+            &split_isin_price_proof::database_folder(c)?, row)?.is_none());
+    }
     let machine: bool = c.query_row("SELECT EXISTS(SELECT 1 FROM corporate_action_import_decisions
         WHERE import_id=? AND decision_type IN ('VERIFIED_QUICK_RESOLUTION',
         'VERIFIED_EVENT_IDENTITY_RESOLUTION','VERIFIED_HISTORICAL_ISIN_TRANSITION','COMPOUND_COMPONENT_PREPARED','VERIFIED_DATED_SYMBOL_CHAIN_R1',
