@@ -1,5 +1,5 @@
 import { describe, expect, it, vi, afterEach } from 'vitest';
-import { EMA, RSI, SMA } from 'technicalindicators';
+import { BollingerBands, EMA, MACD, RSI, SMA } from 'technicalindicators';
 import { buildRenderableIndicators } from '../Indicators';
 import type { OHLCBar, OverlayIndicator } from '../types';
 import { getSourceValues, padSeries } from '@/indicators/base';
@@ -194,4 +194,93 @@ describe('B05: strict Study-as-Source dependency calculations', () => {
     expect(saved?.chartTabs[0].indicators).toMatchObject([rsi, { ...sma, sourcePlotKey: 'rsi' }]);
     expect(saved?.chartTabs[0].timeframe).toBe('D');
   });
+  it('rejects duplicate upstream IDs rather than selecting an arbitrary source', () => {
+    const consumer: OverlayIndicator = { ...sma };
+    const alternative: OverlayIndicator = { ...rsi, period: 6 };
+    const result = buildRenderableIndicators(bars.slice(0, 40), [consumer, rsi, alternative]);
+    expect(result.overlays).toHaveLength(0);
+    expect(result.diagnostics?.[0].indicatorId).toBe(consumer.id);
+    expect(result.diagnostics?.[0].message).toContain('ambiguous duplicate ID');
+  });
+
+  it('preserves MACD histogram and Bollinger bands across a gap with restarted calculations', () => {
+    const input = bars.slice(0, 40);
+    const upstreamValues: Array<number | null> = [
+      null,
+      ...Array.from({ length: 19 }, (_, i) => 100 + i),
+      null,
+      ...Array.from({ length: 19 }, (_, i) => 150 + i),
+    ];
+    vi.spyOn(INDICATOR_REGISTRY, 'RSI').mockImplementation((_bars, indicator) => ({
+      indicator, title: 'Source', lines: [{
+        key: 'rsi', label: 'RSI', values: upstreamValues, color: '#abcdef',
+      }],
+    }));
+    const macd: OverlayIndicator = {
+      id: 'gap-macd', kind: 'MACD', placement: 'pane',
+      fastPeriod: 3, slowPeriod: 5, signalPeriod: 2,
+      color: '#112233', signalColor: '#223344',
+      histogramPositiveColor: '#334455', histogramNegativeColor: '#445566',
+      sourceIndicatorId: rsi.id,
+    };
+    const boll: OverlayIndicator = {
+      id: 'gap-boll', kind: 'BOLL', placement: 'overlay',
+      period: 3, stdDev: 2, color: '#abcdef', sourceIndicatorId: rsi.id,
+    };
+    const result = buildRenderableIndicators(input, [macd, boll, rsi]);
+    const first = upstreamValues.slice(1, 20) as number[];
+    const second = upstreamValues.slice(21) as number[];
+    const calculateMacd = (values: number[]) => MACD.calculate({
+      values, fastPeriod: 3, slowPeriod: 5, signalPeriod: 2,
+      SimpleMAOscillator: false, SimpleMASignal: false,
+    });
+    const expectedHistogram = [
+      null,
+      ...padSeries(calculateMacd(first).map((value) => value.histogram ?? null), 19),
+      null,
+      ...padSeries(calculateMacd(second).map((value) => value.histogram ?? null), 19),
+    ];
+    const expectedBand = [
+      null,
+      ...padSeries(BollingerBands.calculate({ values: first, period: 3, stdDev: 2 }).map((v) => v.upper), 19),
+      null,
+      ...padSeries(BollingerBands.calculate({ values: second, period: 3, stdDev: 2 }).map((v) => v.upper), 19),
+    ];
+    const renderedMacd = result.panes.find((item) => item.indicator.id === macd.id);
+    const renderedBoll = result.overlays.find((item) => item.indicator.id === boll.id);
+    expect(renderedMacd?.histogram?.values).toEqual(expectedHistogram);
+    expect(renderedBoll?.band?.upper).toEqual(expectedBand);
+    expect(renderedMacd?.lines[0].values[20]).toBeNull();
+    expect(renderedBoll?.band?.lower[20]).toBeNull();
+    expect(result.diagnostics).toBeUndefined();
+  });
+
+  it('uses a selected histogram plot as the input to a downstream SMA', () => {
+    const macd: OverlayIndicator = {
+      id: 'upstream-macd-hist', kind: 'MACD', placement: 'pane',
+      fastPeriod: 3, slowPeriod: 5, signalPeriod: 2,
+      color: '#112233', signalColor: '#223344',
+      histogramPositiveColor: '#334455', histogramNegativeColor: '#445566',
+    };
+    const downstream: OverlayIndicator = {
+      ...sma, id: 'sma-over-hist', period: 3,
+      sourceIndicatorId: macd.id, sourcePlotKey: 'macd-hist',
+    };
+    const actual = buildRenderableIndicators(bars, [downstream, macd]);
+    const histogram = actual.panes[0].histogram?.values ?? [];
+    const valid = histogram.filter((value): value is number => typeof value === 'number' && Number.isFinite(value));
+    expect(values(actual, downstream.id)).toEqual(
+      padSeries(SMA.calculate({ values: valid, period: 3 }), bars.length),
+    );
+    expect(actual.diagnostics).toBeUndefined();
+  });
+
+  it('does not revise previously completed chained bars when a new bar is appended', () => {
+    const full = buildRenderableIndicators(bars.slice(), [rsi, sma]);
+    const prefix = buildRenderableIndicators(bars.slice(0, -1), [rsi, sma]);
+    expect(values(full, sma.id).slice(0, -1)).toEqual(values(prefix, sma.id));
+    expect(full.diagnostics).toBeUndefined();
+    expect(prefix.diagnostics).toBeUndefined();
+  });
+
 });
