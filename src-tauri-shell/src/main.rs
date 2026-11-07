@@ -1217,6 +1217,8 @@ fn main() {
             list_corporate_action_imports,
             get_corporate_action_imports_by_ids,
             refresh_corporate_action_import_classifications,
+            sync_corporate_action_informational_closures,
+            reopen_corporate_action_informational_closure,
             list_corporate_action_event_identities,
             preview_corporate_action_repairs,
             preview_split_bonus_reconciliation,

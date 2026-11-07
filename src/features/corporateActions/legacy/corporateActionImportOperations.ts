@@ -125,7 +125,7 @@ type CorporateActionPendingPreparationApi = Pick<
   | 'runCorporateActionScan'
   | 'autoApproveCorporateActionImports'
   | 'getSetting'
-> & Partial<Pick<DesktopApi, 'refreshCorporateActionImportClassifications'>>;
+> & Partial<Pick<DesktopApi, 'refreshCorporateActionImportClassifications' | 'syncCorporateActionInformationalClosures'>>;
 
 export interface PrepareCorporateActionPendingImportsInput {
   api: CorporateActionPendingPreparationApi;
@@ -417,6 +417,19 @@ export async function prepareCorporateActionPendingImports({
   expectedDatabasePath,
   explicitApprovalOnly = false,
 }: PrepareCorporateActionPendingImportsInput): Promise<CorporateActionPendingPreparationResult> {
+  // Phase 3: close informational notices once, so they leave the pending queue.
+  // Status-only and logged; no price, factor or approval change.
+  let closureSummary = '';
+  if (explicitApprovalOnly && api.syncCorporateActionInformationalClosures) {
+    assertPreparationCurrent(shouldContinue);
+    emitPreparationProgress(onProgress, {
+      stage: 'loading', completed: 0, total: null,
+      message: 'Closing informational notices (no price change)...',
+    });
+    const closure = await api.syncCorporateActionInformationalClosures({ expectedDatabasePath });
+    assertPreparationCurrent(shouldContinue);
+    closureSummary = ` Informational notices closed: ${closure.totalClosed} (${closure.closed} new, ${closure.reopened} reopened).`;
+  }
   const loaded = await loadAllPendingCorporateActionImports({ api, shouldContinue, onProgress, pageSize });
   const errors = [...loaded.errors];
   const rowsById = new Map(loaded.rows.map((row) => [row.id, row]));
@@ -463,8 +476,16 @@ export async function prepareCorporateActionPendingImports({
     }
   }
   // Preparation can add the missing pending component of one official Split +
-  // Bonus announcement. Re-enumerate once so matching and scans include it.
-  if (explicitApprovalOnly && loaded.rows.some(hasCombinedSplitBonusAnnouncement)) {
+  // Bonus announcement, including an OTHER row the backend just reclassified.
+  // Judge the refreshed rows, then re-enumerate once so matching and scans include it.
+  const loadedById = new Map(loaded.rows.map(row => [row.id, row]));
+  const mayHaveNewComponents = orderedIds.some(id => {
+    const row = rowsById.get(id);
+    // Only Split/Bonus announcements get a prepared companion component.
+    return row != null && (hasCombinedSplitBonusAnnouncement(row)
+      || (['SPLIT', 'BONUS'].includes(row.actionType) && row.actionType !== loadedById.get(id)?.actionType));
+  });
+  if (explicitApprovalOnly && mayHaveNewComponents) {
     const prepared = await loadAllPendingCorporateActionImports({ api, shouldContinue, onProgress, pageSize });
     const preparedIds = new Set(prepared.rows.map(row => row.id));
     if (!prepared.complete || loaded.rows.some(row => !preparedIds.has(row.id))) {
@@ -624,9 +645,10 @@ export async function prepareCorporateActionPendingImports({
     errors,
     complete: true,
     message:
-      blockedCount > 0
+      (blockedCount > 0
         ? `Prepared ${finalRows.length} row(s) from the pending queue. ${autoApprovalSummary}. ${blockedCount} row(s) are blocked because a required check failed.`
-        : `Prepared ${finalRows.length} row(s) from the pending queue. ${autoApprovalSummary}; review the remaining actions and use the existing manual Apply controls where appropriate.`,
+        : `Prepared ${finalRows.length} row(s) from the pending queue. ${autoApprovalSummary}; review the remaining actions and use the existing manual Apply controls where appropriate.`)
+        + closureSummary,
   };
 }
 

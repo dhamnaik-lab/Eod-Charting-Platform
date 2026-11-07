@@ -3,7 +3,8 @@ import { resolve } from 'node:path';
 import ts from 'typescript';
 import { describe, expect, it } from 'vitest';
 
-const source = readFileSync(resolve(process.cwd(), 'src/components/DatabaseToolsDialogs.tsx'), 'utf8');
+// Normalize CRLF so multi-line source checks work on Windows checkouts.
+const source = readFileSync(resolve(process.cwd(), 'src/components/DatabaseToolsDialogs.tsx'), 'utf8').replace(/\r\n/g, '\n');
 const ast = ts.createSourceFile(
   'DatabaseToolsDialogs.tsx', source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX,
 );

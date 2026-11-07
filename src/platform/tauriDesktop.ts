@@ -410,6 +410,12 @@ export function getTauriDesktopApi(): DesktopApi | null {
     refreshCorporateActionImportClassifications: async (input) => {
       return tauriInvoke('refresh_corporate_action_import_classifications', { input });
     },
+    syncCorporateActionInformationalClosures: async (input) => {
+      return tauriInvoke('sync_corporate_action_informational_closures', { input });
+    },
+    reopenCorporateActionInformationalClosure: async (input) => {
+      return tauriInvoke('reopen_corporate_action_informational_closure', { input });
+    },
     listCorporateActionEventIdentities: async (input) => {
       return tauriInvoke('list_corporate_action_event_identities', { input });
     },

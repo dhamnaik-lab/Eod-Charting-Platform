@@ -1564,9 +1564,22 @@ fn compute_adjustment_factor(
         return compute_rights_adjustment_factor(previous_close, ratio_num, ratio_den, issue_price);
     }
 
+    // A Bonus factor is (bonus + held) / held. A face-value change is a Split
+    // term; letting it drive a Bonus saved a factor the dialog never showed.
+    if action_type == "BONUS"
+        && (normalize_optional_number(input.old_face_value).is_some()
+            || normalize_optional_number(input.new_face_value).is_some())
+    {
+        return Err(
+            "Bonus uses the entitlement ratio (bonus:held) only. Leave the face-value fields empty."
+                .to_string(),
+        );
+    }
+
     let factor_from_face_value = match (input.old_face_value, input.new_face_value) {
         (Some(old_value), Some(new_value))
-            if old_value.is_finite()
+            if action_type == "SPLIT"
+                && old_value.is_finite()
                 && new_value.is_finite()
                 && old_value > 0.0
                 && new_value > 0.0 =>
@@ -1818,6 +1831,50 @@ mod tests {
             "SELECT COUNT(*) FROM corporate_actions WHERE symbol='EQUIV'", [], |row| row.get(0),
         ).unwrap();
         assert_eq!(count, 1);
+    }
+
+    #[test]
+    fn ca_m1_bonus_factor_uses_ratio_and_rejects_face_values() {
+        let connection = Connection::open_in_memory().unwrap();
+        prepare_database_connection(&connection).unwrap();
+        connection.execute(
+            "INSERT INTO instruments (symbol, exchange, isin, name, is_active, series)
+             VALUES ('BONUSFV', 'NSE', 'INE000A00044', 'Bonus FV Test', 1, 'EQ')", [],
+        ).unwrap();
+        let mut input = CorporateActionInputPayload {
+            action_type: "BONUS".to_string(), exchange: "NSE".to_string(),
+            effective_date: "2026-06-12".to_string(), symbol: Some("BONUSFV".to_string()),
+            isin: Some("INE000A00044".to_string()), record_date: None,
+            ratio_num: Some(1.0), ratio_den: Some(1.0),
+            old_face_value: Some(10.0), new_face_value: Some(1.0),
+            cash_amount: None, adjust_volume: Some(true),
+            old_symbol: None, old_name: None, new_symbol: None, new_name: None,
+            current_symbol: Some("BONUSFV".to_string()), current_name: None,
+            note: None, source: Some("MANUAL".to_string()), source_ref: None,
+        };
+        // Audit M1 repro: the dialog previews 2.0, but face values used to store 10.0.
+        let error = apply_corporate_action_internal(&connection, &input, None).unwrap_err();
+        assert!(error.contains("entitlement ratio"), "{error}");
+        input.new_face_value = None;
+        assert!(apply_corporate_action_internal(&connection, &input, None).is_err());
+        let count: i64 = connection.query_row(
+            "SELECT COUNT(*) FROM corporate_actions WHERE symbol='BONUSFV'", [], |row| row.get(0),
+        ).unwrap();
+        assert_eq!(count, 0);
+
+        input.old_face_value = None;
+        let saved = apply_corporate_action_internal(&connection, &input, None).unwrap();
+        assert_eq!(saved.factor, Some(2.0));
+
+        // Split face values still drive the Split factor.
+        input.action_type = "SPLIT".to_string();
+        input.effective_date = "2026-07-15".to_string();
+        input.ratio_num = None;
+        input.ratio_den = None;
+        input.old_face_value = Some(10.0);
+        input.new_face_value = Some(2.0);
+        let split = apply_corporate_action_internal(&connection, &input, None).unwrap();
+        assert_eq!(split.factor, Some(5.0));
     }
 
     #[test]

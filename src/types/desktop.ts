@@ -326,6 +326,22 @@ export interface CorporateActionImportLookupInput {
   expectedDatabasePath: string;
 }
 
+/** Phase 3: informational notices are closed once and logged; never a price change. */
+export interface CorporateActionInformationalClosureInput {
+  expectedDatabasePath: string;
+}
+
+export interface CorporateActionInformationalReopenInput {
+  importId: number;
+  expectedDatabasePath: string;
+}
+
+export interface CorporateActionInformationalClosureResult {
+  closed: number;
+  reopened: number;
+  totalClosed: number;
+}
+
 export interface CorporateActionImportApprovalInput {
   importId: number;
   expectedDatabasePath: string;
@@ -2176,6 +2192,12 @@ export interface DesktopBridgeApi {
   listCorporateActionImports(input?: CorporateActionImportListInput): Promise<CorporateActionImportRow[]>;
   getCorporateActionImportsByIds(input: CorporateActionImportLookupInput): Promise<CorporateActionImportRow[]>;
   refreshCorporateActionImportClassifications(input: CorporateActionImportLookupInput): Promise<CorporateActionImportRow[]>;
+  syncCorporateActionInformationalClosures(
+    input: CorporateActionInformationalClosureInput,
+  ): Promise<CorporateActionInformationalClosureResult>;
+  reopenCorporateActionInformationalClosure(
+    input: CorporateActionInformationalReopenInput,
+  ): Promise<CorporateActionImportRow>;
   listCorporateActionEventIdentities(
     input: CorporateActionEventIdentityListInput,
   ): Promise<CorporateActionEventIdentityListResult>;

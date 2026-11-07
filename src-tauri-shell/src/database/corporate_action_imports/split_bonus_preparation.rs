@@ -2,6 +2,8 @@
 use super::*;
 
 pub(super) fn components(purpose: &str) -> Option<Vec<ParsedAction>> {
+    let canonical = canonical_purpose(purpose);
+    let purpose = canonical.as_str();
     if split_bonus_terms::blocker(purpose).is_some() {
         return None;
     }

@@ -9,11 +9,16 @@ mod auto_approval;
 mod classification_refresh;
 mod dividend_validation_cache;
 mod identity_recheck;
+mod informational_closure;
+pub use informational_closure::{
+    reopen_corporate_action_informational_closure, sync_corporate_action_informational_closures,
+};
 mod dated_symbol_chain;
 pub(super) mod event_price_route;
 mod price_validation_freshness;
 mod split_bonus_preparation;
 mod split_bonus_terms;
+mod split_isin_price_proof;
 pub use classification_refresh::refresh_corporate_action_import_classifications;
 mod controlled_identity_repair;
 mod event_identity_authority;
@@ -5740,6 +5745,7 @@ enum CorporateActionQuickResolveProof {
         historical_isin: String,
         current_isin: String,
     },
+    VerifiedSplitIsinPriceProof,
 }
 
 fn strict_quick_resolve_proof(
@@ -5808,6 +5814,12 @@ fn strict_quick_resolve_proof(
         }
     }
 
+    // A split that itself changed the equity ISIN: same symbol, same issuer and
+    // equity type, plus a current MATCHED local price validation. Never prefix alone.
+    if split_isin_price_proof::evaluate(connection, import_row, suggestion)? {
+        return Ok(Some(CorporateActionQuickResolveProof::VerifiedSplitIsinPriceProof));
+    }
+
     let transition = match historical_isin_transition::load_verified_historical_isin_transition(
         connection,
         import_row,
@@ -5874,6 +5886,17 @@ fn quick_resolve_corporate_action_import_internal(
             "VERIFIED_QUICK_RESOLUTION",
             "Exactly one candidate matched exact event-date historical ISIN evidence."
                 .to_string(),
+        ),
+        CorporateActionQuickResolveProof::VerifiedSplitIsinPriceProof => (
+            format!(
+                "Quick-resolved this official row to {}:{}: the split changed the equity ISIN, and local prices match the official factor.",
+                suggestion.exchange, suggestion.symbol
+            ),
+            split_isin_price_proof::DECISION,
+            format!(
+                "Same symbol, same issuer and equity type, split in event terms, no other ISIN owner, current MATCHED price validation; rawIsin={}.",
+                import_row.isin.as_deref().unwrap_or("")
+            ),
         ),
         CorporateActionQuickResolveProof::VerifiedPersistedEventIdentity {
             resolution_fingerprint,
@@ -7429,7 +7452,11 @@ fn list_import_rows(
         .and_then(|value| value.exclude_approved)
         .unwrap_or(false)
     {
-        clauses.push("review_status <> 'APPROVED'".to_string());
+        // The pending queue also leaves out informational notices closed in Phase 3.
+        clauses.push(format!(
+            "review_status NOT IN ('APPROVED', '{}')",
+            informational_closure::REVIEW_STATUS_CLOSED_INFORMATIONAL
+        ));
     }
 
     if let Some(action_types) = input.and_then(|value| value.action_types.as_ref()) {
@@ -9167,6 +9194,8 @@ fn map_scan_result_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<CorporateAct
 }
 
 fn detected_corporate_action_families(normalized: &str) -> Vec<String> {
+    let expanded = expand_legacy_abbreviations(normalized);
+    let normalized = expanded.as_str();
     let split_position = ["SPLIT", "SUB DIVISION", "SUBDIVISION"]
         .iter()
         .filter_map(|marker| normalized.find(marker))
@@ -9271,6 +9300,8 @@ fn split_compound_action_segments(value: &str) -> Vec<String> {
 }
 
 fn parse_corporate_action_purpose(purpose: &str) -> ParsedAction {
+    let canonical = canonical_purpose(purpose);
+    let purpose = canonical.as_str();
     let normalized = normalize_text(purpose);
     if let Some((action, reason)) = split_bonus_terms::blocker(purpose) {
         return needs_review_action(action, reason);
@@ -9389,26 +9420,22 @@ fn parse_corporate_action_purpose(purpose: &str) -> ParsedAction {
         || normalized.contains("SPINOFF")
         || normalized.contains("ARRANGEMENT")
     {
+        // A name/ratio alone does not establish cost allocation or an adjustment.
+        // Keep any stated ratio for display, but never guess a price factor.
         let ratio = extract_ratio_pair(purpose);
-        let (ratio_num, ratio_den) = ratio.unwrap_or((1.0, 1.0));
-        let numbers = extract_numbers(purpose);
-        let cost_pct = numbers
-            .iter()
-            .find(|&&num| num > 0.0 && num < 100.0)
-            .cloned();
-        let factor = cost_pct.map(|pct| 100.0 / (100.0 - pct)).unwrap_or(1.0);
         return ParsedAction {
             action_type: "DEMERGER".to_string(),
-            ratio_num: Some(ratio_num),
-            ratio_den: Some(ratio_den),
+            ratio_num: ratio.map(|(num, _)| num),
+            ratio_den: ratio.map(|(_, den)| den),
             old_face_value: None,
             new_face_value: None,
             cash_amount: None,
-            factor: Some(factor),
-            price_factor: Some(1.0 / factor),
-            parse_status: "PARSED".to_string(),
+            factor: None,
+            price_factor: None,
+            parse_status: "NEEDS_REVIEW".to_string(),
             message: Some(
-                "Demerger adjustment factor set from cost allocation / ratio.".to_string(),
+                "Demerger detected; verified cost-allocation evidence is required. No adjustment applied."
+                    .to_string(),
             ),
         };
     }
@@ -9428,6 +9455,8 @@ fn parse_corporate_action_purpose(purpose: &str) -> ParsedAction {
 }
 
 fn compound_action_primary_type(normalized: &str) -> Option<&'static str> {
+    let expanded = expand_legacy_abbreviations(normalized);
+    let normalized = expanded.as_str();
     let split_position = [
         "SPLIT",
         "SUB DIVISION",
@@ -9826,6 +9855,117 @@ fn normalize_isin(value: Option<&str>) -> Option<String> {
         .map(|text| text.to_uppercase())
 }
 
+/// Older NSE purposes abbreviate terms, for example `Fv Splt Frm Rs 10 To Rs 2`
+/// or `Fv Spl-Rs10tors2/Bon-1:2`. Only two exact shapes count: `FV` followed by
+/// `SPL`/`SPLT`, and `BON` followed by an `a:b` ratio. `Spl` alone (special) and
+/// `Bon 1 Dvr : 20` do not count.
+fn legacy_purpose_tokens(value: &str) -> Vec<String> {
+    let chars = value.chars().collect::<Vec<_>>();
+    let mut tokens = Vec::new();
+    let mut index = 0usize;
+    while index < chars.len() {
+        let ch = chars[index];
+        if ch.is_whitespace() {
+            index += 1;
+        } else if ch.is_ascii_alphabetic() {
+            let start = index;
+            while index < chars.len() && chars[index].is_ascii_alphabetic() {
+                index += 1;
+            }
+            tokens.push(chars[start..index].iter().collect());
+        } else if ch.is_ascii_digit() {
+            let start = index;
+            while index < chars.len()
+                && (chars[index].is_ascii_digit()
+                    || (chars[index] == '.'
+                        && chars.get(index + 1).is_some_and(|next| next.is_ascii_digit())))
+            {
+                index += 1;
+            }
+            tokens.push(chars[start..index].iter().collect());
+        } else {
+            tokens.push(ch.to_string());
+            index += 1;
+        }
+    }
+    tokens
+}
+
+fn is_legacy_split_token(tokens: &[String], index: usize) -> bool {
+    index > 0
+        && matches!(tokens[index].to_ascii_uppercase().as_str(), "SPL" | "SPLT")
+        && tokens[index - 1].eq_ignore_ascii_case("FV")
+}
+
+fn is_legacy_bonus_token(tokens: &[String], index: usize) -> bool {
+    if !tokens[index].eq_ignore_ascii_case("BON") {
+        return false;
+    }
+    let mut next = index + 1;
+    while tokens.get(next).is_some_and(|token| token == "-") {
+        next += 1;
+    }
+    let numeric = |token: Option<&String>| {
+        token.is_some_and(|token| token.chars().all(|ch| ch.is_ascii_digit() || ch == '.'))
+    };
+    numeric(tokens.get(next))
+        && tokens.get(next + 1).is_some_and(|token| token == ":")
+        && numeric(tokens.get(next + 2))
+}
+
+/// Expand the legacy abbreviations into ordinary wording for the canonical parser.
+/// Text without a legacy shape is returned unchanged. `purpose_raw` is never rewritten.
+fn canonical_purpose(value: &str) -> String {
+    let tokens = legacy_purpose_tokens(value);
+    let triggered = (0..tokens.len())
+        .any(|index| is_legacy_split_token(&tokens, index) || is_legacy_bonus_token(&tokens, index));
+    if !triggered {
+        return value.to_string();
+    }
+    (0..tokens.len())
+        .map(|index| {
+            if is_legacy_split_token(&tokens, index) {
+                return "Split".to_string();
+            }
+            if is_legacy_bonus_token(&tokens, index) {
+                return "Bonus".to_string();
+            }
+            match tokens[index].to_ascii_uppercase().as_str() {
+                "FRM" => "From".to_string(),
+                "TORS" => "to Rs".to_string(),
+                "TORE" => "to Re".to_string(),
+                _ => tokens[index].clone(),
+            }
+        })
+        .collect::<Vec<_>>()
+        .join(" ")
+        // Keep the `/-` currency suffix ("Rs 10/- Per Share") together, so
+        // `split_compound_action_segments` does not treat its `/` as a delimiter.
+        .replace(" / -", "/-")
+}
+
+/// Normalized-text form of `canonical_purpose` for family detection.
+fn expand_legacy_abbreviations(normalized: &str) -> String {
+    let tokens = normalized.split_whitespace().collect::<Vec<_>>();
+    let numeric = |index: usize| {
+        tokens.get(index).is_some_and(|token| token.chars().all(|ch| ch.is_ascii_digit()))
+    };
+    tokens
+        .iter()
+        .enumerate()
+        .map(|(index, token)| {
+            if matches!(*token, "SPL" | "SPLT") && index > 0 && tokens[index - 1] == "FV" {
+                "SPLIT"
+            } else if *token == "BON" && numeric(index + 1) && numeric(index + 2) {
+                "BONUS"
+            } else {
+                token
+            }
+        })
+        .collect::<Vec<_>>()
+        .join(" ")
+}
+
 fn normalize_text(value: &str) -> String {
     value
         .chars()
@@ -10186,6 +10326,9 @@ mod tests {
             while std::time::Instant::now() < deadline {
                 match listener.accept() {
                     Ok((mut stream, _)) => {
+                        // On Windows an accepted socket inherits the listener's
+                        // non-blocking mode; reads must block until the request arrives.
+                        stream.set_nonblocking(false).unwrap();
                         stream.set_read_timeout(Some(Duration::from_secs(1))).unwrap();
                         // Read the complete header before closing the socket. Closing
                         // with unread request bytes causes Windows to send a reset.
@@ -11067,6 +11210,82 @@ mod tests {
         assert_eq!(parsed.parse_status, "NEEDS_REVIEW");
         assert_eq!(parsed.cash_amount, None);
         assert_eq!(parsed.factor, None);
+    }
+
+    #[test]
+    fn ca_phase2b_legacy_split_abbreviation_parses_face_values() {
+        for (purpose, old_fv, new_fv) in [
+            ("Fv Splt Frm Rs 10 To Re 1", 10.0, 1.0),
+            ("Fv Splt Frm Rs 10 To Rs 2", 10.0, 2.0),
+            ("Agm/Fv Spl Rs.10 To Re.1", 10.0, 1.0),
+        ] {
+            let parsed = parse_corporate_action_purpose(purpose);
+            assert_eq!(parsed.action_type, "SPLIT", "{purpose}");
+            assert_eq!(parsed.parse_status, "PARSED", "{purpose}");
+            assert_eq!(parsed.old_face_value, Some(old_fv), "{purpose}");
+            assert_eq!(parsed.new_face_value, Some(new_fv), "{purpose}");
+            assert_eq!(parsed.factor, Some(old_fv / new_fv), "{purpose}");
+        }
+    }
+
+    #[test]
+    fn ca_phase2b_legacy_split_bonus_abbreviation_becomes_two_components() {
+        for (purpose, split_factor, bonus_factor) in [
+            ("Fv Spl-Rs10tors2/Bon-1:2", 5.0, 1.5),
+            ("Fv Spl-Rs10tore1/Bon-3:2", 10.0, 2.5),
+            ("Bon 1:1/Fv Spl Rs.5tors.2", 2.5, 2.0),
+            ("Fv Spl-10 To 5 / Bon 1:2", 2.0, 1.5),
+            // PR #25 review: the `/-` currency suffix must not split the purpose.
+            ("Bonus 1:1 / Fv Splt Frm Rs 10/- Per Share To Rs 5/- Per Share", 2.0, 2.0),
+        ] {
+            let whole = parse_corporate_action_purpose(purpose);
+            assert_eq!(whole.parse_status, "NEEDS_REVIEW", "{purpose}");
+            assert!(whole.message.as_deref().unwrap_or_default().contains("Multiple corporate-action types"));
+            let parts = split_bonus_preparation::components(purpose).expect(purpose);
+            let factor = |kind: &str| parts.iter().find(|p| p.action_type == kind).and_then(|p| p.factor);
+            assert_eq!(factor("SPLIT"), Some(split_factor), "{purpose}");
+            assert_eq!(factor("BONUS"), Some(bonus_factor), "{purpose}");
+        }
+    }
+
+    #[test]
+    fn ca_phase2b_legacy_abbreviation_leaves_other_wording_unchanged() {
+        for purpose in [
+            "Spl Div Rs 5 Per Share",
+            "Special Dividend - Rs 2",
+            "Bon 1 Dvr : 20 Eq Shares",
+            "Buyback Of Bonds",
+            "Face Value Split (Sub-Division) - From Rs 10/- Per Share To Rs 2/- Per Share",
+        ] {
+            assert_eq!(canonical_purpose(purpose), purpose, "{purpose}");
+        }
+        assert_ne!(parse_corporate_action_purpose("Spl Div Rs 5 Per Share").action_type, "SPLIT");
+        assert_ne!(parse_corporate_action_purpose("Bon 1 Dvr : 20 Eq Shares").action_type, "BONUS");
+        assert!(detected_corporate_action_families(&normalize_text("Spl Div Rs 5")).iter().all(|f| f != "SPLIT"));
+    }
+
+    #[test]
+    fn ca_l1_demerger_parse_never_guesses_a_price_factor() {
+        for purpose in [
+            "Demerger",
+            "Scheme of Arrangement - Demerger 1:1",
+            "Demerger - cost of acquisition 35.5%",
+            "Spin Off of Division",
+        ] {
+            let parsed = parse_corporate_action_purpose(purpose);
+            assert_eq!(parsed.action_type, "DEMERGER", "{purpose}");
+            assert_eq!(parsed.parse_status, "NEEDS_REVIEW", "{purpose}");
+            assert_eq!(parsed.factor, None, "{purpose}");
+            assert_eq!(parsed.price_factor, None, "{purpose}");
+            assert!(parsed
+                .message
+                .as_deref()
+                .unwrap_or_default()
+                .contains("No adjustment applied"));
+        }
+        let with_ratio = parse_corporate_action_purpose("Scheme of Arrangement - Demerger 1:1");
+        assert_eq!(with_ratio.ratio_num, Some(1.0));
+        assert_eq!(with_ratio.ratio_den, Some(1.0));
     }
 
     #[test]
@@ -13638,6 +13857,14 @@ mod tests {
                   symbol, exchange, isin, effective_date, action_type, ratio_num, ratio_den
                 )
                 VALUES ('TRENT', 'NSE', 'INEHIST00002', '2026-06-04', 'BONUS', 1, 1);
+                -- Approval now requires the local cum/ex window that the scan observed.
+                CREATE TABLE eod_prices (
+                  symbol TEXT NOT NULL, exchange TEXT NOT NULL, date TEXT NOT NULL,
+                  open REAL NOT NULL, high REAL NOT NULL, low REAL NOT NULL, close REAL NOT NULL
+                );
+                INSERT INTO eod_prices (symbol, exchange, date, open, high, low, close) VALUES
+                  ('TRENT', 'NSE', '2026-06-03', 100, 100, 100, 100),
+                  ('TRENT', 'NSE', '2026-06-04', 52.5, 52.5, 51.8, 51.8);
                 INSERT INTO corporate_action_imports (
                   dedupe_key, exchange, source, symbol, isin, company_name, purpose_raw, ex_date,
                   action_type, ratio_num, ratio_den, factor, price_factor, parse_status, review_status
@@ -15258,6 +15485,14 @@ mod tests {
                 INSERT INTO corporate_actions (
                   symbol, exchange, effective_date, action_type, ratio_num, ratio_den
                 ) VALUES ('TEST', 'NSE', '2026-08-14', 'SPLIT', 2, 1);
+                -- Approval now requires the local cum/ex window that the scan observed.
+                CREATE TABLE eod_prices (
+                  symbol TEXT NOT NULL, exchange TEXT NOT NULL, date TEXT NOT NULL,
+                  open REAL NOT NULL, high REAL NOT NULL, low REAL NOT NULL, close REAL NOT NULL
+                );
+                INSERT INTO eod_prices (symbol, exchange, date, open, high, low, close) VALUES
+                  ('TEST', 'NSE', '2026-08-13', 100, 100, 100, 100),
+                  ('TEST', 'NSE', '2026-08-14', 52.5, 52.5, 51.8, 51.8);
                 INSERT INTO corporate_action_imports (
                   dedupe_key, exchange, source, symbol, purpose_raw, ex_date,
                   action_type, ratio_num, ratio_den, factor, price_factor, parse_status, review_status

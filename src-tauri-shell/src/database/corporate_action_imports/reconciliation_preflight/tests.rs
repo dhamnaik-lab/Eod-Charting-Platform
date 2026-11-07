@@ -11,7 +11,10 @@ use super::*;
                   isin TEXT,
                   name TEXT,
                   is_active INTEGER NOT NULL DEFAULT 1,
-                  series TEXT
+                  series TEXT,
+                  -- Read by the shared instrument lookup used by the Safe V2 same-date peer check.
+                  sector TEXT,
+                  industry TEXT
                 );
                 CREATE TABLE instrument_identity_history (
                   id INTEGER PRIMARY KEY AUTOINCREMENT,

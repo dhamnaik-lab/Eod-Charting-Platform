@@ -69,7 +69,9 @@ fn p4b_source_between<'a>(source: &'a str, start: &str, end: &str) -> &'a str {
 }
 
 fn p4b_owner_source() -> &'static str {
-    include_str!("../corporate_action_imports.rs")
+    // Markers use `\n`; a Windows checkout may store the source with CRLF.
+    static SOURCE: std::sync::OnceLock<String> = std::sync::OnceLock::new();
+    SOURCE.get_or_init(|| include_str!("../corporate_action_imports.rs").replace("\r\n", "\n"))
 }
 
 #[test]

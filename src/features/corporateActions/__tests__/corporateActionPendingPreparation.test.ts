@@ -106,6 +106,27 @@ function skippedAutoApproval(importId: number) {
 }
 
 describe('Corporate Action pending preparation', () => {
+  it('ca phase3 closes informational notices before loading the pending queue, without approving', async () => {
+    const order: string[] = [];
+    const api = {
+      syncCorporateActionInformationalClosures: vi.fn(async () => {
+        order.push('close');
+        return { closed: 3, reopened: 1, totalClosed: 15 };
+      }),
+      listCorporateActionImports: vi.fn(async () => { order.push('list'); return []; }),
+      listCorporateActionImportResolutionHints: vi.fn(), quickResolveCorporateActionImport: vi.fn(),
+      runCorporateActionScan: vi.fn(async () => ({ scanRun: null, results: [] })), autoApproveCorporateActionImports: vi.fn(), getSetting: vi.fn(),
+    };
+    const result = await prepareCorporateActionPendingImports({ api, expectedDatabasePath: 'E:/TEST-ONLY', explicitApprovalOnly: true });
+    expect(api.syncCorporateActionInformationalClosures).toHaveBeenCalledExactlyOnceWith({ expectedDatabasePath: 'E:/TEST-ONLY' });
+    expect(order[0]).toBe('close');
+    expect(result.complete).toBe(true);
+    expect(result.message).toContain('Informational notices closed: 15 (3 new, 1 reopened).');
+    expect(api.autoApproveCorporateActionImports).not.toHaveBeenCalled();
+    api.syncCorporateActionInformationalClosures.mockClear();
+    await prepareCorporateActionPendingImports({ api, expectedDatabasePath: 'E:/TEST-ONLY' });
+    expect(api.syncCorporateActionInformationalClosures).not.toHaveBeenCalled();
+  });
   it('refreshes legacy classifications in the reviewed database before matching, without approving', async () => {
     const legacy = importRow(91,{actionType:'OTHER',reviewStatus:'UNSUPPORTED',purposeRaw:'Agm/Div-Rs.2/- Per Share',cashAmount:null});
     const refreshed = importRow(91,{purposeRaw:legacy.purposeRaw,cashAmount:2});
@@ -365,6 +386,25 @@ describe('Corporate Action pending preparation', () => {
     expect(api.runCorporateActionScan.mock.calls[0]?.[0]).toMatchObject({importIds:[71,72]});
     expect(api.autoApproveCorporateActionImports).not.toHaveBeenCalled();
     expect(result.rows.every(r=>r.approvedCorporateActionId==null)).toBe(true);
+  });
+
+  it('pr25 reloads the queue when an OTHER row is reclassified into an abbreviated Split + Bonus', async () => {
+    const purposeRaw = 'Fv Spl-Rs10tors2/Bon-1:2';
+    const other = importRow(81,{actionType:'OTHER',reviewStatus:'UNSUPPORTED',purposeRaw,factor:null});
+    const split = importRow(81,{actionType:'SPLIT',purposeRaw,factor:5});
+    const bonus = importRow(82,{actionType:'BONUS',purposeRaw,factor:1.5});
+    const api = {
+      listCorporateActionImports: vi.fn().mockResolvedValueOnce([other]).mockResolvedValueOnce([split,bonus]),
+      refreshCorporateActionImportClassifications: vi.fn(async () => [split]),
+      listCorporateActionImportResolutionHints: vi.fn(), quickResolveCorporateActionImport: vi.fn(),
+      runCorporateActionScan: vi.fn(async (_input: unknown) => ({scanRun:null,results:[]})),
+      autoApproveCorporateActionImports: vi.fn(),getSetting:vi.fn(),
+    };
+    const result = await prepareCorporateActionPendingImports({api,expectedDatabasePath:'E:/TEST-ONLY',explicitApprovalOnly:true});
+    expect(result.complete).toBe(true);
+    expect(result.rows.map(r=>r.id)).toEqual([81,82]);
+    expect(api.runCorporateActionScan.mock.calls[0]?.[0]).toMatchObject({importIds:[81,82]});
+    expect(api.autoApproveCorporateActionImports).not.toHaveBeenCalled();
   });
 
   it('fails closed on a repeated full page instead of claiming the pending queue is complete', async () => {

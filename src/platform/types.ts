@@ -331,6 +331,8 @@ export type DesktopApi = Pick<
   | 'listCorporateActionImports'
   | 'getCorporateActionImportsByIds'
   | 'refreshCorporateActionImportClassifications'
+  | 'syncCorporateActionInformationalClosures'
+  | 'reopenCorporateActionInformationalClosure'
   | 'listCorporateActionEventIdentities'
   | 'previewCorporateActionRepairs'
   | 'previewSplitBonusReconciliation'
