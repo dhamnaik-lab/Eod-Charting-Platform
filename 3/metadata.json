@@ -1,0 +1,47 @@
+{
+  "cli_version": "0.12.2",
+  "checkpoint_id": "01M6TZJN0P7SQNMPH0TYKWGRGZ",
+  "session_id": "01a1b5ae-b28a-76f3-9017-b152b9683a2a",
+  "strategy": "manual-commit",
+  "created_at": "2026-11-07T12:26:28.9233166Z",
+  "branch": "feat/ca-nse-remaining-20261107",
+  "checkpoints_count": 1,
+  "save_step_count": 2,
+  "files_touched": [
+    "HANDOFF.md",
+    "src-tauri-shell/src/database/corporate_action_imports/split_bonus_terms.rs",
+    "src-tauri-shell/src/database/corporate_action_imports/split_bonus_terms_tests.rs",
+    "src-tauri-shell/src/database/corporate_action_imports/split_isin_price_proof.rs",
+    "src/features/corporateActions/__tests__/corporateActionLater.test.ts",
+    "src/features/corporateActions/legacy/corporateActionLater.ts"
+  ],
+  "agent": "Codex",
+  "model": "gpt-6.1-sol",
+  "turn_id": "902cf676478a",
+  "compact_transcript_start": 0,
+  "token_usage": {
+    "input_tokens": 23810,
+    "cache_creation_tokens": 0,
+    "cache_read_tokens": 4145408,
+    "output_tokens": 19701,
+    "api_call_count": 23,
+    "subagent_tokens_complete": true
+  },
+  "redaction": {
+    "replacements": 11,
+    "layers": {
+      "betterleaks": 0,
+      "connection_string": 0,
+      "credential_key": 0,
+      "credential_value": 0,
+      "credentialed_uri": 0,
+      "entropy": 11,
+      "key_context": 0,
+      "provider_token": 0,
+      "shell_stdin": 0
+    }
+  },
+  "session_metrics": {
+    "turn_count": 2
+  }
+}
