@@ -3,7 +3,7 @@
   "checkpoint_id": "01M6TVWBCY2VKVQ4J4CX3WZVNA",
   "strategy": "manual-commit",
   "branch": "feat/ca-nse-remaining-20261107",
-  "checkpoints_count": 6,
+  "checkpoints_count": 7,
   "files_touched": [
     "HANDOFF.md"
   ],
@@ -21,17 +21,32 @@
       "compact_transcript": "/1/transcript.jsonl",
       "content_hash": "/1/content_hash.txt",
       "prompt": "/1/prompt.txt"
+    },
+    {
+      "metadata": "/2/metadata.json",
+      "transcript": "/2/full.jsonl",
+      "compact_transcript": "/2/transcript.jsonl",
+      "content_hash": "/2/content_hash.txt",
+      "prompt": "/2/prompt.txt"
     }
   ],
+  "token_usage": {
+    "input_tokens": 1043,
+    "cache_creation_tokens": 0,
+    "cache_read_tokens": 589312,
+    "output_tokens": 1289,
+    "api_call_count": 3,
+    "subagent_tokens_complete": true
+  },
   "redaction": {
-    "replacements": 2382,
+    "replacements": 2396,
     "layers": {
       "betterleaks": 0,
       "connection_string": 0,
       "credential_key": 0,
       "credential_value": 0,
       "credentialed_uri": 0,
-      "entropy": 2382,
+      "entropy": 2396,
       "key_context": 0,
       "provider_token": 0,
       "shell_stdin": 0
