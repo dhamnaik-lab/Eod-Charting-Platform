@@ -1,0 +1,48 @@
+Project root: E:\TA Projects\EOD Charting Platform (Tauri 2 + React + TS + Rust, backend src-tauri-shell). Read AGENTS.md first and follow it exactly (backups, BUILD-01 shared Cargo runner, TMP-01, docs rules, CA approval rules).
+
+Start: git switch main && git pull origin main. PR #25 (NSE CA cleanup) is merged there. 67 uncommitted files from other agents (Nifty history, scanner, chart engine, BSE T+0 mapping, NSE index HANDOFF sections) must stay untouched and unstaged. Read only the top "Corporate Actions" sections of HANDOFF.md.
+
+Context: Load & Validate now closes informational notices once (informational_closure.rs, status CLOSED_INFORMATIONAL, logged in corporate_action_import_closures). Split ISIN price proof (split_isin_price_proof.rs) and legacy short forms (canonical_purpose) are in. The latest runtime result: 15,123 pending rows; NSE "Other" Issues 280; Split 77 + Bonus 54 blocked; Dividend 13,994, Rights 476, Demerger 242 blocked. Load & Validate takes ~12.5 min, mostly Dividend R1 on 5,594 rows.
+
+TASK A (read-only diagnosis, no code): use a database COPY only, never "EOD DATABASE". If tmp/fixtures/ca-diagnosis-20261107/market-data.sqlite3 does not exist, stop and ask the user to provide it. Open it read-only. Group every non-approved, non-closed SPLIT and BONUS row by blocking reason: delisted/inactive symbol, BSE numeric security-code symbol (Phase 2c), non-equity terms (split_bonus_terms::blocker), price mismatch, ISIN owned by another symbol, no price data, other. Give counts per exchange, with 3 examples each. Save the evidence under tmp/fixtures/ca-diagnosis-20261107/ and report it.
+
+TASK B (code, after a backup with scripts/create-project-backup.ps1 -Paths as separate array items):
+1. Glued NSE dividend wording in OTHER rows ("Annual General Meetingdividend - Rs 2.5 Per Share", "Interimdividend - Re 0.50", "Specia Ldividend - Rs 850", "Interim Dividned/Divided/Dividen", "Dividnd") must be read as DIVIDEND by the parser. Expand only these exact shapes in canonical_purpose-style normalization; never rewrite purpose_raw. "AGM/Dividend" rows also become DIVIDEND. Add tests, including negatives.
+2. Add "EXTRA ORIDINARY GENERAL MEETING" to MEETING_BODIES in informational_closure.rs, with a test.
+3. Add a "Later" group: rows that are DIVIDEND, RIGHTS, DEMERGER, capital reduction, InvIT/REIT income distribution, non-equity Split/Bonus terms, or on an inactive/delisted instrument are shown as "Later", not as Blocked/Issues. This is a display/readiness category only: no status write, no approval, and rows stay approvable later. Update the classic workspace Status filter (corporateActionClassicModel.ts, CorporateActionClassicWorkspace.tsx) and the "Pending actions by type" summary with a Later column. Issues must count only non-Later blocked rows.
+4. Do not run Dividend R1 verification on Later rows only if that keeps every existing Dividend safety test passing. If it does not, leave Dividend R1 unchanged and report why.
+
+Never enable automatic approval. Keep backend rechecks, raw .eod immutability and the advanced maintenance UI. CRLF line endings, as in each file.
+
+VALIDATION (serially): npm.cmd run typecheck:renderer; npx.cmd vitest run --dir src src/features/corporateActions (fail if any " tmp/" path appears); scripts/Invoke-EOD-SharedCargo.ps1 -Mode Preview then -Mode Run -CargoAction test -CargoArguments @('--jobs','2','--','corporate_action','instrument_mutations','eod_data','bse_identity','nse_identity','identity_evidence_resolver','price_store_operation_lock'). Current baseline: vitest 538, Rust 814 passed 0 failed. Report each as PASS/FAIL with counts. Do not build portable/release outputs.
+
+DELIVERABLES: Task A report; code + tests; update HANDOFF.md (new top CA section: resume point, paths, backup, checks, acceptance), NEXT_THREAD_PROMPT_EOD_CHARTING_PLATFORM.md, ARCHITECTURE_CURRENT_EOD_CHARTING_PLATFORM.md. Commit ONLY your files on a new branch feat/ca-nse-later-group-20261107 (stage specific paths; in shared files stage only your hunks), push that branch, never push main. Tell the user a portable rebuild (npm run tauri:portable:win) is needed.
+
+---
+
+The fixture is ready at E:\TA Projects\EOD Charting Platform\tmp\fixtures\ca-diagnosis-20261107\market-data.sqlite3 (with -wal/-shm and COPY_SHA256.json). Continue with Task A, then Task B, exactly as in the original prompt. Open the copy read-only. Pushing the branch feat/ca-nse-later-group-20261107 is approved; never push main.
+
+---
+
+Project root: E:\TA Projects\EOD Charting Platform. Follow AGENTS.md exactly. Continue on branch feat/ca-nse-later-group-20261107 (commit 63c3d8a). If PR for that branch is already merged, start from updated main on a new branch feat/ca-later-reason-20261107. Do not touch or stage the other agents' uncommitted files.
+
+User feedback after rebuild (Load & Validate 7m27s, Issues 153, NSE Issues 91, Later 14,963):
+The Status column must show the ACTUAL reason, never the word "Later". "Later" is only our internal plan (types we will implement after Split/Bonus/Demerger/identity).
+
+TASK 1 - Status text:
+- Keep isLaterCorporateAction and the Later filter/summary column, but the Status column for those rows must show the real reason, for example: "Dividend: verification deferred (not run in Load & Validate)", "Rights: adjustment rules not built yet", "Demerger: needs cost split rules", "Delisted or inactive symbol", "Non-equity terms (debenture/preference/DVR)", "Capital reduction: rules not built yet", "InvIT/REIT distribution: not an equity price adjustment yet". Where an existing specific reason exists (for example "Awaiting official source evidence", "Awaiting verified identity evidence"), show that existing reason. Reasons must come from the row data, never a guess.
+- Rename the filter option from "Later" to "Deferred types (N)" and the summary column to "Deferred". Keep Issues counting only non-deferred blocked rows.
+- Update tests for the new text.
+
+TASK 2 - wording (same rules: whole-purpose match, no financial fields, purpose_raw never rewritten, tests with negatives):
+- Parser reads as DIVIDEND: "Interim Divdend", "Interim Divdend - Rs 2 Per Share", "Annual General Me0etingdividend - Rs ...".
+- informational_closure.rs closes: "Extra General Meeting", "Entra Ordinary General Meeting", "Extra-Ordinary General Meting", "Extra-Oirdinary General Meeting", "Extra Ordinary Annual General Meeting", "Annualgeneral Meeting", "Meeting Of Equity Shareholders", "Buy-Back".
+- "De-Merger" is read as DEMERGER.
+- "Interest - Rs 0.60 Per Unit" (InvIT/REIT) gets the InvIT/REIT distribution reason.
+Do not close "Annual General Meeting/ Change In Register..." unless every part is informational.
+
+Never approve automatically. Keep backend rechecks, raw .eod immutability, advanced maintenance UI. CRLF line endings. Back up first with scripts/create-project-backup.ps1 (-Paths as separate array items).
+
+VALIDATION serially: npm.cmd run typecheck:renderer; npx.cmd vitest run --dir src src/features/corporateActions (fail if " tmp/" appears); shared Cargo runner Preview then Run with the usual 7 filters and --jobs 2. Baseline: vitest 561, Rust 816. Report PASS/FAIL with counts.
+
+DELIVERABLES: code + tests; update HANDOFF.md top CA section, NEXT_THREAD_PROMPT_EOD_CHARTING_PLATFORM.md, ARCHITECTURE_CURRENT_EOD_CHARTING_PLATFORM.md; commit only your files, push the branch (never main). Say a portable rebuild is needed.
