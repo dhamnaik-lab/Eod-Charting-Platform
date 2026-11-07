@@ -1,0 +1,73 @@
+# Files pasted by the user:
+
+## "# EOD Charting Platform — Documentation Closure **Date:** 6 November 2026 (IST)…": C:\Users\dharm\.codex/attachments/32df0003-2f6e-4e69-90cd-dee6858ddf75/Pasted text.txt
+
+Pasted text contains the user's request.
+
+## My request:
+
+---
+
+**TASK — Publish completed EOD documentation to GitHub**
+
+**Goal:** Commit and publish the verified documentation closure without changing application behavior or losing any existing local work.
+
+**Project:** `E:\TA Projects\EOD Charting Platform`
+
+**GitHub:** `dhamnaik-lab/Eod-Charting-Platform`
+
+**Verified baseline:** `09d20595bdc2ccbb6f11320fea3caf32c606c940`
+
+Verify current refs before proceeding.
+
+**Read first:** `AGENTS.md`, `.gitignore`, the current Git status, documentation-validation scripts, and:
+
+`tmp/EOD_GitSync_Apply_20261106_005358_IST/REPORT.md`
+
+Use the completed documentation-closure evidence:
+
+`EOD_Documentation_Closure_20261106_011731_IST.zip`
+
+Locate the actual available ZIP and verify its SHA-256:
+
+`2E933692610E987267EF0E9BA04DE51CA6BD4F31B9B2484E734D01CAA3BF6862`
+
+Inspect `REPORT.md`, `publication.patch`, `scope.txt`, `patch-check.log`, and before/after manifests.
+
+**Instructions:**
+
+1. Verify source authority and preserve the active local working tree.
+2. Create an isolated branch from current GitHub `main`.
+3. Apply the exact documentation-only `publication.patch`. If the baseline changed, revalidate and reconcile without silently modifying content.
+4. Confirm the intended publication scope is exactly 23 Markdown files.
+5. Exclude pre-existing `AGENTS.md` changes, unrelated handoff edits, application source, tests, configuration, generated files and databases.
+6. Run documentation validation, internal-link checks, `git diff --check`, scope verification and before/after hash checks.
+7. Commit only the validated documentation files.
+8. Push the isolated branch and create one documentation-only PR.
+9. Verify GitHub changed paths and blob hashes against the approved publication.
+10. Leave the PR unmerged for my final approval. Do not create duplicate PRs.
+11. After a subsequently authorized merge, reconcile local `main` with the new GitHub commit using the established preservation procedure. Do not use a blind pull into the dirty checkout.
+12. Preserve every remaining local-only change. Do not stage, commit or push unrelated work.
+13. Add no dependencies, avoid unrelated edits, and preserve accepted working behavior.
+
+**Evidence:** Use project `tmp` for working files. Produce one final evidence ZIP under `Join-Path $HOME 'Downloads'` with IST timestamps.
+
+Report the actual commands/results, branch and commit SHAs, documentation paths, GitHub PR, validation results, preserved local changes, risks and next steps.
+
+End with **RISKS**, **FILES CHANGED**, and **NEXT STEPS**.
+
+**Target:** `EOD_DOCUMENTATION_PR_PUBLISHED_AND_VERIFIED__MERGE_PENDING`.
+
+---
+
+<send_user_message_question_reply>
+[{"questionItemId":"[\"request_user_input_async\",\"call_e350025c8cc4487baa8b49e07bb8dc4e\",0]","question":"The approved patch adds a broken UX-08 link on clean GitHub main because its target is an unrelated local-only file. May I replace that link with a plain-text reference, preserving the 23-file scope, then revalidate and publish?","answer":"Approve the one-line correction"}]
+</send_user_message_question_reply>
+
+---
+
+Approved
+
+---
+
+yes
