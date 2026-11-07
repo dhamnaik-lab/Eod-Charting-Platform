@@ -255,7 +255,6 @@ export function ChartPriceLegendOverlay({
               return (
                 <span
                   key={diagnostic.indicatorId}
-                  title={diagnostic.message}
                   style={{
                     color: diagnostic.severity === 'error' ? 'var(--red)' : 'var(--legend-text)',
                   }}
