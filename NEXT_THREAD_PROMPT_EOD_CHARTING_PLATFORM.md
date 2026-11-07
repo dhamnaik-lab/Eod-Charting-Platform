@@ -4,6 +4,8 @@
 
 ## Running phases
 
+Corporate Actions reason/wording follow-up is implemented on `feat/ca-later-reason-20261107`; automated checks passed (renderer typecheck, UI 562, Rust 816; 0 failed). Next is the user portable rebuild and native acceptance. See the top CA handoff.
+
 **Corporate Actions Tasks A/B (7 November 2026):** diagnosis and automated verification are complete; runtime acceptance for NSE wording and Later is pending the portable rebuild. Other running-phase assignments await user confirmation.
 
 ## Completed phases

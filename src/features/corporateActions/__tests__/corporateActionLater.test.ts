@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import type { CorporateActionImportRow } from '@/platform';
-import { isLaterCorporateAction, immediateCorporateActionValidationRows } from '../legacy/corporateActionLater';
+import { deferredCorporateActionReason, isLaterCorporateAction, immediateCorporateActionValidationRows } from '../legacy/corporateActionLater';
 import { summarizeCaPendingByType } from '../legacy/corporateActionAllTypeReadinessSummary';
 import { buildCorporateActionDividendPreparedScope } from '../legacy/corporateActionDividendPreparedScope';
 
@@ -9,6 +9,17 @@ const row = (actionType: CorporateActionImportRow['actionType'], purposeRaw = ''
   ({ id: 1, actionType, purposeRaw, reviewStatus: 'PENDING', parseStatus: 'PARSED', approvedCorporateActionId: null, ...extra } as CorporateActionImportRow);
 
 describe('Later is display/readiness only', () => {
+  it('shows factual reasons and preserves recorded evidence blockers', () => {
+    expect(deferredCorporateActionReason(row('DIVIDEND'))).toContain('verification deferred');
+    expect(deferredCorporateActionReason(row('DIVIDEND'), 'Awaiting official source evidence')).toBe('Awaiting official source evidence');
+    expect(deferredCorporateActionReason(row('RIGHTS'))).toContain('adjustment rules');
+    expect(deferredCorporateActionReason(row('DEMERGER'))).toContain('cost split');
+    expect(deferredCorporateActionReason(row('BONUS', '', {instrumentIsActive:false}))).toBe('Delisted or inactive symbol');
+    const interest = row('OTHER', 'Interest - Rs 0.60 Per Unit');
+    expect(isLaterCorporateAction(interest)).toBe(true);
+    expect(deferredCorporateActionReason(interest)).toContain('InvIT/REIT distribution');
+    expect(isLaterCorporateAction(row('OTHER', 'Interest payment'))).toBe(false);
+  });
   it.each(['DIVIDEND', 'RIGHTS', 'DEMERGER'] as const)('defers %s even when a stale ready set contains its ID', actionType => {
     const input = row(actionType);
     const before = JSON.stringify(input);
@@ -50,9 +61,9 @@ describe('Later is display/readiness only', () => {
     expect(rows).toEqual([dividend, split]);
     const ui = readFileSync('src/components/DatabaseToolsDialogs.tsx', 'utf8');
     expect(ui).toContain('rows: immediateCorporateActionValidationRows(result.rows)');
-    expect(ui).toContain("else if (later) { label='Later';category='later'; }");
-    expect(ui).toContain('<th>Later</th>');
+    expect(ui).toContain('deferredCorporateActionReason(row, label)' );
+    expect(ui).toContain('<th>Deferred</th>');
     const workspace = readFileSync('src/features/corporateActions/workspace/CorporateActionClassicWorkspace.tsx', 'utf8');
-    expect(workspace).toContain('<option value="later">Later ({laterCount})</option>');
+    expect(workspace).toContain('<option value="later">Deferred types ({laterCount})</option>');
   });
 });

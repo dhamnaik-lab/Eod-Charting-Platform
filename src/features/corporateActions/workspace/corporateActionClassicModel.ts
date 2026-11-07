@@ -68,7 +68,7 @@ export function groupClassicActionRows(input: readonly ClassicActionRow[]): Clas
       action: group.length === 2 ? 'Split + Bonus' : row.record.actionType.charAt(0) + row.record.actionType.slice(1).toLowerCase(),
       terms: group.map(item => item.terms).join(' / '),
       category: partiallyApproved ? 'review' as const : group.some(item => item.category === 'later') ? 'later' as const : ready ? 'ready' as const : representative.category,
-      status: partiallyApproved ? 'Partially approved' : group.some(item => item.category === 'later') ? 'Later' : ready ? 'Ready' : representative.status }];
+      status: partiallyApproved ? 'Partially approved' : group.some(item => item.category === 'later') ? group.find(item => item.category === 'later')!.status : ready ? 'Ready' : representative.status }];
   });
 }
 

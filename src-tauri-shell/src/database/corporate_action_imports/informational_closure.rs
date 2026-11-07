@@ -73,7 +73,14 @@ pub async fn reopen_corporate_action_informational_closure(
 // so "AGM/Dividend Rs 2" or "AGM + Bonus" stay in the financial flow.
 
 // Exact whole-purpose bodies, including spelling variants seen in official NSE/BSE rows.
-const MEETING_BODIES: [&str; 16] = [
+const MEETING_BODIES: [&str; 23] = [
+    "EXTRA GENERAL MEETING",
+    "ENTRA ORDINARY GENERAL MEETING",
+    "EXTRA-ORDINARY GENERAL METING",
+    "EXTRA-OIRDINARY GENERAL MEETING",
+    "EXTRA ORDINARY ANNUAL GENERAL MEETING",
+    "ANNUALGENERAL MEETING",
+    "MEETING OF EQUITY SHAREHOLDERS",
     "AGM",
     "EGM",
     "ANNUAL GENERAL MEETING",
@@ -94,13 +101,14 @@ const MEETING_BODIES: [&str; 16] = [
 const CLOSURE_BODIES: [&str; 2] = ["ANNUAL CLOSURE", "ANNUAL BOOK CLOSURE"];
 // "REDEMPTION" alone is a bond/government-security notice; equity has no redemption.
 // "-" is an official row with no purpose text and no terms.
-const NOTICE_BODIES: [&str; 17] = [
+const NOTICE_BODIES: [&str; 18] = [
     "INTEREST PAYMENT",
     "INTEREST PAYEMENT",
     "E VOTING",
     "E-VOTING",
     "EVOTING",
     "NIL",
+    "BUY-BACK",
     "BUYBACK",
     "BUY BACK",
     "BUYBACK OF SHARES",
@@ -430,6 +438,14 @@ mod tests {
     #[test]
     fn ca_phase3_informational_wording_matches_whole_notice_only() {
         for purpose in [
+            "EXTRA GENERAL MEETING",
+    "ENTRA ORDINARY GENERAL MEETING",
+    "EXTRA-ORDINARY GENERAL METING",
+    "EXTRA-OIRDINARY GENERAL MEETING",
+    "EXTRA ORDINARY ANNUAL GENERAL MEETING",
+    "ANNUALGENERAL MEETING",
+    "MEETING OF EQUITY SHAREHOLDERS",
+    "Extra General Meeting", "Entra Ordinary General Meeting", "Extra-Ordinary General Meting", "Extra-Oirdinary General Meeting", "Extra Ordinary Annual General Meeting", "Annualgeneral Meeting", "Meeting Of Equity Shareholders", "Buy-Back",
             "AGM", "agm.", "25th  AGM", "Annual General Meeting (Purpose Revised)", "EGM",
             "Extra Oridinary General Meeting",
             "Extra-Ordinary General Meeting", "Annual Book Closure", "Annual Closure (BC Dates Revised)",
@@ -444,6 +460,7 @@ mod tests {
             assert!(is_informational_purpose(purpose), "{purpose}");
         }
         for purpose in [
+            "Annual General Meeting/ Change In Register", "Buy-Back Rs 2", "Meeting Of Equity Shareholders/Dividend Rs 2",
             "", "AGM/Dividend - Rs 2 Per Share", "AGM And Bonus 1:1", "AGM Revised", "Spl Div",
             "Bonus 1:1", "Fv Splt Frm Rs 10 To Re 1", "1234TH AGM", "Interest Payment And Redemption",
             "Aanual General Meeting/ Diviednd Rs 0.50 Per Share", "Interest Payment - Rs 5.659 Per Unit",

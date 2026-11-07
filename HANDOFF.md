@@ -1,5 +1,13 @@
 # Handoff — immediate resume point
 
+## Corporate Actions: factual deferred reasons and wording (7 November 2026, IST)
+
+- **Resume:** implementation on `feat/ca-later-reason-20261107`, from merged `44bbf21`. User runtime feedback on the previous build: Load & Validate 7m27s, Issues 153 (NSE 91), internal Later 14,963. Portable rebuild needed: `npm run tauri:portable:win`.
+- **Changes:** deferred Status cells show recorded evidence blockers or reasons derived from instrument activity, action type and exact purpose terms. Filter is Deferred types; summary is Deferred. The internal Later classifier and exclusion from Issues remain. Unit interest receives the distribution reason. Parser adds Interim Divdend, Annual General Me0etingdividend and De-Merger. Informational closure adds the eight requested whole-purpose variants; financial fields and mixed unknown/financial clauses still prevent closure. Source purposes, explicit approval, backend rechecks, raw .eod files and advanced maintenance are preserved.
+- **Paths:** renderer Later helper, classic model/workspace, type summary, DatabaseToolsDialogs and Later tests; backend corporate_action_imports and informational_closure; these three owner documents.
+- **Backup:** `backups/pre_opencode_changes_20261107_150419_ca-later-reason`. Checks and logs: `tmp/fixtures/ca-later-reason-20261107/`; PASS: renderer typecheck; Vitest 562/562 in 72 files (no tmp collection); focused Rust 7/7; requested Rust 816 passed, 0 failed, 26 ignored; shared-Cargo previews PASS. Focused compilation took 1m21s. Documentation/whitespace checks run before commit.
+- **Acceptance:** rebuild and check actual Status reasons, Deferred labels, spelling reclassification and informational closure on a copy. No live approval or release build performed.
+
 ## Corporate Actions: NSE dividend wording and Later group (7 November 2026, IST)
 
 - **Resume point:** Tasks A/B implementation and automated checks are complete on `feat/ca-nse-later-group-20261107`, based on merged PR #25 (`dedde3e`). Native acceptance awaits the user's portable rebuild: `npm run tauri:portable:win`.

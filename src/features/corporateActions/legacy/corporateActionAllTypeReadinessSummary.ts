@@ -56,8 +56,8 @@ export function formatCaPendingTypeReport(summary: CaPendingTypeSummary): string
   return [
     'EOD Corporate Actions — all loaded pending actions by type',
     'Read-only diagnostic; Ready is NOT approved. Blocked means not eligible for the current approval workflow.',
-    'Later defers unsupported types or inactive instruments without closing or approving them. Pending = Ready + Blocked + Informational + Later.',
-    'Type | Not approved | Ready for explicit approval | Blocked / not ready | Informational | Later',
+    'Deferred defers unsupported types or inactive instruments without closing or approving them. Pending = Ready + Blocked + Informational + Deferred.',
+    'Type | Not approved | Ready for explicit approval | Blocked / not ready | Informational | Deferred',
     ...summary.rows.map(r => `${r.actionType} | ${r.pending} | ${r.ready} | ${r.blocked} | ${r.informational} | ${r.later}`),
     `TOTAL | ${summary.totals.pending} | ${summary.totals.ready} | ${summary.totals.blocked} | ${summary.totals.informational} | ${summary.totals.later}`,
   ].join('\n');

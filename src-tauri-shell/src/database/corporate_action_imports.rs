@@ -9438,7 +9438,7 @@ fn parse_corporate_action_purpose(purpose: &str) -> ParsedAction {
     }
 
     if normalized.contains("DEMERGER")
-        || normalized.contains("DE-MERGER")
+        || normalized.contains("DE MERGER")
         || normalized.contains("SPIN OFF")
         || normalized.contains("SPINOFF")
         || normalized.contains("ARRANGEMENT")
@@ -9938,6 +9938,15 @@ fn is_legacy_bonus_token(tokens: &[String], index: usize) -> bool {
 
 /// Only attested glued words and spelling shapes; never mutate stored source text.
 fn canonical_dividend_wording(value: &str) -> String {
+    let mut corrected = value.to_string();
+    for (start, matched) in value.to_ascii_uppercase().match_indices("ANNUAL GENERAL ME0ETINGDIVIDEND").collect::<Vec<_>>().into_iter().rev() {
+        let end = start + matched.len();
+        if (start == 0 || !value[..start].ends_with(|c: char| c.is_alphanumeric()))
+            && (end == value.len() || !value[end..].starts_with(|c: char| c.is_alphanumeric())) {
+            corrected.replace_range(start..end, "Annual General Meetingdividend");
+        }
+    }
+    let value = corrected.as_str();
     let mut output = String::new();
     let mut copied = 0;
     let mut previous: Option<(usize, usize)> = None;
@@ -9961,7 +9970,7 @@ fn canonical_dividend_wording(value: &str) -> String {
             "INTERIMDIVIDEND" => Some((start, "Interim Dividend")),
             "MEETINGDIVIDEND" if normalize_text(&value[..start]).split_whitespace().rev().take(2).eq(["GENERAL", "ANNUAL"]) => Some((start, "Meeting Dividend")),
             "LDIVIDEND" if preceding.is_some_and(|(a, b)| value[a..b].eq_ignore_ascii_case("SPECIA")) => Some((preceding.unwrap().0, "Special Dividend")),
-            "DIVIDNED" | "DIVIDED" | "DIVIDEN" if after_interim => Some((start, "Dividend")),
+            "DIVDEND" | "DIVIDNED" | "DIVIDED" | "DIVIDEN" if after_interim => Some((start, "Dividend")),
             "DIVIDND" => Some((start, "Dividend")),
             _ => None,
         };
@@ -11335,6 +11344,9 @@ mod tests {
     fn ca_later_exact_dividend_wording_is_canonical_only() {
         for (purpose, cash) in [
             ("Annual General Meetingdividend - Rs 2.5 Per Share", 2.5),
+            ("Interim Divdend", 0.0),
+            ("Interim Divdend - Rs 2 Per Share", 2.0),
+            ("Annual General Me0etingdividend - Rs 2 Per Share", 2.0),
             ("Interimdividend - Re 0.50", 0.5),
             ("Specia Ldividend - Rs 850", 850.0),
             ("Interim Dividned - Rs 2 Per Share", 2.0),
@@ -11389,6 +11401,7 @@ mod tests {
     #[test]
     fn ca_l1_demerger_parse_never_guesses_a_price_factor() {
         for purpose in [
+            "De-Merger",
             "Demerger",
             "Scheme of Arrangement - Demerger 1:1",
             "Demerger - cost of acquisition 35.5%",
