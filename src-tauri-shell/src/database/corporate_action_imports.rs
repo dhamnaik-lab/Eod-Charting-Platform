@@ -9939,6 +9939,9 @@ fn canonical_purpose(value: &str) -> String {
         })
         .collect::<Vec<_>>()
         .join(" ")
+        // Keep the `/-` currency suffix ("Rs 10/- Per Share") together, so
+        // `split_compound_action_segments` does not treat its `/` as a delimiter.
+        .replace(" / -", "/-")
 }
 
 /// Normalized-text form of `canonical_purpose` for family detection.
@@ -10323,6 +10326,9 @@ mod tests {
             while std::time::Instant::now() < deadline {
                 match listener.accept() {
                     Ok((mut stream, _)) => {
+                        // On Windows an accepted socket inherits the listener's
+                        // non-blocking mode; reads must block until the request arrives.
+                        stream.set_nonblocking(false).unwrap();
                         stream.set_read_timeout(Some(Duration::from_secs(1))).unwrap();
                         // Read the complete header before closing the socket. Closing
                         // with unread request bytes causes Windows to send a reset.
@@ -11229,6 +11235,8 @@ mod tests {
             ("Fv Spl-Rs10tore1/Bon-3:2", 10.0, 2.5),
             ("Bon 1:1/Fv Spl Rs.5tors.2", 2.5, 2.0),
             ("Fv Spl-10 To 5 / Bon 1:2", 2.0, 1.5),
+            // PR #25 review: the `/-` currency suffix must not split the purpose.
+            ("Bonus 1:1 / Fv Splt Frm Rs 10/- Per Share To Rs 5/- Per Share", 2.0, 2.0),
         ] {
             let whole = parse_corporate_action_purpose(purpose);
             assert_eq!(whole.parse_status, "NEEDS_REVIEW", "{purpose}");

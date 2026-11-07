@@ -100,9 +100,28 @@ pub(super) fn evaluate(
     let Some(validation) = load_latest_official_split_bonus_validation(connection, row.id)? else {
         return Ok(false);
     };
-    Ok(validation.scan_status == "MATCHED"
-        && validation.symbol.as_deref() == Some(suggestion.symbol.as_str())
-        && is_split_bonus_validation_current(connection, row, &validation)?)
+    if validation.scan_status != "MATCHED"
+        || validation.symbol.as_deref() != Some(suggestion.symbol.as_str())
+        || !is_split_bonus_validation_current(connection, row, &validation)?
+    {
+        return Ok(false);
+    }
+    // The saved scan must still match today's authoritative EOD bars. A price
+    // correction or deletion after the scan removes the proof (fail closed).
+    let folder = database_folder(connection)?;
+    Ok(price_validation_freshness::ensure_scan_uses_current_price_window(connection, &folder, row).is_ok())
+}
+
+/// Folder of the open database file. An in-memory database has no file, so its
+/// bars come only from SQL tables; the temp folder holds no `.eod` files for it.
+fn database_folder(connection: &Connection) -> AppResult<std::path::PathBuf> {
+    let file: String = connection
+        .query_row("SELECT file FROM pragma_database_list WHERE name='main'", [], |r| r.get(0))
+        .map_err(|error| error.to_string())?;
+    Ok(match Path::new(&file).parent() {
+        Some(parent) if !file.trim().is_empty() => parent.to_path_buf(),
+        _ => std::env::temp_dir(),
+    })
 }
 
 #[cfg(test)]
@@ -130,7 +149,10 @@ mod tests {
         .unwrap();
         c.execute_batch(
             "INSERT INTO scan_runs(scope,action_types,started_at,status)
-               VALUES ('official_imports','SPLIT,BONUS','2015-03-20T00:00:00Z','COMPLETED');",
+               VALUES ('official_imports','SPLIT,BONUS','2015-03-20T00:00:00Z','COMPLETED');
+             INSERT INTO eod_prices(symbol,exchange,date,open,high,low,close)
+               VALUES ('SPLITCO','NSE','2015-03-18',990,1010,980,1000),
+                      ('SPLITCO','NSE','2015-03-19',250,255,245,248);",
         )
         .unwrap();
         c.execute(
@@ -209,6 +231,16 @@ mod tests {
         let c = fixture(COMBINED, "BONUS", 2.0, "MATCHED");
         c.execute("DELETE FROM corporate_action_scan_results", []).unwrap();
         assert!(!proven(&c));
+    }
+
+    #[test]
+    fn pr25_split_isin_price_proof_rejects_prices_changed_after_scan() {
+        let c = fixture(COMBINED, "BONUS", 2.0, "MATCHED");
+        assert!(proven(&c));
+        c.execute("UPDATE eod_prices SET close=260 WHERE symbol='SPLITCO' AND date='2015-03-19'", []).unwrap();
+        assert!(!proven(&c), "corrected bar removes the proof");
+        c.execute("DELETE FROM eod_prices WHERE symbol='SPLITCO' AND date='2015-03-19'", []).unwrap();
+        assert!(!proven(&c), "deleted bar removes the proof");
     }
 
     #[test]
