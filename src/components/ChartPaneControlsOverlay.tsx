@@ -6,7 +6,7 @@ import type {
   OverlayIndicator,
   PaneScaleOverrides,
 } from '@/engine/types';
-import { getDefaultIndicatorAlertPresetForIndicator } from '@/features/alerts/indicatorAlertContracts';
+import { getDefaultIndicatorAlertPresetForIndicator, getIndicatorAlertSourceUnsupportedReason } from '@/features/alerts/indicatorAlertContracts';
 import { getCompactIndicatorDisplayLabel } from '@/indicators/catalog';
 import { CustomFormulaDialog } from './CustomFormulaDialog';
 import { IndicatorSettingsDialog } from './IndicatorSettingsDialog';
@@ -66,6 +66,7 @@ export function ChartPaneControlsOverlay({
         const isVisible = indicator.visible !== false;
         const hasManualScaleOverride = Boolean(paneScaleOverrides[indicator.id]);
         const canCreateAlert = Boolean(getDefaultIndicatorAlertPresetForIndicator(indicator));
+        const alertSourceReason = getIndicatorAlertSourceUnsupportedReason(indicator);
         const canMoveUp = index > 0;
         const canMoveDown = index < paneIndicators.length - 1;
         const safeId = indicator.id.replace(/[^a-zA-Z0-9]/g, '');
@@ -183,6 +184,17 @@ export function ChartPaneControlsOverlay({
                       >
                         !
                       </button>
+                    ) : alertSourceReason ? (
+                      <span title={alertSourceReason}>
+                        <button
+                          type="button"
+                          style={paneActionButtonStyle}
+                          aria-label={alertSourceReason}
+                          disabled
+                        >
+                          !
+                        </button>
+                      </span>
                     ) : null}
                   </>
                 )}
