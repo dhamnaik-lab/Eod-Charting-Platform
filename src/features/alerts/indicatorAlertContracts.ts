@@ -130,9 +130,31 @@ export function getDefaultIndicatorAlertPresetDefinition(): IndicatorAlertPreset
   return preset;
 }
 
+/**
+ * Alert series keys encode the formula parameters but not its input series.
+ * Reject chart studies with non-Close or chained inputs rather than creating
+ * a rule that would silently evaluate the Close-based alert series.
+ */
+export function getIndicatorAlertSourceUnsupportedReason(indicator: ChartIndicator): string | null {
+  if (getIndicatorAlertOutputContractsByKind(indicator.kind).length === 0) {
+    return null;
+  }
+  const configured = indicator as ChartIndicator & { source?: string; sourceIndicatorId?: string };
+  if (configured.sourceIndicatorId) {
+    return 'Indicator alerts do not support chained sources. Remove the source indicator and select Close.';
+  }
+  if (configured.source && configured.source !== 'close') {
+    return `Indicator alerts support Close only; ${indicator.kind} uses ${configured.source}. Select Close in indicator settings.`;
+  }
+  return null;
+}
+
 export function getDefaultIndicatorAlertPresetForIndicator(
   indicator: ChartIndicator,
 ): IndicatorAlertPresetDefinition | null {
+  if (getIndicatorAlertSourceUnsupportedReason(indicator)) {
+    return null;
+  }
   const contracts = getIndicatorAlertOutputContractsByKind(indicator.kind);
   const defaultContract = contracts.find((contract) => contract.defaultPresetId);
   if (!defaultContract?.defaultPresetId) {
