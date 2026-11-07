@@ -944,10 +944,6 @@ function renderTabPanel(
             max={500}
             onChange={(val) => setDraft((prev) => ({ ...prev, offset: Number(val) || 0 }))}
           />
-          <TimeframeField
-            value={draft.timeframe ?? 'D'}
-            onChange={(val) => setDraft((prev) => ({ ...prev, timeframe: val }))}
-          />
         </div>
       </>
     );
@@ -1655,31 +1651,6 @@ function OpacityField({
         onChange={(event) => onChange(Number(event.target.value) / 100)}
         style={{ width: '100%', accentColor: 'var(--accent)' }}
       />
-    </label>
-  );
-}
-
-function TimeframeField({
-  value,
-  onChange,
-}: {
-  value: import('@/engine/types').ChartTimeframe | undefined;
-  onChange: (value: import('@/engine/types').ChartTimeframe) => void;
-}) {
-  return (
-    <label style={fieldStyle}>
-      <span>Timeframe</span>
-      <select
-        value={value ?? 'D'}
-        onChange={(event) => onChange(event.target.value as import('@/engine/types').ChartTimeframe)}
-        style={selectFieldStyle}
-      >
-        <option value="D">Same as Chart (Daily)</option>
-        <option value="W">Weekly (W)</option>
-        <option value="M">Monthly (M)</option>
-        <option value="Q">Quarterly (Q)</option>
-        <option value="Y">Yearly (Y)</option>
-      </select>
     </label>
   );
 }
