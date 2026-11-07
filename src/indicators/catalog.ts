@@ -1819,9 +1819,8 @@ export function getIndicatorDisplayLabel(indicator: ChartIndicator): string {
   if (overlayInd.offset) {
     extraTags.push(overlayInd.offset > 0 ? `+${overlayInd.offset}` : `${overlayInd.offset}`);
   }
-  if (overlayInd.timeframe && overlayInd.timeframe !== 'D') {
-    extraTags.push(overlayInd.timeframe);
-  }
+  // Legacy per-indicator timeframe metadata is not a calculation setting.
+  // Do not label the chart-bar calculation as a higher-timeframe study.
 
   if (extraTags.length > 0) {
     return `${label} [${extraTags.join(', ')}]`;
