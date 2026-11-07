@@ -1,0 +1,19 @@
+Project root: E:\TA Projects\EOD Charting Platform. Follow AGENTS.md exactly. Start from updated main (git switch main; git pull origin main) only if PR for feat/ca-later-reason-20261107 is merged; otherwise continue on that branch. New branch: feat/ca-nse-remaining-20261107. Leave other agents' uncommitted files untouched and unstaged. Use the read-only copy tmp/fixtures/ca-diagnosis-20261107/market-data.sqlite3 (SHA-256 774555A7FE16A67963F1034974B66D8AE90394CE0ECE0D9AA1ED5594157FCDE7) for any diagnosis; never open "EOD DATABASE".
+
+Runtime state after rebuild: blocked 140 (Split 33, Bonus 29, Other 78); NSE Issues 77.
+
+TASK 1 - meeting wording by RULE, not by list (informational_closure.rs, with tests and negatives):
+Close an OTHER row (no financial fields) when its whole purpose, after removing punctuation, is only meeting words: an optional ordinal, optional EXTRA/EXTRAORDINARY-like word, optional ANNUAL-like word, GENERAL, and a MEETING-like word, optionally followed by AGM/EGM and an existing revised note. "-like" means edit distance <= 2 to the real word and same first letter (catches Meting, Meetin, Meeeting, Meeing, Annaul, Annnual, Entra, Oirdinary, "Meetingagm"). Also close "Buy Back Of Share". Reject anything that contains a number, a currency (RS/RE/INR), or any financial word (DIV*, BONUS, BON, SPLIT, SPL, RIGHT, DEMERG*, AMALGAM*, MERGER, REDUCTION, CONSOLID*, DISTRIBUTION, INTEREST, REDEMPTION).
+
+TASK 2 - meeting + money becomes DIVIDEND (parser, purpose_raw never rewritten, tests):
+A meeting-like prefix followed by "/" or "-" and either a dividend-like word (Dividend, Divided, Dividen, Ivdend, Divdend, Dividnd; edit distance <= 2 to DIVIDEND) or "Re/Rs <amount> Per Share" is read as DIVIDEND with that cash amount. Never invent an amount.
+
+TASK 3 - read-only diagnosis of the 7 NSE price mismatches (SBIN 2014-11-20 Split 10->1, BRITANNIA 2010-09-08 Split 10->2 and 2010-03-08 Bonus 1:1, JMFINANCIL 2008-09-08 Bonus 3:2 + Split 10->1, AJANTPHARM 2013-09-17 Bonus 1:2, NAVKARURB 2025-05-09 Split 2->1). For each, show prev close, ex open/close, the expected factor and the actual jump, and say if the local history already looks adjusted (no jump at the ex-date), if the date is off by one or more sessions, or if the ratio differs. Do NOT change any approval rule. Only if the evidence shows "history already adjusted" for a row, propose (do not implement) a safe rule and stop for user approval.
+
+TASK 4 - read-only diagnosis of identity rows JSWSTEEL 2017-01-04, PCBL 2018-04-19, CGCL 2016-11-23, AVANTIFEED 2018-06-26: report exactly which check in split_isin_price_proof::evaluate (or the identity chain) fails, with the ISINs and owners involved. Do not loosen rules.
+
+Never approve automatically. Keep backend rechecks, raw .eod immutability, advanced maintenance UI. CRLF line endings. Back up first with scripts/create-project-backup.ps1 (-Paths as separate array items).
+
+VALIDATION serially: npm.cmd run typecheck:renderer; npx.cmd vitest run --dir src src/features/corporateActions (fail if " tmp/" appears); shared Cargo runner Preview then Run with the usual 7 filters and --jobs 2. Baseline: vitest 562, Rust 816. Report PASS/FAIL with counts.
+
+DELIVERABLES: code + tests for Tasks 1-2; a report for Tasks 3-4 saved under tmp/fixtures/ca-diagnosis-20261107/; update HANDOFF.md top CA section, NEXT_THREAD_PROMPT_EOD_CHARTING_PLATFORM.md, ARCHITECTURE_CURRENT_EOD_CHARTING_PLATFORM.md; commit only your files, push the branch (never main). Say a portable rebuild is needed.
