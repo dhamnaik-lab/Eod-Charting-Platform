@@ -38,10 +38,19 @@ No executable styles, layout, rendering, keyboard shortcuts, mouse behavior, act
 | Static JS assertion against exact checked GitHub CSS | **PASS** — old test matcher fails; new matcher passes; theme override present |
 | Static negative-control check (replace `button:focus-visible` with `button:focus`) | **PASS** — new matcher rejects missing focus-visible selector |
 | Updated GitHub test blob verified after commit | **PASS** — `74c721214b678257c6121768cbf7ecfd6cf6928c` |
-| `npm test -- src/features/app/__tests__/sidebarKeyboardFocus.test.ts` | **NOT RUN in a dedicated command**; inspect GitHub CI per-file result below |
-| Full GitHub renderer CI against this change | **PENDING at initial documentation commit**; update this record with real run evidence |
-| `npm run typecheck:renderer` / `npm run build:renderer` | **PENDING** for this branch in CI |
+| `npm test -- src/features/app/__tests__/sidebarKeyboardFocus.test.ts` | **NOT RUN as a separate command**; full GitHub Vitest suite executed this exact file: **PASS (3/3)** |
+| Full GitHub renderer CI against this change | **FAIL overall:** run #42393143002 on `ff9823c064e651f8b2650516c644be44374f433b`: 7 failed, 1,450 passed, 1 skipped; focus suite 3 passed |
+| `npm run typecheck:renderer` / `npm run build:renderer` | **PASS / PASS** in run #42393143002 (Vite build 3.95 s) |
 | Rust, Tauri Windows portable build, keyboard manual visual check | **NOT RUN** (unmodified Rust/native/renderer CSS; manual focus remains user checkpoint) |
+
+### Source of actual automated results
+
+- First branch run: https://github.com/dhamnaik-lab/Eod-Charting-Platform/actions/runs/42393143002
+- Commit under test: `ff9823c064e651f8b2650516c644be44374f433b`.
+- Focus test output: `✓ src/features/app/__tests__/sidebarKeyboardFocus.test.ts (3 tests) 2ms`; no failing tests in that file.
+- Full renderer Vitest output: `Test Files 2 failed | 218 passed | 1 skipped (221)` and `Tests 7 failed | 1450 passed | 1 skipped (1458)`.
+- Remaining errors are unchanged identity-recovery tests: six `ReferenceError: IdentityImportWorkspace is not defined` and one source-string expectation for `Find Official Replacement Candidates`.
+- Native/Windows manual verification remains NOT RUN. The final documentation commit will trigger another CI run; its result must be checked before calling this branch validated.
 
 ## Risks / limitations
 
