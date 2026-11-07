@@ -166,5 +166,133 @@
   {
     "purposeRaw": "",
     "informational": false
+  },
+  {
+    "purposeRaw": "Annual Gemeral Meeting",
+    "informational": true
+  },
+  {
+    "purposeRaw": "Annual Xeneral Meeting",
+    "informational": false
+  },
+  {
+    "purposeRaw": "Annual G Meeting",
+    "informational": false
+  },
+  {
+    "purposeRaw": "Annual General Meeting (Revised)",
+    "informational": true
+  },
+  {
+    "purposeRaw": "Annual General Meeting (Book Closure)",
+    "informational": true
+  },
+  {
+    "purposeRaw": "Annual General Meeting (Book Closure Dates Revised)",
+    "informational": true
+  },
+  {
+    "purposeRaw": "Annual General Meeting (Agm & Book Closure Start Date Revised)",
+    "informational": true
+  },
+  {
+    "purposeRaw": "Annual General Meeting (Agm And Book Closure Dates Revised)",
+    "informational": true
+  },
+  {
+    "purposeRaw": "Annual General Meeting (Book Closure Dates & Agm Dates Revised)",
+    "informational": true
+  },
+  {
+    "purposeRaw": "Annual General Meeting (Book Closure Dividend Revised)",
+    "informational": false
+  },
+  {
+    "purposeRaw": "Annual General Meeting (Book Closure Rs 2)",
+    "informational": false
+  },
+  {
+    "purposeRaw": "Annual General Meeting (Agm And Book Closure Bonus 1:1)",
+    "informational": false
+  },
+  {
+    "purposeRaw": "Buy-Back Of Shares",
+    "informational": true
+  },
+  {
+    "purposeRaw": "Buy Back - Tender Offer",
+    "informational": true
+  },
+  {
+    "purposeRaw": "Buy Back - Tender Offer / Interim Dividend - Re 1/- Per Share",
+    "informational": false
+  },
+  {
+    "purposeRaw": "Buyback Of Bonds",
+    "informational": true
+  },
+  {
+    "purposeRaw": "Payment Of Amt Of Buyback",
+    "informational": true
+  },
+  {
+    "purposeRaw": "Payment Of Amount Of Buyback To Bondholders",
+    "informational": true
+  },
+  {
+    "purposeRaw": "Payment Of Interest & Buyback Amount To Bondholders",
+    "informational": true
+  },
+  {
+    "purposeRaw": "Payment Of Interest And Buyback Amount To Bondholders",
+    "informational": true
+  },
+  {
+    "purposeRaw": "Payment Of Interest & Buyback Amount To Bondholders Rs 2",
+    "informational": false
+  },
+  {
+    "purposeRaw": "Payment Of Amt Of Buyback Re 1",
+    "informational": false
+  },
+  {
+    "purposeRaw": "Payment Of Amount Of Buyback To Bondholders INR 2",
+    "informational": false
+  },
+  {
+    "purposeRaw": "Buyback Of Bonds 10",
+    "informational": false
+  },
+  {
+    "purposeRaw": "Buyback Of Bonds Rs",
+    "informational": false
+  },
+  {
+    "purposeRaw": "Payment Of Interest & Buyback Amount To Bondholders / Dividend Rs 2",
+    "informational": false
+  },
+  {
+    "purposeRaw": "Payment Of Amount Of Buyback To Equity Shareholders",
+    "informational": false
+  },
+  {
+    "purposeRaw": "Payment Of Amt Of Buyback And Bonus",
+    "informational": false
+  },
+  {
+    "purposeRaw": "Payment Of Interest",
+    "informational": false
+  },
+  {
+    "purposeRaw": "Annual General Meeting- Re 0.85 Per Share",
+    "informational": false
+  },
+  {
+    "purposeRaw": "For Distribution Of Chennai Super Kings Cricket Limited Shares To The Shareholders Of India Cements",
+    "informational": false
+  },
+  {
+    "purposeRaw": "AGM Revised",
+    "informational": false
   }
 ]

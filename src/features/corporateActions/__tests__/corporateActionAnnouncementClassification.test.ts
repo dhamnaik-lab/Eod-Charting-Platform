@@ -11,6 +11,15 @@ const cases = JSON.parse(readFileSync(
 )) as { purposeRaw: string; informational: boolean }[];
 
 describe('Backend/renderer informational closure parity', () => {
+  it('keeps the newly accepted meeting/bond notices unclosed when financial fields exist', () => {
+    for (const purposeRaw of ['Annual Gemeral Meeting', 'Annual General Meeting (Revised)',
+      'Buyback Of Bonds', 'Payment Of Amt Of Buyback', 'Payment Of Interest & Buyback Amount To Bondholders']) {
+      for (const field of ['cashAmount', 'factor', 'priceFactor', 'ratioNum', 'ratioDen', 'oldFaceValue', 'newFaceValue']) {
+        expect(isInformationalCorporateAnnouncement({ actionType: 'OTHER', purposeRaw, [field]: 2 }), `${purposeRaw}/${field}`).toBe(false);
+      }
+    }
+  });
+
   it('classifies the same shared rows as the Rust backend and preserves queue accounting', () => {
     for (const { purposeRaw, informational } of cases) {
       const row = { id: 1, actionType: 'OTHER' as const, purposeRaw, reviewStatus: 'UNSUPPORTED', approvedCorporateActionId: null };
