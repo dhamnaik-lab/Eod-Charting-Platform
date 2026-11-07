@@ -1,5 +1,12 @@
 # Current architecture — EOD Charting Platform
 
+Corporate Actions identity boundary: `dated_symbol_chain` proves historical
+DIVIDEND identity for a current same-symbol import through a multi-edge official
+rename chain. It does not retarget an old-symbol Split to a new symbol.
+`split_isin_price_proof` also requires the same active symbol; dated price routing
+does not itself authorize cross-symbol financial adjustment. See the
+[A1 evidence and unsupported route](docs/plans/2026-11-08_CA_A1_IDENTITY_FINDINGS.md).
+
 ## Runtime composition
 
 The active desktop entry is [src-tauri-shell/src/main.rs](src-tauri-shell/src/main.rs), using Tauri 2 commands and native menu events. The browser renderer enters at [src/main.tsx](src/main.tsx) → [src/RootApp.tsx](src/RootApp.tsx); React components, Zustand stores, feature services, chart engine, and plugin host live under `src/`. Configuration authority: [package.json](package.json), [vite.config.mts](vite.config.mts), [tsconfig.json](tsconfig.json), [Tauri config](src-tauri-shell/tauri.conf.json), and [Rust manifest](src-tauri-shell/Cargo.toml).

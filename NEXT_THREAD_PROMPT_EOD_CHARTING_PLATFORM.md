@@ -4,6 +4,8 @@
 
 ## Running phases
 
+**Corporate Actions Phase A, A1 (user assigned 8 November 2026):** evidence and fail-closed regression on `feat/ca-identity-gaps-20261108` from main `bc47208`; see [A1 findings](docs/plans/2026-11-08_CA_A1_IDENTITY_FINDINGS.md). AVANTI link absent from current official symbol-change file; GUJ rename verified but existing dated-chain proof cannot route the historical Split; PCBL history begins 2022-01-13. A1 remains open for a reviewed cross-symbol proof extension and missing copied price evidence. No production rule change or app rebuild. Next work stays within A1 until the user changes scope.
+
 Final NSE Tasks 1–2 are implemented on `feat/ca-nse-final-20261108` from updated main `31487aa` (includes `61bb494`): Task 1 diagnosis stays disk-only under the ignored fixture; Task 2 adds the requested meeting/buyback/bond wording, 0.85 cash regression and named CSK share-distribution Deferred reason. Backend/renderer share 74 parity cases with financial-field/mixed-purpose negatives. No unsupported identity/activity override, financial approval or raw-price mutation. Final checks PASS: renderer typecheck; Vitest 567/567; focused Rust 4/4; seven-filter Rust 827 passed, 0 failed, 26 ignored. Both shared-Cargo previews PASS; `--jobs 2`. The bare `AGM Revised` negative remains rejected. See the top CA handoff for backup, exact local report path and missing copied price files.
 
 **Corporate Actions Tasks A/B (7 November 2026):** diagnosis and automated verification are complete; runtime acceptance for NSE wording and Later is pending the portable rebuild. Other running-phase assignments await user confirmation.

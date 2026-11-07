@@ -1,5 +1,15 @@
 # Handoff — immediate resume point
 
+## Corporate Actions: A1 identity evidence and unsupported split route (8 November 2026, IST)
+
+- **Resume:** A1 only on `feat/ca-identity-gaps-20261108`, based on updated main `bc47208`, in `E:\TA Projects\EOD Charting Platform CA A1`. Shared-checkout chart edits prevent switching it to main; they remain untouched. A1 routing acceptance is **not complete**.
+- **Findings:** fresh official NSE symbolchange.csv (1,080 rows, SHA-256 `6937337dd726222cd6bb5c8af9964073d215a84f28e7edecf1861f25fd3fd66f`) contains no AVANTI/AVANTIFEED edge. It confirms GUJGASLTD → GUJENERGY on 2026-07-01. Existing dated-chain identity proof is DIVIDEND-only, same-symbol and multi-edge; it does not route this old-symbol Split. PCBL copied EOD1 hash matches its supplied manifest and starts 2022-01-13 (1,167 records), so its 2018 event stays Needs you: no price data.
+- **Changes:** one Rust regression guards the GUJ split against borrowing dividend-chain authority; [A1 findings](docs/plans/2026-11-08_CA_A1_IDENTITY_FINDINGS.md) records source, limits and the required reviewed extension. No production logic, automatic approval, source identifiers, `purpose_raw`, raw prices or live database changed.
+- **Evidence:** original root `tmp/fixtures/ca-a1-20261108/`. Existing supplied SQLite opened immutable/query-only, SHA-256 unchanged. Four copied AVANTI/AVANTIFEED/GUJGASLTD/GUJENERGY price files remain missing. No live counts or price eligibility certified.
+- **Backup:** worktree `backups/pre_opencode_changes_20261108_031830_ca-a1-identity-gaps` (5 files); original root `backups/pre_opencode_changes_20261108_031831_ca-a1-test-mirror` (1 file). The exact A1 test patch is mirrored into the original checkout solely for the root-pinned shared Cargo wrapper; validation there covers the combined local tree, not the exact PR tree.
+- **Checks:** shared-Cargo focused preview/run PASS (1 passed, 0 failed; compile/link 1m14s); renderer typecheck PASS; Vitest PASS (567 tests, 73 files, no tmp collection); seven-filter shared-Cargo preview/run PASS (828 passed, 0 failed, 26 ignored). Root target reused, `--jobs 2`; no release/portable build. Scoped whitespace and UTF-8/CRLF PASS (6/6 files). Docs profile FAIL: 3 inherited HANDOFF references to ignored reports absent from the clean worktree (all exist in the original checkout).
+- **User acceptance:** no rebuild needed for tests/docs only. Do not approve these cases from this report. Supply hash-checked copies of the four missing EOD files and review the proposed cross-symbol Split/Bonus extension before implementation. Preserve the current blocks meanwhile.
+
 ## Corporate Actions: final NSE wording and copy-only diagnosis (8 November 2026, IST)
 
 - **Resume:** `feat/ca-nse-final-20261108`, from fast-forwarded main `31487aa` (includes required `61bb494`). User rebuilt runtime baseline: Ready 1 (CGCL 2016), Issues 115 (NSE 53/BSE 62). Portable rebuild needed after these runtime changes: `npm run tauri:portable:win`.
