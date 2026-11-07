@@ -58,7 +58,7 @@ const bars: OHLCBar[] = Array.from({ length: 95 }, (_, index) => {
   };
 });
 const alertBars = bars.map((bar) => ({ ...bar, symbol: 'TEST' }));
-const instrument = { exchange: 'NSE', symbol: 'TEST' };
+const instrument = { exchange: 'NSE' as const, symbol: 'TEST' };
 
 function paneControlsMarkup(indicator: OverlayIndicator): string {
   return renderToStaticMarkup(createElement(ChartPaneControlsOverlay, {
