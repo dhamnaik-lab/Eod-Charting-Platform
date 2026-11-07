@@ -9,6 +9,24 @@ const row = (actionType: CorporateActionImportRow['actionType'], purposeRaw = ''
   ({ id: 1, actionType, purposeRaw, reviewStatus: 'PENDING', parseStatus: 'PARSED', approvedCorporateActionId: null, ...extra } as CorporateActionImportRow);
 
 describe('Later is display/readiness only', () => {
+  it('defers Deb/Debs including glued ratios, with factual reasons and no word-prefix matches', () => {
+    for (const purpose of ['Sch Of Agmt- Bonus Deb1:1', 'Bonus Debs1:1', 'Bonus Deb 1:1',
+      'Bonus Debs 1:1', 'Split Deb1:2', 'Bonus debs1:2']) {
+      const input = row(purpose.startsWith('Split') ? 'SPLIT' : 'BONUS', purpose);
+      const before = JSON.stringify(input);
+      expect(isLaterCorporateAction(input), purpose).toBe(true);
+      expect(deferredCorporateActionReason(input), purpose).toBe('Non-equity terms (debenture/preference/DVR)');
+      expect(immediateCorporateActionValidationRows([input]), purpose).toEqual([]);
+      expect(JSON.stringify(input)).toBe(before);
+    }
+    for (const word of ['Debt', 'Debit', 'Debut', 'Debtors', 'Indebted', 'Deb1Dvr']) {
+      const input = row('BONUS', `Bonus ${word} 1:1`);
+      expect(isLaterCorporateAction(input), word).toBe(false);
+      expect(deferredCorporateActionReason(input), word).toBe('Requires review');
+      expect(immediateCorporateActionValidationRows([input]), word).toEqual([input]);
+    }
+  });
+
   it('shows factual reasons and preserves recorded evidence blockers', () => {
     expect(deferredCorporateActionReason(row('DIVIDEND'))).toContain('verification deferred');
     expect(deferredCorporateActionReason(row('DIVIDEND'), 'Awaiting official source evidence')).toBe('Awaiting official source evidence');

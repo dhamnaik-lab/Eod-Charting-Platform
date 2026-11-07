@@ -22,7 +22,10 @@ pub(super) fn blocker(purpose: &str) -> Option<(&'static str, &'static str)> {
         return None;
     };
 
-    let reason = if ["DEBENTURE", "DEBENTURES"].iter().any(|marker| has(marker)) {
+    let debenture_abbreviation = normalized.split_whitespace().any(|token| {
+        matches!(token.trim_end_matches(|ch: char| ch.is_ascii_digit()), "DEB" | "DEBS")
+    });
+    let reason = if debenture_abbreviation || ["DEBENTURE", "DEBENTURES"].iter().any(|marker| has(marker)) {
         Some("UNSUPPORTED_SECURITY_TYPE: Debenture terms require a separate policy; an equity Split/Bonus factor cannot be inferred.")
     } else if ["NCRPS", "CRPS", "CCPS", "OCPS", "PREFERENCE", "PREFERRED"]
         .iter()

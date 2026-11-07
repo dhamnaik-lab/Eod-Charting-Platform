@@ -35,6 +35,23 @@ fn insert(c: &Connection, id: i64, action: &str, status: &str, purpose: &str) {
 }
 
 #[test]
+fn ca_nse_remaining_deb_abbreviations_reject_non_equity_without_word_prefix_matches() {
+    for purpose in ["Sch Of Agmt- Bonus Deb1:1", "Bonus Debs1:1", "Bonus Deb 1:1",
+        "Bonus Debs 1:1", "Split Deb1:2", "Bonus debs1:2"] {
+        let parsed = parse_corporate_action_purpose(purpose);
+        assert_eq!(parsed.parse_status, "NEEDS_REVIEW", "{purpose}");
+        assert_eq!(parsed.factor, None, "{purpose}");
+        assert_eq!(parsed.price_factor, None, "{purpose}");
+        assert!(parsed.message.unwrap().starts_with("UNSUPPORTED_SECURITY_TYPE: Debenture"), "{purpose}");
+    }
+    for word in ["Debt", "Debit", "Debut", "Debtors", "Indebted", "Deb1Dvr"] {
+        let purpose = format!("Bonus {word} 1:1");
+        assert!(split_bonus_terms::blocker(&purpose).is_none(), "{purpose}");
+        assert_eq!(parse_corporate_action_purpose(&purpose).factor, Some(2.0), "{purpose}");
+    }
+}
+
+#[test]
 fn stage2a_nonordinary_securities_never_parse_as_equity_adjustments() {
     for (purpose, reason) in [
         (
