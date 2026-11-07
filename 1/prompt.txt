@@ -1,0 +1,18 @@
+Project root: E:\TA Projects\EOD Charting Platform. Read AGENTS.md and
+docs/plans/2026-11-08_CA_REMAINING_PLAN.md. Follow the "Rules for every phase" exactly.
+Do Phase <X>, step <Xn> only. Start from updated main on branch feat/ca-<topic>-<yyyymmdd>.
+For design steps, write the design doc and stop for user approval before code.
+Report: files changed, validation PASS/FAIL with counts, PR link, and what the user must
+rebuild or check in the app.
+
+---
+
+Start with Phase A, step A1.
+
+---
+
+yes
+
+---
+
+Approved

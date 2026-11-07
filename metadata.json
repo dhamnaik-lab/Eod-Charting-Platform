@@ -3,10 +3,17 @@
   "checkpoint_id": "01M6W5CVETAMGRFPM77H5XPBNF",
   "strategy": "manual-commit",
   "branch": "feat/ca-identity-gaps-20261108",
-  "checkpoints_count": 2,
+  "checkpoints_count": 3,
   "files_touched": [
     "HANDOFF.md",
     "src-tauri-shell/src/database.rs",
+    "src-tauri-shell/src/database/corporate_action_imports.rs",
+    "src-tauri-shell/src/database/corporate_action_imports/identity_recheck.rs",
+    "src-tauri-shell/src/database/corporate_action_imports/price_validation_freshness.rs",
+    "src-tauri-shell/src/database/corporate_action_imports/split_bonus_symbol_chain.rs",
+    "src-tauri-shell/src/database/corporate_action_imports/split_bonus_symbol_chain/tests.rs",
+    "src-tauri-shell/src/database/price_store_operation_lock.rs",
+    "src/features/corporateActions/__tests__/corporateActionPendingPreparation.test.ts",
     "src/types/desktop.ts"
   ],
   "sessions": [
@@ -16,17 +23,32 @@
       "compact_transcript": "/0/transcript.jsonl",
       "content_hash": "/0/content_hash.txt",
       "prompt": "/0/prompt.txt"
+    },
+    {
+      "metadata": "/1/metadata.json",
+      "transcript": "/1/full.jsonl",
+      "compact_transcript": "/1/transcript.jsonl",
+      "content_hash": "/1/content_hash.txt",
+      "prompt": "/1/prompt.txt"
     }
   ],
+  "token_usage": {
+    "input_tokens": 99908,
+    "cache_creation_tokens": 0,
+    "cache_read_tokens": 29489920,
+    "output_tokens": 140540,
+    "api_call_count": 138,
+    "subagent_tokens_complete": true
+  },
   "redaction": {
-    "replacements": 11,
+    "replacements": 24,
     "layers": {
       "betterleaks": 0,
       "connection_string": 0,
       "credential_key": 0,
       "credential_value": 0,
       "credentialed_uri": 0,
-      "entropy": 11,
+      "entropy": 24,
       "key_context": 0,
       "provider_token": 0,
       "shell_stdin": 0
