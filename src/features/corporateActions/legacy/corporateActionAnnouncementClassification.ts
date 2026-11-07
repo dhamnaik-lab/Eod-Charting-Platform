@@ -33,5 +33,6 @@ export function needsCorporateActionClassificationRefresh(row: CorporateActionIm
 
 export function hasCombinedSplitBonusAnnouncement(row: CorporateActionImportRow): boolean {
   return ['SPLIT', 'BONUS'].includes(row.actionType)
-    && /\bBONUS\b/i.test(row.purposeRaw) && /\b(SPLIT|SUB[ -]?DIVISION)\b/i.test(row.purposeRaw);
+    && /\bBON(?:US)?\b/i.test(row.purposeRaw)
+    && /\b(SPLIT|SPLT|SPL|SUB[ -]?DIVISION)\b/i.test(row.purposeRaw);
 }

@@ -476,8 +476,16 @@ export async function prepareCorporateActionPendingImports({
     }
   }
   // Preparation can add the missing pending component of one official Split +
-  // Bonus announcement. Re-enumerate once so matching and scans include it.
-  if (explicitApprovalOnly && loaded.rows.some(hasCombinedSplitBonusAnnouncement)) {
+  // Bonus announcement, including an OTHER row the backend just reclassified.
+  // Judge the refreshed rows, then re-enumerate once so matching and scans include it.
+  const loadedById = new Map(loaded.rows.map(row => [row.id, row]));
+  const mayHaveNewComponents = orderedIds.some(id => {
+    const row = rowsById.get(id);
+    // Only Split/Bonus announcements get a prepared companion component.
+    return row != null && (hasCombinedSplitBonusAnnouncement(row)
+      || (['SPLIT', 'BONUS'].includes(row.actionType) && row.actionType !== loadedById.get(id)?.actionType));
+  });
+  if (explicitApprovalOnly && mayHaveNewComponents) {
     const prepared = await loadAllPendingCorporateActionImports({ api, shouldContinue, onProgress, pageSize });
     const preparedIds = new Set(prepared.rows.map(row => row.id));
     if (!prepared.complete || loaded.rows.some(row => !preparedIds.has(row.id))) {
