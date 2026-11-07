@@ -932,21 +932,9 @@ function renderTabPanel(
   allIndicators: OverlayIndicator[] = [],
 ) {
   if (activeTab === 'inputs') {
-    return (
-      <>
-        {renderSchemaFields(schema.inputs, draft, setDraft, 'No editable inputs.', allIndicators)}
-        <div style={{ marginTop: 12, paddingTop: 10, borderTop: '1px solid var(--border)' }}>
-          <NumberField
-            label="Offset (bars)"
-            value={draft.offset ?? 0}
-            step="1"
-            min={-500}
-            max={500}
-            onChange={(val) => setDraft((prev) => ({ ...prev, offset: Number(val) || 0 }))}
-          />
-        </div>
-      </>
-    );
+    // Only schema-defined algorithm parameters are editable here.
+    // The generic offset field is not a supported visual bar shift.
+    return renderSchemaFields(schema.inputs, draft, setDraft, 'No editable inputs.', allIndicators);
   }
 
   if (activeTab === 'style') {
