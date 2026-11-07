@@ -50,7 +50,7 @@ import {
   type AppSettings,
 } from '@/features/app/appSettingsService';
 import { buildDrawingAlertGeometryPatch, createDrawingAlertRule, createIndicatorAlertRule } from '@/features/alerts/eodAlerts';
-import { getDefaultIndicatorAlertPresetForIndicator } from '@/features/alerts/indicatorAlertContracts';
+import { getDefaultIndicatorAlertPresetForIndicator, getIndicatorAlertSourceUnsupportedReason } from '@/features/alerts/indicatorAlertContracts';
 import { getCompactIndicatorDisplayLabel, type IndicatorCatalogId } from '@/indicators/catalog';
 import {
   buildChartScreenshotFileName,
@@ -565,6 +565,12 @@ export function ChartCanvas({
     const indicator = overlays.find((candidate) => candidate.id === indicatorId);
     if (!indicator) {
       addToast('Indicator was not found on this chart.', 'error', 'Alerts');
+      return;
+    }
+
+    const unsupportedSource = getIndicatorAlertSourceUnsupportedReason(indicator);
+    if (unsupportedSource) {
+      addToast(unsupportedSource, 'error', 'Alerts');
       return;
     }
 
