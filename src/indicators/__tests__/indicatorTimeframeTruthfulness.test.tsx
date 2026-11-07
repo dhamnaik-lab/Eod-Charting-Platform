@@ -56,8 +56,8 @@ describe('B01: indicator timeframe presentation is truthful', () => {
 
   it('retains unrelated offset-label behavior while removing legacy timeframe tags', () => {
     const withOffset: OverlayIndicator = { ...ema, offset: 2 };
-    expect(getIndicatorDisplayLabel({ ...withOffset, timeframe: 'M' }))
-      .toBe(getIndicatorDisplayLabel(withOffset));
+    const legacyWithOffset: OverlayIndicator = { ...withOffset, timeframe: 'M' };
+    expect(getIndicatorDisplayLabel(legacyWithOffset)).toBe(getIndicatorDisplayLabel(withOffset));
   });
 
   it('computes the same EMA series from the chart bars regardless of legacy timeframe metadata', () => {
