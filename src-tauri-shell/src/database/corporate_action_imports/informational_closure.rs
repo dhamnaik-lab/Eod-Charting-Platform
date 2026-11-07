@@ -69,38 +69,24 @@ pub async fn reopen_corporate_action_informational_closure(
     .map_err(|error| error.to_string())?
 }
 
-// ---- Wording rules. Mirror of the renderer list; each rule matches the WHOLE purpose,
+// ---- Backend wording rules; each rule matches the WHOLE purpose,
 // so "AGM/Dividend Rs 2" or "AGM + Bonus" stay in the financial flow.
 
-// Exact whole-purpose bodies, including spelling variants seen in official NSE/BSE rows.
-const MEETING_BODIES: [&str; 16] = [
-    "AGM",
-    "EGM",
-    "ANNUAL GENERAL MEETING",
-    "EXTRAORDINARY GENERAL MEETING",
-    "EXTRA ORDINARY GENERAL MEETING",
-    "EXTRA ORIDINARY GENERAL MEETING",
-    "EXTRA-ORDINARY GENERAL MEETING",
-    "EXTRA- ORDINARY GENERAL MEETING",
-    "EXTRA ANNUAL GENERAL MEETING",
-    "ADJOURNED ANNUAL GENERAL MEETING",
-    "ANUUAL GENERAL MEETING",
-    "ANUAL GENERAL MEETING",
-    "ANNUL GENERAL MEETING",
-    "AANUAL GENERAL MEETING",
-    "ANNUAL GENERAL MEEING",
-    "ANNUAL GENERAL METEING",
+// Legacy non-grammar notices remain exact; meeting spelling uses the grammar below.
+const MEETING_BODIES: [&str; 5] = [
+    "AGM", "EGM", "ANNUALGENERAL MEETING", "ADJOURNED ANNUAL GENERAL MEETING",
+    "MEETING OF EQUITY SHAREHOLDERS",
 ];
 const CLOSURE_BODIES: [&str; 2] = ["ANNUAL CLOSURE", "ANNUAL BOOK CLOSURE"];
-// "REDEMPTION" alone is a bond/government-security notice; equity has no redemption.
 // "-" is an official row with no purpose text and no terms.
-const NOTICE_BODIES: [&str; 17] = [
+const NOTICE_BODIES: [&str; 18] = [
     "INTEREST PAYMENT",
     "INTEREST PAYEMENT",
     "E VOTING",
     "E-VOTING",
     "EVOTING",
     "NIL",
+    "BUY-BACK",
     "BUYBACK",
     "BUY BACK",
     "BUYBACK OF SHARES",
@@ -155,7 +141,7 @@ fn strip_ordinal(text: &str) -> Option<&str> {
 }
 
 fn is_single_informational_notice(text: &str) -> bool {
-    let meeting = |value: &str| matches_bodies(value, &MEETING_BODIES, true);
+    let meeting = |value: &str| is_meeting_purpose(value) || matches_bodies(value, &MEETING_BODIES, true);
     meeting(text)
         || strip_ordinal(text).map_or(false, meeting)
         || matches_bodies(text, &CLOSURE_BODIES, true)
@@ -164,6 +150,11 @@ fn is_single_informational_notice(text: &str) -> bool {
 
 pub(super) fn is_informational_purpose(purpose: &str) -> bool {
     let text = purpose.split_whitespace().collect::<Vec<_>>().join(" ").to_uppercase();
+    // Financial-word rejection belongs to the fuzzy meeting grammar. Exact
+    // whole-purpose notices (including Interest Payment) retain their policy.
+    if meeting_text(&text) == "BUY BACK OF SHARE" {
+        return true;
+    }
     if is_single_informational_notice(&text) {
         return true;
     }
@@ -171,6 +162,76 @@ pub(super) fn is_informational_purpose(purpose: &str) -> bool {
     // so "AGM/Dividend Rs 0.50" stays in the financial flow.
     let parts = text.split('/').map(str::trim).collect::<Vec<_>>();
     parts.len() > 1 && parts.iter().all(|part| !part.is_empty() && is_single_informational_notice(part))
+}
+
+fn has_financial_word(text: &str) -> bool {
+    text.split(|c: char| !c.is_alphabetic()).any(|word| {
+        matches!(word, "RS" | "RE" | "INR" | "BONUS" | "BON" | "SPLIT" | "SPL" |
+            "RIGHT" | "RIGHTS" | "MERGER" | "REDUCTION" | "DISTRIBUTION" | "INTEREST" | "REDEMPTION")
+            || ["DIV", "DEMERG", "AMALGAM", "CONSOLID"].iter().any(|prefix| word.starts_with(prefix))
+    }) || text.contains('₹')
+}
+
+/// Bounded Levenshtein distance, shared with the parser's contextual dividend rule.
+pub(super) fn within_two_edits(word: &str, expected: &str) -> bool {
+    if !word.is_ascii() || word.len().abs_diff(expected.len()) > 2 {
+        return false;
+    }
+    let mut previous = (0..=expected.len()).collect::<Vec<_>>();
+    for (i, a) in word.bytes().enumerate() {
+        let mut next = vec![i + 1];
+        for (j, b) in expected.bytes().enumerate() {
+            next.push((previous[j + 1] + 1).min(next[j] + 1).min(previous[j] + usize::from(a != b)));
+        }
+        previous = next;
+    }
+    previous[expected.len()] <= 2
+}
+
+fn meeting_like(word: &str, expected: &str) -> bool {
+    word.as_bytes().first() == expected.as_bytes().first() && within_two_edits(word, expected)
+}
+
+fn meeting_text(value: &str) -> String {
+    value.chars().map(|c| if c.is_ascii_punctuation() { ' ' } else { c })
+        .collect::<String>().split_whitespace().collect::<Vec<_>>().join(" ").to_ascii_uppercase()
+}
+
+/// Whole-purpose grammar; punctuation separates words, never permits extra clauses.
+pub(super) fn is_meeting_purpose(value: &str) -> bool {
+    // A dangling slash denotes an incomplete purpose, not harmless punctuation.
+    if value.split('/').any(|part| part.trim().is_empty()) {
+        return false;
+    }
+    let cleaned = meeting_text(value);
+    let text = strip_ordinal(&cleaned).unwrap_or(&cleaned);
+    if text.chars().any(char::is_numeric) || has_financial_word(text) {
+        return false;
+    }
+    let words = text.split_whitespace().collect::<Vec<_>>();
+    for end in 1..=words.len() {
+        if end < words.len() && !is_revised_note(&words[end..].join(" ")) {
+            continue;
+        }
+        let mut core = words[..end].to_vec();
+        if matches!(core.last(), Some(&"AGM" | &"EGM")) {
+            core.pop();
+            if core.is_empty() { return true; }
+        }
+        let Some(last) = core.pop() else { continue; };
+        let last = last.strip_suffix("AGM").or_else(|| last.strip_suffix("EGM")).unwrap_or(last);
+        if !meeting_like(last, "MEETING") || core.pop() != Some("GENERAL") { continue; }
+        if core.last().is_some_and(|word| meeting_like(word, "ANNUAL")) { core.pop(); }
+        if core.last().is_some_and(|word| meeting_like(word, "ORDINARY")) {
+            core.pop();
+            if !core.last().is_some_and(|word| meeting_like(word, "EXTRA")) { continue; }
+            core.pop();
+        } else if core.last().is_some_and(|word| meeting_like(word, "EXTRA") || meeting_like(word, "EXTRAORDINARY")) {
+            core.pop();
+        }
+        if core.is_empty() { return true; }
+    }
+    false
 }
 
 // ---- Database work. Callers own the transaction.
@@ -430,20 +491,30 @@ mod tests {
     #[test]
     fn ca_phase3_informational_wording_matches_whole_notice_only() {
         for purpose in [
+            "EXTRA GENERAL MEETING",
+    "ENTRA ORDINARY GENERAL MEETING",
+    "EXTRA-ORDINARY GENERAL METING",
+    "EXTRA-OIRDINARY GENERAL MEETING",
+    "EXTRA ORDINARY ANNUAL GENERAL MEETING",
+    "ANNUALGENERAL MEETING",
+    "MEETING OF EQUITY SHAREHOLDERS",
+    "Extra General Meeting", "Entra Ordinary General Meeting", "Extra-Ordinary General Meting", "Extra-Oirdinary General Meeting", "Extra Ordinary Annual General Meeting", "Annualgeneral Meeting", "Meeting Of Equity Shareholders", "Buy-Back",
             "AGM", "agm.", "25th  AGM", "Annual General Meeting (Purpose Revised)", "EGM",
             "Extra Oridinary General Meeting",
             "Extra-Ordinary General Meeting", "Annual Book Closure", "Annual Closure (BC Dates Revised)",
-            "E-Voting", "Interest Payment", "Nil", "Buy Back Of Shares", "Buyback",
+            "Interest Payment", "Interest Payement", "Interest Payment/Buyback", "Redemption",
+            "E-Voting", "Nil", "Buy Back Of Shares", "Buyback",
             // Step 1 wording seen in official rows.
             "Extra- Ordinary General Meeting", "Extra Annual General Meeting", "Anuual General Meeting",
             "Adjourned Annual General Meeting", "AGM BC Start Date/Purpose Revised", "AGM [End Date Revised]",
             "AGM BC Start Dt Revised", "AGM (Start/End Date Revised)", "AGM RD Changed To BC",
-            "Nil BC Dates Revised", "Annual Book Closure / Annual General Meeting", "Interest Payment/Buyback",
-            "Redemption", "-", "EGM-Election Of Directors", "Buy Back-Tender Offer", "Updation Of Records",
+            "Nil BC Dates Revised", "Annual Book Closure / Annual General Meeting",
+            "-", "EGM-Election Of Directors", "Buy Back-Tender Offer", "Updation Of Records",
         ] {
             assert!(is_informational_purpose(purpose), "{purpose}");
         }
         for purpose in [
+            "Annual General Meeting/ Change In Register", "Buy-Back Rs 2", "Meeting Of Equity Shareholders/Dividend Rs 2",
             "", "AGM/Dividend - Rs 2 Per Share", "AGM And Bonus 1:1", "AGM Revised", "Spl Div",
             "Bonus 1:1", "Fv Splt Frm Rs 10 To Re 1", "1234TH AGM", "Interest Payment And Redemption",
             "Aanual General Meeting/ Diviednd Rs 0.50 Per Share", "Interest Payment - Rs 5.659 Per Unit",
@@ -452,6 +523,78 @@ mod tests {
         ] {
             assert!(!is_informational_purpose(purpose), "{purpose}");
         }
+    }
+
+    #[test]
+    fn ca_nse_remaining_meeting_grammar_and_financial_negatives() {
+        for annual in ["Annual", "Annaul", "Annnual"] {
+            for meeting in ["Meeting", "Meting", "Meetin", "Meeeeting", "Meeing", "Meetingagm"] {
+                for extra in ["", "Extra ", "Entra Ordinary ", "Extra Oirdinary ", "Extraordinary "] {
+                    let purpose = format!("25th {extra}{annual} General {meeting} (Purpose Revised)");
+                    assert!(is_informational_purpose(&purpose), "{purpose}");
+                }
+            }
+        }
+        assert!(is_informational_purpose("General Meeting EGM"));
+        assert!(is_informational_purpose("25th. Annual-General Meeting (Purpose Revised)"));
+        assert!(is_informational_purpose("Buy Back Of Share"));
+        for suffix in ["2", "Rs", "Re", "INR", "Dividend", "Div", "Bonus", "Bon", "Split", "Spl",
+            "Right", "Demerger", "Amalgamation", "Merger", "Reduction", "Consolidation",
+            "Distribution", "Interest", "Redemption Rs 2", "Change In Register"] {
+            let purpose = format!("Annaul General Meting / {suffix}");
+            assert!(!is_informational_purpose(&purpose), "{purpose}");
+        }
+        for purpose in ["Annual General Xeeing", "Annual General Me", "Annual General Meeting 2026",
+            "Annual General Meeting Dividnd", "Meeting", "General Meeting/", "25th Buy Back Of Share", "General Meetingagm Dividend", "Buy Back Of Share Re 1"] {
+            assert!(!is_informational_purpose(purpose), "{purpose}");
+        }
+        let c = fixture();
+        insert(&c, 1, "Annaul General Meting", "OTHER", "UNSUPPORTED", None);
+        insert(&c, 2, "Annaul General Meting", "OTHER", "UNSUPPORTED", Some(2.0));
+        insert(&c, 3, "Buy Back Of Share", "OTHER", "UNSUPPORTED", None);
+        insert(&c, 4, "General Meeting", "DIVIDEND", "UNSUPPORTED", None);
+        for (id, field) in [(5,"cash_amount"),(6,"price_factor"),(7,"ratio_num"),(8,"ratio_den"),
+            (9,"old_face_value"),(10,"new_face_value")] {
+            insert(&c, id, "General Meeting", "OTHER", "UNSUPPORTED", None);
+            c.execute(&format!("UPDATE corporate_action_imports SET {field}=1 WHERE id=?"), [id]).unwrap();
+        }
+        assert_eq!(sync_informational_closures(&c).unwrap().closed, 2);
+        assert_eq!(status(&c, 1).2, "Annaul General Meting");
+        for id in [2,4,5,6,7,8,9,10] { assert_eq!(status(&c, id).0, "UNSUPPORTED"); }
+    }
+
+    #[test]
+    fn ca_pr27_informational_backend_renderer_shared_parity() {
+        #[derive(Deserialize)]
+        #[serde(rename_all = "camelCase")]
+        struct ParityCase { purpose_raw: String, informational: bool }
+        let cases: Vec<ParityCase> = serde_json::from_str(include_str!(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../src/features/corporateActions/__tests__/fixtures/informationalClosureParity.json"
+        ))).unwrap();
+        for case in cases {
+            assert_eq!(is_informational_purpose(&case.purpose_raw), case.informational, "{}", case.purpose_raw);
+        }
+    }
+
+    #[test]
+    fn ca_pr27_closed_interest_payment_stays_closed_without_financial_fields() {
+        let c = fixture();
+        insert(&c, 1, "Interest Payment", "OTHER", "UNSUPPORTED", None);
+        insert(&c, 2, "Interest - Rs 0.60 Per Unit", "OTHER", "UNSUPPORTED", None);
+        insert(&c, 3, "Interest Payment Rs 2", "OTHER", "UNSUPPORTED", None);
+        insert(&c, 4, "Interest Payment", "OTHER", "UNSUPPORTED", None);
+        c.execute("UPDATE corporate_action_imports SET cash_amount=2 WHERE id=4", []).unwrap();
+        let first = run_connection_transaction(&c, sync_informational_closures).unwrap();
+        assert_eq!(first.closed, 1);
+        assert_eq!(status(&c, 1).0, REVIEW_STATUS_CLOSED_INFORMATIONAL);
+        let second = run_connection_transaction(&c, sync_informational_closures).unwrap();
+        assert_eq!(second, CorporateActionInformationalClosureResult { closed: 0, reopened: 0, total_closed: 1 });
+        assert_eq!(status(&c, 1).0, REVIEW_STATUS_CLOSED_INFORMATIONAL);
+        assert_eq!(status(&c, 1).2, "Interest Payment");
+        assert_eq!(c.query_row("SELECT count(*) FROM corporate_action_import_closures WHERE action='REOPEN_AUTO'", [], |r| r.get::<_, i64>(0)).unwrap(), 0);
+        for id in [2,3,4] { assert_eq!(status(&c, id).0, "UNSUPPORTED"); }
+        assert_eq!(c.query_row("SELECT count(*) FROM corporate_actions", [], |r| r.get::<_, i64>(0)).unwrap(), 0);
     }
 
     #[test]

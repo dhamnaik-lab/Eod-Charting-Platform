@@ -133,7 +133,7 @@ import {
 } from '@/features/corporateActions/legacy/corporateActionDividendPreparedScopeOrchestration';
 import { formatDividendBlockerReport, summarizeDividendBlockerReasons } from '@/features/corporateActions/legacy/corporateActionDividendBlockerSummary';
 import { buildCorporateActionValidationReportSaveInput } from '@/features/corporateActions/legacy/corporateActionValidationHistory';
-import { isLaterCorporateAction, immediateCorporateActionValidationRows } from '@/features/corporateActions/legacy/corporateActionLater';
+import { deferredCorporateActionReason, isLaterCorporateAction, immediateCorporateActionValidationRows } from '@/features/corporateActions/legacy/corporateActionLater';
 import { summarizeCaPendingByType, formatCaPendingTypeReport } from '@/features/corporateActions/legacy/corporateActionAllTypeReadinessSummary';
 import {
   IDENTITY_RECOVERY_DOCUMENTS,
@@ -6030,7 +6030,7 @@ function CorporateActionDialog({
       let category: ClassicStatus = 'review';
       if (row.reviewStatus === 'APPROVED' || row.approvedCorporateActionId != null) { label='Approved';category='approved'; }
       else if (existing) { label='Already Processed';category='processed'; }
-      else if (later) { label='Later';category='later'; }
+      else if (later) { label=disposition?.disposition === 'INELIGIBLE' ? disposition.reason : deferredCorporateActionReason(row, label);category='later'; }
       else if (isInformationalCorporateAnnouncement(row)) { label='Informational';category='informational'; }
       else if (busy || !officialPreparationComplete) { label=busy?'Checking…':'Not validated';category='checking'; }
       else if (ready) { label='Ready';category='ready'; }
@@ -7831,7 +7831,7 @@ function CorporateActionDialog({
           {validationHistoryWarning && classicReport !== 'approved' && classicReport !== 'help' ? <p role="alert">Validation history warning: {validationHistoryWarning}</p> : null}
           {classicReport==='types'?pendingReportSummary?<>
             <p>All loaded pending actions. Ready requires explicit approval; informational announcements require no adjustment.</p>
-            <table><thead><tr><th>Type</th><th>Not approved</th><th>Ready</th><th>Blocked</th><th>Informational</th><th>Later</th></tr></thead>
+            <table><thead><tr><th>Type</th><th>Not approved</th><th>Ready</th><th>Blocked</th><th>Informational</th><th>Deferred</th></tr></thead>
               <tbody>{[...pendingReportSummary.rows,{actionType:'TOTAL',...pendingReportSummary.totals}].map(item=><tr key={item.actionType}><th scope="row">{item.actionType}</th><td>{item.pending}</td><td>{item.ready}</td><td>{item.blocked}</td><td>{item.informational}</td><td>{item.later}</td></tr>)}</tbody></table>
             <details><summary>Copyable type report</summary><textarea aria-label="All CA pending type report" readOnly value={formatCaPendingTypeReport(pendingReportSummary)} /></details>
           </>:<p>Load & Validate to prepare the pending summary.</p>:null}
