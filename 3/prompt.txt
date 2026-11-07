@@ -1,0 +1,17 @@
+& {
+  $ErrorActionPreference = 'Stop'
+  $Root = 'E:\TA Projects\EOD Charting Platform'
+  $Src  = Join-Path $Root 'EOD DATABASE\eod_data\NSE'
+  $Dst  = Join-Path $Root 'tmp\fixtures\ca-diagnosis-20261107\eod_data\NSE'
+  if (Get-Process -Name 'EOD Chart' -ErrorAction SilentlyContinue) { throw 'Close EOD Chart first.' }
+  New-Item -ItemType Directory -Force -Path $Dst | Out-Null
+  foreach ($s in 'SBIN','JSWSTEEL','BRITANNIA','JMFINANCIL','AJANTPHARM','NAVKARURB','PCBL') {
+    $f = Join-Path $Src "$s.eod"
+    if (-not (Test-Path -LiteralPath $f -PathType Leaf)) { Write-Host "MISSING: $s"; continue }
+    $a = (Get-FileHash -LiteralPath $f -Algorithm SHA256).Hash
+    Copy-Item -LiteralPath $f -Destination (Join-Path $Dst "$s.eod")
+    if ($a -ne (Get-FileHash -LiteralPath (Join-Path $Dst "$s.eod") -Algorithm SHA256).Hash) { throw "HASH MISMATCH: $s" }
+    Write-Host "$s : $a"
+  }
+  Write-Host 'EOD COPY: PASS'
+}
