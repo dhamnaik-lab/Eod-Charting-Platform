@@ -31,9 +31,9 @@ describe('Unified CA pending readiness diagnostic', () => {
   it('counts no-price-change notices as informational and keeps financial wording blocked', () => {
     const informational = ['AGM                      PURPOSE REVISED', 'Annual General Meeting (Book Closure Dates Revised)',
       'Annual General Meeting(BC Start Date Revised)', '68th Annual General Meeting', 'Extra Ordinary General Meeting',
-      'Extra-Ordinary General Meeting', 'EGM', 'Annual Book Closure', 'Interest Payment', 'E-Voting', 'Nil', 'Buy Back', 'Buyback Of Shares'];
+      'Extra-Ordinary General Meeting', 'EGM', 'Annual Book Closure', 'Interest Payment', 'E-Voting', 'Nil', 'Buy Back', 'Buyback Of Shares', 'Buyback Of Bonds'];
     const financial = ['Annual General MeetingDividend - Rs 2 Per Share', 'AGM/Fv Spl Rs.10 To Re.1', 'Fv Splt Frm Rs 10 To Rs 2',
-      'Buyback Of Bonds', 'Reduction Of Capital', 'Income Distribution (InvIT)', 'AGM Dividend Revised', 'Resolution Plan -Suspension'];
+      'Reduction Of Capital', 'Income Distribution (InvIT)', 'AGM Dividend Revised', 'Resolution Plan -Suspension'];
     const inputs = [...informational, ...financial].map((purposeRaw, i) => ({...row(i + 1,'OTHER'),purposeRaw}));
     const result = summarizeCaPendingByType(inputs,new Set());
     expect(result.totals).toEqual({pending:inputs.length,ready:0,blocked:financial.length-2,informational:informational.length,later:2});

@@ -79,7 +79,7 @@ const MEETING_BODIES: [&str; 5] = [
 ];
 const CLOSURE_BODIES: [&str; 2] = ["ANNUAL CLOSURE", "ANNUAL BOOK CLOSURE"];
 // "-" is an official row with no purpose text and no terms.
-const NOTICE_BODIES: [&str; 18] = [
+const NOTICE_BODIES: [&str; 20] = [
     "INTEREST PAYMENT",
     "INTEREST PAYEMENT",
     "E VOTING",
@@ -91,6 +91,8 @@ const NOTICE_BODIES: [&str; 18] = [
     "BUY BACK",
     "BUYBACK OF SHARES",
     "BUY BACK OF SHARES",
+    "BUY-BACK OF SHARES",
+    "BUY BACK - TENDER OFFER",
     "BUY BACK-TENDER OFFER",
     "BUYBACK-TENDER OFFER",
     "REDEMPTION",
@@ -99,14 +101,14 @@ const NOTICE_BODIES: [&str; 18] = [
     "UPDATION OF RECORDS",
     "-",
 ];
-const REVISED_TOKENS: [&str; 10] =
-    ["PURPOSE", "BC", "BOOK", "CLOSURE", "DATE", "DATES", "DT", "START", "END", "RECORD"];
+const REVISED_TOKENS: [&str; 12] =
+    ["PURPOSE", "BC", "BOOK", "CLOSURE", "DATE", "DATES", "DT", "START", "END", "RECORD", "AGM", "AND"];
 
 /// Optional "(Purpose Revised)", "[Start/End Date Revised]" or "RD changed to BC" note.
 fn is_revised_note(rest: &str) -> bool {
     let cleaned = rest
         .chars()
-        .map(|ch| if matches!(ch, '(' | ')' | '[' | ']' | '/') { ' ' } else { ch })
+        .map(|ch| if matches!(ch, '(' | ')' | '[' | ']' | '/' | '&') { ' ' } else { ch })
         .collect::<String>();
     let words = cleaned.split_whitespace().collect::<Vec<_>>();
     if words == ["RD", "CHANGED", "TO", "BC"] {
@@ -146,6 +148,21 @@ fn is_single_informational_notice(text: &str) -> bool {
         || strip_ordinal(text).map_or(false, meeting)
         || matches_bodies(text, &CLOSURE_BODIES, true)
         || matches_bodies(text, &NOTICE_BODIES, true)
+        || is_bond_notice(text)
+}
+
+// Whole notices only. Never interpret an amount-bearing payment as price-free.
+fn is_bond_notice(text: &str) -> bool {
+    let cleaned = meeting_text(text);
+    if cleaned.chars().any(char::is_numeric) || cleaned.contains('₹')
+        || cleaned.split_whitespace().any(|word| matches!(word, "RS" | "RE" | "INR")) {
+        return false;
+    }
+    matches!(cleaned.as_str(), "BUYBACK OF BONDS" | "BUY BACK OF BONDS"
+        | "PAYMENT OF AMT OF BUYBACK" | "PAYMENT OF AMOUNT OF BUYBACK"
+        | "PAYMENT OF AMT OF BUYBACK TO BONDHOLDERS" | "PAYMENT OF AMOUNT OF BUYBACK TO BONDHOLDERS"
+        | "PAYMENT OF INTEREST BUYBACK AMOUNT TO BONDHOLDERS"
+        | "PAYMENT OF INTEREST AND BUYBACK AMOUNT TO BONDHOLDERS")
 }
 
 pub(super) fn is_informational_purpose(purpose: &str) -> bool {
@@ -197,12 +214,23 @@ fn meeting_text(value: &str) -> String {
         .collect::<String>().split_whitespace().collect::<Vec<_>>().join(" ").to_ascii_uppercase()
 }
 
+fn is_meeting_note(rest: &str, bracketed_revised: bool) -> bool {
+    let cleaned = meeting_text(rest);
+    if cleaned == "REVISED" { return bracketed_revised; }
+    if is_revised_note(rest) { return true; }
+    let words = cleaned.split_whitespace().collect::<Vec<_>>();
+    words.windows(2).any(|pair| pair == ["BOOK", "CLOSURE"])
+        && words.iter().all(|word| REVISED_TOKENS.contains(word))
+}
+
 /// Whole-purpose grammar; punctuation separates words, never permits extra clauses.
 pub(super) fn is_meeting_purpose(value: &str) -> bool {
     // A dangling slash denotes an incomplete purpose, not harmless punctuation.
     if value.split('/').any(|part| part.trim().is_empty()) {
         return false;
     }
+    let compact = value.chars().filter(|ch| !ch.is_whitespace()).collect::<String>().to_ascii_uppercase();
+    let bracketed_revised = compact.ends_with("(REVISED)") || compact.ends_with("[REVISED]");
     let cleaned = meeting_text(value);
     let text = strip_ordinal(&cleaned).unwrap_or(&cleaned);
     if text.chars().any(char::is_numeric) || has_financial_word(text) {
@@ -210,7 +238,7 @@ pub(super) fn is_meeting_purpose(value: &str) -> bool {
     }
     let words = text.split_whitespace().collect::<Vec<_>>();
     for end in 1..=words.len() {
-        if end < words.len() && !is_revised_note(&words[end..].join(" ")) {
+        if end < words.len() && !is_meeting_note(&words[end..].join(" "), bracketed_revised) {
             continue;
         }
         let mut core = words[..end].to_vec();
@@ -220,7 +248,7 @@ pub(super) fn is_meeting_purpose(value: &str) -> bool {
         }
         let Some(last) = core.pop() else { continue; };
         let last = last.strip_suffix("AGM").or_else(|| last.strip_suffix("EGM")).unwrap_or(last);
-        if !meeting_like(last, "MEETING") || core.pop() != Some("GENERAL") { continue; }
+        if !meeting_like(last, "MEETING") || !core.pop().is_some_and(|word| meeting_like(word, "GENERAL")) { continue; }
         if core.last().is_some_and(|word| meeting_like(word, "ANNUAL")) { core.pop(); }
         if core.last().is_some_and(|word| meeting_like(word, "ORDINARY")) {
             core.pop();
@@ -561,6 +589,34 @@ mod tests {
         assert_eq!(sync_informational_closures(&c).unwrap().closed, 2);
         assert_eq!(status(&c, 1).2, "Annaul General Meting");
         for id in [2,4,5,6,7,8,9,10] { assert_eq!(status(&c, id).0, "UNSUPPORTED"); }
+    }
+
+    #[test]
+    fn ca_nse_final_wording_closes_only_whole_notices_without_financial_fields() {
+        let c = fixture();
+        let notices = ["Annual Gemeral Meeting", "Annual General Meeting (Revised)",
+            "Annual General Meeting (Agm And Book Closure Dates Revised)", "Buy-Back Of Shares",
+            "Buy Back - Tender Offer", "Buyback Of Bonds", "Payment Of Amt Of Buyback",
+            "Payment Of Amount Of Buyback To Bondholders", "Payment Of Interest & Buyback Amount To Bondholders"];
+        for (index, purpose) in notices.iter().enumerate() {
+            insert(&c, index as i64 + 1, purpose, "OTHER", "UNSUPPORTED", None);
+        }
+        for (index, field) in ["cash_amount", "factor", "price_factor", "ratio_num", "ratio_den", "old_face_value", "new_face_value"].iter().enumerate() {
+            let id = index as i64 + 100;
+            insert(&c, id, "Payment Of Amt Of Buyback", "OTHER", "UNSUPPORTED", None);
+            c.execute(&format!("UPDATE corporate_action_imports SET {field}=1 WHERE id=?"), [id]).unwrap();
+        }
+        insert(&c, 200, "Payment Of Amt Of Buyback Rs 2", "OTHER", "UNSUPPORTED", None);
+        insert(&c, 201, "Annual General Meeting (Book Closure / Dividend Rs 2)", "OTHER", "UNSUPPORTED", None);
+        let result = run_connection_transaction(&c, sync_informational_closures).unwrap();
+        assert_eq!(result.closed, notices.len());
+        for (index, purpose) in notices.iter().enumerate() {
+            let (review, _, raw) = status(&c, index as i64 + 1);
+            assert_eq!(review, REVIEW_STATUS_CLOSED_INFORMATIONAL);
+            assert_eq!(raw.as_str(), *purpose);
+        }
+        for id in [100,101,102,103,104,105,106,200,201] { assert_eq!(status(&c, id).0, "UNSUPPORTED"); }
+        assert_eq!(c.query_row("SELECT count(*) FROM corporate_actions", [], |r| r.get::<_, i64>(0)).unwrap(), 0);
     }
 
     #[test]

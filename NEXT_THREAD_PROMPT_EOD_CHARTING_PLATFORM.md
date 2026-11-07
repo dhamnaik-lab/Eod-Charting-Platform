@@ -4,7 +4,7 @@
 
 ## Running phases
 
-PR #27 P2 interest-notice fix is implemented on `feat/ca-nse-remaining-20261107`: exact Interest Payment/Payement and all-informational slash purposes close again, fuzzy-meeting financial rejection stays local to that grammar, and renderer/backend use the same 42-case parity fixture. Interest amounts stay unclosed/Deferred with the distribution reason; repeated sync does not reopen eligible Interest Payment. Final serial checks PASS: typecheck; Vitest 565/565 (+2 from 563); focused Rust 2/2; seven-filter Rust 825 passed, 0 failed, 26 ignored (+2 from 823). Shared-Cargo previews PASS, `--jobs 2`; see the top CA handoff for the corrected initial fixture typecheck, scope and backup. Existing Deb/predecessor checks and explicit financial approval remain unchanged; tmp stays untracked.
+Final NSE Tasks 1–2 are implemented on `feat/ca-nse-final-20261108` from updated main `31487aa` (includes `61bb494`): Task 1 diagnosis stays disk-only under the ignored fixture; Task 2 adds the requested meeting/buyback/bond wording, 0.85 cash regression and named CSK share-distribution Deferred reason. Backend/renderer share 74 parity cases with financial-field/mixed-purpose negatives. No unsupported identity/activity override, financial approval or raw-price mutation. Final checks PASS: renderer typecheck; Vitest 567/567; focused Rust 4/4; seven-filter Rust 827 passed, 0 failed, 26 ignored. Both shared-Cargo previews PASS; `--jobs 2`. The bare `AGM Revised` negative remains rejected. See the top CA handoff for backup, exact local report path and missing copied price files.
 
 **Corporate Actions Tasks A/B (7 November 2026):** diagnosis and automated verification are complete; runtime acceptance for NSE wording and Later is pending the portable rebuild. Other running-phase assignments await user confirmation.
 
@@ -13,6 +13,8 @@ PR #27 P2 interest-notice fix is implemented on `feat/ca-nse-remaining-20261107`
 **Task A diagnosis complete:** 131 pending Split/Bonus rows grouped on the supplied read-only copy; evidence is in `tmp/fixtures/ca-diagnosis-20261107/`. Task B implementation/check results are recorded in the top Corporate Actions section of [HANDOFF.md](HANDOFF.md); native acceptance is separate. Other phase sign-off awaits user confirmation.
 
 ## Next phases
+
+**Next for final NSE Tasks 1–2:** automated checks passed; user portable rebuild and copy-only native acceptance for the added wording and Deferred reason. Any further identity/activity correction needs supporting source evidence; missing EOD copies are named in the local diagnosis report. Keep tmp untracked and explicit approval/rechecks in place.
 
 **Next for PR #27 interest parity:** after automated checks, user portable rebuild and copy-only native acceptance: Interest Payment and Interest Payment/Buyback close; Interest amounts keep the distribution Deferred reason; AGM and typo-only meetings are informational; AGM/dividend stays financial. Confirm no `tmp/` entries in the committed tree. Earlier Deb/predecessor native acceptance remains applicable.
 

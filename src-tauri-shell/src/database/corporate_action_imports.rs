@@ -11411,6 +11411,24 @@ mod tests {
     }
 
     #[test]
+    fn ca_nse_final_meeting_cash_preserves_official_purpose_and_amount() {
+        let c = Connection::open_in_memory().unwrap();
+        crate::database::prepare_database_connection(&c).unwrap();
+        let purpose = "Annual General Meeting- Re 0.85 Per Share";
+        c.execute("INSERT INTO corporate_action_imports(dedupe_key,exchange,source,symbol,purpose_raw,action_type,review_status) VALUES ('nse-final-cash','NSE','NSE_API','TEST',?,'OTHER','UNSUPPORTED')", [purpose]).unwrap();
+        let row = get_import_row(&c, 1).unwrap();
+        let parsed = parse_corporate_action_purpose(&row.purpose_raw);
+        assert_eq!(parsed.action_type, "DIVIDEND");
+        assert_eq!(parsed.cash_amount, Some(0.85));
+        assert_eq!(parsed.parse_status, "PARSED");
+        assert_eq!(get_import_row(&c, 1).unwrap().purpose_raw, purpose);
+        for purpose in ["Annual General Meeting- Re Per Share", "Annual Gemeral Meeting/Dividend"] {
+            assert_eq!(parse_corporate_action_purpose(purpose).cash_amount, None, "{purpose}");
+        }
+        assert_eq!(c.query_row("SELECT count(*) FROM corporate_actions", [], |r| r.get::<_, i64>(0)).unwrap(), 0);
+    }
+
+    #[test]
     fn ca_nse_remaining_meeting_cash_parser_preserves_source() {
         for meeting in ["Annual General Meeting", "Annaul General Meting", "Entra Ordinary General Meetin", "AGM", "25th AGM"] {
             for word in ["Dividend", "Divided", "Dividen", "Ivdend", "Divdend", "Dividnd"] {

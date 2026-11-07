@@ -9,6 +9,17 @@ const row = (actionType: CorporateActionImportRow['actionType'], purposeRaw = ''
   ({ id: 1, actionType, purposeRaw, reviewStatus: 'PENDING', parseStatus: 'PARSED', approvedCorporateActionId: null, ...extra } as CorporateActionImportRow);
 
 describe('Later is display/readiness only', () => {
+  it('defers the named share distribution with its own reason and no approval readiness', () => {
+    const purpose = 'For Distribution Of Chennai Super Kings Cricket Limited Shares To The Shareholders Of India Cements';
+    const input = row('OTHER', purpose, { message: 'Unsupported official purpose' });
+    const before = JSON.stringify(input);
+    expect(isLaterCorporateAction(input)).toBe(true);
+    expect(deferredCorporateActionReason(input)).toBe('Share distribution (demerger-like): rules not built yet');
+    expect(summarizeCaPendingByType([input], new Set([input.id])).totals).toEqual({ pending: 1, ready: 0, blocked: 0, informational: 0, later: 1 });
+    expect(JSON.stringify(input)).toBe(before);
+    expect(isLaterCorporateAction(row('OTHER', 'For Distribution Of Chennai Super Kings Cricket Limited Tickets'))).toBe(false);
+  });
+
   it('defers Deb/Debs including glued ratios, with factual reasons and no word-prefix matches', () => {
     for (const purpose of ['Sch Of Agmt- Bonus Deb1:1', 'Bonus Debs1:1', 'Bonus Deb 1:1',
       'Bonus Debs 1:1', 'Split Deb1:2', 'Bonus debs1:2']) {

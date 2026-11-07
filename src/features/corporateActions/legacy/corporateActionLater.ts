@@ -5,6 +5,7 @@ type LaterRow = Pick<CorporateActionImportRow, 'actionType'> & Partial<Pick<Corp
 
 // Digits may be glued to Deb/Debs entitlement terms; Debt/Debit/Debut are words.
 const NON_EQUITY_TERMS = /\b(?:DEBENTURES?|DEBS?\d*|NCRPS|CRPS|CCPS|OCPS|PREFERENCE|PREFERRED|DVR|DIFFERENTIAL VOTING)\b/;
+const SHARE_DISTRIBUTION = /^FOR DISTRIBUTION OF CHENNAI SUPER KINGS\b.*\bSHARES\b/;
 
 function isInterestDistribution(purpose: string): boolean {
   return /\bINTEREST\b/i.test(purpose) && (/\bPER UNIT\b/i.test(purpose)
@@ -18,7 +19,8 @@ export function isLaterCorporateAction(row: LaterRow): boolean {
   if (row.instrumentIsActive === false) return true;
   if (['DIVIDEND', 'RIGHTS', 'DEMERGER'].includes(row.actionType)) return true;
   if (isInterestDistribution(row.purposeRaw ?? '')) return true;
-  const purpose = (row.purposeRaw ?? '').toUpperCase().replace(/[^A-Z0-9]+/g, ' ');
+  const purpose = (row.purposeRaw ?? '').toUpperCase().replace(/[^A-Z0-9]+/g, ' ').trim();
+  if (SHARE_DISTRIBUTION.test(purpose)) return true;
   if (/\b(?:CAPITAL REDUCTION|REDUCTION OF (?:SHARE |EQUITY )?CAPITAL)\b/.test(purpose)) return true;
   if (/\b(?:INCOME DISTRIBUTION|DISTRIBUTION OF INCOME)\b/.test(purpose)
     || (/\b(?:INVIT|REIT|PER UNIT)\b/.test(purpose) && /\bDISTR(?:I|IT)BUTION\b/.test(purpose))) return true;
@@ -34,10 +36,11 @@ export function immediateCorporateActionValidationRows<T extends LaterRow>(rows:
 
 /** Use recorded blockers first; fallback descriptions follow explicit row facts. */
 export function deferredCorporateActionReason(row: LaterRow & { message?: string | null }, existing = ''): string {
+  const purpose = (row.purposeRaw ?? '').toUpperCase().replace(/[^A-Z0-9]+/g, ' ').trim();
+  if (SHARE_DISTRIBUTION.test(purpose)) return 'Share distribution (demerger-like): rules not built yet';
   const specific = [row.message, existing].find(text => text && /^(Awaiting (?:official|verified (?:identity|historical)|identity)|Waiting for (?:EOD|price)|UNSUPPORTED_|INVALID_|AMBIGUOUS_)/i.test(text));
   if (specific) return specific;
   if (row.instrumentIsActive === false) return 'Delisted or inactive symbol';
-  const purpose = (row.purposeRaw ?? '').toUpperCase().replace(/[^A-Z0-9]+/g, ' ');
   if (isInterestDistribution(row.purposeRaw ?? '') || /\b(?:INCOME DISTRIBUTION|DISTRIBUTION OF INCOME)\b/.test(purpose)
     || (/\bPER UNIT\b/.test(purpose) && /\b(?:INTEREST|DISTRIBUTION|DISTRITBUTION)\b/.test(purpose))) return 'InvIT/REIT distribution: not an equity price adjustment yet';
   if (/\b(?:CAPITAL REDUCTION|REDUCTION OF (?:SHARE |EQUITY )?CAPITAL)\b/.test(purpose)) return 'Capital reduction: rules not built yet';
