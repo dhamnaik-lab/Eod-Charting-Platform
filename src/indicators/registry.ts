@@ -439,6 +439,12 @@ export function buildRenderableIndicators(
 
   const cacheBucket = getIndicatorCacheBucket(bars, indicators);
   const byId = new Map<string, OverlayIndicator>(indicators.map((ind) => [ind.id, ind]));
+  const duplicateIds = new Set<string>();
+  const seenIds = new Set<string>();
+  for (const item of indicators) {
+    if (seenIds.has(item.id)) duplicateIds.add(item.id);
+    seenIds.add(item.id);
+  }
 
   const needsHydration = visibleIndicators.some(
     (indicator) => !cacheBucket.renderables.has(getChainedIndicatorCacheKey(indicator, byId)),
@@ -494,7 +500,9 @@ export function buildRenderableIndicators(
           report(indicator, 'error', 'This indicator does not support Study-as-Source');
         } else {
           const upstream = byId.get(upstreamId);
-          if (!upstream) {
+          if (duplicateIds.has(upstreamId)) {
+            report(indicator, 'error', `Source indicator "${upstreamId}" has an ambiguous duplicate ID`);
+          } else if (!upstream) {
             report(indicator, 'error', `Source indicator "${upstreamId}" is missing`);
           } else if (upstream.visible === false) {
             report(indicator, 'error', `Source indicator "${upstreamId}" is hidden`);
