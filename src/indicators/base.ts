@@ -73,9 +73,18 @@ export interface RenderableReferenceLine {
   lineStyle?: DrawingLineStyle;
 }
 
+export interface IndicatorCalculationDiagnostic {
+  indicatorId: string;
+  indicatorKind: string;
+  severity: 'error' | 'unavailable';
+  message: string;
+}
+
 export interface RenderableIndicatorBundle {
   overlays: RenderableOverlay[];
   panes: RenderablePane[];
+  /** Present only when a visible indicator cannot produce an output. */
+  diagnostics?: IndicatorCalculationDiagnostic[];
 }
 
 export interface IndicatorSources {
