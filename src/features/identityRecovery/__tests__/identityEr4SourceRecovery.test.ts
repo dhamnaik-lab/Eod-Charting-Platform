@@ -3,6 +3,7 @@ import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 const DATABASE_TOOLS = resolve(process.cwd(), 'src/components/DatabaseToolsDialogs.tsx');
+const IDENTITY_SOURCE_HEALTH = resolve(process.cwd(), 'src/features/corporateActions/identity/IdentitySourceHealth.tsx');
 const DESKTOP_TYPES = resolve(process.cwd(), 'src/types/desktop.ts');
 const PLATFORM_TYPES = resolve(process.cwd(), 'src/platform/types.ts');
 const TAURI_DESKTOP = resolve(process.cwd(), 'src/platform/tauriDesktop.ts');
@@ -133,6 +134,7 @@ describe('Identity ER4-C operator candidate review and durable non-mutating deci
 
   it('exposes candidate discovery only through the exact five NSE health mappings', () => {
     const source = read(DATABASE_TOOLS);
+    const health = read(IDENTITY_SOURCE_HEALTH);
     const mapping = sliceBetween(
       source,
       'function getEr4RecoveryRequestForHealthResult(',
@@ -150,7 +152,11 @@ describe('Identity ER4-C operator candidate review and durable non-mutating deci
     expect(mapping).not.toContain('NSE_DELISTED_LANDING');
     expect(mapping).not.toContain('BSE_LIST_SCRIPS');
     expect(mapping).toContain("result.exchange !== 'NSE'");
-    expect(source).toContain('Find Official Replacement Candidates');
+    expect(health).toContain('Find Official Replacement Candidates');
+    expect(health).toContain('canRecover(selected) ?');
+    expect(health).toContain('onRecover(selected)');
+    expect(source).toContain('canRecover={result => Boolean(getEr4RecoveryRequestForHealthResult(result))}');
+    expect(source).toContain('onRecover={result => void findOfficialReplacementCandidates(result)}');
   });
 
   it('shows all frozen classifications and preserves Keep/Reject decisions after promotion is added', () => {
