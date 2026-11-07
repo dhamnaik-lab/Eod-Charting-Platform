@@ -2063,6 +2063,7 @@ mod tests {
         factor: f64,
     ) -> CorporateActionImportRow {
         CorporateActionImportRow {
+            instrument_is_active: None,
             id,
             exchange: "NSE".to_string(),
             source: "NSE_API".to_string(),

@@ -133,6 +133,7 @@ import {
 } from '@/features/corporateActions/legacy/corporateActionDividendPreparedScopeOrchestration';
 import { formatDividendBlockerReport, summarizeDividendBlockerReasons } from '@/features/corporateActions/legacy/corporateActionDividendBlockerSummary';
 import { buildCorporateActionValidationReportSaveInput } from '@/features/corporateActions/legacy/corporateActionValidationHistory';
+import { isLaterCorporateAction, immediateCorporateActionValidationRows } from '@/features/corporateActions/legacy/corporateActionLater';
 import { summarizeCaPendingByType, formatCaPendingTypeReport } from '@/features/corporateActions/legacy/corporateActionAllTypeReadinessSummary';
 import {
   IDENTITY_RECOVERY_DOCUMENTS,
@@ -3220,7 +3221,7 @@ function CorporateActionDialog({
       if (result.complete && databasePath && shouldContinue() && typeof buildCorporateActionDividendPreparedScope !== "undefined") {
         try {
           const preparedScope = await buildCorporateActionDividendPreparedScope({
-            rows: result.rows,
+            rows: immediateCorporateActionValidationRows(result.rows),
             cycle: { generation, expectedDatabasePath: databasePath },
             currentGeneration: officialPreparationGenerationRef.current,
             currentDatabasePath: useChartStore.getState().snapshot?.activeDatabasePath ?? '',
@@ -3233,7 +3234,7 @@ function CorporateActionDialog({
               `Pending queue prepared, but Dividend R1 verification could not start: ${preparedScope.reason}. No dividend approval evidence was published.`);
           } else if (preparedScope.scope.importIds.length === 0) {
             finishDividendVerification('dividend-verified',
-              'Pending queue prepared. No pending Dividend R1 candidates require verification; no approvals occurred.');
+              'Pending queue prepared. Later dividends were deferred from automatic R1 verification; no approvals occurred.');
           } else {
             const dividendValidationStartedAt = Date.now();
             const evaluation = await evaluateCorporateActionDividendPreparedScopeBatches({
@@ -6022,12 +6023,14 @@ function CorporateActionDialog({
     const readyIds = new Set(eligibleImportRows.map(row => row.id));
     return visibleImportRows.map(row => {
       const existing = existingDividendByImportId[row.id]?.row === row ? existingDividendByImportId[row.id] : undefined;
-      const ready = !busy && !existing && readyIds.has(row.id);
+      const later = isLaterCorporateAction(row);
+      const ready = !later && !busy && !existing && readyIds.has(row.id);
       const disposition = officialDividendPreparedScopeDispositionByImportId.get(row.id);
       let label = officialImportUserStatus(row,latestScanByImportId.get(row.id),officialPreparationErrors[row.id],officialPreparationComplete,true);
       let category: ClassicStatus = 'review';
       if (row.reviewStatus === 'APPROVED' || row.approvedCorporateActionId != null) { label='Approved';category='approved'; }
       else if (existing) { label='Already Processed';category='processed'; }
+      else if (later) { label='Later';category='later'; }
       else if (isInformationalCorporateAnnouncement(row)) { label='Informational';category='informational'; }
       else if (busy || !officialPreparationComplete) { label=busy?'Checking…':'Not validated';category='checking'; }
       else if (ready) { label='Ready';category='ready'; }
@@ -7828,8 +7831,8 @@ function CorporateActionDialog({
           {validationHistoryWarning && classicReport !== 'approved' && classicReport !== 'help' ? <p role="alert">Validation history warning: {validationHistoryWarning}</p> : null}
           {classicReport==='types'?pendingReportSummary?<>
             <p>All loaded pending actions. Ready requires explicit approval; informational announcements require no adjustment.</p>
-            <table><thead><tr><th>Type</th><th>Not approved</th><th>Ready</th><th>Blocked</th><th>Informational</th></tr></thead>
-              <tbody>{[...pendingReportSummary.rows,{actionType:'TOTAL',...pendingReportSummary.totals}].map(item=><tr key={item.actionType}><th scope="row">{item.actionType}</th><td>{item.pending}</td><td>{item.ready}</td><td>{item.blocked}</td><td>{item.informational}</td></tr>)}</tbody></table>
+            <table><thead><tr><th>Type</th><th>Not approved</th><th>Ready</th><th>Blocked</th><th>Informational</th><th>Later</th></tr></thead>
+              <tbody>{[...pendingReportSummary.rows,{actionType:'TOTAL',...pendingReportSummary.totals}].map(item=><tr key={item.actionType}><th scope="row">{item.actionType}</th><td>{item.pending}</td><td>{item.ready}</td><td>{item.blocked}</td><td>{item.informational}</td><td>{item.later}</td></tr>)}</tbody></table>
             <details><summary>Copyable type report</summary><textarea aria-label="All CA pending type report" readOnly value={formatCaPendingTypeReport(pendingReportSummary)} /></details>
           </>:<p>Load & Validate to prepare the pending summary.</p>:null}
           {classicReport==='dividends'?<>

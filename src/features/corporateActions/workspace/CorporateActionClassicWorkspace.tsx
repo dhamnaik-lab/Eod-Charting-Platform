@@ -148,6 +148,7 @@ export function CorporateActionClassicWorkspace(p: CorporateActionClassicWorkspa
   const events = useMemo(() => groupClassicActionRows(p.rows), [p.rows]);
   const visible = useMemo(() => classicVisibleEvents(events,statusFilter,sort,p.search,tableExchange),[events,statusFilter,sort,p.search,tableExchange]);
   const readyIds = useMemo(() => classicVisibleReadyIds(visible),[visible]);
+  const laterCount = useMemo(() => events.filter(event => event.category === 'later').length, [events]);
   const issueCount = useMemo(() => events.filter(isClassicIssue).length, [events]);
   const selected = readyIds.filter(id => p.selectedIds.has(id));
   const focused = visible.find(event => event.key === focusedId) ?? visible[0];
@@ -200,7 +201,7 @@ export function CorporateActionClassicWorkspace(p: CorporateActionClassicWorkspa
         <option value="all">All exchanges</option><option value="NSE">NSE</option><option value="BSE">BSE</option>
       </select></label>
       <label>Status:<select aria-label="Action status" value={statusFilter} onChange={event=>{p.onFilterChange();setStatusFilter(event.target.value as ClassicStatusFilter);}}>
-        <option value="ready">Ready</option><option value="issues">Issues ({issueCount})</option><option value="all">All (diagnostics)</option><option value="waiting">Waiting for evidence/data</option><option value="review">Needs review</option>
+        <option value="ready">Ready</option><option value="issues">Issues ({issueCount})</option><option value="later">Later ({laterCount})</option><option value="all">All (diagnostics)</option><option value="waiting">Waiting for evidence/data</option><option value="review">Needs review</option>
         <option value="checking">Not validated / checking</option><option value="informational">Informational</option><option value="approved">Approved</option><option value="processed">Already Processed</option>
       </select></label>
       <div className="ca-classic-search-box">

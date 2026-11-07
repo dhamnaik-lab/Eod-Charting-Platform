@@ -43,6 +43,16 @@ describe('classic CA presentation and exact approval scope', () => {
     expect(classicVisibleEvents(events, 'all', CLASSIC_DEFAULT_SORT)).toHaveLength(7);
     expect(events).toHaveLength(7);
   });
+  it('shows Later separately from Issues and suppresses stale ready selection without changing stored rows', () => {
+    const deferred = { ...row(1), category: 'later' as const, status: 'Later' };
+    const active = { ...row(2, 'SPLIT', { purposeRaw: 'Split 10 to 1' }), ready: false, category: 'review' as const };
+    const events = groupClassicActionRows([deferred, active]);
+    expect(classicVisibleEvents(events, 'later', CLASSIC_DEFAULT_SORT).map(event => event.key)).toEqual([1]);
+    expect(classicVisibleEvents(events, 'issues', CLASSIC_DEFAULT_SORT).map(event => event.key)).toEqual([2]);
+    expect(classicVisibleReadyIds(events)).toEqual([]);
+    expect(deferred.ready).toBe(true);
+    expect(deferred.record.actionType).toBe('DIVIDEND');
+  });
   it('defaults to newest ISO ex-date first, with undated events last', () => {
     const events = groupClassicActionRows([
       row(1,'DIVIDEND',{exDate:'2026-01-31'}),row(2,'DIVIDEND',{exDate:'2025-12-30'}),

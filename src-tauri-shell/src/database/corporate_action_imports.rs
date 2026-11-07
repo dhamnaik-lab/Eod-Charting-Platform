@@ -7021,13 +7021,34 @@ fn mark_import_approved(
 }
 
 fn get_import_row(connection: &Connection, id: i64) -> AppResult<CorporateActionImportRow> {
-    connection
+    let mut row = connection
         .query_row(
             import_row_sql("WHERE id = ?").as_str(),
             params![id],
             map_import_row,
         )
-        .map_err(|error| error.to_string())
+        .map_err(|error| error.to_string())?;
+    hydrate_import_instrument_activity(connection, std::slice::from_mut(&mut row))?;
+    Ok(row)
+}
+
+// Exact instrument metadata for display only. Minimal historical/test schemas
+// without instruments.is_active leave it unknown; never infer inactivity from an ISIN.
+fn hydrate_import_instrument_activity(connection: &Connection, rows: &mut [CorporateActionImportRow]) -> AppResult<()> {
+    let available: bool = connection.query_row(
+        "SELECT EXISTS(SELECT 1 FROM pragma_table_info('instruments') WHERE name='is_active')",
+        [], |row| row.get(0),
+    ).map_err(|error| error.to_string())?;
+    if !available { return Ok(()); }
+    let mut statement = connection.prepare_cached(
+        "SELECT is_active FROM instruments WHERE symbol=? AND exchange=?",
+    ).map_err(|error| error.to_string())?;
+    for row in rows {
+        row.instrument_is_active = statement.query_row(
+            params![row.symbol, row.exchange], |result| result.get::<_, Option<i64>>(0),
+        ).optional().map_err(|error| error.to_string())?.flatten().map(|value| value != 0);
+    }
+    Ok(())
 }
 
 fn normalize_identity_company_name_for_recommendation(value: Option<&str>) -> String {
@@ -7527,11 +7548,12 @@ fn list_import_rows(
         .map_err(|error| error.to_string())?;
     values.push(SqlValue::Integer(limit as i64));
     values.push(SqlValue::Integer(offset as i64));
-    let rows = statement
+    let mut rows = statement
         .query_map(params_from_iter(values), map_import_row)
         .map_err(|error| error.to_string())?
         .collect::<Result<Vec<_>, _>>()
         .map_err(|error| error.to_string())?;
+    hydrate_import_instrument_activity(connection, &mut rows)?;
     Ok(rows)
 }
 
@@ -7611,6 +7633,7 @@ fn map_import_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<CorporateActionIm
         .map(str::to_string)
         .collect();
     Ok(CorporateActionImportRow {
+        instrument_is_active: None,
         id: row.get(0)?,
         exchange: row.get(1)?,
         source: row.get(2)?,
@@ -9913,9 +9936,51 @@ fn is_legacy_bonus_token(tokens: &[String], index: usize) -> bool {
         && numeric(tokens.get(next + 2))
 }
 
+/// Only attested glued words and spelling shapes; never mutate stored source text.
+fn canonical_dividend_wording(value: &str) -> String {
+    let mut output = String::new();
+    let mut copied = 0;
+    let mut previous: Option<(usize, usize)> = None;
+    let mut words = value.char_indices().peekable();
+    while let Some((start, ch)) = words.next() {
+        if !ch.is_ascii_alphabetic() {
+            continue;
+        }
+        let mut end = start + ch.len_utf8();
+        while let Some(&(index, next)) = words.peek() {
+            if !next.is_ascii_alphabetic() {
+                break;
+            }
+            end = index + next.len_utf8();
+            words.next();
+        }
+        let word = value[start..end].to_ascii_uppercase();
+        let preceding = previous.filter(|(_, prev_end)| value[*prev_end..start].chars().all(char::is_whitespace));
+        let after_interim = preceding.is_some_and(|(prev_start, prev_end)| value[prev_start..prev_end].eq_ignore_ascii_case("INTERIM"));
+        let replacement = match word.as_str() {
+            "INTERIMDIVIDEND" => Some((start, "Interim Dividend")),
+            "MEETINGDIVIDEND" if normalize_text(&value[..start]).split_whitespace().rev().take(2).eq(["GENERAL", "ANNUAL"]) => Some((start, "Meeting Dividend")),
+            "LDIVIDEND" if preceding.is_some_and(|(a, b)| value[a..b].eq_ignore_ascii_case("SPECIA")) => Some((preceding.unwrap().0, "Special Dividend")),
+            "DIVIDNED" | "DIVIDED" | "DIVIDEN" if after_interim => Some((start, "Dividend")),
+            "DIVIDND" => Some((start, "Dividend")),
+            _ => None,
+        };
+        if let Some((replace_start, text)) = replacement {
+            output.push_str(&value[copied..replace_start]);
+            output.push_str(text);
+            copied = end;
+        }
+        previous = Some((start, end));
+    }
+    output.push_str(&value[copied..]);
+    output
+}
+
 /// Expand the legacy abbreviations into ordinary wording for the canonical parser.
 /// Text without a legacy shape is returned unchanged. `purpose_raw` is never rewritten.
 fn canonical_purpose(value: &str) -> String {
+    let dividend_wording = canonical_dividend_wording(value);
+    let value = dividend_wording.as_str();
     let tokens = legacy_purpose_tokens(value);
     let triggered = (0..tokens.len())
         .any(|index| is_legacy_split_token(&tokens, index) || is_legacy_bonus_token(&tokens, index));
@@ -9946,6 +10011,8 @@ fn canonical_purpose(value: &str) -> String {
 
 /// Normalized-text form of `canonical_purpose` for family detection.
 fn expand_legacy_abbreviations(normalized: &str) -> String {
+    let dividend_wording = normalize_text(&canonical_dividend_wording(normalized));
+    let normalized = dividend_wording.as_str();
     let tokens = normalized.split_whitespace().collect::<Vec<_>>();
     let numeric = |index: usize| {
         tokens.get(index).is_some_and(|token| token.chars().all(|ch| ch.is_ascii_digit()))
@@ -11262,6 +11329,61 @@ mod tests {
         assert_ne!(parse_corporate_action_purpose("Spl Div Rs 5 Per Share").action_type, "SPLIT");
         assert_ne!(parse_corporate_action_purpose("Bon 1 Dvr : 20 Eq Shares").action_type, "BONUS");
         assert!(detected_corporate_action_families(&normalize_text("Spl Div Rs 5")).iter().all(|f| f != "SPLIT"));
+    }
+
+    #[test]
+    fn ca_later_exact_dividend_wording_is_canonical_only() {
+        for (purpose, cash) in [
+            ("Annual General Meetingdividend - Rs 2.5 Per Share", 2.5),
+            ("Interimdividend - Re 0.50", 0.5),
+            ("Specia Ldividend - Rs 850", 850.0),
+            ("Interim Dividned - Rs 2 Per Share", 2.0),
+            ("Interim Divided - Re 0.50", 0.5),
+            ("Interim Dividen - Rs 3", 3.0),
+            ("Dividnd - Rs 4 Per Share", 4.0),
+            ("AGM/Dividend - Rs 2.5 Per Share", 2.5),
+            ("agm/ dividend", 0.0),
+        ] {
+            let parsed = parse_corporate_action_purpose(purpose);
+            assert_eq!(parsed.action_type, "DIVIDEND", "{purpose}");
+            if cash > 0.0 { assert_eq!(parsed.cash_amount, Some(cash), "{purpose}"); }
+            else { assert_eq!(parsed.parse_status, "NEEDS_REVIEW"); }
+            assert!(detected_corporate_action_families(&normalize_text(purpose)).iter().any(|kind| kind == "DIVIDEND"), "{purpose}");
+        }
+        for purpose in ["Interim Divided Assets", "Dividend Yield", "Interim Dividnedness", "Notinterimdividend Rs 5", "Othermeetingdividend Rs 3", "Semiannual General Meetingdividend Rs 3", "General Meetingdividend Rs 4", "Ldividend Rs 5", "Final Divided Rs 3", "Specia Ldividendary Rs 2"] {
+            // Only the exact Interim Divided spelling is expanded, even without
+            // cash; missing financial terms must remain unready.
+            if purpose == "Interim Divided Assets" {
+                assert_eq!(parse_corporate_action_purpose(purpose).parse_status, "NEEDS_REVIEW");
+            } else {
+                assert_eq!(canonical_purpose(purpose), purpose, "{purpose}");
+            }
+        }
+        for purpose in ["Interim Dividnedness Rs 1", "Notinterimdividend Rs 5", "General Meetingdividend Rs 4", "Semiannual General Meetingdividend Rs 3", "Final Divided Rs 3"] {
+            assert_eq!(parse_corporate_action_purpose(purpose).action_type, "OTHER", "{purpose}");
+        }
+        let combined = parse_corporate_action_purpose("Bonus 1:1 / Interimdividend Rs 2");
+        assert_eq!(combined.parse_status, "NEEDS_REVIEW");
+        assert!(combined.message.unwrap().contains("Multiple corporate-action types"));
+    }
+
+    #[test]
+    fn ca_later_instrument_activity_is_exact_and_read_only() {
+        let c = Connection::open_in_memory().unwrap();
+        crate::database::prepare_database_connection(&c).unwrap();
+        c.execute("INSERT INTO instruments(symbol,exchange,is_active) VALUES ('LATERCO','NSE',0),('LATERCO','BSE',1)", []).unwrap();
+        let purpose = "Interimdividend - Re 0.50";
+        c.execute("INSERT INTO corporate_action_imports(dedupe_key,exchange,source,symbol,purpose_raw,action_type,review_status) VALUES ('later1','NSE','NSE_API','LATERCO',?,'OTHER','PENDING')", [purpose]).unwrap();
+        let first = get_import_row(&c, 1).unwrap();
+        assert_eq!(first.instrument_is_active, Some(false));
+        assert_eq!(first.purpose_raw, purpose);
+        assert_eq!(first.review_status, "PENDING");
+        assert_eq!(first.approved_corporate_action_id, None);
+        c.execute("UPDATE corporate_action_imports SET exchange='BSE' WHERE id=1", []).unwrap();
+        assert_eq!(list_import_rows(&c, None).unwrap()[0].instrument_is_active, Some(true));
+        c.execute("UPDATE corporate_action_imports SET symbol='MISSING' WHERE id=1", []).unwrap();
+        assert_eq!(get_import_row(&c, 1).unwrap().instrument_is_active, None);
+        assert_eq!(c.query_row("SELECT count(*) FROM corporate_actions", [], |r| r.get::<_, i64>(0)).unwrap(), 0);
     }
 
     #[test]
@@ -15627,6 +15749,7 @@ mod tests {
 
     fn phase1_recommended_isin_import_row() -> CorporateActionImportRow {
         CorporateActionImportRow {
+            instrument_is_active: None,
             id: 1,
             exchange: "NSE".to_string(),
             source: "NSE_API".to_string(),

@@ -4,7 +4,7 @@ import { corporateActionSearchRank, normalizeCorporateActionSearch } from './cor
 export const CLASSIC_ACTION_TYPES = ['SPLIT', 'BONUS', 'DIVIDEND', 'RIGHTS', 'DEMERGER', 'OTHER'] as const;
 export const CLASSIC_DEFAULT_SORT = { column: 'date', descending: true } as const;
 
-export type ClassicStatus = 'ready' | 'waiting' | 'review' | 'informational' | 'checking' | 'approved' | 'processed';
+export type ClassicStatus = 'ready' | 'later' | 'waiting' | 'review' | 'informational' | 'checking' | 'approved' | 'processed';
 export type ClassicStatusFilter = ClassicStatus | 'all' | 'issues';
 
 // Only actionable blocked/pending events are issues. Informational and
@@ -56,19 +56,19 @@ export function groupClassicActionRows(input: readonly ClassicActionRow[]): Clas
     for (const row of sorted) companions.set(row.record.id, sorted);
   }
   const seen = new Set<number>();
-  const rank: Record<ClassicStatus, number> = { review: 0, checking: 1, waiting: 2, informational: 3, approved: 4, processed: 4, ready: 5 };
+  const rank: Record<ClassicStatus, number> = { review: 0, checking: 1, waiting: 2, later: 0, informational: 3, approved: 4, processed: 4, ready: 5 };
   return rows.flatMap(row => {
     if (seen.has(row.record.id)) return [];
     const group = companions.get(row.record.id) ?? [row];
     group.forEach(item => seen.add(item.record.id));
-    const ready = group.every(item => item.ready);
+    const ready = group.every(item => item.ready && item.category !== 'later');
     const representative = [...group].sort((a, b) => rank[a.category] - rank[b.category])[0];
     const partiallyApproved = group.some(item => item.category === 'approved') && group.some(item => item.category !== 'approved');
     return [{ key: group[0].record.id, rows: group, ready,
       action: group.length === 2 ? 'Split + Bonus' : row.record.actionType.charAt(0) + row.record.actionType.slice(1).toLowerCase(),
       terms: group.map(item => item.terms).join(' / '),
-      category: partiallyApproved ? 'review' as const : ready ? 'ready' as const : representative.category,
-      status: partiallyApproved ? 'Partially approved' : ready ? 'Ready' : representative.status }];
+      category: partiallyApproved ? 'review' as const : group.some(item => item.category === 'later') ? 'later' as const : ready ? 'ready' as const : representative.category,
+      status: partiallyApproved ? 'Partially approved' : group.some(item => item.category === 'later') ? 'Later' : ready ? 'Ready' : representative.status }];
   });
 }
 
