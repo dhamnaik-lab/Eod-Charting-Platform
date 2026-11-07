@@ -168,10 +168,12 @@ export function ChartPriceLegendOverlay({
       ),
     [bars, chartType, instrument, instrumentName, renkoSettings, timeframe, valueIndex],
   );
-  const renderableOverlays = useMemo(
-    () => buildRenderableIndicators(bars, overlays).overlays,
+  const indicatorBundle = useMemo(
+    () => buildRenderableIndicators(bars, overlays),
     [bars, overlays],
   );
+  const renderableOverlays = indicatorBundle.overlays;
+  const indicatorDiagnostics = indicatorBundle.diagnostics ?? [];
   const legendItems = useMemo(
     () => [
       ...buildIndicatorLegendItems(overlays, renderableOverlays, valueIndex),
@@ -199,7 +201,8 @@ export function ChartPriceLegendOverlay({
   if (
     !instrument &&
     !priceSummary.segments.length &&
-    !visibleLegendItems.length
+    !visibleLegendItems.length &&
+    !indicatorDiagnostics.length
   ) {
     return null;
   }
@@ -244,6 +247,25 @@ export function ChartPriceLegendOverlay({
             </span>
           ))}{" "}
         </div>{" "}
+        {indicatorDiagnostics.length > 0 ? (
+          <div role="status" aria-label="Indicator calculation status" style={indicatorDiagnosticListStyle}>
+            {indicatorDiagnostics.map((diagnostic) => {
+              const indicator = overlays.find((item) => item.id === diagnostic.indicatorId);
+              const label = indicator ? getCompactIndicatorDisplayLabel(indicator) : diagnostic.indicatorKind;
+              return (
+                <span
+                  key={diagnostic.indicatorId}
+                  title={diagnostic.message}
+                  style={{
+                    color: diagnostic.severity === 'error' ? 'var(--red)' : 'var(--legend-text)',
+                  }}
+                >
+                  {label}: {diagnostic.message}
+                </span>
+              );
+            })}
+          </div>
+        ) : null}{" "}
         {hasSecondaryLegend && secondaryLegendExpanded ? (
           <div style={secondaryRowStyle}>
             {" "}
@@ -770,6 +792,22 @@ const legendToggleButtonStyle = (expanded: boolean): CSSProperties => ({
   cursor: "pointer",
   pointerEvents: "auto",
 });
+const indicatorDiagnosticListStyle: CSSProperties = {
+  display: "flex",
+  flexDirection: "column",
+  gap: 2,
+  maxHeight: 84,
+  maxWidth: "100%",
+  overflowY: "auto",
+  pointerEvents: "auto",
+  whiteSpace: "normal",
+  fontSize: 11,
+  lineHeight: "15px",
+  background: "var(--legend-bg)",
+  borderRadius: 4,
+  padding: "2px 4px",
+};
+
 const secondaryRowStyle: CSSProperties = {
   display: "flex",
   flexDirection: "column",
