@@ -6,13 +6,18 @@ type LaterRow = Pick<CorporateActionImportRow, 'actionType'> & Partial<Pick<Corp
 // Digits may be glued to Deb/Debs entitlement terms; Debt/Debit/Debut are words.
 const NON_EQUITY_TERMS = /\b(?:DEBENTURES?|DEBS?\d*|NCRPS|CRPS|CCPS|OCPS|PREFERENCE|PREFERRED|DVR|DIFFERENTIAL VOTING)\b/;
 
+function isInterestDistribution(purpose: string): boolean {
+  return /\bINTEREST\b/i.test(purpose) && (/\bPER UNIT\b/i.test(purpose)
+    || /\d/.test(purpose));
+}
+
 /** Presentation/readiness grouping only: no stored status or financial eligibility change. */
 export function isLaterCorporateAction(row: LaterRow): boolean {
   if (row.reviewStatus === 'APPROVED' || row.approvedCorporateActionId != null
     || row.reviewStatus === 'CLOSED_INFORMATIONAL') return false;
   if (row.instrumentIsActive === false) return true;
   if (['DIVIDEND', 'RIGHTS', 'DEMERGER'].includes(row.actionType)) return true;
-  if (/\bINTEREST\b.*\bPER UNIT\b/i.test(row.purposeRaw ?? '')) return true;
+  if (isInterestDistribution(row.purposeRaw ?? '')) return true;
   const purpose = (row.purposeRaw ?? '').toUpperCase().replace(/[^A-Z0-9]+/g, ' ');
   if (/\b(?:CAPITAL REDUCTION|REDUCTION OF (?:SHARE |EQUITY )?CAPITAL)\b/.test(purpose)) return true;
   if (/\b(?:INCOME DISTRIBUTION|DISTRIBUTION OF INCOME)\b/.test(purpose)
@@ -33,7 +38,7 @@ export function deferredCorporateActionReason(row: LaterRow & { message?: string
   if (specific) return specific;
   if (row.instrumentIsActive === false) return 'Delisted or inactive symbol';
   const purpose = (row.purposeRaw ?? '').toUpperCase().replace(/[^A-Z0-9]+/g, ' ');
-  if (/\b(?:INCOME DISTRIBUTION|DISTRIBUTION OF INCOME)\b/.test(purpose)
+  if (isInterestDistribution(row.purposeRaw ?? '') || /\b(?:INCOME DISTRIBUTION|DISTRIBUTION OF INCOME)\b/.test(purpose)
     || (/\bPER UNIT\b/.test(purpose) && /\b(?:INTEREST|DISTRIBUTION|DISTRITBUTION)\b/.test(purpose))) return 'InvIT/REIT distribution: not an equity price adjustment yet';
   if (/\b(?:CAPITAL REDUCTION|REDUCTION OF (?:SHARE |EQUITY )?CAPITAL)\b/.test(purpose)) return 'Capital reduction: rules not built yet';
   if (['SPLIT', 'BONUS'].includes(row.actionType) && NON_EQUITY_TERMS.test(purpose)) return 'Non-equity terms (debenture/preference/DVR)';

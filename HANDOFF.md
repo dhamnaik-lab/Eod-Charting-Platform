@@ -1,5 +1,13 @@
 # Handoff — immediate resume point
 
+## Corporate Actions: PR #27 interest notice parity fix (7 November 2026, IST)
+
+- **Resume:** P2 review fix on `feat/ca-nse-remaining-20261107`. Portable rebuild needed: `npm run tauri:portable:win`; native acceptance remains separate. No live database or approval used.
+- **Changes:** financial-word/number rejection is confined to the typo-tolerant meeting grammar. Exact Interest Payment/Interest Payement and existing notices/slash combinations close again only without financial fields. The renderer mirrors the backend notice, revised-note and meeting grammar; both classifiers run the same tracked 42-case JSON fixture, including the six requested purposes. Interest text with amounts stays unclosed and Deferred with the InvIT/REIT distribution reason. A sync regression checks Interest Payment remains closed on repeat sync, while amount-bearing/financial-field rows stay open. Financial approval, backend rechecks, raw `.eod` immutability and advanced maintenance are unchanged.
+- **Paths/backup:** `informational_closure.rs`, renderer `corporateActionAnnouncementClassification.ts` and `corporateActionLater.ts`, new announcement-classification test and `__tests__/fixtures/informationalClosureParity.json`, and these three owner docs. Backup: `backups/pre_opencode_changes_20261107_182307_ca-interest-parity`. All diagnosis data/logs remain ignored under `tmp/`; nothing from tmp is staged. Other agents' files and lower unrelated HANDOFF sections remain unstaged.
+- **Checks:** initial typecheck FAIL (new test row omitted required `approvedCorporateActionId`; corrected). Initial Vitest PASS 565/565. Corrected serial checks PASS: renderer typecheck; Vitest 565/565 in 73 files, no tmp collection (+2 from 563); focused Rust 2/2 (compile/link 1m18s); requested seven-filter Rust 825 passed, 0 failed, 26 ignored (+2 from 823). Both shared-Cargo previews PASS; shared root target only, `--jobs 2`. Logs: `tmp/fixtures/ca-diagnosis-20261107/interest-parity-*.log`. Docs/whitespace and CRLF checks PASS. No release/portable build performed.
+- **Acceptance:** rebuild and run Load & Validate on a copy; exact interest notices should close and stay closed, while amount-bearing interest remains Deferred and AGM/dividend remains financial. No automatic approval or stored-price writes. Existing Deb/predecessor behavior stays in place; the committed tree must contain no `tmp/` entries.
+
 ## Corporate Actions: Deb terms, predecessor proof and fixture tracking (7 November 2026, IST)
 
 - **Resume:** requested Tasks 1–3 implemented on `feat/ca-nse-remaining-20261107`. Portable rebuild needed: `npm run tauri:portable:win`. No live database or approval was used.

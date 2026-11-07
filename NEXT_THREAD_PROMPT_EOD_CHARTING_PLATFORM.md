@@ -4,7 +4,7 @@
 
 ## Running phases
 
-Corporate Actions Tasks 1–3 (fixture tracking, Deb/Debs admission/Deferred classification, and user-approved linked inactive predecessor proof) are implemented on `feat/ca-nse-remaining-20261107`. Six ignored diagnosis files are removed from Git tracking and preserved unchanged on disk; the commit tree must contain no `tmp/` entries. Debt/Debit/Debut remain negative. Every other ISIN owner must satisfy same-exchange inactivity and a direct transition dated by the event; MATCHED/current price gates and explicit approval remain unchanged. Typecheck PASS; Vitest PASS 563/563; focused Rust PASS 7/7; requested seven-filter Rust PASS 823, 0 failed, 26 ignored. Both Cargo previews PASS; shared target, `--jobs 2`. Docs/whitespace and CRLF checks PASS. See the top CA handoff for scope, backup and native acceptance.
+PR #27 P2 interest-notice fix is implemented on `feat/ca-nse-remaining-20261107`: exact Interest Payment/Payement and all-informational slash purposes close again, fuzzy-meeting financial rejection stays local to that grammar, and renderer/backend use the same 42-case parity fixture. Interest amounts stay unclosed/Deferred with the distribution reason; repeated sync does not reopen eligible Interest Payment. Final serial checks PASS: typecheck; Vitest 565/565 (+2 from 563); focused Rust 2/2; seven-filter Rust 825 passed, 0 failed, 26 ignored (+2 from 823). Shared-Cargo previews PASS, `--jobs 2`; see the top CA handoff for the corrected initial fixture typecheck, scope and backup. Existing Deb/predecessor checks and explicit financial approval remain unchanged; tmp stays untracked.
 
 **Corporate Actions Tasks A/B (7 November 2026):** diagnosis and automated verification are complete; runtime acceptance for NSE wording and Later is pending the portable rebuild. Other running-phase assignments await user confirmation.
 
@@ -13,6 +13,8 @@ Corporate Actions Tasks 1–3 (fixture tracking, Deb/Debs admission/Deferred cla
 **Task A diagnosis complete:** 131 pending Split/Bonus rows grouped on the supplied read-only copy; evidence is in `tmp/fixtures/ca-diagnosis-20261107/`. Task B implementation/check results are recorded in the top Corporate Actions section of [HANDOFF.md](HANDOFF.md); native acceptance is separate. Other phase sign-off awaits user confirmation.
 
 ## Next phases
+
+**Next for PR #27 interest parity:** after automated checks, user portable rebuild and copy-only native acceptance: Interest Payment and Interest Payment/Buyback close; Interest amounts keep the distribution Deferred reason; AGM and typo-only meetings are informational; AGM/dividend stays financial. Confirm no `tmp/` entries in the committed tree. Earlier Deb/predecessor native acceptance remains applicable.
 
 **Next for the assigned Deb/predecessor Tasks 1–3:** user portable rebuild and copy-only native acceptance after validation. Verify all ignored fixture files remain on disk and the committed tree contains no `tmp/` entries. Do not synthesize missing identity links or approve any action automatically. The earlier copied-history findings below remain separate from this narrowly approved owner exception.
 
