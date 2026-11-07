@@ -142,11 +142,16 @@ export function getSourceValues(
   sourceIndicatorId?: string,
   sourceSeriesMap?: Map<string, Array<number | null>>,
 ): number[] {
-  if (sourceIndicatorId && sourceSeriesMap?.has(sourceIndicatorId)) {
-    const customSeries = sourceSeriesMap.get(sourceIndicatorId)!;
-    return bars.map((bar, index) => {
-      const customValue = customSeries[index];
-      return typeof customValue === 'number' && Number.isFinite(customValue) ? customValue : bar.close;
+  if (sourceIndicatorId) {
+    const customSeries = sourceSeriesMap?.get(sourceIndicatorId);
+    if (!customSeries || customSeries.length !== bars.length) {
+      throw new Error(`Source indicator "${sourceIndicatorId}" is unavailable or misaligned`);
+    }
+    return customSeries.map((value, index) => {
+      if (typeof value !== 'number' || !Number.isFinite(value)) {
+        throw new Error(`Source indicator "${sourceIndicatorId}" is missing a value at bar ${index}`);
+      }
+      return value;
     });
   }
 
