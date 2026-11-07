@@ -3,9 +3,15 @@
   "checkpoint_id": "01M6VTREAYW29HD01A0H9A2SZZ",
   "strategy": "manual-commit",
   "branch": "feat/ca-nse-final-20261108",
-  "checkpoints_count": 7,
+  "checkpoints_count": 8,
   "files_touched": [
-    "HANDOFF.md"
+    "HANDOFF.md",
+    "src-tauri-shell/src/database/corporate_action_imports/informational_closure.rs",
+    "src/features/corporateActions/__tests__/corporateActionAllTypeReadinessSummary.test.ts",
+    "src/features/corporateActions/__tests__/corporateActionAnnouncementClassification.test.ts",
+    "src/features/corporateActions/__tests__/corporateActionLater.test.ts",
+    "src/features/corporateActions/legacy/corporateActionAnnouncementClassification.ts",
+    "src/features/corporateActions/legacy/corporateActionLater.ts"
   ],
   "sessions": [
     {
@@ -28,17 +34,32 @@
       "compact_transcript": "/2/transcript.jsonl",
       "content_hash": "/2/content_hash.txt",
       "prompt": "/2/prompt.txt"
+    },
+    {
+      "metadata": "/3/metadata.json",
+      "transcript": "/3/full.jsonl",
+      "compact_transcript": "/3/transcript.jsonl",
+      "content_hash": "/3/content_hash.txt",
+      "prompt": "/3/prompt.txt"
     }
   ],
+  "token_usage": {
+    "input_tokens": 245985,
+    "cache_creation_tokens": 0,
+    "cache_read_tokens": 5805952,
+    "output_tokens": 33852,
+    "api_call_count": 23,
+    "subagent_tokens_complete": true
+  },
   "redaction": {
-    "replacements": 2396,
+    "replacements": 2407,
     "layers": {
       "betterleaks": 0,
       "connection_string": 0,
       "credential_key": 0,
       "credential_value": 0,
       "credentialed_uri": 0,
-      "entropy": 2396,
+      "entropy": 2407,
       "key_context": 0,
       "provider_token": 0,
       "shell_stdin": 0
