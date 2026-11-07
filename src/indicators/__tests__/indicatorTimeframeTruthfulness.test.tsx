@@ -27,7 +27,7 @@ const bars: OHLCBar[] = Array.from({ length: 30 }, (_, index) => ({
 }));
 
 describe('B01: indicator timeframe presentation is truthful', () => {
-  it('hides the unsupported per-indicator timeframe selector but retains existing inputs', () => {
+  it('hides unsupported per-indicator timeframe and generic offset controls but retains existing inputs', () => {
     const html = renderToStaticMarkup(createElement(IndicatorSettingsDialog, {
       indicator: { ...ema, timeframe: 'W' },
       onSave: () => undefined,
@@ -36,7 +36,7 @@ describe('B01: indicator timeframe presentation is truthful', () => {
     }));
 
     expect(html).toContain('Period');
-    expect(html).toContain('Offset (bars)'); // B02 is a separate correction.
+    expect(html).not.toContain('Offset (bars)'); // The generic offset control is unsupported.
     expect(html).toContain('Save');
     expect(html).not.toContain('Weekly (W)');
     expect(html).not.toContain('Same as Chart (Daily)');
@@ -54,10 +54,10 @@ describe('B01: indicator timeframe presentation is truthful', () => {
     }
   });
 
-  it('retains unrelated offset-label behavior while removing legacy timeframe tags', () => {
+  it('does not falsely label a generic offset or legacy timeframe tag', () => {
     const withOffset: OverlayIndicator = { ...ema, offset: 2 };
     const legacyWithOffset: OverlayIndicator = { ...withOffset, timeframe: 'M' };
-    expect(getIndicatorDisplayLabel(legacyWithOffset)).toBe(getIndicatorDisplayLabel(withOffset));
+    expect(getIndicatorDisplayLabel(legacyWithOffset)).toBe(getIndicatorDisplayLabel(ema));
   });
 
   it('computes the same EMA series from the chart bars regardless of legacy timeframe metadata', () => {

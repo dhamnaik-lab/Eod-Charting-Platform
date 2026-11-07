@@ -1814,18 +1814,8 @@ export function getIndicatorDisplayLabel(indicator: ChartIndicator): string {
       break;
   }
 
-  const extraTags: string[] = [];
-  const overlayInd = indicator as import('@/engine/types').OverlayIndicator;
-  if (overlayInd.offset) {
-    extraTags.push(overlayInd.offset > 0 ? `+${overlayInd.offset}` : `${overlayInd.offset}`);
-  }
-  // Legacy per-indicator timeframe metadata is not a calculation setting.
-  // Do not label the chart-bar calculation as a higher-timeframe study.
-
-  if (extraTags.length > 0) {
-    return `${label} [${extraTags.join(', ')}]`;
-  }
-
+  // The legacy generic offset and timeframe fields do not shift or resample plots.
+  // ALMA and LSMA algorithmic offsets are already represented in their labels above.
   return label;
 }
 
