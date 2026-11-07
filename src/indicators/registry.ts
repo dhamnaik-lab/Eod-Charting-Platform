@@ -9,6 +9,11 @@ import {
   type RenderablePane,
 } from './base';
 import { pluginHost } from '@/plugins/hostRuntime';
+import {
+  buildSegmentedChainedIndicator,
+  getChainedSourceSeries,
+  supportsChainedIndicatorSource,
+} from './chaining';
 
 // Moving Averages
 import { buildSMA } from './standard/moving-averages/sma';
@@ -448,58 +453,136 @@ export function buildRenderableIndicators(
       }
     : { highs: [], lows: [], closes: [], volumes: [] };
 
-  const sourceSeriesMap = new Map<string, Array<number | null>>();
-  const diagnosedIds = new Set<string>();
+  type Renderable = RenderableOverlay | RenderablePane;
+  const computed = new Map<OverlayIndicator, Renderable | null>();
+  const visiting = new Set<OverlayIndicator>();
+  const diagnosticByIndicator = new Map<OverlayIndicator, IndicatorCalculationDiagnostic>();
 
-  return indicators.reduce<RenderableIndicatorBundle>(
-    (bundle, indicator) => {
-      if (indicator.visible === false) {
-        return bundle;
-      }
+  function report(
+    indicator: OverlayIndicator,
+    severity: IndicatorCalculationDiagnostic['severity'],
+    message: string,
+  ): void {
+    if (!diagnosticByIndicator.has(indicator)) {
+      diagnosticByIndicator.set(indicator, {
+        indicatorId: indicator.id,
+        indicatorKind: indicator.kind,
+        severity,
+        message,
+      });
+    }
+  }
 
+  // Compute in dependency order, but leave the visual display order unchanged.
+  function compute(indicator: OverlayIndicator): Renderable | null {
+    if (indicator.visible === false) return null;
+    if (computed.has(indicator)) return computed.get(indicator) ?? null;
+    if (visiting.has(indicator)) {
+      report(indicator, 'error', 'Circular indicator source dependency');
+      return null;
+    }
+
+    visiting.add(indicator);
+    let renderable: Renderable | null = null;
+    let failure: unknown;
+    try {
       const cacheKey = getChainedIndicatorCacheKey(indicator, byId);
-      let renderable = cacheBucket.renderables.get(cacheKey);
+      const upstreamId = indicator.sourceIndicatorId;
 
-      let failure: unknown;
-      if (!renderable) {
-        const fresh = buildRenderableIndicator(bars, indicator, sources, sourceSeriesMap, (cause) => {
-          failure = cause;
-        });
-        if (fresh) {
-          cacheBucket.renderables.set(cacheKey, fresh);
-          renderable = fresh;
+      if (upstreamId) {
+        if (!supportsChainedIndicatorSource(indicator.kind)) {
+          report(indicator, 'error', 'This indicator does not support Study-as-Source');
+        } else {
+          const upstream = byId.get(upstreamId);
+          if (!upstream) {
+            report(indicator, 'error', `Source indicator "${upstreamId}" is missing`);
+          } else if (upstream.visible === false) {
+            report(indicator, 'error', `Source indicator "${upstreamId}" is hidden`);
+          } else {
+            const parent = compute(upstream);
+            if (!parent) {
+              report(indicator, 'error', `Source indicator "${upstreamId}" is unavailable or cyclic`);
+            } else {
+              const values = getChainedSourceSeries(parent, indicator.sourcePlotKey);
+              if (!values || values.length !== bars.length) {
+                report(indicator, 'error', `Source indicator "${upstreamId}" has no matching aligned plot`);
+              } else if (!values.some((value) => typeof value === 'number' && Number.isFinite(value))) {
+                report(indicator, 'unavailable', `Source indicator "${upstreamId}" has no valid values yet`);
+              } else {
+                renderable = cacheBucket.renderables.get(cacheKey) ?? null;
+                if (!renderable) {
+                  const hasGaps = values.some((value) => typeof value !== 'number' || !Number.isFinite(value));
+                  renderable = hasGaps
+                    ? buildSegmentedChainedIndicator(
+                        bars,
+                        indicator,
+                        sources,
+                        upstreamId,
+                        values,
+                        (segmentBars, segmentSources, sourceMap, onFailure) =>
+                          buildRenderableIndicator(segmentBars, indicator, segmentSources, sourceMap, onFailure),
+                        (cause) => { failure = cause; },
+                      )
+                    : buildRenderableIndicator(
+                        bars,
+                        indicator,
+                        sources,
+                        new Map([[upstreamId, values]]),
+                        (cause) => { failure = cause; },
+                      );
+                  if (renderable) cacheBucket.renderables.set(cacheKey, renderable);
+                }
+              }
+            }
+          }
         }
-      }
-
-      if (!renderable) {
-        // Null may also mean insufficient bars, not an exception. Keep it distinct.
-        if (bars.length && !diagnosedIds.has(indicator.id)) {
-          diagnosedIds.add(indicator.id);
-          const diagnostic: IndicatorCalculationDiagnostic = {
-            indicatorId: indicator.id,
-            indicatorKind: indicator.kind,
-            severity: failure === undefined ? 'unavailable' : 'error',
-            message: failure === undefined
-              ? 'No output for current bars or settings'
-              : describeIndicatorFailure(failure),
-          };
-          (bundle.diagnostics ??= []).push(diagnostic);
-        }
-        return bundle;
-      }
-
-      if (renderable.lines?.[0]) {
-        sourceSeriesMap.set(indicator.id, renderable.lines[0].values);
-      }
-
-      if (indicator.placement === 'overlay') {
-        bundle.overlays.push(renderable as RenderableOverlay);
       } else {
-        bundle.panes.push(renderable as RenderablePane);
+        renderable = cacheBucket.renderables.get(cacheKey) ?? null;
+        if (!renderable) {
+          renderable = buildRenderableIndicator(
+            bars,
+            indicator,
+            sources,
+            undefined,
+            (cause) => { failure = cause; },
+          );
+          if (renderable) cacheBucket.renderables.set(cacheKey, renderable);
+        }
       }
 
-      return bundle;
-    },
-    { overlays: [], panes: [] },
-  );
+      if (!renderable && !diagnosticByIndicator.has(indicator) && bars.length) {
+        report(
+          indicator,
+          failure === undefined ? 'unavailable' : 'error',
+          failure === undefined ? 'No output for current bars or settings' : describeIndicatorFailure(failure),
+        );
+      }
+    } catch (error) {
+      report(indicator, 'error', describeIndicatorFailure(error));
+    } finally {
+      visiting.delete(indicator);
+      computed.set(indicator, renderable);
+    }
+    return renderable;
+  }
+
+  const bundle: RenderableIndicatorBundle = { overlays: [], panes: [] };
+  const diagnosedIds = new Set<string>();
+  for (const indicator of indicators) {
+    if (indicator.visible === false) continue;
+    const result = compute(indicator);
+    if (result) {
+      if (indicator.placement === 'overlay') {
+        bundle.overlays.push(result as RenderableOverlay);
+      } else {
+        bundle.panes.push(result as RenderablePane);
+      }
+    }
+    const diagnostic = diagnosticByIndicator.get(indicator);
+    if (diagnostic && !diagnosedIds.has(indicator.id)) {
+      diagnosedIds.add(indicator.id);
+      (bundle.diagnostics ??= []).push(diagnostic);
+    }
+  }
+  return bundle;
 }
