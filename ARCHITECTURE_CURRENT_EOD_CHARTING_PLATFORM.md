@@ -6,6 +6,8 @@ rename chain. It does not retarget an old-symbol Split to a new symbol.
 `split_isin_price_proof` also requires the same active symbol; dated price routing
 does not itself authorize cross-symbol financial adjustment. See the
 [A1 evidence and unsupported route](docs/plans/2026-11-08_CA_A1_IDENTITY_FINDINGS.md).
+The [proposed A1 extension](docs/plans/2026-11-08_CA_A1_CROSS_SYMBOL_DESIGN.md)
+is awaiting approval; the current runtime still enforces this boundary.
 
 ## Runtime composition
 

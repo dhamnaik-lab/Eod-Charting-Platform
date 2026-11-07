@@ -44,6 +44,9 @@ It documents the unmet prerequisite rather than claiming the requested route wor
 
 ## Review decision needed before extending behavior
 
+The [concrete proposed design](2026-11-08_CA_A1_CROSS_SYMBOL_DESIGN.md) is now
+available for approval. No production behavior has changed.
+
 A future implementation must explicitly support a single official rename edge,
 resolve the event-date symbol to a unique current security, and distinguish the
 2019 split ISIN change from the 2026 rename. Preserve import symbol/ISIN,

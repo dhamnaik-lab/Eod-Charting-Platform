@@ -1,5 +1,12 @@
 # Handoff — immediate resume point
 
+## Corporate Actions: A1 cross-symbol design awaits approval (8 November 2026, IST)
+
+- **Resume:** same A1 branch/worktree and draft PR #75; original main baseline remains `bc47208`. User's continuation was taken as authorization to prepare the design only. [Cross-symbol design](docs/plans/2026-11-08_CA_A1_CROSS_SYMBOL_DESIGN.md) is proposed, not implemented or approved.
+- **Decision:** retain raw import identity and purpose; add a separate single-edge NSE Split/Bonus proof with an explicit current adjustment owner (GUJENERGY for the GUJ event). Independently prove rename, event/ISIN change and current MATCHED prices. Recheck all three inside existing Approve lock/transaction; preserve deduplication, exactly-once chart adjustment, raw EOD immutability and inactive-source truthfulness.
+- **Scope:** documentation only; no production/test code or live data changes this turn. AVANTIFEED and PCBL remain blocked; four copied price files are still missing. A1 is open. Stop before code until the user approves the concrete design.
+- **Backup:** `backups/pre_opencode_changes_20261108_033020_ca-a1-cross-symbol-design` (5 existing documents copied). Docs-only validation: whitespace and UTF-8/CRLF PASS (6/6 documents), scoped plan links PASS (2/2); docs profile FAIL on the same 3 inherited ignored-report references. Prior runtime counts below are historical, not rerun for this design. No rebuild needed.
+
 ## Corporate Actions: A1 identity evidence and unsupported split route (8 November 2026, IST)
 
 - **Resume:** A1 only on `feat/ca-identity-gaps-20261108`, based on updated main `bc47208`, in `E:\TA Projects\EOD Charting Platform CA A1`. Shared-checkout chart edits prevent switching it to main; they remain untouched. A1 routing acceptance is **not complete**.

@@ -3,6 +3,7 @@
 Short repository-relative map of active entry points. Design details belong to [Architecture](ARCHITECTURE_CURRENT_EOD_CHARTING_PLATFORM.md); verification and gaps belong to [Feature status](FEATURE_STATUS_MATRIX_EOD_CHARTING_PLATFORM.md).
 
 Corporate Actions A1: [identity findings and evidence limits](docs/plans/2026-11-08_CA_A1_IDENTITY_FINDINGS.md), with the GUJGASLTD fail-closed regression in [dated-chain tests](src-tauri-shell/src/database/corporate_action_imports/dated_symbol_chain/tests.rs).
+Proposed next design: [A1 verified cross-symbol Split/Bonus owner](docs/plans/2026-11-08_CA_A1_CROSS_SYMBOL_DESIGN.md), awaiting user approval before implementation.
 
 ## Application and bridge
 
