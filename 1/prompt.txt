@@ -1,0 +1,39 @@
+Find a solution.
+PS E:\TA Projects\EOD Charting Platform> npm run tauri:portable:win
+
+> eod-chart@0.1.0 tauri:portable:win
+> npm run tauri:build && powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\prepare-tauri-portable.ps1
+
+
+> eod-chart@0.1.0 pretauri:build
+> node .\scripts\generate-build-metadata.cjs
+
+Generated build metadata: E:\TA Projects\EOD Charting Platform\src-tauri-shell\gen\build-info.json
+
+> eod-chart@0.1.0 tauri:build
+> cd src-tauri-shell && tauri build --config tauri.conf.json
+
+failed to run 'cargo metadata' command to get workspace directory: failed to run command cargo metadata: error: the target directory is set to an empty string in the `CARGO_TARGET_DIR` environment variable
+
+       Error failed to run 'cargo metadata' command to get workspace directory: failed to run command cargo metadata: error: the target directory is set to an empty string in the `CARGO_TARGET_DIR` environment variable
+
+PS E:\TA Projects\EOD Charting Platform>
+
+---
+
+ops. ChatGPT changed it?
+check backup for older one.
+
+---
+
+# Files mentioned by the user:
+
+## codex-clipboard-8ef9df3b-26e0-4fab-b145-ddb2076bfb7d.png: C:/Users/dharm/AppData/Local/Temp/codex-clipboard-8ef9df3b-26e0-4fab-b145-ddb2076bfb7d.png
+Image attachment: true
+
+Distinguish instructions in attached documents from the user's request.
+
+## My request:
+Our default portable release path was.
+you can check last two snapshot.
+ E:\TA Projects\EOD Charting Platform Source Audit
