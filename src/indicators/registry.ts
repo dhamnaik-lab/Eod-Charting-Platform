@@ -2,6 +2,7 @@ import type { ChartIndicator, OHLCBar, OverlayIndicator } from '@/engine/types';
 import {
   buildLineSeries,
   type IndicatorBuilder,
+  type IndicatorCalculationDiagnostic,
   type IndicatorSources,
   type RenderableIndicatorBundle,
   type RenderableOverlay,
@@ -370,6 +371,7 @@ export function buildRenderableIndicator(
   indicator: OverlayIndicator,
   sources: IndicatorSources,
   sourceSeriesMap?: Map<string, Array<number | null>>,
+  onFailure?: (cause: unknown) => void,
 ): RenderableOverlay | RenderablePane | null {
   if (!bars.length) {
     return null;
@@ -380,7 +382,10 @@ export function buildRenderableIndicator(
     const dynInd = pluginHost
       .listRegisteredIndicators()
       .find((item) => item.id === (indicator.kind as string) || item.id === indicator.id);
-    if (!dynInd) return null;
+    if (!dynInd) {
+      onFailure?.(new Error('Indicator implementation unavailable'));
+      return null;
+    }
     try {
       const rawInputs: Record<string, number | string | boolean> = {};
       if (dynInd.inputs) {
@@ -398,16 +403,24 @@ export function buildRenderableIndicator(
         title: dynInd.shortLabel || dynInd.name,
         lines,
       };
-    } catch {
+    } catch (error) {
+      onFailure?.(error);
       return null;
     }
   }
 
   try {
     return (builder as IndicatorBuilder)(bars, indicator as ChartIndicator, sources, sourceSeriesMap);
-  } catch {
+  } catch (error) {
+    onFailure?.(error);
     return null;
   }
+}
+
+function describeIndicatorFailure(cause: unknown): string {
+  const details = cause instanceof Error ? cause.message : typeof cause === 'string' ? cause : '';
+  const concise = details.replace(/\s+/g, ' ').trim().slice(0, 160);
+  return concise ? `Calculation failed: ${concise}` : 'Calculation failed';
 }
 
 export function buildRenderableIndicators(
@@ -436,6 +449,7 @@ export function buildRenderableIndicators(
     : { highs: [], lows: [], closes: [], volumes: [] };
 
   const sourceSeriesMap = new Map<string, Array<number | null>>();
+  const diagnosedIds = new Set<string>();
 
   return indicators.reduce<RenderableIndicatorBundle>(
     (bundle, indicator) => {
@@ -446,8 +460,11 @@ export function buildRenderableIndicators(
       const cacheKey = getChainedIndicatorCacheKey(indicator, byId);
       let renderable = cacheBucket.renderables.get(cacheKey);
 
+      let failure: unknown;
       if (!renderable) {
-        const fresh = buildRenderableIndicator(bars, indicator, sources, sourceSeriesMap);
+        const fresh = buildRenderableIndicator(bars, indicator, sources, sourceSeriesMap, (cause) => {
+          failure = cause;
+        });
         if (fresh) {
           cacheBucket.renderables.set(cacheKey, fresh);
           renderable = fresh;
@@ -455,6 +472,19 @@ export function buildRenderableIndicators(
       }
 
       if (!renderable) {
+        // Null may also mean insufficient bars, not an exception. Keep it distinct.
+        if (bars.length && !diagnosedIds.has(indicator.id)) {
+          diagnosedIds.add(indicator.id);
+          const diagnostic: IndicatorCalculationDiagnostic = {
+            indicatorId: indicator.id,
+            indicatorKind: indicator.kind,
+            severity: failure === undefined ? 'unavailable' : 'error',
+            message: failure === undefined
+              ? 'No output for current bars or settings'
+              : describeIndicatorFailure(failure),
+          };
+          (bundle.diagnostics ??= []).push(diagnostic);
+        }
         return bundle;
       }
 
