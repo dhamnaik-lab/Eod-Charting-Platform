@@ -15,7 +15,7 @@ describe('sidebar keyboard focus visibility', () => {
   });
 
   it('retains the shared accent focus ring for all themes', () => {
-    expect(css).toMatch(/button:focus-visible\s*\{\s*outline: 2px solid var\(--accent\);/);
+    expect(css).toMatch(/button:focus-visible\s*\{\s*outline: 2px solid var\(--focus-ring,\s*var\(--accent\)\);/);
     expect(css).toContain('outline-offset: 1px;');
   });
 
