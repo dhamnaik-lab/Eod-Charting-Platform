@@ -1,0 +1,2667 @@
+{
+  "snapshot": "Pinned main file only; sidecars excluded",
+  "hashes": {
+    "market-data.sqlite3": "774555A7FE16A67963F1034974B66D8AE90394CE0ECE0D9AA1ED5594157FCDE7",
+    "market-data.sqlite3-wal": "E3B0C44298FC1C149AFBF4C8996FB92427AE41E4649B934CA495991B7852B855",
+    "market-data.sqlite3-shm": "FD4C9FDA9CD3F9AE7C962B0DDF37232294D55580E1AA165AA06129B8549389EB"
+  },
+  "events": [
+    {
+      "symbol": "SBIN",
+      "date": "2014-11-20",
+      "imports": [
+        {
+          "id": 19888,
+          "dedupe_key": "NSE_API|NSE|SBIN|INE062A01012|SPLIT|2014-11-20|2014-11-21|FACE VALUE SPLIT RS 10 TO RE 1 PER SHARE",
+          "exchange": "NSE",
+          "source": "NSE_API",
+          "source_file": "https://www.nseindia.com/api/corporates-corporateActions?index=equities&from_date=01-01-2011&to_date=09-06-2026",
+          "symbol": "SBIN",
+          "isin": "INE062A01012",
+          "bse_scrip_code": null,
+          "company_name": "State Bank of India",
+          "purpose_raw": "Face Value Split Rs.10/- To Re.1/- Per Share",
+          "ex_date": "2014-11-20",
+          "record_date": "2014-11-21",
+          "action_type": "SPLIT",
+          "ratio_num": null,
+          "ratio_den": null,
+          "old_face_value": 10.0,
+          "new_face_value": 1.0,
+          "cash_amount": null,
+          "factor": 10.0,
+          "price_factor": 0.1,
+          "parse_status": "PARSED",
+          "review_status": "PENDING",
+          "message": "Quick-resolved this official row to NSE:SBIN using exact event-date historical ISIN evidence.",
+          "approved_corporate_action_id": null,
+          "imported_at": "2026-06-09 18:31:17",
+          "approved_at": null,
+          "cost_allocation_pct": null,
+          "spunoff_symbol": null,
+          "latest_scan": [
+            {
+              "id": 123524,
+              "scan_run_id": 628,
+              "corporate_action_import_id": 19888,
+              "corporate_action_id": null,
+              "symbol": "SBIN",
+              "exchange": "NSE",
+              "scan_status": "REVIEW",
+              "prev_trade_date": "2014-11-19",
+              "ex_trade_date": "2014-11-20",
+              "prev_close": 10800.0,
+              "ex_open": 11300.0,
+              "ex_close": 11300.78,
+              "expected_factor": 10.0,
+              "actual_open_factor": 0.9557522123893806,
+              "actual_close_factor": 0.9556862446662974,
+              "confidence": 0.09557522123893814,
+              "message": "Observed local bars do not closely match the expected official factor.",
+              "scanned_at": "2026-11-06T22:36:03.000693600+00:00"
+            }
+          ],
+          "current_raw_isin_owners": [],
+          "historical_raw_isin_owners": [
+            {
+              "symbol": "SBIN",
+              "exchange": "NSE",
+              "isin": "INE062A01012",
+              "effective_date": "2014-11-20",
+              "source": "V1.12.1_EXTERNAL_EVIDENCE"
+            }
+          ]
+        }
+      ],
+      "instrument": [
+        {
+          "symbol": "SBIN",
+          "exchange": "NSE",
+          "isin": "INE062A01020",
+          "name": "State Bank of India",
+          "series": "EQ",
+          "sector": null,
+          "industry": null,
+          "is_active": 1,
+          "updated_at": "2026-11-06 22:06:23",
+          "series_as_of_date": "2026-11-05",
+          "lifecycle_status": "CURRENT",
+          "bse_security_code": null
+        }
+      ],
+      "history": [
+        {
+          "id": 11603,
+          "exchange": "NSE",
+          "symbol": "SBIN",
+          "isin": "INE062A01012",
+          "effective_date": "2014-11-20",
+          "source": "V1.12.1_EXTERNAL_EVIDENCE",
+          "source_ref": "V112-EVID-0003",
+          "note": "V1.13 controlled identity repair; importIds=19888; evidence=V112-EVID-0003",
+          "created_at": "2026-08-18 11:37:08",
+          "updated_at": "2026-08-18 11:37:08"
+        }
+      ],
+      "sql_bar_count": 0,
+      "nearby_sql_bars": [],
+      "identity_links": []
+    },
+    {
+      "symbol": "BRITANNIA",
+      "date": "2010-09-08",
+      "imports": [
+        {
+          "id": 41783,
+          "dedupe_key": "NSE_API|NSE|BRITANNIA|INE216A01014|SPLIT|2010-09-08|2010-09-09|FACE VALUE SPLIT FROM RS 10 TO RS 2",
+          "exchange": "NSE",
+          "source": "NSE_API",
+          "source_file": "https://www.nseindia.com/api/corporates-corporateActions?index=equities&from_date=01-11-1994&to_date=31-12-2025",
+          "symbol": "BRITANNIA",
+          "isin": "INE216A01014",
+          "bse_scrip_code": null,
+          "company_name": "Britannia Industries Limited",
+          "purpose_raw": "Face Value Split From Rs.10/- To Rs.2/-",
+          "ex_date": "2010-09-08",
+          "record_date": "2010-09-09",
+          "action_type": "SPLIT",
+          "ratio_num": null,
+          "ratio_den": null,
+          "old_face_value": 10.0,
+          "new_face_value": 2.0,
+          "cash_amount": null,
+          "factor": 5.0,
+          "price_factor": 0.2,
+          "parse_status": "PARSED",
+          "review_status": "PENDING",
+          "message": "Quick-resolved this official row to NSE:BRITANNIA using exact event-date historical ISIN evidence.",
+          "approved_corporate_action_id": null,
+          "imported_at": "2026-06-10 06:32:12",
+          "approved_at": null,
+          "cost_allocation_pct": null,
+          "spunoff_symbol": null,
+          "latest_scan": [
+            {
+              "id": 125727,
+              "scan_run_id": 632,
+              "corporate_action_import_id": 41783,
+              "corporate_action_id": null,
+              "symbol": "BRITANNIA",
+              "exchange": "NSE",
+              "scan_status": "REVIEW",
+              "prev_trade_date": "2010-09-07",
+              "ex_trade_date": "2010-09-08",
+              "prev_close": 2123.25,
+              "ex_open": 175.95,
+              "ex_close": 174.25,
+              "expected_factor": 5.0,
+              "actual_open_factor": 12.067348678601876,
+              "actual_close_factor": 12.185078909612626,
+              "confidence": 0.0,
+              "message": "Observed local bars do not closely match the expected official factor.",
+              "scanned_at": "2026-11-06T22:37:04.692043800+00:00"
+            }
+          ],
+          "current_raw_isin_owners": [],
+          "historical_raw_isin_owners": [
+            {
+              "symbol": "BRITANNIA",
+              "exchange": "NSE",
+              "isin": "INE216A01014",
+              "effective_date": "2018-11-29",
+              "source": "NSE_API"
+            },
+            {
+              "symbol": "BRITANNIA",
+              "exchange": "NSE",
+              "isin": "INE216A01014",
+              "effective_date": "2018-07-27",
+              "source": "NSE_API"
+            },
+            {
+              "symbol": "BRITANNIA",
+              "exchange": "NSE",
+              "isin": "INE216A01014",
+              "effective_date": "2016-07-29",
+              "source": "NSE_API"
+            },
+            {
+              "symbol": "BRITANNIA",
+              "exchange": "NSE",
+              "isin": "INE216A01014",
+              "effective_date": "2017-07-28",
+              "source": "NSE_API"
+            },
+            {
+              "symbol": "BRITANNIA",
+              "exchange": "NSE",
+              "isin": "INE216A01014",
+              "effective_date": "2015-07-27",
+              "source": "NSE_API"
+            },
+            {
+              "symbol": "BRITANNIA",
+              "exchange": "NSE",
+              "isin": "INE216A01014",
+              "effective_date": "2014-07-23",
+              "source": "NSE_API"
+            },
+            {
+              "symbol": "BRITANNIA",
+              "exchange": "NSE",
+              "isin": "INE216A01014",
+              "effective_date": "2013-07-23",
+              "source": "NSE_API"
+            },
+            {
+              "symbol": "BRITANNIA",
+              "exchange": "NSE",
+              "isin": "INE216A01014",
+              "effective_date": "2012-07-17",
+              "source": "NSE_API"
+            },
+            {
+              "symbol": "BRITANNIA",
+              "exchange": "NSE",
+              "isin": "INE216A01014",
+              "effective_date": "2011-07-19",
+              "source": "NSE_API"
+            },
+            {
+              "symbol": "BRITANNIA",
+              "exchange": "NSE",
+              "isin": "INE216A01014",
+              "effective_date": "2010-07-23",
+              "source": "NSE_API"
+            }
+          ]
+        }
+      ],
+      "instrument": [
+        {
+          "symbol": "BRITANNIA",
+          "exchange": "NSE",
+          "isin": "INE216A01030",
+          "name": "Britannia Industries Limited",
+          "series": "EQ",
+          "sector": null,
+          "industry": null,
+          "is_active": 1,
+          "updated_at": "2026-11-06 22:06:23",
+          "series_as_of_date": "2026-11-05",
+          "lifecycle_status": "CURRENT",
+          "bse_security_code": null
+        }
+      ],
+      "history": [
+        {
+          "id": 15225,
+          "exchange": "NSE",
+          "symbol": "BRITANNIA",
+          "isin": "INE216A01014",
+          "effective_date": "2010-07-23",
+          "source": "NSE_API",
+          "source_ref": "https://www.nseindia.com/api/corporates-corporateActions?index=equities&from_date=01-11-1994&to_date=31-12-2025",
+          "note": "Confirmed from an approved official corporate-action import.",
+          "created_at": "2026-10-26 12:35:44",
+          "updated_at": "2026-10-26 12:35:44"
+        },
+        {
+          "id": 14618,
+          "exchange": "NSE",
+          "symbol": "BRITANNIA",
+          "isin": "INE216A01014",
+          "effective_date": "2011-07-19",
+          "source": "NSE_API",
+          "source_ref": "https://www.nseindia.com/api/corporates-corporateActions?index=equities&from_date=01-01-2011&to_date=09-06-2026",
+          "note": "Confirmed from an approved official corporate-action import.",
+          "created_at": "2026-10-26 12:33:47",
+          "updated_at": "2026-10-26 12:33:47"
+        },
+        {
+          "id": 13873,
+          "exchange": "NSE",
+          "symbol": "BRITANNIA",
+          "isin": "INE216A01014",
+          "effective_date": "2012-07-17",
+          "source": "NSE_API",
+          "source_ref": "https://www.nseindia.com/api/corporates-corporateActions?index=equities&from_date=01-01-2011&to_date=09-06-2026",
+          "note": "Confirmed from an approved official corporate-action import.",
+          "created_at": "2026-10-26 12:31:26",
+          "updated_at": "2026-10-26 12:31:26"
+        },
+        {
+          "id": 13175,
+          "exchange": "NSE",
+          "symbol": "BRITANNIA",
+          "isin": "INE216A01014",
+          "effective_date": "2013-07-23",
+          "source": "NSE_API",
+          "source_ref": "https://www.nseindia.com/api/corporates-corporateActions?index=equities&from_date=01-01-2011&to_date=09-06-2026",
+          "note": "Confirmed from an approved official corporate-action import.",
+          "created_at": "2026-10-26 12:29:01",
+          "updated_at": "2026-10-26 12:29:01"
+        },
+        {
+          "id": 12658,
+          "exchange": "NSE",
+          "symbol": "BRITANNIA",
+          "isin": "INE216A01014",
+          "effective_date": "2014-07-23",
+          "source": "NSE_API",
+          "source_ref": "https://www.nseindia.com/api/corporates-corporateActions?index=equities&from_date=01-01-2011&to_date=09-06-2026",
+          "note": "Confirmed from an approved official corporate-action import.",
+          "created_at": "2026-10-26 12:27:24",
+          "updated_at": "2026-10-26 12:27:24"
+        },
+        {
+          "id": 12387,
+          "exchange": "NSE",
+          "symbol": "BRITANNIA",
+          "isin": "INE216A01014",
+          "effective_date": "2015-07-27",
+          "source": "NSE_API",
+          "source_ref": "https://www.nseindia.com/api/corporates-corporateActions?index=equities&from_date=01-01-2011&to_date=09-06-2026",
+          "note": "Confirmed from an approved official corporate-action import.",
+          "created_at": "2026-10-26 12:26:34",
+          "updated_at": "2026-10-26 12:26:34"
+        },
+        {
+          "id": 12264,
+          "exchange": "NSE",
+          "symbol": "BRITANNIA",
+          "isin": "INE216A01014",
+          "effective_date": "2016-07-29",
+          "source": "NSE_API",
+          "source_ref": "https://www.nseindia.com/api/corporates-corporateActions?index=equities&from_date=01-01-2011&to_date=09-06-2026",
+          "note": "Confirmed from an approved official corporate-action import.",
+          "created_at": "2026-10-26 12:26:07",
+          "updated_at": "2026-10-26 12:26:07"
+        },
+        {
+          "id": 12320,
+          "exchange": "NSE",
+          "symbol": "BRITANNIA",
+          "isin": "INE216A01014",
+          "effective_date": "2017-07-28",
+          "source": "NSE_API",
+          "source_ref": "https://www.nseindia.com/api/corporates-corporateActions?index=equities&from_date=01-01-2011&to_date=09-06-2026",
+          "note": "Confirmed from an approved official corporate-action import.",
+          "created_at": "2026-10-26 12:26:19",
+          "updated_at": "2026-10-26 12:26:19"
+        },
+        {
+          "id": 12175,
+          "exchange": "NSE",
+          "symbol": "BRITANNIA",
+          "isin": "INE216A01014",
+          "effective_date": "2018-07-27",
+          "source": "NSE_API",
+          "source_ref": "https://www.nseindia.com/api/corporates-corporateActions?index=equities&from_date=01-01-2011&to_date=09-06-2026",
+          "note": "Confirmed from an approved official corporate-action import.",
+          "created_at": "2026-10-26 12:25:45",
+          "updated_at": "2026-10-26 12:25:45"
+        },
+        {
+          "id": 11378,
+          "exchange": "NSE",
+          "symbol": "BRITANNIA",
+          "isin": "INE216A01014",
+          "effective_date": "2018-11-29",
+          "source": "NSE_API",
+          "source_ref": "https://www.nseindia.com/api/corporates-corporateActions?index=equities&from_date=01-01-2011&to_date=09-06-2026",
+          "note": "Confirmed from an approved official corporate-action import.",
+          "created_at": "2026-08-16 09:52:30",
+          "updated_at": "2026-08-17 08:48:26"
+        }
+      ],
+      "sql_bar_count": 0,
+      "nearby_sql_bars": [],
+      "identity_links": []
+    },
+    {
+      "symbol": "BRITANNIA",
+      "date": "2010-03-08",
+      "imports": [
+        {
+          "id": 40789,
+          "dedupe_key": "NSE_API|NSE|BRITANNIA|INE216A01014|BONUS|2010-03-08|2010-03-09|SCH OF AGMT BONUS DEB1 1",
+          "exchange": "NSE",
+          "source": "NSE_API",
+          "source_file": "https://www.nseindia.com/api/corporates-corporateActions?index=equities&from_date=01-11-1994&to_date=31-12-2025",
+          "symbol": "BRITANNIA",
+          "isin": "INE216A01014",
+          "bse_scrip_code": null,
+          "company_name": "Britannia Industries Limited",
+          "purpose_raw": "Sch Of Agmt- Bonus Deb1:1",
+          "ex_date": "2010-03-08",
+          "record_date": "2010-03-09",
+          "action_type": "BONUS",
+          "ratio_num": 1.0,
+          "ratio_den": 1.0,
+          "old_face_value": null,
+          "new_face_value": null,
+          "cash_amount": null,
+          "factor": 2.0,
+          "price_factor": 0.5,
+          "parse_status": "PARSED",
+          "review_status": "PENDING",
+          "message": "Quick-resolved this official row to NSE:BRITANNIA using exact event-date historical ISIN evidence.",
+          "approved_corporate_action_id": null,
+          "imported_at": "2026-06-10 06:30:01",
+          "approved_at": null,
+          "cost_allocation_pct": null,
+          "spunoff_symbol": null,
+          "latest_scan": [
+            {
+              "id": 126012,
+              "scan_run_id": 633,
+              "corporate_action_import_id": 40789,
+              "corporate_action_id": null,
+              "symbol": "BRITANNIA",
+              "exchange": "NSE",
+              "scan_status": "REVIEW",
+              "prev_trade_date": "2010-03-05",
+              "ex_trade_date": "2010-03-08",
+              "prev_close": 1767.4,
+              "ex_open": 1697.7,
+              "ex_close": 1640.1,
+              "expected_factor": 2.0,
+              "actual_open_factor": 1.041055545738352,
+              "actual_close_factor": 1.077617218462289,
+              "confidence": 0.5388086092311445,
+              "message": "Observed local bars do not closely match the expected official factor.",
+              "scanned_at": "2026-11-06T22:37:14.543579200+00:00"
+            }
+          ],
+          "current_raw_isin_owners": [],
+          "historical_raw_isin_owners": [
+            {
+              "symbol": "BRITANNIA",
+              "exchange": "NSE",
+              "isin": "INE216A01014",
+              "effective_date": "2018-11-29",
+              "source": "NSE_API"
+            },
+            {
+              "symbol": "BRITANNIA",
+              "exchange": "NSE",
+              "isin": "INE216A01014",
+              "effective_date": "2018-07-27",
+              "source": "NSE_API"
+            },
+            {
+              "symbol": "BRITANNIA",
+              "exchange": "NSE",
+              "isin": "INE216A01014",
+              "effective_date": "2016-07-29",
+              "source": "NSE_API"
+            },
+            {
+              "symbol": "BRITANNIA",
+              "exchange": "NSE",
+              "isin": "INE216A01014",
+              "effective_date": "2017-07-28",
+              "source": "NSE_API"
+            },
+            {
+              "symbol": "BRITANNIA",
+              "exchange": "NSE",
+              "isin": "INE216A01014",
+              "effective_date": "2015-07-27",
+              "source": "NSE_API"
+            },
+            {
+              "symbol": "BRITANNIA",
+              "exchange": "NSE",
+              "isin": "INE216A01014",
+              "effective_date": "2014-07-23",
+              "source": "NSE_API"
+            },
+            {
+              "symbol": "BRITANNIA",
+              "exchange": "NSE",
+              "isin": "INE216A01014",
+              "effective_date": "2013-07-23",
+              "source": "NSE_API"
+            },
+            {
+              "symbol": "BRITANNIA",
+              "exchange": "NSE",
+              "isin": "INE216A01014",
+              "effective_date": "2012-07-17",
+              "source": "NSE_API"
+            },
+            {
+              "symbol": "BRITANNIA",
+              "exchange": "NSE",
+              "isin": "INE216A01014",
+              "effective_date": "2011-07-19",
+              "source": "NSE_API"
+            },
+            {
+              "symbol": "BRITANNIA",
+              "exchange": "NSE",
+              "isin": "INE216A01014",
+              "effective_date": "2010-07-23",
+              "source": "NSE_API"
+            }
+          ]
+        }
+      ],
+      "instrument": [
+        {
+          "symbol": "BRITANNIA",
+          "exchange": "NSE",
+          "isin": "INE216A01030",
+          "name": "Britannia Industries Limited",
+          "series": "EQ",
+          "sector": null,
+          "industry": null,
+          "is_active": 1,
+          "updated_at": "2026-11-06 22:06:23",
+          "series_as_of_date": "2026-11-05",
+          "lifecycle_status": "CURRENT",
+          "bse_security_code": null
+        }
+      ],
+      "history": [
+        {
+          "id": 15225,
+          "exchange": "NSE",
+          "symbol": "BRITANNIA",
+          "isin": "INE216A01014",
+          "effective_date": "2010-07-23",
+          "source": "NSE_API",
+          "source_ref": "https://www.nseindia.com/api/corporates-corporateActions?index=equities&from_date=01-11-1994&to_date=31-12-2025",
+          "note": "Confirmed from an approved official corporate-action import.",
+          "created_at": "2026-10-26 12:35:44",
+          "updated_at": "2026-10-26 12:35:44"
+        },
+        {
+          "id": 14618,
+          "exchange": "NSE",
+          "symbol": "BRITANNIA",
+          "isin": "INE216A01014",
+          "effective_date": "2011-07-19",
+          "source": "NSE_API",
+          "source_ref": "https://www.nseindia.com/api/corporates-corporateActions?index=equities&from_date=01-01-2011&to_date=09-06-2026",
+          "note": "Confirmed from an approved official corporate-action import.",
+          "created_at": "2026-10-26 12:33:47",
+          "updated_at": "2026-10-26 12:33:47"
+        },
+        {
+          "id": 13873,
+          "exchange": "NSE",
+          "symbol": "BRITANNIA",
+          "isin": "INE216A01014",
+          "effective_date": "2012-07-17",
+          "source": "NSE_API",
+          "source_ref": "https://www.nseindia.com/api/corporates-corporateActions?index=equities&from_date=01-01-2011&to_date=09-06-2026",
+          "note": "Confirmed from an approved official corporate-action import.",
+          "created_at": "2026-10-26 12:31:26",
+          "updated_at": "2026-10-26 12:31:26"
+        },
+        {
+          "id": 13175,
+          "exchange": "NSE",
+          "symbol": "BRITANNIA",
+          "isin": "INE216A01014",
+          "effective_date": "2013-07-23",
+          "source": "NSE_API",
+          "source_ref": "https://www.nseindia.com/api/corporates-corporateActions?index=equities&from_date=01-01-2011&to_date=09-06-2026",
+          "note": "Confirmed from an approved official corporate-action import.",
+          "created_at": "2026-10-26 12:29:01",
+          "updated_at": "2026-10-26 12:29:01"
+        },
+        {
+          "id": 12658,
+          "exchange": "NSE",
+          "symbol": "BRITANNIA",
+          "isin": "INE216A01014",
+          "effective_date": "2014-07-23",
+          "source": "NSE_API",
+          "source_ref": "https://www.nseindia.com/api/corporates-corporateActions?index=equities&from_date=01-01-2011&to_date=09-06-2026",
+          "note": "Confirmed from an approved official corporate-action import.",
+          "created_at": "2026-10-26 12:27:24",
+          "updated_at": "2026-10-26 12:27:24"
+        },
+        {
+          "id": 12387,
+          "exchange": "NSE",
+          "symbol": "BRITANNIA",
+          "isin": "INE216A01014",
+          "effective_date": "2015-07-27",
+          "source": "NSE_API",
+          "source_ref": "https://www.nseindia.com/api/corporates-corporateActions?index=equities&from_date=01-01-2011&to_date=09-06-2026",
+          "note": "Confirmed from an approved official corporate-action import.",
+          "created_at": "2026-10-26 12:26:34",
+          "updated_at": "2026-10-26 12:26:34"
+        },
+        {
+          "id": 12264,
+          "exchange": "NSE",
+          "symbol": "BRITANNIA",
+          "isin": "INE216A01014",
+          "effective_date": "2016-07-29",
+          "source": "NSE_API",
+          "source_ref": "https://www.nseindia.com/api/corporates-corporateActions?index=equities&from_date=01-01-2011&to_date=09-06-2026",
+          "note": "Confirmed from an approved official corporate-action import.",
+          "created_at": "2026-10-26 12:26:07",
+          "updated_at": "2026-10-26 12:26:07"
+        },
+        {
+          "id": 12320,
+          "exchange": "NSE",
+          "symbol": "BRITANNIA",
+          "isin": "INE216A01014",
+          "effective_date": "2017-07-28",
+          "source": "NSE_API",
+          "source_ref": "https://www.nseindia.com/api/corporates-corporateActions?index=equities&from_date=01-01-2011&to_date=09-06-2026",
+          "note": "Confirmed from an approved official corporate-action import.",
+          "created_at": "2026-10-26 12:26:19",
+          "updated_at": "2026-10-26 12:26:19"
+        },
+        {
+          "id": 12175,
+          "exchange": "NSE",
+          "symbol": "BRITANNIA",
+          "isin": "INE216A01014",
+          "effective_date": "2018-07-27",
+          "source": "NSE_API",
+          "source_ref": "https://www.nseindia.com/api/corporates-corporateActions?index=equities&from_date=01-01-2011&to_date=09-06-2026",
+          "note": "Confirmed from an approved official corporate-action import.",
+          "created_at": "2026-10-26 12:25:45",
+          "updated_at": "2026-10-26 12:25:45"
+        },
+        {
+          "id": 11378,
+          "exchange": "NSE",
+          "symbol": "BRITANNIA",
+          "isin": "INE216A01014",
+          "effective_date": "2018-11-29",
+          "source": "NSE_API",
+          "source_ref": "https://www.nseindia.com/api/corporates-corporateActions?index=equities&from_date=01-01-2011&to_date=09-06-2026",
+          "note": "Confirmed from an approved official corporate-action import.",
+          "created_at": "2026-08-16 09:52:30",
+          "updated_at": "2026-08-17 08:48:26"
+        }
+      ],
+      "sql_bar_count": 0,
+      "nearby_sql_bars": [],
+      "identity_links": []
+    },
+    {
+      "symbol": "JMFINANCIL",
+      "date": "2008-09-08",
+      "imports": [
+        {
+          "id": 38511,
+          "dedupe_key": "NSE_API|NSE|JMFINANCIL|INE780C01023|OTHER|2008-09-08|2008-09-15|FV SPL RS10TORE1 BON 3 2",
+          "exchange": "NSE",
+          "source": "NSE_API",
+          "source_file": "https://www.nseindia.com/api/corporates-corporateActions?index=equities&from_date=01-11-1994&to_date=31-12-2025",
+          "symbol": "JMFINANCIL",
+          "isin": "INE780C01023",
+          "bse_scrip_code": null,
+          "company_name": "JM Financial Limited",
+          "purpose_raw": "Fv Spl-Rs10tore1/Bon-3:2",
+          "ex_date": "2008-09-08",
+          "record_date": "2008-09-15",
+          "action_type": "SPLIT",
+          "ratio_num": null,
+          "ratio_den": null,
+          "old_face_value": 10.0,
+          "new_face_value": 1.0,
+          "cash_amount": null,
+          "factor": 10.0,
+          "price_factor": 0.1,
+          "parse_status": "PARSED",
+          "review_status": "PENDING",
+          "message": "Classification refreshed.  Identity and approval checks remain required.",
+          "approved_corporate_action_id": null,
+          "imported_at": "2026-06-10 06:20:10",
+          "approved_at": null,
+          "cost_allocation_pct": null,
+          "spunoff_symbol": null,
+          "latest_scan": [
+            {
+              "id": 126562,
+              "scan_run_id": 634,
+              "corporate_action_import_id": 38511,
+              "corporate_action_id": null,
+              "symbol": "JMFINANCIL",
+              "exchange": "NSE",
+              "scan_status": "REVIEW",
+              "prev_trade_date": "2008-09-05",
+              "ex_trade_date": "2008-09-08",
+              "prev_close": 1402.2,
+              "ex_open": 66.0,
+              "ex_close": 67.35,
+              "expected_factor": 10.0,
+              "actual_open_factor": 21.245454545454546,
+              "actual_close_factor": 20.819599109131406,
+              "confidence": 0.8498181818181818,
+              "message": "Observed local bars do not closely match the combined same-date Split/Bonus factor ×25.000000 across 2 official actions. [CA_COMPOUND_V1 factor=25.000000000000 count=2 fingerprint=38511:10.000000000000,46788:2.500000000000]",
+              "scanned_at": "2026-11-06T22:37:31.928535500+00:00"
+            }
+          ],
+          "current_raw_isin_owners": [
+            {
+              "symbol": "JMFINANCIL",
+              "exchange": "NSE",
+              "isin": "INE780C01023",
+              "is_active": 1
+            },
+            {
+              "symbol": "JMFINANCIL",
+              "exchange": "BSE",
+              "isin": "INE780C01023",
+              "is_active": 1
+            }
+          ],
+          "historical_raw_isin_owners": [
+            {
+              "symbol": "JMFINANCIL",
+              "exchange": "NSE",
+              "isin": "INE780C01023",
+              "effective_date": "2015-02-05",
+              "source": "NSE_API"
+            },
+            {
+              "symbol": "JMFINANCIL",
+              "exchange": "NSE",
+              "isin": "INE780C01023",
+              "effective_date": "2015-06-08",
+              "source": "NSE_API"
+            },
+            {
+              "symbol": "JMFINANCIL",
+              "exchange": "NSE",
+              "isin": "INE780C01023",
+              "effective_date": "2016-02-11",
+              "source": "NSE_API"
+            },
+            {
+              "symbol": "JMFINANCIL",
+              "exchange": "NSE",
+              "isin": "INE780C01023",
+              "effective_date": "2016-05-23",
+              "source": "NSE_API"
+            },
+            {
+              "symbol": "JMFINANCIL",
+              "exchange": "NSE",
+              "isin": "INE780C01023",
+              "effective_date": "2017-02-02",
+              "source": "NSE_API"
+            },
+            {
+              "symbol": "JMFINANCIL",
+              "exchange": "NSE",
+              "isin": "INE780C01023",
+              "effective_date": "2017-05-11",
+              "source": "NSE_API"
+            },
+            {
+              "symbol": "JMFINANCIL",
+              "exchange": "NSE",
+              "isin": "INE780C01023",
+              "effective_date": "2018-01-31",
+              "source": "NSE_API"
+            },
+            {
+              "symbol": "JMFINANCIL",
+              "exchange": "NSE",
+              "isin": "INE780C01023",
+              "effective_date": "2018-05-10",
+              "source": "NSE_API"
+            },
+            {
+              "symbol": "JMFINANCIL",
+              "exchange": "NSE",
+              "isin": "INE780C01023",
+              "effective_date": "2019-01-31",
+              "source": "NSE_API"
+            },
+            {
+              "symbol": "JMFINANCIL",
+              "exchange": "NSE",
+              "isin": "INE780C01023",
+              "effective_date": "2019-05-10",
+              "source": "NSE_API"
+            },
+            {
+              "symbol": "JMFINANCIL",
+              "exchange": "NSE",
+              "isin": "INE780C01023",
+              "effective_date": "2020-05-15",
+              "source": "NSE_API"
+            },
+            {
+              "symbol": "JMFINANCIL",
+              "exchange": "NSE",
+              "isin": "INE780C01023",
+              "effective_date": "2021-05-28",
+              "source": "NSE_API"
+            },
+            {
+              "symbol": "JMFINANCIL",
+              "exchange": "NSE",
+              "isin": "INE780C01023",
+              "effective_date": "2022-02-17",
+              "source": "NSE_API"
+            },
+            {
+              "symbol": "JMFINANCIL",
+              "exchange": "NSE",
+              "isin": "INE780C01023",
+              "effective_date": "2022-07-07",
+              "source": "NSE_API"
+            },
+            {
+              "symbol": "JMFINANCIL",
+              "exchange": "NSE",
+              "isin": "INE780C01023",
+              "effective_date": "2022-11-24",
+              "source": "NSE_API"
+            },
+            {
+              "symbol": "JMFINANCIL",
+              "exchange": "NSE",
+              "isin": "INE780C01023",
+              "effective_date": "2023-05-19",
+              "source": "NSE_API"
+            },
+            {
+              "symbol": "JMFINANCIL",
+              "exchange": "NSE",
+              "isin": "INE780C01023",
+              "effective_date": "2024-06-07",
+              "source": "NSE_API"
+            },
+            {
+              "symbol": "JMFINANCIL",
+              "exchange": "NSE",
+              "isin": "INE780C01023",
+              "effective_date": "2025-06-13",
+              "source": "NSE_API"
+            },
+            {
+              "symbol": "JMFINANCIL",
+              "exchange": "NSE",
+              "isin": "INE780C01023",
+              "effective_date": "2025-11-14",
+              "source": "NSE_API"
+            },
+            {
+              "symbol": "JMFINANCIL",
+              "exchange": "NSE",
+              "isin": "INE780C01023",
+              "effective_date": "2014-06-25",
+              "source": "NSE_API"
+            },
+            {
+              "symbol": "JMFINANCIL",
+              "exchange": "NSE",
+              "isin": "INE780C01023",
+              "effective_date": "2014-02-07",
+              "source": "NSE_API"
+            },
+            {
+              "symbol": "JMFINANCIL",
+              "exchange": "NSE",
+              "isin": "INE780C01023",
+              "effective_date": "2013-02-15",
+              "source": "NSE_API"
+            },
+            {
+              "symbol": "JMFINANCIL",
+              "exchange": "NSE",
+              "isin": "INE780C01023",
+              "effective_date": "2012-08-02",
+              "source": "NSE_API"
+            },
+            {
+              "symbol": "JMFINANCIL",
+              "exchange": "NSE",
+              "isin": "INE780C01023",
+              "effective_date": "2011-07-20",
+              "source": "NSE_API"
+            },
+            {
+              "symbol": "JMFINANCIL",
+              "exchange": "NSE",
+              "isin": "INE780C01023",
+              "effective_date": "2009-09-01",
+              "source": "NSE_API"
+            }
+          ]
+        },
+        {
+          "id": 46788,
+          "dedupe_key": "CA_COMPONENT_V1:38511:BONUS",
+          "exchange": "NSE",
+          "source": "NSE_API",
+          "source_file": "https://www.nseindia.com/api/corporates-corporateActions?index=equities&from_date=01-11-1994&to_date=31-12-2025",
+          "symbol": "JMFINANCIL",
+          "isin": "INE780C01023",
+          "bse_scrip_code": null,
+          "company_name": "JM Financial Limited",
+          "purpose_raw": "Fv Spl-Rs10tore1/Bon-3:2",
+          "ex_date": "2008-09-08",
+          "record_date": "2008-09-15",
+          "action_type": "BONUS",
+          "ratio_num": 3.0,
+          "ratio_den": 2.0,
+          "old_face_value": null,
+          "new_face_value": null,
+          "cash_amount": null,
+          "factor": 2.5,
+          "price_factor": 0.4,
+          "parse_status": "PARSED",
+          "review_status": "PENDING",
+          "message": "Classification refreshed.  Identity and approval checks remain required.",
+          "approved_corporate_action_id": null,
+          "imported_at": "2026-11-06 19:49:55",
+          "approved_at": null,
+          "cost_allocation_pct": null,
+          "spunoff_symbol": null,
+          "latest_scan": [
+            {
+              "id": 126561,
+              "scan_run_id": 634,
+              "corporate_action_import_id": 46788,
+              "corporate_action_id": null,
+              "symbol": "JMFINANCIL",
+              "exchange": "NSE",
+              "scan_status": "REVIEW",
+              "prev_trade_date": "2008-09-05",
+              "ex_trade_date": "2008-09-08",
+              "prev_close": 1402.2,
+              "ex_open": 66.0,
+              "ex_close": 67.35,
+              "expected_factor": 2.5,
+              "actual_open_factor": 21.245454545454546,
+              "actual_close_factor": 20.819599109131406,
+              "confidence": 0.8498181818181818,
+              "message": "Observed local bars do not closely match the combined same-date Split/Bonus factor ×25.000000 across 2 official actions. [CA_COMPOUND_V1 factor=25.000000000000 count=2 fingerprint=38511:10.000000000000,46788:2.500000000000]",
+              "scanned_at": "2026-11-06T22:37:31.886103100+00:00"
+            }
+          ],
+          "current_raw_isin_owners": [
+            {
+              "symbol": "JMFINANCIL",
+              "exchange": "NSE",
+              "isin": "INE780C01023",
+              "is_active": 1
+            },
+            {
+              "symbol": "JMFINANCIL",
+              "exchange": "BSE",
+              "isin": "INE780C01023",
+              "is_active": 1
+            }
+          ],
+          "historical_raw_isin_owners": [
+            {
+              "symbol": "JMFINANCIL",
+              "exchange": "NSE",
+              "isin": "INE780C01023",
+              "effective_date": "2015-02-05",
+              "source": "NSE_API"
+            },
+            {
+              "symbol": "JMFINANCIL",
+              "exchange": "NSE",
+              "isin": "INE780C01023",
+              "effective_date": "2015-06-08",
+              "source": "NSE_API"
+            },
+            {
+              "symbol": "JMFINANCIL",
+              "exchange": "NSE",
+              "isin": "INE780C01023",
+              "effective_date": "2016-02-11",
+              "source": "NSE_API"
+            },
+            {
+              "symbol": "JMFINANCIL",
+              "exchange": "NSE",
+              "isin": "INE780C01023",
+              "effective_date": "2016-05-23",
+              "source": "NSE_API"
+            },
+            {
+              "symbol": "JMFINANCIL",
+              "exchange": "NSE",
+              "isin": "INE780C01023",
+              "effective_date": "2017-02-02",
+              "source": "NSE_API"
+            },
+            {
+              "symbol": "JMFINANCIL",
+              "exchange": "NSE",
+              "isin": "INE780C01023",
+              "effective_date": "2017-05-11",
+              "source": "NSE_API"
+            },
+            {
+              "symbol": "JMFINANCIL",
+              "exchange": "NSE",
+              "isin": "INE780C01023",
+              "effective_date": "2018-01-31",
+              "source": "NSE_API"
+            },
+            {
+              "symbol": "JMFINANCIL",
+              "exchange": "NSE",
+              "isin": "INE780C01023",
+              "effective_date": "2018-05-10",
+              "source": "NSE_API"
+            },
+            {
+              "symbol": "JMFINANCIL",
+              "exchange": "NSE",
+              "isin": "INE780C01023",
+              "effective_date": "2019-01-31",
+              "source": "NSE_API"
+            },
+            {
+              "symbol": "JMFINANCIL",
+              "exchange": "NSE",
+              "isin": "INE780C01023",
+              "effective_date": "2019-05-10",
+              "source": "NSE_API"
+            },
+            {
+              "symbol": "JMFINANCIL",
+              "exchange": "NSE",
+              "isin": "INE780C01023",
+              "effective_date": "2020-05-15",
+              "source": "NSE_API"
+            },
+            {
+              "symbol": "JMFINANCIL",
+              "exchange": "NSE",
+              "isin": "INE780C01023",
+              "effective_date": "2021-05-28",
+              "source": "NSE_API"
+            },
+            {
+              "symbol": "JMFINANCIL",
+              "exchange": "NSE",
+              "isin": "INE780C01023",
+              "effective_date": "2022-02-17",
+              "source": "NSE_API"
+            },
+            {
+              "symbol": "JMFINANCIL",
+              "exchange": "NSE",
+              "isin": "INE780C01023",
+              "effective_date": "2022-07-07",
+              "source": "NSE_API"
+            },
+            {
+              "symbol": "JMFINANCIL",
+              "exchange": "NSE",
+              "isin": "INE780C01023",
+              "effective_date": "2022-11-24",
+              "source": "NSE_API"
+            },
+            {
+              "symbol": "JMFINANCIL",
+              "exchange": "NSE",
+              "isin": "INE780C01023",
+              "effective_date": "2023-05-19",
+              "source": "NSE_API"
+            },
+            {
+              "symbol": "JMFINANCIL",
+              "exchange": "NSE",
+              "isin": "INE780C01023",
+              "effective_date": "2024-06-07",
+              "source": "NSE_API"
+            },
+            {
+              "symbol": "JMFINANCIL",
+              "exchange": "NSE",
+              "isin": "INE780C01023",
+              "effective_date": "2025-06-13",
+              "source": "NSE_API"
+            },
+            {
+              "symbol": "JMFINANCIL",
+              "exchange": "NSE",
+              "isin": "INE780C01023",
+              "effective_date": "2025-11-14",
+              "source": "NSE_API"
+            },
+            {
+              "symbol": "JMFINANCIL",
+              "exchange": "NSE",
+              "isin": "INE780C01023",
+              "effective_date": "2014-06-25",
+              "source": "NSE_API"
+            },
+            {
+              "symbol": "JMFINANCIL",
+              "exchange": "NSE",
+              "isin": "INE780C01023",
+              "effective_date": "2014-02-07",
+              "source": "NSE_API"
+            },
+            {
+              "symbol": "JMFINANCIL",
+              "exchange": "NSE",
+              "isin": "INE780C01023",
+              "effective_date": "2013-02-15",
+              "source": "NSE_API"
+            },
+            {
+              "symbol": "JMFINANCIL",
+              "exchange": "NSE",
+              "isin": "INE780C01023",
+              "effective_date": "2012-08-02",
+              "source": "NSE_API"
+            },
+            {
+              "symbol": "JMFINANCIL",
+              "exchange": "NSE",
+              "isin": "INE780C01023",
+              "effective_date": "2011-07-20",
+              "source": "NSE_API"
+            },
+            {
+              "symbol": "JMFINANCIL",
+              "exchange": "NSE",
+              "isin": "INE780C01023",
+              "effective_date": "2009-09-01",
+              "source": "NSE_API"
+            }
+          ]
+        }
+      ],
+      "instrument": [
+        {
+          "symbol": "JMFINANCIL",
+          "exchange": "NSE",
+          "isin": "INE780C01023",
+          "name": "JM Financial Limited",
+          "series": "EQ",
+          "sector": null,
+          "industry": null,
+          "is_active": 1,
+          "updated_at": "2026-11-06 22:06:23",
+          "series_as_of_date": "2026-11-05",
+          "lifecycle_status": "CURRENT",
+          "bse_security_code": null
+        }
+      ],
+      "history": [
+        {
+          "id": 15591,
+          "exchange": "NSE",
+          "symbol": "JMFINANCIL",
+          "isin": "INE780C01023",
+          "effective_date": "2009-09-01",
+          "source": "NSE_API",
+          "source_ref": "https://www.nseindia.com/api/corporates-corporateActions?index=equities&from_date=01-11-1994&to_date=31-12-2025",
+          "note": "Confirmed from an approved official corporate-action import.",
+          "created_at": "2026-10-26 12:36:59",
+          "updated_at": "2026-10-26 12:36:59"
+        },
+        {
+          "id": 14632,
+          "exchange": "NSE",
+          "symbol": "JMFINANCIL",
+          "isin": "INE780C01023",
+          "effective_date": "2011-07-20",
+          "source": "NSE_API",
+          "source_ref": "https://www.nseindia.com/api/corporates-corporateActions?index=equities&from_date=01-01-2011&to_date=09-06-2026",
+          "note": "Confirmed from an approved official corporate-action import.",
+          "created_at": "2026-10-26 12:33:49",
+          "updated_at": "2026-10-26 12:33:49"
+        },
+        {
+          "id": 13792,
+          "exchange": "NSE",
+          "symbol": "JMFINANCIL",
+          "isin": "INE780C01023",
+          "effective_date": "2012-08-02",
+          "source": "NSE_API",
+          "source_ref": "https://www.nseindia.com/api/corporates-corporateActions?index=equities&from_date=01-01-2011&to_date=09-06-2026",
+          "note": "Confirmed from an approved official corporate-action import.",
+          "created_at": "2026-10-26 12:31:08",
+          "updated_at": "2026-10-26 12:31:08"
+        },
+        {
+          "id": 13524,
+          "exchange": "NSE",
+          "symbol": "JMFINANCIL",
+          "isin": "INE780C01023",
+          "effective_date": "2013-02-15",
+          "source": "NSE_API",
+          "source_ref": "https://www.nseindia.com/api/corporates-corporateActions?index=equities&from_date=01-01-2011&to_date=09-06-2026",
+          "note": "Confirmed from an approved official corporate-action import.",
+          "created_at": "2026-10-26 12:30:16",
+          "updated_at": "2026-10-26 12:30:16"
+        },
+        {
+          "id": 12857,
+          "exchange": "NSE",
+          "symbol": "JMFINANCIL",
+          "isin": "INE780C01023",
+          "effective_date": "2014-02-07",
+          "source": "NSE_API",
+          "source_ref": "https://www.nseindia.com/api/corporates-corporateActions?index=equities&from_date=01-01-2011&to_date=09-06-2026",
+          "note": "Confirmed from an approved official corporate-action import.",
+          "created_at": "2026-10-26 12:28:02",
+          "updated_at": "2026-10-26 12:28:02"
+        },
+        {
+          "id": 12773,
+          "exchange": "NSE",
+          "symbol": "JMFINANCIL",
+          "isin": "INE780C01023",
+          "effective_date": "2014-06-25",
+          "source": "NSE_API",
+          "source_ref": "https://www.nseindia.com/api/corporates-corporateActions?index=equities&from_date=01-01-2011&to_date=09-06-2026",
+          "note": "Confirmed from an approved official corporate-action import.",
+          "created_at": "2026-10-26 12:27:46",
+          "updated_at": "2026-10-26 12:27:46"
+        },
+        {
+          "id": 703,
+          "exchange": "NSE",
+          "symbol": "JMFINANCIL",
+          "isin": "INE780C01023",
+          "effective_date": "2015-02-05",
+          "source": "NSE_API",
+          "source_ref": "https://www.nseindia.com/api/corporates-corporateActions?index=equities&from_date=01-01-2011&to_date=09-06-2026",
+          "note": "Backfilled from existing approved canonical corporate action.",
+          "created_at": "2026-06-11 17:45:19",
+          "updated_at": "2026-06-11 17:48:01"
+        },
+        {
+          "id": 806,
+          "exchange": "NSE",
+          "symbol": "JMFINANCIL",
+          "isin": "INE780C01023",
+          "effective_date": "2015-06-08",
+          "source": "NSE_API",
+          "source_ref": "https://www.nseindia.com/api/corporates-corporateActions?index=equities&from_date=01-01-2011&to_date=09-06-2026",
+          "note": "Backfilled from existing approved canonical corporate action.",
+          "created_at": "2026-06-11 17:45:19",
+          "updated_at": "2026-06-11 17:48:01"
+        },
+        {
+          "id": 1447,
+          "exchange": "NSE",
+          "symbol": "JMFINANCIL",
+          "isin": "INE780C01023",
+          "effective_date": "2016-02-11",
+          "source": "NSE_API",
+          "source_ref": "https://www.nseindia.com/api/corporates-corporateActions?index=equities&from_date=01-01-2011&to_date=09-06-2026",
+          "note": "Backfilled from existing approved canonical corporate action.",
+          "created_at": "2026-06-11 17:45:27",
+          "updated_at": "2026-06-11 17:47:59"
+        },
+        {
+          "id": 1684,
+          "exchange": "NSE",
+          "symbol": "JMFINANCIL",
+          "isin": "INE780C01023",
+          "effective_date": "2016-05-23",
+          "source": "NSE_API",
+          "source_ref": "https://www.nseindia.com/api/corporates-corporateActions?index=equities&from_date=01-01-2011&to_date=09-06-2026",
+          "note": "Backfilled from existing approved canonical corporate action.",
+          "created_at": "2026-06-11 17:45:29",
+          "updated_at": "2026-06-11 17:47:59"
+        },
+        {
+          "id": 2226,
+          "exchange": "NSE",
+          "symbol": "JMFINANCIL",
+          "isin": "INE780C01023",
+          "effective_date": "2017-02-02",
+          "source": "NSE_API",
+          "source_ref": "https://www.nseindia.com/api/corporates-corporateActions?index=equities&from_date=01-01-2011&to_date=09-06-2026",
+          "note": "Backfilled from existing approved canonical corporate action.",
+          "created_at": "2026-06-11 17:45:33",
+          "updated_at": "2026-06-11 17:47:57"
+        },
+        {
+          "id": 2337,
+          "exchange": "NSE",
+          "symbol": "JMFINANCIL",
+          "isin": "INE780C01023",
+          "effective_date": "2017-05-11",
+          "source": "NSE_API",
+          "source_ref": "https://www.nseindia.com/api/corporates-corporateActions?index=equities&from_date=01-01-2011&to_date=09-06-2026",
+          "note": "Backfilled from existing approved canonical corporate action.",
+          "created_at": "2026-06-11 17:45:33",
+          "updated_at": "2026-06-11 17:47:57"
+        },
+        {
+          "id": 3025,
+          "exchange": "NSE",
+          "symbol": "JMFINANCIL",
+          "isin": "INE780C01023",
+          "effective_date": "2018-01-31",
+          "source": "NSE_API",
+          "source_ref": "https://www.nseindia.com/api/corporates-corporateActions?index=equities&from_date=01-01-2011&to_date=09-06-2026",
+          "note": "Backfilled from existing approved canonical corporate action.",
+          "created_at": "2026-06-11 17:45:37",
+          "updated_at": "2026-06-11 17:47:57"
+        },
+        {
+          "id": 3133,
+          "exchange": "NSE",
+          "symbol": "JMFINANCIL",
+          "isin": "INE780C01023",
+          "effective_date": "2018-05-10",
+          "source": "NSE_API",
+          "source_ref": "https://www.nseindia.com/api/corporates-corporateActions?index=equities&from_date=01-01-2011&to_date=09-06-2026",
+          "note": "Backfilled from existing approved canonical corporate action.",
+          "created_at": "2026-06-11 17:45:38",
+          "updated_at": "2026-06-11 17:47:57"
+        },
+        {
+          "id": 3842,
+          "exchange": "NSE",
+          "symbol": "JMFINANCIL",
+          "isin": "INE780C01023",
+          "effective_date": "2019-01-31",
+          "source": "NSE_API",
+          "source_ref": "https://www.nseindia.com/api/corporates-corporateActions?index=equities&from_date=01-01-2011&to_date=09-06-2026",
+          "note": "Backfilled from existing approved canonical corporate action.",
+          "created_at": "2026-06-11 17:45:46",
+          "updated_at": "2026-06-11 17:47:56"
+        },
+        {
+          "id": 3965,
+          "exchange": "NSE",
+          "symbol": "JMFINANCIL",
+          "isin": "INE780C01023",
+          "effective_date": "2019-05-10",
+          "source": "NSE_API",
+          "source_ref": "https://www.nseindia.com/api/corporates-corporateActions?index=equities&from_date=01-01-2011&to_date=09-06-2026",
+          "note": "Backfilled from existing approved canonical corporate action.",
+          "created_at": "2026-06-11 17:45:46",
+          "updated_at": "2026-06-11 17:47:56"
+        },
+        {
+          "id": 4966,
+          "exchange": "NSE",
+          "symbol": "JMFINANCIL",
+          "isin": "INE780C01023",
+          "effective_date": "2020-05-15",
+          "source": "NSE_API",
+          "source_ref": "https://www.nseindia.com/api/corporates-corporateActions?index=equities&from_date=01-01-2011&to_date=09-06-2026",
+          "note": "Backfilled from existing approved canonical corporate action.",
+          "created_at": "2026-06-11 17:45:56",
+          "updated_at": "2026-06-11 17:47:54"
+        },
+        {
+          "id": 5561,
+          "exchange": "NSE",
+          "symbol": "JMFINANCIL",
+          "isin": "INE780C01023",
+          "effective_date": "2021-05-28",
+          "source": "NSE_API",
+          "source_ref": "https://www.nseindia.com/api/corporates-corporateActions?index=equities&from_date=01-01-2021&to_date=09-06-2026",
+          "note": "Backfilled from existing approved canonical corporate action.",
+          "created_at": "2026-06-11 17:46:11",
+          "updated_at": "2026-06-11 17:47:51"
+        },
+        {
+          "id": 6367,
+          "exchange": "NSE",
+          "symbol": "JMFINANCIL",
+          "isin": "INE780C01023",
+          "effective_date": "2022-02-17",
+          "source": "NSE_API",
+          "source_ref": "https://www.nseindia.com/api/corporates-corporateActions?index=equities&from_date=01-01-2021&to_date=09-06-2026",
+          "note": "Backfilled from existing approved canonical corporate action.",
+          "created_at": "2026-06-11 17:46:18",
+          "updated_at": "2026-06-11 17:47:49"
+        },
+        {
+          "id": 6552,
+          "exchange": "NSE",
+          "symbol": "JMFINANCIL",
+          "isin": "INE780C01023",
+          "effective_date": "2022-07-07",
+          "source": "NSE_API",
+          "source_ref": "https://www.nseindia.com/api/corporates-corporateActions?index=equities&from_date=01-01-2021&to_date=09-06-2026",
+          "note": "Backfilled from existing approved canonical corporate action.",
+          "created_at": "2026-06-11 17:46:18",
+          "updated_at": "2026-06-11 17:47:49"
+        },
+        {
+          "id": 7226,
+          "exchange": "NSE",
+          "symbol": "JMFINANCIL",
+          "isin": "INE780C01023",
+          "effective_date": "2022-11-24",
+          "source": "NSE_API",
+          "source_ref": "https://www.nseindia.com/api/corporates-corporateActions?index=equities&from_date=01-01-2021&to_date=09-06-2026",
+          "note": "Backfilled from existing approved canonical corporate action.",
+          "created_at": "2026-06-11 17:46:23",
+          "updated_at": "2026-06-11 17:47:45"
+        },
+        {
+          "id": 7418,
+          "exchange": "NSE",
+          "symbol": "JMFINANCIL",
+          "isin": "INE780C01023",
+          "effective_date": "2023-05-19",
+          "source": "NSE_API",
+          "source_ref": "https://www.nseindia.com/api/corporates-corporateActions?index=equities&from_date=01-01-2021&to_date=09-06-2026",
+          "note": "Backfilled from existing approved canonical corporate action.",
+          "created_at": "2026-06-11 17:46:23",
+          "updated_at": "2026-06-11 17:47:45"
+        },
+        {
+          "id": 8500,
+          "exchange": "NSE",
+          "symbol": "JMFINANCIL",
+          "isin": "INE780C01023",
+          "effective_date": "2024-06-07",
+          "source": "NSE_API",
+          "source_ref": "https://www.nseindia.com/api/corporates-corporateActions?index=equities&from_date=01-01-2021&to_date=09-06-2026",
+          "note": "Backfilled from existing approved canonical corporate action.",
+          "created_at": "2026-06-11 17:46:39",
+          "updated_at": "2026-06-11 17:47:42"
+        },
+        {
+          "id": 9656,
+          "exchange": "NSE",
+          "symbol": "JMFINANCIL",
+          "isin": "INE780C01023",
+          "effective_date": "2025-06-13",
+          "source": "NSE_API",
+          "source_ref": "https://www.nseindia.com/api/corporates-corporateActions?index=equities&from_date=01-01-2021&to_date=09-06-2026",
+          "note": "Backfilled from existing approved canonical corporate action.",
+          "created_at": "2026-06-11 17:46:59",
+          "updated_at": "2026-06-11 17:47:37"
+        },
+        {
+          "id": 10549,
+          "exchange": "NSE",
+          "symbol": "JMFINANCIL",
+          "isin": "INE780C01023",
+          "effective_date": "2025-11-14",
+          "source": "NSE_API",
+          "source_ref": "https://www.nseindia.com/api/corporates-corporateActions?index=equities&from_date=01-01-2021&to_date=09-06-2026",
+          "note": "Backfilled from existing approved canonical corporate action.",
+          "created_at": "2026-06-11 17:47:18",
+          "updated_at": "2026-06-11 17:47:32"
+        }
+      ],
+      "sql_bar_count": 0,
+      "nearby_sql_bars": [],
+      "identity_links": []
+    },
+    {
+      "symbol": "AJANTPHARM",
+      "date": "2013-09-17",
+      "imports": [
+        {
+          "id": 17442,
+          "dedupe_key": "NSE_API|NSE|AJANTPHARM|INE031B01015|BONUS|2013-09-17|2013-09-18|BONUS 1 2",
+          "exchange": "NSE",
+          "source": "NSE_API",
+          "source_file": "https://www.nseindia.com/api/corporates-corporateActions?index=equities&from_date=01-01-2011&to_date=09-06-2026",
+          "symbol": "AJANTPHARM",
+          "isin": "INE031B01015",
+          "bse_scrip_code": null,
+          "company_name": "Ajanta Pharma Limited",
+          "purpose_raw": "Bonus 1:2",
+          "ex_date": "2013-09-17",
+          "record_date": "2013-09-18",
+          "action_type": "BONUS",
+          "ratio_num": 1.0,
+          "ratio_den": 2.0,
+          "old_face_value": null,
+          "new_face_value": null,
+          "cash_amount": null,
+          "factor": 1.5,
+          "price_factor": 0.6666666666666666,
+          "parse_status": "PARSED",
+          "review_status": "PENDING",
+          "message": "Quick-resolved this official row to NSE:AJANTPHARM using exact event-date historical ISIN evidence.",
+          "approved_corporate_action_id": null,
+          "imported_at": "2026-06-09 18:29:41",
+          "approved_at": null,
+          "cost_allocation_pct": null,
+          "spunoff_symbol": null,
+          "latest_scan": [
+            {
+              "id": 124114,
+              "scan_run_id": 629,
+              "corporate_action_import_id": 17442,
+              "corporate_action_id": null,
+              "symbol": "AJANTPHARM",
+              "exchange": "NSE",
+              "scan_status": "REVIEW",
+              "prev_trade_date": "2013-09-03",
+              "ex_trade_date": "2013-10-07",
+              "prev_close": 876.2,
+              "ex_open": 726.7,
+              "ex_close": 708.65,
+              "expected_factor": 1.5,
+              "actual_open_factor": 1.2057245080500893,
+              "actual_close_factor": 1.2364354759048897,
+              "confidence": 0.8242903172699264,
+              "message": "Observed local bars do not closely match the expected official factor.",
+              "scanned_at": "2026-11-06T22:36:20.140051700+00:00"
+            }
+          ],
+          "current_raw_isin_owners": [],
+          "historical_raw_isin_owners": [
+            {
+              "symbol": "AJANTPHARM",
+              "exchange": "NSE",
+              "isin": "INE031B01015",
+              "effective_date": "2012-08-09",
+              "source": "NSE_API"
+            },
+            {
+              "symbol": "AJANTPHARM",
+              "exchange": "NSE",
+              "isin": "INE031B01015",
+              "effective_date": "2015-03-20",
+              "source": "NSE_API"
+            },
+            {
+              "symbol": "AJANTPHARM",
+              "exchange": "NSE",
+              "isin": "INE031B01015",
+              "effective_date": "2014-07-24",
+              "source": "NSE_API"
+            },
+            {
+              "symbol": "AJANTPHARM",
+              "exchange": "NSE",
+              "isin": "INE031B01015",
+              "effective_date": "2013-07-18",
+              "source": "NSE_API"
+            }
+          ]
+        }
+      ],
+      "instrument": [
+        {
+          "symbol": "AJANTPHARM",
+          "exchange": "NSE",
+          "isin": "INE031B01049",
+          "name": "Ajanta Pharma Limited",
+          "series": "EQ",
+          "sector": null,
+          "industry": null,
+          "is_active": 1,
+          "updated_at": "2026-11-06 22:06:23",
+          "series_as_of_date": "2026-11-05",
+          "lifecycle_status": "CURRENT",
+          "bse_security_code": null
+        }
+      ],
+      "history": [
+        {
+          "id": 11324,
+          "exchange": "NSE",
+          "symbol": "AJANTPHARM",
+          "isin": "INE031B01015",
+          "effective_date": "2012-08-09",
+          "source": "NSE_API",
+          "source_ref": "https://www.nseindia.com/api/corporates-corporateActions?index=equities&from_date=01-01-2011&to_date=09-06-2026",
+          "note": "Confirmed from an approved official corporate-action import.",
+          "created_at": "2026-08-16 09:52:30",
+          "updated_at": "2026-08-17 08:48:42"
+        },
+        {
+          "id": 13138,
+          "exchange": "NSE",
+          "symbol": "AJANTPHARM",
+          "isin": "INE031B01015",
+          "effective_date": "2013-07-18",
+          "source": "NSE_API",
+          "source_ref": "https://www.nseindia.com/api/corporates-corporateActions?index=equities&from_date=01-01-2011&to_date=09-06-2026",
+          "note": "Confirmed from an approved official corporate-action import.",
+          "created_at": "2026-10-26 12:28:55",
+          "updated_at": "2026-10-26 12:28:55"
+        },
+        {
+          "id": 12669,
+          "exchange": "NSE",
+          "symbol": "AJANTPHARM",
+          "isin": "INE031B01015",
+          "effective_date": "2014-07-24",
+          "source": "NSE_API",
+          "source_ref": "https://www.nseindia.com/api/corporates-corporateActions?index=equities&from_date=01-01-2011&to_date=09-06-2026",
+          "note": "Confirmed from an approved official corporate-action import.",
+          "created_at": "2026-10-26 12:27:26",
+          "updated_at": "2026-10-26 12:27:26"
+        },
+        {
+          "id": 11325,
+          "exchange": "NSE",
+          "symbol": "AJANTPHARM",
+          "isin": "INE031B01015",
+          "effective_date": "2015-03-20",
+          "source": "NSE_API",
+          "source_ref": "https://www.nseindia.com/api/corporates-corporateActions?index=equities&from_date=01-01-2011&to_date=09-06-2026",
+          "note": "Confirmed from an approved official corporate-action import.",
+          "created_at": "2026-08-16 09:52:30",
+          "updated_at": "2026-08-17 08:48:31"
+        },
+        {
+          "id": 11271,
+          "exchange": "NSE",
+          "symbol": "AJANTPHARM",
+          "isin": "INE031B01049",
+          "effective_date": "2022-06-22",
+          "source": "NSE_API",
+          "source_ref": "https://www.nseindia.com/api/corporates-corporateActions?index=equities&from_date=01-01-2021&to_date=09-06-2026",
+          "note": "Confirmed from an approved official corporate-action import.",
+          "created_at": "2026-08-14 11:06:57",
+          "updated_at": "2026-08-14 11:06:57"
+        }
+      ],
+      "sql_bar_count": 0,
+      "nearby_sql_bars": [],
+      "identity_links": []
+    },
+    {
+      "symbol": "NAVKARURB",
+      "date": "2025-05-09",
+      "imports": [
+        {
+          "id": 10934,
+          "dedupe_key": "NSE_API|NSE|NAVKARURB|INE268H01036|SPLIT|2025-05-09|2025-05-09|FACE VALUE SPLIT SUB DIVISION FROM RS 2 PER SHARE TO RE 1 PER SHARE",
+          "exchange": "NSE",
+          "source": "NSE_API",
+          "source_file": "https://www.nseindia.com/api/corporates-corporateActions?index=equities&from_date=01-01-2021&to_date=09-06-2026",
+          "symbol": "NAVKARURB",
+          "isin": "INE268H01044",
+          "bse_scrip_code": null,
+          "company_name": "Navkar Urbanstructure Limited",
+          "purpose_raw": "Face Value Split (Sub-Division) - From Rs 2/- Per Share To Re 1/- Per Share",
+          "ex_date": "2025-05-09",
+          "record_date": "2025-05-09",
+          "action_type": "SPLIT",
+          "ratio_num": null,
+          "ratio_den": null,
+          "old_face_value": 2.0,
+          "new_face_value": 1.0,
+          "cash_amount": null,
+          "factor": 2.0,
+          "price_factor": 0.5,
+          "parse_status": "PARSED",
+          "review_status": "PENDING",
+          "message": "Manually resolved this official row to NSE:NAVKARURB.",
+          "approved_corporate_action_id": null,
+          "imported_at": "2026-06-09 14:09:23",
+          "approved_at": null,
+          "cost_allocation_pct": null,
+          "spunoff_symbol": null,
+          "latest_scan": [
+            {
+              "id": 119992,
+              "scan_run_id": 621,
+              "corporate_action_import_id": 10934,
+              "corporate_action_id": null,
+              "symbol": "NAVKARURB",
+              "exchange": "NSE",
+              "scan_status": "REVIEW",
+              "prev_trade_date": "2025-04-30",
+              "ex_trade_date": "2025-06-02",
+              "prev_close": 5.82,
+              "ex_open": 2.29,
+              "ex_close": 2.53,
+              "expected_factor": 2.0,
+              "actual_open_factor": 2.541484716157205,
+              "actual_close_factor": 2.3003952569169965,
+              "confidence": 0.8498023715415017,
+              "message": "Observed local bars do not closely match the expected official factor.",
+              "scanned_at": "2026-11-06T22:34:15.995737+00:00"
+            }
+          ],
+          "current_raw_isin_owners": [
+            {
+              "symbol": "NAVKARURB",
+              "exchange": "NSE",
+              "isin": "INE268H01044",
+              "is_active": 1
+            },
+            {
+              "symbol": "NAVKARURB",
+              "exchange": "BSE",
+              "isin": "INE268H01044",
+              "is_active": 1
+            }
+          ],
+          "historical_raw_isin_owners": [
+            {
+              "symbol": "NAVKARURB",
+              "exchange": "NSE",
+              "isin": "INE268H01044",
+              "effective_date": "2025-04-24",
+              "source": "NSE_API"
+            }
+          ]
+        }
+      ],
+      "instrument": [
+        {
+          "symbol": "NAVKARURB",
+          "exchange": "NSE",
+          "isin": "INE268H01044",
+          "name": "Navkar Urbanstructure Limited",
+          "series": "EQ",
+          "sector": null,
+          "industry": null,
+          "is_active": 1,
+          "updated_at": "2026-11-06 22:06:23",
+          "series_as_of_date": "2026-11-05",
+          "lifecycle_status": "CURRENT",
+          "bse_security_code": null
+        }
+      ],
+      "history": [
+        {
+          "id": 11102,
+          "exchange": "NSE",
+          "symbol": "NAVKARURB",
+          "isin": "INE268H01044",
+          "effective_date": "2025-04-24",
+          "source": "NSE_API",
+          "source_ref": "https://www.nseindia.com/api/corporates-corporateActions?index=equities&from_date=01-01-2021&to_date=09-06-2026",
+          "note": "Confirmed from an approved official corporate-action import.",
+          "created_at": "2026-08-14 11:06:47",
+          "updated_at": "2026-08-14 11:06:47"
+        }
+      ],
+      "sql_bar_count": 0,
+      "nearby_sql_bars": [],
+      "identity_links": []
+    },
+    {
+      "symbol": "JSWSTEEL",
+      "date": "2017-01-04",
+      "imports": [
+        {
+          "id": 23962,
+          "dedupe_key": "NSE_API|NSE|JSWSTEEL|INE019A01020|OTHER|2017-01-04|2017-01-05|FV SPLT FRM RS 10 TO RE 1",
+          "exchange": "NSE",
+          "source": "NSE_API",
+          "source_file": "https://www.nseindia.com/api/corporates-corporateActions?index=equities&from_date=01-01-2011&to_date=09-06-2026",
+          "symbol": "JSWSTEEL",
+          "isin": "INE019A01020",
+          "bse_scrip_code": null,
+          "company_name": "JSW Steel Limited",
+          "purpose_raw": "Fv Splt Frm Rs 10 To Re 1",
+          "ex_date": "2017-01-04",
+          "record_date": "2017-01-05",
+          "action_type": "SPLIT",
+          "ratio_num": null,
+          "ratio_den": null,
+          "old_face_value": 10.0,
+          "new_face_value": 1.0,
+          "cash_amount": null,
+          "factor": 10.0,
+          "price_factor": 0.1,
+          "parse_status": "PARSED",
+          "review_status": "PENDING_ISIN_MISMATCH",
+          "message": "Classification refreshed.  Identity and approval checks remain required.",
+          "approved_corporate_action_id": null,
+          "imported_at": "2026-06-09 18:33:34",
+          "approved_at": null,
+          "cost_allocation_pct": null,
+          "spunoff_symbol": null,
+          "latest_scan": [
+            {
+              "id": 122974,
+              "scan_run_id": 627,
+              "corporate_action_import_id": 23962,
+              "corporate_action_id": null,
+              "symbol": "JSWSTEEL",
+              "exchange": "NSE",
+              "scan_status": "REVIEW",
+              "prev_trade_date": "2017-01-03",
+              "ex_trade_date": "2017-01-04",
+              "prev_close": 8.0,
+              "ex_open": 7.95,
+              "ex_close": 7.95,
+              "expected_factor": 10.0,
+              "actual_open_factor": 1.0062893081761006,
+              "actual_close_factor": 1.0062893081761006,
+              "confidence": 0.10062893081761004,
+              "message": "Observed local bars do not closely match the expected official factor.",
+              "scanned_at": "2026-11-06T22:35:44.328502200+00:00"
+            }
+          ],
+          "current_raw_isin_owners": [],
+          "historical_raw_isin_owners": []
+        }
+      ],
+      "instrument": [
+        {
+          "symbol": "JSWSTEEL",
+          "exchange": "NSE",
+          "isin": "INE019A01038",
+          "name": "JSW Steel Limited",
+          "series": "EQ",
+          "sector": null,
+          "industry": null,
+          "is_active": 1,
+          "updated_at": "2026-11-06 22:06:23",
+          "series_as_of_date": "2026-11-05",
+          "lifecycle_status": "CURRENT",
+          "bse_security_code": null
+        }
+      ],
+      "history": [],
+      "sql_bar_count": 0,
+      "nearby_sql_bars": [],
+      "identity_links": [
+        {
+          "id": 92,
+          "exchange": "NSE",
+          "isin": "INE019A01038",
+          "current_symbol": "JSWSTEEL",
+          "current_name": "JSW Steel Limited",
+          "old_symbol": "JSWSTL",
+          "old_name": "Jindal Vijayanagar Steel Limited",
+          "new_symbol": "JSWSTEEL",
+          "new_name": "JSW Steel Limited",
+          "effective_date": "2005-09-16",
+          "change_type": "BOTH",
+          "source": "NSE_IDENTITY",
+          "source_ref": "E:\\TA Projects\\Corporate Actions Raw\\NSE\\Identity\\SymbolChanges\\nse_identity_symbol_changes.csv",
+          "created_at": "2026-06-09 05:37:18",
+          "updated_at": "2026-06-09 05:37:18"
+        }
+      ]
+    },
+    {
+      "symbol": "PCBL",
+      "date": "2018-04-19",
+      "imports": [
+        {
+          "id": 26195,
+          "dedupe_key": "NSE_API|NSE|PCBL|INE602A01023|SPLIT|2018-04-19|2018-04-20|FACE VALUE SPLIT SUB DIVISION FROM RS 10 PER SHARE TO RS 2 PER SHARE",
+          "exchange": "NSE",
+          "source": "NSE_API",
+          "source_file": "https://www.nseindia.com/api/corporates-corporateActions?index=equities&from_date=01-01-2011&to_date=09-06-2026",
+          "symbol": "PCBL",
+          "isin": "INE602A01023",
+          "bse_scrip_code": null,
+          "company_name": "PCBL Chemical Limited",
+          "purpose_raw": "Face Value Split (Sub-Division) - From Rs 10/- Per Share To Rs 2/- Per Share",
+          "ex_date": "2018-04-19",
+          "record_date": "2018-04-20",
+          "action_type": "SPLIT",
+          "ratio_num": null,
+          "ratio_den": null,
+          "old_face_value": 10.0,
+          "new_face_value": 2.0,
+          "cash_amount": null,
+          "factor": 5.0,
+          "price_factor": 0.2,
+          "parse_status": "PARSED",
+          "review_status": "UNRESOLVED",
+          "message": "Awaiting verified historical identity evidence. The app could not substantiate the previous machine match; no adjustment applied.",
+          "approved_corporate_action_id": null,
+          "imported_at": "2026-06-09 18:34:46",
+          "approved_at": null,
+          "cost_allocation_pct": null,
+          "spunoff_symbol": null,
+          "latest_scan": [
+            {
+              "id": 122647,
+              "scan_run_id": 626,
+              "corporate_action_import_id": 26195,
+              "corporate_action_id": null,
+              "symbol": "PCBL",
+              "exchange": "NSE",
+              "scan_status": "NO_PRICE_DATA",
+              "prev_trade_date": null,
+              "ex_trade_date": null,
+              "prev_close": null,
+              "ex_open": null,
+              "ex_close": null,
+              "expected_factor": 5.0,
+              "actual_open_factor": null,
+              "actual_close_factor": null,
+              "confidence": null,
+              "message": "No local bars found on both sides of the official ex-date.",
+              "scanned_at": "2026-11-06T22:35:32.875044400+00:00"
+            }
+          ],
+          "current_raw_isin_owners": [],
+          "historical_raw_isin_owners": []
+        }
+      ],
+      "instrument": [
+        {
+          "symbol": "PCBL",
+          "exchange": "NSE",
+          "isin": "INE602A01031",
+          "name": "PCBL Chemical Limited",
+          "series": "EQ",
+          "sector": null,
+          "industry": null,
+          "is_active": 1,
+          "updated_at": "2026-11-06 22:06:23",
+          "series_as_of_date": "2026-11-05",
+          "lifecycle_status": "CURRENT",
+          "bse_security_code": null
+        }
+      ],
+      "history": [
+        {
+          "id": 11278,
+          "exchange": "NSE",
+          "symbol": "PCBL",
+          "isin": "INE602A01031",
+          "effective_date": "2022-04-11",
+          "source": "NSE_API",
+          "source_ref": "https://www.nseindia.com/api/corporates-corporateActions?index=equities&from_date=01-01-2021&to_date=09-06-2026",
+          "note": "Confirmed from an approved official corporate-action import.",
+          "created_at": "2026-08-14 11:06:57",
+          "updated_at": "2026-08-14 11:06:57"
+        }
+      ],
+      "sql_bar_count": 0,
+      "nearby_sql_bars": [],
+      "identity_links": [
+        {
+          "id": 1213,
+          "exchange": "NSE",
+          "isin": "INE602A01031",
+          "current_symbol": "PCBL",
+          "current_name": "PCBL Chemical Limited",
+          "old_symbol": "PCBL",
+          "old_name": "Phillips Carbon Black Limited",
+          "new_symbol": "PCBL",
+          "new_name": "PCBL LIMITED",
+          "effective_date": "2022-01-13",
+          "change_type": "NAME_CHANGE",
+          "source": "NSE_IDENTITY",
+          "source_ref": "E:\\TA Projects\\Corporate Actions Raw\\NSE\\Identity\\CompanyNameChanges\\nse_identity_company_name_changes.csv",
+          "created_at": "2026-06-09 05:38:27",
+          "updated_at": "2026-06-09 05:38:31"
+        },
+        {
+          "id": 1309,
+          "exchange": "NSE",
+          "isin": "INE602A01031",
+          "current_symbol": "PCBL",
+          "current_name": "PCBL Chemical Limited",
+          "old_symbol": "PCBL",
+          "old_name": "PCBL LIMITED",
+          "new_symbol": "PCBL",
+          "new_name": "PCBL Chemical Limited",
+          "effective_date": "2025-01-20",
+          "change_type": "NAME_CHANGE",
+          "source": "NSE_IDENTITY",
+          "source_ref": "E:\\TA Projects\\Corporate Actions Raw\\NSE\\Identity\\CompanyNameChanges\\nse_identity_company_name_changes.csv",
+          "created_at": "2026-06-09 05:38:31",
+          "updated_at": "2026-06-09 05:38:31"
+        }
+      ]
+    },
+    {
+      "symbol": "CGCL",
+      "date": "2016-11-23",
+      "imports": [
+        {
+          "id": 23903,
+          "dedupe_key": "NSE_API|NSE|CGCL|INE180C01018|OTHER|2016-11-23|2016-11-24|FV SPLT FRM RS 10 TO RS 2",
+          "exchange": "NSE",
+          "source": "NSE_API",
+          "source_file": "https://www.nseindia.com/api/corporates-corporateActions?index=equities&from_date=01-01-2011&to_date=09-06-2026",
+          "symbol": "CGCL",
+          "isin": "INE180C01018",
+          "bse_scrip_code": null,
+          "company_name": "Capri Global Capital Limited",
+          "purpose_raw": "Fv Splt Frm Rs 10 To Rs 2",
+          "ex_date": "2016-11-23",
+          "record_date": "2016-11-24",
+          "action_type": "SPLIT",
+          "ratio_num": null,
+          "ratio_den": null,
+          "old_face_value": 10.0,
+          "new_face_value": 2.0,
+          "cash_amount": null,
+          "factor": 5.0,
+          "price_factor": 0.2,
+          "parse_status": "PARSED",
+          "review_status": "PENDING_ISIN_MISMATCH",
+          "message": "Classification refreshed.  Identity and approval checks remain required.",
+          "approved_corporate_action_id": null,
+          "imported_at": "2026-06-09 18:33:31",
+          "approved_at": null,
+          "cost_allocation_pct": null,
+          "spunoff_symbol": null,
+          "latest_scan": [
+            {
+              "id": 122985,
+              "scan_run_id": 627,
+              "corporate_action_import_id": 23903,
+              "corporate_action_id": null,
+              "symbol": "CGCL",
+              "exchange": "NSE",
+              "scan_status": "MATCHED",
+              "prev_trade_date": "2016-11-22",
+              "ex_trade_date": "2016-11-23",
+              "prev_close": 278.5,
+              "ex_open": 54.55,
+              "ex_close": 58.45,
+              "expected_factor": 5.0,
+              "actual_open_factor": 5.1054078826764435,
+              "actual_close_factor": 4.7647562018819505,
+              "confidence": 0.9789184234647113,
+              "message": "Observed local price movement is close to the expected official factor.",
+              "scanned_at": "2026-11-06T22:35:44.610266600+00:00"
+            }
+          ],
+          "current_raw_isin_owners": [
+            {
+              "symbol": "MMFSL",
+              "exchange": "NSE",
+              "isin": "INE180C01018",
+              "is_active": 0
+            }
+          ],
+          "historical_raw_isin_owners": [
+            {
+              "symbol": "MMFSL",
+              "exchange": "NSE",
+              "isin": "INE180C01018",
+              "effective_date": "2024-03-05",
+              "source": "NSE_API"
+            },
+            {
+              "symbol": "MMFSL",
+              "exchange": "NSE",
+              "isin": "INE180C01018",
+              "effective_date": "2015-07-09",
+              "source": "NSE_API"
+            },
+            {
+              "symbol": "MMFSL",
+              "exchange": "NSE",
+              "isin": "INE180C01018",
+              "effective_date": "2016-07-14",
+              "source": "NSE_API"
+            },
+            {
+              "symbol": "MMFSL",
+              "exchange": "NSE",
+              "isin": "INE180C01018",
+              "effective_date": "2018-07-19",
+              "source": "NSE_API"
+            },
+            {
+              "symbol": "MMFSL",
+              "exchange": "NSE",
+              "isin": "INE180C01018",
+              "effective_date": "2019-07-25",
+              "source": "NSE_API"
+            },
+            {
+              "symbol": "MMFSL",
+              "exchange": "NSE",
+              "isin": "INE180C01018",
+              "effective_date": "2020-07-23",
+              "source": "NSE_API"
+            },
+            {
+              "symbol": "MMFSL",
+              "exchange": "NSE",
+              "isin": "INE180C01018",
+              "effective_date": "2021-09-07",
+              "source": "NSE_API"
+            },
+            {
+              "symbol": "MMFSL",
+              "exchange": "NSE",
+              "isin": "INE180C01018",
+              "effective_date": "2022-09-15",
+              "source": "NSE_API"
+            },
+            {
+              "symbol": "MMFSL",
+              "exchange": "NSE",
+              "isin": "INE180C01018",
+              "effective_date": "2023-08-23",
+              "source": "NSE_API"
+            },
+            {
+              "symbol": "MMFSL",
+              "exchange": "NSE",
+              "isin": "INE180C01018",
+              "effective_date": "2024-09-09",
+              "source": "NSE_API"
+            },
+            {
+              "symbol": "MMFSL",
+              "exchange": "NSE",
+              "isin": "INE180C01018",
+              "effective_date": "2025-09-11",
+              "source": "NSE_API"
+            }
+          ]
+        }
+      ],
+      "instrument": [
+        {
+          "symbol": "CGCL",
+          "exchange": "NSE",
+          "isin": "INE180C01042",
+          "name": "Capri Global Capital Limited",
+          "series": "EQ",
+          "sector": null,
+          "industry": null,
+          "is_active": 1,
+          "updated_at": "2026-11-06 22:06:23",
+          "series_as_of_date": "2026-11-05",
+          "lifecycle_status": "CURRENT",
+          "bse_security_code": null
+        }
+      ],
+      "history": [
+        {
+          "id": 11049,
+          "exchange": "NSE",
+          "symbol": "CGCL",
+          "isin": "INE180C01042",
+          "effective_date": "2015-07-09",
+          "source": "NSE_API",
+          "source_ref": "https://www.nseindia.com/api/corporates-corporateActions?index=equities&from_date=01-11-1994&to_date=31-12-2025",
+          "note": "Backfilled from existing approved canonical corporate action.",
+          "created_at": "2026-06-11 17:48:01",
+          "updated_at": "2026-06-11 17:48:01"
+        },
+        {
+          "id": 11027,
+          "exchange": "NSE",
+          "symbol": "CGCL",
+          "isin": "INE180C01042",
+          "effective_date": "2016-07-14",
+          "source": "NSE_API",
+          "source_ref": "https://www.nseindia.com/api/corporates-corporateActions?index=equities&from_date=01-11-1994&to_date=31-12-2025",
+          "note": "Backfilled from existing approved canonical corporate action.",
+          "created_at": "2026-06-11 17:47:59",
+          "updated_at": "2026-06-11 17:47:59"
+        },
+        {
+          "id": 11004,
+          "exchange": "NSE",
+          "symbol": "CGCL",
+          "isin": "INE180C01042",
+          "effective_date": "2018-07-19",
+          "source": "NSE_API",
+          "source_ref": "https://www.nseindia.com/api/corporates-corporateActions?index=equities&from_date=01-11-1994&to_date=31-12-2025",
+          "note": "Backfilled from existing approved canonical corporate action.",
+          "created_at": "2026-06-11 17:47:56",
+          "updated_at": "2026-06-11 17:47:56"
+        },
+        {
+          "id": 10991,
+          "exchange": "NSE",
+          "symbol": "CGCL",
+          "isin": "INE180C01042",
+          "effective_date": "2019-07-25",
+          "source": "NSE_API",
+          "source_ref": "https://www.nseindia.com/api/corporates-corporateActions?index=equities&from_date=01-11-1994&to_date=31-12-2025",
+          "note": "Backfilled from existing approved canonical corporate action.",
+          "created_at": "2026-06-11 17:47:54",
+          "updated_at": "2026-06-11 17:47:54"
+        },
+        {
+          "id": 10975,
+          "exchange": "NSE",
+          "symbol": "CGCL",
+          "isin": "INE180C01042",
+          "effective_date": "2020-07-23",
+          "source": "NSE_API",
+          "source_ref": "https://www.nseindia.com/api/corporates-corporateActions?index=equities&from_date=01-11-1994&to_date=31-12-2025",
+          "note": "Backfilled from existing approved canonical corporate action.",
+          "created_at": "2026-06-11 17:47:54",
+          "updated_at": "2026-06-11 17:47:54"
+        },
+        {
+          "id": 10959,
+          "exchange": "NSE",
+          "symbol": "CGCL",
+          "isin": "INE180C01042",
+          "effective_date": "2021-09-07",
+          "source": "NSE_API",
+          "source_ref": "https://www.nseindia.com/api/corporates-corporateActions?index=equities&from_date=01-11-1994&to_date=31-12-2025",
+          "note": "Backfilled from existing approved canonical corporate action.",
+          "created_at": "2026-06-11 17:47:51",
+          "updated_at": "2026-06-11 17:47:51"
+        },
+        {
+          "id": 10938,
+          "exchange": "NSE",
+          "symbol": "CGCL",
+          "isin": "INE180C01042",
+          "effective_date": "2022-09-15",
+          "source": "NSE_API",
+          "source_ref": "https://www.nseindia.com/api/corporates-corporateActions?index=equities&from_date=01-11-1994&to_date=31-12-2025",
+          "note": "Backfilled from existing approved canonical corporate action.",
+          "created_at": "2026-06-11 17:47:49",
+          "updated_at": "2026-06-11 17:47:49"
+        },
+        {
+          "id": 10921,
+          "exchange": "NSE",
+          "symbol": "CGCL",
+          "isin": "INE180C01042",
+          "effective_date": "2023-08-23",
+          "source": "NSE_API",
+          "source_ref": "https://www.nseindia.com/api/corporates-corporateActions?index=equities&from_date=01-11-1994&to_date=31-12-2025",
+          "note": "Backfilled from existing approved canonical corporate action.",
+          "created_at": "2026-06-11 17:47:45",
+          "updated_at": "2026-06-11 17:47:45"
+        },
+        {
+          "id": 10854,
+          "exchange": "NSE",
+          "symbol": "CGCL",
+          "isin": "INE180C01042",
+          "effective_date": "2024-03-05",
+          "source": "NSE_API",
+          "source_ref": "https://www.nseindia.com/api/corporates-corporateActions?index=equities&from_date=01-11-1994&to_date=31-12-2025",
+          "note": "Backfilled from existing approved canonical corporate action.",
+          "created_at": "2026-06-11 17:47:29",
+          "updated_at": "2026-06-11 17:47:29"
+        },
+        {
+          "id": 10902,
+          "exchange": "NSE",
+          "symbol": "CGCL",
+          "isin": "INE180C01042",
+          "effective_date": "2024-09-09",
+          "source": "NSE_API",
+          "source_ref": "https://www.nseindia.com/api/corporates-corporateActions?index=equities&from_date=01-11-1994&to_date=31-12-2025",
+          "note": "Backfilled from existing approved canonical corporate action.",
+          "created_at": "2026-06-11 17:47:37",
+          "updated_at": "2026-06-11 17:47:37"
+        },
+        {
+          "id": 10885,
+          "exchange": "NSE",
+          "symbol": "CGCL",
+          "isin": "INE180C01042",
+          "effective_date": "2025-09-11",
+          "source": "NSE_API",
+          "source_ref": "https://www.nseindia.com/api/corporates-corporateActions?index=equities&from_date=01-11-1994&to_date=31-12-2025",
+          "note": "Backfilled from existing approved canonical corporate action.",
+          "created_at": "2026-06-11 17:47:32",
+          "updated_at": "2026-06-11 17:47:32"
+        }
+      ],
+      "sql_bar_count": 0,
+      "nearby_sql_bars": [],
+      "identity_links": [
+        {
+          "id": 357,
+          "exchange": "NSE",
+          "isin": "INE180C01042",
+          "current_symbol": "CGCL",
+          "current_name": "Capri Global Capital Limited",
+          "old_symbol": "MMFSL",
+          "old_name": "Money Matters Financial Services Limited",
+          "new_symbol": "CGCL",
+          "new_name": "Capri Global Capital Limited",
+          "effective_date": "2013-08-05",
+          "change_type": "BOTH",
+          "source": "NSE_IDENTITY",
+          "source_ref": "E:\\TA Projects\\Corporate Actions Raw\\NSE\\Identity\\SymbolChanges\\nse_identity_symbol_changes.csv",
+          "created_at": "2026-06-09 05:37:37",
+          "updated_at": "2026-06-09 05:37:37"
+        }
+      ]
+    },
+    {
+      "symbol": "AVANTIFEED",
+      "date": "2018-06-26",
+      "imports": [
+        {
+          "id": 26322,
+          "dedupe_key": "NSE_API|NSE|AVANTIFEED|INE871C01012|BONUS|2018-06-26|2018-06-27|BONUS 1 2 FACE VALUE SPLIT SUB DIVISION FROM RS 2 PER SHARE TO RE 1 PER SHARE",
+          "exchange": "NSE",
+          "source": "NSE_API",
+          "source_file": "https://www.nseindia.com/api/corporates-corporateActions?index=equities&from_date=01-01-2011&to_date=09-06-2026",
+          "symbol": "AVANTIFEED",
+          "isin": "INE871C01012",
+          "bse_scrip_code": null,
+          "company_name": "Avanti Feeds Limited",
+          "purpose_raw": "Bonus 1:2/Face Value Split (Sub-Division) From Rs 2/- Per Share To Re 1/- Per Share",
+          "ex_date": "2018-06-26",
+          "record_date": "2018-06-27",
+          "action_type": "BONUS",
+          "ratio_num": 1.0,
+          "ratio_den": 2.0,
+          "old_face_value": null,
+          "new_face_value": null,
+          "cash_amount": null,
+          "factor": 1.5,
+          "price_factor": 0.6666666666666666,
+          "parse_status": "PARSED",
+          "review_status": "UNRESOLVED",
+          "message": "Awaiting verified historical identity evidence. The app could not substantiate the previous machine match; no adjustment applied.",
+          "approved_corporate_action_id": null,
+          "imported_at": "2026-06-09 18:34:50",
+          "approved_at": null,
+          "cost_allocation_pct": null,
+          "spunoff_symbol": null,
+          "latest_scan": [
+            {
+              "id": 122626,
+              "scan_run_id": 626,
+              "corporate_action_import_id": 26322,
+              "corporate_action_id": null,
+              "symbol": "AVANTIFEED",
+              "exchange": "NSE",
+              "scan_status": "MATCHED",
+              "prev_trade_date": "2018-06-25",
+              "ex_trade_date": "2018-06-26",
+              "prev_close": 1563.35,
+              "ex_open": 538.0,
+              "ex_close": 599.3,
+              "expected_factor": 1.5,
+              "actual_open_factor": 2.9058550185873604,
+              "actual_close_factor": 2.608626731186384,
+              "confidence": 0.9686183395291201,
+              "message": "Observed local price movement is close to the combined same-date Split/Bonus factor ×3.000000 across 2 official actions. [CA_COMPOUND_V1 factor=3.000000000000 count=2 fingerprint=26322:1.500000000000,44293:2.000000000000]",
+              "scanned_at": "2026-11-06T22:35:32.309769500+00:00"
+            }
+          ],
+          "current_raw_isin_owners": [
+            {
+              "symbol": "AVANTI",
+              "exchange": "NSE",
+              "isin": "INE871C01012",
+              "is_active": 0
+            }
+          ],
+          "historical_raw_isin_owners": [
+            {
+              "symbol": "AVANTI",
+              "exchange": "NSE",
+              "isin": "INE871C01012",
+              "effective_date": "2018-06-26",
+              "source": "NSE_API"
+            },
+            {
+              "symbol": "AVANTI",
+              "exchange": "NSE",
+              "isin": "INE871C01012",
+              "effective_date": "2015-07-30",
+              "source": "NSE_API"
+            },
+            {
+              "symbol": "AVANTI",
+              "exchange": "NSE",
+              "isin": "INE871C01012",
+              "effective_date": "2016-08-04",
+              "source": "NSE_API"
+            },
+            {
+              "symbol": "AVANTI",
+              "exchange": "NSE",
+              "isin": "INE871C01012",
+              "effective_date": "2017-08-03",
+              "source": "NSE_API"
+            },
+            {
+              "symbol": "AVANTI",
+              "exchange": "NSE",
+              "isin": "INE871C01012",
+              "effective_date": "2018-07-30",
+              "source": "NSE_API"
+            },
+            {
+              "symbol": "AVANTI",
+              "exchange": "NSE",
+              "isin": "INE871C01012",
+              "effective_date": "2019-07-30",
+              "source": "NSE_API"
+            },
+            {
+              "symbol": "AVANTI",
+              "exchange": "NSE",
+              "isin": "INE871C01012",
+              "effective_date": "2020-03-05",
+              "source": "NSE_API"
+            },
+            {
+              "symbol": "AVANTI",
+              "exchange": "NSE",
+              "isin": "INE871C01012",
+              "effective_date": "2020-08-20",
+              "source": "NSE_API"
+            },
+            {
+              "symbol": "AVANTI",
+              "exchange": "NSE",
+              "isin": "INE871C01012",
+              "effective_date": "2021-08-05",
+              "source": "NSE_API"
+            },
+            {
+              "symbol": "AVANTI",
+              "exchange": "NSE",
+              "isin": "INE871C01012",
+              "effective_date": "2022-08-04",
+              "source": "NSE_API"
+            },
+            {
+              "symbol": "AVANTI",
+              "exchange": "NSE",
+              "isin": "INE871C01012",
+              "effective_date": "2023-08-03",
+              "source": "NSE_API"
+            },
+            {
+              "symbol": "AVANTI",
+              "exchange": "NSE",
+              "isin": "INE871C01012",
+              "effective_date": "2024-07-30",
+              "source": "NSE_API"
+            },
+            {
+              "symbol": "AVANTI",
+              "exchange": "NSE",
+              "isin": "INE871C01012",
+              "effective_date": "2025-08-07",
+              "source": "NSE_API"
+            },
+            {
+              "symbol": "AVANTI",
+              "exchange": "NSE",
+              "isin": "INE871C01012",
+              "effective_date": "2015-11-26",
+              "source": "NSE_API"
+            },
+            {
+              "symbol": "AVANTIFEED",
+              "exchange": "NSE",
+              "isin": "INE871C01012",
+              "effective_date": "2015-11-26",
+              "source": "NSE_API"
+            }
+          ]
+        },
+        {
+          "id": 44293,
+          "dedupe_key": "CA_COMPONENT_V1:26322:SPLIT",
+          "exchange": "NSE",
+          "source": "NSE_API",
+          "source_file": "https://www.nseindia.com/api/corporates-corporateActions?index=equities&from_date=01-01-2011&to_date=09-06-2026",
+          "symbol": "AVANTIFEED",
+          "isin": "INE871C01012",
+          "bse_scrip_code": null,
+          "company_name": "Avanti Feeds Limited",
+          "purpose_raw": "Bonus 1:2/Face Value Split (Sub-Division) From Rs 2/- Per Share To Re 1/- Per Share",
+          "ex_date": "2018-06-26",
+          "record_date": "2018-06-27",
+          "action_type": "SPLIT",
+          "ratio_num": null,
+          "ratio_den": null,
+          "old_face_value": 2.0,
+          "new_face_value": 1.0,
+          "cash_amount": null,
+          "factor": 2.0,
+          "price_factor": 0.5,
+          "parse_status": "PARSED",
+          "review_status": "UNRESOLVED",
+          "message": "Prepared pending SPLIT component from official import #26322; explicit approval and fresh checks required.",
+          "approved_corporate_action_id": null,
+          "imported_at": "2026-10-23 12:17:03",
+          "approved_at": null,
+          "cost_allocation_pct": null,
+          "spunoff_symbol": null,
+          "latest_scan": [
+            {
+              "id": 122625,
+              "scan_run_id": 626,
+              "corporate_action_import_id": 44293,
+              "corporate_action_id": null,
+              "symbol": "AVANTIFEED",
+              "exchange": "NSE",
+              "scan_status": "MATCHED",
+              "prev_trade_date": "2018-06-25",
+              "ex_trade_date": "2018-06-26",
+              "prev_close": 1563.35,
+              "ex_open": 538.0,
+              "ex_close": 599.3,
+              "expected_factor": 2.0,
+              "actual_open_factor": 2.9058550185873604,
+              "actual_close_factor": 2.608626731186384,
+              "confidence": 0.9686183395291201,
+              "message": "Observed local price movement is close to the combined same-date Split/Bonus factor ×3.000000 across 2 official actions. [CA_COMPOUND_V1 factor=3.000000000000 count=2 fingerprint=26322:1.500000000000,44293:2.000000000000]",
+              "scanned_at": "2026-11-06T22:35:32.291888400+00:00"
+            }
+          ],
+          "current_raw_isin_owners": [
+            {
+              "symbol": "AVANTI",
+              "exchange": "NSE",
+              "isin": "INE871C01012",
+              "is_active": 0
+            }
+          ],
+          "historical_raw_isin_owners": [
+            {
+              "symbol": "AVANTI",
+              "exchange": "NSE",
+              "isin": "INE871C01012",
+              "effective_date": "2018-06-26",
+              "source": "NSE_API"
+            },
+            {
+              "symbol": "AVANTI",
+              "exchange": "NSE",
+              "isin": "INE871C01012",
+              "effective_date": "2015-07-30",
+              "source": "NSE_API"
+            },
+            {
+              "symbol": "AVANTI",
+              "exchange": "NSE",
+              "isin": "INE871C01012",
+              "effective_date": "2016-08-04",
+              "source": "NSE_API"
+            },
+            {
+              "symbol": "AVANTI",
+              "exchange": "NSE",
+              "isin": "INE871C01012",
+              "effective_date": "2017-08-03",
+              "source": "NSE_API"
+            },
+            {
+              "symbol": "AVANTI",
+              "exchange": "NSE",
+              "isin": "INE871C01012",
+              "effective_date": "2018-07-30",
+              "source": "NSE_API"
+            },
+            {
+              "symbol": "AVANTI",
+              "exchange": "NSE",
+              "isin": "INE871C01012",
+              "effective_date": "2019-07-30",
+              "source": "NSE_API"
+            },
+            {
+              "symbol": "AVANTI",
+              "exchange": "NSE",
+              "isin": "INE871C01012",
+              "effective_date": "2020-03-05",
+              "source": "NSE_API"
+            },
+            {
+              "symbol": "AVANTI",
+              "exchange": "NSE",
+              "isin": "INE871C01012",
+              "effective_date": "2020-08-20",
+              "source": "NSE_API"
+            },
+            {
+              "symbol": "AVANTI",
+              "exchange": "NSE",
+              "isin": "INE871C01012",
+              "effective_date": "2021-08-05",
+              "source": "NSE_API"
+            },
+            {
+              "symbol": "AVANTI",
+              "exchange": "NSE",
+              "isin": "INE871C01012",
+              "effective_date": "2022-08-04",
+              "source": "NSE_API"
+            },
+            {
+              "symbol": "AVANTI",
+              "exchange": "NSE",
+              "isin": "INE871C01012",
+              "effective_date": "2023-08-03",
+              "source": "NSE_API"
+            },
+            {
+              "symbol": "AVANTI",
+              "exchange": "NSE",
+              "isin": "INE871C01012",
+              "effective_date": "2024-07-30",
+              "source": "NSE_API"
+            },
+            {
+              "symbol": "AVANTI",
+              "exchange": "NSE",
+              "isin": "INE871C01012",
+              "effective_date": "2025-08-07",
+              "source": "NSE_API"
+            },
+            {
+              "symbol": "AVANTI",
+              "exchange": "NSE",
+              "isin": "INE871C01012",
+              "effective_date": "2015-11-26",
+              "source": "NSE_API"
+            },
+            {
+              "symbol": "AVANTIFEED",
+              "exchange": "NSE",
+              "isin": "INE871C01012",
+              "effective_date": "2015-11-26",
+              "source": "NSE_API"
+            }
+          ]
+        }
+      ],
+      "instrument": [
+        {
+          "symbol": "AVANTIFEED",
+          "exchange": "NSE",
+          "isin": "INE871C01038",
+          "name": "Avanti Feeds Limited",
+          "series": "EQ",
+          "sector": null,
+          "industry": null,
+          "is_active": 1,
+          "updated_at": "2026-11-06 22:06:23",
+          "series_as_of_date": "2026-11-05",
+          "lifecycle_status": "CURRENT",
+          "bse_security_code": null
+        }
+      ],
+      "history": [
+        {
+          "id": 11353,
+          "exchange": "NSE",
+          "symbol": "AVANTIFEED",
+          "isin": "INE871C01012",
+          "effective_date": "2015-11-26",
+          "source": "NSE_API",
+          "source_ref": "https://www.nseindia.com/api/corporates-corporateActions?index=equities&from_date=01-01-2011&to_date=09-06-2026",
+          "note": "V1.9.2 controlled historical-ISIN bootstrap; importIds=21801; evidenceIds=21801; candidateFingerprints=51f1b20c1c9d538fe2abba6488b9b53be3f18d1dd5585f4b21e260f92c6d3fb3; planFingerprint=b545cdb0c901195e4837503959d7dac6d2a550a6a86e296f57d99ccb5cd5252c",
+          "created_at": "2026-08-16 09:52:30",
+          "updated_at": "2026-08-16 09:52:30"
+        }
+      ],
+      "sql_bar_count": 0,
+      "nearby_sql_bars": [],
+      "identity_links": []
+    }
+  ]
+}

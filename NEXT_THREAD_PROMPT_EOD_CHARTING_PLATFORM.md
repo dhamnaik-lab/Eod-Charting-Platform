@@ -4,7 +4,7 @@
 
 ## Running phases
 
-Corporate Actions reason/wording follow-up is implemented on `feat/ca-later-reason-20261107`; automated checks passed (renderer typecheck, UI 562, Rust 816; 0 failed). Next is the user portable rebuild and native acceptance. See the top CA handoff.
+Corporate Actions remaining-NSE Tasks 1–2 are implemented on `feat/ca-nse-remaining-20261107`, from the unmerged later-reason branch. Tasks 3–4 are documented against the pinned SQLite main file in `tmp/fixtures/ca-diagnosis-20261107/NSE_REMAINING_REPORT.md`; saved scans are available, authoritative price windows are absent. No approval or identity rule changes. Typecheck PASS; UI PASS 562/562; focused Rust PASS 6/6; final seven-filter Rust PASS 818, 0 failed, 26 ignored (baseline 816 + 2 new tests). A first seven-filter run failed on dangling `AGM/`; corrected and rechecked. Docs/whitespace and CRLF checks PASS. See the top CA handoff for checks, backups and exact evidence limits.
 
 **Corporate Actions Tasks A/B (7 November 2026):** diagnosis and automated verification are complete; runtime acceptance for NSE wording and Later is pending the portable rebuild. Other running-phase assignments await user confirmation.
 
@@ -13,6 +13,8 @@ Corporate Actions reason/wording follow-up is implemented on `feat/ca-later-reas
 **Task A diagnosis complete:** 131 pending Split/Bonus rows grouped on the supplied read-only copy; evidence is in `tmp/fixtures/ca-diagnosis-20261107/`. Task B implementation/check results are recorded in the top Corporate Actions section of [HANDOFF.md](HANDOFF.md); native acceptance is separate. Other phase sign-off awaits user confirmation.
 
 ## Next phases
+
+**Next for remaining-NSE Tasks 1–4:** user portable rebuild and copy-only native acceptance; obtain copied, hash-pinned authoritative price windows before certifying adjacent sessions or already-adjusted history. Any later exception needs an evidence-backed proposal and explicit approval; none is implemented. Preserve identity-owner exclusions and explicit financial approval. The older Tasks A/B native checklist below remains useful.
 
 **Next for the assigned Tasks A/B:** the user rebuilds the portable app and checks Later and reclassification on a copy. Source delivery belongs on `feat/ca-nse-later-group-20261107`. The existing CA window redesign and BSE Phase 2c remain later work; this task does not implement them. Other priorities await user confirmation.
 

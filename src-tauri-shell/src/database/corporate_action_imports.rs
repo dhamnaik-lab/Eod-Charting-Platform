@@ -9988,7 +9988,8 @@ fn canonical_dividend_wording(value: &str) -> String {
 /// Expand the legacy abbreviations into ordinary wording for the canonical parser.
 /// Text without a legacy shape is returned unchanged. `purpose_raw` is never rewritten.
 fn canonical_purpose(value: &str) -> String {
-    let dividend_wording = canonical_dividend_wording(value);
+    let meeting_wording = canonical_meeting_dividend(value);
+    let dividend_wording = canonical_dividend_wording(&meeting_wording);
     let value = dividend_wording.as_str();
     let tokens = legacy_purpose_tokens(value);
     let triggered = (0..tokens.len())
@@ -10016,6 +10017,36 @@ fn canonical_purpose(value: &str) -> String {
         // Keep the `/-` currency suffix ("Rs 10/- Per Share") together, so
         // `split_compound_action_segments` does not treat its `/` as a delimiter.
         .replace(" / -", "/-")
+}
+
+/// Interpret only a whole meeting prefix and an explicitly separated cash clause.
+/// This is parser input only: the official `purpose_raw` remains untouched.
+fn canonical_meeting_dividend(value: &str) -> String {
+    for (index, separator) in value.char_indices().filter(|(_, ch)| matches!(ch, '/' | '-')) {
+        if !informational_closure::is_meeting_purpose(value[..index].trim()) {
+            continue;
+        }
+        let suffix = value[index + separator.len_utf8()..].trim();
+        let word_end = suffix.find(|c: char| !c.is_ascii_alphabetic()).unwrap_or(suffix.len());
+        let word = suffix[..word_end].to_ascii_uppercase();
+        if informational_closure::within_two_edits(&word, "DIVIDEND") {
+            // Drop the meeting prefix from parser input so an ordinal can never
+            // be mistaken for a missing dividend amount by the numeric fallback.
+            return format!("Dividend{}", &suffix[word_end..]);
+        }
+        let normalized = normalize_text(suffix);
+        let words = normalized.split_whitespace().collect::<Vec<_>>();
+        if words.len() >= 4 && matches!(words[0], "RE" | "RS")
+            && words[words.len()-2..] == ["PER", "SHARE"]
+            && words[1..words.len()-2].iter().all(|word| word.bytes().all(|c| c.is_ascii_digit()))
+            && !suffix.contains('%')
+            && extract_first_currency_amount(suffix).is_some()
+            && extract_numbers(suffix).len() == 1
+        {
+            return format!("Dividend {suffix}");
+        }
+    }
+    value.to_string()
 }
 
 /// Normalized-text form of `canonical_purpose` for family detection.
@@ -11377,6 +11408,44 @@ mod tests {
         let combined = parse_corporate_action_purpose("Bonus 1:1 / Interimdividend Rs 2");
         assert_eq!(combined.parse_status, "NEEDS_REVIEW");
         assert!(combined.message.unwrap().contains("Multiple corporate-action types"));
+    }
+
+    #[test]
+    fn ca_nse_remaining_meeting_cash_parser_preserves_source() {
+        for meeting in ["Annual General Meeting", "Annaul General Meting", "Entra Ordinary General Meetin", "AGM", "25th AGM"] {
+            for word in ["Dividend", "Divided", "Dividen", "Ivdend", "Divdend", "Dividnd"] {
+                for separator in ["/", "-"] {
+                    let purpose = format!("{meeting} {separator} {word} - Re 0.50 Per Share");
+                    let parsed = parse_corporate_action_purpose(&purpose);
+                    assert_eq!(parsed.action_type, "DIVIDEND", "{purpose}");
+                    assert_eq!(parsed.cash_amount, Some(0.5), "{purpose}");
+                    assert_eq!(parsed.parse_status, "PARSED", "{purpose}");
+                }
+                let purpose = format!("{meeting}/{word}");
+                let parsed = parse_corporate_action_purpose(&purpose);
+                assert_eq!(parsed.action_type, "DIVIDEND", "{purpose}");
+                assert_eq!(parsed.cash_amount, None, "{purpose}");
+                assert_eq!(parsed.parse_status, "NEEDS_REVIEW", "{purpose}");
+            }
+        }
+        for purpose in ["Annual General Meeting / Rs 2.5 Per Share", "Extra-Ordinary General Meeting - Re. 0.50/- Per Share"] {
+            let parsed = parse_corporate_action_purpose(purpose);
+            assert_eq!(parsed.action_type, "DIVIDEND", "{purpose}");
+            assert!(parsed.cash_amount.is_some(), "{purpose}");
+        }
+        for purpose in ["General Meeting Rs 2 Per Share", "Other / Divided Rs 2", "General Meeting / Ivdendary Rs 2",
+            "General Meeting / Rs Per Share", "General Meeting / Rs 2 Per Unit", "General Meeting / Rs 2% Per Share",
+            "Annual General Xeeing / Divided Rs 2", "General Meeting / Rs 0 Per Share"] {
+            assert_eq!(canonical_meeting_dividend(purpose), purpose, "{purpose}");
+        }
+        let c = Connection::open_in_memory().unwrap();
+        crate::database::prepare_database_connection(&c).unwrap();
+        let purpose = "Annaul General Meting/Ivdend Re 0.50 Per Share";
+        c.execute("INSERT INTO corporate_action_imports(dedupe_key,exchange,source,symbol,purpose_raw,action_type,review_status) VALUES ('meeting-money','NSE','NSE_API','MEETINGCO',?,'OTHER','UNSUPPORTED')", [purpose]).unwrap();
+        let row = get_import_row(&c, 1).unwrap();
+        assert_eq!(parse_corporate_action_purpose(&row.purpose_raw).cash_amount, Some(0.5));
+        assert_eq!(get_import_row(&c, 1).unwrap().purpose_raw, purpose);
+        assert_eq!(c.query_row("SELECT count(*) FROM corporate_actions", [], |r| r.get::<_, i64>(0)).unwrap(), 0);
     }
 
     #[test]
