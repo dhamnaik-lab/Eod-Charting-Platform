@@ -1120,6 +1120,8 @@ pub struct CorporateActionScanListInput {
 #[derive(Clone, Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CorporateActionImportRow {
+    /// Presentation metadata only; no financial authority or persisted status.
+    pub instrument_is_active: Option<bool>,
     pub id: i64,
     pub exchange: String,
     pub source: String,

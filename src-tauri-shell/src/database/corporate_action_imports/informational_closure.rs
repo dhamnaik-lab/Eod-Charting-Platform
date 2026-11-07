@@ -73,12 +73,13 @@ pub async fn reopen_corporate_action_informational_closure(
 // so "AGM/Dividend Rs 2" or "AGM + Bonus" stay in the financial flow.
 
 // Exact whole-purpose bodies, including spelling variants seen in official NSE/BSE rows.
-const MEETING_BODIES: [&str; 15] = [
+const MEETING_BODIES: [&str; 16] = [
     "AGM",
     "EGM",
     "ANNUAL GENERAL MEETING",
     "EXTRAORDINARY GENERAL MEETING",
     "EXTRA ORDINARY GENERAL MEETING",
+    "EXTRA ORIDINARY GENERAL MEETING",
     "EXTRA-ORDINARY GENERAL MEETING",
     "EXTRA- ORDINARY GENERAL MEETING",
     "EXTRA ANNUAL GENERAL MEETING",
@@ -430,6 +431,7 @@ mod tests {
     fn ca_phase3_informational_wording_matches_whole_notice_only() {
         for purpose in [
             "AGM", "agm.", "25th  AGM", "Annual General Meeting (Purpose Revised)", "EGM",
+            "Extra Oridinary General Meeting",
             "Extra-Ordinary General Meeting", "Annual Book Closure", "Annual Closure (BC Dates Revised)",
             "E-Voting", "Interest Payment", "Nil", "Buy Back Of Shares", "Buyback",
             // Step 1 wording seen in official rows.

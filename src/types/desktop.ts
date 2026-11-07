@@ -579,6 +579,8 @@ export interface NseCurrentUniverseSyncResult {
 }
 
 export interface CorporateActionImportRow {
+  /** Exact symbol/exchange instrument metadata; absent means unknown. */
+  instrumentIsActive?: boolean | null;
   id: number;
   exchange: string;
   source: string;

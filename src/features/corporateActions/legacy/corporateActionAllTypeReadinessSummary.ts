@@ -1,4 +1,5 @@
 import type { CorporateActionImportActionType, CorporateActionImportRow } from '@/platform';
+import { isLaterCorporateAction } from './corporateActionLater';
 import { isInformationalCorporateAnnouncement } from './corporateActionAnnouncementClassification';
 
 // A read-only aggregate over the *loaded pending queue*, not a database query
@@ -10,19 +11,20 @@ export interface CaPendingByType {
   ready: number;
   blocked: number;
   informational: number;
+  later: number;
 }
 export interface CaPendingTypeSummary {
-  totals: { pending: number; ready: number; blocked: number; informational: number };
+  totals: { pending: number; ready: number; blocked: number; informational: number; later: number };
   rows: CaPendingByType[];
 }
 
 export function summarizeCaPendingByType(
   pendingRows: readonly (Pick<CorporateActionImportRow, 'id' | 'actionType' | 'reviewStatus' | 'approvedCorporateActionId'> &
-    Partial<Pick<CorporateActionImportRow, 'purposeRaw' | 'cashAmount' | 'factor' | 'priceFactor' | 'ratioNum' | 'ratioDen' | 'oldFaceValue' | 'newFaceValue'>>)[],
+    Partial<Pick<CorporateActionImportRow, 'instrumentIsActive' | 'purposeRaw' | 'cashAmount' | 'factor' | 'priceFactor' | 'ratioNum' | 'ratioDen' | 'oldFaceValue' | 'newFaceValue'>>)[],
   readyIds: ReadonlySet<number>,
 ): CaPendingTypeSummary {
   const counts = new Map<CorporateActionImportActionType, CaPendingByType>(
-    ALL_CA_ACTION_TYPES.map(actionType => [actionType, { actionType, pending: 0, ready: 0, blocked: 0, informational: 0 }]),
+    ALL_CA_ACTION_TYPES.map(actionType => [actionType, { actionType, pending: 0, ready: 0, blocked: 0, informational: 0, later: 0 }]),
   );
   const seen = new Set<number>();
   for (const row of pendingRows) {
@@ -34,7 +36,8 @@ export function summarizeCaPendingByType(
     const known = counts.has(row.actionType);
     const item = counts.get(known ? row.actionType : 'OTHER')!;
     item.pending += 1;
-    if (isInformationalCorporateAnnouncement(row)) item.informational += 1;
+    if (isLaterCorporateAction(row)) item.later += 1;
+    else if (isInformationalCorporateAnnouncement(row)) item.informational += 1;
     else if (known && readyIds.has(row.id)) item.ready += 1;
     else item.blocked += 1;
   }
@@ -44,7 +47,8 @@ export function summarizeCaPendingByType(
     ready: acc.ready + row.ready,
     blocked: acc.blocked + row.blocked,
     informational: acc.informational + row.informational,
-  }), { pending: 0, ready: 0, blocked: 0, informational: 0 });
+    later: acc.later + row.later,
+  }), { pending: 0, ready: 0, blocked: 0, informational: 0, later: 0 });
   return { rows, totals };
 }
 
@@ -52,9 +56,9 @@ export function formatCaPendingTypeReport(summary: CaPendingTypeSummary): string
   return [
     'EOD Corporate Actions — all loaded pending actions by type',
     'Read-only diagnostic; Ready is NOT approved. Blocked means not eligible for the current approval workflow.',
-    'Informational AGM-only notices require no adjustment and are not blockers. Pending = Ready + Blocked + Informational.',
-    'Type | Not approved | Ready for explicit approval | Blocked / not ready | Informational',
-    ...summary.rows.map(r => `${r.actionType} | ${r.pending} | ${r.ready} | ${r.blocked} | ${r.informational}`),
-    `TOTAL | ${summary.totals.pending} | ${summary.totals.ready} | ${summary.totals.blocked} | ${summary.totals.informational}`,
+    'Later defers unsupported types or inactive instruments without closing or approving them. Pending = Ready + Blocked + Informational + Later.',
+    'Type | Not approved | Ready for explicit approval | Blocked / not ready | Informational | Later',
+    ...summary.rows.map(r => `${r.actionType} | ${r.pending} | ${r.ready} | ${r.blocked} | ${r.informational} | ${r.later}`),
+    `TOTAL | ${summary.totals.pending} | ${summary.totals.ready} | ${summary.totals.blocked} | ${summary.totals.informational} | ${summary.totals.later}`,
   ].join('\n');
 }
