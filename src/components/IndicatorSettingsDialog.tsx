@@ -489,7 +489,8 @@ const INDICATOR_SETTINGS_SCHEMAS: Partial<Record<IndicatorKind, IndicatorSetting
     ],
   },
   HV: { inputs: [periodInput, numberField('annual', 'Annual Days')], style: standardStyle },
-  STDEV: standardSourceSchema,
+  // STDEV currently calculates from Close only; do not expose an ineffective Source selector.
+  STDEV: standardPeriodSchema,
   RVI_VOL: {
     inputs: [periodInput, numberField('signalPeriod', 'Signal Period')],
     style: [colorField('color', 'RVI Color'), colorField('signalColor', 'Signal Color')],
