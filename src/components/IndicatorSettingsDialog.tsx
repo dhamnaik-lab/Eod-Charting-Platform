@@ -217,7 +217,7 @@ const INDICATOR_SETTINGS_TABS: Array<{ id: IndicatorSettingsTab; label: string }
   { id: 'visibility', label: 'Visibility' },
 ];
 
-const numberField = <Key extends string>(key: Key, label: string, step = '1', min?: number, max?: number): TypedField<Key, 'number'> => ({
+const numberField = <Key extends string,>(key: Key, label: string, step = '1', min?: number, max?: number): TypedField<Key, 'number'> => ({
   id: key,
   key,
   label,
@@ -234,7 +234,7 @@ const sourceField = (): TypedField<'source', 'source'> => ({
   kind: 'source',
 });
 
-const colorField = <Key extends string>(
+const colorField = <Key extends string,>(
   key: Key,
   label: string,
   valueTransforms?: Pick<IndicatorFieldDefinition, 'toInputValue' | 'fromInputValue'>,
