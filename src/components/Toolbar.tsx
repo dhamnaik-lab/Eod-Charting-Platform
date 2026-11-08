@@ -367,7 +367,7 @@ export function Toolbar() {
   );
 }
 
-function runActiveChartPatternScan(
+export function runActiveChartPatternScan(
   instrument: { exchange: string; symbol: string },
   bars: EodBar[],
 ): ScannerResult[] {
