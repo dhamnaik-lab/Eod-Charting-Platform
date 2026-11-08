@@ -177,7 +177,7 @@ type KeysWithValue<T, Value> = {
 type NumberKey<K extends IndicatorKind> = KeysWithValue<IndicatorOfKind<K>, number>;
 type ColorKey<K extends IndicatorKind> = Extract<
   KeysWithValue<IndicatorOfKind<K>, string>,
-  'color' | `${string}Color`
+  'color' | `${string}Color` | `color${number}`
 >;
 type TypedField<Key extends string, Kind extends IndicatorFieldDefinition['kind']> =
   IndicatorFieldDefinition<Key, Kind>;
