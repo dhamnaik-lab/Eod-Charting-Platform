@@ -300,6 +300,8 @@ export function ChartPriceLegendOverlay({
       ) : activeIndicator ? (
         <IndicatorSettingsDialog
           indicator={activeIndicator}
+          allIndicators={overlays}
+          sourceBars={bars}
           onSave={(updated) => {
             onSaveIndicator(updated);
             setEditingIndicatorId(null);
