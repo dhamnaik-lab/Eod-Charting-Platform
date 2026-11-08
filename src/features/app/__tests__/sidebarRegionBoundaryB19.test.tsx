@@ -4,7 +4,16 @@ import { describe, expect, it, vi } from 'vitest';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { SidebarRecoveryPanel, SidebarRegionBoundary } from '@/components/SidebarRegionBoundary';
 
+const normalizeSourceLineEndings = (source: string): string => source.replace(/\r\n?/g, '\n');
+
 describe('B19: Sidebar render error containment', () => {
+  it('normalizes LF, CRLF, and CR source newlines for Sidebar layout contracts', () => {
+    const expected = '<Sidebar\n  <main\n';
+    for (const newline of ['\n', '\r\n', '\r']) {
+      expect(normalizeSourceLineEndings(expected.replace(/\n/g, newline))).toBe(expected);
+    }
+  });
+
   it('preserves successful Sidebar children without a wrapper or fallback', () => {
     const html = renderToStaticMarkup(
       <SidebarRegionBoundary width={284} collapsed={false}>
@@ -74,7 +83,7 @@ describe('B19: Sidebar render error containment', () => {
   });
 
   it('keeps only Sidebar wrapped and chart, toolbar and resize handle outside its boundary', () => {
-    const root = readFileSync('src/RootApp.tsx', 'utf8');
+    const root = normalizeSourceLineEndings(readFileSync('src/RootApp.tsx', 'utf8'));
     const start = root.indexOf('<SidebarRegionBoundary width={sidebarWidth} collapsed={sidebarCollapsed}>');
     const child = root.indexOf('<Sidebar\n', start);
     const end = root.indexOf('</SidebarRegionBoundary>', start);
