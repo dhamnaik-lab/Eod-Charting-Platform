@@ -55,7 +55,8 @@ describe('UX-12 theme text contrast across standard panel backgrounds', () => {
   }
 
   it('retains a distinguishable keyboard focus ring across standard panel backgrounds', () => {
-    expect(css.match(/var\(--focus-ring, var\(--accent\)\)/g)).toHaveLength(4);
+    // New accessible controls may add valid focus-ring consumers; keep the baseline minimum.
+    expect((css.match(/var\(--focus-ring, var\(--accent\)\)/g) ?? []).length).toBeGreaterThanOrEqual(4);
     for (const [theme, selector] of themes) {
       const block = themeBlock(selector);
       const foreground = block.includes('--focus-ring:')

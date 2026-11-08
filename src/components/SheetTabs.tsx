@@ -29,6 +29,11 @@ export function SheetTabs({ tabId, inline = false }: SheetTabsProps) {
     activateChartTab(tabId);
   };
 
+  const selectSheet = (sheetId: string) => {
+    focusTab();
+    loadSheet(tabId, sheetId);
+  };
+
 function formatSheetLabel(name: string): string {
   const match = /^Sheet\s*(\d+)$/i.exec(name);
   if (match) {
@@ -101,13 +106,16 @@ function formatSheetLabel(name: string): string {
           {sheets.map((sheet) => (
             <div
               key={sheet.id}
+              className="sheet-tab-activation"
               style={sheetTabStyle(sheet.id === activeSheetId, inline)}
-              onClick={() => {
-                focusTab();
-                loadSheet(tabId, sheet.id);
-              }}
+              role="button"
+              tabIndex={0}
+              aria-label={`Load sheet ${sheet.name}`}
+              aria-pressed={sheet.id === activeSheetId}
+              onClick={() => selectSheet(sheet.id)}
+              onKeyDown={(event) => activateSheetTabOnKeyDown(event, () => selectSheet(sheet.id))}
               onDoubleClick={() => handleRename(sheet)}
-              title="Double-click to rename. Click to load."
+              title="Double-click to rename. Click or press Enter/Space to load."
             >
               <span style={sheetLabelStyle(sheet.id === activeSheetId, inline)}>{formatSheetLabel(sheet.name)}</span>
               <button
@@ -203,6 +211,20 @@ function formatSheetLabel(name: string): string {
       ) : null}
     </>
   );
+}
+
+// Nested Delete buttons must not activate the sheet through bubbled keydown events.
+export function activateSheetTabOnKeyDown(
+  event: { key: string; target: EventTarget; currentTarget: EventTarget; preventDefault: () => void },
+  selectSheet: () => void,
+): void {
+  if (event.target !== event.currentTarget) {
+    return;
+  }
+  if (event.key === 'Enter' || event.key === ' ') {
+    event.preventDefault();
+    selectSheet();
+  }
 }
 
 type SheetDialogState =
