@@ -359,6 +359,46 @@ fn ca_a1_route_rechecks_preserve_explicit_closed_and_rejected_dispositions() {
 }
 
 #[test]
+fn ca_a1_exact_reads_keep_activity_and_revalidate_adjustment_owner() {
+    let _test_scope = crate::database::price_store_operation_lock::test_price_store_scope();
+    let (c, folder) = fixture();
+    let changes = |c: &Connection| {
+        c.query_row("SELECT total_changes()", [], |r| r.get::<_, i64>(0))
+            .unwrap()
+    };
+    let before = changes(&c);
+    let pending = read_import_rows_by_ids(&c, &[1]).unwrap().remove(0);
+    assert_eq!(pending.instrument_is_active, Some(false));
+    assert_eq!(pending.verified_adjustment_target, None);
+    assert_eq!(changes(&c), before, "exact lookup must remain read-only");
+    scan(&c, &folder);
+    let before = changes(&c);
+    let ready = read_import_rows_by_ids(&c, &[1]).unwrap().remove(0);
+    assert_eq!(ready.instrument_is_active, Some(false));
+    assert_eq!(
+        ready.verified_adjustment_target.as_deref(),
+        Some("GUJENERGY")
+    );
+    assert_eq!(ready.symbol, pending.symbol);
+    assert_eq!(ready.isin, pending.isin);
+    assert_eq!(ready.purpose_raw, pending.purpose_raw);
+    assert_eq!(
+        changes(&c),
+        before,
+        "hydration cannot refresh or persist preparation"
+    );
+    c.execute(
+        "UPDATE corporate_action_symbol_chain_sources SET source_hash='changed'",
+        [],
+    )
+    .unwrap();
+    let stale = read_import_rows_by_ids(&c, &[1]).unwrap().remove(0);
+    assert_eq!(stale.instrument_is_active, Some(false));
+    assert_eq!(stale.verified_adjustment_target, None);
+    assert_eq!(count(&c, "corporate_actions"), 0);
+}
+
+#[test]
 fn ca_a1_split_route_scan_prepares_without_approval_and_explicit_approve_adjusts_one_chart() {
     let _test_scope = crate::database::price_store_operation_lock::test_price_store_scope();
     let (c, folder) = fixture();

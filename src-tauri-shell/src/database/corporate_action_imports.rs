@@ -7462,11 +7462,12 @@ fn read_import_rows_by_ids(
     // No paging, mutation, migration, or omission of approved rows after an Apply.
     let sql = import_row_sql(&format!("WHERE id IN ({})", super::question_marks(import_ids.len())));
     let mut statement = connection.prepare(&sql).map_err(|error| error.to_string())?;
-    let rows = statement
+    let mut rows = statement
         .query_map(params_from_iter(import_ids.iter()), map_import_row)
         .map_err(|error| error.to_string())?
         .collect::<Result<Vec<_>, _>>()
         .map_err(|error| error.to_string())?;
+    hydrate_import_instrument_activity(connection, &mut rows)?;
     let mut by_id = rows.into_iter().map(|row| (row.id, row)).collect::<HashMap<_, _>>();
     import_ids.iter().map(|id| {
         by_id.remove(id).ok_or_else(|| format!("Exact import lookup is missing reviewed ID {id}. Load & Prepare again."))
