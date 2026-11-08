@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState, type Dispatch, type SetStateAction } from 'react';
 import type { DrawingLineStyle, IndicatorLevelSettings, IndicatorPlotSettings, OHLCBar, OverlayIndicator } from '@/engine/types';
 import { getEligibleStudySourceChoices, studySourceOptionValue } from '@/indicators/studySourceChoices';
+import { getIndicatorNumericInputErrors, validateIndicatorNumericInput } from '@/indicators/indicatorNumericInputValidation';
 import { getIndicatorCatalogItemByKind } from '@/indicators/catalog';
 import { SUPPORTED_PATTERNS } from '@/engine/Patterns';
 import { saveCandlestickSettings } from '@/features/candlestick/candlestickSettingsService';
@@ -21,6 +22,27 @@ const SETTINGS_DIALOG_POS_KEY = 'eod-chart.floating-pos.indicator-settings.v1';
 export function IndicatorSettingsDialog({ indicator, allIndicators = [], sourceBars = [], onSave, onRemove, onClose }: IndicatorSettingsDialogProps) {
   const [draft, setDraft] = useState<OverlayIndicator>(() => cloneIndicator(indicator));
   const [activeTab, setActiveTab] = useState<IndicatorSettingsTab>('inputs');
+  const [numericTextOverrides, setNumericTextOverrides] = useState<Record<string, string>>({});
+  const schema = INDICATOR_SETTINGS_SCHEMAS[draft.kind] ?? EMPTY_SCHEMA;
+  const numericFields = schema.inputs.flatMap((field) => field.kind === 'number' && field.key
+    ? [{ key: field.key, label: field.label, step: field.step, min: field.min, max: field.max }]
+    : []);
+  const numericErrors = getIndicatorNumericInputErrors(draft, numericFields, numericTextOverrides);
+  const hasInvalidNumericInputs = Object.keys(numericErrors).length > 0;
+
+  const updateNumericInput = (field: IndicatorFieldDefinition & { key: string }, text: string) => {
+    const error = validateIndicatorNumericInput(draft.kind, field, text);
+    if (error) {
+      setNumericTextOverrides((previous) => ({ ...previous, [field.key]: text }));
+      return;
+    }
+    setNumericTextOverrides((previous) => {
+      const remaining = { ...previous };
+      delete remaining[field.key];
+      return remaining;
+    });
+    setIndicatorValue(setDraft, field.key, Number(text));
+  };
 
   const { position, handlePointerDown, isDragging, resetPosition } = useDraggableFloatingWindow({
     storageKey: SETTINGS_DIALOG_POS_KEY,
@@ -32,10 +54,15 @@ export function IndicatorSettingsDialog({ indicator, allIndicators = [], sourceB
   useEffect(() => {
     setDraft(cloneIndicator(indicator));
     setActiveTab('inputs');
+    setNumericTextOverrides({});
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [indicator.id]);
 
   const handleSave = () => {
+    if (hasInvalidNumericInputs) {
+      setActiveTab('inputs');
+      return;
+    }
     if (draft.kind === 'PATTERN') {
       saveCandlestickSettings({
         patterns: draft.patterns ?? [],
@@ -102,9 +129,13 @@ export function IndicatorSettingsDialog({ indicator, allIndicators = [], sourceB
             onTabChange={setActiveTab}
             allIndicators={allIndicators}
             sourceBars={sourceBars}
+            numericTextOverrides={numericTextOverrides}
+            numericErrors={numericErrors}
+            onNumericInputChange={updateNumericInput}
           />
         </div>
         <div style={dialogFooterStyle}>
+          {hasInvalidNumericInputs ? <span role="alert" style={{ color: 'var(--danger)', fontSize: 11 }}>Correct invalid numeric inputs before saving.</span> : null}
           <button
             type="button"
             style={{ ...actionButtonStyle, minWidth: 88 }}
@@ -119,6 +150,7 @@ export function IndicatorSettingsDialog({ indicator, allIndicators = [], sourceB
             type="button"
             style={{ ...actionButtonStyle, minWidth: 88, borderColor: 'var(--accent)', color: 'var(--text)' }}
             onClick={handleSave}
+            disabled={hasInvalidNumericInputs}
           >
             Save
           </button>
@@ -1011,6 +1043,9 @@ function IndicatorFields({
   onTabChange,
   allIndicators = [],
   sourceBars = [],
+  numericTextOverrides,
+  numericErrors,
+  onNumericInputChange,
 }: {
   draft: OverlayIndicator;
   setDraft: Dispatch<SetStateAction<OverlayIndicator>>;
@@ -1018,6 +1053,9 @@ function IndicatorFields({
   onTabChange: (tab: IndicatorSettingsTab) => void;
   allIndicators?: OverlayIndicator[];
   sourceBars?: OHLCBar[];
+  numericTextOverrides: Readonly<Record<string, string>>;
+  numericErrors: Readonly<Record<string, string>>;
+  onNumericInputChange: (field: IndicatorFieldDefinition & { key: string }, text: string) => void;
 }) {
   const schema = INDICATOR_SETTINGS_SCHEMAS[draft.kind] ?? EMPTY_SCHEMA;
 
@@ -1035,7 +1073,7 @@ function IndicatorFields({
           </button>
         ))}
       </div>
-      <div style={tabPanelStyle}>{renderTabPanel(activeTab, draft, setDraft, schema, allIndicators, sourceBars)}</div>
+      <div style={tabPanelStyle}>{renderTabPanel(activeTab, draft, setDraft, schema, allIndicators, sourceBars, numericTextOverrides, numericErrors, onNumericInputChange)}</div>
     </>
   );
 }
@@ -1047,11 +1085,14 @@ function renderTabPanel(
   schema: IndicatorSettingsSchema,
   allIndicators: OverlayIndicator[] = [],
   sourceBars: OHLCBar[] = [],
+  numericTextOverrides: Readonly<Record<string, string>> = {},
+  numericErrors: Readonly<Record<string, string>> = {},
+  onNumericInputChange?: (field: IndicatorFieldDefinition & { key: string }, text: string) => void,
 ) {
   if (activeTab === 'inputs') {
     // Only schema-defined algorithm parameters are editable here.
     // The generic offset field is not a supported visual bar shift.
-    return renderSchemaFields(schema.inputs, draft, setDraft, 'No editable inputs.', allIndicators, sourceBars);
+    return renderSchemaFields(schema.inputs, draft, setDraft, 'No editable inputs.', allIndicators, sourceBars, numericTextOverrides, numericErrors, onNumericInputChange);
   }
 
   if (activeTab === 'style') {
@@ -1133,12 +1174,15 @@ function renderSchemaFields(
   emptyLabel: string,
   allIndicators: OverlayIndicator[] = [],
   sourceBars: OHLCBar[] = [],
+  numericTextOverrides: Readonly<Record<string, string>> = {},
+  numericErrors: Readonly<Record<string, string>> = {},
+  onNumericInputChange?: (field: IndicatorFieldDefinition & { key: string }, text: string) => void,
 ) {
   if (!fields.length) {
     return <div style={emptyStateStyle}>{emptyLabel}</div>;
   }
 
-  return fields.map((field) => renderSchemaField(field, draft, setDraft, allIndicators, sourceBars));
+  return fields.map((field) => renderSchemaField(field, draft, setDraft, allIndicators, sourceBars, numericTextOverrides, numericErrors, onNumericInputChange));
 }
 
 function renderSchemaField(
@@ -1147,6 +1191,9 @@ function renderSchemaField(
   setDraft: Dispatch<SetStateAction<OverlayIndicator>>,
   allIndicators: OverlayIndicator[] = [],
   sourceBars: OHLCBar[] = [],
+  numericTextOverrides: Readonly<Record<string, string>> = {},
+  numericErrors: Readonly<Record<string, string>> = {},
+  onNumericInputChange?: (field: IndicatorFieldDefinition & { key: string }, text: string) => void,
 ) {
   if (field.kind === 'patterns') {
     return <PatternField key={field.id} draft={draft} setDraft={setDraft} />;
@@ -1163,11 +1210,20 @@ function renderSchemaField(
       <NumberField
         key={field.id}
         label={field.label}
-        value={Number(readIndicatorValue(draft, fieldKey) ?? 0)}
+        value={Object.prototype.hasOwnProperty.call(numericTextOverrides, fieldKey)
+          ? numericTextOverrides[fieldKey]
+          : (Number.isFinite(readIndicatorValue(draft, fieldKey))
+            ? Number(readIndicatorValue(draft, fieldKey))
+            : (readIndicatorValue(draft, fieldKey) === undefined && draft.kind === 'LSMA' && fieldKey === 'offset' ? 0 : ''))}
         step={field.step}
         min={field.min}
         max={field.max}
-        onChange={(value) => setIndicatorNumber(setDraft, fieldKey, value, field.min, field.max)}
+        error={numericErrors[fieldKey]}
+        onChange={(value) => {
+          if (onNumericInputChange) {
+            onNumericInputChange({ ...field, key: fieldKey }, value);
+          }
+        }}
       />
     );
   }
@@ -1467,21 +1523,6 @@ function readIndicatorValue(indicator: OverlayIndicator, key: string): unknown {
   return (indicator as unknown as Record<string, unknown>)[key];
 }
 
-function setIndicatorNumber(
-  setDraft: Dispatch<SetStateAction<OverlayIndicator>>,
-  key: string,
-  value: string,
-  min?: number,
-  max?: number,
-) {
-  const nextValue = Number(value);
-  if (!Number.isFinite(nextValue)) {
-    return;
-  }
-
-  setIndicatorValue(setDraft, key, Math.min(max ?? nextValue, Math.max(min ?? nextValue, nextValue)));
-}
-
 function setIndicatorValue(
   setDraft: Dispatch<SetStateAction<OverlayIndicator>>,
   key: string,
@@ -1594,10 +1635,12 @@ function NumberField({
   step = '1',
   min,
   max,
+  error,
   onChange,
 }: {
   label: string;
-  value: number;
+  value: number | string;
+  error?: string;
   step?: string;
   min?: number;
   max?: number;
@@ -1612,9 +1655,11 @@ function NumberField({
         step={step}
         min={min}
         max={max}
+        aria-invalid={Boolean(error)}
         onChange={(event) => onChange(event.target.value)}
         style={inputStyle}
       />
+      {error ? <span role="alert" style={{ color: 'var(--danger)', fontSize: 11 }}>{error}</span> : null}
     </label>
   );
 }
