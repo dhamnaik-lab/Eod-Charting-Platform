@@ -6,7 +6,8 @@ import { ChartTabs } from '@/components/ChartTabs';
 import { SheetTabs } from '@/components/SheetTabs';
 import { CommandPalette } from '@/components/CommandPalette';
 import { ToastContainer } from '@/components/ToastContainer';
-import { Sidebar } from '@/components/Sidebar';
+import { Sidebar, SIDEBAR_RAIL_WIDTH } from '@/components/Sidebar';
+import { SidebarRecoveryFallback } from '@/components/SidebarRecoveryFallback';
 import { StatusBar } from '@/components/StatusBar';
 import { Toolbar } from '@/components/Toolbar';
 import { WindowTray } from '@/components/WindowTray';
@@ -285,13 +286,24 @@ export default function RootApp() {
       <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
         {uiFlags.sidebarVisible ? (
           <>
-            <Sidebar
-              width={sidebarWidth}
-              collapsed={sidebarCollapsed}
-              pinned={sidebarPinned}
-              onToggleCollapse={toggleSidebarCollapsed}
-              onTogglePin={toggleSidebarPinned}
-            />
+            <ErrorBoundary
+              name="Sidebar"
+              renderFallback={(retry) => (
+                <SidebarRecoveryFallback
+                  width={sidebarCollapsed ? SIDEBAR_RAIL_WIDTH : sidebarWidth}
+                  compact={sidebarCollapsed}
+                  onRetry={retry}
+                />
+              )}
+            >
+              <Sidebar
+                width={sidebarWidth}
+                collapsed={sidebarCollapsed}
+                pinned={sidebarPinned}
+                onToggleCollapse={toggleSidebarCollapsed}
+                onTogglePin={toggleSidebarPinned}
+              />
+            </ErrorBoundary>
             {sidebarOpen ? (
               <div
                 style={sidebarResizeHandleStyle}
