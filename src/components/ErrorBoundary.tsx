@@ -3,6 +3,8 @@ import React, { Component, ErrorInfo, ReactNode } from 'react';
 interface Props {
   children: ReactNode;
   fallback?: ReactNode;
+  /** Optional recoverable, locally rendered fallback; existing fallbacks remain unchanged. */
+  renderFallback?: (retry: () => void, error: Error | null) => ReactNode;
   name?: string;
 }
 
@@ -27,6 +29,12 @@ export class ErrorBoundary extends Component<Props, State> {
 
   public render() {
     if (this.state.hasError) {
+      if (this.props.renderFallback) {
+        return this.props.renderFallback(
+          () => this.setState({ hasError: false, error: null }),
+          this.state.error,
+        );
+      }
       if (this.props.fallback !== undefined) {
         return this.props.fallback;
       }

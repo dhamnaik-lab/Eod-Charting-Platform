@@ -7,6 +7,7 @@ import { SheetTabs } from '@/components/SheetTabs';
 import { CommandPalette } from '@/components/CommandPalette';
 import { ToastContainer } from '@/components/ToastContainer';
 import { Sidebar } from '@/components/Sidebar';
+import { SidebarRegionBoundary } from '@/components/SidebarRegionBoundary';
 import { StatusBar } from '@/components/StatusBar';
 import { Toolbar } from '@/components/Toolbar';
 import { WindowTray } from '@/components/WindowTray';
@@ -285,13 +286,15 @@ export default function RootApp() {
       <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
         {uiFlags.sidebarVisible ? (
           <>
-            <Sidebar
-              width={sidebarWidth}
-              collapsed={sidebarCollapsed}
-              pinned={sidebarPinned}
-              onToggleCollapse={toggleSidebarCollapsed}
-              onTogglePin={toggleSidebarPinned}
-            />
+            <SidebarRegionBoundary width={sidebarWidth} collapsed={sidebarCollapsed}>
+              <Sidebar
+                width={sidebarWidth}
+                collapsed={sidebarCollapsed}
+                pinned={sidebarPinned}
+                onToggleCollapse={toggleSidebarCollapsed}
+                onTogglePin={toggleSidebarPinned}
+              />
+            </SidebarRegionBoundary>
             {sidebarOpen ? (
               <div
                 style={sidebarResizeHandleStyle}
