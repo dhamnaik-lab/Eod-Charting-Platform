@@ -17,7 +17,7 @@ function tab(id: string): ChartTabState {
     drawings: [],
     viewport: { startIndex: 0, endIndex: 10 },
     visibleBarCount: 10,
-  } as ChartTabState;
+  } as unknown as ChartTabState;
 }
 
 describe('B20: single evaluation of active chart-tab state mutations', () => {
