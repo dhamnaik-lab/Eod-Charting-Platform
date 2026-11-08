@@ -62,6 +62,7 @@ import {
 import {
   createChartWorkspace,
 } from '@/features/charts/chartTabWorkspaceService';
+import { updateActiveTab } from '@/features/charts/chartActiveTabUpdateService';
 import {
   createChartTabSessionController,
 } from '@/features/charts/chartTabSessionController';
@@ -200,17 +201,6 @@ function scheduleWorkspaceAutosave() {
     const serialized = stringifyWorkspaceState(latestState);
     workspaceAutosaveQueue?.autosave(serialized);
   }, 260);
-}
-
-function updateActiveTab(
-  state: Pick<ChartStoreState, 'chartTabs' | 'activeChartTabId'>,
-  updater: (tab: ChartTabState) => ChartTabState,
-): Pick<ChartStoreState, 'chartTabs'> {
-  return {
-    chartTabs: state.chartTabs.some((tab) => tab.id === state.activeChartTabId && updater(tab) !== tab)
-      ? state.chartTabs.map((tab) => (tab.id === state.activeChartTabId ? updater(tab) : tab))
-      : state.chartTabs,
-  };
 }
 
 function toChartMutationErrorMessage(error: unknown, fallback: string): string {
