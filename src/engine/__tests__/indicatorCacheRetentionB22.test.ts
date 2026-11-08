@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { buildRenderableIndicators } from '@/engine/Indicators';
-import { getIndicatorCacheBucket } from '@/indicators/registry';
+import { getIndicatorCacheBucket, INDICATOR_CACHE_MAX_RENDERABLES_PER_BARS } from '@/indicators/registry';
 import type { OHLCBar, OverlayIndicator } from '@/engine/types';
 
 function bars(count = 80): OHLCBar[] {
@@ -53,6 +53,36 @@ describe('B22: retained-indicator cache benchmark on stable bars', () => {
     }));
     expect(latest.overlays[0]).toBe(sibling);
     expect(latest.overlays[1]).not.toBe(first.overlays[1]);
-    expect(bucket.renderables.size).toBeGreaterThanOrEqual(2);
+    expect(bucket.renderables.size).toBe(INDICATOR_CACHE_MAX_RENDERABLES_PER_BARS);
   }, 120_000);
+  it('preserves unchanged sibling identity while evicted old settings recompute identical numeric output', () => {
+    const series = bars();
+    const before = buildRenderableIndicators(series, [stableSma, editedBands]);
+    for (let index = 1; index <= INDICATOR_CACHE_MAX_RENDERABLES_PER_BARS + 10; index += 1) {
+      const next = buildRenderableIndicators(series, [stableSma, { ...editedBands, stdDev: 1 + index / 1000 }]);
+      expect(next.overlays[0]).toBe(before.overlays[0]);
+    }
+    const reopened = buildRenderableIndicators(series, [stableSma, editedBands]);
+    const fresh = buildRenderableIndicators([...series], [stableSma, editedBands]);
+    expect(reopened.overlays[0]).toBe(before.overlays[0]);
+    expect(reopened.overlays[1]).not.toBe(before.overlays[1]);
+    expect(reopened.overlays[1].lines).toEqual(fresh.overlays[1].lines);
+    expect(reopened.overlays[1].band).toEqual(fresh.overlays[1].band);
+    expect(getIndicatorCacheBucket(series, [stableSma, editedBands]).renderables.size)
+      .toBeLessThanOrEqual(INDICATOR_CACHE_MAX_RENDERABLES_PER_BARS);
+  });
+
+  it('still discards a stale bucket when an interior bar changes in-place', () => {
+    const series = bars();
+    const old = buildRenderableIndicators(series, [stableSma]);
+    const priorCache = getIndicatorCacheBucket(series, [stableSma]);
+    series[series.length - 5].close += 100;
+    series[series.length - 5].high += 100;
+    const next = buildRenderableIndicators(series, [stableSma]);
+    const freshCache = getIndicatorCacheBucket(series, [stableSma]);
+    expect(freshCache).not.toBe(priorCache);
+    expect(next.overlays[0]).not.toBe(old.overlays[0]);
+    expect(next.overlays[0].lines).not.toEqual(old.overlays[0].lines);
+  });
+
 });
