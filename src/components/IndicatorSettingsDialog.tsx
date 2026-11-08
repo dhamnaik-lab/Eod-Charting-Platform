@@ -562,7 +562,8 @@ const INDICATOR_SETTINGS_SCHEMAS: Partial<Record<IndicatorKind, IndicatorSetting
     inputs: [periodInput, numberField('divisor', 'Divisor', '1000')],
     style: standardStyle,
   },
-  TWAP: standardSourceSchema,
+  // TWAP is cumulative; its builder does not use a rolling Period.
+  TWAP: { inputs: [sourceField()], style: standardStyle },
   ADR: standardPeriodSchema,
   AUTO_KEY_LEVELS: {
     inputs: [numberField('pivotLength', 'Pivot Length'), numberField('maxLevels', 'Max Levels')],
