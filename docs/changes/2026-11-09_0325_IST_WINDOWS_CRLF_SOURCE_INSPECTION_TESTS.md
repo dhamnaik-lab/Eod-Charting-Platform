@@ -25,7 +25,12 @@ Windows audit-main baseline, 2026-11-09 (user-supplied output):
 - `npm run typecheck:renderer`: **PASS** (before this change).
 - `npm run build:renderer`: **PASS**, 814 modules, 5.46 s (before this change).
 - Windows original 117-file worktree and audit-main clean checkout: **PRESERVED**, per user validation.
-- New focused, full CI, TypeScript and build on PR final head: **PENDING**; do not treat pre-change validation as new-code validation.
+- Initial code head `76e7317b48183cfafb3523f29359f33e9e8482b6`: GitHub Actions [Renderer CI #42527690214](https://github.com/dhamnaik-lab/Eod-Charting-Platform/actions/runs/42527690214) **PASS**:
+  - `npm ci`: **PASS**.
+  - `npm test`: **PASS**, 1,655 tests passed, 1 skipped, 0 failed (247 test files passed, 1 skipped); includes the new LF/CRLF/CR normalization regressions.
+  - `npm run typecheck:renderer`: **PASS**.
+  - `npm run build:renderer`: **PASS**, 814 modules transformed, Vite built in 5.45 s.
+- Final documented PR-head CI following this validation-record update: **PENDING**; check the final commit's own workflow run before merge approval.
 
 ## Risks / limitations
 The tests remain source-layout assertions. Future intentional formatting of the relevant JSX or drawing-label calls can require separate assertion updates. Native Windows/Tauri, portable package and manual runtime acceptance are not covered by this test-only change.
