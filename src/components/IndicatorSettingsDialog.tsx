@@ -128,6 +128,85 @@ export function IndicatorSettingsDialog({ indicator, allIndicators = [], onSave,
 type IndicatorSettingsTab = 'inputs' | 'style' | 'levels' | 'scale' | 'visibility';
 type IndicatorKind = OverlayIndicator['kind'];
 
+type IndicatorVariant<K extends IndicatorKind> = Extract<OverlayIndicator, { kind: K }>;
+type IndicatorValueKey<K extends IndicatorKind, V> = {
+  [P in keyof IndicatorVariant<K>]-?: NonNullable<IndicatorVariant<K>[P]> extends V ? P : never;
+}[keyof IndicatorVariant<K>] & string;
+
+type ValidSchemaField<K extends IndicatorKind, F> =
+  F extends { kind: 'number'; key: infer Key }
+    ? Key extends IndicatorValueKey<K, number> ? F : never
+    : F extends { kind: 'color'; key: infer Key }
+      ? Key extends IndicatorValueKey<K, string> ? F : never
+      : F extends { kind: 'source'; key: 'source' }
+        ? 'source' extends keyof IndicatorVariant<K> ? F : never
+        : F extends { kind: 'patterns' }
+          ? K extends 'PATTERN' ? F : never
+          : never;
+
+type ValidSchemaFieldList<K extends IndicatorKind, Fields> =
+  Fields extends readonly (infer F)[]
+    ? Exclude<F, ValidSchemaField<K, F>> extends never ? Fields : never
+    : never;
+
+type CheckedIndicatorSchema<K extends IndicatorKind, Schema> =
+  Schema extends { inputs: infer Inputs; style: infer Style }
+    ? ValidSchemaFieldList<K, Inputs> extends never ? never
+      : ValidSchemaFieldList<K, Style> extends never ? never : Schema
+    : never;
+
+// Compile-time only guard: schema keys must belong to the exact indicator variant.
+// This function returns the original registry unchanged at runtime.
+function defineIndicatorSettingsSchemas<
+  const Schemas extends Partial<Record<IndicatorKind, IndicatorSettingsSchema>>,
+>(
+  schemas: Schemas & {
+    [K in keyof Schemas]: K extends IndicatorKind
+      ? CheckedIndicatorSchema<K, Schemas[K]>
+      : never;
+  },
+): Schemas {
+  return schemas;
+}
+
+// Type-only regression checks. A misleading field must fail even when its
+// name exists on some *other* indicator or has the wrong value type.
+type AssertSchemaCondition<Condition extends true> = Condition;
+type SchemaFieldContractChecks = [
+  AssertSchemaCondition<
+    CheckedIndicatorSchema<'STDEV', {
+      inputs: [{ kind: 'source'; key: 'source' }]; style: [];
+    }> extends never ? true : false
+  >,
+  AssertSchemaCondition<
+    CheckedIndicatorSchema<'TWAP', {
+      inputs: [{ kind: 'number'; key: 'period' }]; style: [];
+    }> extends never ? true : false
+  >,
+  AssertSchemaCondition<
+    CheckedIndicatorSchema<'CPR', {
+      inputs: [{ kind: 'number'; key: 'pivotColor' }]; style: [];
+    }> extends never ? true : false
+  >,
+  AssertSchemaCondition<
+    CheckedIndicatorSchema<'AVWAP', {
+      inputs: [{ kind: 'source'; key: 'source' }]; style: [];
+    }> extends never ? true : false
+  >,
+  AssertSchemaCondition<
+    CheckedIndicatorSchema<'STOCHRSI', {
+      inputs: [{ kind: 'number'; key: 'rsiPeriod' }];
+      style: [{ kind: 'color'; key: 'signalColor' }];
+    }> extends never ? false : true
+  >,
+  AssertSchemaCondition<
+    CheckedIndicatorSchema<'TWAP', {
+      inputs: [{ kind: 'source'; key: 'source' }];
+      style: [{ kind: 'color'; key: 'color' }];
+    }> extends never ? false : true
+  >,
+];
+
 interface IndicatorFieldDefinition {
   id: string;
   label: string;
@@ -175,7 +254,9 @@ const INDICATOR_SETTINGS_TABS: Array<{ id: IndicatorSettingsTab; label: string }
   { id: 'visibility', label: 'Visibility' },
 ];
 
-const numberField = (key: string, label: string, step = '1', min?: number, max?: number): IndicatorFieldDefinition => ({
+const numberField = <Key extends string>(
+  key: Key, label: string, step = '1', min?: number, max?: number,
+): IndicatorFieldDefinition & { key: Key; kind: 'number' } => ({
   id: key,
   key,
   label,
@@ -185,18 +266,18 @@ const numberField = (key: string, label: string, step = '1', min?: number, max?:
   max,
 });
 
-const sourceField = (): IndicatorFieldDefinition => ({
+const sourceField = (): IndicatorFieldDefinition & { key: 'source'; kind: 'source' } => ({
   id: 'source',
   key: 'source',
   label: 'Source',
   kind: 'source',
 });
 
-const colorField = (
-  key: string,
+const colorField = <Key extends string>(
+  key: Key,
   label: string,
   valueTransforms?: Pick<IndicatorFieldDefinition, 'toInputValue' | 'fromInputValue'>,
-): IndicatorFieldDefinition => ({
+): IndicatorFieldDefinition & { key: Key; kind: 'color' } => ({
   id: key,
   key,
   label,
@@ -204,7 +285,7 @@ const colorField = (
   ...valueTransforms,
 });
 
-const patternsField = (): IndicatorFieldDefinition => ({
+const patternsField = (): IndicatorFieldDefinition & { kind: 'patterns' } => ({
   id: 'patterns',
   label: 'Patterns',
   kind: 'patterns',
@@ -374,7 +455,7 @@ const cciLevels: IndicatorLevelDefinition[] = [
   { id: 'upper', label: 'Upper', value: 100 },
 ];
 
-const INDICATOR_SETTINGS_SCHEMAS: Partial<Record<IndicatorKind, IndicatorSettingsSchema>> = {
+const INDICATOR_SETTINGS_SCHEMAS = defineIndicatorSettingsSchemas({
   STOCHRSI: {
     inputs: [
       numberField('rsiPeriod', 'RSI Period', '1', 1),
@@ -908,7 +989,7 @@ const INDICATOR_SETTINGS_SCHEMAS: Partial<Record<IndicatorKind, IndicatorSetting
     style: [colorField('color', 'Base Histogram Color'), colorField('alertColor', 'Alert Color')],
   },
   CUSTOM: { inputs: [], style: standardStyle },
-};
+});
 
 const EMPTY_SCHEMA: IndicatorSettingsSchema = { inputs: [], style: [] };
 
