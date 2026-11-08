@@ -1,6 +1,8 @@
 import { getDesktopApi, requireDesktopApi } from '@/platform';
+import { WORKSPACE_SETTING_KEY } from '@/platform/workspaceSettingKey';
 
-export const WORKSPACE_SETTING_KEY = 'workspace.chartLayout.v1';
+// Preserve the existing workspaceService export for its callers.
+export { WORKSPACE_SETTING_KEY } from '@/platform/workspaceSettingKey';
 
 export async function readWorkspaceLayoutSetting(): Promise<string | null> {
   const api = getDesktopApi();
