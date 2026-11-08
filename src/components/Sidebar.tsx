@@ -18,6 +18,7 @@ import { getDesktopApi, type InstrumentSummary, type SymbolExchangeFilter, type 
 import { getSymbolFilterVisibility } from '@/features/watchlists/symbolFilterVisibility';
 import { getSidebarListWindow } from '@/features/watchlists/sidebarListWindow';
 import { INDICATOR_CATALOG, INDICATOR_SUBCATEGORIES, getIndicatorSubcategory } from '@/indicators/catalog';
+import { readFavoriteIndicatorIds, writeFavoriteIndicatorIds, toggleFavoriteIndicatorId, subscribeFavoriteIndicatorUpdates } from '@/indicators/indicatorFavoritesService';
 import { WatchlistNameDialog } from '@/components/WatchlistDialogs';
 import { findSelectedWatchlist } from '@/features/watchlists/watchlistNavigationService';
 import { getActiveChartTab, useChartStore } from '@/store/chartStore';
@@ -99,9 +100,6 @@ interface SymbolItemContextMenuState {
   item: InstrumentSummary;
 }
 
-const FAVORITE_INDICATORS_STORAGE_KEY = 'eod-chart.sidebar.favoriteIndicators.v1';
-const DEFAULT_FAVORITE_INDICATOR_IDS = ['rsi', 'macd', 'supertrend', 'sma', 'ema', 'bollinger_bands'];
-
 function readStoredRecentSymbols(): InstrumentSummary[] {
   if (typeof window === 'undefined') return [];
   try {
@@ -116,23 +114,6 @@ function writeStoredRecentSymbols(symbols: InstrumentSummary[]): void {
   if (typeof window === 'undefined') return;
   try {
     window.localStorage.setItem(RECENT_SYMBOLS_STORAGE_KEY, JSON.stringify(symbols.slice(0, 8)));
-  } catch {}
-}
-
-function readStoredFavoriteIndicators(): string[] {
-  if (typeof window === 'undefined') return DEFAULT_FAVORITE_INDICATOR_IDS;
-  try {
-    const raw = window.localStorage.getItem(FAVORITE_INDICATORS_STORAGE_KEY);
-    return raw ? (JSON.parse(raw) as string[]) : DEFAULT_FAVORITE_INDICATOR_IDS;
-  } catch {
-    return DEFAULT_FAVORITE_INDICATOR_IDS;
-  }
-}
-
-function writeStoredFavoriteIndicators(ids: string[]): void {
-  if (typeof window === 'undefined') return;
-  try {
-    window.localStorage.setItem(FAVORITE_INDICATORS_STORAGE_KEY, JSON.stringify(ids));
   } catch {}
 }
 
@@ -359,7 +340,8 @@ export function Sidebar({ width, collapsed, pinned, onToggleCollapse, onTogglePi
   const [activePanel, setActivePanel] = useState<SidebarPanel>('symbols');
   const [recentSymbols, setRecentSymbols] = useState<InstrumentSummary[]>(() => readStoredRecentSymbols());
   const [recentSectionCollapsed, setRecentSectionCollapsed] = useState(false);
-  const [favoriteIndicatorIds, setFavoriteIndicatorIds] = useState<string[]>(() => readStoredFavoriteIndicators());
+  const [favoriteIndicatorIds, setFavoriteIndicatorIds] = useState<string[]>(readFavoriteIndicatorIds);
+  useEffect(() => subscribeFavoriteIndicatorUpdates(setFavoriteIndicatorIds), []);
   const [watchlistQuickAddQuery, setWatchlistQuickAddQuery] = useState('');
   const [watchlistSortOrder, setWatchlistSortOrder] = useState<'default' | 'asc' | 'desc'>('default');
   const [symbolContextMenu, setSymbolContextMenu] = useState<SymbolItemContextMenuState | null>(null);
@@ -823,11 +805,9 @@ export function Sidebar({ width, collapsed, pinned, onToggleCollapse, onTogglePi
   };
 
   const toggleFavoriteIndicator = useCallback((id: string) => {
-    setFavoriteIndicatorIds((prev) => {
-      const next = prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id];
-      writeStoredFavoriteIndicators(next);
-      return next;
-    });
+    const next = toggleFavoriteIndicatorId(readFavoriteIndicatorIds(), id);
+    writeFavoriteIndicatorIds(next);
+    setFavoriteIndicatorIds(next);
   }, []);
 
   const favoriteIndicators = useMemo(
