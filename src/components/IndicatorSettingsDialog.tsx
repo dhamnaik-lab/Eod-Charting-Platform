@@ -1,5 +1,5 @@
 import { useEffect, useState, type Dispatch, type SetStateAction } from 'react';
-import type { DrawingLineStyle, IndicatorLevelSettings, IndicatorPlotSettings, OverlayIndicator } from '@/engine/types';
+import type { ChartIndicator, DrawingLineStyle, IndicatorLevelSettings, IndicatorPlotSettings, OverlayIndicator } from '@/engine/types';
 import { getIndicatorCatalogItemByKind } from '@/indicators/catalog';
 import { SUPPORTED_PATTERNS } from '@/engine/Patterns';
 import { saveCandlestickSettings } from '@/features/candlestick/candlestickSettingsService';
@@ -128,11 +128,11 @@ export function IndicatorSettingsDialog({ indicator, allIndicators = [], onSave,
 type IndicatorSettingsTab = 'inputs' | 'style' | 'levels' | 'scale' | 'visibility';
 type IndicatorKind = OverlayIndicator['kind'];
 
-interface IndicatorFieldDefinition {
+interface IndicatorFieldDefinition<Key extends string = string, FieldKind extends 'number' | 'source' | 'color' | 'patterns' = 'number' | 'source' | 'color' | 'patterns'> {
   id: string;
   label: string;
-  key?: string;
-  kind: 'number' | 'source' | 'color' | 'patterns';
+  key?: Key;
+  kind: FieldKind;
   step?: string;
   min?: number;
   max?: number;
@@ -167,6 +167,48 @@ interface IndicatorLevelDefinition {
   value: number;
 }
 
+// Each field is checked against the *specific* ChartIndicator discriminant,
+// not against a union of keys belonging to unrelated indicator kinds.
+type IndicatorOfKind<K extends IndicatorKind> = Extract<ChartIndicator, { kind: K }>;
+type KeysWithValue<T, Value> = {
+  [P in keyof T]-?: NonNullable<T[P]> extends Value ? P : never;
+}[keyof T] & string;
+
+type NumberKey<K extends IndicatorKind> = KeysWithValue<IndicatorOfKind<K>, number>;
+type ColorKey<K extends IndicatorKind> = Extract<
+  KeysWithValue<IndicatorOfKind<K>, string>,
+  'color' | `${string}Color`
+>;
+type TypedField<Key extends string, Kind extends IndicatorFieldDefinition['kind']> =
+  IndicatorFieldDefinition<Key, Kind>;
+
+export type IndicatorSettingsFieldForKind<K extends IndicatorKind> =
+  | TypedField<NumberKey<K>, 'number'>
+  | TypedField<ColorKey<K>, 'color'>
+  | ('source' extends keyof IndicatorOfKind<K> ? TypedField<'source', 'source'> : never)
+  | ('patterns' extends keyof IndicatorOfKind<K> ? TypedField<'patterns', 'patterns'> : never);
+
+export type IndicatorSettingsPlotControlForKind<K extends IndicatorKind> =
+  Omit<IndicatorPlotControlDefinition,
+    'colorFallbackKey' | 'secondaryColorFallbackKey' | 'positiveColorFallbackKey' | 'negativeColorFallbackKey'
+  > & {
+    colorFallbackKey?: ColorKey<K>;
+    secondaryColorFallbackKey?: ColorKey<K>;
+    positiveColorFallbackKey?: ColorKey<K>;
+    negativeColorFallbackKey?: ColorKey<K>;
+  };
+
+export type IndicatorSettingsSchemaForKind<K extends IndicatorKind> =
+  Omit<IndicatorSettingsSchema, 'inputs' | 'style' | 'plots'> & {
+    inputs: IndicatorSettingsFieldForKind<K>[];
+    style: IndicatorSettingsFieldForKind<K>[];
+    plots?: IndicatorSettingsPlotControlForKind<K>[];
+  };
+
+type KindCheckedSchemas = Partial<{
+  [K in IndicatorKind]: IndicatorSettingsSchemaForKind<K>;
+}>;
+
 const INDICATOR_SETTINGS_TABS: Array<{ id: IndicatorSettingsTab; label: string }> = [
   { id: 'inputs', label: 'Inputs' },
   { id: 'style', label: 'Style' },
@@ -175,7 +217,7 @@ const INDICATOR_SETTINGS_TABS: Array<{ id: IndicatorSettingsTab; label: string }
   { id: 'visibility', label: 'Visibility' },
 ];
 
-const numberField = (key: string, label: string, step = '1', min?: number, max?: number): IndicatorFieldDefinition => ({
+const numberField = <Key extends string>(key: Key, label: string, step = '1', min?: number, max?: number): TypedField<Key, 'number'> => ({
   id: key,
   key,
   label,
@@ -185,18 +227,18 @@ const numberField = (key: string, label: string, step = '1', min?: number, max?:
   max,
 });
 
-const sourceField = (): IndicatorFieldDefinition => ({
+const sourceField = (): TypedField<'source', 'source'> => ({
   id: 'source',
   key: 'source',
   label: 'Source',
   kind: 'source',
 });
 
-const colorField = (
-  key: string,
+const colorField = <Key extends string>(
+  key: Key,
   label: string,
   valueTransforms?: Pick<IndicatorFieldDefinition, 'toInputValue' | 'fromInputValue'>,
-): IndicatorFieldDefinition => ({
+): TypedField<Key, 'color'> => ({
   id: key,
   key,
   label,
@@ -204,7 +246,7 @@ const colorField = (
   ...valueTransforms,
 });
 
-const patternsField = (): IndicatorFieldDefinition => ({
+const patternsField = (): TypedField<'patterns', 'patterns'> => ({
   id: 'patterns',
   label: 'Patterns',
   kind: 'patterns',
@@ -223,7 +265,7 @@ const histogramColorTransforms = {
   fromInputValue: (value: string) => toRgbaColor(value, 0.75),
 };
 
-const macdPlotControls: IndicatorPlotControlDefinition[] = [
+const macdPlotControls = [
   {
     id: 'macd',
     label: 'MACD',
@@ -245,9 +287,9 @@ const macdPlotControls: IndicatorPlotControlDefinition[] = [
     positiveColorFallbackKey: 'histogramPositiveColor',
     negativeColorFallbackKey: 'histogramNegativeColor',
   },
-];
+] satisfies IndicatorSettingsPlotControlForKind<'MACD'>[];
 
-const adxPlotControls: IndicatorPlotControlDefinition[] = [
+const adxPlotControls = [
   {
     id: 'adx',
     label: 'ADX',
@@ -269,9 +311,9 @@ const adxPlotControls: IndicatorPlotControlDefinition[] = [
     colorFallbackKey: 'minusColor',
     defaultLineWidth: 1.4,
   },
-];
+] satisfies IndicatorSettingsPlotControlForKind<'ADX'>[];
 
-const bollingerPlotControls: IndicatorPlotControlDefinition[] = [
+const bollingerPlotControls = [
   {
     id: 'basis',
     label: 'Basis',
@@ -301,9 +343,9 @@ const bollingerPlotControls: IndicatorPlotControlDefinition[] = [
     kind: 'band',
     colorFallbackKey: 'color',
   },
-];
+] satisfies IndicatorSettingsPlotControlForKind<'BOLL'>[];
 
-const supertrendPlotControls: IndicatorPlotControlDefinition[] = [
+const supertrendPlotControls = [
   {
     id: 'line',
     label: 'Supertrend Line',
@@ -313,9 +355,9 @@ const supertrendPlotControls: IndicatorPlotControlDefinition[] = [
     secondaryColorLabel: 'Down Color',
     defaultLineWidth: 2,
   },
-];
+] satisfies IndicatorSettingsPlotControlForKind<'SUPERTREND'>[];
 
-const ichimokuPlotControls: IndicatorPlotControlDefinition[] = [
+const ichimokuPlotControls = [
   {
     id: 'conversion',
     label: 'Conversion',
@@ -357,7 +399,7 @@ const ichimokuPlotControls: IndicatorPlotControlDefinition[] = [
     kind: 'band',
     defaultColor: '#26a69a',
   },
-];
+] satisfies IndicatorSettingsPlotControlForKind<'ICHIMOKU'>[];
 
 const rsiLevels: IndicatorLevelDefinition[] = [
   { id: 'oversold', label: 'Oversold', value: 30 },
@@ -908,7 +950,7 @@ const INDICATOR_SETTINGS_SCHEMAS: Partial<Record<IndicatorKind, IndicatorSetting
     style: [colorField('color', 'Base Histogram Color'), colorField('alertColor', 'Alert Color')],
   },
   CUSTOM: { inputs: [], style: standardStyle },
-};
+} satisfies KindCheckedSchemas;
 
 const EMPTY_SCHEMA: IndicatorSettingsSchema = { inputs: [], style: [] };
 
