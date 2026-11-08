@@ -58,9 +58,10 @@ describe('B18 indicator settings modal and dirty-draft protection', () => {
     expect(code).toContain('opener.focus()');
     expect(code).toContain('opener.isConnected');
   });
-  it('retains numeric Save guard, PATTERN persistence and floating placement', () => {
+  it('retains numeric Save guard, chart-local Save and floating placement', () => {
     expect(code).toContain('if (hasInvalidNumericInputs)');
-    expect(code).toContain('saveCandlestickSettings(');
+    expect(code).not.toContain('saveCandlestickSettings(');
+    expect(code).toContain('onSave(draft);');
     expect(code).toContain('useDraggableFloatingWindow({');
     expect(code).toContain('onPointerDown={handlePointerDown}');
   });
