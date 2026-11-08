@@ -7,11 +7,13 @@ import type {
   ChartType,
   OHLCBar,
   OverlayIndicator,
+  PaneScaleOverrides,
   RenkoSettings,
   Viewport,
 } from "@/engine/types";
 import type { ChartLayout } from "@/engine/ChartEngine";
 import { getCompactIndicatorDisplayLabel } from "@/indicators/catalog";
+import { getIndicatorPaneScaleStatus } from '@/features/charts/indicatorPaneScaleStatusService';
 import { CustomFormulaDialog } from "./CustomFormulaDialog";
 import { IndicatorSettingsDialog } from "./IndicatorSettingsDialog";
 interface ChartPriceLegendOverlayProps {
@@ -24,6 +26,7 @@ interface ChartPriceLegendOverlayProps {
   viewport: Viewport;
   compareOverlays: ChartCompareOverlay[];
   overlays: OverlayIndicator[];
+  paneScaleOverrides?: PaneScaleOverrides;
   layout: ChartLayout;
   hoverBarIndex: number | null;
   onSaveIndicator: (indicator: OverlayIndicator) => void;
@@ -131,6 +134,7 @@ export function ChartPriceLegendOverlay({
   viewport,
   compareOverlays,
   overlays,
+  paneScaleOverrides,
   layout,
   hoverBarIndex,
   onSaveIndicator,
@@ -300,6 +304,7 @@ export function ChartPriceLegendOverlay({
       ) : activeIndicator ? (
         <IndicatorSettingsDialog
           indicator={activeIndicator}
+          scaleMode={paneScaleOverrides ? getIndicatorPaneScaleStatus(activeIndicator, paneScaleOverrides) : undefined}
           allIndicators={overlays}
           sourceBars={bars}
           onSave={(updated) => {

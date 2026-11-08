@@ -9,6 +9,7 @@ import type {
 } from '@/engine/types';
 import { getDefaultIndicatorAlertPresetForIndicator, getIndicatorAlertSourceUnsupportedReason } from '@/features/alerts/indicatorAlertContracts';
 import { getCompactIndicatorDisplayLabel } from '@/indicators/catalog';
+import { getIndicatorPaneScaleStatus } from '@/features/charts/indicatorPaneScaleStatusService';
 import { CustomFormulaDialog } from './CustomFormulaDialog';
 import { IndicatorSettingsDialog } from './IndicatorSettingsDialog';
 
@@ -262,6 +263,7 @@ export function ChartPaneControlsOverlay({
         createPortal(
           <IndicatorSettingsDialog
             indicator={paneSettingsIndicator}
+            scaleMode={getIndicatorPaneScaleStatus(paneSettingsIndicator, paneScaleOverrides)}
             allIndicators={allIndicators}
             sourceBars={sourceBars}
             onSave={onSaveIndicator}

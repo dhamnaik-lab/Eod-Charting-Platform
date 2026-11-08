@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState, type Dispatch, type SetStateAction } from 'react';
 import type { DrawingLineStyle, IndicatorLevelSettings, IndicatorPlotSettings, OHLCBar, OverlayIndicator } from '@/engine/types';
 import { getEligibleStudySourceChoices, studySourceOptionValue } from '@/indicators/studySourceChoices';
+import type { IndicatorPaneScaleStatus } from '@/features/charts/indicatorPaneScaleStatusService';
 import { getIndicatorNumericInputErrors, validateIndicatorNumericInput } from '@/indicators/indicatorNumericInputValidation';
 import { getIndicatorCatalogItemByKind } from '@/indicators/catalog';
 import { SUPPORTED_PATTERNS } from '@/engine/Patterns';
@@ -12,6 +13,7 @@ interface IndicatorSettingsDialogProps {
   indicator: OverlayIndicator;
   allIndicators?: OverlayIndicator[];
   sourceBars?: OHLCBar[];
+  scaleMode?: IndicatorPaneScaleStatus;
   onSave: (updated: OverlayIndicator) => void;
   onRemove: (id: string) => void;
   onClose: () => void;
@@ -19,7 +21,7 @@ interface IndicatorSettingsDialogProps {
 
 const SETTINGS_DIALOG_POS_KEY = 'eod-chart.floating-pos.indicator-settings.v1';
 
-export function IndicatorSettingsDialog({ indicator, allIndicators = [], sourceBars = [], onSave, onRemove, onClose }: IndicatorSettingsDialogProps) {
+export function IndicatorSettingsDialog({ indicator, allIndicators = [], sourceBars = [], scaleMode, onSave, onRemove, onClose }: IndicatorSettingsDialogProps) {
   const [draft, setDraft] = useState<OverlayIndicator>(() => cloneIndicator(indicator));
   const [activeTab, setActiveTab] = useState<IndicatorSettingsTab>('inputs');
   const [numericTextOverrides, setNumericTextOverrides] = useState<Record<string, string>>({});
@@ -129,6 +131,7 @@ export function IndicatorSettingsDialog({ indicator, allIndicators = [], sourceB
             onTabChange={setActiveTab}
             allIndicators={allIndicators}
             sourceBars={sourceBars}
+            scaleMode={scaleMode}
             numericTextOverrides={numericTextOverrides}
             numericErrors={numericErrors}
             onNumericInputChange={updateNumericInput}
@@ -1043,6 +1046,7 @@ function IndicatorFields({
   onTabChange,
   allIndicators = [],
   sourceBars = [],
+  scaleMode,
   numericTextOverrides,
   numericErrors,
   onNumericInputChange,
@@ -1053,6 +1057,7 @@ function IndicatorFields({
   onTabChange: (tab: IndicatorSettingsTab) => void;
   allIndicators?: OverlayIndicator[];
   sourceBars?: OHLCBar[];
+  scaleMode?: IndicatorPaneScaleStatus;
   numericTextOverrides: Readonly<Record<string, string>>;
   numericErrors: Readonly<Record<string, string>>;
   onNumericInputChange: (field: IndicatorFieldDefinition & { key: string }, text: string) => void;
@@ -1073,7 +1078,7 @@ function IndicatorFields({
           </button>
         ))}
       </div>
-      <div style={tabPanelStyle}>{renderTabPanel(activeTab, draft, setDraft, schema, allIndicators, sourceBars, numericTextOverrides, numericErrors, onNumericInputChange)}</div>
+      <div style={tabPanelStyle}>{renderTabPanel(activeTab, draft, setDraft, schema, allIndicators, sourceBars, numericTextOverrides, numericErrors, onNumericInputChange, scaleMode)}</div>
     </>
   );
 }
@@ -1088,6 +1093,7 @@ function renderTabPanel(
   numericTextOverrides: Readonly<Record<string, string>> = {},
   numericErrors: Readonly<Record<string, string>> = {},
   onNumericInputChange?: (field: IndicatorFieldDefinition & { key: string }, text: string) => void,
+  scaleMode?: IndicatorPaneScaleStatus,
 ) {
   if (activeTab === 'inputs') {
     // Only schema-defined algorithm parameters are editable here.
@@ -1107,7 +1113,10 @@ function renderTabPanel(
     return (
       <div style={readonlyGridStyle}>
         <ReadonlyField label="Placement" value={draft.placement === 'overlay' ? 'Price pane' : 'Indicator pane'} />
-        <ReadonlyField label="Scale" value="Automatic" />
+        <ReadonlyField label="Scale" value={scaleMode === 'manual' ? 'Manual override' : scaleMode === 'automatic' ? 'Automatic' : 'Unavailable'} />
+        <p style={{ margin: '8px 0 0', fontSize: 11, color: 'var(--text-muted)' }}>
+          Use the chart scale axis to adjust the range. Use Fit to return to automatic scaling.
+        </p>
       </div>
     );
   }
