@@ -230,6 +230,9 @@ interface IndicatorPlotControlDefinition {
   id: string;
   label: string;
   kind: 'line' | 'histogram' | 'band';
+  // Defaults to visible for existing supported plot controls.
+  plotStyleEditable?: boolean;
+  opacityEditable?: boolean;
   colorFallbackKey?: string;
   secondaryColorFallbackKey?: string;
   secondaryColorLabel?: string;
@@ -309,6 +312,8 @@ const macdPlotControls: IndicatorPlotControlDefinition[] = [
     id: 'macd',
     label: 'MACD',
     kind: 'line',
+    plotStyleEditable: false,
+    opacityEditable: false,
     colorFallbackKey: 'color',
     defaultLineWidth: 1.8,
   },
@@ -316,6 +321,8 @@ const macdPlotControls: IndicatorPlotControlDefinition[] = [
     id: 'signal',
     label: 'Signal',
     kind: 'line',
+    plotStyleEditable: false,
+    opacityEditable: false,
     colorFallbackKey: 'signalColor',
     defaultLineWidth: 1.4,
   },
@@ -323,6 +330,7 @@ const macdPlotControls: IndicatorPlotControlDefinition[] = [
     id: 'histogram',
     label: 'Histogram',
     kind: 'histogram',
+    opacityEditable: false,
     positiveColorFallbackKey: 'histogramPositiveColor',
     negativeColorFallbackKey: 'histogramNegativeColor',
   },
@@ -1347,14 +1355,18 @@ function PlotControl({
             value={settings.lineStyle ?? 'solid'}
             onChange={(value) => updateDraftPlotSettings(setDraft, plot.id, { lineStyle: value })}
           />
-          <PlotStyleField
-            value={settings.plotStyle}
-            onChange={(value) => updateDraftPlotSettings(setDraft, plot.id, { plotStyle: value })}
-          />
-          <OpacityField
-            value={settings.opacity}
-            onChange={(value) => updateDraftPlotSettings(setDraft, plot.id, { opacity: value })}
-          />
+          {plot.plotStyleEditable !== false ? (
+            <PlotStyleField
+              value={settings.plotStyle}
+              onChange={(value) => updateDraftPlotSettings(setDraft, plot.id, { plotStyle: value })}
+            />
+          ) : null}
+          {plot.opacityEditable !== false ? (
+            <OpacityField
+              value={settings.opacity}
+              onChange={(value) => updateDraftPlotSettings(setDraft, plot.id, { opacity: value })}
+            />
+          ) : null}
         </div>
       ) : plot.kind === 'histogram' ? (
         <div style={plotFieldGridStyle}>
@@ -1368,10 +1380,12 @@ function PlotControl({
             value={toHexColor(settings.negativeColor ?? getFallbackColor(draft, plot.negativeColorFallbackKey))}
             onChange={(value) => updateDraftPlotSettings(setDraft, plot.id, { negativeColor: toRgbaColor(value, 0.75) })}
           />
-          <OpacityField
-            value={settings.opacity}
-            onChange={(value) => updateDraftPlotSettings(setDraft, plot.id, { opacity: value })}
-          />
+          {plot.opacityEditable !== false ? (
+            <OpacityField
+              value={settings.opacity}
+              onChange={(value) => updateDraftPlotSettings(setDraft, plot.id, { opacity: value })}
+            />
+          ) : null}
         </div>
       ) : (
         <div style={plotFieldGridStyle}>
