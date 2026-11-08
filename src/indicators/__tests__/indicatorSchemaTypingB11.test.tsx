@@ -27,6 +27,7 @@ type _TwapSourceValid = Assert<IsAssignable<Field<'source', 'source'>, Indicator
 type _StochRsiPeriodValid = Assert<IsAssignable<Field<'number', 'rsiPeriod'>, IndicatorSettingsFieldForKind<'STOCHRSI'>>>;
 type _StochRsiStyleValid = Assert<IsAssignable<Field<'color', 'signalColor'>, IndicatorSettingsFieldForKind<'STOCHRSI'>>>;
 type _CprStyleValid = Assert<IsAssignable<Field<'color', 'pivotColor'>, IndicatorSettingsFieldForKind<'CPR'>>>;
+type _MaRibbonNumberedColorValid = Assert<IsAssignable<Field<'color', 'color1'>, IndicatorSettingsFieldForKind<'MA_RIBBON'>>>;
 type _AvwapStyleValid = Assert<IsAssignable<Field<'color', 'color'>, IndicatorSettingsFieldForKind<'AVWAP'>>>;
 type _MacdPlotValid = Assert<IsAssignable<{ colorFallbackKey: 'signalColor'; kind: 'line'; id: string; label: string }, IndicatorSettingsPlotControlForKind<'MACD'>>>;
 
