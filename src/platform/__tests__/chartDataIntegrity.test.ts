@@ -114,14 +114,17 @@ describe('chart IPC cache freshness', () => {
       label: 'corporate action',
       command: 'apply_corporate_action',
       mutate: (desktop: DesktopApi) => desktop.applyCorporateAction({
-        actionType: 'split', exchange: 'NSE', effectiveDate: '2015-11-09',
+        actionType: 'SPLIT', exchange: 'NSE', effectiveDate: '2015-11-09',
         symbol: 'NIFTY', ratioNum: 2, ratioDen: 1,
       }),
     },
   ])('still supersedes pending EOD requests after a $label mutation', async ({ command, mutate }) => {
     const pending = deferred<ReturnType<typeof payload>>();
+    let priceReadCount = 0;
     mock.invoke.mockImplementation((name) =>
-      name === 'get_eod_data_binary' ? pending.promise : Promise.resolve({ success: true }),
+      name === 'get_eod_data_binary'
+        ? (priceReadCount++ === 0 ? pending.promise : Promise.resolve(payload()))
+        : Promise.resolve({ success: true }),
     );
     const desktop = await api();
     const oldRead = desktop.getEodData(input);
@@ -142,8 +145,11 @@ describe('chart IPC cache freshness', () => {
 
   it('does not let workspace autosave prevent a subsequent price mutation from invalidating', async () => {
     const pending = deferred<ReturnType<typeof payload>>();
+    let priceReadCount = 0;
     mock.invoke.mockImplementation((name) =>
-      name === 'get_eod_data_binary' ? pending.promise : Promise.resolve({ success: true }),
+      name === 'get_eod_data_binary'
+        ? (priceReadCount++ === 0 ? pending.promise : Promise.resolve(payload()))
+        : Promise.resolve({ success: true }),
     );
     const desktop = await api();
     const old = desktop.getEodData(input);
