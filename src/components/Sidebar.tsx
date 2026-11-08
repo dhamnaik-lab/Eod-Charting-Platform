@@ -290,7 +290,7 @@ function collectSeriesForExchange(items: InstrumentSummary[], exchange: SymbolEx
   return Array.from(values).sort(compareSeriesValues);
 }
 
-const SIDEBAR_RAIL_WIDTH = 34;
+export const SIDEBAR_RAIL_WIDTH = 34;
 const VIRTUAL_ROW_HEIGHT = 30;
 const SIDEBAR_COLLAPSED_SUBCATS_KEY = 'eod-chart.sidebar.collapsed-subcategories.v1';
 const SIDEBAR_COLLAPSED_FAVORITES_KEY = 'eod-chart.sidebar.collapsed-favorites.v1';
