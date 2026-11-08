@@ -14,8 +14,8 @@ import { IndicatorSettingsDialog } from './IndicatorSettingsDialog';
 
 interface ChartPaneControlsOverlayProps {
   paneIndicators: OverlayIndicator[];
-  allIndicators: OverlayIndicator[];
-  sourceBars: OHLCBar[];
+  allIndicators?: OverlayIndicator[];
+  sourceBars?: OHLCBar[];
   layout: {
     paneTops: number[];
     priceHeight: number;
@@ -42,8 +42,8 @@ interface ChartPaneControlsOverlayProps {
 
 export function ChartPaneControlsOverlay({
   paneIndicators,
-  allIndicators,
-  sourceBars,
+  allIndicators = paneIndicators,
+  sourceBars = [],
   layout,
   indicatorPaneHeights,
   indicatorPaneHeight,
