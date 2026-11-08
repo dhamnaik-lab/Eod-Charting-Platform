@@ -1,0 +1,46 @@
+{
+  "cli_version": "0.12.2",
+  "checkpoint_id": "01M6WTG89RFSD0A19GAS5HM1FR",
+  "session_id": "01a1b7f7-4acc-7193-9d5e-24055fafabeb",
+  "strategy": "manual-commit",
+  "created_at": "2026-11-08T05:36:12.4346158Z",
+  "branch": "feat/ca-identity-gaps-20261108",
+  "checkpoints_count": 1,
+  "save_step_count": 4,
+  "files_touched": [
+    "HANDOFF.md",
+    "src-tauri-shell/src/database/corporate_action_imports.rs",
+    "src-tauri-shell/src/database/corporate_action_imports/split_bonus_symbol_chain/tests.rs"
+  ],
+  "agent": "Codex",
+  "model": "gpt-6.1-sol",
+  "turn_id": "62d7b732590e",
+  "checkpoint_transcript_start": 1697,
+  "transcript_lines_at_start": 1697,
+  "compact_transcript_start": 198,
+  "token_usage": {
+    "input_tokens": 29044,
+    "cache_creation_tokens": 0,
+    "cache_read_tokens": 9281792,
+    "output_tokens": 40684,
+    "api_call_count": 25,
+    "subagent_tokens_complete": true
+  },
+  "redaction": {
+    "replacements": 15065,
+    "layers": {
+      "betterleaks": 0,
+      "connection_string": 0,
+      "credential_key": 0,
+      "credential_value": 0,
+      "credentialed_uri": 0,
+      "entropy": 15065,
+      "key_context": 0,
+      "provider_token": 0,
+      "shell_stdin": 0
+    }
+  },
+  "session_metrics": {
+    "turn_count": 4
+  }
+}
