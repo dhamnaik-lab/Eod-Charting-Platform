@@ -87,7 +87,7 @@ export function getEligibleStudySourceChoices(
     ];
 
     for (const plot of plots) {
-      if (!plot.key || !hasFiniteNumber(plot.values)) continue;
+      if (!plot.key || plot.values.length !== bars.length || !hasFiniteNumber(plot.values)) continue;
       choices.push({
         value: studySourceOptionValue(indicator.id, plot.key),
         indicatorId: indicator.id,
