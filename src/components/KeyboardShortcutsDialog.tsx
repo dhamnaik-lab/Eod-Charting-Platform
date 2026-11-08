@@ -24,6 +24,11 @@ const WORKSPACE_SHORTCUTS: ShortcutItem[] = [
 
 const CHART_SHORTCUTS: ShortcutItem[] = [
   {
+    keys: 'D / W / M / Q / Y',
+    action: 'Daily / Weekly / Monthly / Quarterly / Yearly timeframe',
+    note: 'Requires chart focus; does not apply while editing or in dialogs.',
+  },
+  {
     keys: 'X',
     action: 'Toggle Crosshair',
     note: 'Requires chart focus.',
