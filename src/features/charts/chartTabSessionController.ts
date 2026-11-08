@@ -14,7 +14,6 @@ import {
 } from '@/features/charts/chartTabWorkspaceService';
 import {
   parsePersistedWorkspace,
-  stringifyWorkspaceState,
 } from '@/features/workspace/workspacePersistence';
 import {
   writeDatabaseDefaultPriceMode,
@@ -50,7 +49,6 @@ interface ChartTabSessionControllerDeps {
   setState: (update: StoreStateUpdate) => void;
   resetChartInteractionUi: () => void;
   hydrateChartTabData: (tabId: string) => Promise<void>;
-  setAutosaveSignature: (signature: string) => void;
   onAdjustedModeLoaded?: (adjusted: boolean) => void;
 }
 
@@ -258,12 +256,8 @@ export function createChartTabSessionController(
         activeChartTabId: workspace.activeChartTabId,
       });
       deps.resetChartInteractionUi();
-      deps.setAutosaveSignature(
-        stringifyWorkspaceState({
-          chartTabs: workspace.chartTabs,
-          activeChartTabId: workspace.activeChartTabId,
-        }),
-      );
+      // Loading a named layout changes the active workspace but does not yet
+      // persist its autosave setting. Keep it dirty for the normal scheduler.
       workspace.chartTabs.forEach((tab) => {
         if (tab.instrument) {
           queueTabHydration(tab.id);

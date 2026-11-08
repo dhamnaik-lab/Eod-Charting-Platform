@@ -9,6 +9,7 @@ export function StatusBar() {
   const databaseTransitionMessage = useChartStore((state) => state.databaseTransitionMessage);
   const importProgress = useChartStore((state) => state.importProgress);
   const downloadProgress = useChartStore((state) => state.downloadProgress);
+  const workspaceAutosaveError = useChartStore((state) => state.workspaceAutosaveError);
   const [clock, setClock] = useState(() => new Date());
   const activeTab = getActiveChartTab(chartTabs, activeChartTabId);
 
@@ -56,6 +57,12 @@ export function StatusBar() {
       {downloadProgress.error ? (
         <span style={errorBadgeStyle}>
           Download Error: {downloadProgress.error}
+        </span>
+      ) : null}
+
+      {workspaceAutosaveError ? (
+        <span style={errorBadgeStyle} role="status" title={workspaceAutosaveError}>
+          Workspace save failed — retrying
         </span>
       ) : null}
 

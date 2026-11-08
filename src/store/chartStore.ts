@@ -96,6 +96,11 @@ import {
   writeWorkspaceLayoutSetting,
 } from '@/features/workspace/workspaceService';
 import {
+  createWorkspaceAutosaveQueue,
+  WorkspaceSaveContextChangedError,
+  type WorkspaceAutosaveQueue,
+} from '@/features/workspace/workspaceAutosaveQueue';
+import {
   stringifyWorkspaceState,
 } from '@/features/workspace/workspacePersistence';
 import {
@@ -133,7 +138,7 @@ export type {
 } from '@/store/chartStoreTypes';
 
 let autosaveTimer: ReturnType<typeof setTimeout> | null = null;
-let autosaveSignature = '';
+let workspaceAutosaveQueue: WorkspaceAutosaveQueue | null = null;
 let suppressDatabaseChangedEvent = false;
 let chartSnapshotHydrationController: ChartSnapshotHydrationController | null = null;
 
@@ -193,12 +198,7 @@ function scheduleWorkspaceAutosave() {
     }
 
     const serialized = stringifyWorkspaceState(latestState);
-    if (serialized === autosaveSignature) {
-      return;
-    }
-
-    autosaveSignature = serialized;
-    void writeWorkspaceLayoutSetting(serialized);
+    workspaceAutosaveQueue?.autosave(serialized);
   }, 260);
 }
 
@@ -247,6 +247,16 @@ function getChartEventLabel(eventType: ChartMarkerEventType): string {
 
 export const useChartStore = create<ChartStoreState>((set, get, store) => {
   const instrumentDataCache = createInstrumentDataCache();
+  const saveQueue = createWorkspaceAutosaveQueue({
+    write: writeWorkspaceLayoutSetting,
+    onFailure: (error) => {
+      const message = toChartMutationErrorMessage(error, 'Workspace save failed.');
+      set({ workspaceAutosaveError: message });
+      get().addToast(`Workspace autosave failed; retrying automatically. ${message}`, 'error', 'Workspace');
+    },
+    onRecovered: () => set({ workspaceAutosaveError: null }),
+  });
+  workspaceAutosaveQueue = saveQueue;
   const chartSnapshotHydration = createChartSnapshotHydrationController({
     getApi,
     getState: get,
@@ -258,7 +268,7 @@ export const useChartStore = create<ChartStoreState>((set, get, store) => {
     resetChartInteractionUi,
     resolveSelectedWatchlistId,
     setAutosaveSignature: (signature) => {
-      autosaveSignature = signature;
+      saveQueue.markRestored(signature);
     },
   });
   chartSnapshotHydrationController = chartSnapshotHydration;
@@ -268,9 +278,6 @@ export const useChartStore = create<ChartStoreState>((set, get, store) => {
     setState: set,
     resetChartInteractionUi,
     hydrateChartTabData: chartSnapshotHydration.hydrateChartTabData,
-    setAutosaveSignature: (signature) => {
-      autosaveSignature = signature;
-    },
     onAdjustedModeLoaded: (adjusted) => get().addToast(
       adjusted ? 'Capital adjustments loaded (Splits & Bonuses).' : 'Raw unadjusted prices loaded.',
       'info',
@@ -392,6 +399,7 @@ export const useChartStore = create<ChartStoreState>((set, get, store) => {
     message: '',
     error: null,
   },
+  workspaceAutosaveError: null,
   toasts: [],
   addToast: (message, type = 'info', title) => {
     const id = crypto.randomUUID();
@@ -416,15 +424,13 @@ export const useChartStore = create<ChartStoreState>((set, get, store) => {
     clearWorkspaceAutosaveTimer();
     try {
       const serialized = stringifyWorkspaceState(state);
-      autosaveSignature = serialized;
-      await writeWorkspaceLayoutSetting(serialized);
+      await saveQueue.saveNow(serialized);
       state.addToast('Current active database saved.', 'success', 'Save');
     } catch (error) {
-      state.addToast(
-        error instanceof Error ? error.message : 'Database save failed.',
-        'error',
-        'Save',
-      );
+      // Failed writes are reported once by the queue, which keeps retrying.
+      if (error instanceof WorkspaceSaveContextChangedError) {
+        state.addToast('Save canceled because the active workspace changed.', 'warning', 'Save');
+      }
     }
   },
   setAdjustedMode: chartTabSession.setAdjustedMode,
@@ -728,12 +734,13 @@ useChartStore.subscribe((state, previousState) => {
   const previousDatabasePath = previousState.snapshot?.activeDatabasePath ?? '';
 
   if (!nextDatabasePath) {
-    autosaveSignature = '';
+    workspaceAutosaveQueue?.markRestored('');
     clearWorkspaceAutosaveTimer();
     return;
   }
 
   if (nextDatabasePath !== previousDatabasePath) {
+    workspaceAutosaveQueue?.markRestored('');
     clearWorkspaceAutosaveTimer();
   }
 

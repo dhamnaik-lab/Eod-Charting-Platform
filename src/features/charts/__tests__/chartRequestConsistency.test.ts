@@ -61,7 +61,7 @@ function modeHarness() {
     : tab) });
   const hydrate = vi.fn((id: string) => h.hydration.hydrateChartTabData(id));
   const session = createChartTabSessionController({ ...h, hydrateChartTabData: hydrate,
-    resetChartInteractionUi: vi.fn(), setAutosaveSignature: vi.fn(), onAdjustedModeLoaded: confirmed });
+    resetChartInteractionUi: vi.fn(), onAdjustedModeLoaded: confirmed });
   h.read.mockImplementation(async (input) => ({ ...result(input.symbol, input.adjusted ? 200 : 100),
     adjusted: input.adjusted, includeDividendAdjustments: input.includeDividendAdjustments,
     includeRightsAdjustments: input.includeRightsAdjustments }));
