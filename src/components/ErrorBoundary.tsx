@@ -3,6 +3,7 @@ import React, { Component, ErrorInfo, ReactNode } from 'react';
 interface Props {
   children: ReactNode;
   fallback?: ReactNode;
+  renderFallback?: (retry: () => void) => ReactNode;
   name?: string;
 }
 
@@ -21,12 +22,19 @@ export class ErrorBoundary extends Component<Props, State> {
     return { hasError: true, error };
   }
 
+  public retry = () => {
+    this.setState({ hasError: false, error: null });
+  };
+
   public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
     console.error(`ErrorBoundary [${this.props.name ?? 'Unknown'}]:`, error, errorInfo);
   }
 
   public render() {
     if (this.state.hasError) {
+      if (this.props.renderFallback) {
+        return this.props.renderFallback(this.retry);
+      }
       if (this.props.fallback !== undefined) {
         return this.props.fallback;
       }
@@ -40,7 +48,7 @@ export class ErrorBoundary extends Component<Props, State> {
           <button
             type="button"
             style={buttonStyle}
-            onClick={() => this.setState({ hasError: false, error: null })}
+            onClick={this.retry}
           >
             Retry
           </button>
