@@ -5,7 +5,6 @@ import type { IndicatorPaneScaleStatus } from '@/features/charts/indicatorPaneSc
 import { getIndicatorNumericInputErrors, validateIndicatorNumericInput } from '@/indicators/indicatorNumericInputValidation';
 import { getIndicatorCatalogItemByKind } from '@/indicators/catalog';
 import { SUPPORTED_PATTERNS } from '@/engine/Patterns';
-import { saveCandlestickSettings } from '@/features/candlestick/candlestickSettingsService';
 import { useDraggableFloatingWindow } from './common/useDraggableFloatingWindow';
 import { ColorToolbox } from './common/ColorToolbox';
 
@@ -65,14 +64,7 @@ export function IndicatorSettingsDialog({ indicator, allIndicators = [], sourceB
       setActiveTab('inputs');
       return;
     }
-    if (draft.kind === 'PATTERN') {
-      saveCandlestickSettings({
-        patterns: draft.patterns ?? [],
-        bullColor: draft.bullColor ?? '#22c55e',
-        bearColor: draft.bearColor ?? '#ef4444',
-        neutralColor: draft.neutralColor ?? '#f59e0b',
-      });
-    }
+    // PATTERN edits belong to this chart only; global legacy defaults remain untouched.
     onSave(draft);
   };
 
