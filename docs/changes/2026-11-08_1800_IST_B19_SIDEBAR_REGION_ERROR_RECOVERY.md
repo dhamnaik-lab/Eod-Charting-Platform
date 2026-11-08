@@ -56,3 +56,11 @@ Before merge: close draft PR #88 without integrating. After separate user-approv
 ## Required closure steps
 
 Verify full CI on final documented PR head, confirm B13/B17/B19 changed-file sets are independent, update issue #48 and master register #28, and leave all three PRs draft/unmerged until **separate batch merge authorization**. No unrelated audit task to start.
+
+## B13+B17+B19 combined integration checkpoint — 2026-11-08 19:04 IST
+
+- User explicitly approved merging the independent B13, B17, B19 PRs sequentially with an integration CI gate before B19.
+- B13 PR #86 was merged at `c7e2f42cb8d7f00fdf512063000ed68948947aa8`, verifying identical Git tree to its original tested PR head.
+- B17 PR #87 was merged at `53110f820d806fd89265ae5b10045f16be193024`, verifying all four changed blobs identical to its original tested PR head.
+- This documentation-only commit on B19 is deliberately intended to retrigger the existing GitHub `pull_request` renderer CI against updated `main` `53110f820d806fd89265ae5b10045f16be193024`. The workflow tests the combined GitHub synthetic merge of all three tasks.
+- **Integration result at this checkpoint: pending.** Before B19 merge, verify actual final CI success for full Vitest, TypeScript and Vite build; the synthetic merge's first parent must equal updated main and second parent must equal final B19 head. After squash merge, verify final `main` Git tree equals the synthetic tested merge tree. No CI result is assumed here.
