@@ -2029,6 +2029,8 @@ export function ChartCanvas({
         ) : null}
         <ChartPaneControlsOverlay
           paneIndicators={paneIndicators}
+          allIndicators={overlays}
+          sourceBars={bars}
           layout={layout}
           indicatorPaneHeights={indicatorPaneHeights}
           indicatorPaneHeight={indicatorPaneHeight}

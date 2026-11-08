@@ -1,5 +1,6 @@
-import { useEffect, useState, type Dispatch, type SetStateAction } from 'react';
-import type { DrawingLineStyle, IndicatorLevelSettings, IndicatorPlotSettings, OverlayIndicator } from '@/engine/types';
+import { useEffect, useMemo, useState, type Dispatch, type SetStateAction } from 'react';
+import type { DrawingLineStyle, IndicatorLevelSettings, IndicatorPlotSettings, OHLCBar, OverlayIndicator } from '@/engine/types';
+import { getEligibleStudySourceChoices, studySourceOptionValue } from '@/indicators/studySourceChoices';
 import { getIndicatorCatalogItemByKind } from '@/indicators/catalog';
 import { SUPPORTED_PATTERNS } from '@/engine/Patterns';
 import { saveCandlestickSettings } from '@/features/candlestick/candlestickSettingsService';
@@ -9,6 +10,7 @@ import { ColorToolbox } from './common/ColorToolbox';
 interface IndicatorSettingsDialogProps {
   indicator: OverlayIndicator;
   allIndicators?: OverlayIndicator[];
+  sourceBars?: OHLCBar[];
   onSave: (updated: OverlayIndicator) => void;
   onRemove: (id: string) => void;
   onClose: () => void;
@@ -16,7 +18,7 @@ interface IndicatorSettingsDialogProps {
 
 const SETTINGS_DIALOG_POS_KEY = 'eod-chart.floating-pos.indicator-settings.v1';
 
-export function IndicatorSettingsDialog({ indicator, allIndicators = [], onSave, onRemove, onClose }: IndicatorSettingsDialogProps) {
+export function IndicatorSettingsDialog({ indicator, allIndicators = [], sourceBars = [], onSave, onRemove, onClose }: IndicatorSettingsDialogProps) {
   const [draft, setDraft] = useState<OverlayIndicator>(() => cloneIndicator(indicator));
   const [activeTab, setActiveTab] = useState<IndicatorSettingsTab>('inputs');
 
@@ -99,6 +101,7 @@ export function IndicatorSettingsDialog({ indicator, allIndicators = [], onSave,
             activeTab={activeTab}
             onTabChange={setActiveTab}
             allIndicators={allIndicators}
+            sourceBars={sourceBars}
           />
         </div>
         <div style={dialogFooterStyle}>
@@ -1007,12 +1010,14 @@ function IndicatorFields({
   activeTab,
   onTabChange,
   allIndicators = [],
+  sourceBars = [],
 }: {
   draft: OverlayIndicator;
   setDraft: Dispatch<SetStateAction<OverlayIndicator>>;
   activeTab: IndicatorSettingsTab;
   onTabChange: (tab: IndicatorSettingsTab) => void;
   allIndicators?: OverlayIndicator[];
+  sourceBars?: OHLCBar[];
 }) {
   const schema = INDICATOR_SETTINGS_SCHEMAS[draft.kind] ?? EMPTY_SCHEMA;
 
@@ -1030,7 +1035,7 @@ function IndicatorFields({
           </button>
         ))}
       </div>
-      <div style={tabPanelStyle}>{renderTabPanel(activeTab, draft, setDraft, schema, allIndicators)}</div>
+      <div style={tabPanelStyle}>{renderTabPanel(activeTab, draft, setDraft, schema, allIndicators, sourceBars)}</div>
     </>
   );
 }
@@ -1041,11 +1046,12 @@ function renderTabPanel(
   setDraft: Dispatch<SetStateAction<OverlayIndicator>>,
   schema: IndicatorSettingsSchema,
   allIndicators: OverlayIndicator[] = [],
+  sourceBars: OHLCBar[] = [],
 ) {
   if (activeTab === 'inputs') {
     // Only schema-defined algorithm parameters are editable here.
     // The generic offset field is not a supported visual bar shift.
-    return renderSchemaFields(schema.inputs, draft, setDraft, 'No editable inputs.', allIndicators);
+    return renderSchemaFields(schema.inputs, draft, setDraft, 'No editable inputs.', allIndicators, sourceBars);
   }
 
   if (activeTab === 'style') {
@@ -1126,12 +1132,13 @@ function renderSchemaFields(
   setDraft: Dispatch<SetStateAction<OverlayIndicator>>,
   emptyLabel: string,
   allIndicators: OverlayIndicator[] = [],
+  sourceBars: OHLCBar[] = [],
 ) {
   if (!fields.length) {
     return <div style={emptyStateStyle}>{emptyLabel}</div>;
   }
 
-  return fields.map((field) => renderSchemaField(field, draft, setDraft, allIndicators));
+  return fields.map((field) => renderSchemaField(field, draft, setDraft, allIndicators, sourceBars));
 }
 
 function renderSchemaField(
@@ -1139,6 +1146,7 @@ function renderSchemaField(
   draft: OverlayIndicator,
   setDraft: Dispatch<SetStateAction<OverlayIndicator>>,
   allIndicators: OverlayIndicator[] = [],
+  sourceBars: OHLCBar[] = [],
 ) {
   if (field.kind === 'patterns') {
     return <PatternField key={field.id} draft={draft} setDraft={setDraft} />;
@@ -1170,13 +1178,16 @@ function renderSchemaField(
         key={field.id}
         value={String(readIndicatorValue(draft, fieldKey) ?? 'close')}
         sourceIndicatorId={draft.sourceIndicatorId}
+        sourcePlotKey={draft.sourcePlotKey}
         allIndicators={allIndicators}
-        currentIndicatorId={draft.id}
-        onChange={(source, sourceIndicatorId) => {
+        sourceBars={sourceBars}
+        currentIndicator={draft}
+        onChange={(source, sourceIndicatorId, sourcePlotKey) => {
           setDraft((prev) => ({
             ...prev,
             source: source as import('@/engine/types').IndicatorSource,
             sourceIndicatorId,
+            sourcePlotKey,
           }));
         }}
       />
@@ -1638,18 +1649,35 @@ const SOURCE_OPTIONS = [
 function SourceField({
   value,
   sourceIndicatorId,
-  allIndicators = [],
-  currentIndicatorId,
+  sourcePlotKey,
+  allIndicators,
+  sourceBars,
+  currentIndicator,
   onChange,
 }: {
   value: string | undefined;
   sourceIndicatorId?: string;
-  allIndicators?: OverlayIndicator[];
-  currentIndicatorId?: string;
-  onChange: (source: string, sourceIndicatorId?: string) => void;
+  sourcePlotKey?: string;
+  allIndicators: OverlayIndicator[];
+  sourceBars: OHLCBar[];
+  currentIndicator: OverlayIndicator;
+  onChange: (source: string, sourceIndicatorId?: string, sourcePlotKey?: string) => void;
 }) {
-  const currentVal = sourceIndicatorId ? `ind:${sourceIndicatorId}` : (value ?? 'close');
-  const otherIndicators = allIndicators.filter((item) => item.id !== currentIndicatorId);
+  const choices = useMemo(
+    () => getEligibleStudySourceChoices(sourceBars, allIndicators, currentIndicator),
+    [allIndicators, currentIndicator.id, currentIndicator.kind, sourceBars],
+  );
+  const chosen = sourceIndicatorId
+    ? choices.find((option) =>
+        option.indicatorId === sourceIndicatorId &&
+        (sourcePlotKey ? option.plotKey === sourcePlotKey : true))
+    : undefined;
+  const unavailableValue = sourceIndicatorId
+    ? studySourceOptionValue(sourceIndicatorId, sourcePlotKey ?? '')
+    : '';
+  const currentVal = sourceIndicatorId
+    ? (chosen?.value ?? unavailableValue)
+    : (value ?? 'close');
 
   return (
     <label style={fieldStyle}>
@@ -1658,31 +1686,38 @@ function SourceField({
         value={currentVal}
         onChange={(event) => {
           const selected = event.target.value;
-          if (selected.startsWith('ind:')) {
-            const targetId = selected.replace('ind:', '');
-            onChange('close', targetId);
-          } else {
-            onChange(selected, undefined);
+          const choice = choices.find((option) => option.value === selected);
+          if (choice) {
+            onChange('close', choice.indicatorId, choice.plotKey);
+            return;
+          }
+          if (SOURCE_OPTIONS.some((option) => option.value === selected)) {
+            onChange(selected, undefined, undefined);
           }
         }}
         style={selectFieldStyle}
       >
         <optgroup label="Price Data">
-          {SOURCE_OPTIONS.map((opt) => (
-            <option key={opt.value} value={opt.value}>
-              {opt.label}
+          {SOURCE_OPTIONS.map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}
             </option>
           ))}
         </optgroup>
-        {otherIndicators.length > 0 && (
+        {sourceIndicatorId && !chosen ? (
+          <option value={unavailableValue} disabled>
+            Unavailable saved study source — choose another source
+          </option>
+        ) : null}
+        {choices.length > 0 ? (
           <optgroup label="Active Indicators (Study-as-Source)">
-            {otherIndicators.map((ind) => (
-              <option key={ind.id} value={`ind:${ind.id}`}>
-                {getIndicatorCatalogItemByKind(ind.kind)?.label ?? ind.kind}
+            {choices.map((choice) => (
+              <option key={choice.value} value={choice.value}>
+                {choice.label}
               </option>
             ))}
           </optgroup>
-        )}
+        ) : null}
       </select>
     </label>
   );

@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import type {
   CollapsedIndicatorPanes,
   IndicatorPaneHeights,
+  OHLCBar,
   OverlayIndicator,
   PaneScaleOverrides,
 } from '@/engine/types';
@@ -13,6 +14,8 @@ import { IndicatorSettingsDialog } from './IndicatorSettingsDialog';
 
 interface ChartPaneControlsOverlayProps {
   paneIndicators: OverlayIndicator[];
+  allIndicators?: OverlayIndicator[];
+  sourceBars?: OHLCBar[];
   layout: {
     paneTops: number[];
     priceHeight: number;
@@ -39,6 +42,8 @@ interface ChartPaneControlsOverlayProps {
 
 export function ChartPaneControlsOverlay({
   paneIndicators,
+  allIndicators = paneIndicators,
+  sourceBars = [],
   layout,
   indicatorPaneHeights,
   indicatorPaneHeight,
@@ -257,6 +262,8 @@ export function ChartPaneControlsOverlay({
         createPortal(
           <IndicatorSettingsDialog
             indicator={paneSettingsIndicator}
+            allIndicators={allIndicators}
+            sourceBars={sourceBars}
             onSave={onSaveIndicator}
             onRemove={onRemoveIndicator}
             onClose={onClosePaneSettings}
