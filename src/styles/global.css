@@ -435,3 +435,11 @@ html[data-theme="classic-light-refined"] aside button:focus-visible {
   outline-offset: 1px;
   box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.9) !important;
 }
+
+/* Honor reduced-motion preferences for Sidebar hover fades without changing colors or layout. */
+@media (prefers-reduced-motion: reduce) {
+  .sidebar-row-shell,
+  .sidebar-indicator-row {
+    transition: none;
+  }
+}
