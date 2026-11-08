@@ -1896,6 +1896,7 @@ export function ChartCanvas({
           viewport={viewport}
           compareOverlays={compareOverlays}
           overlays={overlays}
+          paneScaleOverrides={paneScaleOverrides}
           layout={layout}
           hoverBarIndex={legendBarIndex}
           onSaveIndicator={updateIndicator}
