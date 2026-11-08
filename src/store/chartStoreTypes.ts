@@ -136,6 +136,8 @@ export interface ChartStoreState {
   databaseTransitionMessage: string | null;
   importProgress: ProgressState;
   downloadProgress: DownloadProgressState;
+  /** Persistent background autosave error; null after a confirmed recovery. */
+  workspaceAutosaveError: string | null;
   setLayoutMode: (mode: LayoutMode) => void;
   saveCurrentAsSheet: (tabId: string, name: string) => void;
   loadSheet: (tabId: string, sheetId: string) => void;
