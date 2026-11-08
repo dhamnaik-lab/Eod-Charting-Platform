@@ -62,6 +62,7 @@ import { drawScreenshotPriceLegend } from '@/features/charts/chartScreenshotLege
 import { DEFAULT_CHART_VALUE_LABEL_SETTINGS } from '@/engine/valueLabelSettings';
 import { useChartDisplaySync } from '@/features/charts/useChartDisplaySync';
 import { shouldHandleChartViewportShortcut } from '@/features/charts/chartKeyboardFocusService';
+import { chartTimeframeForShortcut } from '@/features/charts/chartTimeframeShortcutService';
 import { ChartContextMenu, type ChartContextMenuState } from './ChartContextMenu';
 import { ChartSettingsDialog } from './ChartSettingsDialog';
 import { ChartSettingsMenu, resolveChartSettingsMenuWidth } from './ChartSettingsMenu';
@@ -223,6 +224,7 @@ export function ChartCanvas({
   const showLeftAxis = useChartStore((state) => getActiveChartTab(state.chartTabs, state.activeChartTabId)?.showLeftAxis ?? false);
   const futureMarginMode = useChartStore((state) => getActiveChartTab(state.chartTabs, state.activeChartTabId)?.futureMarginMode ?? 'normal');
   const timeframe = useChartStore((state) => getActiveChartTab(state.chartTabs, state.activeChartTabId)?.timeframe ?? 'D');
+  const setTimeframe = useChartStore((state) => state.setTimeframe);
   const updateIndicator = useChartStore((state) => state.updateIndicator);
   const removeIndicator = useChartStore((state) => state.removeIndicator);
   const navigateSymbol = useChartStore((state) => state.navigateSymbol);
@@ -1578,6 +1580,12 @@ export function ChartCanvas({
       }
 
       if (!event.metaKey && !event.ctrlKey && !event.altKey) {
+        const requestedTimeframe = chartTimeframeForShortcut(event.key);
+        if (requestedTimeframe) {
+          event.preventDefault();
+          setTimeframe(requestedTimeframe);
+          return;
+        }
         const lowerKey = event.key.toLowerCase();
         if (lowerKey === 'x') {
           event.preventDefault();
@@ -1672,6 +1680,7 @@ export function ChartCanvas({
     [
       tabId,
       activeChartTabId,
+      setTimeframe,
       activeDrawingTool,
       setDrawingTool,
       clearTransientDrawingUi,

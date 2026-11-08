@@ -209,9 +209,6 @@ export default function RootApp() {
     };
   }, [init]);
 
-  const setTimeframe = useChartStore((state) => state.setTimeframe);
-  const addToast = useChartStore((state) => state.addToast);
-
   useEffect(() => {
     const suppressContextMenu = (event: MouseEvent) => {
       const target = event.target;
@@ -224,49 +221,12 @@ export default function RootApp() {
       event.preventDefault();
     };
 
-    const handleGlobalKeyDown = (e: KeyboardEvent) => {
-      const target = e.target as HTMLElement | null;
-      if (
-        target &&
-        (target.tagName === 'INPUT' ||
-          target.tagName === 'TEXTAREA' ||
-          target.tagName === 'SELECT' ||
-          target.isContentEditable ||
-          target.closest?.('[role="dialog"] input, [role="dialog"] textarea'))
-      ) {
-        return;
-      }
-
-      if (e.ctrlKey || e.metaKey || e.altKey) {
-        return;
-      }
-
-      const key = e.key.toUpperCase();
-      if (key === 'D') {
-        e.preventDefault();
-        setTimeframe('D');
-      } else if (key === 'W') {
-        e.preventDefault();
-        setTimeframe('W');
-      } else if (key === 'M') {
-        e.preventDefault();
-        setTimeframe('M');
-      } else if (key === 'Q') {
-        e.preventDefault();
-        setTimeframe('Q');
-      } else if (key === 'Y') {
-        e.preventDefault();
-        setTimeframe('Y');
-      }
-    };
 
     window.addEventListener('contextmenu', suppressContextMenu);
-    window.addEventListener('keydown', handleGlobalKeyDown);
     return () => {
       window.removeEventListener('contextmenu', suppressContextMenu);
-      window.removeEventListener('keydown', handleGlobalKeyDown);
     };
-  }, [setTimeframe, addToast]);
+  }, []);
 
   const retryInit = () => {
     setInitStatus('starting');
