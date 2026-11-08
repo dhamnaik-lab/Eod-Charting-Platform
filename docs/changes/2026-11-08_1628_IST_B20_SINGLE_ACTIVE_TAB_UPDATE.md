@@ -57,3 +57,11 @@ Before merge, close draft PR #85; GitHub `main` remains unchanged. After separat
 ## Next checkpoint
 
 Verify final-head CI, update B20 issue/master audit register, leave B12/B15/B20 PRs all draft/unmerged for a **separate batch merge approval**. Do not begin B13 or unrelated tasks.
+
+## B12+B15+B20 integration CI checkpoint — 2026-11-08 16:47 IST
+
+The approved B12 and B15 changes are now merged into GitHub `main`:
+- B12: PR #83, squash commit `32ba7a68247ca41ca23de07cf45e8e93239a7c57`.
+- B15: PR #84, squash commit `e867af13f2d586f4cd5aa4aca97fb304eacb29b3`.
+
+This **documentation-only B20 branch update** is intended to trigger a new `pull_request` renderer CI workflow against the updated `main` with B12+B15 already integrated. The new workflow result must be verified as **SUCCESS** before merging B20. It does not change source code or invalidate the original B20 focused regression results. The combined result is **pending** at the time of this commit; no CI result is presumed.
