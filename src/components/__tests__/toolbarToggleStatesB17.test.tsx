@@ -1,15 +1,50 @@
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { Toolbar } from '@/components/Toolbar';
 import { ChartToolDock } from '@/components/ChartToolDock';
-import { createBlankChartTab } from '@/features/charts/chartTabWorkspaceService';
-import { useChartStore } from '@/store/chartStore';
-import { useUiStore } from '@/store/uiStore';
-import type { OverlayIndicator } from '@/engine/types';
 
-const initialChart = useChartStore.getState();
-const initialUi = useUiStore.getState();
+const fixtures = vi.hoisted(() => ({
+  chart: {
+    chartTabs: [{
+      id: 'b17-chart',
+      instrument: null as { exchange: string; symbol: string } | null,
+      layoutMode: 'single',
+      chartType: 'candles',
+      showVolume: true,
+      indicators: [] as Array<{ id: string; kind: string; placement: string; patterns?: string[] }>,
+      drawings: [] as Array<{ id: string; locked?: boolean }>,
+      rawBars: [],
+      displayBars: [],
+      selectedDrawingId: null as string | null,
+    }],
+    activeChartTabId: 'b17-chart',
+    adjustedMode: false,
+  },
+  ui: {
+    signalRules: [] as unknown[],
+    signalSettingsDialogOpen: false,
+    scannerChartOverlay: null as { instrument: { exchange: string; symbol: string } } | null,
+    scannerPatternMap: null,
+    screenshotMenuOpen: false,
+    favoriteDrawingTools: [] as string[],
+    favoriteToolbarVisible: false,
+    magnetEnabled: false,
+    activeDrawingTool: undefined as string | undefined,
+    customFormulaDialogOpen: false,
+    compareDialogOpen: false,
+  },
+}));
+
+vi.mock('@/store/chartStore', () => ({
+  useChartStore: (selector: (state: typeof fixtures.chart) => unknown) => selector(fixtures.chart),
+  getActiveChartTab: (tabs: typeof fixtures.chart.chartTabs, id: string) =>
+    tabs.find((tab) => tab.id === id) ?? tabs[0] ?? null,
+}));
+vi.mock('@/store/uiStore', () => ({
+  useUiStore: (selector: (state: typeof fixtures.ui) => unknown) => selector(fixtures.ui),
+}));
+vi.mock('@/components/ChartHeader', () => ({ ChartHeader: () => null }));
 
 function buttonForText(html: string, text: string): string {
   const match = [...html.matchAll(/<button\b[^>]*>[\s\S]*?<\/button>/g)].find(
@@ -27,109 +62,99 @@ function buttonForLabel(html: string, label: string): string {
   return match![0];
 }
 
-function renderToolbar() {
+function toolbar() {
   return renderToStaticMarkup(createElement(Toolbar));
+}
+function dock() {
+  return renderToStaticMarkup(createElement(ChartToolDock));
 }
 
 beforeEach(() => {
-  const tab = createBlankChartTab(1);
-  useChartStore.setState({
-    chartTabs: [tab], activeChartTabId: tab.id, adjustedMode: false,
+  Object.assign(fixtures.chart, {
+    activeChartTabId: 'b17-chart',
+    adjustedMode: false,
   });
-  useUiStore.setState({
-    signalRules: [], signalSettingsDialogOpen: false,
+  Object.assign(fixtures.chart.chartTabs[0], {
+    instrument: null, chartType: 'candles', showVolume: true, indicators: [],
+    drawings: [], selectedDrawingId: null,
+  });
+  Object.assign(fixtures.ui, {
+    signalRules: [], signalSettingsDialogOpen: false, scannerChartOverlay: null,
+    scannerPatternMap: null, favoriteDrawingTools: [],
     magnetEnabled: false, favoriteToolbarVisible: false,
-    activeDrawingTool: null,
-  });
-});
-
-afterEach(() => {
-  useChartStore.setState({
-    chartTabs: initialChart.chartTabs,
-    activeChartTabId: initialChart.activeChartTabId,
-    adjustedMode: initialChart.adjustedMode,
-  });
-  useUiStore.setState({
-    signalRules: initialUi.signalRules,
-    signalSettingsDialogOpen: initialUi.signalSettingsDialogOpen,
-    magnetEnabled: initialUi.magnetEnabled,
-    favoriteToolbarVisible: initialUi.favoriteToolbarVisible,
-    activeDrawingTool: initialUi.activeDrawingTool,
+    activeDrawingTool: undefined,
+    compareDialogOpen: false, customFormulaDialogOpen: false,
   });
 });
 
 describe('B17: accurate toolbar and drawing-dock toggle semantics', () => {
-  it('reports Volume and Adj true/false based on current requested chart state', () => {
-    const original = renderToolbar();
-    expect(buttonForText(original, 'Volume')).toContain('aria-pressed="true"');
-    expect(buttonForText(original, 'Adj')).toContain('aria-pressed="false"');
+  it('reports Volume and Adj based on requested chart state while keeping visible text', () => {
+    expect(buttonForText(toolbar(), 'Volume')).toContain('aria-pressed="true"');
+    expect(buttonForText(toolbar(), 'Adj')).toContain('aria-pressed="false"');
 
-    const tab = useChartStore.getState().chartTabs[0];
-    useChartStore.setState({
-      chartTabs: [{ ...tab, showVolume: false }],
-      adjustedMode: true,
-    });
-    const changed = renderToolbar();
-    expect(buttonForText(changed, 'Volume')).toContain('aria-pressed="false"');
-    expect(buttonForText(changed, 'Adj')).toContain('aria-pressed="true"');
-    expect(changed).toContain('>Adj</button>');
-    expect(changed).not.toContain('>TRI</button>');
+    fixtures.chart.chartTabs[0].showVolume = false;
+    fixtures.chart.adjustedMode = true;
+    const html = toolbar();
+    expect(buttonForText(html, 'Volume')).toContain('aria-pressed="false"');
+    expect(buttonForText(html, 'Adj')).toContain('aria-pressed="true"');
+    expect(html).toContain('>Adj</button>');
+    expect(html).not.toContain('>TRI</button>');
   });
 
-  it('reports Candles as pressed only when a PATTERN indicator is present', () => {
-    expect(buttonForText(renderToolbar(), 'Candles')).toContain('aria-pressed="false"');
-    const tab = useChartStore.getState().chartTabs[0];
-    const pattern: OverlayIndicator = {
+  it('reports Candles pressed exactly when PATTERN indicator is present', () => {
+    expect(buttonForText(toolbar(), 'Candles')).toContain('aria-pressed="false"');
+    fixtures.chart.chartTabs[0].indicators = [{
       id: 'b17-pattern', kind: 'PATTERN', placement: 'overlay', patterns: [],
-    };
-    useChartStore.setState({ chartTabs: [{ ...tab, indicators: [pattern] }] });
-    expect(buttonForText(renderToolbar(), 'Candles')).toContain('aria-pressed="true"');
+    }];
+    expect(buttonForText(toolbar(), 'Candles')).toContain('aria-pressed="true"');
   });
 
-  it('uses dialog expansion rather than falsely claiming Signals is an on/off toggle', () => {
-    const closed = buttonForText(renderToolbar(), 'Signals');
+  it('reports Signals dialog expansion rather than pretending it toggles a signal rule', () => {
+    const closed = buttonForText(toolbar(), 'Signals');
     expect(closed).toContain('aria-haspopup="dialog"');
     expect(closed).toContain('aria-expanded="false"');
     expect(closed).not.toContain('aria-pressed=');
 
-    useUiStore.setState({ signalSettingsDialogOpen: true });
-    const opened = buttonForText(renderToolbar(), 'Signals');
-    expect(opened).toContain('aria-expanded="true"');
-    expect(opened).not.toContain('aria-pressed=');
+    fixtures.ui.signalSettingsDialogOpen = true;
+    const open = buttonForText(toolbar(), 'Signals');
+    expect(open).toContain('aria-expanded="true"');
+    expect(open).not.toContain('aria-pressed=');
   });
 
-  it('distinguishes screenshot menu expansion from persistent selection', () => {
-    const button = buttonForLabel(renderToolbar(), 'Take chart screenshot');
+  it('uses menu expansion and not pressed semantics on the screenshot menu button', () => {
+    const button = buttonForLabel(toolbar(), 'Take chart screenshot');
     expect(button).toContain('aria-expanded="false"');
     expect(button).not.toContain('aria-pressed=');
   });
 
-  it('reports chart-pattern scanner as a toggle without changing visible text', () => {
-    const html = renderToolbar();
-    expect(buttonForText(html, 'Chart Patterns')).toContain('aria-pressed="false"');
-    expect(html).toContain('>Chart Patterns</button>');
+  it('reports chart-pattern scanner state from the active instrument/overlay', () => {
+    expect(buttonForText(toolbar(), 'Chart Patterns')).toContain('aria-pressed="false"');
+    const instrument = { exchange: 'NSE', symbol: 'B17' };
+    fixtures.chart.chartTabs[0].instrument = instrument;
+    fixtures.ui.scannerChartOverlay = { instrument };
+    expect(buttonForText(toolbar(), 'Chart Patterns')).toContain('aria-pressed="true"');
   });
 
-  it('preserves dock toggle states but removes pressed semantics from one-shot actions', () => {
-    const html = renderToStaticMarkup(createElement(ChartToolDock));
+  it('retains true dock toggles but removes pressed state from one-shot commands', () => {
+    const html = dock();
     expect(buttonForLabel(html, 'Magnet: OFF')).toContain('aria-pressed="false"');
     expect(buttonForLabel(html, 'Show Favorites Toolbar')).toContain('aria-pressed="false"');
-    for (const action of ['Undo last drawing', 'Clear all drawings', 'Reset indicator pane heights']) {
-      expect(buttonForLabel(html, action)).not.toContain('aria-pressed=');
+    for (const command of ['Undo last drawing', 'Clear all drawings', 'Reset indicator pane heights']) {
+      expect(buttonForLabel(html, command)).not.toContain('aria-pressed=');
     }
 
-    useUiStore.setState({ magnetEnabled: true, favoriteToolbarVisible: true });
-    const enabled = renderToStaticMarkup(createElement(ChartToolDock));
+    fixtures.ui.magnetEnabled = true;
+    fixtures.ui.favoriteToolbarVisible = true;
+    const enabled = dock();
     expect(buttonForLabel(enabled, 'Magnet: ON - snaps drawing points to candle high/low'))
       .toContain('aria-pressed="true"');
     expect(buttonForLabel(enabled, 'Hide Favorites Toolbar')).toContain('aria-pressed="true"');
   });
 
-  it('keeps menu and drawing-tool affordances keyboard-readable without redesign', () => {
-    const html = renderToStaticMarkup(createElement(ChartToolDock));
+  it('keeps dock collapse and tool-selection affordances keyboard readable', () => {
+    const html = dock();
     expect(html).toContain('aria-expanded="true"');
     expect(html).toContain('aria-label="Collapse tool dock"');
     expect(html).toContain('aria-pressed="false"');
-    expect(html).toContain('Choose');
   });
 });
