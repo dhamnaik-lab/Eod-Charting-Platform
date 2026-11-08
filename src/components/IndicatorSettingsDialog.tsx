@@ -24,7 +24,9 @@ export function IndicatorSettingsDialog({ indicator, allIndicators = [], sourceB
   const [activeTab, setActiveTab] = useState<IndicatorSettingsTab>('inputs');
   const [numericTextOverrides, setNumericTextOverrides] = useState<Record<string, string>>({});
   const schema = INDICATOR_SETTINGS_SCHEMAS[draft.kind] ?? EMPTY_SCHEMA;
-  const numericFields = schema.inputs.filter((field): field is IndicatorFieldDefinition & { key: string } => field.kind === 'number' && Boolean(field.key));
+  const numericFields = schema.inputs.flatMap((field) => field.kind === 'number' && field.key
+    ? [{ key: field.key, label: field.label, step: field.step, min: field.min, max: field.max }]
+    : []);
   const numericErrors = getIndicatorNumericInputErrors(draft, numericFields, numericTextOverrides);
   const hasInvalidNumericInputs = Object.keys(numericErrors).length > 0;
 
