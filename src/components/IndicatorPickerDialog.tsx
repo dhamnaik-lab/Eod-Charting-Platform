@@ -11,6 +11,7 @@ import { FloatingWindow } from './FloatingWindow';
 import { useWindowStore } from '@/store/windowStore';
 import { useUiStore } from '@/store/uiStore';
 import { useChartStore } from '@/store/chartStore';
+import { readFavoriteIndicatorIds, writeFavoriteIndicatorIds, toggleFavoriteIndicatorId, subscribeFavoriteIndicatorUpdates } from '@/indicators/indicatorFavoritesService';
 
 export const INDICATOR_PICKER_WINDOW_ID = 'indicator-picker';
 
@@ -21,28 +22,7 @@ interface IndicatorPickerDialogProps {
 
 type MasterFilter = 'all' | 'price' | 'pane' | 'favorites';
 
-const FAVORITES_STORAGE_KEY = 'eod-chart.indicator-favorites.v1';
 const DIALOG_POS_KEY = 'eod-chart.floating-pos.indicator-picker.v1';
-const DEFAULT_FAVORITES: string[] = ['sma', 'ema', 'rsi', 'macd', 'boll', 'supertrend', 'patterns', 'vwap'];
-
-function readStoredFavoriteIndicators(): string[] {
-  if (typeof window === 'undefined') return DEFAULT_FAVORITES;
-  try {
-    const raw = window.localStorage.getItem(FAVORITES_STORAGE_KEY);
-    return raw ? JSON.parse(raw) : DEFAULT_FAVORITES;
-  } catch {
-    return DEFAULT_FAVORITES;
-  }
-}
-
-function saveStoredFavoriteIndicators(favorites: string[]): void {
-  if (typeof window === 'undefined') return;
-  try {
-    window.localStorage.setItem(FAVORITES_STORAGE_KEY, JSON.stringify(favorites));
-  } catch {
-    // ignore
-  }
-}
 
 export function IndicatorPickerDialog({ onAdd, onClose }: IndicatorPickerDialogProps) {
   const registerWindow = useWindowStore((state) => state.registerWindow);
@@ -57,8 +37,10 @@ export function IndicatorPickerDialog({ onAdd, onClose }: IndicatorPickerDialogP
   const [masterFilter, setMasterFilter] = useState<MasterFilter>('all');
   const [selectedSubcategoryId, setSelectedSubcategoryId] = useState<IndicatorSubcategory | 'all' | 'favorites'>('all');
   const [selectedId, setSelectedId] = useState<IndicatorCatalogId>(INDICATOR_CATALOG[0].id);
-  const [favoriteIds, setFavoriteIds] = useState<string[]>(readStoredFavoriteIndicators);
+  const [favoriteIds, setFavoriteIds] = useState<string[]>(readFavoriteIndicatorIds);
   const [justAddedId, setJustAddedId] = useState<string | null>(null);
+
+  useEffect(() => subscribeFavoriteIndicatorUpdates(setFavoriteIds), []);
 
   useEffect(() => {
     registerWindow({
@@ -89,11 +71,9 @@ export function IndicatorPickerDialog({ onAdd, onClose }: IndicatorPickerDialogP
 
   const toggleFavorite = (id: string, e?: MouseEvent) => {
     e?.stopPropagation();
-    setFavoriteIds((current) => {
-      const next = current.includes(id) ? current.filter((f) => f !== id) : [...current, id];
-      saveStoredFavoriteIndicators(next);
-      return next;
-    });
+    const next = toggleFavoriteIndicatorId(readFavoriteIndicatorIds(), id);
+    writeFavoriteIndicatorIds(next);
+    setFavoriteIds(next);
   };
 
   const normalizedQuery = deferredQuery.trim().toLowerCase();
