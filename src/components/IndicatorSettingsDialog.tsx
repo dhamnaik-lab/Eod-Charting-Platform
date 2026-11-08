@@ -1,11 +1,12 @@
-import { useEffect, useMemo, useState, type Dispatch, type SetStateAction } from 'react';
+import { useEffect, useMemo, useRef, useState, type Dispatch, type SetStateAction, type KeyboardEvent as ReactKeyboardEvent } from 'react';
 import type { DrawingLineStyle, IndicatorLevelSettings, IndicatorPlotSettings, OHLCBar, OverlayIndicator } from '@/engine/types';
 import { getEligibleStudySourceChoices, studySourceOptionValue } from '@/indicators/studySourceChoices';
 import type { IndicatorPaneScaleStatus } from '@/features/charts/indicatorPaneScaleStatusService';
 import { getIndicatorNumericInputErrors, validateIndicatorNumericInput } from '@/indicators/indicatorNumericInputValidation';
 import { getIndicatorCatalogItemByKind } from '@/indicators/catalog';
 import { SUPPORTED_PATTERNS } from '@/engine/Patterns';
-import { saveCandlestickSettings } from '@/features/candlestick/candlestickSettingsService';
+import { getModalTabWrapTarget } from '@/features/app/modalFocusNavigation';
+import { hasUnsavedIndicatorSettingsChanges } from '@/features/app/indicatorSettingsDraftGuard';
 import { useDraggableFloatingWindow } from './common/useDraggableFloatingWindow';
 import { ColorToolbox } from './common/ColorToolbox';
 
@@ -25,6 +26,11 @@ export function IndicatorSettingsDialog({ indicator, allIndicators = [], sourceB
   const [draft, setDraft] = useState<OverlayIndicator>(() => cloneIndicator(indicator));
   const [activeTab, setActiveTab] = useState<IndicatorSettingsTab>('inputs');
   const [numericTextOverrides, setNumericTextOverrides] = useState<Record<string, string>>({});
+  const [discardRequested, setDiscardRequested] = useState(false);
+  const originalDraftRef = useRef<OverlayIndicator>(cloneIndicator(indicator));
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const closeButtonRef = useRef<HTMLButtonElement>(null);
+  const keepEditingButtonRef = useRef<HTMLButtonElement>(null);
   const schema = INDICATOR_SETTINGS_SCHEMAS[draft.kind] ?? EMPTY_SCHEMA;
   const numericFields = schema.inputs.flatMap((field) => field.kind === 'number' && field.key
     ? [{ key: field.key, label: field.label, step: field.step, min: field.min, max: field.max }]
@@ -52,35 +58,86 @@ export function IndicatorSettingsDialog({ indicator, allIndicators = [], sourceB
     height: 480,
   });
 
+  useEffect(() => {
+    const opener = document.activeElement;
+    closeButtonRef.current?.focus();
+    return () => {
+      if (opener instanceof HTMLElement && opener.isConnected) opener.focus();
+    };
+  }, []);
+
+  useEffect(() => {
+    if (discardRequested) keepEditingButtonRef.current?.focus();
+  }, [discardRequested]);
+
   // Reset draft when a different indicator is opened while this component stays mounted
   useEffect(() => {
+    originalDraftRef.current = cloneIndicator(indicator);
     setDraft(cloneIndicator(indicator));
     setActiveTab('inputs');
     setNumericTextOverrides({});
+    setDiscardRequested(false);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [indicator.id]);
+
+  const hasUnsavedChanges = hasUnsavedIndicatorSettingsChanges(originalDraftRef.current, draft, numericTextOverrides);
+  const requestClose = () => {
+    if (hasUnsavedChanges) {
+      setDiscardRequested(true);
+      return;
+    }
+    onClose();
+  };
+
+  const handleDialogKeyDown = (event: ReactKeyboardEvent<HTMLDivElement>) => {
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      event.stopPropagation();
+      if (discardRequested) {
+        setDiscardRequested(false);
+        closeButtonRef.current?.focus();
+      } else {
+        requestClose();
+      }
+      return;
+    }
+    if (event.key !== 'Tab' || !dialogRef.current) return;
+    const focusable = Array.from(dialogRef.current.querySelectorAll<HTMLElement>(
+      'button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled])',
+    ));
+    if (focusable.length === 0) {
+      event.preventDefault();
+      dialogRef.current.focus();
+      return;
+    }
+    const next = getModalTabWrapTarget(focusable, document.activeElement as HTMLElement | null, event.shiftKey);
+    if (next) {
+      event.preventDefault();
+      next.focus();
+    }
+  };
 
   const handleSave = () => {
     if (hasInvalidNumericInputs) {
       setActiveTab('inputs');
       return;
     }
-    if (draft.kind === 'PATTERN') {
-      saveCandlestickSettings({
-        patterns: draft.patterns ?? [],
-        bullColor: draft.bullColor ?? '#22c55e',
-        bearColor: draft.bearColor ?? '#ef4444',
-        neutralColor: draft.neutralColor ?? '#f59e0b',
-      });
-    }
+    // PATTERN edits belong to this chart only; global legacy defaults remain untouched.
     onSave(draft);
   };
 
   return (
     <>
-      <div style={clearBackdropStyle} onMouseDown={() => onClose()} aria-hidden="true" />
+      <div style={clearBackdropStyle} onMouseDown={requestClose} aria-hidden="true" />
       <div
+        ref={dialogRef}
         className="floating-indicator-settings-dialog"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="indicator-settings-title"
+        aria-describedby={discardRequested ? "indicator-settings-discard-warning" : undefined}
+        tabIndex={-1}
+        onKeyDown={handleDialogKeyDown}
         style={{
           ...dialogPanelStyle,
           left: position.x,
@@ -95,7 +152,7 @@ export function IndicatorSettingsDialog({ indicator, allIndicators = [], sourceB
           title="Click and drag to move window anywhere over chart"
         >
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, userSelect: 'none' }}>
-            <strong style={{ fontSize: 13, color: 'var(--text)' }}>
+            <strong id="indicator-settings-title" style={{ fontSize: 13, color: 'var(--text)' }}>
               {getIndicatorCatalogItemByKind(draft.kind)?.label ?? draft.kind}
             </strong>
             <span style={dragHandleBadgeStyle}>⠿ Drag</span>
@@ -111,8 +168,9 @@ export function IndicatorSettingsDialog({ indicator, allIndicators = [], sourceB
             </button>
             <button
               type="button"
+              ref={closeButtonRef}
               style={dialogCloseStyle}
-              onClick={() => onClose()}
+              onClick={requestClose}
               title="Close (Escape)"
               aria-label="Close"
             >
@@ -137,26 +195,47 @@ export function IndicatorSettingsDialog({ indicator, allIndicators = [], sourceB
             onNumericInputChange={updateNumericInput}
           />
         </div>
-        <div style={dialogFooterStyle}>
-          {hasInvalidNumericInputs ? <span role="alert" style={{ color: 'var(--danger)', fontSize: 11 }}>Correct invalid numeric inputs before saving.</span> : null}
-          <button
-            type="button"
-            style={{ ...actionButtonStyle, minWidth: 88 }}
-            onClick={() => onRemove(draft.id)}
-          >
-            Remove
-          </button>
-          <button type="button" style={{ ...actionButtonStyle, minWidth: 88 }} onClick={() => onClose()}>
-            Cancel
-          </button>
-          <button
-            type="button"
-            style={{ ...actionButtonStyle, minWidth: 88, borderColor: 'var(--accent)', color: 'var(--text)' }}
-            onClick={handleSave}
-            disabled={hasInvalidNumericInputs}
-          >
-            Save
-          </button>
+        <div style={{ ...dialogFooterStyle, flexWrap: discardRequested ? 'wrap' : undefined }}>
+          {discardRequested ? (
+            <>
+              <span id="indicator-settings-discard-warning" role="alert" style={{ flex: '1 1 100%', color: 'var(--text)', fontSize: 11 }}>
+                Discard unsaved indicator changes?
+              </span>
+              <button
+                ref={keepEditingButtonRef}
+                type="button"
+                style={{ ...actionButtonStyle, minWidth: 88 }}
+                onClick={() => { setDiscardRequested(false); closeButtonRef.current?.focus(); }}
+              >
+                Keep editing
+              </button>
+              <button type="button" style={{ ...actionButtonStyle, minWidth: 100 }} onClick={onClose}>
+                Discard changes
+              </button>
+            </>
+          ) : (
+            <>
+              {hasInvalidNumericInputs ? <span role="alert" style={{ color: 'var(--danger)', fontSize: 11 }}>Correct invalid numeric inputs before saving.</span> : null}
+              <button
+                type="button"
+                style={{ ...actionButtonStyle, minWidth: 88 }}
+                onClick={() => onRemove(draft.id)}
+              >
+                Remove
+              </button>
+              <button type="button" style={{ ...actionButtonStyle, minWidth: 88 }} onClick={requestClose}>
+                Cancel
+              </button>
+              <button
+                type="button"
+                style={{ ...actionButtonStyle, minWidth: 88, borderColor: 'var(--accent)', color: 'var(--text)' }}
+                onClick={handleSave}
+                disabled={hasInvalidNumericInputs}
+              >
+                Save
+              </button>
+            </>
+          )}
         </div>
       </div>
     </>
