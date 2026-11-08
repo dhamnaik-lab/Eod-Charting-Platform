@@ -169,6 +169,44 @@ function defineIndicatorSettingsSchemas<
   return schemas;
 }
 
+// Type-only regression checks. A misleading field must fail even when its
+// name exists on some *other* indicator or has the wrong value type.
+type AssertSchemaCondition<Condition extends true> = Condition;
+type SchemaFieldContractChecks = [
+  AssertSchemaCondition<
+    CheckedIndicatorSchema<'STDEV', {
+      inputs: [{ kind: 'source'; key: 'source' }]; style: [];
+    }> extends never ? true : false
+  >,
+  AssertSchemaCondition<
+    CheckedIndicatorSchema<'TWAP', {
+      inputs: [{ kind: 'number'; key: 'period' }]; style: [];
+    }> extends never ? true : false
+  >,
+  AssertSchemaCondition<
+    CheckedIndicatorSchema<'CPR', {
+      inputs: [{ kind: 'number'; key: 'pivotColor' }]; style: [];
+    }> extends never ? true : false
+  >,
+  AssertSchemaCondition<
+    CheckedIndicatorSchema<'AVWAP', {
+      inputs: [{ kind: 'source'; key: 'source' }]; style: [];
+    }> extends never ? true : false
+  >,
+  AssertSchemaCondition<
+    CheckedIndicatorSchema<'STOCHRSI', {
+      inputs: [{ kind: 'number'; key: 'rsiPeriod' }];
+      style: [{ kind: 'color'; key: 'signalColor' }];
+    }> extends never ? false : true
+  >,
+  AssertSchemaCondition<
+    CheckedIndicatorSchema<'TWAP', {
+      inputs: [{ kind: 'source'; key: 'source' }];
+      style: [{ kind: 'color'; key: 'color' }];
+    }> extends never ? false : true
+  >,
+];
+
 interface IndicatorFieldDefinition {
   id: string;
   label: string;
