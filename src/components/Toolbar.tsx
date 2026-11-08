@@ -43,6 +43,7 @@ export function Toolbar() {
   const openSignalSettingsDialog = useUiStore((state) => state.openSignalSettingsDialog);
   const openIndicatorPicker = useUiStore((state) => state.openIndicatorPicker);
   const signalRules = useUiStore((state) => state.signalRules);
+  const signalSettingsDialogOpen = useUiStore((state) => state.signalSettingsDialogOpen);
   const [screenshotMenuOpen, setScreenshotMenuOpen] = useState(false);
   const [chartPatternScanRunning, setChartPatternScanRunning] = useState(false);
   const activeTab = getActiveChartTab(chartTabs, activeChartTabId);
@@ -234,6 +235,7 @@ export function Toolbar() {
           <button
             type="button"
             onClick={() => setShowVolume(!showVolume)}
+            aria-pressed={showVolume}
             style={showVolume ? activeActionButtonStyle : actionButtonStyle}
             title={showVolume ? 'Hide chart volume overlay' : 'Show chart volume overlay'}
           >
@@ -247,6 +249,7 @@ export function Toolbar() {
               const next = !adjustedMode;
               setAdjustedMode(next);
             }}
+            aria-pressed={adjustedMode}
             style={adjustedMode ? activeActionButtonStyle : actionButtonStyle}
             title={activeTab?.instrument && activeTab.loadedAdjusted !== adjustedMode
               ? `Capital adjustment ${adjustedMode ? 'ON' : 'OFF'} requested. Chart data has not yet loaded in this mode. Click to change mode.`
@@ -275,6 +278,8 @@ export function Toolbar() {
           <button
             type="button"
             onClick={openSignalSettingsDialog}
+            aria-haspopup="dialog"
+            aria-expanded={signalSettingsDialogOpen}
             style={{ ...(signalRules.length > 0 ? activeActionButtonStyle : actionButtonStyle), minWidth: 58 }}
             title="Configure Visual Crossover Signals & Alerts"
           >
@@ -285,6 +290,7 @@ export function Toolbar() {
           <button
             type="button"
             onClick={handleRunChartPatternScan}
+            aria-pressed={isChartPatternActive}
             disabled={chartPatternScanRunning}
             style={{ ...(isChartPatternActive ? activeActionButtonStyle : actionButtonStyle), minWidth: 104, opacity: chartPatternScanRunning ? 0.65 : 1 }}
             title={isChartPatternActive ? 'Remove chart patterns from chart' : 'Scan the active chart for chart patterns'}
@@ -294,6 +300,7 @@ export function Toolbar() {
           <button
             type="button"
             onClick={handleToggleCandlestickPatterns}
+            aria-pressed={Boolean(candlestickPatternIndicator)}
             style={{ ...(candlestickPatternIndicator ? activeActionButtonStyle : actionButtonStyle), minWidth: 64 }}
             title={candlestickPatternIndicator ? 'Remove candlestick patterns from chart' : 'Scan and plot candlestick patterns on chart'}
           >
@@ -306,6 +313,7 @@ export function Toolbar() {
           type="button"
           style={screenshotButtonStyle(screenshotMenuOpen)}
           onClick={() => setScreenshotMenuOpen((open) => !open)}
+          aria-expanded={screenshotMenuOpen}
           aria-label="Take chart screenshot"
           title="Take chart screenshot"
         >
