@@ -375,6 +375,26 @@ const cciLevels: IndicatorLevelDefinition[] = [
 ];
 
 const INDICATOR_SETTINGS_SCHEMAS: Partial<Record<IndicatorKind, IndicatorSettingsSchema>> = {
+  STOCHRSI: {
+    inputs: [
+      numberField('rsiPeriod', 'RSI Period', '1', 1),
+      numberField('stochPeriod', 'Stochastic Period', '1', 1),
+      numberField('kPeriod', '%K Smoothing', '1', 1),
+      numberField('dPeriod', '%D Smoothing', '1', 1),
+    ],
+    style: [colorField('color', '%K Color'), colorField('signalColor', '%D Color')],
+  },
+  CPR: {
+    inputs: [],
+    style: [
+      colorField('pivotColor', 'Pivot Color'),
+      colorField('tcColor', 'Top Central Color'),
+      colorField('bcColor', 'Bottom Central Color'),
+    ],
+  },
+  // Anchor editing needs its own date/index validation and UX contract.
+  // Keep AVWAP anchor selection unchanged; only expose the supported line color.
+  AVWAP: { inputs: [], style: standardStyle },
   SMA: standardSourceSchema,
   EMA: standardSourceSchema,
   WMA: standardSourceSchema,
