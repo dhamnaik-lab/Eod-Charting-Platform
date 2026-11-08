@@ -7,7 +7,7 @@ import { IndicatorSettingsDialog } from '@/components/IndicatorSettingsDialog';
 import { getModalTabWrapTarget } from '../modalFocusNavigation';
 import { hasUnsavedIndicatorSettingsChanges } from '../indicatorSettingsDraftGuard';
 
-const original: OverlayIndicator = { id: 'b18-rsi', kind: 'RSI', placement: 'pane', period: 14, source: 'close', color: '#123456' };
+const original: Extract<OverlayIndicator, { kind: 'RSI' }> = { id: 'b18-rsi', kind: 'RSI', placement: 'pane', period: 14, source: 'close', color: '#123456' };
 const code = readFileSync('src/components/IndicatorSettingsDialog.tsx', 'utf8');
 
 describe('B18 indicator settings modal and dirty-draft protection', () => {
@@ -15,7 +15,7 @@ describe('B18 indicator settings modal and dirty-draft protection', () => {
     expect(hasUnsavedIndicatorSettingsChanges(original, { ...original }, {})).toBe(false);
   });
   it('detects changed fields and reverted edits without mutating the original', () => {
-    const changed = { ...original, period: 21 } as OverlayIndicator;
+    const changed = { ...original, period: 21 };
     expect(hasUnsavedIndicatorSettingsChanges(original, changed, {})).toBe(true);
     expect(hasUnsavedIndicatorSettingsChanges(original, { ...changed, period: 14 }, {})).toBe(false);
     expect(original.period).toBe(14);
