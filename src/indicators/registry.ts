@@ -284,6 +284,34 @@ interface IndicatorCacheBucket {
 
 const indicatorCache = new WeakMap<OHLCBar[], IndicatorCacheBucket>();
 
+/** Upper bound per live bars array; weak-key lifetime and data invalidation remain unchanged. */
+export const INDICATOR_CACHE_MAX_RENDERABLES_PER_BARS = 256;
+
+function readCachedRenderable(
+  renderables: IndicatorCacheBucket['renderables'],
+  key: string,
+): RenderableOverlay | RenderablePane | null {
+  const cached = renderables.get(key);
+  if (!cached) return null;
+  // Refresh LRU order on reuse so stable siblings survive repeated settings edits.
+  renderables.delete(key);
+  renderables.set(key, cached);
+  return cached;
+}
+
+function retainCachedRenderable(
+  renderables: IndicatorCacheBucket['renderables'],
+  key: string,
+  value: RenderableOverlay | RenderablePane,
+): void {
+  renderables.delete(key);
+  renderables.set(key, value);
+  if (renderables.size > INDICATOR_CACHE_MAX_RENDERABLES_PER_BARS) {
+    const oldestKey = renderables.keys().next().value;
+    if (oldestKey !== undefined) renderables.delete(oldestKey);
+  }
+}
+
 export function stableSerialize(value: unknown): string {
   if (value === undefined) return 'undefined';
   if (value === null || typeof value !== 'object') return JSON.stringify(value) ?? String(value);
@@ -517,7 +545,7 @@ export function buildRenderableIndicators(
               } else if (!values.some((value) => typeof value === 'number' && Number.isFinite(value))) {
                 report(indicator, 'unavailable', `Source indicator "${upstreamId}" has no valid values yet`);
               } else {
-                renderable = cacheBucket.renderables.get(cacheKey) ?? null;
+                renderable = readCachedRenderable(cacheBucket.renderables, cacheKey);
                 if (!renderable) {
                   const hasGaps = values.some((value) => typeof value !== 'number' || !Number.isFinite(value));
                   renderable = hasGaps
@@ -538,14 +566,14 @@ export function buildRenderableIndicators(
                         new Map([[upstreamId, values]]),
                         (cause) => { failure = cause; },
                       );
-                  if (renderable) cacheBucket.renderables.set(cacheKey, renderable);
+                  if (renderable) retainCachedRenderable(cacheBucket.renderables, cacheKey, renderable);
                 }
               }
             }
           }
         }
       } else {
-        renderable = cacheBucket.renderables.get(cacheKey) ?? null;
+        renderable = readCachedRenderable(cacheBucket.renderables, cacheKey);
         if (!renderable) {
           renderable = buildRenderableIndicator(
             bars,
@@ -554,7 +582,7 @@ export function buildRenderableIndicators(
             undefined,
             (cause) => { failure = cause; },
           );
-          if (renderable) cacheBucket.renderables.set(cacheKey, renderable);
+          if (renderable) retainCachedRenderable(cacheBucket.renderables, cacheKey, renderable);
         }
       }
 
