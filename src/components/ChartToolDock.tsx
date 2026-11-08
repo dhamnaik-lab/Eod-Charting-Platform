@@ -318,6 +318,8 @@ export function ChartToolDock() {
           style={collapseToggleStyle}
           onClick={() => setCollapsed(false)}
           title="Expand tool dock"
+          aria-label="Expand tool dock"
+          aria-expanded={false}
         >
           {'›'}
         </button>
@@ -336,6 +338,8 @@ export function ChartToolDock() {
           setCollapsed(true);
         }}
         title="Collapse tool dock"
+        aria-label="Collapse tool dock"
+        aria-expanded={true}
       >
         {'‹'}
       </button>
@@ -349,6 +353,7 @@ export function ChartToolDock() {
               icon={tool.icon}
               title={tool.title}
               active={activeDrawingTool === tool.id}
+              toggle
               onClick={() => handleToolClick(tool.id)}
             />
           );
@@ -414,6 +419,7 @@ export function ChartToolDock() {
           icon={isLocked ? '🔒' : '🔓'}
           title={isLocked ? 'Unlock selected drawing' : 'Lock selected drawing'}
           active={isLocked}
+          toggle
           disabled={!canEditSelectedDrawing}
           onClick={() => toggleDrawingLock()}
         />
@@ -448,6 +454,7 @@ export function ChartToolDock() {
           icon="★"
           title={favoriteToolbarVisible ? 'Hide Favorites Toolbar' : 'Show Favorites Toolbar'}
           active={favoriteToolbarVisible}
+          toggle
           onClick={() => toggleFavoriteToolbar()}
         />
         <ToolButton
@@ -460,6 +467,7 @@ export function ChartToolDock() {
           icon={<BarMagnetIcon active={magnetEnabled} />}
           title={magnetEnabled ? 'Magnet: ON - snaps drawing points to candle high/low' : 'Magnet: OFF'}
           active={magnetEnabled}
+          toggle
           onClick={() => toggleMagnet()}
         />
         <ToolButton
@@ -486,12 +494,13 @@ interface ToolButtonProps {
   icon: ReactNode;
   title: string;
   active: boolean;
+  toggle?: boolean;
   disabled?: boolean;
   danger?: boolean;
   onClick: () => void;
 }
 
-function ToolButton({ icon, title, active, disabled = false, danger = false, onClick }: ToolButtonProps) {
+function ToolButton({ icon, title, active, toggle = false, disabled = false, danger = false, onClick }: ToolButtonProps) {
   return (
     <button
       type="button"
@@ -499,7 +508,7 @@ function ToolButton({ icon, title, active, disabled = false, danger = false, onC
       onClick={disabled ? undefined : onClick}
       title={title}
       aria-label={title.split('\n')[0]}
-      aria-pressed={active}
+      aria-pressed={toggle ? active : undefined}
       disabled={disabled}
     >
       {icon}
