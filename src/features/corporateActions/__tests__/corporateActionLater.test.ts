@@ -9,6 +9,12 @@ const row = (actionType: CorporateActionImportRow['actionType'], purposeRaw = ''
   ({ id: 1, actionType, purposeRaw, reviewStatus: 'PENDING', parseStatus: 'PARSED', approvedCorporateActionId: null, ...extra } as CorporateActionImportRow);
 
 describe('Later is display/readiness only', () => {
+  it('uses a fresh verified owner without falsifying raw-symbol activity', () => {
+    const input = row('SPLIT', 'Face Value Split', { symbol: 'GUJGASLTD', instrumentIsActive: false, verifiedAdjustmentTarget: 'GUJENERGY' });
+    expect(isLaterCorporateAction(input)).toBe(false);
+    expect(input.instrumentIsActive).toBe(false);
+    expect(isLaterCorporateAction({ ...input, verifiedAdjustmentTarget: null })).toBe(true);
+  });
   it('defers the named share distribution with its own reason and no approval readiness', () => {
     const purpose = 'For Distribution Of Chennai Super Kings Cricket Limited Shares To The Shareholders Of India Cements';
     const input = row('OTHER', purpose, { message: 'Unsupported official purpose' });

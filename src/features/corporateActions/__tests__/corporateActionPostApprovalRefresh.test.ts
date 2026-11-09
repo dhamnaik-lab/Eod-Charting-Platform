@@ -43,6 +43,12 @@ async function fixture(rows = [row(1, 'HEGAM'), row(2, 'HEGAM'), row(3, 'OTHER')
 }
 
 describe('targeted post-approval queue refresh', () => {
+  it('includes the verified owner and both aliases in the affected queue scope', () => {
+    const rows = [row(1, 'GUJGASLTD', { actionType: 'SPLIT', verifiedAdjustmentTarget: 'GUJENERGY' }),
+      row(2, 'GUJENERGY'), row(3, 'GUJGASLTD'), row(4, 'OTHER')];
+    expect(affectedCorporateActionRows(rows, [1]).map(item => item.id)).toEqual([1, 2, 3]);
+    expect(affectedCorporateActionRows(rows, [2]).map(item => item.id)).toEqual([1, 2, 3]);
+  });
   it('removes only confirmed approved rows and preserves all unrelated rows and evidence', async () => {
     const { input, api, previous } = await fixture();
     const result = await refreshCorporateActionQueueAfterApproval(input);

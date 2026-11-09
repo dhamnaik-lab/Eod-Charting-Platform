@@ -2064,6 +2064,7 @@ mod tests {
     ) -> CorporateActionImportRow {
         CorporateActionImportRow {
             instrument_is_active: None,
+            verified_adjustment_target: None,
             id,
             exchange: "NSE".to_string(),
             source: "NSE_API".to_string(),

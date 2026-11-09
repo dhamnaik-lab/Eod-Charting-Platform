@@ -10,6 +10,12 @@ const row = (id: number, actionType = 'DIVIDEND', overrides: Partial<CorporateAc
 });
 
 describe('classic CA presentation and exact approval scope', () => {
+  it('shows the verified owner alongside the unchanged official symbol', () => {
+    const input = row(1, 'SPLIT', { symbol: 'GUJGASLTD', verifiedAdjustmentTarget: 'GUJENERGY' }).record;
+    expect(classicIdentityLabel(input)).toBe('GUJGASLTD → GUJENERGY');
+    expect(input.symbol).toBe('GUJGASLTD');
+    expect(classicIdentityLabel({ ...input, verifiedAdjustmentTarget: null })).toBe('GUJGASLTD');
+  });
   it('filters exchanges locally while preserving the queue and visible approval scope', () => {
     const events = groupClassicActionRows([row(1),row(2,'DIVIDEND',{exchange:'BSE'}),
       {...row(3),ready:false,category:'waiting',status:'Waiting for EOD'}]);

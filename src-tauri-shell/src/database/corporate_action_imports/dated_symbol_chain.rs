@@ -171,7 +171,11 @@ fn witness(
 }
 
 pub(super) fn price_witness(c: &Connection, row: &CorporateActionImportRow, event_symbol: &str) -> AppResult<Option<(i64,String,String,String)>> {
-    let witness = witness_for_action(c,row,event_symbol,&row.action_type)?;
+    price_witness_for_action(c,row,event_symbol,&row.action_type)
+}
+
+pub(super) fn price_witness_for_action(c: &Connection, row: &CorporateActionImportRow, event_symbol: &str, expected_action: &str) -> AppResult<Option<(i64,String,String,String)>> {
+    let witness = witness_for_action(c,row,event_symbol,expected_action)?;
     if let Some((id,_,_,_)) = &witness {
         let raw: String = c.query_row("SELECT raw_reference FROM corporate_action_import_evidence WHERE id=?",[id],|r|r.get(0)).map_err(|e|e.to_string())?;
         let parsed: Value = serde_json::from_str(&raw).map_err(|e|e.to_string())?;

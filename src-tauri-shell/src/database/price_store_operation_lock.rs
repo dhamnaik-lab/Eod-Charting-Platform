@@ -36,6 +36,12 @@ pub(crate) fn try_acquire_price_store_operation(
 }
 
 #[cfg(test)]
+pub(crate) fn test_price_store_scope() -> MutexGuard<'static, ()> {
+    static TEST_SCOPE: Mutex<()> = Mutex::new(());
+    TEST_SCOPE.lock().unwrap_or_else(|poisoned| poisoned.into_inner())
+}
+
+#[cfg(test)]
 mod tests {
     use super::*;
 
@@ -68,6 +74,7 @@ mod tests {
 
     #[test]
     fn phase5a_price_store_operation_lock_is_nonblocking_nonreentrant_and_releases() {
+        let _test_scope = test_price_store_scope();
         let first = try_acquire_price_store_operation(PriceStoreOperationKind::BhavcopyWrite)
             .expect("first shared price-store acquisition");
         let nested = try_acquire_price_store_operation(PriceStoreOperationKind::QuoteMutation)

@@ -19,14 +19,16 @@ pub(super) fn ensure_scan_uses_current_price_window(
         .as_deref()
         .ok_or_else(|| "Split/Bonus price validation has no ex-date.".to_string())?;
 
-    // Use the same window selection order as scan_candidate, including the
-    // strictly evidenced dated-identity route when the legacy window is absent.
-    let window = match load_trade_window(connection, folder, symbol, &import_row.exchange, date)? {
+    // Use the same A1 event-alias window as scanning. Other rows keep the
+    // established legacy-first selection and dated-identity fallback.
+    let window = if split_bonus_symbol_chain::has_identity_route(connection,import_row)? {
+        split_bonus_symbol_chain::trade_window(connection,folder,import_row)?
+    } else { match load_trade_window(connection, folder, symbol, &import_row.exchange, date)? {
         Some(window) => Some(window),
         None if import_row.symbol.as_deref() == Some(symbol) =>
             load_import_trade_window(connection, folder, import_row, symbol, &import_row.exchange, date)?,
         None => None,
-    };
+    }};
     let Some((previous, ex_bar)) = window else {
         return Err("Split/Bonus validation is stale: current authoritative EOD price window is unavailable. Re-run validation.".to_string());
     };

@@ -125,7 +125,7 @@ type CorporateActionPendingPreparationApi = Pick<
   | 'runCorporateActionScan'
   | 'autoApproveCorporateActionImports'
   | 'getSetting'
-> & Partial<Pick<DesktopApi, 'refreshCorporateActionImportClassifications' | 'syncCorporateActionInformationalClosures'>>;
+> & Partial<Pick<DesktopApi, 'refreshCorporateActionImportClassifications' | 'syncCorporateActionInformationalClosures' | 'getCorporateActionImportsByIds'>>;
 
 export interface PrepareCorporateActionPendingImportsInput {
   api: CorporateActionPendingPreparationApi;
@@ -554,6 +554,13 @@ export async function prepareCorporateActionPendingImports({
       const result = await api.runCorporateActionScan({ scope: 'official_imports', importIds: batch });
       assertPreparationCurrent(shouldContinue);
       validationRows.push(...result.results);
+      if (api.getCorporateActionImportsByIds && expectedDatabasePath.trim()) {
+        const fresh = await readExactCorporateActionImports(
+          { getCorporateActionImportsByIds: api.getCorporateActionImportsByIds.bind(api) },
+          batch, expectedDatabasePath, shouldContinue,
+        );
+        for (const row of fresh) rowsById.set(row.id, row);
+      }
     } catch (error) {
       if (error instanceof CorporateActionPendingPreparationStaleError) throw error;
       const message = error instanceof Error ? error.message : 'Corporate Action EOD validation failed.';

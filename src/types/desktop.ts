@@ -579,6 +579,8 @@ export interface NseCurrentUniverseSyncResult {
 }
 
 export interface CorporateActionImportRow {
+  /** Fresh backend proof; never substitutes for the official source symbol. */
+  verifiedAdjustmentTarget?: string | null;
   /** Exact symbol/exchange instrument metadata; absent means unknown. */
   instrumentIsActive?: boolean | null;
   id: number;

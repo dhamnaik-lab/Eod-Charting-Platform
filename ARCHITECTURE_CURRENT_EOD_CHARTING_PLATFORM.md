@@ -1,5 +1,25 @@
 # Current architecture — EOD Charting Platform
 
+Corporate Actions identity boundary: `dated_symbol_chain` retains its historical
+DIVIDEND-only, same-symbol, multi-edge contract. The separate
+`split_bonus_symbol_chain` prepares a single official NSE rename route with an
+explicit current adjustment owner while preserving raw import identity and
+activity. Its versioned proof binds retained official source/event evidence,
+audited identity, owners, component terms, scan and full selected price records.
+Only fresh proof exposes `verifiedAdjustmentTarget`; raw inactivity is not
+overridden. Approval rechecks the proof under a route-only price-store permit and
+transaction, preserves explicit Closed/Rejected dispositions, deduplicates only proven aliases with exact terms, and uses the
+existing adjustment writer and chart readers. Ordinary manual approval lock scope,
+dividend admission and raw EOD bytes are unchanged. See the
+[approved A1 design](docs/plans/2026-11-08_CA_A1_CROSS_SYMBOL_DESIGN.md) and
+[source evidence limits](docs/plans/2026-11-08_CA_A1_IDENTITY_FINDINGS.md).
+
+List, single-row and exact-ID import reads all hydrate raw-symbol activity and
+fresh verified-target metadata through the same read-only helper. Exact rereads
+preserve requested ID order and source fields; they do not persist preparation.
+Mapping SQL rows alone omits these presentation/readiness fields and is insufficient
+for a post-validation refresh.
+
 ## Runtime composition
 
 The active desktop entry is [src-tauri-shell/src/main.rs](src-tauri-shell/src/main.rs), using Tauri 2 commands and native menu events. The browser renderer enters at [src/main.tsx](src/main.tsx) → [src/RootApp.tsx](src/RootApp.tsx); React components, Zustand stores, feature services, chart engine, and plugin host live under `src/`. Configuration authority: [package.json](package.json), [vite.config.mts](vite.config.mts), [tsconfig.json](tsconfig.json), [Tauri config](src-tauri-shell/tauri.conf.json), and [Rust manifest](src-tauri-shell/Cargo.toml).

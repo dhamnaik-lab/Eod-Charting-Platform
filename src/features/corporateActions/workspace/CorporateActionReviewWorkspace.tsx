@@ -93,6 +93,10 @@ function EvidenceRow({ evidence }: { evidence: CorporateActionNormalReviewEviden
           <dt>Raw identity</dt>
           <dd>{row.symbol ? `${row.exchange}:${row.symbol}` : row.isin ?? '-'}</dd>
         </div>
+        {row.verifiedAdjustmentTarget && <div>
+          <dt>Verified adjustment owner</dt>
+          <dd>{row.exchange}:{row.verifiedAdjustmentTarget}</dd>
+        </div>}
         <div>
           <dt>Event identity</dt>
           <dd>{identity?.resolved ? `${identity.exchange}:${identity.eventSymbol ?? '-'}` : 'Raw source identity'}</dd>

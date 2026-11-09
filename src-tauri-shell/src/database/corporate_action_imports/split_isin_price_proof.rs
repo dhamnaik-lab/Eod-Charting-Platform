@@ -27,7 +27,7 @@ const NON_EQUITY_MARKERS: [&str; 7] = [
     "BOND",
 ];
 
-fn event_includes_equity_split(row: &CorporateActionImportRow) -> bool {
+pub(super) fn event_includes_equity_split(row: &CorporateActionImportRow) -> bool {
     let normalized = expand_legacy_abbreviations(&normalize_text(&row.purpose_raw));
     if NON_EQUITY_MARKERS
         .iter()
@@ -44,7 +44,7 @@ fn event_includes_equity_split(row: &CorporateActionImportRow) -> bool {
 
 /// Indian equity ISIN: `IN` + issuer type + 4-character company + `01` + serial + check.
 /// Both ISINs must share the first 9 characters and carry the equity code `01`.
-fn same_equity_issuer(raw: &str, current: &str) -> bool {
+pub(super) fn same_equity_issuer(raw: &str, current: &str) -> bool {
     raw.len() == 12
         && current.len() == 12
         && raw.is_ascii()
@@ -129,7 +129,7 @@ pub(super) fn evaluate(
 
 /// Folder of the open database file. An in-memory database has no file, so its
 /// bars come only from SQL tables; the temp folder holds no `.eod` files for it.
-fn database_folder(connection: &Connection) -> AppResult<std::path::PathBuf> {
+pub(super) fn database_folder(connection: &Connection) -> AppResult<std::path::PathBuf> {
     let file: String = connection
         .query_row("SELECT file FROM pragma_database_list WHERE name='main'", [], |r| r.get(0))
         .map_err(|error| error.to_string())?;

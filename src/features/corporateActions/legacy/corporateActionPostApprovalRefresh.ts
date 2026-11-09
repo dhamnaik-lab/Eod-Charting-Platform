@@ -6,7 +6,7 @@ import {
   type CorporateActionDividendPreparedScopeOutcomeState,
 } from './corporateActionDividendPreparedScopeOrchestration';
 
-const key = (value: string | null) => value?.trim().toUpperCase() ?? '';
+const key = (value: string | null | undefined) => value?.trim().toUpperCase() ?? '';
 
 /** Include aliases and exchange peers transitively; never use company-name guesses. */
 export function affectedCorporateActionRows(rows: readonly CorporateActionImportRow[], ids: readonly number[]) {
@@ -17,11 +17,14 @@ export function affectedCorporateActionRows(rows: readonly CorporateActionImport
   while (changed) {
     changed = false;
     for (const row of rows) {
-      const symbol = key(row.symbol) ? `${key(row.exchange)}:${key(row.symbol)}` : '';
+      const identitySymbols = [row.symbol, row.verifiedAdjustmentTarget]
+        .filter(value => key(value)).map(value => `${key(row.exchange)}:${key(value)}`);
       const isin = /^[A-Z]{2}[A-Z0-9]{9}[0-9]$/.test(key(row.isin)) ? key(row.isin) : '';
-      if (!affectedIds.has(row.id) && !(symbol && symbols.has(symbol)) && !(isin && isins.has(isin))) continue;
+      if (!affectedIds.has(row.id) && !identitySymbols.some(symbol => symbols.has(symbol)) && !(isin && isins.has(isin))) continue;
       if (!affectedIds.has(row.id)) { affectedIds.add(row.id); changed = true; }
-      if (symbol && !symbols.has(symbol)) { symbols.add(symbol); changed = true; }
+      for (const symbol of identitySymbols) {
+        if (!symbols.has(symbol)) { symbols.add(symbol); changed = true; }
+      }
       if (isin && !isins.has(isin)) { isins.add(isin); changed = true; }
     }
   }

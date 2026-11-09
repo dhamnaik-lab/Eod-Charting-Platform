@@ -1,7 +1,7 @@
 import type { CorporateActionImportRow } from '@/platform';
 
 type LaterRow = Pick<CorporateActionImportRow, 'actionType'> & Partial<Pick<CorporateActionImportRow,
-  'purposeRaw' | 'instrumentIsActive' | 'reviewStatus' | 'approvedCorporateActionId'>>;
+  'purposeRaw' | 'instrumentIsActive' | 'verifiedAdjustmentTarget' | 'reviewStatus' | 'approvedCorporateActionId'>>;
 
 // Digits may be glued to Deb/Debs entitlement terms; Debt/Debit/Debut are words.
 const NON_EQUITY_TERMS = /\b(?:DEBENTURES?|DEBS?\d*|NCRPS|CRPS|CCPS|OCPS|PREFERENCE|PREFERRED|DVR|DIFFERENTIAL VOTING)\b/;
@@ -16,7 +16,7 @@ function isInterestDistribution(purpose: string): boolean {
 export function isLaterCorporateAction(row: LaterRow): boolean {
   if (row.reviewStatus === 'APPROVED' || row.approvedCorporateActionId != null
     || row.reviewStatus === 'CLOSED_INFORMATIONAL') return false;
-  if (row.instrumentIsActive === false) return true;
+  if (row.instrumentIsActive === false && !row.verifiedAdjustmentTarget) return true;
   if (['DIVIDEND', 'RIGHTS', 'DEMERGER'].includes(row.actionType)) return true;
   if (isInterestDistribution(row.purposeRaw ?? '')) return true;
   const purpose = (row.purposeRaw ?? '').toUpperCase().replace(/[^A-Z0-9]+/g, ' ').trim();
@@ -40,7 +40,7 @@ export function deferredCorporateActionReason(row: LaterRow & { message?: string
   if (SHARE_DISTRIBUTION.test(purpose)) return 'Share distribution (demerger-like): rules not built yet';
   const specific = [row.message, existing].find(text => text && /^(Awaiting (?:official|verified (?:identity|historical)|identity)|Waiting for (?:EOD|price)|UNSUPPORTED_|INVALID_|AMBIGUOUS_)/i.test(text));
   if (specific) return specific;
-  if (row.instrumentIsActive === false) return 'Delisted or inactive symbol';
+  if (row.instrumentIsActive === false && !row.verifiedAdjustmentTarget) return 'Delisted or inactive symbol';
   if (isInterestDistribution(row.purposeRaw ?? '') || /\b(?:INCOME DISTRIBUTION|DISTRIBUTION OF INCOME)\b/.test(purpose)
     || (/\bPER UNIT\b/.test(purpose) && /\b(?:INTEREST|DISTRIBUTION|DISTRITBUTION)\b/.test(purpose))) return 'InvIT/REIT distribution: not an equity price adjustment yet';
   if (/\b(?:CAPITAL REDUCTION|REDUCTION OF (?:SHARE |EQUITY )?CAPITAL)\b/.test(purpose)) return 'Capital reduction: rules not built yet';
