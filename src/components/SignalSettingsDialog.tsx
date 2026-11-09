@@ -85,7 +85,7 @@ export function SignalSettingsDialog({
           ) : (
             <>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-                <span style={{ fontSize: 13, color: '#94a3b8' }}>Configured Signal Triggers</span>
+                <span style={{ fontSize: 13, color: 'var(--text-dim)' }}>Configured Signal Triggers</span>
                 <button
                   type="button"
                   style={btnPrimaryStyle}
@@ -367,8 +367,8 @@ const containerStyle: CSSProperties = {
   flexDirection: 'column',
   width: '100%',
   height: '100%',
-  background: '#121e2b',
-  color: '#e2e8f0',
+  background: 'var(--bg2)',
+  color: 'var(--text)',
   overflow: 'hidden',
 };
 
@@ -380,11 +380,11 @@ const dialogBodyStyle: CSSProperties = {
 
 const dialogFooterStyle: CSSProperties = {
   padding: '12px 16px',
-  borderTop: '1px solid #26384d',
+  borderTop: '1px solid var(--border)',
   display: 'flex',
   justifyContent: 'flex-end',
   gap: 8,
-  background: '#0e1726',
+  background: 'var(--bg3)',
 };
 
 const ruleListContainerStyle: CSSProperties = {
@@ -398,9 +398,9 @@ const ruleRowStyle: CSSProperties = {
   alignItems: 'center',
   gap: 8,
   padding: '8px 12px',
-  background: '#1a293b',
+  background: 'var(--bg3)',
   borderRadius: 6,
-  border: '1px solid #2d425c',
+  border: '1px solid var(--border2)',
 };
 
 const fieldStyle: CSSProperties = {
@@ -408,24 +408,24 @@ const fieldStyle: CSSProperties = {
   flexDirection: 'column',
   gap: 4,
   fontSize: 12,
-  color: '#94a3b8',
+  color: 'var(--text-dim)',
 };
 
 const inputTextStyle: CSSProperties = {
-  background: '#1a293b',
-  border: '1px solid #2d425c',
+  background: 'var(--control-bg)',
+  border: '1px solid var(--border2)',
   borderRadius: 4,
   padding: '6px 8px',
-  color: '#f8fafc',
+  color: 'var(--text)',
   fontSize: 13,
 };
 
 const selectStyle: CSSProperties = {
-  background: '#1a293b',
-  border: '1px solid #2d425c',
+  background: 'var(--control-bg)',
+  border: '1px solid var(--border2)',
   borderRadius: 4,
   padding: '6px 8px',
-  color: '#f8fafc',
+  color: 'var(--text)',
   fontSize: 13,
 };
 
@@ -444,13 +444,13 @@ const grid3Style: CSSProperties = {
 const emptyStyle: CSSProperties = {
   padding: 24,
   textAlign: 'center',
-  color: '#64748b',
+  color: 'var(--text-mute)',
   fontSize: 13,
 };
 
 const btnPrimaryStyle: CSSProperties = {
-  background: '#2563eb',
-  color: '#ffffff',
+  background: 'var(--accent)',
+  color: 'var(--accent-contrast)',
   border: 'none',
   borderRadius: 4,
   padding: '6px 12px',
@@ -460,8 +460,8 @@ const btnPrimaryStyle: CSSProperties = {
 };
 
 const btnSecondaryStyle: CSSProperties = {
-  background: '#334155',
-  color: '#f8fafc',
+  background: 'var(--control-bg-hover)',
+  color: 'var(--text)',
   border: 'none',
   borderRadius: 4,
   padding: '6px 12px',
@@ -469,7 +469,7 @@ const btnSecondaryStyle: CSSProperties = {
   cursor: 'pointer',
 };
 const btnDangerStyle: CSSProperties = {
-  background: '#dc2626',
+  background: 'var(--red)',
   color: '#ffffff',
   border: 'none',
   borderRadius: 4,

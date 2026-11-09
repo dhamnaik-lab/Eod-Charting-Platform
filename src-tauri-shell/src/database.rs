@@ -3,6 +3,8 @@ pub use self::corporate_action_imports::{preview_split_bonus_reconciliation, Cor
 pub(crate) use self::connection_registry::peek_active_database_folder_read_only;
 pub mod binary_eod;
 mod bootstrap;
+#[cfg(test)]
+mod bse_history_repair_acceptance;
 mod bse_identity_imports;
 mod connection_registry;
 mod corporate_action_history;

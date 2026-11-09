@@ -36,6 +36,8 @@ struct AppProfileSettingsFile {
     grid_color: String,
     crosshair_color: String,
     #[serde(default)]
+    chart_colors_customized: Option<bool>,
+    #[serde(default)]
     plugin_enabled: BTreeMap<String, bool>,
     #[serde(default)]
     plugin_configurations: BTreeMap<String, Value>,
@@ -56,6 +58,7 @@ pub struct AppProfileSettingsPayload {
     pub candle_down_color: String,
     pub grid_color: String,
     pub crosshair_color: String,
+    pub chart_colors_customized: Option<bool>,
     pub plugin_enabled: BTreeMap<String, bool>,
     pub plugin_configurations: BTreeMap<String, Value>,
     pub eod_alert_rules: Vec<Value>,
@@ -74,6 +77,8 @@ pub struct AppProfileSettingsSaveInput {
     pub candle_down_color: String,
     pub grid_color: String,
     pub crosshair_color: String,
+    #[serde(default)]
+    pub chart_colors_customized: Option<bool>,
     #[serde(default)]
     pub plugin_enabled: BTreeMap<String, bool>,
     #[serde(default)]
@@ -100,6 +105,7 @@ pub fn get_app_profile_settings(app: AppHandle) -> AppResult<AppProfileSettingsP
         candle_down_color: settings.candle_down_color,
         grid_color: settings.grid_color,
         crosshair_color: settings.crosshair_color,
+        chart_colors_customized: settings.chart_colors_customized,
         plugin_enabled: settings.plugin_enabled,
         plugin_configurations: settings.plugin_configurations,
         eod_alert_rules: settings.eod_alert_rules,
@@ -135,6 +141,7 @@ pub fn save_app_profile_settings(
         candle_down_color: input.candle_down_color,
         grid_color: input.grid_color,
         crosshair_color: input.crosshair_color,
+        chart_colors_customized: input.chart_colors_customized,
         plugin_enabled: input.plugin_enabled,
         plugin_configurations: input.plugin_configurations,
         eod_alert_rules: input.eod_alert_rules,
@@ -337,6 +344,8 @@ fn migrate_legacy_database_settings_if_needed(
                 .unwrap_or_else(|| DEFAULT_GRID_COLOR.to_string()),
             crosshair_color: read_legacy_database_setting(connection, "crosshair_color")?
                 .unwrap_or_else(|| DEFAULT_CROSSHAIR_COLOR.to_string()),
+            // Legacy profiles carry no flag; the renderer applies its default-value heuristic.
+            chart_colors_customized: None,
             plugin_enabled: BTreeMap::new(),
             plugin_configurations: BTreeMap::new(),
             eod_alert_rules: Vec::new(),
@@ -436,6 +445,7 @@ impl Default for AppProfileSettingsFile {
             candle_down_color: DEFAULT_CANDLE_DOWN_COLOR.to_string(),
             grid_color: DEFAULT_GRID_COLOR.to_string(),
             crosshair_color: DEFAULT_CROSSHAIR_COLOR.to_string(),
+            chart_colors_customized: Some(false),
             plugin_enabled: BTreeMap::new(),
             plugin_configurations: BTreeMap::new(),
             eod_alert_rules: Vec::new(),

@@ -3,6 +3,43 @@ use std::fs;
 use tempfile::tempdir;
 
 #[test]
+fn nifty_historical_review_to_chart_query_and_binary_transport() {
+    let dir = tempdir().unwrap();
+    let db = dir.path().join("review-fixture.sqlite3");
+    crate::nifty_history::tests::import_synthetic_verified_fixture(&db);
+    let connection = Connection::open(&db).unwrap();
+    let rows = load(dir.path(), &connection, "NIFTY", PriceStorageMode::Binary).unwrap();
+    assert_eq!(rows.len(), 1);
+    assert_eq!(rows[0].date, "2024-01-02");
+    assert_eq!(rows[0].close, 105.0);
+    let bars = rows.into_iter().map(|r| EodRow { date:r.date,open:r.open,high:r.high,low:r.low,close:r.close,prev_close:r.prev_close,volume:r.volume,open_interest:r.open_interest }).collect::<Vec<_>>();
+    assert_eq!(encode_eod_rows_binary_b64(&bars).len(), 88);
+}
+
+#[test]
+#[ignore = "Explicit captured-source acceptance; requires new isolated fixture root and retained source paths"]
+fn nifty_captured_source_acceptance_to_chart_query() {
+    let (db, count) = crate::nifty_history::tests::import_captured_verified_fixture();
+    let connection = Connection::open(&db).unwrap();
+    let root = db.parent().unwrap();
+    let rows = load(root, &connection, "NIFTY", PriceStorageMode::Binary).unwrap();
+    assert_eq!(rows.len(), count);
+    let binary = BinaryEodFile::open(root.join("eod_data/NSE_INDEX/NIFTY.eod")).unwrap();
+    let records = binary.read_all().unwrap();
+    for (row, record) in rows.iter().zip(&records) {
+        assert_eq!(date_to_u32(&row.date),record.date);
+        assert_eq!([row.open,row.high,row.low,row.close],
+            [record.open,record.high,record.low,record.close].map(|p|p as f64 / binary.header.price_scale as f64));
+    }
+    let bars = rows.into_iter().map(|r| EodRow { date:r.date,open:r.open,high:r.high,low:r.low,close:r.close,prev_close:r.prev_close,volume:r.volume,open_interest:r.open_interest }).collect::<Vec<_>>();
+    let response = encode_eod_rows_binary_b64(&bars);
+    fs::write(root.join("chart-readback-result.json"),serde_json::to_vec_pretty(&serde_json::json!({
+        "status":"PASS","barCount":count,"binaryTransportBase64Length":response.len(),"allChartOHLCMatchBinary":true,
+        "scope":"Backend chart query and binary IPC serialization; native desktop rendering not exercised"
+    })).unwrap()).unwrap();
+}
+
+#[test]
 #[ignore = "Explicit read-only comparison of the selected database; requires evidence output path"]
 fn readonly_nifty_transport_parity_acceptance() {
     let database = std::path::PathBuf::from(std::env::var("EOD_CHART_PARITY_DATABASE").unwrap());

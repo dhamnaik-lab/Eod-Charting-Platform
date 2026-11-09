@@ -9,6 +9,7 @@ Add-Type -AssemblyName System.IO.Compression.FileSystem
 
 $projectRoot = Split-Path -Parent $PSScriptRoot
 $snapshotScript = Join-Path $PSScriptRoot 'Create-EOD-Source-Code-Snapshot-v3.ps1'
+$testFixturePath = 'docs\changes\2026-10-30-bse-name-history\native-proof-1793303233854903400\official-name-history.json'
 $scratchRoot = Join-Path ([System.IO.Path]::GetTempPath()) (
     'eod-snapshot-zip-only-tests-' + [Guid]::NewGuid().ToString('N')
 )
@@ -40,7 +41,9 @@ function Add-TestResult {
 function New-SnapshotFixture {
     param(
         [Parameter(Mandatory)][string]$Name,
-        [Parameter(Mandatory)][bool]$IncludeSdk
+        [Parameter(Mandatory)][bool]$IncludeSdk,
+        [switch]$MinimalDocs,
+        [switch]$OmitTestFixture
     )
 
     $base = Join-Path $scratchRoot $Name
@@ -72,10 +75,19 @@ function New-SnapshotFixture {
         'REQUIREMENTS.md',
         'ARCHITECTURE_CURRENT_EOD_CHARTING_PLATFORM.md',
         'FEATURE_STATUS_MATRIX_EOD_CHARTING_PLATFORM.md',
-        'PROJECT_STATE_EOD_CHARTING_PLATFORM.md'
+        'PROJECT_STATE_EOD_CHARTING_PLATFORM.md',
+        'NEXT_THREAD_PROMPT_EOD_CHARTING_PLATFORM.md'
     )
+    if ($MinimalDocs) {
+        $requiredDocs = @('AGENTS.md')
+    }
     foreach ($fileName in $requiredDocs) {
-        Copy-Item -LiteralPath (Join-Path $projectRoot $fileName) -Destination (Join-Path $source $fileName)
+        Set-Content -LiteralPath (Join-Path $source $fileName) -Value "# Snapshot test: $fileName"
+    }
+    if (-not $OmitTestFixture) {
+        $fixtureDestination = Join-Path $source $testFixturePath
+        $null = New-Item -ItemType Directory -Path (Split-Path -Parent $fixtureDestination)
+        Copy-Item -LiteralPath (Join-Path $projectRoot $testFixturePath) -Destination $fixtureDestination
     }
 
     Copy-Item -LiteralPath (Join-Path $projectRoot '.cargo\config.toml') -Destination (Join-Path $source '.cargo\config.toml')
@@ -119,7 +131,8 @@ function Invoke-SnapshotProcess {
     param(
         [Parameter(Mandatory)][string]$Source,
         [Parameter(Mandatory)][string]$Audit,
-        [Parameter(Mandatory)][bool]$SkipHashVerification
+        [Parameter(Mandatory)][bool]$SkipHashVerification,
+        [switch]$SourceAudit
     )
 
     $startInfo = New-Object System.Diagnostics.ProcessStartInfo
@@ -128,6 +141,9 @@ function Invoke-SnapshotProcess {
         '" -Source "' + $Source + '" -AuditRoot "' + $Audit + '"'
     if ($SkipHashVerification) {
         $startInfo.Arguments += ' -SkipHashVerification'
+    }
+    if ($SourceAudit) {
+        $startInfo.Arguments += ' -SourceAudit'
     }
     $startInfo.UseShellExecute = $false
     $startInfo.RedirectStandardInput = $true
@@ -170,6 +186,7 @@ function Get-ExpectedRelativePaths {
         'ARCHITECTURE_CURRENT_EOD_CHARTING_PLATFORM.md',
         'FEATURE_STATUS_MATRIX_EOD_CHARTING_PLATFORM.md',
         'PROJECT_STATE_EOD_CHARTING_PLATFORM.md',
+        'NEXT_THREAD_PROMPT_EOD_CHARTING_PLATFORM.md',
         'package.json',
         '.cargo\config.toml',
         'src\features\identityRecovery\resources\Official-Source-Recovery-Brief-For-Any-AI.md',
@@ -180,6 +197,7 @@ function Get-ExpectedRelativePaths {
         'scripts\Create-EOD-Source-Code-Snapshot-v3.ps1',
         'tests\sample.ts',
         'docs\allowed.md',
+        $testFixturePath,
         'packages\eod-plugin-sdk\index.d.ts',
         'packages\eod-plugin-sdk\index.js',
         'packages\eod-plugin-sdk\package.json'
@@ -456,6 +474,38 @@ try {
         -not (Test-Path -LiteralPath $missingRequired.Audit)
     Add-TestResult -Name 'Missing required file fails' -Passed $missingPassed -Detail "exit=$($missingRun.ExitCode)"
 
+    $minimal = New-SnapshotFixture -Name 'minimal-docs' -IncludeSdk $true -MinimalDocs
+    $normalRun = Invoke-SnapshotProcess -Source $minimal.Source -Audit $minimal.Audit -SkipHashVerification $false
+    Add-TestResult -Name 'Normal mode still requires root documents' `
+        -Passed ($normalRun.ExitCode -ne 0 -and $normalRun.Output -match 'NEXT_THREAD_PROMPT_EOD_CHARTING_PLATFORM\.md') `
+        -Detail "exit=$($normalRun.ExitCode)"
+    $auditRun = Invoke-SnapshotProcess -Source $minimal.Source -Audit $minimal.Audit -SkipHashVerification $false -SourceAudit
+    Add-TestResult -Name 'Source audit mode accepts minimal docs' `
+        -Passed ($auditRun.ExitCode -eq 0 -and $auditRun.Output -match 'ZIP integrity\s+: PASS') `
+        -Detail "exit=$($auditRun.ExitCode)"
+    $auditZip = Get-ChildItem -LiteralPath $minimal.Audit -Filter '*.zip' -File
+    $auditArchive = [IO.Compression.ZipFile]::OpenRead($auditZip.FullName)
+    try {
+        $auditEntries = @($auditArchive.Entries | ForEach-Object { $_.FullName -replace '^[^/]+/', '' })
+        $auditDocs = @($auditEntries | Where-Object { $_ -like 'docs/*' })
+        Add-TestResult -Name 'Source audit includes fixture and excludes project docs' `
+            -Passed ($auditDocs.Count -eq 1 -and $auditDocs[0] -eq ($testFixturePath.Replace('\', '/')) -and
+                $auditEntries -contains 'AGENTS.md' -and $auditEntries -notcontains 'README.md') `
+            -Detail "docs entries=$($auditDocs.Count)"
+    }
+    finally {
+        $auditArchive.Dispose()
+    }
+    $missingFixture = New-SnapshotFixture -Name 'missing-fixture' -IncludeSdk $true -OmitTestFixture
+    foreach ($sourceAuditMode in @($false, $true)) {
+        $fixtureRun = Invoke-SnapshotProcess -Source $missingFixture.Source -Audit $missingFixture.Audit `
+            -SkipHashVerification $false -SourceAudit:$sourceAuditMode
+        Add-TestResult -Name 'Missing BSE fixture fails before ZIP creation' `
+            -Passed ($fixtureRun.ExitCode -ne 0 -and $fixtureRun.Output -match 'official-name-history\.json' -and
+                -not (Test-Path -LiteralPath $missingFixture.Audit)) `
+            -Detail "SourceAudit=$sourceAuditMode, exit=$($fixtureRun.ExitCode)"
+    }
+
     $locked = New-SnapshotFixture -Name 'locked-source' -IncludeSdk $true
     $null = New-Item -ItemType Directory -Path $locked.Audit -Force
     $lockedPath = Join-Path $locked.Source 'tests\sample.ts'
@@ -608,6 +658,7 @@ finally {
     Write-Output "TOTAL=$($results.Count) PASS=$(@($results | Where-Object { $_.Status -eq 'PASS' }).Count)"
     if ($testSucceeded) {
         $safeScratchRoot = Assert-SafeScratchPath -Path $scratchRoot
+        Write-Output "Removing snapshot test scratch directory: $safeScratchRoot"
         Remove-Item -LiteralPath $safeScratchRoot -Recurse -Force
         Write-Output 'Scratch cleanup: PASS'
     }

@@ -42,6 +42,18 @@ describe('binary chart integrity', () => {
 });
 
 describe('chart IPC cache freshness', () => {
+  it('historical preview keeps cached bars; approved backfill invalidates them', async () => {
+    mock.invoke.mockImplementation((command) => Promise.resolve(command === 'get_eod_data_binary' ? payload() : { success: true }));
+    const desktop = await api();
+    await desktop.getEodData(input);
+    await desktop.previewNiftyHistory({ fromDate: '2024-01-01', toDate: '2024-12-31', verifyOfficial: true });
+    await desktop.getEodData(input);
+    expect(mock.invoke.mock.calls.filter(([command]) => command === 'get_eod_data_binary')).toHaveLength(1);
+    await desktop.applyNiftyHistory({ token: 'approved-fixture', approved: true });
+    await desktop.getEodData(input);
+    expect(mock.invoke.mock.calls.filter(([command]) => command === 'get_eod_data_binary')).toHaveLength(2);
+    expect(mock.invoke).toHaveBeenCalledWith('apply_nifty_history', { input: { token: 'approved-fixture', approved: true } });
+  });
   it('keeps a pending read and its cache valid when saving only the default price mode', async () => {
     const pending = deferred<ReturnType<typeof payload>>();
     mock.invoke.mockImplementation((command) => command === 'get_eod_data_binary' ? pending.promise : Promise.resolve({ success: true }));

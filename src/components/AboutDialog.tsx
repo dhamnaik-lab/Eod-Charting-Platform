@@ -268,7 +268,7 @@ const runtimeBadgeStyle: React.CSSProperties = {
   padding: '6px 10px',
   borderRadius: 999,
   border: '1px solid var(--border)',
-  color: 'var(--accent)',
+  color: 'var(--accent-text)',
   fontSize: 12,
   fontWeight: 700,
   letterSpacing: '0.04em',
@@ -312,7 +312,7 @@ const sectionStyle: React.CSSProperties = {
 const sectionTitleStyle: React.CSSProperties = {
   fontSize: 14,
   fontWeight: 700,
-  color: 'var(--accent)',
+  color: 'var(--accent-text)',
   textTransform: 'uppercase',
   letterSpacing: '0.05em',
   borderBottom: '1px solid var(--accent-soft)',

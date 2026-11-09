@@ -124,7 +124,7 @@ const BINARY_FILTER_PROGRESS_MAX: u32 = 84;
 const BINARY_PROGRESS_MAX: u32 = 99;
 const ROW_PROGRESS_INTERVAL: usize = 500;
 const MAX_BINARY_IMPORT_WORKERS: usize = 4;
-static MANUAL_IMPORT_MUTATION_LOCK: Mutex<()> = Mutex::new(());
+pub(crate) static MANUAL_IMPORT_MUTATION_LOCK: Mutex<()> = Mutex::new(());
 
 #[derive(Clone, Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -557,6 +557,15 @@ pub async fn import_csv(app: AppHandle, input: ImportOptionsInput) -> AppResult<
             let _ = app_handle.emit("import:progress", ProgressPayload { progress, message });
         })?;
 
+        notify_import_result(&app_handle, &database_file_path, &result)?;
+
+        Ok(result)
+    })
+    .await
+    .map_err(|error| error.to_string())?
+}
+
+pub(crate) fn notify_import_result(app_handle: &AppHandle, database_file_path: &Path, result: &ImportResult) -> AppResult<()> {
         let changed_state = result.rows_inserted > 0
             || result
                 .recovery_session
@@ -577,10 +586,7 @@ pub async fn import_csv(app: AppHandle, input: ImportOptionsInput) -> AppResult<
             emit_database_changed(&app_handle, &snapshot)?;
         }
 
-        Ok(result)
-    })
-    .await
-    .map_err(|error| error.to_string())?
+        Ok(())
 }
 
 #[tauri::command]
@@ -674,6 +680,42 @@ fn import_csv_internal<F>(
 where
     F: Fn(u32, String),
 {
+    // NIFTY history must pass the reviewed route before it becomes scanner/chart data.
+    // Preflight every file before any file is imported, preventing partial bypasses.
+    for path in &options.file_paths {
+        reject_unreviewed_nifty(Path::new(path), options)?;
+    }
+    import_csv_internal_reviewed_nifty(database_file_path, options, on_progress)
+}
+
+fn reject_unreviewed_nifty(path: &Path, options: &ImportOptionsInput) -> AppResult<()> {
+    let first = read_first_non_empty_lines(path, 1)?.first().cloned().unwrap_or_default();
+    let delimiter = options.delimiter.as_deref().and_then(|v|v.chars().next()).unwrap_or_else(||detect_delimiter(&first));
+    let headers = split_delimited_line(&first, delimiter);
+    let index_name = headers.iter().position(|h| normalize_header(h) == "indexname");
+    if index_name.is_some() || options.exchange.as_deref().is_some_and(|e| e.trim().eq_ignore_ascii_case("NSE_INDEX")) {
+        let mut map = if options.has_header.unwrap_or_else(||detect_header(&headers)) { build_header_map(&headers) } else { default_header_map() };
+        if let Some(index) = index_name { map.symbol = index; }
+        let reader = BufReader::new(File::open(path).map_err(|e|e.to_string())?);
+        for line in reader.lines() {
+            let fields = split_delimited_line(&line.map_err(|e|e.to_string())?,delimiter);
+            if fields.get(map.symbol).is_some_and(|s|crate::bhavcopy::map_index_symbol(s) == "NIFTY") {
+                return Err("NIFTY CSV imports require Historical Review and official verification. Existing bars cannot be overwritten through this route.".into());
+            }
+        }
+    }
+    Ok(())
+}
+
+// Crate-internal entry point: only nifty_history may bypass its own generic-import
+// guard after official verification and an approved, database-bound preview.
+pub(crate) fn import_csv_internal_reviewed_nifty<F>(
+    database_file_path: &Path,
+    options: &ImportOptionsInput,
+    on_progress: F,
+) -> AppResult<ImportResult>
+where F: Fn(u32, String),
+{
     let started_at = std::time::Instant::now();
     let normalized_file_paths = options
         .file_paths
@@ -706,6 +748,15 @@ where
                 "Manual Import exchange mismatch: selected files appear to come from {}, but target Exchange is {}. Confirm the mismatch in the import dialog before continuing.",
                 source_exchange, import_exchange
             ));
+        }
+    }
+
+    if import_exchange == "NSE" {
+        for path in &normalized_file_paths {
+            let first = read_first_non_empty_lines(path, 1)?.into_iter().next().unwrap_or_default();
+            let delimiter = options.delimiter.as_deref().and_then(|s|s.chars().next())
+                .filter(|c|[',', '\t', ';'].contains(c)).unwrap_or_else(||detect_delimiter(&first));
+            require_manual_security_headers_safe(&first, delimiter)?;
         }
     }
 
@@ -1804,6 +1855,14 @@ fn default_header_map() -> HeaderMap {
     }
 }
 
+fn require_manual_security_headers_safe(first: &str, delimiter: char) -> AppResult<()> {
+    let fields: Vec<_> = first.split(delimiter).map(|s| normalize_header(s.trim_matches('"'))).collect();
+    if fields.iter().any(|s| matches!(s.as_str(), "series" | "sctysrs" | "securityseries")) {
+        return Err("NSE series-bearing files require Bhavcopy security admission. Use Bhavcopy Date Range; generic Manual Import cannot preserve the security identity.".into());
+    }
+    Ok(())
+}
+
 fn build_header_map(headers: &[String]) -> HeaderMap {
     let mut map = default_header_map();
     for (index, header) in headers.iter().enumerate() {
@@ -2139,6 +2198,88 @@ mod tests {
     use crate::database::set_price_storage_mode;
     use std::io::Write;
     use tempfile::tempdir;
+
+    #[test]
+    fn unreviewed_nifty_manual_csv_is_rejected_before_metadata_changes() {
+        let dir = tempdir().unwrap();
+        let db = dir.path().join("test.db");
+        let c = setup_test_db(&db);
+        set_price_storage_mode(&c, PriceStorageMode::Binary).unwrap();
+        let file = dir.path().join("history.csv");
+        fs::write(&file,"symbol,date,open,high,low,close,volume\nCNX Nifty,2024-01-02,100,110,90,105,0\n").unwrap();
+        let options = ImportOptionsInput { file_paths:vec![file.to_string_lossy().into()],exchange:Some("NSE_INDEX".into()),has_header:Some(true),date_format:None,delimiter:None,on_duplicate:Some("overwrite".into()),trim_whitespace:Some(true),allow_exchange_mismatch:None };
+        assert!(import_csv_internal(&db,&options,|_,_|{}).unwrap_err().contains("Historical Review"));
+        assert_eq!(c.query_row("SELECT COUNT(*) FROM instruments",[],|r|r.get::<_,i64>(0)).unwrap(),0);
+        assert!(!dir.path().join("eod_data").exists());
+    }
+
+    #[test]
+    fn unreviewed_nifty_padded_exchange_is_rejected_before_database_changes() {
+        let dir = tempdir().unwrap();
+        let db = dir.path().join("test.db");
+        let connection = setup_test_db(&db);
+        set_price_storage_mode(&connection, PriceStorageMode::Binary).unwrap();
+        let file = dir.path().join("history.csv");
+        fs::write(&file, "Symbol,Date,Open,High,Low,Close\nCNX Nifty,2024-01-02,100,110,90,105\n").unwrap();
+        let before = fs::read(&db).unwrap();
+        let mut options = ImportOptionsInput {
+            file_paths: vec![file.to_string_lossy().into()],
+            exchange: Some(" NSE_INDEX ".into()),
+            has_header: Some(true),
+            date_format: None,
+            delimiter: None,
+            on_duplicate: Some("overwrite".into()),
+            trim_whitespace: Some(true),
+            allow_exchange_mismatch: None,
+        };
+        for exchange in [" NSE_INDEX ", "\tnSe_InDeX\n"] {
+            options.exchange = Some(exchange.into());
+            let error = import_csv_internal(&db, &options, |_, _| {}).unwrap_err();
+            assert!(error.contains("Historical Review"), "{exchange:?}: {error}");
+        }
+        for table in ["instruments", "eod_prices"] {
+            let count: i64 = connection.query_row(
+                &format!("SELECT COUNT(*) FROM {table}"), [], |row| row.get(0),
+            ).unwrap();
+            assert_eq!(count, 0, "Preflight must not change {table}");
+        }
+        assert_eq!(fs::read(&db).unwrap(), before);
+        assert!(!dir.path().join("eod_data").exists());
+        // The guard remains limited to NIFTY index imports.
+        options.exchange = Some("NSE".into());
+        assert!(reject_unreviewed_nifty(&file, &options).is_ok());
+        options.exchange = Some(" NSE_INDEX ".into());
+        fs::write(&file, "Symbol,Date,Open,High,Low,Close\nNIFTY BANK,2024-01-02,100,110,90,105\n").unwrap();
+        assert!(reject_unreviewed_nifty(&file, &options).is_ok());
+    }
+
+    #[test]
+    fn security_admission_manual_import_rejects_series_headers() {
+        assert!(require_manual_security_headers_safe("TradDt;TckrSymb;SctySrs;ClsPric", ';').is_err());
+        assert!(require_manual_security_headers_safe("Symbol,Date,Open,High,Low,Close,Volume", ',').is_ok());
+        let folder = Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap()
+            .join("tmp/fixtures/ca-series-admission-tests")
+            .join(format!("manual-{}-{}", std::process::id(), chrono::Utc::now().timestamp_nanos_opt().unwrap()));
+        fs::create_dir_all(&folder).unwrap();
+        let database = folder.join("market-data.sqlite3");
+        let connection = setup_test_db(&database);
+        let good = folder.join("a-quotes.csv");
+        let unsafe_file = folder.join("z-series.csv");
+        fs::write(&good, "Symbol,Date,Open,High,Low,Close,Volume\nSAFE,2014-11-20,100,110,90,105,200\n").unwrap();
+        fs::write(&unsafe_file, "SYMBOL,SERIES,OPEN,HIGH,LOW,CLOSE,TIMESTAMP\nSBIN,N5,11300,11319.99,11295,11300.78,20-NOV-2014\n").unwrap();
+        let options = ImportOptionsInput {
+            file_paths: vec![good.to_string_lossy().into_owned(), unsafe_file.to_string_lossy().into_owned()],
+            exchange: Some("NSE".into()), has_header: Some(false), date_format: None,
+            delimiter: Some(",".into()), on_duplicate: Some("overwrite".into()),
+            trim_whitespace: None, allow_exchange_mismatch: Some(true),
+        };
+        let error = import_csv_internal(&database, &options, |_, _| {}).unwrap_err();
+        assert!(error.contains("Bhavcopy security admission"));
+        let instruments: i64 = connection.query_row("SELECT count(*) FROM instruments", [], |r| r.get(0)).unwrap();
+        let prices: i64 = connection.query_row("SELECT count(*) FROM eod_prices", [], |r| r.get(0)).unwrap();
+        assert_eq!((instruments, prices), (0, 0));
+        assert!(!folder.join("eod_data").exists());
+    }
 
     fn setup_test_db(db_path: &Path) -> Connection {
         let conn = Connection::open(db_path).unwrap();

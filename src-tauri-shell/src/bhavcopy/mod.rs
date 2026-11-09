@@ -40,6 +40,7 @@ pub mod sources;
 pub use sources::*;
 pub mod parsers;
 pub use parsers::*;
+pub(crate) mod security_admission;
 pub mod ingestion;
 pub use ingestion::*;
 pub mod settings;
@@ -818,41 +819,27 @@ fn stage_download_task(
         return stage_single_download(client, task, stop);
     }
     let connection = batch_runtime::open_staging_connection(database_file_path)?;
-    let existing_log_id = connection
-        .query_row(
-            "
-              SELECT id
-              FROM download_log
-              WHERE trade_date = ? AND exchange = ? AND status = 'ok'
-              LIMIT 1
-            ",
-            params![&task.trade_date, &task.exchange],
-            |row| row.get::<_, i64>(0),
-        )
-        .optional()
-        .map_err(|error| error.to_string())?;
+    // Coverage is answered from the price store (binary index or eod_prices),
+    // not from download_log; the log remains only notes/status.
+    let has_imported_rows =
+        storage_mode_has_imported_rows_for_date(&connection, &task.trade_date, &task.exchange)?;
+    let has_stale_zero_volume_rows = storage_mode_has_stale_zero_volume_rows_for_date(
+        &connection,
+        &task.trade_date,
+        &task.exchange,
+    )?;
 
-    if existing_log_id.is_some() {
-        let has_imported_rows =
-            storage_mode_has_imported_rows_for_date(&connection, &task.trade_date, &task.exchange)?;
-        let has_stale_zero_volume_rows = storage_mode_has_stale_zero_volume_rows_for_date(
-            &connection,
-            &task.trade_date,
-            &task.exchange,
-        )?;
-
-        if has_imported_rows && !has_stale_zero_volume_rows && task.mode != DownloadMode::Range {
-            return Ok(StagedDownloadOutcome::Result(DownloadResult {
-                success: true,
-                trade_date: task.trade_date.clone(),
-                exchange: task.exchange.clone(),
-                rows_inserted: 0,
-                max_volume: 0,
-                message: "Already downloaded".to_string(),
-            }));
-        }
-        // A replacement can update the successful log only after import.
+    if has_imported_rows && !has_stale_zero_volume_rows && task.mode != DownloadMode::Range {
+        return Ok(StagedDownloadOutcome::Result(DownloadResult {
+            success: true,
+            trade_date: task.trade_date.clone(),
+            exchange: task.exchange.clone(),
+            rows_inserted: 0,
+            max_volume: 0,
+            message: "Already downloaded".to_string(),
+        }));
     }
+    // A replacement can update the successful log only after import.
     drop(connection);
 
     if stop.is_requested() {
@@ -1078,26 +1065,27 @@ fn process_download_task(
         )
         .optional()
         .map_err(|error| error.to_string())?;
+    // Coverage is answered from the price store (binary index or eod_prices),
+    // not from download_log; the log remains only notes/status.
+    let has_imported_rows =
+        storage_mode_has_imported_rows_for_date(&connection, &task.trade_date, &task.exchange)?;
+    let has_stale_zero_volume_rows = storage_mode_has_stale_zero_volume_rows_for_date(
+        &connection,
+        &task.trade_date,
+        &task.exchange,
+    )?;
 
+    if has_imported_rows && !has_stale_zero_volume_rows && task.mode != DownloadMode::Range {
+        return Ok(DownloadResult {
+            success: true,
+            trade_date: task.trade_date.clone(),
+            exchange: task.exchange.clone(),
+            rows_inserted: 0,
+            max_volume: 0,
+            message: "Already downloaded".to_string(),
+        });
+    }
     if let Some(log_id) = existing_log_id {
-        let has_imported_rows =
-            storage_mode_has_imported_rows_for_date(&connection, &task.trade_date, &task.exchange)?;
-        let has_stale_zero_volume_rows = storage_mode_has_stale_zero_volume_rows_for_date(
-            &connection,
-            &task.trade_date,
-            &task.exchange,
-        )?;
-
-        if has_imported_rows && !has_stale_zero_volume_rows && task.mode != DownloadMode::Range {
-            return Ok(DownloadResult {
-                success: true,
-                trade_date: task.trade_date.clone(),
-                exchange: task.exchange.clone(),
-                rows_inserted: 0,
-                max_volume: 0,
-                message: "Already downloaded".to_string(),
-            });
-        }
         {
             let _write_guard = lock_bhavcopy_write(write_lock)?;
             let _ = clear_download_log_entry(&connection, log_id);
@@ -1245,12 +1233,12 @@ fn download_single(
                     }
                 }
                 return Ok(DownloadResult {
-                    success: true,
+                    success: parsed.admission.conflicted == 0,
                     trade_date: trade_date.to_string(),
                     exchange: exchange.to_string(),
                     rows_inserted: parsed.rows_inserted,
                     max_volume: parsed.max_volume,
-                    message: format!("Downloaded {} records", parsed.rows_inserted),
+                    message: parsed.admission.describe_result(format!("Downloaded {} records", parsed.rows_inserted)),
                 });
             }
             Ok(None) => {

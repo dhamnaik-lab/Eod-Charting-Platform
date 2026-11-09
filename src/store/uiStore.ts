@@ -1,11 +1,13 @@
 import { create } from 'zustand';
-import type { DrawingTool, ChartTheme } from '@/engine/types';
+import type { DrawingTool, ChartTheme, OHLCBar } from '@/engine/types';
 import type { AppThemeId } from '@/features/app/themeService';
 import { DEFAULT_APP_THEME_ID } from '@/features/app/themeService';
 import type { OfficialWatchlistSourceId } from '@/features/watchlists/officialWatchlistProviders';
 import type { ChartPatternGeometry } from '@/plugins/scanner/chartPatternTypes';
 import type { InstrumentKey } from '@/platform';
 import type { ScannerPatternMapEntry } from '@/plugins/scanner/scannerPatternMap';
+import type { ScannerChartPriceBasis } from '@/plugins/scanner/scannerChartPriceBasis';
+import type { WorkspaceTimeframe } from '@/features/workspace/workspacePersistence';
 
 const MAGNET_ENABLED_KEY = 'eod-chart.magnet.enabled.v1';
 const FAVORITE_TOOLS_KEY = 'eod-chart.favorite-tools.v1';
@@ -117,6 +119,12 @@ export interface ScannerChartOverlay {
   instrument: InstrumentKey;
   date: string;
   scannerName: string;
+  scannerId?: string;
+  priceBasis?: ScannerChartPriceBasis;
+  databasePath?: string | null;
+  contextBars?: number;
+  sourceBars?: readonly OHLCBar[];
+  timeframe?: WorkspaceTimeframe;
   direction?: 'bullish' | 'bearish' | 'neutral';
   score?: number;
   levels: ScannerChartLevel[];

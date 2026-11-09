@@ -12,14 +12,14 @@ Project root: `E:\TA Projects\EOD Charting Platform`
 
 - Active runtime: Tauri 2 + React + TypeScript + Rust. Active backend: `src-tauri-shell`.
 - Preserve local-first behavior and keep renderer-to-desktop calls behind `src/platform/*`.
-- Treat old `src-tauri`, Electron outputs, `dist/`, `release/`, `target/`, `src-tauri-shell/target/`, `EOD DATABASE/`, `backups/`, and linked worktrees as non-source unless explicitly targeted.
+- Treat `dist/`, `release/`, `target/`, `src-tauri-shell/target/`, `EOD DATABASE/`, `backups/`, and linked worktrees as non-source unless explicitly targeted.
 - Corporate Actions use the accepted three-action normal workflow: Fetch from Officials → Load & Validate → explicitly Approve Ready. Fetch and Load automatically perform eligible source collection, matching, deduplication, readiness checks and preparation, but NEVER execute financial approval. A deliberate user Approve confirmation is required; preserve backend rechecks, transactional adjustment records, raw `.eod` immutability, chart/cache refresh and the advanced maintenance UI. Legacy automatic Split/Bonus or Dividend write-stage settings must not be enabled or bypassed by default.
 - Quotation deletion is quote-only: removing the last quotation must not auto-delete instrument/symbol identity. Provenance-scoped cleanup belongs to Manual Import Recovery, not normal quote deletion.
 - Preserve exchange identity fidelity. Do not synthesize BSE trading symbols from company/security names; keep official source identifiers unchanged unless an audited identity mapping explicitly resolves them.
 - Preserve broad NSE equity ingestion. Do not add an equity-series whitelist that drops supported equity/trade-for-trade/SME series such as `EQ`, `BE`, `BZ`, `SM`, `ST`, or `SZ`; persist series metadata and keep normal series filtering in the Symbols/sidebar layer. Existing configured government-security exclusions are a separate non-equity rule.
 - Bhavcopy durability is evidence-backed: the binary worker cap is 4; only the recovery-journal-governed `APPEND_NEWEST` path may defer `sync_data()`. `REWRITE_TAIL`, `UPDATE_EXISTING`, `INSERT_HISTORICAL`, recovery replay, and Manual Import remain immediately durable unless a separately validated design changes that contract. Successful deferred APPEND_NEWEST sessions are normally checkpointed in the background with the same 4-worker cap; `APPLIED` and interrupted `CHECKPOINTING` states are resumable, while verification failure must retain the conservative recovery fallback.
 - Bhavcopy calendar/planning semantics are also evidence-backed: known special trading sessions override weekend/holiday skipping; a network/source miss must not be relabeled as a holiday; automatic `Update` probes the current local date only from 18:00 onward, while manual Date Range remains explicit.
-- Drawing-fidelity baseline: the Fibonacci family is accepted and closed at the August 13, 2026 F1E.1 checkpoint. Treat accepted Fibonacci geometry as protected while starting Gann work. In particular, Fib Wedge remains data-space-first; Fib Spiral remains on the restored F1D.1 same-timeframe basis (the F1D.2 absolute-time experiment is rejected); and persisted kind `fibFan` uses the F1E.1 exact projected anchor-to-Fibonacci-target ray construction for zoom stability. Reopen a completed Fibonacci tool only for a new reproducible defect.
+- Preserve accepted Fibonacci geometry. Keep Fib Wedge data-space-first, Fib Spiral on its same-timeframe basis, and persisted kind `fibFan` on exact projected anchor-to-Fibonacci-target rays for zoom stability. Reopen a completed Fibonacci tool only for a new reproducible defect.
 
 ## Coding assistant and prompt context
 
@@ -36,12 +36,14 @@ Project root: `E:\TA Projects\EOD Charting Platform`
 ## Change discipline
 
 - Preserve dirty-worktree changes and patch only the requested files.
-- Store new Markdown files and other document deliverables, including reports, plans, audits and handoff notes, under `docs/`. Do not use `Output/` or `outputs/` for documents. Keep required project control files in their established locations.
-- Create a normal pre-edit backup with `scripts/create-project-backup.ps1 -ShortName <name>` unless the task explicitly forbids backup changes. Never edit a backup or restore from one without approval.
+- Reserve `docs/` for documents, including reports, plans, audits and handoff notes. Keep established root project control files in place. Put test databases, scratch files and evidence staging under `tmp/`.
+- Before editing, back up the files in scope under `backups/` with `scripts/create-project-backup.ps1 -ShortName <name> -Paths <paths>` unless the task explicitly forbids backup changes. Back up newly added scope before editing it. Never edit a backup or restore from one without approval.
 - Do not restore or recreate `.codex/skills` without explicit approval. Remove stale skill references instead of treating them as missing dependencies.
-- Make small edits. Update docs only when behavior, architecture, file roles, or operating guidance changed.
+- Make small edits. After implementation, update every document affected by the change. When project state changes, record the immediate resume point, affected paths, backup, checks, and remaining acceptance in `HANDOFF.md`. Track running, completed, and next phases in `NEXT_THREAD_PROMPT_EOD_CHARTING_PLATFORM.md`. Keep `ARCHITECTURE_CURRENT_EOD_CHARTING_PLATFORM.md` focused on the current design.
 
 ## BUILD-01 shared Cargo artifact policy
+
+- Reuse the existing build when it can verify the task. Get explicit user approval before creating or staging a new release, installer or portable build, or creating a separate Cargo target. Reuse the root `target` dependency and debug artifacts for focused checks whenever compatible.
 
 - For routine EOD `cargo check`, `cargo test`, and `cargo build`, use `scripts/Invoke-EOD-SharedCargo.ps1` from the verified project root. It pins the manifest and shared `target` path; run `-Mode Preview` first, then `-Mode Run` for an approved compilation. Run Cargo commands serially.
 - Do not set a temporary `CARGO_TARGET_DIR`, `CARGO_BUILD_TARGET_DIR`, or `CARGO_BUILD_BUILD_DIR`; do not supply `--target-dir` pointing into `tmp`. The shared Cargo artifacts belong only under the project-root `target`; `tmp` holds fixtures, staged evidence, and diagnostics, not copied dependency trees.
@@ -49,6 +51,8 @@ Project root: `E:\TA Projects\EOD Charting Platform`
 - Preserve debug/test/release Cargo profiles, toolchain defaults, incremental settings, application data, the existing portable build workflow, and all accepted tests. This policy cannot force reuse across incompatible feature/profile/toolchain/flag combinations or intercept external tools that bypass the wrapper.
 
 ## TMP-01 disposable scratch-workspace retention policy
+
+- Keep retained test databases and their evidence under `tmp/fixtures/<task>/`. For ChatGPT + PowerShell evidence ZIPs, stage under `tmp/` and save the final ZIP in `Join-Path $HOME 'Downloads'`. Include an IST timestamp in its name and record its SHA-256 with `Get-FileHash -Algorithm SHA256`.
 
 - Keep working build outputs in the shared project-root `target` under BUILD-01. Do not create nested `target` / `cargo-target` directories in `tmp` without a separately approved isolation exception.
 - New genuinely disposable test scratch belongs in explicitly marked `tmp/disposable/<tag>_<unique-id>` directories created by `scripts/Invoke-EOD-TmpLifecycle.ps1 -Action Create -Tag <tag>`. Never use this managed prefix for source code, database copies/fixtures, evidence, recovery materials, Cargo targets, portable outputs or backups.
@@ -66,5 +70,5 @@ Project root: `E:\TA Projects\EOD Charting Platform`
 - Use `cargo check`, `cargo test --no-run`, or `validate-change.ps1 -Profile tauri` only when the affected change needs broader backend/Tauri coverage.
 - Do not run full workspace tests or full validation profiles unless explicitly requested, required for release/merge, or directly relevant to the touched area.
 - The user rebuilds portable Windows manually. After routine code changes, run focused checks and leave the release Tauri shell EXE, installer, and portable builds/staging to the user. Report when their portable rebuild is needed to use runtime changes.
-- Build release executables or packages only when explicitly requested by the user or strictly necessary to investigate a build-specific failure. Explain the diagnostic need before running such a build; routine UI/backend changes do not qualify. Focused Rust test-harness compilation remains allowed for required tests.
+- Build release executables or packages only with explicit user approval. Explain the diagnostic need before requesting a build for a build-specific failure. Focused Rust test-harness compilation remains allowed for required tests.
 - Do not regenerate build metadata or stage portable outputs as routine completion steps.

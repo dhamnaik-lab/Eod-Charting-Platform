@@ -303,7 +303,7 @@ const warningStyle: React.CSSProperties = {
   backgroundColor: 'var(--control-bg)',
   border: '1px solid var(--red)',
   borderRadius: 4,
-  color: 'var(--red)',
+  color: 'var(--red-text)',
   fontSize: 13,
   lineHeight: 1.5,
 };

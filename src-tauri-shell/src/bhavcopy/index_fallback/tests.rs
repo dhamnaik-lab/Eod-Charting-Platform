@@ -878,3 +878,32 @@ fn transport_refusal_empty_oversize_and_timeout_remain_distinct() {
         .contains("source failure"));
     server.join().unwrap();
 }
+
+#[test]
+fn bse_2011_evidenced_holiday_is_excluded_without_changing_other_exchange_dates() {
+    let temp = tempfile::tempdir().unwrap();
+    let db = temp.path().join("fixture.db");
+    let conn = open_database_connection(&db).unwrap();
+    for exchange in ["BSE", "BSE_INDEX"] {
+        let holiday =
+            create_calendar_skip_result(&conn, exchange, "2011-01-26", chrono::Weekday::Wed)
+                .unwrap();
+        assert!(holiday.message.contains("20101122-22"));
+        assert!(
+            create_calendar_skip_result(&conn, exchange, "2011-01-25", chrono::Weekday::Tue)
+                .is_none()
+        );
+        assert!(
+            create_calendar_skip_result(&conn, exchange, "2024-03-02", chrono::Weekday::Sat)
+                .is_none()
+        );
+    }
+    assert_eq!(
+        update_end_trade_date_for(parse_trade_date("2026-11-03").unwrap(), 17),
+        "2026-11-02"
+    );
+    assert_eq!(
+        update_end_trade_date_for(parse_trade_date("2026-11-03").unwrap(), 18),
+        "2026-11-03"
+    );
+}

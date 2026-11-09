@@ -67,6 +67,12 @@ export function layoutXAxisLabels(
 
 type BoundaryMode = 'year' | 'halfYear' | 'quarter' | 'month' | 'week' | 'step';
 
+export function countVisibleBars(viewport: Viewport, barCount: number): number {
+  const start = Math.max(0, Math.floor(viewport.startIndex));
+  const end = Math.min(barCount, Math.ceil(viewport.endIndex));
+  return Math.max(0, end - start);
+}
+
 export function buildScaleX(viewport: Viewport, canvasWidth: number, gutterPx = 10): ScaleX {
   void gutterPx;
   const visibleSlots = Math.max(viewport.endIndex - viewport.startIndex, 1);
@@ -133,6 +139,15 @@ export function buildScaleY(
     min = fixedRange?.min ?? 0;
     max = fixedRange?.max ?? 1;
   } else {
+    if (bars.length === 1 && fixedRange?.min === undefined && fixedRange?.max === undefined) {
+      const bar = bars[0];
+      min = Math.min(min, bar.open, bar.close);
+      max = Math.max(max, bar.open, bar.close);
+      const midpoint = (min + max) / 2;
+      const halfRange = Math.max(Math.abs(midpoint) * 0.0025, 0.0001);
+      min = Math.min(min, midpoint - halfRange);
+      max = Math.max(max, midpoint + halfRange);
+    }
     if (fixedRange?.min !== undefined) min = fixedRange.min;
     if (fixedRange?.max !== undefined) max = fixedRange.max;
   }

@@ -929,7 +929,7 @@ export function Sidebar({ width, collapsed, pinned, onToggleCollapse, onTogglePi
             style={{
               border: 'none',
               background: 'var(--bg3)',
-              color: 'var(--accent)',
+              color: 'var(--accent-text)',
               borderRadius: 3,
               width: 18,
               height: 18,
@@ -1620,7 +1620,7 @@ export function Sidebar({ width, collapsed, pinned, onToggleCollapse, onTogglePi
                             title={recentSectionCollapsed ? 'Expand recent symbols' : 'Collapse recent symbols'}
                           >
                             <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                              <span style={{ fontSize: 9, color: 'var(--accent)', width: 10 }}>
+                              <span style={{ fontSize: 9, color: 'var(--accent-text)', width: 10 }}>
                                 {recentSectionCollapsed ? '►' : '▼'}
                               </span>
                               <span>Recent</span>
@@ -1775,7 +1775,7 @@ export function Sidebar({ width, collapsed, pinned, onToggleCollapse, onTogglePi
                       onClick={toggleFavoritesCollapse}
                       title={favoritesCollapsed ? 'Expand Favorites' : 'Collapse Favorites'}
                     >
-                      <span style={{ fontSize: 9, width: 10, color: 'var(--accent)', userSelect: 'none' }}>
+                      <span style={{ fontSize: 9, width: 10, color: 'var(--accent-text)', userSelect: 'none' }}>
                         {favoritesCollapsed ? '►' : '▼'}
                       </span>
                       <span style={{ flex: 1, fontWeight: 600 }}>★ Favorites</span>
@@ -1806,7 +1806,7 @@ export function Sidebar({ width, collapsed, pinned, onToggleCollapse, onTogglePi
                             onClick={() => toggleSubcategoryCollapse(group.id)}
                             title={isCollapsed ? `Expand ${group.label}` : `Collapse ${group.label}`}
                           >
-                            <span style={{ fontSize: 9, width: 10, color: 'var(--accent)', userSelect: 'none' }}>
+                            <span style={{ fontSize: 9, width: 10, color: 'var(--accent-text)', userSelect: 'none' }}>
                               {isCollapsed ? '►' : '▼'}
                             </span>
                             <span style={{ flex: 1, fontWeight: 600 }}>{group.label}</span>
@@ -1840,7 +1840,7 @@ export function Sidebar({ width, collapsed, pinned, onToggleCollapse, onTogglePi
                             onClick={() => toggleSubcategoryCollapse(group.id)}
                             title={isCollapsed ? `Expand ${group.label}` : `Collapse ${group.label}`}
                           >
-                            <span style={{ fontSize: 9, width: 10, color: 'var(--accent)', userSelect: 'none' }}>
+                            <span style={{ fontSize: 9, width: 10, color: 'var(--accent-text)', userSelect: 'none' }}>
                               {isCollapsed ? '►' : '▼'}
                             </span>
                             <span style={{ flex: 1, fontWeight: 600 }}>{group.label}</span>
@@ -2173,7 +2173,7 @@ export function Sidebar({ width, collapsed, pinned, onToggleCollapse, onTogglePi
           <div style={contextMenuDividerStyle} />
           <button
             type="button"
-            style={{ ...contextMenuButtonStyle, color: 'var(--red)' }}
+            style={{ ...contextMenuButtonStyle, color: 'var(--red-text)' }}
             onClick={handleDeleteWatchlistItem}
           >
             Delete from Watchlist
@@ -3137,7 +3137,7 @@ const filterSectionTitleStyle: React.CSSProperties = {
 const seriesFilterClearStyle: React.CSSProperties = {
   border: 0,
   background: 'transparent',
-  color: 'var(--accent)',
+  color: 'var(--accent-text)',
   cursor: 'pointer',
   fontSize: 11,
   padding: 0,
@@ -3217,7 +3217,7 @@ const groupHeaderStyle: React.CSSProperties = {
   alignItems: 'center',
   padding: '3px 7px',
   backgroundColor: 'var(--bg3)',
-  color: 'var(--accent)',
+  color: 'var(--accent-text)',
   fontSize: 11,
   fontWeight: 700,
   letterSpacing: '0.05em',

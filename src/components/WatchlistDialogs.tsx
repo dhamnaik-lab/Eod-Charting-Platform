@@ -180,5 +180,5 @@ const dangerButtonStyle: CSSProperties = {
   ...baseButtonStyle,
   border: '1px solid var(--red)',
   background: 'var(--control-bg)',
-  color: 'var(--red)',
+  color: 'var(--red-text)',
 };

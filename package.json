@@ -15,7 +15,11 @@
     "typecheck:renderer": "tsc -p tsconfig.json --noEmit",
     "build:renderer": "vite build",
     "build": "npm run typecheck:renderer && npm run tauri:check && npm run build:renderer",
-    "test": "vitest run --exclude tmp/**"
+    "test": "vitest run --exclude tmp/**",
+    "themes:generate": "node scripts/generate-theme-tokens.mjs",
+    "predev:renderer": "npm run themes:generate",
+    "prebuild:renderer": "npm run themes:generate",
+    "pretest": "npm run themes:generate"
   },
   "dependencies": {
     "@tauri-apps/api": "^2.11.1",

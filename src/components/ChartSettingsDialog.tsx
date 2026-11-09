@@ -1128,7 +1128,7 @@ const alertHelpStyle: CSSProperties = {
 };
 
 const alertStatusStyle: CSSProperties = {
-  color: 'var(--accent)',
+  color: 'var(--accent-text)',
   fontSize: 12,
   fontWeight: 700,
 };
@@ -1274,7 +1274,7 @@ const primaryButtonStyle: CSSProperties = {
   border: '1px solid var(--accent)',
   borderRadius: 6,
   background: 'var(--accent)',
-  color: '#ffffff',
+  color: 'var(--accent-contrast)',
   cursor: 'pointer',
   fontSize: 13,
   fontWeight: 800,

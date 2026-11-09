@@ -85,10 +85,14 @@ pub(super) fn fill_missing_codes(connection: &Connection, bytes: &[u8]) -> AppRe
         if code_counts[code] != 1 || isin_counts[isin] != 1 || symbol_counts[symbol] != 1 {
             continue;
         }
+        // T+0 (`#`) has the same ISIN but is a separate settlement instrument.
+        // Enforce ISIN uniqueness only across normal-settlement BSE symbols,
+        // without allowing a `#` row itself to receive a legacy code.
         changed += connection.execute(
             "UPDATE instruments SET bse_security_code=?1 WHERE exchange='BSE' AND symbol=?2 AND isin=?3
              AND (bse_security_code IS NULL OR trim(bse_security_code)='')
-             AND (SELECT count(*) FROM instruments WHERE exchange='BSE' AND isin=?3)=1
+             AND symbol NOT LIKE '%#'
+             AND (SELECT count(*) FROM instruments WHERE exchange='BSE' AND isin=?3 AND symbol NOT LIKE '%#')=1
              AND NOT EXISTS(SELECT 1 FROM instruments WHERE exchange='BSE' AND bse_security_code=?1 AND symbol<>?2)",
             params![code, symbol, isin]
         ).map_err(|e| e.to_string())?;
@@ -209,4 +213,62 @@ mod tests {
                 .unwrap());
         }
     }
+
+    #[test]
+    fn bse_mapping_allows_only_settlement_variant_duplicate_and_preserves_its_identity() {
+        let c = Connection::open_in_memory().unwrap();
+        c.execute_batch("CREATE TABLE instruments(symbol TEXT, exchange TEXT, isin TEXT, bse_security_code TEXT, is_active INTEGER);
+            INSERT INTO instruments VALUES
+                ('TCS','BSE','INE467B01029',NULL,1),
+                ('TCS#','BSE','INE467B01029',NULL,1),
+                ('532540','BSE',NULL,NULL,1),
+                ('TCS','NSE','INE467B01029',NULL,1);").unwrap();
+        let csv = b"Security Code,Security Id,ISIN\n532540,TCS,INE467B01029\n";
+        assert_eq!(fill_missing_codes(&c, csv).unwrap(), 1);
+        assert_eq!(fill_missing_codes(&c, csv).unwrap(), 0);
+        let rows: Vec<(String, String, Option<String>)> = c.prepare(
+            "SELECT symbol,exchange,bse_security_code FROM instruments ORDER BY exchange,symbol"
+        ).unwrap().query_map([], |r| Ok((r.get(0)?,r.get(1)?,r.get(2)?)))
+          .unwrap().collect::<Result<_, _>>().unwrap();
+        assert_eq!(rows, vec![
+            ("532540".into(), "BSE".into(), None),
+            ("TCS".into(), "BSE".into(), Some("532540".into())),
+            ("TCS#".into(), "BSE".into(), None),
+            ("TCS".into(), "NSE".into(), None),
+        ]);
+        assert_eq!(c.query_row(
+            "SELECT count(*) FROM instruments WHERE exchange='BSE' AND isin='INE467B01029'",
+            [], |r| r.get::<_, i64>(0)).unwrap(), 2);
+    }
+
+    #[test]
+    fn bse_mapping_still_blocks_extra_normal_isin_owners_and_claimed_codes() {
+        let csv = b"Security Code,Security Id,ISIN\n532540,TCS,INE467B01029\n";
+        for other in [
+            "('OTHER','BSE','INE467B01029',NULL)",
+            "('OTHER','BSE','INE999A01010','532540')",
+            "('OTHER#','BSE','INE999A01010','532540')",
+        ] {
+            let c = Connection::open_in_memory().unwrap();
+            c.execute_batch(&format!("CREATE TABLE instruments(symbol TEXT,exchange TEXT,isin TEXT,bse_security_code TEXT);
+                INSERT INTO instruments VALUES ('TCS','BSE','INE467B01029',NULL),
+                    ('TCS#','BSE','INE467B01029',NULL), {other};")).unwrap();
+            assert_eq!(fill_missing_codes(&c, csv).unwrap(), 0);
+            assert!(c.query_row("SELECT bse_security_code IS NULL FROM instruments WHERE symbol='TCS'",
+                [], |r| r.get::<_, bool>(0)).unwrap());
+        }
+    }
+
+    #[test]
+    fn bse_mapping_never_backfills_settlement_variant_as_normal_code_owner() {
+        let c = Connection::open_in_memory().unwrap();
+        c.execute_batch("CREATE TABLE instruments(symbol TEXT,exchange TEXT,isin TEXT,bse_security_code TEXT);
+            INSERT INTO instruments VALUES ('TCS#','BSE','INE467B01029',NULL);").unwrap();
+        assert_eq!(fill_missing_codes(
+            &c, b"Security Code,Security Id,ISIN\n532540,TCS#,INE467B01029\n"
+        ).unwrap(), 0);
+        assert_eq!(c.query_row("SELECT bse_security_code FROM instruments WHERE symbol='TCS#'",
+            [], |r| r.get::<_, Option<String>>(0)).unwrap(), None);
+    }
+
 }

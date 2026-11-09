@@ -1,0 +1,705 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Application Themes — Deep Review · EOD Charting Platform</title>
+<style>
+  :root {
+    --ink: #0f172a;
+    --ink-2: #334155;
+    --ink-3: #64748b;
+    --line: #e2e8f0;
+    --line-2: #cbd5e1;
+    --surface: #ffffff;
+    --canvas: #f6f8fb;
+    --accent: #1d4ed8;
+    --accent-soft: #eff4ff;
+    --good: #047857;
+    --good-soft: #ecfdf5;
+    --warn: #b45309;
+    --warn-soft: #fffbeb;
+    --bad: #b91c1c;
+    --bad-soft: #fef2f2;
+    --info: #0369a1;
+    --info-soft: #f0f9ff;
+    --radius: 12px;
+    --mono: "Cascadia Mono", Consolas, "SF Mono", Menlo, monospace;
+    --sans: "Segoe UI", Inter, system-ui, -apple-system, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--canvas);
+    color: var(--ink);
+    font-family: var(--sans);
+    font-size: 15px;
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 1120px; margin: 0 auto; padding: 40px 28px 80px; }
+  header.hero {
+    background: linear-gradient(135deg, #0b1220 0%, #14243d 55%, #1d3557 100%);
+    color: #e8eefc;
+    border-radius: 18px;
+    padding: 38px 38px 30px;
+    box-shadow: 0 20px 48px rgba(15, 23, 42, 0.22);
+    position: relative;
+    overflow: hidden;
+  }
+  header.hero::after {
+    content: "";
+    position: absolute;
+    right: -60px; top: -60px;
+    width: 260px; height: 260px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(96,165,250,0.35), transparent 65%);
+  }
+  .eyebrow {
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    font-size: 11px;
+    font-weight: 700;
+    color: #93c5fd;
+    margin: 0 0 10px;
+  }
+  h1 { margin: 0 0 10px; font-size: 34px; line-height: 1.15; letter-spacing: -0.02em; }
+  .lede { margin: 0; max-width: 720px; color: #c7d6ef; font-size: 15.5px; }
+  .meta-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 14px;
+    margin-top: 26px;
+    position: relative;
+    z-index: 1;
+  }
+  .meta-grid div {
+    background: rgba(255,255,255,0.07);
+    border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 10px;
+    padding: 10px 12px;
+  }
+  .meta-grid dt { font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.1em; color: #9fb3d1; margin: 0 0 3px; }
+  .meta-grid dd { margin: 0; font-weight: 600; font-size: 13px; color: #eef4ff; }
+
+  section { margin-top: 34px; }
+  h2 {
+    font-size: 13px;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--ink-3);
+    margin: 0 0 14px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  h2::after { content: ""; flex: 1; height: 1px; background: var(--line); }
+  h3 { margin: 0 0 8px; font-size: 16px; letter-spacing: -0.01em; }
+  p { margin: 0 0 12px; }
+  p.tight { margin-bottom: 6px; }
+  small { color: var(--ink-3); }
+
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    padding: 20px 22px;
+    box-shadow: 0 1px 2px rgba(15,23,42,0.04);
+  }
+  .grid-2 { display: grid; grid-template-columns: 1.15fr 0.85fr; gap: 18px; }
+  .grid-3 { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px; }
+  @media (max-width: 860px) { .grid-2, .grid-3 { grid-template-columns: 1fr; } }
+
+  .stat-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; }
+  .stat {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 14px 16px;
+  }
+  .stat b { display: block; font-size: 26px; line-height: 1.1; letter-spacing: -0.02em; }
+  .stat span { font-size: 11.5px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--ink-3); }
+
+  .badge {
+    display: inline-block;
+    font-size: 10.5px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    padding: 3px 8px;
+    border-radius: 999px;
+    border: 1px solid transparent;
+    white-space: nowrap;
+  }
+  .b-high { background: var(--bad-soft); color: var(--bad); border-color: #fecaca; }
+  .b-med { background: var(--warn-soft); color: var(--warn); border-color: #fde68a; }
+  .b-low { background: var(--info-soft); color: var(--info); border-color: #bae6fd; }
+  .b-fixed { background: var(--good-soft); color: var(--good); border-color: #a7f3d0; }
+  .b-open { background: #f8fafc; color: var(--ink-2); border-color: var(--line-2); }
+
+  table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+  thead th {
+    text-align: left;
+    font-size: 10.5px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--ink-3);
+    border-bottom: 1px solid var(--line-2);
+    padding: 8px 10px;
+    background: #f8fafc;
+  }
+  tbody td { padding: 9px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  tbody tr:last-child td { border-bottom: none; }
+  td.num { font-family: var(--mono); font-size: 12.5px; }
+  td.tok { font-family: var(--mono); font-size: 12px; color: var(--ink-2); }
+
+  .pass { color: var(--good); font-weight: 700; }
+  .fail { color: var(--bad); font-weight: 700; }
+
+  .themes { display: grid; grid-template-columns: repeat(auto-fit, minmax(228px, 1fr)); gap: 14px; }
+  .theme-card { border: 1px solid var(--line); border-radius: 12px; overflow: hidden; background: var(--surface); }
+  .theme-card .swatch-strip { display: flex; height: 44px; }
+  .theme-card .swatch-strip span { flex: 1; }
+  .theme-card .body { padding: 12px 14px; }
+  .theme-card .name { font-weight: 700; font-size: 14px; }
+  .theme-card .chips { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 8px; }
+  .chip {
+    display: inline-flex; align-items: center; gap: 5px;
+    font-family: var(--mono); font-size: 10.5px; color: var(--ink-2);
+    background: #f8fafc; border: 1px solid var(--line);
+    border-radius: 999px; padding: 2px 7px 2px 4px;
+  }
+  .chip i { width: 10px; height: 10px; border-radius: 50%; border: 1px solid rgba(15,23,42,0.15); display: inline-block; }
+
+  .finding { border: 1px solid var(--line); border-radius: 12px; padding: 16px 18px; background: var(--surface); }
+  .finding + .finding { margin-top: 12px; }
+  .finding .head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 6px; }
+  .finding .head strong { font-size: 14.5px; }
+  .finding p { margin: 0 0 8px; font-size: 13.5px; color: var(--ink-2); }
+  .finding .evidence {
+    font-family: var(--mono); font-size: 11.5px; color: var(--ink-2);
+    background: #f8fafc; border: 1px solid var(--line);
+    border-radius: 8px; padding: 8px 10px; overflow-x: auto; white-space: pre-wrap;
+  }
+  .fix { font-size: 12.5px; color: var(--good); font-weight: 600; margin-top: 8px; }
+
+  ul.clean { margin: 0; padding-left: 20px; }
+  ul.clean li { margin-bottom: 7px; }
+  code {
+    font-family: var(--mono);
+    font-size: 12px;
+    background: #f1f5f9;
+    border: 1px solid var(--line);
+    border-radius: 5px;
+    padding: 1px 5px;
+  }
+  .kv { display: grid; grid-template-columns: 190px 1fr; gap: 6px 14px; font-size: 13.5px; }
+  .kv dt { color: var(--ink-3); }
+  .kv dd { margin: 0; }
+
+  .bar-wrap { display: flex; align-items: center; gap: 8px; }
+  .bar {
+    height: 8px; border-radius: 999px; background: #e2e8f0; flex: 0 0 110px; overflow: hidden;
+  }
+  .bar > i { display: block; height: 100%; border-radius: 999px; }
+  .ok > i { background: #10b981; }
+  .no > i { background: #ef4444; }
+
+  .callout {
+    border-left: 3px solid var(--accent);
+    background: var(--accent-soft);
+    border-radius: 0 10px 10px 0;
+    padding: 14px 18px;
+    font-size: 13.5px;
+  }
+  .callout.warn { border-left-color: var(--warn); background: var(--warn-soft); }
+  .callout.good { border-left-color: var(--good); background: var(--good-soft); }
+  footer { margin-top: 44px; font-size: 12px; color: var(--ink-3); border-top: 1px solid var(--line); padding-top: 16px; }
+  .scroll { overflow-x: auto; }
+  .nowrap { white-space: nowrap; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="hero">
+  <p class="eyebrow">Audit · Application Themes</p>
+  <h1>Theme system review: seven palettes, one contract</h1>
+  <p class="lede">
+    A source-level audit of every application theme in the EOD Charting Platform:
+    token coverage, contrast, chart-palette parity, theme switching and persistence.
+    Twelve findings emerged. Seven were fixed in this change set with regression tests;
+    five remain documented with a recommended path.
+  </p>
+  <dl class="meta-grid">
+    <div><dt>Project</dt><dd>EOD Charting Platform</dd></div>
+    <div><dt>Date</dt><dd>2026-11-08</dd></div>
+    <div><dt>Themes audited</dt><dd>7 (3 light, 4 dark)</dd></div>
+    <div><dt>Files inspected</dt><dd>themeService, global.css, SettingsDialog, RootApp, 30 colour consumers</dd></div>
+    <div><dt>Validation</dt><dd>79 theme tests · typecheck · renderer build</dd></div>
+  </dl>
+</header>
+
+<section>
+  <h2>Verdict</h2>
+  <div class="grid-2">
+    <div class="card">
+      <h3>The architecture is sound; the colour contract had drifted.</h3>
+      <p>
+        Themes are implemented the right way: a single <code>data-theme</code> attribute on
+        <code>&lt;html&gt;</code>, a CSS custom-property layer for application chrome and a
+        separate, curated <code>ChartTheme</code> palette for the canvas renderer. All seven
+        themes define the complete token set, light and dark variants are genuinely distinct,
+        and the existing UX-12 contrast test already guarded normal text.
+      </p>
+      <p>
+        The weakness was not structure but <strong>discipline at the edges</strong>: semantic
+        colours were used as text without a text-safe variant, persisted chart colours from a
+        dark-only era silently overrode every theme's candle palette, one dialog shipped a
+        hard-coded navy palette, and nothing prevented the CSS palette and the chart palette
+        from drifting apart.
+      </p>
+      <div class="callout good">
+        <strong>Outcome:</strong> each theme now renders its own chart palette, semantic text
+        colours clear WCAG AA (4.5:1) on all four panel surfaces, the keyboard focus ring is an
+        explicit token in every theme, and the first paint no longer flashes the dark default
+        when the last session used a light theme.
+      </div>
+    </div>
+    <div class="card">
+      <h3>Scorecard</h3>
+      <div class="stat-row" style="grid-template-columns: 1fr 1fr;">
+        <div class="stat"><b>7 / 7</b><span>Themes with full token parity</span></div>
+        <div class="stat"><b>196 / 196</b><span>Text token × surface ratios ≥ 4.5:1</span></div>
+        <div class="stat"><b>7</b><span>Findings fixed in this change</span></div>
+        <div class="stat"><b>5</b><span>Open recommendations</span></div>
+      </div>
+      <p class="tight" style="margin-top:14px;">
+        <span class="badge b-fixed">Fixed</span> legacy candle override ·
+        dialog hard-coding · semantic text contrast · focus-ring coverage ·
+        palette parity guard · first-paint flash · palette mutation
+      </p>
+      <p class="tight">
+        <span class="badge b-open">Open</span> accent label contrast ·
+        sentinel-value heuristics · CSS↔chart drift · canvas marker colours ·
+        OS theme following
+      </p>
+    </div>
+  </div>
+</section>
+
+<section>
+  <h2>Theme inventory</h2>
+  <div class="themes">
+    <div class="theme-card">
+      <div class="swatch-strip"><span style="background:#070b10"></span><span style="background:#0d131a"></span><span style="background:#141b24"></span><span style="background:#1a2430"></span><span style="background:#3b82f6"></span></div>
+      <div class="body">
+        <div class="name">Midnight Slate Pro <small>· default</small></div>
+        <div class="chips"><span class="chip"><i style="background:#071019"></i>#071019</span><span class="chip"><i style="background:#3b82f6"></i>#3b82f6</span><span class="chip"><i style="background:#e6edf3"></i>#e6edf3</span></div>
+      </div>
+    </div>
+    <div class="theme-card">
+      <div class="swatch-strip"><span style="background:#000"></span><span style="background:#050505"></span><span style="background:#0a0a0a"></span><span style="background:#111"></span><span style="background:#38bdf8"></span></div>
+      <div class="body">
+        <div class="name">AMOLED Black</div>
+        <div class="chips"><span class="chip"><i style="background:#000"></i>#000000</span><span class="chip"><i style="background:#38bdf8"></i>#38bdf8</span><span class="chip"><i style="background:#f8fafc"></i>#f8fafc</span></div>
+      </div>
+    </div>
+    <div class="theme-card">
+      <div class="swatch-strip"><span style="background:#f3f4f6"></span><span style="background:#fff"></span><span style="background:#f9fafb"></span><span style="background:#eef2f7"></span><span style="background:#2563eb"></span></div>
+      <div class="body">
+        <div class="name">Classic Light</div>
+        <div class="chips"><span class="chip"><i style="background:#fff"></i>#ffffff</span><span class="chip"><i style="background:#2563eb"></i>#2563eb</span><span class="chip"><i style="background:#111827"></i>#111827</span></div>
+      </div>
+    </div>
+    <div class="theme-card">
+      <div class="swatch-strip"><span style="background:#f4f7fb"></span><span style="background:#fff"></span><span style="background:#fafcff"></span><span style="background:#eaf1f8"></span><span style="background:#2563eb"></span></div>
+      <div class="body">
+        <div class="name">Classic Light Refined</div>
+        <div class="chips"><span class="chip"><i style="background:#f4f7fb"></i>#f4f7fb</span><span class="chip"><i style="background:#2563eb"></i>#2563eb</span><span class="chip"><i style="background:#1e293b"></i>#1e293b</span></div>
+      </div>
+    </div>
+    <div class="theme-card">
+      <div class="swatch-strip"><span style="background:#f1f5f9"></span><span style="background:#fff"></span><span style="background:#f8fafc"></span><span style="background:#e2e8f0"></span><span style="background:#1d4ed8"></span></div>
+      <div class="body">
+        <div class="name">Deep Light</div>
+        <div class="chips"><span class="chip"><i style="background:#f1f5f9"></i>#f1f5f9</span><span class="chip"><i style="background:#1d4ed8"></i>#1d4ed8</span><span class="chip"><i style="background:#0f172a"></i>#0f172a</span></div>
+      </div>
+    </div>
+    <div class="theme-card">
+      <div class="swatch-strip"><span style="background:#080e18"></span><span style="background:#0f172a"></span><span style="background:#1e293b"></span><span style="background:#334155"></span><span style="background:#0284c7"></span></div>
+      <div class="body">
+        <div class="name">Eikon Dark Pro</div>
+        <div class="chips"><span class="chip"><i style="background:#080e18"></i>#080e18</span><span class="chip"><i style="background:#0284c7"></i>#0284c7</span><span class="chip"><i style="background:#f8fafc"></i>#f8fafc</span></div>
+      </div>
+    </div>
+    <div class="theme-card">
+      <div class="swatch-strip"><span style="background:#181a1f"></span><span style="background:#21252b"></span><span style="background:#2c313a"></span><span style="background:#3b4048"></span><span style="background:#61afef"></span></div>
+      <div class="body">
+        <div class="name">Charcoal Pro</div>
+        <div class="chips"><span class="chip"><i style="background:#181a1f"></i>#181a1f</span><span class="chip"><i style="background:#61afef"></i>#61afef</span><span class="chip"><i style="background:#abb2bf"></i>#abb2bf</span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <h2>How theming actually flows</h2>
+  <div class="card">
+    <dl class="kv">
+      <dt>Theme registry</dt><dd><code>src/features/app/themeService.ts</code> — <code>APP_THEME_IDS</code>, labels, <code>normalizeAppThemeId</code>, <code>applyAppTheme</code>, and the seven <code>CHART_THEMES</code> palettes used by the canvas.</dd>
+      <dt>Chrome tokens</dt><dd><code>src/styles/global.css</code> — <code>:root</code> (Midnight Slate Pro) plus one <code>[data-theme="…"]</code> block per theme, all consumed through CSS custom properties.</dd>
+      <dt>Selection UI</dt><dd><code>src/components/SettingsDialog.tsx</code> → General → Theme. Applies live and reverts on close-without-save. The dropdown is the only theme control; an experimental palette preview strip was removed as ambiguous.</dd>
+      <dt>Startup</dt><dd><code>src/RootApp.tsx</code> reads the application profile and applies the stored theme; <code>public/theme-boot.js</code> mirrors it before first paint.</dd>
+      <dt>Chart palette</dt><dd><code>src/components/ChartCanvas.tsx</code> calls <code>getChartTheme(currentTheme, customChartColors)</code>; custom chart colours come from the profile settings.</dd>
+      <dt>Guards</dt><dd><code>themeContrast.test.ts</code>, <code>classicLightRefined.test.ts</code>, <code>ChartTheme.test.ts</code> and the new <code>themeSystemAudit.test.ts</code>.</dd>
+    </dl>
+  </div>
+</section>
+
+<section>
+  <h2>Findings</h2>
+
+  <div class="finding">
+    <div class="head">
+      <span class="badge b-high">High</span>
+      <strong>F-01 · Persisted dark-era chart colours overrode every theme's candle palette</strong>
+      <span class="badge b-fixed">Fixed</span>
+    </div>
+    <p>
+      The profile defaults <code>candleUpColor = #26a69a</code> / <code>candleDownColor = #ef5350</code>
+      were written as if the user had chosen them, then merged over the theme palette on every
+      render. Selecting any light theme therefore produced the generic teal/red candle pair
+      instead of the curated light palette: <code>#26a69a</code> measures 2.72:1 on Classic Light's
+      <code>--bg2</code> (below the 3:1 non-text minimum), while the theme's own <code>#059669</code>
+      measures 3.77:1. Grid and crosshair were already special-cased against their legacy defaults;
+      candles were not.
+    </p>
+    <div class="evidence">src/features/app/themeService.ts · getChartTheme()
+candleUp  = filteredCustom.candleUp   // always #26a69a from DEFAULT_SETTINGS
+candleDown= filteredCustom.candleDown // always #ef5350 from DEFAULT_SETTINGS</div>
+    <div class="fix">Fix: legacy default values are now treated as “not customised” for candles, wicks and volume, exactly like the existing grid/crosshair handling. Real user picks still win.</div>
+  </div>
+
+  <div class="finding">
+    <div class="head">
+      <span class="badge b-high">High</span>
+      <strong>F-02 · Signal Triggers dialog shipped a hard-coded dark palette</strong>
+      <span class="badge b-fixed">Fixed</span>
+    </div>
+    <p>
+      <code>SignalSettingsDialog.tsx</code> defined its entire surface in literals
+      (<code>#121e2b</code> container, <code>#0e1726</code> footer, <code>#1a293b</code> rows and
+      inputs, <code>#f8fafc</code> text). In Classic Light, Deep Light and Classic Light Refined
+      the dialog stayed dark navy with near-white labels, breaking the theme completely.
+    </p>
+    <div class="evidence">19 hard-coded colours in one component · 0 CSS custom properties before the fix</div>
+    <div class="fix">Fix: every surface, border and label now resolves from <code>--bg2/--bg3/--control-bg/--border/--border2/--text/--text-dim/--text-mute/--accent/--red</code>.</div>
+  </div>
+
+  <div class="finding">
+    <div class="head">
+      <span class="badge b-high">High</span>
+      <strong>F-03 · Semantic colours were used as text without a text-safe variant</strong>
+      <span class="badge b-fixed">Fixed</span>
+    </div>
+    <p>
+      <code>--green</code>, <code>--red</code> and <code>--accent</code> are brand and fill colours,
+      but 63 sites used them for <em>text</em> (status lines, validation hints, section titles,
+      price changes). Several themes failed 4.5:1, worst on raised surfaces:
+    </p>
+    <div class="scroll">
+      <table>
+        <thead><tr><th>Theme</th><th>Token</th><th>Surface</th><th>Before</th><th>After</th></tr></thead>
+        <tbody>
+          <tr><td>Classic Light</td><td class="tok">--green</td><td class="tok">--bg</td><td class="num fail">3.42</td><td class="num pass">4.98</td></tr>
+          <tr><td>Classic Light Refined</td><td class="tok">--green</td><td class="tok">--bg</td><td class="num fail">3.51</td><td class="num pass">5.10</td></tr>
+          <tr><td>Deep Light</td><td class="tok">--green</td><td class="tok">--bg4</td><td class="num fail">4.45</td><td class="num pass">5.10</td></tr>
+          <tr><td>Eikon Dark Pro</td><td class="tok">--red</td><td class="tok">--bg3</td><td class="num fail">3.98</td><td class="num pass">7.40</td></tr>
+          <tr><td>Eikon Dark Pro</td><td class="tok">--red</td><td class="tok">--bg4</td><td class="num fail">2.82</td><td class="num pass">5.30</td></tr>
+          <tr><td>Eikon Dark Pro</td><td class="tok">--accent</td><td class="tok">--bg2</td><td class="num fail">4.36</td><td class="num pass">8.30</td></tr>
+          <tr><td>Charcoal Pro</td><td class="tok">--accent</td><td class="tok">--bg4</td><td class="num fail">4.41</td><td class="num pass">5.80</td></tr>
+          <tr><td>Midnight Slate Pro</td><td class="tok">--accent</td><td class="tok">--bg4</td><td class="num fail">4.26</td><td class="num pass">6.20</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="fix">Fix: new <code>--accent-text</code>, <code>--green-text</code> and <code>--red-text</code> tokens per theme, and all 63 <code>color: var(--accent|--green|--red)</code> call sites moved to the text-safe variants. Fills, borders and candle colours are unchanged, so theme identity is preserved.</div>
+  </div>
+
+  <div class="finding">
+    <div class="head">
+      <span class="badge b-med">Medium</span>
+      <strong>F-04 · Launching in a light theme flashed the dark default</strong>
+      <span class="badge b-fixed">Fixed</span>
+    </div>
+    <p>
+      The theme is stored in the Tauri application profile and read asynchronously, while
+      <code>index.html</code> painted a hard-coded <code>#0b0f16</code> body. Every launch of a
+      light theme therefore produced a dark flash before React applied the stored theme.
+    </p>
+    <div class="fix">Fix: <code>applyAppTheme</code> mirrors the applied theme into
+      <code>localStorage['eod.appTheme']</code>; a classic (non-inline, CSP-safe)
+      <code>public/theme-boot.js</code> applies it before the renderer bundle runs, and the
+      pre-CSS style block paints a theme-appropriate background.</div>
+  </div>
+
+  <div class="finding">
+    <div class="head">
+      <span class="badge b-med">Medium</span>
+      <strong>F-05 · Nothing prevented CSS tokens and chart palettes from drifting</strong>
+      <span class="badge b-fixed">Fixed (guarded)</span>
+    </div>
+    <p>
+      The same palette is expressed twice: CSS custom properties for DOM chrome and
+      <code>CHART_THEMES</code> for the canvas. The two already disagree on secondary values —
+      chart <code>borderColor</code> and <code>axisText</code> differ from <code>--border</code> and
+      <code>--text-dim</code> in five themes, and no test would have noticed a new theme missing
+      tokens entirely.
+    </p>
+    <div class="evidence">midnight-slate-pro  border #26313d vs chart #223247 · axis #9aa8b8 vs #9fb0c3
+amoled-black       axis #a7b2bf vs #94a3b8
+classic-light      border #d1d5db vs #e5e7eb · axis #4b5563 vs #475569
+refinitiv-dark     axis #a0afbf vs #94a3b8
+tos-charcoal       axis #a7b1bf vs #abb2bf</div>
+    <div class="fix">Fix: <code>themeSystemAudit.test.ts</code> now asserts token coverage, chart-background parity with <code>--chart-bg</code>, chart text/mark contrast and boot-script id parity. The remaining secondary drift is listed as R-03.</div>
+  </div>
+
+  <div class="finding">
+    <div class="head">
+      <span class="badge b-med">Medium</span>
+      <strong>F-06 · <code>getChartTheme</code> returned the shared palette object</strong>
+      <span class="badge b-fixed">Fixed</span>
+    </div>
+    <p>
+      With no custom colours the function returned the module-level <code>CHART_THEMES[id]</code>
+      instance. A single consumer mutating <code>theme.background</code> (or a renderer that
+      normalised a value in place) would silently corrupt that theme for the whole session.
+    </p>
+    <div class="fix">Fix: it now returns a copy; a regression test mutates the result and verifies the source palette is untouched.</div>
+  </div>
+
+  <div class="finding">
+    <div class="head">
+      <span class="badge b-low">Low</span>
+      <strong>F-07 · Only Eikon Dark Pro defined a focus-ring token</strong>
+      <span class="badge b-fixed">Fixed</span>
+    </div>
+    <p>
+      <code>button:focus-visible</code> falls back to <code>var(--accent)</code> when
+      <code>--focus-ring</code> is absent, so six themes relied on an implicit fallback. The ring
+      stayed visible, but the contract was accidental and untested except for the fallback.
+    </p>
+    <div class="fix">Fix: every theme now declares <code>--focus-ring</code>; a test asserts ≥ 3:1 against all four panel surfaces.</div>
+  </div>
+
+  <div class="finding">
+    <div class="head">
+      <span class="badge b-med">Medium</span>
+      <strong>F-08 · Accent-filled buttons keep a white label at 2.1–3.7:1</strong>
+      <span class="badge b-open">Open</span>
+    </div>
+    <p>
+      Primary buttons use <code>background: var(--accent); color: #ffffff</code>. On AMOLED
+      (<code>#38bdf8</code>) that is 2.14:1, on Charcoal (<code>#61afef</code>) 2.36:1, on Midnight
+      (<code>#3b82f6</code>) 3.68:1 and on Eikon (<code>#0284c7</code>) 4.10:1 — all below 4.5:1 for
+      the 12–13 px labels used.
+    </p>
+    <div class="fix" style="color:var(--warn)">Recommended: add <code>--accent-contrast</code> per theme (dark ink on light accents, white on dark accents) and use it for filled-button labels. This is a visual change to every primary button, so it was left for explicit approval.</div>
+  </div>
+
+  <div class="finding">
+    <div class="head">
+      <span class="badge b-med">Medium</span>
+      <strong>F-09 · Sentinel-value heuristics can discard legitimate user choices</strong>
+      <span class="badge b-open">Open</span>
+    </div>
+    <p>
+      Detecting “not customised” by comparing the stored value with the legacy default is
+      pragmatic and backward compatible, but a user who deliberately picks
+      <code>#26a69a</code>, <code>#1e2a3a</code> or <code>#60a5fa</code> is silently ignored.
+    </p>
+    <div class="fix" style="color:var(--warn)">Recommended: persist an explicit
+      <code>chartColorsCustomized</code> flag (or <code>null</code> for untouched colours) in the
+      application profile, then delete the sentinel table.</div>
+  </div>
+
+  <div class="finding">
+    <div class="head">
+      <span class="badge b-low">Low</span>
+      <strong>F-10 · Canvas annotation colours are theme-blind</strong>
+      <span class="badge b-open">Open</span>
+    </div>
+    <p>
+      Pattern and scanner markers use fixed hues (<code>#f0c34e</code> neutral, <code>#20d18b</code>
+      bullish, <code>#ff5757</code> bearish) from <code>ChartCanvas.tsx</code> and
+      <code>Toolbar.tsx</code>. On a white chart background <code>#f0c34e</code> reaches only
+      1.95:1 and <code>#20d18b</code> 2.31:1, so neutral/bullish markers are hard to see in light themes.
+    </p>
+    <div class="fix" style="color:var(--warn)">Recommended: resolve marker colours through the chart theme (e.g. <code>theme.candleUp/candleDown</code> plus a themed neutral) instead of literals.</div>
+  </div>
+
+  <div class="finding">
+    <div class="head">
+      <span class="badge b-low">Low</span>
+      <strong>F-11 · No “follow system” theme and no per-chart override</strong>
+      <span class="badge b-open">Open</span>
+    </div>
+    <p>
+      The theme is a single global application setting. There is no
+      <code>prefers-color-scheme</code> option, and multi-chart layouts cannot mix a light overview
+      with a dark trading chart.
+    </p>
+    <div class="fix" style="color:var(--warn)">Recommended: add a <code>system</code> pseudo-theme that maps to a light/dark id at runtime (and listens to <code>matchMedia</code>), then consider a per-tab theme override in the tab context menu.</div>
+  </div>
+
+  <div class="finding">
+    <div class="head">
+      <span class="badge b-low">Low</span>
+      <strong>F-12 · Residual hard-coded UI colours</strong>
+      <span class="badge b-open">Open</span>
+    </div>
+    <p>
+      After the Signal Triggers fix, 14 literal UI colours remain in <code>src/components</code>
+      (mostly deliberate signal/status accents such as <code>#f59e0b</code> for “default template”
+      and <code>#ffb7b7</code> in the DNN prediction panel error box). Each is a small light-theme
+      legibility risk rather than a structural defect.
+    </p>
+    <div class="fix" style="color:var(--warn)">Recommended: introduce <code>--warning-text</code> and route these through tokens opportunistically.</div>
+  </div>
+</section>
+
+<section>
+  <h2>Measured contrast — after the fix</h2>
+  <p><small>WCAG 2.1 relative-luminance ratio against each theme's panel surfaces. Minimum across <code>--bg</code>, <code>--bg2</code>, <code>--bg3</code>, <code>--bg4</code>. Minimum accepted for body text is 4.5:1.</small></p>
+  <div class="card scroll">
+    <table>
+      <thead>
+        <tr>
+          <th>Theme</th>
+          <th>--text</th>
+          <th>--text-dim</th>
+          <th>--text-mute</th>
+          <th>--legend-muted</th>
+          <th>--accent-text</th>
+          <th>--green-text</th>
+          <th>--red-text</th>
+          <th>Focus ring</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td>Midnight Slate Pro</td><td class="num pass">13.3</td><td class="num pass">6.5</td><td class="num pass">4.7</td><td class="num pass">5.3</td><td class="num pass">6.2</td><td class="num pass">9.0</td><td class="num pass">5.7</td><td class="num pass">6.2</td></tr>
+        <tr><td>AMOLED Black</td><td class="num pass">18.0</td><td class="num pass">8.8</td><td class="num pass">4.7</td><td class="num pass">7.4</td><td class="num pass">8.8</td><td class="num pass">10.8</td><td class="num pass">7.0</td><td class="num pass">8.8</td></tr>
+        <tr><td>Classic Light</td><td class="num pass">15.8</td><td class="num pass">6.7</td><td class="num pass">4.9</td><td class="num pass">4.9</td><td class="num pass">4.6</td><td class="num pass">4.9</td><td class="num pass">5.8</td><td class="num pass">4.6</td></tr>
+        <tr><td>Classic Light Refined</td><td class="num pass">12.8</td><td class="num pass">6.7</td><td class="num pass">5.0</td><td class="num pass">4.8</td><td class="num pass">4.5</td><td class="num pass">4.8</td><td class="num pass">5.7</td><td class="num pass">4.5</td></tr>
+        <tr><td>Deep Light</td><td class="num pass">14.5</td><td class="num pass">8.4</td><td class="num pass">4.9</td><td class="num pass">6.1</td><td class="num pass">5.4</td><td class="num pass">5.1</td><td class="num pass">5.2</td><td class="num pass">5.4</td></tr>
+        <tr><td>Eikon Dark Pro</td><td class="num pass">9.9</td><td class="num pass">4.6</td><td class="num pass">5.0</td><td class="num pass">4.6</td><td class="num pass">4.8</td><td class="num pass">5.4</td><td class="num pass">5.3</td><td class="num pass">4.8</td></tr>
+        <tr><td>Charcoal Pro</td><td class="num pass">4.9</td><td class="num pass">4.8</td><td class="num pass">4.7</td><td class="num pass">4.7</td><td class="num pass">5.8</td><td class="num pass">6.7</td><td class="num pass">5.3</td><td class="num pass">4.4</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p style="margin-top:10px"><small>Focus ring only needs 3:1 (non-text); every value clears it with margin.</small></p>
+</section>
+
+<section>
+  <h2>Chart palette integrity</h2>
+  <div class="grid-2">
+    <div class="card">
+      <h3>Canvas contrast</h3>
+      <table>
+        <thead><tr><th>Theme</th><th>Axis text</th><th>Crosshair</th><th>Candles</th></tr></thead>
+        <tbody>
+          <tr><td>Midnight Slate Pro</td><td class="num pass">8.63</td><td class="num pass">7.53</td><td class="num pass">5.09+</td></tr>
+          <tr><td>AMOLED Black</td><td class="num pass">8.19</td><td class="num pass">9.80</td><td class="num pass">6.43+</td></tr>
+          <tr><td>Classic Light</td><td class="num pass">7.58</td><td class="num pass">5.17</td><td class="num pass">3.77+</td></tr>
+          <tr><td>Classic Light Refined</td><td class="num pass">7.58</td><td class="num pass">5.17</td><td class="num pass">3.77+</td></tr>
+          <tr><td>Deep Light</td><td class="num pass">9.90</td><td class="num pass">6.41</td><td class="num pass">5.24+</td></tr>
+          <tr><td>Eikon Dark Pro</td><td class="num pass">7.54</td><td class="num pass">4.72</td><td class="num pass">5.26+</td></tr>
+          <tr><td>Charcoal Pro</td><td class="num pass">8.17</td><td class="num pass">7.37</td><td class="num pass">4.99+</td></tr>
+        </tbody>
+      </table>
+      <p style="margin-top:10px"><small>Axis text ≥ 4.5:1; crosshair and candle bodies measured against 3:1 (non-text UI).</small></p>
+    </div>
+    <div class="card">
+      <h3>What was verified for every theme</h3>
+      <ul class="clean">
+        <li>A CSS block exists for every <code>APP_THEME_IDS</code> entry (default maps to <code>:root</code>).</li>
+        <li>23 required tokens are present — including the five new text/focus tokens.</li>
+        <li>Chart background equals <code>--chart-bg</code>, so the canvas never sits on a mismatched chrome colour.</li>
+        <li>Candle, wick and crosshair marks stay visible on their own chart background.</li>
+        <li><code>public/theme-boot.js</code> lists exactly the same theme ids and storage key as the renderer.</li>
+      </ul>
+      <div class="callout" style="margin-top:12px">
+        The classic-light chart palette is intentionally identical to Classic Light Refined;
+        the refined variant differs only in chrome tokens. That contract is locked by
+        <code>classicLightRefined.test.ts</code>.
+      </div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <h2>Changes implemented</h2>
+  <div class="card scroll">
+    <table>
+      <thead><tr><th>File</th><th>Change</th></tr></thead>
+      <tbody>
+        <tr><td class="tok">src/features/app/themeService.ts</td><td>Legacy-default detection for candle colours, copy-on-read palettes, <code>APP_THEME_STORAGE_KEY</code>, <code>readPersistedAppTheme</code>, persistence inside <code>applyAppTheme</code>, normalisation of applied ids.</td></tr>
+        <tr><td class="tok">src/styles/global.css</td><td>Added <code>--accent-text</code>, <code>--green-text</code>, <code>--red-text</code>, <code>--focus-ring</code> to all seven themes with AA-checked values.</td></tr>
+        <tr><td class="tok">src/components/SignalSettingsDialog.tsx</td><td>Replaced 19 hard-coded colours with theme tokens (surfaces, borders, inputs, labels, buttons).</td></tr>
+        <tr><td class="tok">src/components/SettingsDialog.tsx</td><td>Theme selection applies live and reverts on close without saving; the short-lived palette preview strip was removed.</td></tr>
+        <tr><td class="tok">index.html · public/theme-boot.js</td><td>Pre-paint theme bootstrap and theme-aware pre-CSS background (CSP-safe classic script, no inline JS).</td></tr>
+        <tr><td class="tok">30 consumer files</td><td><code>color: var(--accent|--green|--red)</code> → text-safe token variants (63 call sites). Fills and borders unchanged.</td></tr>
+        <tr><td class="tok">src/features/app/__tests__/themeSystemAudit.test.ts</td><td>New 42-assertion suite: token parity, contrast, focus ring, chart palette, boot-script parity, persistence, legacy-colour fallback, mutation safety.</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section>
+  <h2>Validation</h2>
+  <div class="card">
+    <div class="scroll">
+      <table>
+        <thead><tr><th>Check</th><th>Command</th><th>Result</th></tr></thead>
+        <tbody>
+          <tr><td>Theme + component tests</td><td class="tok">npx vitest run --exclude "tmp/**" src/features/app src/components/__tests__ src/engine/__tests__/ChartTheme.test.ts</td><td class="pass">PASS · 26 files, 166 tests</td></tr>
+          <tr><td>Renderer typecheck</td><td class="tok">npm run typecheck:renderer</td><td class="pass">PASS</td></tr>
+          <tr><td>Renderer bundle (scratch outDir)</td><td class="tok">npx vite build --outDir tmp/theme-audit/dist</td><td class="pass">PASS · 7.4 s</td></tr>
+          <tr><td>Built asset wiring</td><td class="tok">grep theme-boot tmp/theme-audit/dist/index.html</td><td class="pass">PASS · rewritten to ./theme-boot.js and copied</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p style="margin-top:12px"><small>No Rust/Tauri compilation was required — the change set is renderer-only. A portable rebuild is needed for the runtime theme changes to appear in the packaged app.</small></p>
+  </div>
+</section>
+
+<section>
+  <h2>Recommendations, in order</h2>
+  <div class="card">
+    <ol class="clean" style="padding-left:22px">
+      <li><strong>R-01 (P1) · Theme the accent label.</strong> Add <code>--accent-contrast</code> and apply it to filled buttons — the last widespread AA gap (F-08).</li>
+      <li><strong>R-02 (P1) · Replace sentinel heuristics with explicit state.</strong> Persist a customised flag (or nullable colours) so deliberate choices are never overridden (F-09).</li>
+      <li><strong>R-03 (P2) · Single source for palette data.</strong> Generate the CSS token blocks and <code>CHART_THEMES</code> from one definition file, eliminating the secondary border/axis drift and the need for manual parity tests (F-05).</li>
+      <li><strong>R-04 (P2) · Theme the canvas annotations.</strong> Route pattern/scanner marker colours through the chart theme (F-10) and audit the remaining 14 literal UI colours (F-12).</li>
+      <li><strong>R-05 (P3) · Follow the operating system.</strong> Add a <code>system</code> option with <code>matchMedia('(prefers-color-scheme: dark)')</code>, defaulting new profiles to it (F-11).</li>
+    </ol>
+    <div class="callout warn" style="margin-top:14px">
+      <strong>Residual risk.</strong> Two behaviours are visual rather than logical and are only
+      covered by tests, not by a manual pass: the new text tones in Eikon/Charcoal (lighter
+      red/green) and the theme-aware pre-paint background. A quick visual sweep of
+      Settings → General, Signal Triggers, Bhavcopy status text and the chart legend in each
+      theme is the recommended acceptance step.
+    </div>
+  </div>
+</section>
+
+<footer>
+  Audit produced from the live checkout on 2026-11-08. Contrast figures are computed with the
+  WCAG 2.1 relative-luminance formula directly from the shipped token values (hex and
+  alpha-composited <code>rgba</code>), not from sampled screenshots. Pre-edit copies of every
+  touched file are in <code>backups/pre_opencode_changes_20261108_114214_theme_audit</code>.
+</footer>
+
+</div>
+</body>
+</html>

@@ -1,0 +1,10 @@
+{
+  "source": "User test-run parsed-input audit, 2014-11-01 through 2014-11-30; not a fresh database scan or a claim about the chart date gap.",
+  "auditSha256": "17dd2d8444e62c50b88e20b4c05848c396c221e78d74cde733701bb9ced6e61a",
+  "rows": 86,
+  "csvSha256": "aa9c4d72ec2ee2e34f3138a8c3678405cdc19c0c4f5802dedd142c3ddade5ae5",
+  "oldConflictRows": 82,
+  "oldUnqualifiedITRows": 4,
+  "expectedDailyRows": 45,
+  "expectedAuxiliaryRows": 41
+}

@@ -5109,7 +5109,17 @@ mod identity_change_csv_compatibility_tests {
 
     #[test]
     fn captured_official_company_name_response_parses_all_2332_rows() {
-        let bytes = include_bytes!("fixtures/nse_namechange_20261028.csv");
+        // The retained capture is stored with LF in Git; a Windows checkout may
+        // convert it to CRLF. Hash and parse the canonical LF bytes.
+        let raw = include_bytes!("fixtures/nse_namechange_20261028.csv");
+        let mut canonical = Vec::with_capacity(raw.len());
+        for (index, byte) in raw.iter().enumerate() {
+            if *byte == b'\r' && raw.get(index + 1) == Some(&b'\n') {
+                continue;
+            }
+            canonical.push(*byte);
+        }
+        let bytes = canonical.as_slice();
         assert_eq!(sha256_hex_bytes(bytes), "ca456bf37b8d8e715708f1df04089fe09f7418275764d105351c5d9742cfac9f");
         let rows = load_name_change_rows_from_bytes(bytes, "retained official response").unwrap();
         assert_eq!(rows.len(), 2332);

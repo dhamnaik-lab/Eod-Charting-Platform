@@ -4,6 +4,7 @@ import { resolve } from 'path';
 export default defineConfig({
   test: {
     environment: 'node',
+    globalSetup: ['./scripts/vitest-theme-setup.mjs'],
     exclude: [
       ...configDefaults.exclude,
       '**/EOD Charting Platform Source Audit/**',
@@ -13,6 +14,8 @@ export default defineConfig({
       '**/resources/release/**',
       '**/src-tauri-shell/target/**',
       '**/test-output/**',
+      // Frozen audit probes describe historical defects, not current acceptance.
+      '**/docs/audits/**',
       '**/EOD DATABASE/**',
       '**/EOD Charting Platform/**',
       '**/EOD_Chart_*/**',

@@ -1,0 +1,30 @@
+[
+  {
+    "date": "20101112",
+    "archiveSha256": "4c99c0f2f9c50981410ef46687c93cdae585af1e1406c456fdf4392e3eb6f9eb",
+    "extractedCsvSha256": "647ea7ea44b7b2ea73ff336b1ed54fa5f318921e4b9f16f12ff42d5e9e87d13d",
+    "url": "https://nsearchives.nseindia.com/content/historical/EQUITIES/2010/NOV/cm12NOV2010bhav.csv.zip",
+    "rows": 3
+  },
+  {
+    "date": "20141119",
+    "archiveSha256": "266f0bd87c6e632752128b7ad9e085cf11e28abec41594fc28a26615cb0bef5b",
+    "extractedCsvSha256": "169bb8757b03e7b7d6dec2c1a5d1aa7d44491f6f1eba0bb1799c4c5ac5e2381d",
+    "url": "https://nsearchives.nseindia.com/content/historical/EQUITIES/2014/NOV/cm19NOV2014bhav.csv.zip",
+    "rows": 6
+  },
+  {
+    "date": "20141120",
+    "archiveSha256": "9eae29c950fe5c173eb79cf75858bd9ebefe2bec0f0aa54ba1621794fba62f47",
+    "extractedCsvSha256": "03d0fe778741c7f10c35fd220545364cdbc2083ccd8378ccf9c894ff83ec8d10",
+    "url": "https://nsearchives.nseindia.com/content/historical/EQUITIES/2014/NOV/cm20NOV2014bhav.csv.zip",
+    "rows": 6
+  },
+  {
+    "date": "20170920",
+    "archiveSha256": "bbc3ae96126b06e5b962453c212894852e64e7aed5c781ee1e634d973424e038",
+    "extractedCsvSha256": "f6ec7a0eaad4d9d96e324865f001e225bda675f52d9c8bfbee88bfc162a231ad",
+    "url": "https://nsearchives.nseindia.com/content/historical/EQUITIES/2017/SEP/cm20SEP2017bhav.csv.zip",
+    "rows": 3
+  }
+]

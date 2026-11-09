@@ -46,7 +46,9 @@ import {
   resolveHighContrastText,
   resolveMutedChartText,
   type TextResizeHandle,
+  type TextBoxBounds,
 } from './Renderer';
+import { layoutScannerLabelBoxes } from './ScannerLabelLayout';
 import { evaluateSignalRules } from './Signals';
 import { isDrawingVisibleOnTimeframe } from './DrawingStyleSchema';
 import { getEffectiveDrawingExtendRight } from './DrawingCapabilities';
@@ -258,6 +260,7 @@ export class ChartEngine {
   private overlays: OverlayIndicator[] = [];
   private chartEvents: ChartMarkerEvent[] = [];
   private drawings: ChartDrawing[] = [];
+  private scannerLabelBoxes = new Map<string, TextBoxBounds | null>();
   private selectedDrawingId: string | null = null;
   private drawingTool: DrawingTool = 'cursor';
   private symbol = '';
@@ -1088,6 +1091,7 @@ export class ChartEngine {
 
   private renderBase(): void {
     this.baseRenderCount += 1;
+    this.scannerLabelBoxes.clear();
     const rect = this.container.getBoundingClientRect();
     const width = rect.width;
     const height = rect.height;
@@ -1352,6 +1356,7 @@ export class ChartEngine {
         );
       }
     }
+    this.prepareScannerLabelBoxes(pricePane.id, scaleX, priceScaleY, layout.chartWidth, pricePane.plotHeight);
     this.drawings
       .filter((drawing) => this.shouldRenderDrawingInPane(drawing, pricePane.id))
       .forEach((drawing) => {
@@ -1504,6 +1509,7 @@ export class ChartEngine {
           line.colorValues,
         );
       });
+      this.prepareScannerLabelBoxes(context.id, scaleX, context.scaleY, layout.chartWidth, context.plotHeight);
       this.drawings
         .filter((drawing) => this.shouldRenderDrawingInPane(drawing, context.id))
         .forEach((drawing) => {
@@ -2249,7 +2255,8 @@ export class ChartEngine {
   }
 
   private shouldRenderDrawingInPane(drawing: ChartDrawing, paneId: ChartPaneId): boolean {
-    return drawing.kind !== 'vline' && this.getDrawingPaneId(drawing) === paneId && isDrawingVisibleOnTimeframe(drawing, this.timeframe);
+    return this.scannerLabelBoxes.get(drawing.id) !== null && drawing.kind !== 'vline' &&
+      this.getDrawingPaneId(drawing) === paneId && isDrawingVisibleOnTimeframe(drawing, this.timeframe);
   }
 
   private drawWatermark(ctx: CanvasRenderingContext2D, chartWidth: number, plotHeight: number): void {
@@ -2430,6 +2437,20 @@ export class ChartEngine {
   }
 
   private resolveDrawingForCurrentChart(drawing: ChartDrawing): ChartDrawing {
+    const resolved = this.resolveDrawingAnchorsForCurrentChart(drawing);
+    const box = this.scannerLabelBoxes.get(drawing.id);
+    return resolved.kind === 'text' && box ? { ...resolved, renderTextBox: box } : resolved;
+  }
+
+  private prepareScannerLabelBoxes(paneId: ChartPaneId, x: ScaleX, y: ScaleY, width: number, height: number): void {
+    const drawings = this.drawings.filter((drawing) => this.shouldRenderDrawingInPane(drawing, paneId))
+      .map((drawing) => this.resolveDrawingAnchorsForCurrentChart(drawing));
+    for (const [id, box] of layoutScannerLabelBoxes(this.baseCtx, drawings, x, y, width, height)) {
+      this.scannerLabelBoxes.set(id, box);
+    }
+  }
+
+  private resolveDrawingAnchorsForCurrentChart(drawing: ChartDrawing): ChartDrawing {
     if (this.chartType !== 'renko') {
       return drawing;
     }
@@ -3083,6 +3104,7 @@ export class ChartEngine {
     const tolerance = 8;
     for (let index = this.drawings.length - 1; index >= 0; index -= 1) {
       const drawing = this.drawings[index];
+      if (this.scannerLabelBoxes.get(drawing.id) === null) continue;
       if (!isDrawingVisibleOnTimeframe(drawing, this.timeframe)) {
         continue;
       }

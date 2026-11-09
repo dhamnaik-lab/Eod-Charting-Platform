@@ -177,6 +177,8 @@ export type {
   DnnResearchDatasetExportProgressEvent,
   DnnResearchDatasetExportResult,
   ImportOptions,
+  NiftyHistoryInput,
+  NiftyHistoryPreview,
   ImportResult,
   ImportBinaryDiagnostics,
   ManualImportRecoverySummary,
@@ -366,6 +368,8 @@ export type DesktopApi = Pick<
   | 'pickCsvFiles'
   | 'previewCsv'
   | 'importCsv'
+  | 'previewNiftyHistory'
+  | 'applyNiftyHistory'
   | 'getLatestManualImportRecovery'
   | 'listManualImportRecoveryHistory'
   | 'undoManualImportRecovery'

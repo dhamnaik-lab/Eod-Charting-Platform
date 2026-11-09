@@ -63,7 +63,7 @@ export function ChartDrawingContextMenu({
         title={locked ? 'Unlock the drawing before deleting it.' : undefined}
         style={{
           ...contextMenuButtonStyle,
-          color: 'var(--red)',
+          color: 'var(--red-text)',
           opacity: locked ? 0.45 : 1,
           cursor: locked ? 'not-allowed' : 'pointer',
         }}

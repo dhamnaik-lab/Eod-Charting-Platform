@@ -151,7 +151,15 @@ export function findMultiScalePivots(bars: EodBar[], scales: number[] = [3, 5, 1
 }
 
 export function findSwingPivots(bars: EodBar[], opts: SwingPivotOptions = {}): SwingPivot[] {
-  const { scales = [3, 5, 10, 20], minMovePct = 5, atrPeriod = 14, atrMultiplier = 2.5 } = opts;
+  const { scales = [3, 5, 10, 20], minMovePct = 4, atrPeriod = 14, atrMultiplier = 2 } = opts;
+  const scaleByKey = new Map<string, number>();
+  for (const strength of scales) {
+    for (const pivot of findLocalPivots(bars, strength)) {
+      const key = `${pivot.index}:${pivot.kind}`;
+      const prev = scaleByKey.get(key) ?? 0;
+      if (strength > prev) scaleByKey.set(key, strength);
+    }
+  }
   const candidates = findMultiScalePivots(bars, scales);
   if (candidates.length === 0) return [];
 
@@ -165,7 +173,7 @@ export function findSwingPivots(bars: EodBar[], opts: SwingPivotOptions = {}): S
       : (lastConfirmed?.price ?? candidate.price) * (minMovePct / 100);
 
     if (!lastConfirmed) {
-      confirmed.push({ ...candidate, scale: 0, magnitudePct: 0 });
+      confirmed.push({ ...candidate, scale: scaleByKey.get(`${candidate.index}:${candidate.kind}`) ?? 0, magnitudePct: 0 });
       lastConfirmed = candidate;
       continue;
     }
@@ -181,14 +189,14 @@ export function findSwingPivots(bars: EodBar[], opts: SwingPivotOptions = {}): S
         const revisedMove = Math.abs(candidate.price - (confirmed.length > 1 ? confirmed[confirmed.length - 2].price : candidate.price));
         const basePrice = confirmed.length > 1 ? confirmed[confirmed.length - 2].price : lastConfirmed.price;
         const mag = basePrice > 0 ? round((revisedMove / basePrice) * 100, 2) : 0;
-        confirmed[confirmed.length - 1] = { ...candidate, scale: 0, magnitudePct: mag };
+        confirmed[confirmed.length - 1] = { ...candidate, scale: scaleByKey.get(`${candidate.index}:${candidate.kind}`) ?? 0, magnitudePct: mag };
         lastConfirmed = candidate;
       }
       continue;
     }
 
     const mag = lastConfirmed.price > 0 ? round((move / lastConfirmed.price) * 100, 2) : 0;
-    confirmed.push({ ...candidate, scale: 0, magnitudePct: mag });
+    confirmed.push({ ...candidate, scale: scaleByKey.get(`${candidate.index}:${candidate.kind}`) ?? 0, magnitudePct: mag });
     lastConfirmed = candidate;
   }
 

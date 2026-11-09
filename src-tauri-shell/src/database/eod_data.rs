@@ -7,6 +7,7 @@ use super::binary_eod::{date_to_u32, u32_to_date, BinaryEodFile, EodRecord};
 use super::connection_registry::{resolve_active_database_folder, with_connection_for_folder};
 use super::index_aliases::nse_index_alias_family;
 mod index_alias_history;
+mod bse_code_history;
 use index_alias_history::{
     augment_index_alias_context, guard_index_previous_close, resolve_index_alias_context,
     validate_index_alias_rows,
@@ -498,6 +499,7 @@ pub(super) fn resolve_instrument_context(
                 .as_deref()
                 == Some(requested_symbol),
     };
+    let context = bse_code_history::augment_bse_code_context(connection, context)?;
     Ok(Some(augment_index_alias_context(connection, context)?))
 }
 
@@ -665,6 +667,11 @@ pub(super) fn load_unified_price_rows_with_mode(
             .join(format!("{}.eod", symbol));
         if bin_path.exists() {
             let bin_file = BinaryEodFile::open(&bin_path)?;
+            if context.exchange == "BSE" && bse_code_history::is_security_code(symbol)
+                && (bin_file.header.symbol != *symbol || bin_file.header.exchange != "BSE" || bin_file.header.price_scale == 0)
+            {
+                return Err(format!("BSE security-code file identity/scale mismatch: {symbol}"));
+            }
             let records = bin_file.read_range(from_u32, to_u32)?;
             for r in records {
                 raw_rows.push(eod_record_to_price_row(
@@ -728,6 +735,7 @@ pub(super) fn load_unified_price_rows_with_mode(
         .into_iter()
         .map(|(date, rows)| {
             validate_index_alias_rows(&date, &rows, context)?;
+            bse_code_history::validate_bse_code_rows(&date, &rows, context)?;
             Ok(select_preferred_price_row(&date, &rows, context))
         })
         .collect::<AppResult<Vec<_>>>()?

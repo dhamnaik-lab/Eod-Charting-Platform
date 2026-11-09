@@ -50,7 +50,7 @@ export const headerRightStyle: CSSProperties = {
 
 export const savedBadgeStyle: CSSProperties = {
   fontSize: 11,
-  color: 'var(--green)',
+  color: 'var(--green-text)',
   backgroundColor: 'var(--accent-faint)',
   padding: '2px 8px',
   borderRadius: 4,
@@ -557,7 +557,7 @@ export const statValueStyle: CSSProperties = {
 };
 
 export const statSuccessValueStyle: CSSProperties = {
-  color: 'var(--green)',
+  color: 'var(--green-text)',
 };
 
 export const statSkippedValueStyle: CSSProperties = {
@@ -565,7 +565,7 @@ export const statSkippedValueStyle: CSSProperties = {
 };
 
 export const statFailedValueStyle: CSSProperties = {
-  color: 'var(--red)',
+  color: 'var(--red-text)',
 };
 
 export const statLabelStyle: CSSProperties = {
@@ -575,7 +575,7 @@ export const statLabelStyle: CSSProperties = {
 };
 
 export const logEntryErrorStyle: CSSProperties = {
-  color: 'var(--red)',
+  color: 'var(--red-text)',
 };
 
 export const logEntryWarningStyle: CSSProperties = {
@@ -598,19 +598,19 @@ export const statusBadgeStyle: CSSProperties = {
 export const statusBadgeRunningStyle: CSSProperties = {
   backgroundColor: 'var(--accent-faint)',
   borderColor: 'var(--accent-soft)',
-  color: 'var(--accent)',
+  color: 'var(--accent-text)',
 };
 
 export const statusBadgeSuccessStyle: CSSProperties = {
   backgroundColor: 'var(--accent-faint)',
   borderColor: 'var(--accent-soft)',
-  color: 'var(--green)',
+  color: 'var(--green-text)',
 };
 
 export const statusBadgeErrorStyle: CSSProperties = {
   backgroundColor: 'var(--accent-faint)',
   borderColor: 'var(--accent-soft)',
-  color: 'var(--red)',
+  color: 'var(--red-text)',
 };
 
 export const statusDotStyle: CSSProperties = {
@@ -636,7 +636,7 @@ export const resetButtonStyle: CSSProperties = {
   marginTop: 4,
   padding: '6px 10px',
   fontSize: 11,
-  color: 'var(--red)',
+  color: 'var(--red-text)',
   backgroundColor: 'var(--control-bg)',
   border: '1px solid var(--red)',
   borderRadius: 4,

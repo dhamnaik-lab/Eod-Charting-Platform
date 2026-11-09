@@ -19,7 +19,7 @@ use crate::database::{
     get_price_storage_mode, prepare_database_connection, PriceStorageMode,
 };
 use crate::runtime::log_runtime_event;
-use rusqlite::{params, Connection, OptionalExtension};
+use rusqlite::{params, Connection, OpenFlags, OptionalExtension};
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::fs;
 use std::io::{Read, Seek, SeekFrom};
@@ -703,12 +703,12 @@ pub(crate) fn import_staged_download(
                 }
             }
             let result = DownloadResult {
-                success: true,
+                success: parsed.admission.conflicted == 0,
                 trade_date: staged.task.trade_date,
                 exchange: staged.task.exchange,
                 rows_inserted: parsed.rows_inserted,
                 max_volume: parsed.max_volume,
-                message: format!("Imported staged {} records", parsed.rows_inserted),
+                message: parsed.admission.describe_result(format!("Imported staged {} records", parsed.rows_inserted)),
             };
             if should_write_download_log(&result) {
                 let _write_guard = lock_bhavcopy_write(write_lock)?;
@@ -1311,6 +1311,7 @@ pub(crate) fn checkpoint_pending_buffered_sessions_background(
             continue;
         }
 
+        super::security_admission::require_replay_safe(database_file_path, &parsed_files_from_recovery_session(&session)?)?;
         let mut handle = handle_from_loaded(&session);
         let resumed_from_state = format!("{:?}", session.manifest.state);
         let buffered_append_files = session
@@ -1449,6 +1450,7 @@ pub(crate) fn recover_pending_bhavcopy_sessions(
             ));
         }
 
+        super::security_admission::require_replay_safe(database_file_path, &parsed_files_from_recovery_session(&session)?)?;
         let mut handle = handle_from_loaded(&session);
         let has_buffered_append_baselines = session
             .manifest
@@ -1600,6 +1602,7 @@ pub(crate) fn recover_pending_bhavcopy_sessions(
         update_session_state(&mut handle, RecoverySessionState::Applying, None)?;
         let mut parsed_files = parsed_files_from_recovery_session(&session)?;
         let recovery_result = (|| -> AppResult<()> {
+            super::security_admission::require_replay_safe(database_file_path, &parsed_files)?;
             restore_buffered_binary_baselines(
                 database_folder,
                 &session.manifest.binary_baselines,
@@ -1741,6 +1744,24 @@ pub(super) fn import_staged_csv_downloads(
 
     let parse_ms = parse_started.elapsed().as_millis();
 
+    let security_admission = super::security_admission::admit(database_file_path, &parsed_files)?;
+    let mut security_reports = HashMap::<_, super::security_admission::AdmissionReport>::new();
+    for (file, report) in parsed_files.iter().zip(&security_admission.reports) {
+        let combined = security_reports.entry((file.exchange.clone(), file.trade_date.clone())).or_default();
+        combined.separated += report.separated;
+        combined.market_rows += report.market_rows;
+        combined.conflicted += report.conflicted;
+        combined.duplicates += report.duplicates;
+        if report.evidence.is_some() { combined.evidence = report.evidence.clone(); }
+    }
+    parsed_files = super::security_admission::filter_files(&parsed_files, &security_admission);
+    parsed_files.retain(|file| {
+        if !file.rows.is_empty() || file.exchange != "NSE" { return true; }
+        let report = &security_reports[&(file.exchange.clone(), file.trade_date.clone())];
+        results.push(DownloadResult { success:report.conflicted == 0, exchange:file.exchange.clone(),trade_date:file.trade_date.clone(),rows_inserted:0,max_volume:0,
+            message:report.describe_result("No admitted daily security rows".into()) });
+        false
+    });
     let index_outcomes = super::index_fallback::guard_additive(database_file_path, &mut parsed_files)?;
     if !index_outcomes.is_empty() {
         let evidence = serde_json::to_vec_pretty(&serde_json::json!({
@@ -2044,7 +2065,11 @@ pub(super) fn import_staged_csv_downloads(
                         parsed_result.rows_inserted
                     )
                 };
-                let mut success = true;
+                let security_report = security_reports.get(&(parsed.exchange.clone(), parsed.trade_date.clone()));
+                let mut success = security_report.map_or(true, |report| report.conflicted == 0);
+                if let Some(report) = security_report {
+                    message = report.describe_result(message);
+                }
                 if let Some(outcome) = index_outcomes.get(&parsed.trade_date).filter(|_| parsed.exchange == "NSE_INDEX") {
                     success = outcome.conflicts == 0 && outcome.invalid == 0;
                     message = format!("NSE index subset: inserted {}, identical existing {}, conflicting existing {}, invalid {}; other indices/dates may remain unresolved. {}",
@@ -2060,11 +2085,7 @@ pub(super) fn import_staged_csv_downloads(
                 };
                 let log_result = DownloadResult {
                     rows_inserted: parsed.rows.len(),
-                    message: format!(
-                        "Imported symbol-batched staged {} records; parsed {} rows",
-                        parsed_result.rows_inserted,
-                        parsed.rows.len()
-                    ),
+                    message: result.message.clone(),
                     ..result.clone()
                 };
                 if should_write_download_log(&log_result) {
@@ -2220,6 +2241,7 @@ pub(crate) fn parse_and_insert(
     let parsed = parse_bhavcopy_csv(csv_content, exchange, trade_date, excluded_series)?;
     if let Some(debug) = parsed.debug.clone() {
         return Ok(ParseInsertResult {
+            admission: Default::default(),
             rows_inserted: 0,
             max_volume: 0,
             debug: Some(debug),
@@ -2265,6 +2287,7 @@ pub(crate) fn insert_parsed_bhavcopy_files_with_durability_and_recovery_baseline
     let storage_mode = get_price_storage_mode(&connection);
     let binary_only = storage_mode == PriceStorageMode::Binary;
     let parsed_jobs = parsed_files.len();
+    let admission = super::security_admission::admit(database_file_path, parsed_files)?;
     let parsed_rows = parsed_files
         .iter()
         .map(|parsed| parsed.rows.len())
@@ -2273,9 +2296,11 @@ pub(crate) fn insert_parsed_bhavcopy_files_with_durability_and_recovery_baseline
         find_duplicate_symbol_date_rows(parsed_files);
     let mut results = parsed_files
         .iter()
-        .map(|parsed| ParseInsertResult {
+        .enumerate()
+        .map(|(i, parsed)| ParseInsertResult {
+            admission: admission.reports[i].clone(),
             rows_inserted: 0,
-            max_volume: parsed.max_volume,
+            max_volume: parsed.rows.iter().zip(&admission.masks[i]).filter(|(_,keep)| **keep).map(|(row,_)| row.volume.max(0) as u64).max().unwrap_or(0),
             debug: None,
         })
         .collect::<Vec<_>>();
@@ -2310,7 +2335,7 @@ pub(crate) fn insert_parsed_bhavcopy_files_with_durability_and_recovery_baseline
                 isin = CASE
                   WHEN excluded.isin IS NOT NULL AND excluded.isin <> ''
                     AND (
-                      instruments.exchange <> 'BSE'
+                      instruments.exchange NOT IN ('BSE', 'NSE')
                       OR instruments.series_as_of_date IS NULL
                       OR excluded.series_as_of_date >= instruments.series_as_of_date
                     )
@@ -2341,7 +2366,8 @@ pub(crate) fn insert_parsed_bhavcopy_files_with_durability_and_recovery_baseline
         .map_err(|error| error.to_string())?;
 
     for (file_index, parsed) in parsed_files.iter().enumerate() {
-        for row in &parsed.rows {
+        for (row_index, row) in parsed.rows.iter().enumerate() {
+            if !admission.masks[file_index][row_index] { continue; }
             insert_instrument
                 .execute(params![
                     &row.symbol,
@@ -2671,10 +2697,88 @@ pub(crate) fn storage_mode_has_imported_rows_for_date(
 ) -> AppResult<bool> {
     match get_price_storage_mode(connection) {
         PriceStorageMode::Binary => {
-            metadata_has_imported_rows_for_date(connection, trade_date, exchange)
+            binary_store_has_imported_rows_for_date(connection, trade_date, exchange)
         }
         PriceStorageMode::Hybrid => has_imported_rows_for_date(connection, trade_date, exchange),
     }
+}
+
+/// Binary-mode coverage question: does the binary store itself hold rows for
+/// this exchange/date? Answered from the `eod_binary_state` sidecar index
+/// (first/last bounds select candidates; actual records prove membership),
+/// never from `download_log`, whose 2018-2024 gap must not
+/// gate coverage. `download_log` stays authoritative only for notes/status.
+/// When the sidecar index is unavailable (legacy database), the download_log
+/// contract is the conservative fallback.
+pub(crate) fn binary_store_has_imported_rows_for_date(
+    connection: &Connection,
+    trade_date: &str,
+    exchange: &str,
+) -> AppResult<bool> {
+    let Some(database_folder) = connection_database_folder(connection)? else {
+        return metadata_has_imported_rows_for_date(connection, trade_date, exchange);
+    };
+    match binary_index_covers_date(&database_folder, exchange, trade_date) {
+        Ok(covered) => Ok(covered),
+        Err(_) => metadata_has_imported_rows_for_date(connection, trade_date, exchange),
+    }
+}
+
+fn binary_index_covers_date(
+    database_folder: &Path,
+    exchange: &str,
+    trade_date: &str,
+) -> AppResult<bool> {
+    let sidecar_path = database_folder.join("eod_binary_state.sqlite");
+    if !sidecar_path.is_file() {
+        return Err(format!(
+            "EOD binary state sidecar not found: {}",
+            sidecar_path.display()
+        ));
+    }
+    let index = Connection::open_with_flags(&sidecar_path, OpenFlags::SQLITE_OPEN_READ_ONLY)
+        .map_err(|error| error.to_string())?;
+    let date = date_to_u32(trade_date);
+    let mut statement = index
+        .prepare(
+            "
+              SELECT symbol
+              FROM eod_binary_state
+              WHERE exchange = ?
+                AND record_count > 0
+                AND first_date IS NOT NULL
+                AND last_date IS NOT NULL
+                AND first_date <= ?
+                AND last_date >= ?
+            ",
+        )
+        .map_err(|error| error.to_string())?;
+    let symbols = statement
+        .query_map(params![exchange, date, date], |row| row.get::<_, String>(0))
+        .map_err(|error| error.to_string())?;
+    for symbol in symbols {
+        let symbol = symbol.map_err(|error| error.to_string())?;
+        if symbol.contains(['/', '\\']) || symbol == "." || symbol == ".." {
+            return Ok(false);
+        }
+        let path = database_folder
+            .join("eod_data")
+            .join(exchange)
+            .join(format!("{symbol}.eod"));
+        // A stale index or a missing/corrupt file cannot justify skipping a download.
+        let Ok(binary) = BinaryEodFile::open(&path) else {
+            return Ok(false);
+        };
+        if binary.header.symbol != symbol || binary.header.exchange != exchange {
+            return Ok(false);
+        }
+        match binary_file_contained_dates(&path, &[date]) {
+            Ok(dates) if dates.contains(&date) => return Ok(true),
+            Ok(_) => {}
+            Err(_) => return Ok(false),
+        }
+    }
+    Ok(false)
 }
 
 pub(crate) fn storage_mode_get_latest_imported_trade_date(
@@ -3225,11 +3329,17 @@ fn upsert_download_log_entry_once(
                 ],
             )?;
     } else {
+        // Download-log contract: a date that imported rows must never be
+        // persisted as rows_inserted=0 / max_volume=0 / status='error'.
+        // 'partial' marks "imported with a held-back subset" (real counts kept,
+        // e.g. admission conflicts blocked only part of the file); 'error' with
+        // zero counts is reserved for genuine row loss where nothing imported.
+        let subset_held_back = result.rows_inserted > 0;
         connection
             .execute(
                 "
                   INSERT INTO download_log (trade_date, exchange, rows_inserted, max_volume, status, note)
-                  VALUES (?, ?, 0, 0, 'error', ?)
+                  VALUES (?, ?, ?, ?, ?, ?)
                   ON CONFLICT(trade_date, exchange) DO UPDATE SET
                     rows_inserted = CASE WHEN download_log.exchange = 'NSE_INDEX' AND download_log.rows_inserted > 0
                       AND download_log.status IN ('ok', 'partial') THEN download_log.rows_inserted ELSE excluded.rows_inserted END,
@@ -3241,7 +3351,15 @@ fn upsert_download_log_entry_once(
                     note = excluded.note
                   WHERE NOT ? OR download_log.status <> 'ok'
                 ",
-                params![&result.trade_date, &result.exchange, &result.message, preserve_success],
+                params![
+                    &result.trade_date,
+                    &result.exchange,
+                    result.rows_inserted as i64,
+                    result.max_volume as i64,
+                    if subset_held_back { "partial" } else { "error" },
+                    &result.message,
+                    preserve_success,
+                ],
             )?;
     }
 

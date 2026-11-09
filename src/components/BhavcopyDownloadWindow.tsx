@@ -160,6 +160,8 @@ function getDownloadModeHint(mode: DownloadMode): string {
 
 function logLevelText(level: LogEntry['level']) {
   switch (level) {
+    case 'incomplete':
+      return 'INCOMPLETE';
     case 'success':
       return 'SUCCESS';
     case 'error':
@@ -173,6 +175,8 @@ function logLevelText(level: LogEntry['level']) {
 
 function filterLabel(filter: LogFilter) {
   switch (filter) {
+    case 'incomplete':
+      return 'Incomplete';
     case 'success':
       return 'Success';
     case 'warning':
@@ -642,7 +646,7 @@ export function BhavcopyDownloadWindow({ onClose }: BhavcopyDownloadWindowProps)
                   <span style={{ display: 'inline-flex', gap: 4 }}>
                     <button
                       type="button"
-                      style={{ fontSize: 10, color: 'var(--red)', background: 'none', border: '1px solid var(--red)', borderRadius: 3, padding: '2px 6px', cursor: 'pointer' }}
+                      style={{ fontSize: 10, color: 'var(--red-text)', background: 'none', border: '1px solid var(--red)', borderRadius: 3, padding: '2px 6px', cursor: 'pointer' }}
                       disabled={holidayMutationPending !== null}
                       onClick={() => void handleDeleteHoliday(h.id)}
                     >{holidayMutationPending === h.id ? 'Removing...' : 'Confirm'}</button>
@@ -1072,7 +1076,7 @@ export function BhavcopyDownloadWindow({ onClose }: BhavcopyDownloadWindowProps)
 
             <div style={inlineLogToolbarStyle}>
               <div style={filterGroupStyle}>
-                {(['all', 'info', 'success', 'warning', 'error'] as const).map((item) => (
+                {(['all', 'info', 'success', 'warning', 'incomplete', 'error'] as const).map((item) => (
                   <button
                     key={item}
                     type="button"
@@ -1113,7 +1117,7 @@ export function BhavcopyDownloadWindow({ onClose }: BhavcopyDownloadWindowProps)
                     style={{
                       ...logEntryStyle,
                       ...(log.level === 'error' ? logEntryErrorStyle : null),
-                      ...(log.level === 'warning' ? logEntryWarningStyle : null),
+                      ...(log.level === 'warning' || log.level === 'incomplete' ? logEntryWarningStyle : null),
                     }}
                   >
                     [{log.time}] {logLevelText(log.level)}: {log.message}
@@ -1145,11 +1149,11 @@ export function BhavcopyDownloadWindow({ onClose }: BhavcopyDownloadWindowProps)
               </div>
             ) : completedCount > 0 ? (
               <>
-                <span style={{ color: 'var(--green)' }}>
+                <span style={{ color: 'var(--green-text)' }}>
                   Imported {successCount}
                 </span>
                 <span style={{ color: 'var(--text-dim)' }}>Skipped {skippedCount}</span>
-                <span style={{ color: 'var(--red)' }}>
+                <span style={{ color: 'var(--red-text)' }}>
                   Fail {failedCount}
                 </span>
                 <span style={{ color: 'var(--text-dim)' }}>

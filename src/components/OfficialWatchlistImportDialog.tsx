@@ -487,7 +487,7 @@ const importedBadgeStyle: React.CSSProperties = {
   borderRadius: 4,
   backgroundColor: 'var(--accent-faint)',
   border: '1px solid var(--border)',
-  color: 'var(--green)',
+  color: 'var(--green-text)',
   fontSize: 10,
   fontWeight: 700,
   textTransform: 'uppercase',
@@ -572,7 +572,7 @@ const errorStyle: React.CSSProperties = {
   borderRadius: 5,
   border: '1px solid var(--red)',
   backgroundColor: 'var(--control-bg)',
-  color: 'var(--red)',
+  color: 'var(--red-text)',
   fontSize: 12,
 };
 

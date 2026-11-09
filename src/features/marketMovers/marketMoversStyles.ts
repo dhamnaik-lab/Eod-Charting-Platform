@@ -77,7 +77,7 @@ export const marketMoversStyles: Record<string, CSSProperties> = {
   },
 
   activeTabButton: {
-    color: 'var(--accent)',
+    color: 'var(--accent-text)',
     borderBottomColor: 'var(--accent)',
     fontWeight: 600,
   },
@@ -182,11 +182,11 @@ export const marketMoversStyles: Record<string, CSSProperties> = {
   },
 
   greenText: {
-    color: 'var(--green)',
+    color: 'var(--green-text)',
   },
 
   redText: {
-    color: 'var(--red)',
+    color: 'var(--red-text)',
   },
 
   volumeCol: {
@@ -228,7 +228,7 @@ export const marketMoversStyles: Record<string, CSSProperties> = {
 
   errorBanner: {
     backgroundColor: 'rgba(239, 68, 68, 0.1)',
-    color: 'var(--red)',
+    color: 'var(--red-text)',
     borderLeft: '3px solid var(--red)',
   },
 

@@ -21,7 +21,12 @@ import {
   subscribeAppSettingsChanges,
   type AppSettings,
 } from '@/features/app/appSettingsService';
-import { applyAppTheme } from '@/features/app/themeService';
+import {
+  applyAppTheme,
+  resolveAppTheme,
+  SYSTEM_THEME_ID,
+  type AppThemeSelectionId,
+} from '@/features/app/themeService';
 
 const LazyDatabaseToolsDialogs = lazy(async () => ({
   default: (await import('@/components/DatabaseToolsDialogs')).DatabaseToolsDialogs,
@@ -145,19 +150,39 @@ export default function RootApp() {
 
   useEffect(() => {
     let cancelled = false;
+    let currentSelection = useUiStore.getState().currentTheme as AppThemeSelectionId;
 
     const applyAppSettingsToUi = (settings: AppSettings) => {
-      setCurrentTheme(settings.theme);
+      currentSelection = settings.theme;
+      setCurrentTheme(resolveAppTheme(settings.theme));
       applyAppTheme(settings.theme);
-      setCustomChartColors({
-        candleUp: settings.candleUpColor,
-        candleDown: settings.candleDownColor,
-        wickUp: settings.candleUpColor,
-        wickDown: settings.candleDownColor,
-        gridLine: settings.gridColor,
-        crosshair: settings.crosshairColor,
-      });
+      // `false` means the stored colours are untouched theme defaults; passing
+      // null lets the curated per-theme chart palette win.
+      setCustomChartColors(
+        settings.chartColorsCustomized === false
+          ? null
+          : {
+              candleUp: settings.candleUpColor,
+              candleDown: settings.candleDownColor,
+              wickUp: settings.candleUpColor,
+              wickDown: settings.candleDownColor,
+              gridLine: settings.gridColor,
+              crosshair: settings.crosshairColor,
+            },
+      );
     };
+
+    // A `system` selection must react to OS appearance changes without a restart.
+    const systemThemeQuery =
+      typeof window.matchMedia === 'function'
+        ? window.matchMedia('(prefers-color-scheme: dark)')
+        : null;
+    const handleSystemThemeChange = () => {
+      if (!cancelled && currentSelection === SYSTEM_THEME_ID) {
+        setCurrentTheme(resolveAppTheme(SYSTEM_THEME_ID, systemThemeQuery?.matches));
+      }
+    };
+    systemThemeQuery?.addEventListener('change', handleSystemThemeChange);
 
     const unsubscribe = subscribeAppSettingsChanges((settings) => {
       if (cancelled) {
@@ -179,6 +204,7 @@ export default function RootApp() {
 
     return () => {
       cancelled = true;
+      systemThemeQuery?.removeEventListener('change', handleSystemThemeChange);
       unsubscribe();
     };
   }, [setCurrentTheme, setCustomChartColors]);

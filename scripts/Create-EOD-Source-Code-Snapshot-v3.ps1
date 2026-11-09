@@ -2,6 +2,7 @@
 param(
     [string]$Source = 'E:\TA Projects\EOD Charting Platform',
     [string]$AuditRoot = 'E:\TA Projects\EOD Charting Platform Source Audit',
+    [switch]$SourceAudit,
     [switch]$SkipHashVerification
 )
 
@@ -410,10 +411,15 @@ $RequiredDocumentationFiles = @(
     'AGENTS.md', 'README.md', 'FILE_INVENTORY.md', 'HANDOFF.md', 'REQUIREMENTS.md',
     'ARCHITECTURE_CURRENT_EOD_CHARTING_PLATFORM.md',
     'FEATURE_STATUS_MATRIX_EOD_CHARTING_PLATFORM.md',
-    'PROJECT_STATE_EOD_CHARTING_PLATFORM.md'
+    'PROJECT_STATE_EOD_CHARTING_PLATFORM.md',
+    'NEXT_THREAD_PROMPT_EOD_CHARTING_PLATFORM.md'
 )
+if ($SourceAudit) {
+    $RequiredDocumentationFiles = @('AGENTS.md')
+}
 $DocumentationDirectory = 'docs'
-$RequiredSourceFiles = @('.cargo\config.toml')
+$RequiredTestFixture = 'docs\changes\2026-10-30-bse-name-history\native-proof-1793303233854903400\official-name-history.json'
+$RequiredSourceFiles = @('.cargo\config.toml', $RequiredTestFixture)
 $RequiredRuntimeMarkdownResources = @(
     'src\features\identityRecovery\resources\Official-Source-Recovery-Brief-For-Any-AI.md',
     'src\features\identityRecovery\resources\Identity-Investigation-Brief-For-Any-AI.md',
@@ -486,7 +492,7 @@ if ($missingRequiredRuntimeMarkdownResources.Count -gt 0) {
     throw "Required runtime/build Markdown resources are missing:`n$($missingRequiredRuntimeMarkdownResources -join [Environment]::NewLine)"
 }
 $DocumentationSource = Join-Path $Source $DocumentationDirectory
-if (-not (Test-Path -LiteralPath $DocumentationSource -PathType Container)) {
+if (-not $SourceAudit -and -not (Test-Path -LiteralPath $DocumentationSource -PathType Container)) {
     throw "Required documentation directory is missing: $DocumentationDirectory"
 }
 
@@ -505,8 +511,13 @@ foreach ($relativeDirectory in $SelectedDirectories) {
         Add-ExpectedFile -ExpectedByRelativePath $ExpectedByRelativePath -SourceRoot $Source -File $file
     }
 }
-foreach ($file in (Get-FilteredFiles -Path $DocumentationSource -ExcludedFilePatterns $DocumentationExcludedFiles -ExcludedDirectoryNames $ExcludedDirectoryNames)) {
-    Add-ExpectedFile -ExpectedByRelativePath $ExpectedByRelativePath -SourceRoot $Source -File $file
+if ($SourceAudit) {
+    Add-ExpectedFile -ExpectedByRelativePath $ExpectedByRelativePath -SourceRoot $Source -File (Get-Item -LiteralPath (Join-Path $Source $RequiredTestFixture) -Force)
+}
+else {
+    foreach ($file in (Get-FilteredFiles -Path $DocumentationSource -ExcludedFilePatterns $DocumentationExcludedFiles -ExcludedDirectoryNames $ExcludedDirectoryNames)) {
+        Add-ExpectedFile -ExpectedByRelativePath $ExpectedByRelativePath -SourceRoot $Source -File $file
+    }
 }
 foreach ($relativePath in $RequiredRuntimeMarkdownResources) {
     Add-ExpectedFile -ExpectedByRelativePath $ExpectedByRelativePath -SourceRoot $Source -File (Get-Item -LiteralPath (Join-Path $Source $relativePath) -Force)
@@ -537,7 +548,12 @@ Write-Host "Source           : $Source"
 Write-Host "Output           : $Destination"
 Write-Host "Source files     : $($ExpectedSourceFiles.Count)"
 Write-Host ("Source size      : {0:N2} MB" -f ($SourceBytes / 1MB))
-Write-Host "Documentation    : $DocumentationDirectory (complete eligible tree)"
+if ($SourceAudit) {
+    Write-Host 'Documentation    : AGENTS.md only (runtime resources and test fixture included)'
+}
+else {
+    Write-Host "Documentation    : $DocumentationDirectory (complete eligible tree)"
+}
 if ($SdkIncluded) {
     Write-Host "Plugin SDK       : INCLUDED ($OptionalSdkDirectory)"
 }

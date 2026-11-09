@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { getActiveChartTab, useChartStore } from '@/store/chartStore';
+import { countVisibleBars } from '@/engine/ScaleManager';
 
 export function StatusBar() {
   const snapshot = useChartStore((state) => state.snapshot);
@@ -12,6 +13,7 @@ export function StatusBar() {
   const workspaceAutosaveError = useChartStore((state) => state.workspaceAutosaveError);
   const [clock, setClock] = useState(() => new Date());
   const activeTab = getActiveChartTab(chartTabs, activeChartTabId);
+  const visibleBarCount = activeTab ? countVisibleBars(activeTab.viewport, activeTab.displayBars.length) : 0;
 
   useEffect(() => {
     const timer = window.setInterval(() => setClock(new Date()), 1000);
@@ -82,9 +84,9 @@ export function StatusBar() {
 
         <span style={badgeStyle}>
           <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--text)' }}>
-            {activeTab?.visibleBarCount ?? 0}
+            {visibleBarCount}
           </span>
-          <span style={{ color: 'var(--text-dim)', fontSize: 10 }}>bars</span>
+          <span style={{ color: 'var(--text-dim)', fontSize: 10 }}>{visibleBarCount === 1 ? 'bar' : 'bars'}</span>
         </span>
 
         <span style={badgeStyle}>
@@ -134,7 +136,7 @@ const exchangeTagStyle: React.CSSProperties = {
   padding: '0 3px',
   borderRadius: 2,
   background: 'var(--accent-soft)',
-  color: 'var(--accent)',
+  color: 'var(--accent-text)',
   fontSize: 9.5,
   fontWeight: 700,
   lineHeight: '14px',
@@ -144,7 +146,7 @@ const progressBadgeStyle: React.CSSProperties = {
   ...badgeStyle,
   borderColor: 'var(--accent)',
   background: 'var(--accent-faint)',
-  color: 'var(--accent)',
+  color: 'var(--accent-text)',
   fontSize: 10.5,
 };
 
@@ -152,6 +154,6 @@ const errorBadgeStyle: React.CSSProperties = {
   ...badgeStyle,
   borderColor: 'var(--red)',
   background: 'rgba(239, 68, 68, 0.1)',
-  color: 'var(--red)',
+  color: 'var(--red-text)',
   fontSize: 10.5,
 };

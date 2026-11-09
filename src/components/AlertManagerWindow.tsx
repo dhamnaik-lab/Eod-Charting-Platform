@@ -460,7 +460,7 @@ const emptyCellStyle: React.CSSProperties = {
 const dangerButtonStyle: React.CSSProperties = {
   border: '1px solid var(--red)',
   background: 'transparent',
-  color: 'var(--red)',
+  color: 'var(--red-text)',
   borderRadius: 4,
   padding: '5px 8px',
   fontSize: 12,
@@ -521,13 +521,13 @@ const iconButtonStyle = (active: boolean): React.CSSProperties => ({
 });
 
 const statusStyle: React.CSSProperties = {
-  color: 'var(--accent)',
+  color: 'var(--accent-text)',
   fontSize: 12,
   fontWeight: 700,
 };
 
 const errorStyle: React.CSSProperties = {
-  color: 'var(--red)',
+  color: 'var(--red-text)',
   fontSize: 12,
   fontWeight: 700,
 };

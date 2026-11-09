@@ -22,4 +22,27 @@ describe('archive and fallback outcomes', () => {
     expect(state.logs.some((log) => log.message.includes('Archive date mismatch'))).toBe(true);
     expect(state.logs.some((log) => log.message.includes('other indices unresolved'))).toBe(true);
   });
+  it('counts held NSE security rows as incomplete while preserving imports and real failures', () => {
+    const report = useBhavcopyStore.getState().reportDownloadResult;
+    const partial = { exchange: 'NSE', tradeDate: '2014-11-20', success: false,
+      rowsInserted: 1530, message: 'Security subset: Imported 1530; blocked 2 conflicting rows' };
+    report(partial);
+    report(partial);
+    report({ exchange: 'NSE', tradeDate: '2014-11-21', success: false,
+      rowsInserted: 0, message: 'Security subset: No admitted daily security rows; blocked 2 rows' });
+    report({ exchange: 'NSE', tradeDate: '2014-11-24', success: false,
+      rowsInserted: 0, message: 'Network request failed' });
+    const state = useBhavcopyStore.getState();
+    expect(state.runSummary).toMatchObject({ partialCount: 2, failedCount: 1, totalRowsInserted: 1530, completedCount: 3 });
+    expect(state.logs.filter((log) => log.level === 'incomplete')).toHaveLength(2);
+    expect(state.logs.filter((log) => log.level === 'error')).toHaveLength(1);
+  });
+
+  it('keeps qualified auxiliary-row decisions visible on successful NSE imports', () => {
+    useBhavcopyStore.getState().reportDownloadResult({ exchange: 'NSE', tradeDate: '2014-11-20', success: true,
+      rowsInserted: 1534, message: 'Imported 1534; Security admission: kept 2 auxiliary-market rows out of daily prices' });
+    expect(useBhavcopyStore.getState().logs[0].message).toContain('auxiliary-market');
+    expect(useBhavcopyStore.getState().runSummary).toMatchObject({ successCount: 1, partialCount: 0, failedCount: 0 });
+  });
+
 });

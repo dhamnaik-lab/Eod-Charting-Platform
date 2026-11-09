@@ -3,7 +3,7 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, typ
 import type { InstrumentKey, InstrumentSummary } from '@/platform';
 import { getDesktopApi } from '@/platform';
 import { ChartEngine, computeChartLayout, PRICE_AXIS_HEADER_HEIGHT, SHARED_AXIS_WIDTH } from '@/engine/ChartEngine';
-import { getAllowedFutureBars } from '@/engine/ScaleManager';
+import { countVisibleBars, getAllowedFutureBars } from '@/engine/ScaleManager';
 import { createDrawingPresentationDraft, isAdvancedDrawingStyleKind } from '@/engine/DrawingStyleSchema';
 import { normalizePositionAnchors } from '@/engine/DrawingD3CGeometry';
 import { normalizeFibonacciDrawing, getNormalizedFibonacciSettings } from '@/engine/DrawingFibonacciMigration';
@@ -41,7 +41,8 @@ import {
 } from '@/engine/types';
 import { getActiveChartTab, useChartStore } from '@/store/chartStore';
 import { useUiStore, type ScannerChartOverlay } from '@/store/uiStore';
-import { clusterScannerPatternMapEntries, type ScannerPatternMapEntry } from '@/plugins/scanner/scannerPatternMap';
+import { buildScannerPatternDrawingOverlay, clusterScannerPatternMapEntries, type ScannerPatternMapEntry } from '@/plugins/scanner/scannerPatternMap';
+import { getLoadedScannerPriceBasis, resolveScannerOverlayPriceBasis, type ScannerChartContext } from '@/plugins/scanner/scannerChartPriceBasis';
 import { getChartTheme } from '@/features/app/themeService';
 import {
   readAppSettings,
@@ -133,7 +134,7 @@ export function ChartCanvas({
   collapsedIndicatorPanes,
   paneScaleOverrides,
   viewport,
-  scannerChartOverlay = null,
+  scannerChartOverlay: requestedScannerChartOverlay = null,
   loading,
   bottomBarStartContent,
 }: ChartCanvasProps) {
@@ -297,6 +298,21 @@ export function ChartCanvas({
     () => overlays.filter((indicator) => indicator.placement === 'pane'),
     [overlays],
   );
+  const scannerSourceTab = useChartStore((state) => tabId
+    ? state.chartTabs.find((tab) => tab.id === tabId)
+    : getActiveChartTab(state.chartTabs, state.activeChartTabId));
+  const scannerDatabasePath = useChartStore((state) => state.snapshot?.activeDatabasePath ?? null);
+  const scannerChartContext = useMemo<ScannerChartContext | null>(() => {
+    const priceBasis = scannerSourceTab ? getLoadedScannerPriceBasis(scannerSourceTab) : null;
+    return scannerSourceTab?.instrument && priceBasis
+      ? { instrument: scannerSourceTab.instrument, bars: scannerSourceTab.rawBars, priceBasis, databasePath: scannerDatabasePath, timeframe:scannerSourceTab.timeframe }
+      : null;
+  }, [scannerSourceTab?.instrument, scannerSourceTab?.rawBars, scannerSourceTab?.timeframe, scannerSourceTab?.loadedAdjusted,
+    scannerSourceTab?.loadedDividendAdjusted, scannerSourceTab?.loadedRightsAdjusted, scannerDatabasePath]);
+  const scannerChartOverlay = useMemo(
+    () => resolveScannerOverlayPriceBasis(requestedScannerChartOverlay, scannerChartContext),
+    [requestedScannerChartOverlay, scannerChartContext],
+  );
   const scannerOverlayDrawings = useMemo(
     () => (scannerChartOverlay?.editable ? [] : buildScannerOverlayDrawings(scannerChartOverlay, instrument, bars)),
     [scannerChartOverlay, instrument?.exchange, instrument?.symbol, bars],
@@ -305,12 +321,19 @@ export function ChartCanvas({
     () => buildScannerPatternMapMarkerDrawings(scannerPatternMap?.entries ?? [], instrument, bars),
     [scannerPatternMap?.entries, instrument?.exchange, instrument?.symbol, bars],
   );
+  const scannerPatternMapGeometryEntries = useMemo(() => {
+    if (!scannerPatternMap?.showVisibleGeometry) return [];
+    return scannerPatternMap.entries.flatMap((entry) => {
+      const overlay = resolveScannerOverlayPriceBasis(buildScannerPatternDrawingOverlay(entry), scannerChartContext);
+      return overlay ? [{ ...entry, geometry: overlay.geometry, levels: overlay.levels, score: overlay.score, direction: overlay.direction }] : [];
+    });
+  }, [scannerPatternMap?.entries, scannerPatternMap?.showVisibleGeometry, scannerChartContext]);
   const scannerPatternMapGeometryDrawings = useMemo(
     () =>
       scannerPatternMap?.showVisibleGeometry
-        ? buildScannerPatternMapGeometryDrawings(scannerPatternMap.entries, instrument, bars, viewport)
+        ? buildScannerPatternMapGeometryDrawings(scannerPatternMapGeometryEntries, instrument, bars, viewport)
         : [],
-    [scannerPatternMap?.entries, scannerPatternMap?.showVisibleGeometry, instrument?.exchange, instrument?.symbol, bars, viewport],
+    [scannerPatternMapGeometryEntries, scannerPatternMap?.showVisibleGeometry, instrument?.exchange, instrument?.symbol, bars, viewport],
   );
   const renderDrawings = useMemo(
     () => [...drawings, ...scannerOverlayDrawings, ...scannerPatternMapGeometryDrawings, ...scannerPatternMapMarkerDrawings],
@@ -389,9 +412,10 @@ export function ChartCanvas({
     [layout.axisWidth, layout.chartWidth],
   );
   const visibleStartBar = bars[Math.max(0, Math.floor(viewport.startIndex))] ?? null;
+  const visibleBarCount = countVisibleBars(viewport, bars.length);
   const visibleEndBar = bars[Math.max(0, Math.min(bars.length - 1, Math.ceil(viewport.endIndex) - 1))] ?? null;
   const visibleDateRangeLabel =
-    visibleStartBar && visibleEndBar
+    visibleBarCount > 0 && visibleStartBar && visibleEndBar
       ? `${formatVisibleDate(visibleStartBar.date)} -> ${formatVisibleDate(visibleEndBar.date)}`
       : 'No visible dates';
   const clearTransientDrawingUi = () => {
@@ -857,6 +881,8 @@ export function ChartCanvas({
               instrument: entry.instrument,
               date: entry.date,
               scannerName: entry.scannerName,
+              scannerId: entry.scannerId,
+              contextBars: 260,
               direction: entry.direction,
               score: entry.score,
               levels: entry.levels,
@@ -2192,7 +2218,7 @@ export function ChartCanvas({
             {'>'}
           </button>
           <span style={{ color: 'var(--text-dim)', fontSize: 10, minWidth: 60, textAlign: 'right' }}>
-            {visibleSpan} bars
+            {visibleBarCount} {visibleBarCount === 1 ? 'bar' : 'bars'}
           </span>
           <span style={visibleDateRangeStyle}>{visibleDateRangeLabel}</span>
         </div>
@@ -2222,8 +2248,8 @@ function geometryToMultiAnchorDrawing(
       const lsMarker = geometry.pivotMarkers?.find((p) => p.label === 'LS');
       const headMarker = geometry.pivotMarkers?.find((p) => p.label === 'H' || p.label === 'Head');
       const rsMarker = geometry.pivotMarkers?.find((p) => p.label === 'RS');
-      const n1Marker = geometry.pivotMarkers?.find((p) => p.label === 'N1') ?? geometry.trendLines?.find((t) => t.role === 'neckline')?.start;
-      const n2Marker = geometry.pivotMarkers?.find((p) => p.label === 'N2') ?? geometry.trendLines?.find((t) => t.role === 'neckline')?.end;
+      const n1Marker = geometry.pivotMarkers?.find((p) => p.label === 'N1');
+      const n2Marker = geometry.pivotMarkers?.find((p) => p.label === 'N2');
 
       if (!lsMarker || !headMarker || !rsMarker) return null;
 
@@ -2234,10 +2260,11 @@ function geometryToMultiAnchorDrawing(
 
       const pN1 = n1Marker ? anchorFromPoint(n1Marker) : null;
       const pN2 = n2Marker ? anchorFromPoint(n2Marker) : null;
-      const effN1 = pN1 ?? { barIndex: Math.floor((pLS.barIndex + pHead.barIndex) / 2), price: Math.min(pLS.price, pHead.price) };
-      const effN2 = pN2 ?? { barIndex: Math.floor((pHead.barIndex + pRS.barIndex) / 2), price: Math.min(pHead.price, pRS.price) };
+      if (!pN1 || !pN2) return null;
+      if (!(pLS.barIndex < pN1.barIndex && pN1.barIndex < pHead.barIndex &&
+        pHead.barIndex < pN2.barIndex && pN2.barIndex < pRS.barIndex)) return null;
 
-      const anchors: Array<{ barIndex: number; price: number }> = [pLS, effN1, pHead, effN2, pRS];
+      const anchors: Array<{ barIndex: number; price: number }> = [pLS, pN1, pHead, pN2, pRS];
       if (geometry.targetProjection) {
         const lastIdx = pRS.barIndex;
         if (isFinitePrice(geometry.targetProjection.targetPrice)) {
@@ -2249,7 +2276,7 @@ function geometryToMultiAnchorDrawing(
       }
 
       return {
-        id: `scanner-multi:${overlay.id}:headAndShoulders`,
+        id: `scanner-overlay:${overlay.id}:headAndShoulders`,
         kind: 'headAndShouldersPattern',
         anchors,
         color,
@@ -2259,28 +2286,10 @@ function geometryToMultiAnchorDrawing(
     }
 
     case 'triangle':
-    case 'wedge': {
-      if (!geometry.trendLines || geometry.trendLines.length < 2) return null;
-      const upper = geometry.trendLines.find((t) => t.role === 'upper' || t.role === 'resistance');
-      const lower = geometry.trendLines.find((t) => t.role === 'lower' || t.role === 'support');
-      if (!upper || !lower) return null;
-
-      const p1 = anchorFromPoint(upper.start);
-      const p2 = anchorFromPoint(upper.end);
-      const p3 = anchorFromPoint(lower.start);
-      const p4 = anchorFromPoint(lower.end);
-      if (!p1 || !p2 || !p3) return null;
-
-      const anchors: Array<{ barIndex: number; price: number }> = [p1, p2, p4 ?? p3];
-      return {
-        id: `scanner-multi:${overlay.id}:triangle`,
-        kind: 'triangle',
-        anchors,
-        color,
-        lineWidth: 1.5,
-        locked,
-      };
-    }
+    case 'wedge':
+      // Independent boundaries need all four endpoints and their ray semantics.
+      // The generic geometry path preserves these; a manual triangle cannot.
+      return null;
 
     default:
       return null;
@@ -2338,12 +2347,38 @@ function buildScannerOverlayDrawings(
       (geometry?.zones && geometry.zones.length > 0),
   );
 
-  if (!editable && !hasGeometry) {
+  const hasConfirmationLine = Boolean(
+    geometry?.trendLines?.some(
+      (line) => line.role === 'resistance' || line.role === 'support' || line.role === 'neckline',
+    ),
+  );
+
+  if (!editable && !multiDrawing && !hasConfirmationLine && Array.isArray(overlay.levels) && overlay.levels.length > 0) {
+    const hasBreakoutLevel = overlay.levels.some((l) => l.label === 'Breakout' && isFinitePrice(l.value));
+    if (hasBreakoutLevel) {
+      drawings.push({
+        id: `${drawingIdPrefix}:breakout-marker`,
+        kind: overlay.direction === 'bearish' ? 'arrowDown' : 'arrowUp',
+        barIndex,
+        price: overlay.direction === 'bearish' ? bar.high : bar.low,
+        color,
+        locked,
+      });
+    }
+  }
+
+  if (!editable && !multiDrawing) {
     overlay.levels.forEach((level, index) => {
+      if (!isFinitePrice(level.value)) {
+        return;
+      }
+      if (hasGeometry && (hasConfirmationLine || level.label !== 'Breakout')) {
+        return;
+      }
       drawings.push({
         id: `${drawingIdPrefix}:level:${index}`,
         kind: 'ray',
-        startIndex: Math.max(0, barIndex - 15),
+        startIndex: Math.max(0, barIndex - (hasGeometry ? 3 : 15)),
         startPrice: level.value,
         endIndex: barIndex,
         endPrice: level.value,
@@ -2378,6 +2413,19 @@ function buildScannerOverlayDrawings(
     const high = Math.max(zone.low, zone.high);
     drawings.push({
       id: `${drawingIdPrefix}:zone:${zone.id}`,
+      presentation: {
+        fills: {
+          body: {
+            visible: true,
+            color,
+            opacity: typeof zone.fillOpacity === 'number'
+              ? zone.fillOpacity
+              : zone.role === 'base'
+                ? 0.12
+                : 0.1,
+          },
+        },
+      },
       kind: 'rect',
       startIndex: Math.min(startIndex, endIndex),
       startPrice: high,
@@ -2423,7 +2471,7 @@ function buildScannerOverlayDrawings(
         endPrice: line.end.price,
         color,
         lineWidth: 1.5,
-        lineStyle: line.role === 'neckline' ? 'dashed' : 'solid',
+        lineStyle: line.role === 'neckline' || line.role === 'midline' ? 'dashed' : 'solid',
         locked,
       });
       if (!editable && line.label) {
@@ -2442,6 +2490,17 @@ function buildScannerOverlayDrawings(
 
     if (!editable) {
       geometry?.pivotMarkers?.forEach((pivot) => {
+        const breakoutPivotIndex = isFinitePrice(pivot.price) ? findScannerGeometryPointIndex(bars, pivot) : -1;
+        if (breakoutPivotIndex >= 0 && pivot.role === 'breakout') {
+          drawings.push({
+            id: `${drawingIdPrefix}:pivot-marker:${pivot.id}`,
+            kind: pivot.kind === 'low' || overlay.direction === 'bearish' ? 'arrowDown' : 'arrowUp',
+            barIndex: breakoutPivotIndex,
+            price: pivot.price,
+            color,
+            locked,
+          });
+        }
         if (!isFinitePrice(pivot.price)) {
           return;
         }
@@ -2658,7 +2717,7 @@ function getScannerOverlayColor(direction: ScannerChartOverlay['direction']): st
 }
 
 export function isScannerOverlayDrawingId(drawingId: string | null | undefined): boolean {
-  return Boolean(drawingId?.startsWith('scanner-overlay:'));
+  return Boolean(drawingId?.startsWith('scanner-overlay:') || drawingId?.startsWith('scanner-multi:'));
 }
 
 function isScannerPatternMapMarkerDrawingId(drawingId: string | null | undefined): boolean {

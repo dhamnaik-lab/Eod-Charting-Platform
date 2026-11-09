@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { getLoadedScannerPriceBasis, resolveScannerOverlayPriceBasis } from '@/plugins/scanner/scannerChartPriceBasis';
 import { FloatingWindow } from '@/components/FloatingWindow';
 import { readAppSettings, writeAppSettings } from '@/features/app/appSettingsService';
 import {
@@ -844,18 +845,31 @@ export function ScannerWindow() {
         }
       }
 
-      showScannerChartOverlay({
+      const candidate = {
         id: `${result.exchange}:${result.symbol}:${result.scannerId}:${result.date}:${Date.now()}`,
         instrument,
         date: result.date,
         scannerName: result.scannerName,
+        scannerId: result.scannerId,
+        contextBars: result.history ? 260 : undefined,
         direction: result.direction,
         score: result.score,
         levels: getScannerChartLevels(result),
         geometry: result.chartPattern?.geometry,
         // Rectangle / Range is the first direct-editable pattern slice; other patterns remain transient.
         editable: result.chartPattern?.geometry?.family === 'range',
-      });
+      };
+      const priceBasis = loadedTab ? getLoadedScannerPriceBasis(loadedTab) : null;
+      const alignedOverlay = loadedTab?.instrument && priceBasis ? resolveScannerOverlayPriceBasis(candidate, {
+        instrument: loadedTab.instrument, bars: loadedTab.rawBars, priceBasis,
+        databasePath: useChartStore.getState().snapshot?.activeDatabasePath ?? null,
+      }) : null;
+      if (!alignedOverlay) {
+        useUiStore.getState().clearScannerChartOverlay();
+        setStatus('This result cannot be drawn on the loaded price series. Run the scanner again with current data.');
+        return;
+      }
+      showScannerChartOverlay(alignedOverlay);
       setStatus(`Showing ${result.scannerName} on ${result.exchange}:${result.symbol} chart.`);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to open scanner result on chart.';
@@ -2358,7 +2372,7 @@ const secondaryButtonStyle: React.CSSProperties = {
 
 const linkButtonStyle: React.CSSProperties = {
   background: 'transparent',
-  color: 'var(--accent)',
+  color: 'var(--accent-text)',
   border: '1px solid var(--border2)',
   borderRadius: 4,
   padding: '4px 8px',
@@ -2440,7 +2454,7 @@ const warningToggleStyle: React.CSSProperties = {
 
 const warningListStyle: React.CSSProperties = {
   marginTop: 8,
-  color: 'var(--red)',
+  color: 'var(--red-text)',
 };
 
 const tableWrapStyle: React.CSSProperties = {

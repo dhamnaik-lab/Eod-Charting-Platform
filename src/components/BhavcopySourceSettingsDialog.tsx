@@ -285,7 +285,7 @@ const templateRowStyle: React.CSSProperties = {
 };
 
 const templateNumberStyle: React.CSSProperties = {
-  color: 'var(--accent)',
+  color: 'var(--accent-text)',
   flexShrink: 0,
 };
 
@@ -305,6 +305,6 @@ const errorStyle: React.CSSProperties = {
   backgroundColor: 'var(--control-bg)',
   border: '1px solid var(--red)',
   borderRadius: 4,
-  color: 'var(--red)',
+  color: 'var(--red-text)',
   fontSize: 12,
 };

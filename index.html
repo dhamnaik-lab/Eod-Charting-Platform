@@ -4,6 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>EOD Chart</title>
+    <script src="/theme-boot.js"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
@@ -11,9 +12,18 @@
       rel="stylesheet"
     />
     <style>
+      /* Pre-CSS paint colour. Keeps the window background aligned with the theme
+         family so launching in a light theme does not flash a dark surface. */
+      html,
       body {
         margin: 0;
-        background: #0b0f16;
+        background: #070b10;
+      }
+      html[data-theme="classic-light"],
+      html[data-theme="classic-light-refined"],
+      html[data-theme="deep-light"] {
+        background: #f3f4f6;
+        color-scheme: light;
       }
     </style>
   </head>

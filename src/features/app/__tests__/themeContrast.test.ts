@@ -2,7 +2,11 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
-const css = readFileSync(resolve(process.cwd(), 'src/styles/global.css'), 'utf8');
+const css = readFileSync(
+  resolve(process.cwd(), 'src/styles/theme-tokens.generated.css'),
+  'utf8',
+);
+const rulesCss = readFileSync(resolve(process.cwd(), 'src/styles/global.css'), 'utf8');
 const themes = [
   ['Midnight Slate Pro', ':root'],
   ['AMOLED Black', '[data-theme="amoled-black"]'],
@@ -56,7 +60,7 @@ describe('UX-12 theme text contrast across standard panel backgrounds', () => {
 
   it('retains a distinguishable keyboard focus ring across standard panel backgrounds', () => {
     // New accessible controls may add valid focus-ring consumers; keep the baseline minimum.
-    expect((css.match(/var\(--focus-ring, var\(--accent\)\)/g) ?? []).length).toBeGreaterThanOrEqual(4);
+    expect((rulesCss.match(/var\(--focus-ring, var\(--accent\)\)/g) ?? []).length).toBeGreaterThanOrEqual(4);
     for (const [theme, selector] of themes) {
       const block = themeBlock(selector);
       const foreground = block.includes('--focus-ring:')

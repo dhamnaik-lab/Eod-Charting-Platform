@@ -1659,6 +1659,36 @@ export interface CsvPreview {
   totalEstimatedRows: number;
 }
 
+export interface NiftyHistoryInput {
+  filePath?: string;
+  fromDate: string;
+  toDate: string;
+  verifyOfficial: boolean;
+}
+
+export interface NiftyHistoryPreview {
+  token: string;
+  databasePath: string;
+  sourceSha256: string;
+  officialSha256: string | null;
+  sourceUrl: string | null;
+  sourceRows: number;
+  ready: number;
+  existing: number;
+  conflicts: number;
+  held: number;
+  rejected: number;
+  closeOnly: number;
+  status: string;
+  certificationScope: string;
+  evidencePath: string;
+  rows: Array<{
+    date: string; originalName: string;
+    open: number | null; high: number | null; low: number | null; close: number | null;
+    volume: number | null; status: string; reason: string;
+  }>;
+}
+
 export interface ImportOptions {
   filePaths: string[];
   exchange?: string;
@@ -1925,6 +1955,7 @@ export interface AppProfileSettingsPayload {
   candleDownColor: string;
   gridColor: string;
   crosshairColor: string;
+  chartColorsCustomized?: boolean | null;
   pluginEnabled: Record<string, boolean>;
   pluginConfigurations: Record<string, unknown>;
   eodAlertRules: unknown[];
@@ -1941,6 +1972,7 @@ export interface AppProfileSettingsSaveInput {
   candleDownColor: string;
   gridColor: string;
   crosshairColor: string;
+  chartColorsCustomized?: boolean | null;
   pluginEnabled?: Record<string, boolean>;
   pluginConfigurations?: Record<string, unknown>;
   eodAlertRules?: unknown[];
@@ -2261,6 +2293,8 @@ export interface DesktopBridgeApi {
   pickCsvFiles(): Promise<string[]>;
   previewCsv(filePath: string): Promise<CsvPreview>;
   importCsv(options: ImportOptions): Promise<ImportResult>;
+  previewNiftyHistory(input: NiftyHistoryInput): Promise<NiftyHistoryPreview>;
+  applyNiftyHistory(input: { token: string; approved: boolean }): Promise<ImportResult>;
   getLatestManualImportRecovery(): Promise<ManualImportRecoverySummary | null>;
   listManualImportRecoveryHistory(): Promise<ManualImportRecoverySummary[]>;
   undoManualImportRecovery(input: { sessionId: string }): Promise<ManualImportUndoResult>;

@@ -244,7 +244,7 @@ const activeBadgeStyle: React.CSSProperties = {
   padding: '2px 8px',
   borderRadius: 999,
   border: '1px solid var(--accent)',
-  color: 'var(--accent)',
+  color: 'var(--accent-text)',
   fontSize: 11,
   fontWeight: 600,
 };
@@ -280,7 +280,7 @@ const primaryButtonStyle: React.CSSProperties = {
   ...baseButtonStyle,
   border: '1px solid var(--accent)',
   background: 'var(--accent)',
-  color: 'white',
+  color: 'var(--accent-contrast)',
 };
 
 const mutedButtonStyle: React.CSSProperties = {
