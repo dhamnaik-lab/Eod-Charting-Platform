@@ -2,8 +2,17 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
+const normalizeSourceLineEndings = (source: string): string => source.replace(/\r\n?/g, '\n');
+
 describe('D3C.1 visual rendering contracts', () => {
-  const renderer = readFileSync(resolve(process.cwd(), 'src/engine/Renderer.ts'), 'utf8');
+  const renderer = normalizeSourceLineEndings(readFileSync(resolve(process.cwd(), 'src/engine/Renderer.ts'), 'utf8'));
+
+  it('normalizes LF, CRLF, and CR source newlines for text layout contracts', () => {
+    const expected = "'center',\n        fontSize";
+    for (const newline of ['\n', '\r\n', '\r']) {
+      expect(normalizeSourceLineEndings(expected.replace(/\n/g, newline))).toBe(expected);
+    }
+  });
 
   it('uses TradingView-style position zones with compact Target / Entry / Stop statistics', () => {
     // S2.3.1 intentionally supersedes the earlier split "--- text ---" experiment.
