@@ -548,14 +548,21 @@ describe('chart pattern continuation scanners', () => {
     expect(risingChannel?.scannerName).toBe('Rising Channel');
     expect(risingChannel?.direction).toBe('bullish');
     expect(risingChannel?.chartPattern?.geometry?.family).toBe('channel');
-    expect(risingChannel?.chartPattern?.geometry?.trendLines).toHaveLength(2);
+    expect(risingChannel?.chartPattern?.geometry?.trendLines).toHaveLength(3);
+    expect(risingChannel?.chartPattern?.geometry?.trendLines?.map((line) => line.role)).toEqual([
+      'support',
+      'resistance',
+      'midline',
+    ]);
     expect(risingChannel?.chartPattern?.geometry?.trendLines?.[0].start.date).not.toBe(
       risingChannel?.chartPattern?.geometry?.trendLines?.[0].end.date,
     );
     expect(fallingChannel?.scannerName).toBe('Falling Channel');
     expect(fallingChannel?.direction).toBe('bearish');
     expect(fallingChannel?.chartPattern?.geometry?.family).toBe('channel');
-    expect(fallingChannel?.chartPattern?.geometry?.trendLines).toHaveLength(2);
+    expect(fallingChannel?.chartPattern?.geometry?.trendLines).toHaveLength(3);
+    expect(fallingChannel?.chartPattern?.geometry?.trendLines?.[2]?.role).toBe('midline');
+    expect(fallingChannel?.chartPattern?.geometry?.trendLines?.[2]?.extendRight).toBe(false);
   });
 });
 
@@ -942,13 +949,15 @@ describe('chart pattern complex base scanners', () => {
     expect(headShoulders?.chartPattern?.geometry?.family).toBe('head-and-shoulders');
     expect(headShoulders?.chartPattern?.geometry?.pivotMarkers?.map((marker) => marker.label)).toEqual([
       'LS',
+      'N1',
       'H',
+      'N2',
       'RS',
     ]);
     expect(headShoulders?.chartPattern?.geometry?.trendLines?.[0]).toMatchObject({
       role: 'neckline',
-      start: { price: headShoulders?.chartPattern?.necklineLevel },
-      end: { date: '2028-06-16', price: headShoulders?.chartPattern?.necklineLevel },
+      start: { date: '2028-06-06', price: 92 },
+      end: { date: '2028-06-10', price: 94 },
       extendRight: true,
     });
     expect(inverseHeadShoulders?.scannerName).toBe('Inv. Head & Shoulders');
@@ -956,13 +965,15 @@ describe('chart pattern complex base scanners', () => {
     expect(inverseHeadShoulders?.chartPattern?.geometry?.family).toBe('head-and-shoulders');
     expect(inverseHeadShoulders?.chartPattern?.geometry?.pivotMarkers?.map((marker) => marker.label)).toEqual([
       'LS',
+      'N1',
       'H',
+      'N2',
       'RS',
     ]);
     expect(inverseHeadShoulders?.chartPattern?.geometry?.trendLines?.[0]).toMatchObject({
       role: 'neckline',
-      start: { price: inverseHeadShoulders?.chartPattern?.necklineLevel },
-      end: { date: '2028-07-17', price: inverseHeadShoulders?.chartPattern?.necklineLevel },
+      start: { date: '2028-07-06', price: 121 },
+      end: { date: '2028-07-10', price: 113 },
       extendRight: true,
     });
   });
@@ -1182,6 +1193,83 @@ describe('chart pattern complex base scanners', () => {
     expect(complexHeadShoulders?.chartPattern?.geometry?.pivotMarkers).toHaveLength(5);
     expect(complexHeadShoulders?.chartPattern?.geometry?.pivotMarkers?.some((marker) => marker.label === 'Head')).toBe(true);
     expect(complexHeadShoulders?.chartPattern?.geometry?.trendLines?.[0].role).toBe('neckline');
+  });
+
+  it('encloses outer pivot extremes in reversal-base zones and rejects shallow or flat false positives', () => {
+    const tripleTop = run('chart_triple_top', [
+      bar('2026-09-01', 70, 74, 68, 72),
+      bar('2026-09-02', 74, 82, 73, 80),
+      bar('2026-09-03', 80, 92, 78, 90),
+      bar('2026-09-04', 90, 104, 88, 101),
+      bar('2026-09-05', 101, 112, 99, 108),
+      bar('2026-09-06', 107, 109, 96, 98),
+      bar('2026-09-07', 98, 102, 91, 93),
+      bar('2026-09-08', 94, 104, 93, 102),
+      bar('2026-09-09', 102, 111, 100, 108),
+      bar('2026-09-10', 108, 110, 96, 99),
+      bar('2026-09-11', 99, 103, 90, 92),
+      bar('2026-09-12', 93, 104, 92, 102),
+      bar('2026-09-13', 102, 113, 100, 109),
+      bar('2026-09-14', 108, 110, 95, 98),
+      bar('2026-09-15', 98, 102, 94, 99),
+      bar('2026-09-16', 99, 101, 93, 97),
+      bar('2026-09-17', 96, 99, 87, 88),
+    ]);
+    const zone = tripleTop?.chartPattern?.geometry?.zones?.[0];
+    const maxPivot = Math.max(...(tripleTop?.chartPattern?.geometry?.pivotMarkers?.map((m) => m.price) ?? []));
+    expect(zone?.high).toBeGreaterThanOrEqual(maxPivot);
+
+    const shallowPullbackTripleTop = run('chart_triple_top', [
+      bar('2026-09-02', 74, 82, 73, 80),
+      bar('2026-09-03', 80, 92, 78, 90),
+      bar('2026-09-04', 90, 104, 88, 101),
+      bar('2026-09-05', 101, 112, 99, 108),
+      bar('2026-09-06', 107, 109, 96, 98),
+      bar('2026-09-07', 98, 102, 91, 93),
+      bar('2026-09-08', 94, 104, 93, 102),
+      bar('2026-09-09', 102, 111, 100, 108),
+      bar('2026-09-10', 108, 110, 109.5, 110),
+      bar('2026-09-11', 109.5, 110, 109.2, 109.8),
+      bar('2026-09-12', 109.8, 110.5, 109.4, 110.2),
+      bar('2026-09-13', 102, 112.5, 100, 109),
+      bar('2026-09-14', 108, 110, 95, 98),
+      bar('2026-09-15', 98, 102, 94, 99),
+      bar('2026-09-16', 99, 101, 93, 97),
+      bar('2026-09-17', 96, 99, 87, 88),
+    ]);
+    expect(shallowPullbackTripleTop).toBeNull();
+
+    const flatPeaks = run('chart_three_falling_peaks', [
+      bar('2028-03-01', 80, 86, 78, 84),
+      bar('2028-03-02', 84, 96, 82, 94),
+      bar('2028-03-03', 94, 100.5, 92, 99),
+      bar('2028-03-04', 99, 99.5, 95, 96),
+      bar('2028-03-05', 96, 97, 94, 95),
+      bar('2028-03-06', 95, 100.2, 94, 99),
+      bar('2028-03-07', 99, 99.4, 95, 96),
+      bar('2028-03-08', 96, 97, 94, 95),
+      bar('2028-03-09', 95, 100.0, 93, 98),
+      bar('2028-03-10', 98, 99, 95, 96),
+      bar('2028-03-11', 96, 97, 90, 92),
+      bar('2028-03-12', 92, 96, 88, 90),
+      bar('2028-03-13', 89, 91, 82, 84),
+      bar('2028-03-14', 84, 86, 78, 80),
+    ]);
+    expect(flatPeaks).toBeNull();
+
+    const risingWedge = run('chart_rising_wedge_top', [
+      ...risingWedgeBars('2029-05'),
+      bar('2029-05-18', 106, 108, 102, 104),
+    ]);
+    expect(risingWedge?.chartPattern?.geometry?.trendLines?.every((line) => line.extendRight === false)).toBe(true);
+
+    const slicedMidPeakWedge = run('chart_rising_wedge_top', [
+      ...risingWedgeBars('2029-05').map((item, idx) =>
+        idx === 4 ? { ...item, high: item.high + 25 } : item,
+      ),
+      bar('2029-05-18', 106, 108, 102, 104),
+    ]);
+    expect(slicedMidPeakWedge).toBeNull();
   });
 });
 

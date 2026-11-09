@@ -5,6 +5,11 @@ import { describe, expect, it } from 'vitest';
 const source = readFileSync(resolve(process.cwd(), 'src/components/CommandPalette.tsx'), 'utf8');
 
 describe('Command Palette keyboard navigation', () => {
+  it('keeps separate BSE settlement symbols out of normal and recent search', () => {
+    const filter = source.indexOf("symbol.exchange.toUpperCase() === 'BSE' && symbol.symbol.endsWith('#')");
+    expect(filter).toBeGreaterThan(source.indexOf('rawSymbols = recentSymbols'));
+    expect(filter).toBeLessThan(source.indexOf('const symbolResults'));
+  });
   it('does not intercept Tab or Shift+Tab from symbol search', () => {
     const start = source.indexOf('const handleInputKeyDown');
     const end = source.indexOf('return (', start);

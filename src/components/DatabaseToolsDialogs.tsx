@@ -8943,7 +8943,7 @@ const quoteEditorStatusTextStyle: React.CSSProperties = {
 
 const quoteEditorProgressTextStyle: React.CSSProperties = {
   flexShrink: 0,
-  color: 'var(--accent)',
+  color: 'var(--accent-text)',
   fontVariantNumeric: 'tabular-nums',
   whiteSpace: 'nowrap',
 };

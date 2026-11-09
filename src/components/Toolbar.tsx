@@ -5,7 +5,9 @@ import { getDesktopApi } from '@/platform';
 import { getActiveChartTab, useChartStore } from '@/store/chartStore';
 import { useUiStore } from '@/store/uiStore';
 import { chartPatternScannerDefinitions, runChartPatternScanner } from '@/plugins/scanner/chartPatternScanners';
-import { loadCompleteChartHistory } from '@/plugins/scanner/chartPatternScanService';
+import { loadCompleteChartHistory, scannerHistoryMatchesChart } from '@/plugins/scanner/chartPatternScanService';
+import { getLoadedScannerPriceBasis, sameScannerPriceBasis } from '@/plugins/scanner/scannerChartPriceBasis';
+import { buildScannerTimeframeBars } from '@/plugins/scanner/scannerChartTimeframe';
 import { buildScannerPatternMapEntries } from '@/plugins/scanner/scannerPatternMap';
 import type { EodBar, ScannerResult } from '@/plugins/scanner/types';
 import { detectPatterns, SUPPORTED_PATTERNS } from '@/engine/Patterns';
@@ -46,6 +48,13 @@ export function Toolbar() {
   const signalSettingsDialogOpen = useUiStore((state) => state.signalSettingsDialogOpen);
   const [screenshotMenuOpen, setScreenshotMenuOpen] = useState(false);
   const [chartPatternScanRunning, setChartPatternScanRunning] = useState(false);
+  const [chartPatternSettingsOpen, setChartPatternSettingsOpen] = useState(false);
+  const [chartPatternSearch, setChartPatternSearch] = useState('');
+  const [enabledChartPatternIds, setEnabledChartPatternIds] = useState<string[]>(() => readStoredToolbarChartPatternIds());
+  const updateEnabledChartPatternIds = (nextIds: string[], isDefault = false) => {
+    setEnabledChartPatternIds(nextIds);
+    writeStoredToolbarChartPatternIds(isDefault ? null : nextIds);
+  };
   const activeTab = getActiveChartTab(chartTabs, activeChartTabId);
   const layoutMode = activeTab?.layoutMode ?? 'single';
   const showVolume = activeTab?.showVolume ?? true;
@@ -58,6 +67,7 @@ export function Toolbar() {
   const isChartPatternActive = Boolean(
     activeInstrument &&
       ((scannerChartOverlay &&
+        (!scannerChartOverlay.timeframe || scannerChartOverlay.timeframe === activeTab?.timeframe) &&
         scannerChartOverlay.instrument.exchange === activeInstrument.exchange &&
         scannerChartOverlay.instrument.symbol === activeInstrument.symbol) ||
         (scannerPatternMap?.entries &&
@@ -109,9 +119,30 @@ export function Toolbar() {
 
     setChartPatternScanRunning(true);
     try {
-      const bars = await loadCompleteChartHistory(api, instrument);
+      const priceBasis = getLoadedScannerPriceBasis(activeTab);
+      if (!priceBasis || activeTab.rawBars.length === 0 || useChartStore.getState().isDatabaseTransitioning) {
+        addToast('Wait for the chart data to finish loading before scanning.', 'warning', 'Scanner');
+        return;
+      }
+      const databasePath = useChartStore.getState().snapshot?.activeDatabasePath ?? null;
+      const historyBars = await loadCompleteChartHistory(api, instrument, { ...priceBasis, databasePath });
+      const currentState = useChartStore.getState();
+      const currentTab = getActiveChartTab(currentState.chartTabs, currentState.activeChartTabId);
+      const currentPriceBasis = currentTab ? getLoadedScannerPriceBasis(currentTab) : null;
+      if (currentState.isDatabaseTransitioning || currentState.activeChartTabId !== activeTab.id ||
+        currentTab?.id !== activeTab.id || !currentPriceBasis || !sameScannerPriceBasis(priceBasis, currentPriceBasis) ||
+        currentTab.rawBars !== activeTab.rawBars || currentTab.timeframe !== activeTab.timeframe ||
+        (currentState.snapshot?.activeDatabasePath ?? null) !== databasePath) {
+        addToast('The chart changed while loading scan data. Run Chart Patterns again.', 'warning', 'Scanner');
+        return;
+      }
+      if (!scannerHistoryMatchesChart(historyBars, activeTab.rawBars)) {
+        addToast('Chart data differs from scan history. Reload the chart before scanning.', 'warning', 'Scanner');
+        return;
+      }
+      const bars = buildScannerTimeframeBars(instrument.symbol, activeTab.rawBars, activeTab.timeframe);
       if (bars.length < 20) {
-        addToast('Chart-pattern scan needs at least 20 completed EOD bars.', 'warning', 'Scanner');
+        addToast(`Chart-pattern scan needs at least 20 ${activeTab.timeframe} bars.`, 'warning', 'Scanner');
         return;
       }
       const results = runActiveChartPatternScan(instrument, bars);
@@ -143,6 +174,12 @@ export function Toolbar() {
           instrument,
           date: bestResult.date,
           scannerName: bestResult.scannerName,
+          scannerId: bestResult.scannerId,
+          priceBasis,
+          databasePath,
+          contextBars: ACTIVE_CHART_PATTERN_CONTEXT_BARS,
+          sourceBars: activeTab.rawBars,
+          timeframe: activeTab.timeframe,
           direction: bestResult.direction,
           score: bestResult.score,
           levels: getScannerChartLevels(bestResult),
@@ -151,7 +188,7 @@ export function Toolbar() {
         });
 
         addToast(
-          `${bestResult.scannerName} recognized on chart. Click again to remove.`,
+          `${bestResult.scannerName} recognized on ${activeTab.timeframe} chart. Click again to remove.`,
           'success',
           'Scanner',
         );
@@ -293,9 +330,18 @@ export function Toolbar() {
             aria-pressed={isChartPatternActive}
             disabled={chartPatternScanRunning}
             style={{ ...(isChartPatternActive ? activeActionButtonStyle : actionButtonStyle), minWidth: 104, opacity: chartPatternScanRunning ? 0.65 : 1 }}
-            title={isChartPatternActive ? 'Remove chart patterns from chart' : 'Scan the active chart for chart patterns'}
+            title={isChartPatternActive ? 'Remove chart patterns from chart' : `Scan ${activeTab?.timeframe ?? 'D'} bars for chart patterns`}
           >
             {chartPatternScanRunning ? 'Scanning...' : 'Chart Patterns'}
+          </button>
+          <button
+            type="button"
+            onClick={() => setChartPatternSettingsOpen((open) => !open)}
+            style={{ ...(chartPatternSettingsOpen ? activeActionButtonStyle : actionButtonStyle), minWidth: 24, padding: '0 6px' }}
+            title={`Configure which chart patterns to scan (${enabledChartPatternIds.length}/${chartPatternScannerDefinitions.length} enabled)`}
+            aria-label="Configure toolbar chart patterns"
+          >
+            ⚙
           </button>
           <button
             type="button"
@@ -308,6 +354,23 @@ export function Toolbar() {
           </button>
         </div>
       </div>
+      {chartPatternSettingsOpen ? (
+        <ToolbarChartPatternSettingsModal
+          enabledIds={enabledChartPatternIds}
+          search={chartPatternSearch}
+          onSearchChange={setChartPatternSearch}
+          onChangeIds={updateEnabledChartPatternIds}
+          onClose={() => setChartPatternSettingsOpen(false)}
+          onScanNow={() => {
+            setChartPatternSettingsOpen(false);
+            if (isChartPatternActive) {
+              clearScannerChartOverlay();
+              clearScannerPatternMap();
+            }
+            void handleRunChartPatternScan();
+          }}
+        />
+      ) : null}
       <div style={screenshotControlStyle} onMouseDown={(event) => event.stopPropagation()}>
         <button
           type="button"
@@ -374,9 +437,23 @@ export function runActiveChartPatternScan(
   const results: ScannerResult[] = [];
   const seen = new Set<string>();
 
-  // Only evaluate genuine macro geometric chart patterns (exclude gaps and 1-5 bar candlestick continuations)
+  // Evaluate user-selected chart patterns (or default macro patterns when no custom selection is stored)
+  let selectedIds: Set<string> | null = null;
+  if (typeof window !== 'undefined' && window.localStorage) {
+    try {
+      const raw = window.localStorage.getItem('eod-chart.toolbar-chart-patterns.ids.v1');
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) {
+          selectedIds = new Set(parsed.filter((id): id is string => typeof id === 'string'));
+        }
+      }
+    } catch {}
+  }
+  const minScore = selectedIds ? 40 : 65;
   const macroDefinitions = chartPatternScannerDefinitions.filter((definition) => {
     const family = definition.chartPattern?.family;
+    if (selectedIds) return selectedIds.has(definition.id);
     const isCandleMicro = definition.id.includes('mat_hold') || definition.id.includes('three_methods');
     return family !== 'gap' && definition.scannerType !== 'gap' && !isCandleMicro;
   });
@@ -393,7 +470,7 @@ export function runActiveChartPatternScan(
         },
         definition,
       );
-      if (!result?.matched || (result.score ?? 0) < 65) {
+      if (!result?.matched || (result.score ?? 0) < minScore) {
         return;
       }
       const key = `${result.scannerId}:${result.date}:${result.direction ?? ''}`;
@@ -445,6 +522,318 @@ function getAllCandlestickPatternIds(): string[] {
 
 const ACTIVE_CHART_PATTERN_MIN_BARS = 20;
 const ACTIVE_CHART_PATTERN_CONTEXT_BARS = 220;
+const TOOLBAR_CHART_PATTERN_STORAGE_KEY = 'eod-chart.toolbar-chart-patterns.ids.v1';
+const UNCONFIRMED_NEUTRAL_PATTERN_IDS = new Set([
+  'chart_rectangle_range',
+  'chart_diamond_pattern',
+  'chart_broadening_formation',
+  'chart_coil_volatility_squeeze',
+]);
+
+export const DEFAULT_TOOLBAR_CHART_PATTERN_IDS: string[] = chartPatternScannerDefinitions
+  .filter((definition) => {
+    const family = definition.chartPattern?.family;
+    const isCandleMicro = definition.id.includes('mat_hold') || definition.id.includes('three_methods');
+    return (
+      family !== 'gap' &&
+      definition.scannerType !== 'gap' &&
+      !isCandleMicro &&
+      !UNCONFIRMED_NEUTRAL_PATTERN_IDS.has(definition.id)
+    );
+  })
+  .map((definition) => definition.id);
+
+export function readStoredToolbarChartPatternIds(): string[] {
+  if (typeof window === 'undefined' || !window.localStorage) {
+    return DEFAULT_TOOLBAR_CHART_PATTERN_IDS;
+  }
+  try {
+    const raw = window.localStorage.getItem(TOOLBAR_CHART_PATTERN_STORAGE_KEY);
+    if (!raw) return DEFAULT_TOOLBAR_CHART_PATTERN_IDS;
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return DEFAULT_TOOLBAR_CHART_PATTERN_IDS;
+    const validIds = new Set(chartPatternScannerDefinitions.map((def) => def.id));
+    return parsed.filter((id): id is string => typeof id === 'string' && validIds.has(id));
+  } catch {
+    return DEFAULT_TOOLBAR_CHART_PATTERN_IDS;
+  }
+}
+
+export function writeStoredToolbarChartPatternIds(ids: string[] | null): void {
+  if (typeof window === 'undefined' || !window.localStorage) return;
+  try {
+    if (ids === null) {
+      window.localStorage.removeItem(TOOLBAR_CHART_PATTERN_STORAGE_KEY);
+    } else {
+      window.localStorage.setItem(TOOLBAR_CHART_PATTERN_STORAGE_KEY, JSON.stringify(ids));
+    }
+  } catch {}
+}
+
+interface ToolbarChartPatternSettingsModalProps {
+  enabledIds: string[];
+  search: string;
+  onSearchChange: (value: string) => void;
+  onChangeIds: (nextIds: string[], isDefault?: boolean) => void;
+  onClose: () => void;
+  onScanNow: () => void;
+}
+
+function ToolbarChartPatternSettingsModal({
+  enabledIds,
+  search,
+  onSearchChange,
+  onChangeIds,
+  onClose,
+  onScanNow,
+}: ToolbarChartPatternSettingsModalProps) {
+  const enabledSet = new Set(enabledIds);
+  const query = search.trim().toLowerCase();
+  const categories = Array.from(
+    chartPatternScannerDefinitions.reduce((map, def) => {
+      if (query && !def.name.toLowerCase().includes(query) && !def.categoryName.toLowerCase().includes(query)) {
+        return map;
+      }
+      const list = map.get(def.categoryName) ?? [];
+      list.push(def);
+      map.set(def.categoryName, list);
+      return map;
+    }, new Map<string, typeof chartPatternScannerDefinitions>()),
+  );
+
+  const togglePattern = (id: string) => {
+    const next = new Set(enabledSet);
+    if (next.has(id)) {
+      next.delete(id);
+    } else {
+      next.add(id);
+    }
+    onChangeIds(chartPatternScannerDefinitions.map((d) => d.id).filter((dId) => next.has(dId)));
+  };
+
+  const toggleCategory = (defs: typeof chartPatternScannerDefinitions) => {
+    const allChecked = defs.every((d) => enabledSet.has(d.id));
+    const next = new Set(enabledSet);
+    defs.forEach((d) => {
+      if (allChecked) {
+        next.delete(d.id);
+      } else {
+        next.add(d.id);
+      }
+    });
+    onChangeIds(chartPatternScannerDefinitions.map((d) => d.id).filter((dId) => next.has(dId)));
+  };
+
+  return (
+    <div
+      role="dialog"
+      aria-label="Chart Patterns Settings"
+      onMouseDown={(e) => e.stopPropagation()}
+      style={{
+        position: 'fixed',
+        inset: 0,
+        zIndex: 999,
+        background: 'rgba(0, 0, 0, 0.45)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+      }}
+      onClick={onClose}
+    >
+      <div
+        style={{
+          width: 560,
+          maxWidth: '94vw',
+          maxHeight: '82vh',
+          display: 'flex',
+          flexDirection: 'column',
+          background: 'var(--bg2)',
+          border: '1px solid var(--border2)',
+          borderRadius: 6,
+          boxShadow: 'var(--shadow-lg)',
+          color: 'var(--text)',
+          overflow: 'hidden',
+        }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            padding: '10px 14px',
+            borderBottom: '1px solid var(--border)',
+            background: 'var(--bg3)',
+          }}
+        >
+          <div style={{ fontWeight: 700, fontSize: 13 }}>
+            Toolbar Chart Patterns Settings ({enabledIds.length} / {chartPatternScannerDefinitions.length} enabled)
+          </div>
+          <button type="button" onClick={onClose} style={{ ...actionButtonStyle, minWidth: 24, padding: '0 6px' }}>
+            ✕
+          </button>
+        </div>
+
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 6,
+            padding: '8px 14px',
+            borderBottom: '1px solid var(--border)',
+            flexWrap: 'wrap',
+          }}
+        >
+          <input
+            type="text"
+            value={search}
+            onChange={(e) => onSearchChange(e.target.value)}
+            placeholder="Filter chart patterns..."
+            style={{
+              flex: 1,
+              minWidth: 160,
+              height: 26,
+              padding: '0 8px',
+              borderRadius: 4,
+              border: '1px solid var(--border2)',
+              background: 'var(--bg3)',
+              color: 'var(--text)',
+              fontSize: 12,
+            }}
+          />
+          <button
+            type="button"
+            style={actionButtonStyle}
+            onClick={() => onChangeIds(DEFAULT_TOOLBAR_CHART_PATTERN_IDS, true)}
+            title="Restore default 40 confirmed macro patterns"
+          >
+            Default Macro ({DEFAULT_TOOLBAR_CHART_PATTERN_IDS.length})
+          </button>
+          <button
+            type="button"
+            style={actionButtonStyle}
+            onClick={() => onChangeIds(chartPatternScannerDefinitions.map((d) => d.id))}
+          >
+            Select All ({chartPatternScannerDefinitions.length})
+          </button>
+          <button type="button" style={actionButtonStyle} onClick={() => onChangeIds([])}>
+            Clear All
+          </button>
+        </div>
+
+        <div style={{ flex: 1, overflowY: 'auto', padding: '10px 14px', display: 'grid', gap: 12 }}>
+          {categories.map(([categoryName, defs]) => {
+            const checkedCount = defs.filter((d) => enabledSet.has(d.id)).length;
+            const allChecked = checkedCount === defs.length && defs.length > 0;
+            return (
+              <div
+                key={categoryName}
+                style={{
+                  border: '1px solid var(--border)',
+                  borderRadius: 5,
+                  padding: '8px 10px',
+                  background: 'var(--bg3)',
+                }}
+              >
+                <label
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    fontWeight: 700,
+                    fontSize: 12,
+                    marginBottom: 8,
+                    cursor: 'pointer',
+                  }}
+                >
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                    <input
+                      type="checkbox"
+                      checked={allChecked}
+                      onChange={() => toggleCategory(defs)}
+                    />
+                    {categoryName}
+                  </span>
+                  <span style={{ fontSize: 11, color: 'var(--text-dim)', fontWeight: 500 }}>
+                    {checkedCount} / {defs.length}
+                  </span>
+                </label>
+                <div
+                  style={{
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))',
+                    gap: '5px 10px',
+                  }}
+                >
+                  {defs.map((def) => {
+                    const checked = enabledSet.has(def.id);
+                    const dir = def.chartPattern?.signalDirection ?? 'neutral';
+                    const badgeColor =
+                      dir === 'bullish' ? '#20d18b' : dir === 'bearish' ? '#ff5757' : '#f0c34e';
+                    return (
+                      <label
+                        key={def.id}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          gap: 6,
+                          fontSize: 11.5,
+                          padding: '3px 6px',
+                          borderRadius: 4,
+                          cursor: 'pointer',
+                          background: checked ? 'var(--accent-soft)' : 'transparent',
+                        }}
+                      >
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
+                          <input
+                            type="checkbox"
+                            checked={checked}
+                            onChange={() => togglePattern(def.id)}
+                          />
+                          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            {def.name}
+                          </span>
+                        </span>
+                        <span style={{ fontSize: 10, color: badgeColor, fontWeight: 600, flexShrink: 0 }}>
+                          {dir === 'bullish' ? 'Bull' : dir === 'bearish' ? 'Bear' : 'Neut'}
+                        </span>
+                      </label>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'flex-end',
+            gap: 8,
+            padding: '8px 14px',
+            borderTop: '1px solid var(--border)',
+            background: 'var(--bg3)',
+          }}
+        >
+          <button type="button" style={actionButtonStyle} onClick={onClose}>
+            Close
+          </button>
+          <button
+            type="button"
+            style={{ ...activeActionButtonStyle, minWidth: 120 }}
+            disabled={enabledIds.length === 0}
+            onClick={onScanNow}
+          >
+            Scan Active Chart
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 function selectBestChartPatternResult(results: ScannerResult[], bars?: EodBar[]): ScannerResult | null {
   const candidates = results.filter(isDrawableBoundaryPattern);

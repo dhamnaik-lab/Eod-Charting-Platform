@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 
 const css = readFileSync('src/styles/global.css', 'utf8');
+const paletteCss = readFileSync('src/styles/theme-tokens.generated.css', 'utf8');
 const status = readFileSync('src/components/StatusBar.tsx', 'utf8');
 
 describe('B26: respect reduced-motion preference without layout or theme redesign', () => {
@@ -39,7 +40,7 @@ describe('B26: respect reduced-motion preference without layout or theme redesig
       '[data-theme="classic-light-refined"] {', '[data-theme="deep-light"] {',
       '[data-theme="refinitiv-dark"] {', '[data-theme="tos-charcoal"] {',
     ]) {
-      expect(css).toContain(theme);
+      expect(paletteCss).toContain(theme);
     }
     expect(css.split('@media (prefers-reduced-motion: reduce)')[1]).not.toContain('data-theme');
   });

@@ -81,7 +81,7 @@ const fallbackStyle: React.CSSProperties = {
 const titleStyle: React.CSSProperties = {
   fontSize: '16px',
   fontWeight: 'bold',
-  color: 'var(--red)',
+  color: 'var(--red-text)',
 };
 
 const messageStyle: React.CSSProperties = {

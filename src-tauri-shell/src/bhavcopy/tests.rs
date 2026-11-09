@@ -655,6 +655,67 @@ fn batch_download_log_keeps_historical_success_until_a_successful_replacement() 
 }
 
 #[test]
+fn download_log_distinguishes_held_back_subset_from_total_row_loss() {
+    let db = Connection::open_in_memory().unwrap();
+    db.execute_batch("
+        CREATE TABLE download_log (
+            trade_date TEXT, exchange TEXT, rows_inserted INTEGER, max_volume INTEGER,
+            status TEXT, note TEXT, downloaded_at TEXT, UNIQUE(trade_date, exchange)
+        );
+    ").unwrap();
+    // A conflict blocked a subset of the file, but other symbols imported rows:
+    // the log must keep the real counts and must not say status='error'.
+    let subset = DownloadResult {
+        success: false,
+        trade_date: "2014-11-20".into(),
+        exchange: "NSE".into(),
+        rows_inserted: 12,
+        max_volume: 340,
+        message: "Security subset: Imported staged 12 records; blocked 2 rows".into(),
+    };
+    upsert_download_log_entry(&db, &subset).unwrap();
+    let (status, rows, max_volume): (String, i64, i64) = db
+        .query_row(
+            "SELECT status, rows_inserted, max_volume FROM download_log WHERE trade_date = '2014-11-20'",
+            [],
+            |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
+        )
+        .unwrap();
+    assert_eq!((status.as_str(), rows, max_volume), ("partial", 12, 340));
+
+    // A date where nothing imported is genuine row loss: error with zero counts.
+    let none = DownloadResult {
+        rows_inserted: 0,
+        max_volume: 0,
+        trade_date: "2014-11-21".into(),
+        ..subset.clone()
+    };
+    upsert_download_log_entry(&db, &none).unwrap();
+    let (status, rows, max_volume): (String, i64, i64) = db
+        .query_row(
+            "SELECT status, rows_inserted, max_volume FROM download_log WHERE trade_date = '2014-11-21'",
+            [],
+            |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
+        )
+        .unwrap();
+    assert_eq!((status.as_str(), rows, max_volume), ("error", 0, 0));
+
+    // The batch variant keeps a historical success untouched: a later
+    // held-back-subset failure on the same date must not downgrade it.
+    let replacement = DownloadResult { success: true, rows_inserted: 40, max_volume: 900, ..subset.clone() };
+    upsert_batch_download_log_entry(&db, &replacement).unwrap();
+    upsert_batch_download_log_entry(&db, &subset).unwrap();
+    let (status, rows, max_volume): (String, i64, i64) = db
+        .query_row(
+            "SELECT status, rows_inserted, max_volume FROM download_log WHERE trade_date = '2014-11-20'",
+            [],
+            |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
+        )
+        .unwrap();
+    assert_eq!((status.as_str(), rows, max_volume), ("ok", 40, 900));
+}
+
+#[test]
 fn test_row_parity_audit_detects_duplicate_symbol_date_rows() {
     let csv = "SC_CODE,SC_NAME,SC_GROUP,OPEN,HIGH,LOW,CLOSE,NO_OF_SHRS\n\
 500325,RELIANCE,A,100,110,90,105,1000\n\
@@ -1625,6 +1686,56 @@ fn test_state_shadow_flags_indexed_file_when_physical_file_is_absent() {
         classify_recovery_state_shadow(&physical, Some(&indexed)),
         BhavcopyStateShadowComparison::Mismatched(_)
     ));
+}
+
+#[test]
+fn binary_coverage_requires_exact_record_not_only_index_bounds() {
+    let fixture = tempfile::tempdir().unwrap();
+    let connection = Connection::open(fixture.path().join("fixture.db")).unwrap();
+    let index = Connection::open(fixture.path().join("eod_binary_state.sqlite")).unwrap();
+    index
+        .execute_batch(
+            "CREATE TABLE eod_binary_state (
+        exchange TEXT, symbol TEXT, record_count INTEGER, first_date INTEGER, last_date INTEGER);
+        INSERT INTO eod_binary_state VALUES ('NSE','GAPPED',2,20260805,20260807);",
+        )
+        .unwrap();
+    let folder = fixture.path().join("eod_data/NSE");
+    std::fs::create_dir_all(&folder).unwrap();
+    let mut records = vec![
+        baseline_fast_path_test_record(20260805, 100),
+        baseline_fast_path_test_record(20260807, 101),
+    ];
+    BinaryEodFile::write_all(
+        folder.join("GAPPED.eod"),
+        "GAPPED",
+        "NSE",
+        DEFAULT_SCALE,
+        &mut records,
+    )
+    .unwrap();
+    for (date, expected) in [
+        ("2026-08-05", true),
+        ("2026-08-06", false),
+        ("2026-08-07", true),
+        ("2026-08-04", false),
+    ] {
+        assert_eq!(
+            super::ingestion::binary_store_has_imported_rows_for_date(&connection, date, "NSE")
+                .unwrap(),
+            expected,
+            "{date}"
+        );
+    }
+    index
+        .execute("UPDATE eod_binary_state SET symbol='MISSING'", [])
+        .unwrap();
+    assert!(!super::ingestion::binary_store_has_imported_rows_for_date(
+        &connection,
+        "2026-08-05",
+        "NSE"
+    )
+    .unwrap());
 }
 
 fn baseline_fast_path_test_record(date: u32, close: i64) -> EodRecord {

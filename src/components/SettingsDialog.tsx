@@ -9,10 +9,11 @@ import {
   type AppSettings,
 } from '@/features/app/appSettingsService';
 import {
-  APP_THEME_OPTIONS,
+  APP_THEME_SELECT_OPTIONS,
   applyAppTheme,
-  normalizeAppThemeId,
-  type AppThemeId,
+  normalizeAppThemeSelection,
+  resolveAppTheme,
+  type AppThemeSelectionId,
 } from '@/features/app/themeService';
 import {
   readDatabaseDefaultPriceMode,
@@ -143,7 +144,7 @@ export function SettingsDialog() {
   const closeWindow = useWindowStore((state) => state.closeWindow);
 
   const [settings, setSettings] = useState<AppSettings | null>(null);
-  const [loadedTheme, setLoadedTheme] = useState<AppThemeId | null>(null);
+  const [loadedTheme, setLoadedTheme] = useState<AppThemeSelectionId | null>(null);
   const [databaseDefaultPriceMode, setDatabaseDefaultPriceMode] =
     useState<DatabaseDefaultPriceMode>('adjusted');
   const [loadedDatabaseDefaultPriceMode, setLoadedDatabaseDefaultPriceMode] =
@@ -180,7 +181,7 @@ export function SettingsDialog() {
         .then(([nextSettings, nextDatabaseDefaultPriceMode]) => {
           setSettings(nextSettings);
           setLoadedTheme(nextSettings.theme);
-          setCurrentTheme(nextSettings.theme);
+          setCurrentTheme(resolveAppTheme(nextSettings.theme));
           applyAppTheme(nextSettings.theme);
           setDatabaseDefaultPriceMode(nextDatabaseDefaultPriceMode);
           setLoadedDatabaseDefaultPriceMode(nextDatabaseDefaultPriceMode);
@@ -287,16 +288,20 @@ export function SettingsDialog() {
       if (activeDatabasePath) {
         await writeDatabaseDefaultPriceMode(databaseDefaultPriceMode);
       }
-      setCurrentTheme(settings.theme);
+      setCurrentTheme(resolveAppTheme(settings.theme));
       applyAppTheme(settings.theme);
-      setCustomChartColors({
-        candleUp: settings.candleUpColor,
-        candleDown: settings.candleDownColor,
-        wickUp: settings.candleUpColor,
-        wickDown: settings.candleDownColor,
-        gridLine: settings.gridColor,
-        crosshair: settings.crosshairColor,
-      });
+      setCustomChartColors(
+        settings.chartColorsCustomized === false
+          ? null
+          : {
+              candleUp: settings.candleUpColor,
+              candleDown: settings.candleDownColor,
+              wickUp: settings.candleUpColor,
+              wickDown: settings.candleDownColor,
+              gridLine: settings.gridColor,
+              crosshair: settings.crosshairColor,
+            },
+      );
       setLoadedTheme(settings.theme);
       const databasePriceModeChanged =
         activeDatabasePath && loadedDatabaseDefaultPriceMode !== databaseDefaultPriceMode;
@@ -315,9 +320,9 @@ export function SettingsDialog() {
   };
 
   const handleThemeChange = (value: string) => {
-    const nextTheme = normalizeAppThemeId(value);
+    const nextTheme = normalizeAppThemeSelection(value);
     setSettings({ ...settings, theme: nextTheme });
-    setCurrentTheme(nextTheme);
+    setCurrentTheme(resolveAppTheme(nextTheme));
     applyAppTheme(nextTheme);
   };
 
@@ -517,7 +522,7 @@ export function SettingsDialog() {
 
   const handleClose = () => {
     if (loadedTheme) {
-      setCurrentTheme(loadedTheme);
+      setCurrentTheme(resolveAppTheme(loadedTheme));
       applyAppTheme(loadedTheme);
     }
     onClose();
@@ -596,12 +601,13 @@ export function SettingsDialog() {
               value={settings.theme}
               onChange={(e) => handleThemeChange(e.target.value)}
             >
-              {APP_THEME_OPTIONS.map((theme) => (
+              {APP_THEME_SELECT_OPTIONS.map((theme) => (
                 <option key={theme.id} value={theme.id}>
                   {theme.label}
                 </option>
               ))}
             </select>
+            <div style={hintStyle}>Themes apply instantly. Save changes to keep this one.</div>
           </div>
           <div style={fieldStyle}>
             <label style={labelStyle}>Default Exchange</label>
@@ -828,24 +834,24 @@ export function SettingsDialog() {
             <ColorToolboxRow
               label="Candle Up"
               value={settings.candleUpColor}
-              onChange={(candleUpColor) => setSettings({ ...settings, candleUpColor })}
+              onChange={(candleUpColor) => setSettings({ ...settings, candleUpColor, chartColorsCustomized: true })}
             />
             <ColorToolboxRow
               label="Candle Down"
               value={settings.candleDownColor}
-              onChange={(candleDownColor) => setSettings({ ...settings, candleDownColor })}
+              onChange={(candleDownColor) => setSettings({ ...settings, candleDownColor, chartColorsCustomized: true })}
             />
             <ColorToolboxRow
               label="Grid Lines"
               value={settings.gridColor}
               allowAlpha
-              onChange={(gridColor) => setSettings({ ...settings, gridColor })}
+              onChange={(gridColor) => setSettings({ ...settings, gridColor, chartColorsCustomized: true })}
             />
             <ColorToolboxRow
               label="Crosshair"
               value={settings.crosshairColor}
               allowAlpha
-              onChange={(crosshairColor) => setSettings({ ...settings, crosshairColor })}
+              onChange={(crosshairColor) => setSettings({ ...settings, crosshairColor, chartColorsCustomized: true })}
             />
           </div>
         </div>
@@ -976,7 +982,7 @@ const sectionStyle: React.CSSProperties = {
 const sectionTitleStyle: React.CSSProperties = {
   fontSize: 12,
   fontWeight: 700,
-  color: 'var(--accent)',
+  color: 'var(--accent-text)',
   textTransform: 'uppercase',
   letterSpacing: '0.05em',
 };

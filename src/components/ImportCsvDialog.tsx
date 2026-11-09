@@ -10,6 +10,7 @@ import { useChartStore } from '@/store/chartStore';
 import { useUiStore } from '@/store/uiStore';
 import { useWindowStore } from '@/store/windowStore';
 import { FloatingWindow } from '@/components/FloatingWindow';
+import { NiftyHistoryReview } from '@/components/NiftyHistoryReview';
 
 export function ImportCsvDialog() {
   const IMPORT_CSV_WINDOW_ID = 'import-csv';
@@ -36,6 +37,7 @@ export function ImportCsvDialog() {
   const [recoveryHistory, setRecoveryHistory] = useState<ManualImportRecoverySummary[]>([]);
   const [undoBusySessionId, setUndoBusySessionId] = useState<string | null>(null);
   const [recoveryMessage, setRecoveryMessage] = useState<string | null>(null);
+  const [historicalBusy, setHistoricalBusy] = useState(false);
 
   const primaryFile = importDialog.filePaths[0] ?? null;
   const hasFinishedImport = !importProgress.running && (Boolean(importProgress.result) || Boolean(importProgress.error));
@@ -97,7 +99,7 @@ export function ImportCsvDialog() {
   }, [api, importDialog.open, importDialog.openRequestCount]);
 
   const handleUndoRecovery = async (recovery: ManualImportRecoverySummary) => {
-    if (!api || !recovery.undoable || undoBusySessionId || importProgress.running) {
+    if (!api || !recovery.undoable || undoBusySessionId || importProgress.running || historicalBusy) {
       return;
     }
     const confirmed = window.confirm(
@@ -127,6 +129,7 @@ export function ImportCsvDialog() {
   };
 
   const handleClose = () => {
+    if (historicalBusy) return;
     closeWindow(IMPORT_CSV_WINDOW_ID);
     closeImportDialog();
   };
@@ -136,7 +139,7 @@ export function ImportCsvDialog() {
       <div style={dialogBodyStyle}>
         <div style={referenceBoxStyle}>
           <div style={{ color: 'var(--text-dim)', marginBottom: 6 }}>Expected Format</div>
-          <div style={{ color: 'var(--accent)' }}>symbol, date, open, high, low, close, volume</div>
+          <div style={{ color: 'var(--accent-text)' }}>symbol, date, open, high, low, close, volume</div>
           <div style={{ marginTop: 6 }}>RELIANCE, 20240318, 2814.50, 2856.80, 2808.10, 2847.30, 1240000</div>
         </div>
 
@@ -246,7 +249,7 @@ export function ImportCsvDialog() {
               }}
             >
               <span>Preview {primaryFile ? `(${basename(primaryFile)})` : ''}</span>
-              <span style={{ color: 'var(--green)' }}>~{preview.totalEstimatedRows} rows</span>
+              <span style={{ color: 'var(--green-text)' }}>~{preview.totalEstimatedRows} rows</span>
             </div>
             <div style={previewTableWrapStyle}>
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11 }}>
@@ -391,7 +394,7 @@ export function ImportCsvDialog() {
                       {recovery.sessionId}
                     </div>
                     {recovery.errorSummary ? (
-                      <div style={{ color: 'var(--accent)', fontSize: 11 }}>{recovery.errorSummary}</div>
+                      <div style={{ color: 'var(--accent-text)', fontSize: 11 }}>{recovery.errorSummary}</div>
                     ) : null}
                     {recovery.undoable ? (
                       <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
@@ -411,6 +414,14 @@ export function ImportCsvDialog() {
             </div>
           </div>
         ) : null}
+
+        <details>
+          <summary>Reviewed NIFTY history</summary>
+          <NiftyHistoryReview
+            disabled={importProgress.running || Boolean(undoBusySessionId)}
+            onBusyChange={setHistoricalBusy}
+          />
+        </details>
 
         <div style={footerStyle}>
           <div style={{ color: 'var(--text-dim)', fontSize: 11 }}>
@@ -435,7 +446,7 @@ export function ImportCsvDialog() {
             <button
               type="button"
               style={buttonStyle}
-              disabled={!importDialog.filePaths.length || importProgress.running || Boolean(undoBusySessionId)}
+              disabled={!importDialog.filePaths.length || importProgress.running || Boolean(undoBusySessionId) || historicalBusy}
               onClick={async () => {
                 if (!importDialog.filePaths.length) {
                   return;
@@ -665,7 +676,7 @@ const summaryErrorListStyle: React.CSSProperties = {
   display: 'flex',
   flexDirection: 'column',
   gap: 4,
-  color: 'var(--accent)',
+  color: 'var(--accent-text)',
   fontSize: 11,
 };
 
@@ -691,7 +702,7 @@ const errorBoxStyle: React.CSSProperties = {
   display: 'flex',
   flexDirection: 'column',
   gap: 6,
-  color: 'var(--red)',
+  color: 'var(--red-text)',
 };
 
 const footerStyle: React.CSSProperties = {

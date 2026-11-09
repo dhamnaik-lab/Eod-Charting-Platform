@@ -21,6 +21,7 @@ export interface ScannerPatternMapEntry {
   instrument: InstrumentKey;
   date: string;
   scannerName: string;
+  scannerId?: string;
   direction?: ScannerDirection;
   score?: number;
   levels: Array<{ label: string; value: number }>;
@@ -63,6 +64,7 @@ export function buildScannerPatternMapEntries(
       instrument: { exchange: result.exchange, symbol: result.symbol },
       date: result.date,
       scannerName: result.scannerName,
+      scannerId: result.scannerId,
       direction: result.direction,
       score: result.score,
       levels: getScannerPatternMapLevels(result),
@@ -142,6 +144,8 @@ export function buildScannerPatternDrawingOverlay(entry: ScannerPatternMapEntry)
     instrument: entry.instrument,
     date: entry.date,
     scannerName: entry.scannerName,
+    scannerId: entry.scannerId,
+    contextBars: 260,
     direction: entry.direction,
     score: entry.score,
     levels: entry.levels,

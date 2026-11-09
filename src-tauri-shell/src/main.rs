@@ -6,6 +6,7 @@ mod bhavcopy_recovery;
 mod database;
 mod imports;
 mod manual_import_recovery;
+mod nifty_history;
 mod plugin_data;
 mod runtime;
 
@@ -1254,6 +1255,8 @@ fn main() {
             save_chart_image,
             preview_csv,
             import_csv,
+            nifty_history::preview_nifty_history,
+            nifty_history::apply_nifty_history,
             get_latest_manual_import_recovery,
             list_manual_import_recovery_history,
             undo_manual_import_recovery,

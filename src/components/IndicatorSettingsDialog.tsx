@@ -1425,7 +1425,7 @@ function PatternField({
                   style={{
                     background: 'transparent',
                     border: 'none',
-                    color: 'var(--accent)',
+                    color: 'var(--accent-text)',
                     fontSize: 10,
                     cursor: 'pointer',
                     padding: '2px 4px',

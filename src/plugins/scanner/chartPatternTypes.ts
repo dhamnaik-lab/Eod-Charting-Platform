@@ -70,12 +70,13 @@ export interface ChartPatternGeometryPivotMarker extends ChartPatternGeometryPoi
   id: string;
   label: string;
   kind: ChartPatternPivot['kind'] | 'neutral';
+  role?: 'swing' | 'breakout';
 }
 
 export interface ChartPatternGeometryTrendLine {
   id: string;
   label?: string;
-  role: 'upper' | 'lower' | 'neckline' | 'support' | 'resistance' | 'pole' | 'generic';
+  role: 'upper' | 'lower' | 'neckline' | 'support' | 'resistance' | 'pole' | 'midline' | 'generic';
   start: ChartPatternGeometryPoint;
   end: ChartPatternGeometryPoint;
   extendRight?: boolean;
@@ -89,6 +90,7 @@ export interface ChartPatternGeometryZone {
   endDate: string;
   low: number;
   high: number;
+  fillOpacity?: number;
 }
 
 export interface ChartPatternGeometryLabel {

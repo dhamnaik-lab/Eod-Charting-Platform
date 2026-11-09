@@ -857,7 +857,7 @@ const railSectionHeaderStyle: React.CSSProperties = {
   fontSize: 9.5,
   fontWeight: 800,
   letterSpacing: '0.08em',
-  color: 'var(--accent)',
+  color: 'var(--accent-text)',
   padding: '2px 8px 4px',
 };
 
@@ -1052,7 +1052,7 @@ const primaryAddButtonStyle: React.CSSProperties = {
   borderRadius: 6,
   border: 'none',
   background: 'var(--accent)',
-  color: '#ffffff',
+  color: 'var(--accent-contrast)',
   fontSize: 12.5,
   fontWeight: 700,
   cursor: 'pointer',

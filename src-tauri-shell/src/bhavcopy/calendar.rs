@@ -219,6 +219,11 @@ pub fn get_exchange_holiday_name(
     if is_shared_cash_market_holiday_exchange(&normalized_exchange)
         && !is_special_trading_day_for_normalized_exchange(&normalized_exchange, trade_date)
     {
+        // BSE notice 20101122-22 (22 Nov 2010), Trading Holidays for 2011.
+        // An evidenced calendar omission, independent of download/HTML failures.
+        if matches!(normalized_exchange.as_str(), "BSE" | "BSEINDEX") && trade_date == "2011-01-26" {
+            return Ok(Some("Republic Day (BSE notice 20101122-22)".into()));
+        }
         let official_exchange = if normalized_exchange.starts_with("NSE") { "NSE" } else { "BSE" };
         // Legacy in-memory fixtures may not have run the new additive schema.
         // Keep the pre-HOL03 lookup in that case; production databases use
@@ -386,7 +391,7 @@ pub fn format_source_category_label(exchange: &str) -> &'static str {
     match normalize_exchange_key(exchange).as_str() {
         "NSE" => "NSE Equity",
         "BSE" => "BSE Equity",
-        "NSEINDEX" => "NSE Index Symbols / Full Index List",
+        "NSEINDEX" => "NSE Indices",
         "BSEINDEX" => "BSE Index",
         _ => "Unknown",
     }

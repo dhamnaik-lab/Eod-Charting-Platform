@@ -1,8 +1,8 @@
 import { getDesktopApi, requireDesktopApi } from '@/platform';
 import {
   DEFAULT_APP_THEME_ID,
-  normalizeAppThemeId,
-  type AppThemeId,
+  normalizeAppThemeSelection,
+  type AppThemeSelectionId,
 } from '@/features/app/themeService';
 import {
   normalizeEodAlertHistoryEvents,
@@ -18,12 +18,18 @@ import {
 } from '@/plugins/scanner/scannerWorkspace';
 
 export interface AppSettings {
-  theme: AppThemeId;
+  theme: AppThemeSelectionId;
   defaultExchange: string;
   candleUpColor: string;
   candleDownColor: string;
   gridColor: string;
   crosshairColor: string;
+  /**
+   * `null` means the profile predates the flag, so legacy default values must be
+   * detected heuristically. `false` means the stored colours are untouched theme
+   * defaults. `true` means the user explicitly picked chart colours.
+   */
+  chartColorsCustomized: boolean | null;
   pluginEnabled: PluginEnabledMap;
   pluginConfigurations: Record<string, unknown>;
   eodAlertRules: EodAlertRule[];
@@ -57,6 +63,7 @@ const DEFAULT_SETTINGS: AppSettings = {
   candleDownColor: '#ef5350',
   gridColor: '#1e2a3a',
   crosshairColor: '#5588aa',
+  chartColorsCustomized: null,
   pluginEnabled: {},
   pluginConfigurations: {},
   eodAlertRules: [],
@@ -100,12 +107,16 @@ export async function readAppSettings(): Promise<AppSettings> {
   const payload = await api.getAppProfileSettings();
 
   return {
-    theme: normalizeAppThemeId(payload.theme),
+    theme: normalizeAppThemeSelection(payload.theme),
     defaultExchange: payload.defaultExchange ?? DEFAULT_SETTINGS.defaultExchange,
     candleUpColor: payload.candleUpColor ?? DEFAULT_SETTINGS.candleUpColor,
     candleDownColor: payload.candleDownColor ?? DEFAULT_SETTINGS.candleDownColor,
     gridColor: payload.gridColor ?? DEFAULT_SETTINGS.gridColor,
     crosshairColor: payload.crosshairColor ?? DEFAULT_SETTINGS.crosshairColor,
+    chartColorsCustomized:
+      typeof payload.chartColorsCustomized === 'boolean'
+        ? payload.chartColorsCustomized
+        : DEFAULT_SETTINGS.chartColorsCustomized,
     pluginEnabled: payload.pluginEnabled ?? DEFAULT_SETTINGS.pluginEnabled,
     pluginConfigurations: normalizePluginConfigurations(payload.pluginConfigurations),
     eodAlertRules: normalizeEodAlertRules(payload.eodAlertRules),
@@ -126,6 +137,7 @@ export async function writeAppSettings(settings: AppSettings): Promise<void> {
     candleDownColor: settings.candleDownColor,
     gridColor: settings.gridColor,
     crosshairColor: settings.crosshairColor,
+    chartColorsCustomized: settings.chartColorsCustomized,
     pluginEnabled: settings.pluginEnabled,
     pluginConfigurations: settings.pluginConfigurations,
     eodAlertRules: settings.eodAlertRules,

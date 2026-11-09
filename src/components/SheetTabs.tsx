@@ -441,6 +441,6 @@ const dialogPrimaryButtonStyle: CSSProperties = {
 const dialogDangerButtonStyle: CSSProperties = {
   ...dialogButtonStyle,
   borderColor: 'var(--red)',
-  color: 'var(--red)',
+  color: 'var(--red-text)',
   background: 'transparent',
 };

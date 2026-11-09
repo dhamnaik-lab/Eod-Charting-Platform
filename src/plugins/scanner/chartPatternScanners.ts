@@ -2406,9 +2406,24 @@ function latestComparablePivotSetup(
     .filter((pivot) => pivot.kind === kind)
     .slice(-count);
   if (pivots.length !== count) return null;
-  if (!pivotsComparable(pivots, 3)) return null;
+  if (!pivotsComparable(pivots, count === 3 ? 2.5 : 3)) return null;
   if (!pivotsHaveSpacing(pivots, 3)) return null;
   if (pivots[pivots.length - 1].index - pivots[0].index > 140) return null;
+  if (patternBars.length - 1 - pivots[pivots.length - 1].index > 8) return null;
+  const reactions: number[] = [];
+  for (let i = 0; i < pivots.length - 1; i += 1) {
+    const seg = patternBars.slice(pivots[i].index + 1, pivots[i + 1].index);
+    const reaction = kind === 'high' ? lowestLow(seg) : highestHigh(seg);
+    if (reaction === null) return null;
+    if (kind === 'high' && reaction >= Math.min(pivots[i].price, pivots[i + 1].price)) return null;
+    if (kind === 'low' && reaction <= Math.max(pivots[i].price, pivots[i + 1].price)) return null;
+    if (retracementDepthPct(pivots[i].price, pivots[i + 1].price, reaction) < 2.5) return null;
+    const segHeight = Math.abs((pivots[i].price + pivots[i + 1].price) / 2 - reaction);
+    const symmetryRatio = segHeight > 0 ? Math.abs(pivots[i].price - pivots[i + 1].price) / segHeight : 1;
+    if (symmetryRatio > 0.35) return null;
+    reactions.push(reaction);
+  }
+  if (reactions.length === 2 && !pricesComparable(reactions, 6)) return null;
 
   const barsBetween = patternBars.slice(pivots[0].index, pivots[pivots.length - 1].index + 1);
   if (barsBetween.length >= 3) {
@@ -2547,9 +2562,15 @@ function latestTriangleSetup(
   if (kind === 'ascending') {
     if (lowPivots.length < 2) return null;
     if (resistanceTouches < 2 || lowSlope <= 0) return null;
+    const initWidth = resistance - lowPivots[0].price;
+    const finalWidth = resistance - lowPivots[lowPivots.length - 1].price;
+    if (initWidth <= 0 || (initWidth - finalWidth) / initWidth < 0.2) return null;
   } else {
     if (highPivots.length < 2) return null;
     if (supportTouches < 2 || highSlope >= 0) return null;
+    const initWidth = highPivots[0].price - support;
+    const finalWidth = highPivots[highPivots.length - 1].price - support;
+    if (initWidth <= 0 || (initWidth - finalWidth) / initWidth < 0.2) return null;
   }
 
   return {
@@ -2591,6 +2612,9 @@ function latestSymmetricalTriangleSetup(
   const upperLevel = highPivots[highPivots.length - 1].price;
   const lowerLevel = lowPivots[lowPivots.length - 1].price;
   if (upperLevel <= lowerLevel) return null;
+  const initWidth = highPivots[0].price - lowPivots[0].price;
+  const finalWidth = upperLevel - lowerLevel;
+  if (initWidth <= 0 || (initWidth - finalWidth) / initWidth < 0.2) return null;
   return {
     baseBars,
     latest,
@@ -2620,7 +2644,7 @@ function buildAscendingTriangleGeometry(
         role: 'resistance',
         start: { date: firstBar.date, price: setup.resistance },
         end: { date: lastBar.date, price: setup.resistance },
-        extendRight: true,
+        extendRight: false,
       },
       {
         id: 'rising-support',
@@ -2628,7 +2652,7 @@ function buildAscendingTriangleGeometry(
         role: 'lower',
         start: pivotToGeometryPoint(firstLowPivot),
         end: pivotToGeometryPoint(lastLowPivot),
-        extendRight: true,
+        extendRight: false,
       },
     ],
     labels: [
@@ -2658,7 +2682,7 @@ function buildDescendingTriangleGeometry(
         role: 'upper',
         start: pivotToGeometryPoint(firstHighPivot),
         end: pivotToGeometryPoint(lastHighPivot),
-        extendRight: true,
+        extendRight: false,
       },
       {
         id: 'support',
@@ -2666,7 +2690,7 @@ function buildDescendingTriangleGeometry(
         role: 'support',
         start: { date: firstBar.date, price: setup.support },
         end: { date: lastBar.date, price: setup.support },
-        extendRight: true,
+        extendRight: false,
       },
     ],
     labels: [
@@ -2696,7 +2720,7 @@ function buildSymmetricalTriangleGeometry(
         role: 'upper',
         start: pivotToGeometryPoint(firstHighPivot),
         end: pivotToGeometryPoint(lastHighPivot),
-        extendRight: true,
+        extendRight: false,
       },
       {
         id: 'rising-support',
@@ -2704,7 +2728,7 @@ function buildSymmetricalTriangleGeometry(
         role: 'lower',
         start: pivotToGeometryPoint(firstLowPivot),
         end: pivotToGeometryPoint(lastLowPivot),
-        extendRight: true,
+        extendRight: false,
       },
     ],
     labels: [
@@ -2733,6 +2757,15 @@ function buildDoubleReversalGeometry(
 
   return {
     family: 'double-top-bottom',
+    zones: [{
+      id: 'reversal-base',
+      role: 'base',
+      startDate: firstPivot.date,
+      endDate: setup.pivots[setup.pivots.length - 1].date,
+      low: round(Math.min(confirmationLevel, ...setup.pivots.map((p) => p.price)), 4),
+      high: round(Math.max(confirmationLevel, ...setup.pivots.map((p) => p.price)), 4),
+      fillOpacity: 0.08,
+    }],
     pivotMarkers: buildPivotMarkers(setup.pivots),
     trendLines: [
       {
@@ -2770,6 +2803,15 @@ function buildTripleReversalGeometry(
 
   return {
     family: 'triple-top-bottom',
+    zones: [{
+      id: 'reversal-base',
+      role: 'base',
+      startDate: firstPivot.date,
+      endDate: setup.pivots[setup.pivots.length - 1].date,
+      low: round(Math.min(confirmationLevel, ...setup.pivots.map((p) => p.price)), 4),
+      high: round(Math.max(confirmationLevel, ...setup.pivots.map((p) => p.price)), 4),
+      fillOpacity: 0.08,
+    }],
     pivotMarkers: buildPivotMarkers(setup.pivots),
     trendLines: [
       {
@@ -2887,6 +2929,15 @@ function buildHighTightFlagGeometry(
 
   return {
     family: 'high-tight-flag',
+    zones: [{
+      id: 'flag-consolidation',
+      label: 'Flag consolidation',
+      role: 'base',
+      startDate: pullbackStart.date,
+      endDate: pullbackEnd.date,
+      low: setup.pullbackLow,
+      high: setup.breakoutLevel,
+    }],
     pivotMarkers: [{
       id: 'pullback-low',
       label: 'Pullback Low',
@@ -3070,6 +3121,15 @@ function buildScallopHandleGeometry(
 
   return {
     family: 'scallop-handle',
+    zones: [{
+      id: 'scallop-base',
+      label: 'Handle consolidation',
+      role: 'base',
+      startDate: handleStart.date,
+      endDate: handleBars[handleBars.length - 1].date,
+      low: lowestLow(handleBars) ?? handleStart.low,
+      high: highestHigh(handleBars) ?? handleStart.high,
+    }],
     pivotMarkers: [
       {
         id: 'scallop-low',
@@ -3326,6 +3386,15 @@ function buildCupHandleGeometry(
 
   return {
     family: 'cup-handle',
+    zones: [{
+      id: 'cup-base',
+      label: 'Handle consolidation',
+      role: 'base',
+      startDate: handleStart.date,
+      endDate: handleBars[handleBars.length - 1].date,
+      low: lowestLow(handleBars) ?? handleStart.low,
+      high: highestHigh(handleBars) ?? handleStart.high,
+    }],
     pivotMarkers: [
       {
         id: 'cup-extreme',
@@ -3738,7 +3807,9 @@ function buildHeadShouldersGeometry(
 ): ChartPatternGeometry {
   const markers = [
     { id: 'left-shoulder', label: 'LS', pivot: setup.leftShoulder },
+    ...(setup.trough1 ? [{ id: 'neckline-1', label: 'N1', pivot: setup.trough1 }] : []),
     { id: 'head', label: 'H', pivot: setup.head },
+    ...(setup.trough2 ? [{ id: 'neckline-2', label: 'N2', pivot: setup.trough2 }] : []),
     { id: 'right-shoulder', label: 'RS', pivot: setup.rightShoulder },
   ];
 
@@ -3750,22 +3821,16 @@ function buildHeadShouldersGeometry(
       kind: pivot.kind,
       ...pivotToGeometryPoint(pivot),
     })),
-    trendLines: [
+    trendLines: setup.trough1 && setup.trough2 ? [
       {
         id: 'neckline',
         label: 'Neckline',
         role: 'neckline',
-        start: {
-          date: setup.leftShoulder.date,
-          price: setup.neckline,
-        },
-        end: {
-          date: latestDate,
-          price: setup.neckline,
-        },
+        start: pivotToGeometryPoint(setup.trough1),
+        end: pivotToGeometryPoint(setup.trough2),
         extendRight: true,
       },
-    ],
+    ] : [],
     labels: [
       {
         id: 'pattern',
@@ -3800,7 +3865,7 @@ function buildWedgeGeometry(
         role: 'upper',
         start: { date: upperStart.date, price: upperStart.price },
         end: { date: upperEnd.date, price: upperEnd.price },
-        extendRight: true,
+        extendRight: false,
       },
       {
         id: 'lower-boundary',
@@ -3808,7 +3873,7 @@ function buildWedgeGeometry(
         role: 'lower',
         start: { date: lowerStart.date, price: lowerStart.price },
         end: { date: lowerEnd.date, price: lowerEnd.price },
-        extendRight: true,
+        extendRight: false,
       },
     ],
     labels: [
@@ -3832,6 +3897,15 @@ function buildContinuationGeometry(
   const consolidationEnd = setup.consolidationBars[setup.consolidationBars.length - 1];
   return {
     family: shape,
+    zones: [{
+      id: 'consolidation-zone',
+      label: shape === 'flag' ? 'Flag consolidation' : 'Pennant compression',
+      role: 'base',
+      startDate: consolidationStart.date,
+      endDate: consolidationEnd.date,
+      low: lowestLow(setup.consolidationBars) ?? Math.min(consolidationStart.low, consolidationEnd.low),
+      high: highestHigh(setup.consolidationBars) ?? Math.max(consolidationStart.high, consolidationEnd.high),
+    }],
     trendLines: [
       {
         id: 'pole',
@@ -3987,6 +4061,31 @@ function latestWedgeSetup(
   const upperLevel = highestHigh(baseBars.slice(-5));
   const lowerLevel = lowestLow(baseBars.slice(-5));
   if (upperLevel === null || lowerLevel === null || upperLevel <= lowerLevel) return null;
+  const pivots = findLocalPivots(baseBars, 1);
+  const highPivots = pivots.filter((p) => p.kind === 'high');
+  const lowPivots = pivots.filter((p) => p.kind === 'low');
+  const upperStartIndex = highPivots.length >= 2 ? highPivots[0].index : 0;
+  const upperEndIndex = highPivots.length >= 2 ? highPivots[highPivots.length - 1].index : baseBars.length - 1;
+  const lowerStartIndex = lowPivots.length >= 2 ? lowPivots[0].index : 0;
+  const lowerEndIndex = lowPivots.length >= 2 ? lowPivots[lowPivots.length - 1].index : baseBars.length - 1;
+  if (upperEndIndex <= upperStartIndex || lowerEndIndex <= lowerStartIndex) return null;
+  const upperStartPrice = highPivots.length >= 2 ? highPivots[0].price : baseBars[0].high;
+  const upperEndPrice = highPivots.length >= 2 ? highPivots[highPivots.length - 1].price : upperLevel;
+  const lowerStartPrice = lowPivots.length >= 2 ? lowPivots[0].price : baseBars[0].low;
+  const lowerEndPrice = lowPivots.length >= 2 ? lowPivots[lowPivots.length - 1].price : lowerLevel;
+  const upperLineSlope = (upperEndPrice - upperStartPrice) / (upperEndIndex - upperStartIndex);
+  const lowerLineSlope = (lowerEndPrice - lowerStartPrice) / (lowerEndIndex - lowerStartIndex);
+  if (kind === 'falling') {
+    if (!(upperLineSlope < 0 && lowerLineSlope < 0 && upperLineSlope < lowerLineSlope)) return null;
+  } else if (!(upperLineSlope > 0 && lowerLineSlope > 0 && lowerLineSlope > upperLineSlope)) {
+    return null;
+  }
+  for (let i = 0; i < baseBars.length; i += 1) {
+    const upperAt = upperStartPrice + upperLineSlope * (i - upperStartIndex);
+    const lowerAt = lowerStartPrice + lowerLineSlope * (i - lowerStartIndex);
+    if (upperAt <= lowerAt) return null;
+    if (baseBars[i].high > upperAt * 1.005 || baseBars[i].low < lowerAt * 0.995) return null;
+  }
 
   if (kind === 'falling') {
     if (!(highSlope < 0 && lowSlope < 0 && highSlope < lowSlope)) return null;
@@ -4299,11 +4398,32 @@ function latestChannelSetup(
     return null;
   }
 
-  const slopeRatio = Math.abs(highSlope / lowSlope);
-  if (!Number.isFinite(slopeRatio) || slopeRatio < 0.4 || slopeRatio > 2.5) return null;
+  // Near-parallel rails may be noisy, but a 2.5x slope difference is a wedge.
+  const slopeRatio = Math.min(Math.abs(highSlope), Math.abs(lowSlope)) /
+    Math.max(Math.abs(highSlope), Math.abs(lowSlope));
+  if (!Number.isFinite(slopeRatio) || slopeRatio < 0.8) return null;
   const support = projectedPivotLinePrice(supportPivots[0], supportPivots[1], baseBars.length);
   const resistance = projectedPivotLinePrice(resistancePivots[0], resistancePivots[1], baseBars.length);
   if (resistance <= support) return null;
+  const startIndex = Math.min(supportPivots[0].index, resistancePivots[0].index);
+  const startWidth = projectedPivotLinePrice(resistancePivots[0], resistancePivots[1], startIndex) -
+    projectedPivotLinePrice(supportPivots[0], supportPivots[1], startIndex);
+  const endWidth = resistance - support;
+  // Stable width across the actual pivot span separates a channel from a wedge.
+  if (startWidth <= 0 || Math.abs(startWidth - endWidth) > (startWidth + endWidth) / 2 * 0.25) return null;
+  const meanPrice = averageClose(baseBars.slice(startIndex));
+  if (meanPrice <= 0) return null;
+  const containmentTol = Math.max(endWidth * 0.12, meanPrice * 0.015);
+  let containedBars = 0;
+  const spanBars = baseBars.length - startIndex;
+  for (let i = startIndex; i < baseBars.length; i += 1) {
+    const upperAt = projectedPivotLinePrice(resistancePivots[0], resistancePivots[1], i);
+    const lowerAt = projectedPivotLinePrice(supportPivots[0], supportPivots[1], i);
+    if (baseBars[i].high <= upperAt + containmentTol && baseBars[i].low >= lowerAt - containmentTol) {
+      containedBars += 1;
+    }
+  }
+  if (spanBars <= 0 || containedBars / spanBars < 0.8) return null;
   const tolerance = Math.max((resistance - support) * 0.1, Math.abs(latest.close) * 0.005);
   if (latest.close < support - tolerance || latest.close > resistance + tolerance) return null;
   return {
@@ -4322,6 +4442,9 @@ function buildChannelGeometry(
   setup: NonNullable<ReturnType<typeof latestChannelSetup>>,
   direction: 'rising' | 'falling',
 ): ChartPatternGeometry {
+  const startIndex = Math.min(setup.supportPivots[0].index, setup.resistancePivots[0].index);
+  const startSupport = projectedPivotLinePrice(setup.supportPivots[0], setup.supportPivots[1], startIndex);
+  const startResistance = projectedPivotLinePrice(setup.resistancePivots[0], setup.resistancePivots[1], startIndex);
   return {
     family: 'channel',
     trendLines: [
@@ -4340,6 +4463,20 @@ function buildChannelGeometry(
         start: pivotToGeometryPoint(setup.resistancePivots[0]),
         end: pivotToGeometryPoint(setup.resistancePivots[1]),
         extendRight: true,
+      },
+      {
+        id: 'midline',
+        label: 'Channel midline',
+        role: 'midline',
+        start: {
+          date: setup.baseBars[startIndex]?.date ?? setup.supportPivots[0].date,
+          price: round((startSupport + startResistance) / 2, 4),
+        },
+        end: {
+          date: setup.latest.date,
+          price: round((setup.support + setup.resistance) / 2, 4),
+        },
+        extendRight: false,
       },
     ],
     labels: [
@@ -4479,6 +4616,22 @@ function latestThreePivotSetup(
     .filter((pivot) => pivot.kind === pivotKind)
     .slice(-3);
   if (pivots.length !== 3 || !pivotsHaveSpacing(pivots, 3)) return null;
+  if (patternBars.length - 1 - pivots[2].index > 6) return null;
+  const seg1 = patternBars.slice(pivots[0].index + 1, pivots[1].index);
+  const seg2 = patternBars.slice(pivots[1].index + 1, pivots[2].index);
+  if (kind === 'rising-valleys') {
+    if (!(pivots[1].price >= pivots[0].price * 1.008 && pivots[2].price >= pivots[1].price * 1.008)) return null;
+    const peak1 = highestHigh(seg1);
+    const peak2 = highestHigh(seg2);
+    if (peak1 === null || peak2 === null) return null;
+    if (retracementDepthPct(pivots[0].price, pivots[1].price, peak1) < 2 || retracementDepthPct(pivots[1].price, pivots[2].price, peak2) < 2) return null;
+  } else {
+    if (!(pivots[1].price <= pivots[0].price * 0.992 && pivots[2].price <= pivots[1].price * 0.992)) return null;
+    const valley1 = lowestLow(seg1);
+    const valley2 = lowestLow(seg2);
+    if (valley1 === null || valley2 === null) return null;
+    if (retracementDepthPct(pivots[0].price, pivots[1].price, valley1) < 2 || retracementDepthPct(pivots[1].price, pivots[2].price, valley2) < 2) return null;
+  }
   if (kind === 'rising-valleys') {
     if (!(pivots[0].price < pivots[1].price && pivots[1].price < pivots[2].price)) return null;
     const resistance = highestHigh(patternBars.slice(pivots[0].index + 1, pivots[2].index));
@@ -4588,6 +4741,8 @@ function latestHeadShouldersSetup(
     const projectedNeckline = trough1 ? round(trough1.price + slope * (patternBars.length - 1 - trough1.index), 4) : 0;
     const avgNeckline = (trough1 && trough2) ? round((trough1.price + trough2.price) / 2, 4) : 0;
     const neckline = Number.isFinite(projectedNeckline) && projectedNeckline > 0 ? projectedNeckline : avgNeckline;
+    const headHeight = head.price - (avgNeckline > 0 ? avgNeckline : neckline);
+    if (headHeight <= 0 || Math.abs(leftShoulder.price - rightShoulder.price) / headHeight > 0.35) return null;
     if (neckline <= 0 || latest.close >= neckline) return null;
     return { leftShoulder, trough1, head, trough2, rightShoulder, neckline };
   }
@@ -4605,6 +4760,8 @@ function latestHeadShouldersSetup(
   const projectedNeckline = trough1 ? round(trough1.price + slope * (patternBars.length - 1 - trough1.index), 4) : 0;
   const avgNeckline = (trough1 && trough2) ? round((trough1.price + trough2.price) / 2, 4) : 0;
   const neckline = Number.isFinite(projectedNeckline) && projectedNeckline > 0 ? projectedNeckline : avgNeckline;
+  const headDepth = (avgNeckline > 0 ? avgNeckline : neckline) - head.price;
+  if (headDepth <= 0 || Math.abs(leftShoulder.price - rightShoulder.price) / headDepth > 0.35) return null;
   if (neckline <= 0 || latest.close <= neckline) return null;
   return { leftShoulder, trough1, head, trough2, rightShoulder, neckline };
 }
@@ -4686,6 +4843,12 @@ function latestRoundingSetup(
     if (bowlLow === null) return null;
     const rimLevel = round((leftAvg + rightAvg) / 2, 4);
     if ((rimLevel - bowlLow) / rimLevel < 0.12) return null;
+    const middleAvg = averageClose(middle);
+    const middleHigh = highestHigh(middle);
+    const rightHigh = highestHigh(right);
+    if (middleAvg >= Math.min(leftAvg, rightAvg) * 0.95) return null;
+    if (middleHigh === null || rightHigh === null || middleHigh > rimLevel * 1.04 || rightHigh > rimLevel * 1.08) return null;
+    if (latest.close <= rimLevel || latest.close <= right[right.length - 1].close) return null;
     if (latest.close <= rimLevel) return null;
     return { patternBars, rimLevel, extreme: bowlLow };
   }
@@ -4694,6 +4857,12 @@ function latestRoundingSetup(
   if (archHigh === null) return null;
   const rimLevel = round((leftAvg + rightAvg) / 2, 4);
   if ((archHigh - rimLevel) / rimLevel < 0.12) return null;
+  const middleAvgTop = averageClose(middle);
+  const middleLow = lowestLow(middle);
+  const rightLow = lowestLow(right);
+  if (middleAvgTop <= Math.max(leftAvg, rightAvg) * 1.05) return null;
+  if (middleLow === null || rightLow === null || middleLow < rimLevel * 0.96 || rightLow < rimLevel * 0.92) return null;
+  if (latest.close >= rimLevel || latest.close >= right[right.length - 1].close) return null;
   if (latest.close >= rimLevel) return null;
   return { patternBars, rimLevel, extreme: archHigh };
 }

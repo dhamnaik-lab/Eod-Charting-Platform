@@ -219,7 +219,7 @@ const sectionStyle: React.CSSProperties = {
 const sectionTitleStyle: React.CSSProperties = {
   fontSize: 14,
   fontWeight: 700,
-  color: 'var(--accent)',
+  color: 'var(--accent-text)',
   textTransform: 'uppercase',
   letterSpacing: '0.05em',
   borderBottom: '1px solid var(--accent-soft)',

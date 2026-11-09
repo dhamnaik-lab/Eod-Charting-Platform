@@ -357,7 +357,7 @@ const validationListStyle: React.CSSProperties = {
 
 const validationErrorStyle: React.CSSProperties = {
   fontSize: 12,
-  color: 'var(--red)',
+  color: 'var(--red-text)',
   lineHeight: 1.5,
 };
 

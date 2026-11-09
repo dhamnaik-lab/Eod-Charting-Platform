@@ -13,7 +13,8 @@ describe('IST status bar clock contract', () => {
   it('preserves the existing one-second update and other status fields', () => {
     expect(source).toContain('window.setInterval(() => setClock(new Date()), 1000)');
     expect(source).toContain('window.clearInterval(timer)');
-    expect(source).toContain('activeTab?.visibleBarCount ?? 0');
+    expect(source).toContain('countVisibleBars(activeTab.viewport, activeTab.displayBars.length)');
+    expect(source).toContain('{visibleBarCount}');
     expect(source).toContain("snapshot?.dbStats?.dateFrom ?? '-'");
   });
 

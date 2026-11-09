@@ -39,6 +39,7 @@ export interface ChartLegendSegment {
   text: string;
   color: string;
   muted?: boolean;
+  tooltip?: string;
 }
 interface LegendSegment extends ChartLegendSegment {}
 interface IndicatorLegendItem {
@@ -244,7 +245,8 @@ export function ChartPriceLegendOverlay({
           {priceSummary.segments.map((segment, index) => (
             <span
               key={`${segment.text}-${index}`}
-              style={segmentStyle(segment)}
+              style={segment.tooltip ? { ...segmentStyle(segment), pointerEvents: "auto" } : segmentStyle(segment)}
+              title={segment.tooltip}
             >
               {" "}
               {segment.text}{" "}
@@ -389,7 +391,7 @@ function LegendItemView({
         </button>{" "}
         <button
           type="button"
-          style={{ ...legendButtonStyle, color: "var(--red)" }}
+          style={{ ...legendButtonStyle, color: "var(--red-text)" }}
           title={`Remove ${item.label}`}
           onMouseDown={stopLegendPointer}
           onClick={(event) => {
@@ -570,6 +572,8 @@ function buildPriceSummary(
     return { title, segments: [] };
   }
   const bar = bars[valueIndex];
+  const separateSettlementClose = instrument?.exchange === "BSE" && instrument.symbol.endsWith("#")
+    && timeframe === "D" && chartType === "candles" && (bar.close < bar.low || bar.close > bar.high);
   const missingIndexReference = instrument?.exchange === "NSE_INDEX"
     && (bar.prevClose == null || !Number.isFinite(bar.prevClose) || bar.prevClose <= 0);
   const referenceClose = bar.prevClose ?? bar.open;
@@ -587,8 +591,11 @@ function buildPriceSummary(
       { text: formatPrice(bar.high, 2, 2), color: closeColor },
       { text: "L", color: "var(--legend-muted)", muted: true },
       { text: formatPrice(bar.low, 2, 2), color: closeColor },
-      { text: "C", color: "var(--legend-muted)", muted: true },
-      { text: formatPrice(bar.close, 2, 2), color: closeColor },
+      { text: separateSettlementClose ? "Official close" : "C", color: "var(--legend-muted)", muted: true },
+      {
+        text: formatPrice(bar.close, 2, 2), color: closeColor,
+        tooltip: separateSettlementClose ? `Trade range ${formatPrice(bar.low, 2, 2)}–${formatPrice(bar.high, 2, 2)}. BSE publishes the official close separately.` : undefined,
+      },
       {
         text: missingIndexReference ? "Change unavailable"
           : `${formatSignedValue(change, 2, 2)} (${formatSignedValue(changePct, 2, 2)}%)`,

@@ -1,6 +1,23 @@
 import { fileURLToPath } from 'node:url';
-import { defineConfig } from 'vite';
+import { defineConfig, type Plugin } from 'vite';
 import react from '@vitejs/plugin-react';
+import { generateThemeTokens } from './scripts/generate-theme-tokens.mjs';
+
+/**
+ * Keeps src/styles/theme-tokens.generated.css in sync with
+ * src/features/app/themePalettes.json for both dev and build.
+ */
+function themeTokensPlugin(): Plugin {
+  return {
+    name: 'eod-theme-tokens',
+    buildStart() {
+      generateThemeTokens();
+    },
+    configureServer() {
+      generateThemeTokens();
+    },
+  };
+}
 
 function normalizeModuleId(id: string): string {
   return id.replace(/\\/g, '/');
@@ -84,7 +101,7 @@ export function classifyManualChunk(id: string): string | undefined {
 }
 
 export default defineConfig({
-  plugins: [react()],
+  plugins: [react(), themeTokensPlugin()],
   base: './',
   resolve: {
     alias: {

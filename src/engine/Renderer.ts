@@ -553,6 +553,7 @@ export function drawCandles(
 ): void {
   const start = Math.max(Math.floor(viewport.startIndex), 0);
   const end = Math.min(Math.ceil(viewport.endIndex), bars.length - 1);
+  const bodyWidth = bars.length === 1 ? Math.min(scaleX.bodyWidth, 16) : scaleX.bodyWidth;
 
   for (let index = start; index <= end; index += 1) {
     const bar = bars[index];
@@ -576,8 +577,8 @@ export function drawCandles(
     ctx.fillStyle = bodyColor;
     const bodyTop = Math.min(openY, closeY);
     const bodyHeight = Math.max(Math.abs(closeY - openY), 1);
-    const bodyLeft = Math.round(xPixel - scaleX.bodyWidth / 2);
-    const bodyW = Math.round(scaleX.bodyWidth);
+    const bodyLeft = Math.round(xPixel - bodyWidth / 2);
+    const bodyW = Math.round(bodyWidth);
     const bodyH = Math.round(bodyHeight);
     const radius = Math.min(3, bodyW / 4, bodyH / 4);
     
@@ -613,6 +614,7 @@ export function getTextBoxBounds(
   scaleX: ScaleX,
   scaleY: ScaleY,
 ): TextBoxBounds {
+  if (drawing.renderTextBox) return drawing.renderTextBox;
   const fontSize = Math.max(10, Math.min(drawing.fontSize ?? 13, 28));
   const width = Math.max(60, drawing.width ?? Math.max(80, approximateTextWidth(drawing.text, fontSize) + 8));
   const height = Math.max(fontSize + 8, drawing.height ?? fontSize + 8);
@@ -723,6 +725,7 @@ export function drawVolume(
   const scale = buildVolumeScaleY(bars, viewport.startIndex, viewport.endIndex, paneHeight);
   const start = Math.max(Math.floor(viewport.startIndex), 0);
   const end = Math.min(Math.ceil(viewport.endIndex), bars.length - 1);
+  const bodyWidth = bars.length === 1 ? Math.min(scaleX.bodyWidth, 16) : scaleX.bodyWidth;
 
   for (let index = start; index <= end; index += 1) {
     const bar = bars[index];
@@ -731,9 +734,9 @@ export function drawVolume(
     const yPixel = paneTop + scale.toPixel(bar.volume);
     ctx.fillStyle = isUp ? theme.volumeUp : theme.volumeDown;
     ctx.fillRect(
-      Math.round(xPixel - scaleX.bodyWidth / 2),
+      Math.round(xPixel - bodyWidth / 2),
       Math.round(yPixel),
-      Math.round(scaleX.bodyWidth),
+      Math.round(bodyWidth),
       Math.round(paneHeight - (yPixel - paneTop)),
     );
   }
@@ -3722,6 +3725,14 @@ function drawAnchoredFanLines(
   drawAnchorHandle(ctx, endX, endY, drawing.color, selected);
 }
 
+export function getTextDrawingFont(drawing: Extract<ChartDrawing, { kind: 'text' }>): string {
+  const fontSize = Math.max(10, Math.min(drawing.fontSize ?? 13, 28));
+  const fontFamily = drawing.fontFamily === 'serif'
+    ? 'Georgia, serif'
+    : drawing.fontFamily === 'mono' ? 'Consolas, monospace' : '"Segoe UI", sans-serif';
+  return `${drawing.italic ? 'italic ' : ''}${drawing.bold ? '700 ' : ''}${fontSize}px ${fontFamily}`;
+}
+
 function drawTextDrawing(
   ctx: CanvasRenderingContext2D,
   drawing: Extract<ChartDrawing, { kind: 'text' }>,
@@ -3732,16 +3743,10 @@ function drawTextDrawing(
   const box = getTextBoxBounds(drawing, scaleX, scaleY);
   const fontSize = Math.max(10, Math.min(drawing.fontSize ?? 13, 28));
   const textAlign = drawing.textAlign ?? 'left';
-  const fontFamily = drawing.fontFamily === 'serif'
-    ? 'Georgia, serif'
-    : drawing.fontFamily === 'mono'
-      ? 'Consolas, monospace'
-      : '"Segoe UI", sans-serif';
-  const fontStyle = `${drawing.italic ? 'italic ' : ''}${drawing.bold ? '700 ' : ''}${fontSize}px ${fontFamily}`;
 
   ctx.setLineDash([]);
   ctx.fillStyle = drawing.color;
-  ctx.font = fontStyle;
+  ctx.font = getTextDrawingFont(drawing);
   ctx.textAlign = textAlign;
   ctx.textBaseline = 'top';
   ctx.save();
@@ -3767,10 +3772,13 @@ function drawTextDrawing(
     ctx.restore();
   }
 
-  drawAnchorHandle(ctx, box.left - 2, box.top + box.height + 4, drawing.color, selected);
+  drawAnchorHandle(ctx,
+    drawing.renderTextBox ? scaleX.toPixel(drawing.barIndex) : box.left - 2,
+    drawing.renderTextBox ? scaleY.toPixel(drawing.price) : box.top + box.height + 4,
+    drawing.color, selected);
 }
 
-function wrapTextLines(ctx: CanvasRenderingContext2D, text: string, maxWidth: number): string[] {
+export function wrapTextLines(ctx: CanvasRenderingContext2D, text: string, maxWidth: number): string[] {
   return text.split(/\r?\n/).flatMap((paragraph) => {
     const words = paragraph.split(/\s+/).filter(Boolean);
     if (!words.length) return [''];
@@ -4230,6 +4238,14 @@ function drawRectangle(
   const rectHeight = Math.max(Math.abs(endY - startY), 1);
 
   ctx.strokeRect(left, top, rectWidth, rectHeight);
+
+  const bodyFill = drawing.presentation?.fills?.body;
+  if (bodyFill && bodyFill.visible !== false && (bodyFill.opacity ?? 0.12) > 0) {
+    ctx.save();
+    ctx.fillStyle = resolveTransparentColor(bodyFill.color || drawing.color, bodyFill.opacity ?? 0.12);
+    ctx.fillRect(left, top, rectWidth, rectHeight);
+    ctx.restore();
+  }
 
   if (selected) {
     ctx.save();

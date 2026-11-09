@@ -343,7 +343,7 @@ const deleteButtonStyle: React.CSSProperties = {
   border: '1px solid var(--red)',
   borderRadius: 4,
   backgroundColor: 'transparent',
-  color: 'var(--red)',
+  color: 'var(--red-text)',
   fontSize: 12,
   cursor: 'pointer',
 };
@@ -405,6 +405,6 @@ const confirmDeleteButtonStyle: React.CSSProperties = {
   border: '1px solid var(--red)',
   borderRadius: 6,
   backgroundColor: 'var(--control-bg)',
-  color: 'var(--red)',
+  color: 'var(--red-text)',
   cursor: 'pointer',
 };

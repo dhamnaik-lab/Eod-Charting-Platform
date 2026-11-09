@@ -251,7 +251,7 @@ export function FloatingWindow({
           </button>
           <button
             type="button"
-            style={{ ...actionButtonStyle, color: 'var(--red)' }}
+            style={{ ...actionButtonStyle, color: 'var(--red-text)' }}
             onClick={(e) => { e.stopPropagation(); handleClose(); }}
             title="Close"
             aria-label={`Close ${title}`}

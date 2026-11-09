@@ -73,6 +73,7 @@ async function getTauriEvent() {
 }
 
 const MUTATING_EOD_COMMANDS = new Set(["create_database_interactive","open_database_interactive","activate_database_path","close_database","delete_database","upsert_quote","delete_quote","delete_quote_range","delete_quote_date","merge_symbols","apply_corporate_action","apply_nse_historical_identity_archive","apply_nse_current_universe_sync","apply_bse_current_universe_sync","approve_corporate_action_import","approve_corporate_action_import_with_isin_mismatch","approve_corporate_action_import_with_price_validation_exception","approve_corporate_action_imports","auto_approve_corporate_action_imports","approve_recommended_corporate_action_isin_mismatches","import_csv","undo_manual_import_recovery","download_bhavcopy","download_bhavcopy_batch","run_tracked_bhavcopy_batch","set_setting","set_price_storage_mode"]);
+MUTATING_EOD_COMMANDS.add('apply_nifty_history');
 
 // Explicit allowlist: these persisted settings cannot change market-data bars.
 const NON_PRICE_MUTATING_SETTING_KEYS = new Set(['default_price_mode', WORKSPACE_SETTING_KEY]);
@@ -522,6 +523,8 @@ export function getTauriDesktopApi(): DesktopApi | null {
     importCsv: async (input) => {
       return tauriInvoke('import_csv', { input });
     },
+    previewNiftyHistory: async (input) => tauriInvoke('preview_nifty_history', { input }),
+    applyNiftyHistory: async (input) => tauriInvoke('apply_nifty_history', { input }),
     getLatestManualImportRecovery: async () => {
       return tauriInvoke('get_latest_manual_import_recovery');
     },

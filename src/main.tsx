@@ -1,6 +1,7 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import RootApp from './RootApp';
+import './styles/theme-tokens.generated.css';
 import './styles/global.css';
 import { useChartStore } from '@/store/chartStore';
 

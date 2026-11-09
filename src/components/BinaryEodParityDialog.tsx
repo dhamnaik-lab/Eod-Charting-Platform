@@ -254,10 +254,10 @@ function issueTypeStyle(type: ParityIssueType): React.CSSProperties {
     case 'BINARY_MISSING':
       return { color: 'var(--yellow, #f59e0b)' };
     case 'FILE_CORRUPT':
-      return { color: 'var(--red)', fontWeight: 700 };
+      return { color: 'var(--red-text)', fontWeight: 700 };
     case 'COUNT_MISMATCH':
     case 'DATE_RANGE_MISMATCH':
-      return { color: 'var(--red)' };
+      return { color: 'var(--red-text)' };
     default:
       return {};
   }
@@ -321,7 +321,7 @@ const primaryButtonStyle: React.CSSProperties = {
   ...modalButtonStyle,
   borderColor: 'var(--accent)',
   background: 'var(--accent)',
-  color: 'var(--text)',
+  color: 'var(--accent-contrast)',
   fontWeight: 600,
 };
 

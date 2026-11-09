@@ -206,7 +206,7 @@ export function ChartPaneControlsOverlay({
                 )}
                 <button
                   type="button"
-                  style={{ ...paneActionButtonStyle, color: 'var(--red)' }}
+                  style={{ ...paneActionButtonStyle, color: 'var(--red-text)' }}
                   title={`Remove ${indicatorLabel}`}
                   onClick={() => onRemoveIndicator(indicator.id)}
                 >

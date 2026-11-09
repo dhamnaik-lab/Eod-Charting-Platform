@@ -192,6 +192,7 @@ pub struct ImportedTradeDates {
 }
 
 pub struct ParseInsertResult {
+    pub(crate) admission: super::security_admission::AdmissionReport,
     pub rows_inserted: usize,
     pub max_volume: u64,
     pub debug: Option<String>,

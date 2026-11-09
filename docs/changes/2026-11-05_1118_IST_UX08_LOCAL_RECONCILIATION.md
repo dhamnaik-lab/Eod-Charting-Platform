@@ -1,0 +1,12 @@
+# UX-08 — Local integration and validation
+- IST: 2026-11-05 11:18:27 +05:30
+- Objective: Integrate the pinned PR18 UX-08 loading/error fallbacks into the active dirty EOD workstream.
+- Previous defect: Blank Suspense fallbacks and silent errors in lazy tools.
+- Source modified: src/RootApp.tsx using clean three-way merge.
+- Files added: LazyToolBoundary.tsx, lazyToolBoundary.test.tsx, original UX08 change record.
+- Behavior preserved: Local RootApp edits, tool open conditions/props, data and backend behavior.
+- Validation: Focused Vitest PASS, TypeScript PASS, Vite renderer build PASS (actual logs in evidence directory).
+- Risks: Runtime missing-chunk and Windows manual UI checks remain pending.
+- Evidence and rollback original: E:\TA Projects\EOD Charting Platform\tmp\UX08_Apply_20261105_111827_IST
+- GitHub base=787fe7c44fa08fa11176976aaf2b9975105695af; PR18 head=c60b7d5907180a21f1c321b2f9b9e39da51c1855
+- Rollback: Restore the exact original RootApp from evidence and remove only the three added PR18 paths, after manual review.

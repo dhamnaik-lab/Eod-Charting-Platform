@@ -80,6 +80,9 @@ describe('chart pattern primitives', () => {
 
     const swingPivots = findSwingPivots(bars, { scales: [2, 3], minMovePct: 10, atrPeriod: 14, atrMultiplier: 1.5 });
     expect(swingPivots.length).toBeGreaterThanOrEqual(2);
+    expect(swingPivots.every((pivot) => pivot.scale >= 2)).toBe(true);
+    const prefixPivots = findSwingPivots(bars.slice(0, 20), { scales: [2, 3], minMovePct: 10, atrPeriod: 14, atrMultiplier: 1.5 });
+    expect(swingPivots.slice(0, prefixPivots.length)).toEqual(prefixPivots);
     expect(retracementDepthPct(125, 125, 100)).toBe(20);
   });
 });

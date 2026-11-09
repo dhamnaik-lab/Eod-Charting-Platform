@@ -324,6 +324,8 @@ export interface MultiAnchorDrawingBase extends ChartDrawingBase {
 }
 
 export interface TextDrawingBase extends PointDrawingBase {
+  /** Transient render-clone bounds; never assigned to stored user drawings. */
+  renderTextBox?: { left: number; top: number; width: number; height: number };
   text: string;
   fontSize?: number;
   fontFamily?: 'sans' | 'serif' | 'mono';

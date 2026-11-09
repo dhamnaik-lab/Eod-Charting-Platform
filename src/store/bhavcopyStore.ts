@@ -8,7 +8,7 @@ import {
 
 export interface LogEntry {
   time: string;
-  level: 'info' | 'success' | 'error' | 'warning';
+  level: 'info' | 'success' | 'error' | 'warning' | 'incomplete';
   message: string;
 }
 
@@ -75,7 +75,8 @@ function getDownloadResultKey(result: DownloadResult): string {
 }
 
 export function isPartialCoverageResult(result: DownloadResult): boolean {
-  return !result.success && result.exchange === 'NSE_INDEX' && result.message.startsWith('Historical subset:');
+  return !result.success && ((result.exchange === 'NSE_INDEX' && result.message.startsWith('Historical subset:'))
+    || (result.exchange === 'NSE' && result.message.startsWith('Security subset:')));
 }
 
 export function isSkippedResult(result: DownloadResult): boolean {
@@ -235,12 +236,12 @@ export const useBhavcopyStore = create<BhavcopyStoreState>((set, get) => ({
 
     const exchangeLabel = formatExchangeLabel(result.exchange);
     if (isPartialCoverageResult(result)) {
-      get().addLog('warning', `[${exchangeLabel}] ${result.tradeDate}: ${result.message}`);
+      get().addLog(result.exchange === 'NSE' ? 'incomplete' : 'warning', `[${exchangeLabel}] ${result.tradeDate}: ${result.message}`);
     } else if (result.success) {
       if (result.rowsInserted === 0 && result.message) {
         get().addLog('warning', `[${exchangeLabel}] ${result.tradeDate}: ${result.message}`);
       } else {
-        get().addLog('success', `[${exchangeLabel}] ${result.tradeDate}: ${result.rowsInserted} rows${result.exchange === 'NSE_INDEX' ? `; ${result.message}` : ''}`);
+        get().addLog('success', `[${exchangeLabel}] ${result.tradeDate}: ${result.rowsInserted} rows${result.exchange === 'NSE_INDEX' || result.message.includes('Security admission:') ? `; ${result.message}` : ''}`);
       }
     } else {
       get().addLog('error', `[${exchangeLabel}] ${result.tradeDate}: ${result.message}`);

@@ -1,33 +1,47 @@
 import type { ChartTheme } from '@/engine/types';
+import paletteData from './themePalettes.json';
 
-export const APP_THEME_IDS = [
-  'midnight-slate-pro',
-  'amoled-black',
-  'classic-light',
-  'classic-light-refined',
-  'deep-light',
-  'refinitiv-dark',
-  'tos-charcoal',
-] as const;
+export const DEFAULT_APP_THEME_ID = paletteData.defaultThemeId as AppThemeId;
 
-export type AppThemeId = (typeof APP_THEME_IDS)[number];
+export const APP_THEME_IDS = Object.keys(paletteData.themes) as AppThemeId[];
+
+export type AppThemeId = keyof typeof paletteData.themes;
+
+/** Selectable pseudo-theme that follows the operating-system colour scheme. */
+export const SYSTEM_THEME_ID = 'system' as const;
+
+export type AppThemeSelectionId = AppThemeId | typeof SYSTEM_THEME_ID;
 
 export interface AppThemeOption {
   id: AppThemeId;
   label: string;
 }
 
-export const DEFAULT_APP_THEME_ID: AppThemeId = 'midnight-slate-pro';
+export const APP_THEME_OPTIONS: AppThemeOption[] = APP_THEME_IDS.map((id) => ({
+  id,
+  label: paletteData.themes[id].label,
+}));
 
-export const APP_THEME_OPTIONS: AppThemeOption[] = [
-  { id: 'midnight-slate-pro', label: 'Midnight Slate Pro' },
-  { id: 'amoled-black', label: 'AMOLED Black' },
-  { id: 'classic-light', label: 'Classic Light' },
-  { id: 'classic-light-refined', label: 'Classic Light Refined' },
-  { id: 'deep-light', label: 'Deep Light' },
-  { id: 'refinitiv-dark', label: 'Eikon Dark Pro' },
-  { id: 'tos-charcoal', label: 'Charcoal Pro' },
+export interface AppThemeSelectionOption {
+  id: AppThemeSelectionId;
+  label: string;
+}
+
+/** Options shown in the settings selector, including the system-following entry. */
+export const APP_THEME_SELECT_OPTIONS: AppThemeSelectionOption[] = [
+  { id: SYSTEM_THEME_ID, label: 'System (follow OS)' },
+  ...APP_THEME_OPTIONS,
 ];
+
+export const SYSTEM_PREFERS_DARK_THEME = paletteData.systemThemeMap.dark as AppThemeId;
+export const SYSTEM_PREFERS_LIGHT_THEME = paletteData.systemThemeMap.light as AppThemeId;
+
+/**
+ * Mirrors the last applied theme so the first paint can use it before the
+ * application profile settings finish loading. Keep in sync with the inline
+ * bootstrap in `public/theme-boot.js`.
+ */
+export const APP_THEME_STORAGE_KEY = 'eod.appTheme';
 
 export function normalizeAppThemeId(value: string | null | undefined): AppThemeId {
   if (value === 'dark') {
@@ -38,11 +52,59 @@ export function normalizeAppThemeId(value: string | null | undefined): AppThemeI
     : DEFAULT_APP_THEME_ID;
 }
 
-export function applyAppTheme(themeId: AppThemeId): void {
+export function normalizeAppThemeSelection(value: string | null | undefined): AppThemeSelectionId {
+  if (value === SYSTEM_THEME_ID) {
+    return SYSTEM_THEME_ID;
+  }
+  return normalizeAppThemeId(value);
+}
+
+export function prefersDarkColorScheme(): boolean {
+  if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') {
+    return true;
+  }
+  return window.matchMedia('(prefers-color-scheme: dark)').matches;
+}
+
+export function resolveAppTheme(
+  selection: AppThemeSelectionId,
+  prefersDark: boolean = prefersDarkColorScheme(),
+): AppThemeId {
+  if (selection === SYSTEM_THEME_ID) {
+    return prefersDark ? SYSTEM_PREFERS_DARK_THEME : SYSTEM_PREFERS_LIGHT_THEME;
+  }
+  return normalizeAppThemeId(selection);
+}
+
+function persistAppTheme(selection: AppThemeSelectionId): void {
+  try {
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem(APP_THEME_STORAGE_KEY, selection);
+    }
+  } catch {
+    // Persistence is best-effort; a blocked storage backend must not break theming.
+  }
+}
+
+export function readPersistedAppTheme(): AppThemeSelectionId | null {
+  try {
+    if (typeof localStorage === 'undefined') {
+      return null;
+    }
+    const stored = localStorage.getItem(APP_THEME_STORAGE_KEY);
+    return stored ? normalizeAppThemeSelection(stored) : null;
+  } catch {
+    return null;
+  }
+}
+
+export function applyAppTheme(selection: AppThemeSelectionId): void {
+  const normalized = normalizeAppThemeSelection(selection);
+  persistAppTheme(normalized);
   if (typeof document === 'undefined') {
     return;
   }
-  document.documentElement.dataset.theme = themeId;
+  document.documentElement.dataset.theme = resolveAppTheme(normalized);
 }
 
 function hexToRgba(hex: string, alpha: number): string | null {
@@ -68,180 +130,94 @@ function hexToRgba(hex: string, alpha: number): string | null {
   return null;
 }
 
-export function getChartTheme(themeId: AppThemeId, customColors?: Partial<ChartTheme>): ChartTheme {
+/**
+ * Chart colours written by older builds into the application profile. They were
+ * stored as if the user had chosen them, so every theme received the dark-era
+ * palette. Treating these exact values as "not customized" lets the curated
+ * per-theme chart palette win while still honouring real user choices.
+ *
+ * Only used while a profile has no explicit `chartColorsCustomized` flag.
+ */
+const LEGACY_DEFAULT_CHART_COLORS = {
+  candleUp: ['#26a69a'],
+  candleDown: ['#ef5350'],
+  gridLine: ['#1e2a3a', 'rgba(78, 101, 128, 0.18)'],
+  crosshair: ['#5588aa', '#60a5fa'],
+} as const;
+
+function pickUserChartColor(
+  value: unknown,
+  legacyDefaults: readonly string[],
+): string | undefined {
+  if (typeof value !== 'string' || value.trim() === '') {
+    return undefined;
+  }
+  return legacyDefaults.includes(value) ? undefined : value;
+}
+
+const LEGACY_OR_UNSET: readonly string[] = [];
+
+/**
+ * Resolves the chart palette for a theme.
+ *
+ * @param customized `false` ignores stored colours entirely (theme palette wins),
+ *   `true` applies them as the user's explicit choice, and `null`/`undefined`
+ *   falls back to legacy-default detection for profiles written before the flag
+ *   existed.
+ */
+export function getChartTheme(
+  themeId: AppThemeId,
+  customColors?: Partial<ChartTheme>,
+  customized: boolean | null = null,
+): ChartTheme {
   const base = CHART_THEMES[themeId] ?? CHART_THEMES[DEFAULT_APP_THEME_ID];
-  if (!customColors) {
-    return base;
+  if (!customColors || customized === false) {
+    // Never hand out the shared palette object: callers must not mutate theme data.
+    return { ...base };
   }
   const filteredCustom = Object.fromEntries(
-    Object.entries(customColors).filter(([_, v]) => v !== undefined && v !== null && v !== ''),
+    Object.entries(customColors).filter(([, v]) => v !== undefined && v !== null && v !== ''),
   );
 
-  const candleUp = filteredCustom.candleUp as string | undefined;
-  const candleDown = filteredCustom.candleDown as string | undefined;
-
-  const customGrid = filteredCustom.gridLine as string | undefined;
-  const isDefaultDarkGrid =
-    customGrid === '#1e2a3a' ||
-    customGrid === 'rgba(78, 101, 128, 0.18)';
-  const gridLine = customGrid && !isDefaultDarkGrid ? customGrid : base.gridLine;
-
-  const customCrosshair = filteredCustom.crosshair as string | undefined;
-  const isDefaultDarkCrosshair =
-    customCrosshair === '#5588aa' ||
-    customCrosshair === '#60a5fa';
-  const crosshair = customCrosshair && !isDefaultDarkCrosshair ? customCrosshair : base.crosshair;
+  const legacy = customized === true;
+  const candleUp = pickUserChartColor(
+    filteredCustom.candleUp,
+    legacy ? LEGACY_OR_UNSET : LEGACY_DEFAULT_CHART_COLORS.candleUp,
+  );
+  const candleDown = pickUserChartColor(
+    filteredCustom.candleDown,
+    legacy ? LEGACY_OR_UNSET : LEGACY_DEFAULT_CHART_COLORS.candleDown,
+  );
+  const gridLine =
+    pickUserChartColor(
+      filteredCustom.gridLine,
+      legacy ? LEGACY_OR_UNSET : LEGACY_DEFAULT_CHART_COLORS.gridLine,
+    ) ?? base.gridLine;
+  const crosshair =
+    pickUserChartColor(
+      filteredCustom.crosshair,
+      legacy ? LEGACY_OR_UNSET : LEGACY_DEFAULT_CHART_COLORS.crosshair,
+    ) ?? base.crosshair;
+  const customWickUp = pickUserChartColor(filteredCustom.wickUp, LEGACY_OR_UNSET);
+  const customWickDown = pickUserChartColor(filteredCustom.wickDown, LEGACY_OR_UNSET);
+  const customVolumeUp = pickUserChartColor(filteredCustom.volumeUp, LEGACY_OR_UNSET);
+  const customVolumeDown = pickUserChartColor(filteredCustom.volumeDown, LEGACY_OR_UNSET);
 
   return {
     ...base,
     ...filteredCustom,
+    candleUp: candleUp ?? base.candleUp,
+    candleDown: candleDown ?? base.candleDown,
     gridLine,
     crosshair,
-    wickUp: (filteredCustom.wickUp as string | undefined) ?? candleUp ?? base.wickUp,
-    wickDown: (filteredCustom.wickDown as string | undefined) ?? candleDown ?? base.wickDown,
-    volumeUp:
-      (filteredCustom.volumeUp as string | undefined) ??
-      (candleUp ? hexToRgba(candleUp, 0.24) : null) ??
-      base.volumeUp,
+    wickUp: customWickUp ?? candleUp ?? base.wickUp,
+    wickDown: customWickDown ?? candleDown ?? base.wickDown,
+    volumeUp: customVolumeUp ?? (candleUp ? hexToRgba(candleUp, 0.24) : null) ?? base.volumeUp,
     volumeDown:
-      (filteredCustom.volumeDown as string | undefined) ??
-      (candleDown ? hexToRgba(candleDown, 0.24) : null) ??
-      base.volumeDown,
+      customVolumeDown ?? (candleDown ? hexToRgba(candleDown, 0.24) : null) ?? base.volumeDown,
   };
 }
 
-const CHART_THEMES: Record<AppThemeId, ChartTheme> = {
-  'midnight-slate-pro': {
-    background: '#071019',
-    axisBackground: '#0d1722',
-    axisLabelBackground: '#1d4f8f',
-    panelBorder: 'rgba(124, 148, 176, 0.22)',
-    gridLine: 'rgba(78, 101, 128, 0.18)',
-    gridLineMajor: 'rgba(116, 143, 174, 0.28)',
-    axisText: '#9fb0c3',
-    crosshair: '#60a5fa',
-    candleUp: '#22c55e',
-    candleDown: '#ef4444',
-    wickUp: '#4ade80',
-    wickDown: '#f87171',
-    volumeUp: 'rgba(34, 197, 94, 0.24)',
-    volumeDown: 'rgba(239, 68, 68, 0.24)',
-    borderColor: '#223247',
-    backgroundBottom: '#040a12',
-    sessionHighlight: 'rgba(255, 255, 255, 0.018)',
-  },
-  'amoled-black': {
-    background: '#000000',
-    axisBackground: '#050505',
-    axisLabelBackground: '#164e63',
-    panelBorder: 'rgba(148, 163, 184, 0.2)',
-    gridLine: 'rgba(71, 85, 105, 0.16)',
-    gridLineMajor: 'rgba(100, 116, 139, 0.26)',
-    axisText: '#94a3b8',
-    crosshair: '#38bdf8',
-    candleUp: '#20c997',
-    candleDown: '#ff4d4f',
-    wickUp: '#4ade80',
-    wickDown: '#fb7185',
-    volumeUp: 'rgba(32, 201, 151, 0.22)',
-    volumeDown: 'rgba(255, 77, 79, 0.22)',
-    borderColor: '#1f2937',
-    backgroundBottom: '#000000',
-    sessionHighlight: 'rgba(255, 255, 255, 0.012)',
-  },
-  'classic-light': {
-    background: '#ffffff',
-    axisBackground: '#f3f4f6',
-    axisLabelBackground: '#2563eb',
-    panelBorder: 'rgba(75, 85, 99, 0.22)',
-    gridLine: 'rgba(203, 213, 225, 0.35)',
-    gridLineMajor: 'rgba(148, 163, 184, 0.45)',
-    axisText: '#475569',
-    crosshair: '#2563eb',
-    candleUp: '#059669',
-    candleDown: '#dc2626',
-    wickUp: '#047857',
-    wickDown: '#b91c1c',
-    volumeUp: 'rgba(5, 150, 105, 0.2)',
-    volumeDown: 'rgba(220, 38, 38, 0.2)',
-    borderColor: '#e5e7eb',
-    backgroundBottom: '#f9fafb',
-    sessionHighlight: 'rgba(15, 23, 42, 0.025)',
-  },
-  'classic-light-refined': {
-    background: '#ffffff',
-    axisBackground: '#f3f4f6',
-    axisLabelBackground: '#2563eb',
-    panelBorder: 'rgba(75, 85, 99, 0.22)',
-    gridLine: 'rgba(203, 213, 225, 0.35)',
-    gridLineMajor: 'rgba(148, 163, 184, 0.45)',
-    axisText: '#475569',
-    crosshair: '#2563eb',
-    candleUp: '#059669',
-    candleDown: '#dc2626',
-    wickUp: '#047857',
-    wickDown: '#b91c1c',
-    volumeUp: 'rgba(5, 150, 105, 0.2)',
-    volumeDown: 'rgba(220, 38, 38, 0.2)',
-    borderColor: '#e5e7eb',
-    backgroundBottom: '#f9fafb',
-    sessionHighlight: 'rgba(15, 23, 42, 0.025)',
-  },
-  'deep-light': {
-    background: '#f8fafc',
-    axisBackground: '#f1f5f9',
-    axisLabelBackground: '#1d4ed8',
-    panelBorder: 'rgba(100, 116, 139, 0.22)',
-    gridLine: 'rgba(203, 213, 225, 0.4)',
-    gridLineMajor: 'rgba(148, 163, 184, 0.5)',
-    axisText: '#334155',
-    crosshair: '#1d4ed8',
-    candleUp: '#047857',
-    candleDown: '#b91c1c',
-    wickUp: '#047857',
-    wickDown: '#b91c1c',
-    volumeUp: 'rgba(4, 120, 87, 0.35)',
-    volumeDown: 'rgba(185, 28, 28, 0.35)',
-    borderColor: '#cbd5e1',
-    backgroundBottom: '#f1f5f9',
-    sessionHighlight: 'rgba(15, 23, 42, 0.03)',
-  },
-  'refinitiv-dark': {
-    background: '#080e18',
-    axisBackground: '#0f172a',
-    axisLabelBackground: '#0284c7',
-    panelBorder: 'rgba(56, 189, 248, 0.2)',
-    gridLine: 'rgba(148, 163, 184, 0.14)',
-    gridLineMajor: 'rgba(148, 163, 184, 0.25)',
-    axisText: '#94a3b8',
-    crosshair: '#0284c7',
-    candleUp: '#10b981',
-    candleDown: '#f43f5e',
-    wickUp: '#34d399',
-    wickDown: '#fb7185',
-    volumeUp: 'rgba(16, 185, 129, 0.25)',
-    volumeDown: 'rgba(244, 63, 94, 0.25)',
-    borderColor: '#1e293b',
-    backgroundBottom: '#04070d',
-    sessionHighlight: 'rgba(56, 189, 248, 0.02)',
-  },
-  'tos-charcoal': {
-    background: '#181a1f',
-    axisBackground: '#21252b',
-    axisLabelBackground: '#61afef',
-    panelBorder: 'rgba(171, 178, 191, 0.2)',
-    gridLine: 'rgba(171, 178, 191, 0.12)',
-    gridLineMajor: 'rgba(171, 178, 191, 0.22)',
-    axisText: '#abb2bf',
-    crosshair: '#61afef',
-    candleUp: '#26a69a',
-    candleDown: '#ef5350',
-    wickUp: '#4db6ac',
-    wickDown: '#e57373',
-    volumeUp: 'rgba(38, 166, 154, 0.25)',
-    volumeDown: 'rgba(239, 83, 80, 0.25)',
-    borderColor: '#333842',
-    backgroundBottom: '#14161a',
-    sessionHighlight: 'rgba(97, 175, 239, 0.02)',
-  },
-};
+const CHART_THEMES = Object.fromEntries(
+  APP_THEME_IDS.map((id) => [id, paletteData.themes[id].chart as ChartTheme]),
+) as Record<AppThemeId, ChartTheme>;

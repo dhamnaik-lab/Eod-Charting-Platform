@@ -113,4 +113,15 @@ describe('Bhavcopy command results on repeated downloads', () => {
     expect(runSummary).toMatchObject({ partialCount: 1, failedCount: 0, completedCount: 1 });
     expect(stops).toEqual([null]);
   });
+  it('finishes an NSE security subset without calling its imported rows a failed download', async () => {
+    const results: DownloadResult[] = [{ exchange: 'NSE', tradeDate: '2014-11-20', success: false,
+      rowsInserted: 1530, message: 'Security subset: Imported 1530 records; blocked 2 rows' }];
+    const stops: Array<string | null> = [];
+    await downloadHandler(results, stops)();
+    const { logs, runSummary } = useBhavcopyStore.getState();
+    expect(logs.some((log) => log.level === 'incomplete' && log.message.includes('1530'))).toBe(true);
+    expect(runSummary).toMatchObject({ partialCount: 1, failedCount: 0, totalRowsInserted: 1530 });
+    expect(stops).toEqual([null]);
+  });
+
 });
