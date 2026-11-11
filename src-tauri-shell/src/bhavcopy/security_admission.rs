@@ -90,11 +90,28 @@ fn classify(series: &str) -> SecurityClass {
     }
 }
 
+fn legacy_paired_market(series: &str) -> bool {
+    // Pre-2009 NSE bhavcopy also published a second equity-series bucket for
+    // the same company (`E1`/`E2`: compulsory-demat / illiquid segment). When
+    // one of those rows shares a symbol/date with the regular EQ bar it is a
+    // market-segment quote, not the canonical daily bar — same role as the
+    // IL/BL auxiliary markets. On its own it stays a normal equity row.
+    // Only the numbered `E1`..`E9` buckets. `EQ`/`EX` also start with 'E' but are
+    // regular equity series and must never be treated as a segment.
+    let bytes = series.as_bytes();
+    bytes.len() == 2 && bytes[0] == b'E' && (b'1'..=b'9').contains(&bytes[1])
+}
+
 fn auxiliary_market(series: &str) -> bool {
     // Official NSE market-segment descriptions distinguish these from regular
     // daily quotations. SME equivalents follow CMTR21587. They are retained
     // in the audit, never added to regular OHLC/volume or called non-equity.
-    matches!(series, "IL" | "IQ" | "BL" | "SL" | "SI" | "SQ")
+    //
+    // `BO` is the open-market buyback window: NSE publishes those trades under
+    // the same symbol/date as the ordinary equity bar, so the buyback print must
+    // never replace the canonical OHLCV row. It is kept as evidence exactly like
+    // the block/illiquid buckets.
+    matches!(series, "IL" | "IQ" | "BL" | "SL" | "SI" | "SQ" | "BO")
 }
 
 fn equal_rows(a: &ParsedBhavcopyRow, b: &ParsedBhavcopyRow) -> bool {
@@ -184,36 +201,65 @@ pub(crate) fn admit(database_path: &Path, files: &[ParsedBhavcopyFile]) -> AppRe
         let class_conflict = symbol_classes
             .get(&first.symbol)
             .map_or(false, |classes| classes.len() > 1);
+        // A key resolves to its canonical regular row when every other row is a
+        // market-segment quote: auxiliary markets (IL/IQ/BL/SL/SI/SQ) always, and
+        // the legacy `E1`/`E2` bucket only when a non-legacy regular row shares
+        // the key (a standalone E1 row stays an ordinary equity row).
+        let has_canonical = positions.iter().any(|&(f, r)| {
+            let series = &files[f].rows[r].series;
+            !auxiliary_market(series) && !legacy_paired_market(series)
+        });
+        let is_paired_segment = |f: usize, r: usize| {
+            let series = &files[f].rows[r].series;
+            auxiliary_market(series) || (has_canonical && legacy_paired_market(series))
+        };
         let regular: Vec<_> = positions
             .iter()
             .copied()
-            .filter(|&(f, r)| !auxiliary_market(&files[f].rows[r].series))
+            .filter(|&(f, r)| !is_paired_segment(f, r))
             .collect();
-        let auxiliary: Vec<_> = positions
+        let paired_segments: Vec<_> = positions
             .iter()
             .copied()
-            .filter(|&(f, r)| auxiliary_market(&files[f].rows[r].series))
+            .filter(|&(f, r)| is_paired_segment(f, r))
             .collect();
+        // Pre-2009 archives (and some later ones) carry no ISIN column at all: an
+        // absent ISIN cannot disprove identity, so it must not disable the
+        // market-segment rule when the regular row is equally ISIN-less. A
+        // present ISIN must be a 12-character Indian identifier, and a segment
+        // row that carries one must match it.
+        let isin_ok = |isin: &str| isin.is_empty() || (isin.len() == 12 && isin.starts_with("IN"));
         let primary = regular.first().map(|&(f, r)| &files[f].rows[r]);
         let qualified = !unknown
             && !class_conflict
             && primary.map_or(false, |primary| {
                 classify(&primary.series) == SecurityClass::Equity
-                    && primary.isin.len() == 12
-                    && primary.isin.starts_with("IN")
+                    && isin_ok(&primary.isin)
                     && regular
                         .iter()
                         .all(|&(f, r)| equal_rows(primary, &files[f].rows[r]))
-                    && auxiliary
-                        .iter()
-                        .all(|&(f, r)| files[f].rows[r].isin == primary.isin)
+                    && paired_segments.iter().all(|&(f, r)| {
+                        let other = &files[f].rows[r].isin;
+                        if other.is_empty() {
+                            primary.isin.is_empty()
+                        } else {
+                            other == &primary.isin
+                        }
+                    })
             });
         let auxiliary_only = !unknown && !class_conflict && regular.is_empty();
-        if !auxiliary.is_empty() && (qualified || auxiliary_only) {
-            for &(f, r) in &auxiliary {
+        if !paired_segments.is_empty() && (qualified || auxiliary_only) {
+            for &(f, r) in &paired_segments {
                 masks[f][r] = false;
                 reports[f].market_rows += 1;
-                reasons.insert((f, r), "AUXILIARY_MARKET_QUOTE");
+                reasons.insert(
+                    (f, r),
+                    if auxiliary_market(&files[f].rows[r].series) {
+                        "AUXILIARY_MARKET_QUOTE"
+                    } else {
+                        "LEGACY_MARKET_QUOTE"
+                    },
+                );
             }
         }
         if auxiliary_only {
@@ -266,7 +312,10 @@ pub(crate) fn admit(database_path: &Path, files: &[ParsedBhavcopyFile]) -> AppRe
                     "symbol":row.symbol,"series":row.series,"isin":row.isin,"rowTradeDate":row.trade_date,
                     "instrumentName":row.instrument_name,"open":row.open,"high":row.high,"low":row.low,
                     "close":row.close,"prevClose":row.prev_close,"volume":row.volume,"oi":row.oi,"trades":row.trades,
-                    "binary":format!("{:?}",row.binary_record),"admitted":masks[fi][ri],
+                    // The decoded binary record is intentionally NOT duplicated here:
+                    // it is a debug rendering of the numeric fields above and doubled
+                    // the evidence size (a repair run produces >250 MB per year).
+                    "admitted":masks[fi][ri],
                     "reason":reasons.get(&(fi,ri)).copied().unwrap_or("ADMITTED")
                 }));
             }
@@ -282,7 +331,7 @@ pub(crate) fn admit(database_path: &Path, files: &[ParsedBhavcopyFile]) -> AppRe
             std::process::id(),
             AUDIT_ID.fetch_add(1, Ordering::Relaxed)
         ));
-        let data = serde_json::to_vec_pretty(&serde_json::json!({"schema":"nse-security-admission-v2","classification":"NSE legend 2024-09-19 and SBIN listing 2010-11-11","rows":evidence_rows,"reports":reports})).map_err(|e|e.to_string())?;
+        let data = serde_json::to_vec(&serde_json::json!({"schema":"nse-security-admission-v2","classification":"NSE legend 2024-09-19 and SBIN listing 2010-11-11","rows":evidence_rows,"reports":reports})).map_err(|e|e.to_string())?;
         let mut output = OpenOptions::new()
             .create_new(true)
             .write(true)

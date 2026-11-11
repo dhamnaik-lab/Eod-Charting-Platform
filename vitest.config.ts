@@ -14,6 +14,7 @@ export default defineConfig({
       '**/resources/release/**',
       '**/src-tauri-shell/target/**',
       '**/test-output/**',
+      '**/tmp/**',
       // Frozen audit probes describe historical defects, not current acceptance.
       '**/docs/audits/**',
       '**/EOD DATABASE/**',

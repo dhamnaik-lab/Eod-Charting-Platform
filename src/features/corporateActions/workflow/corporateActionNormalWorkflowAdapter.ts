@@ -1020,6 +1020,11 @@ function normalApprovalErrorMessage(error: unknown): string {
   return String(error);
 }
 
+/**
+ * @deprecated Donor-only approval runner used by the unmounted `CorporateActionNormalWorkflowWorkspace`.
+ * Active production approval orchestration lives in `DatabaseToolsDialogs.tsx` (`confirmOfficialImportApproval`)
+ * and `src/features/corporateActions/legacy/corporateActionImportOperations.ts`.
+ */
 export async function approveCorporateActionNormalReady({
   api,
   reviewEvents,

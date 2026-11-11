@@ -1,3 +1,9 @@
+/**
+ * @deprecated RETIRED DONOR WORKSPACE — NOT MOUNTED IN `RootApp.tsx`.
+ * Production Corporate Actions workflow orchestration lives in `src/components/DatabaseToolsDialogs.tsx`
+ * (`CorporateActionDialog` + `CorporateActionClassicWorkspace.tsx` + `corporateActionImportOperations.ts`).
+ * Retained solely as a donor reference for historical characterization tests (`corporateActionNormalWorkflowWorkspace.test.tsx`).
+ */
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { getDesktopApi } from '@/platform';
 import { getActiveChartTab, useChartStore } from '@/store/chartStore';

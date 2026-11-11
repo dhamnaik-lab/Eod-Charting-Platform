@@ -16,6 +16,9 @@ pub const BSE_FULL_HISTORY_START: &str = "1990-01-01";
 pub const BSE_INDEX_FULL_HISTORY_START: &str = "1990-01-01";
 
 pub const NSE_SPECIAL_TRADING_DAYS: &[(&str, &str)] = &[
+    ("2019-10-27", "Muhurat Trading"),
+    ("2020-02-01", "Union Budget live trading session"),
+    ("2020-11-14", "Muhurat Trading"),
     ("2023-11-12", "Muhurat Trading"),
     ("2024-01-20", "Special live trading session"),
     (
@@ -34,6 +37,9 @@ pub const NSE_SPECIAL_TRADING_DAYS: &[(&str, &str)] = &[
 ];
 
 pub const BSE_SPECIAL_TRADING_DAYS: &[(&str, &str)] = &[
+    ("2019-10-27", "Muhurat Trading"),
+    ("2020-02-01", "Union Budget live trading session"),
+    ("2020-11-14", "Muhurat Trading"),
     ("2023-11-12", "Muhurat Trading"),
     ("2024-01-20", "Special live trading session"),
     (
@@ -210,6 +216,17 @@ pub fn is_calendar_skip_result(result: &DownloadResult) -> bool {
             || result.message.starts_with("Weekend ("))
 }
 
+/// PHASE-1 guard: stored evidence outranks the calendar. A date about to be
+/// skipped as a holiday or weekend must not already hold bars, because a
+/// calendar row can be wrong (the `2023-09-28` Id-E-Milad row suppressed a real
+/// NSE and BSE session) while stored bars are observed market data.
+pub fn is_calendar_skip_contradicted(
+    skip_result: &DownloadResult,
+    has_stored_bars: bool,
+) -> bool {
+    has_stored_bars && is_calendar_skip_result(skip_result)
+}
+
 pub fn get_exchange_holiday_name(
     connection: &Connection,
     exchange: &str,
@@ -265,7 +282,12 @@ pub fn get_exchange_holiday_name(
                 ).optional().map_err(|e| e.to_string());
             }
         }
-        return load_holiday_name_for_date(connection, trade_date);
+        // PHASE-1 (11 November 2026): a year without an accepted official
+        // snapshot has no calendar authority. The unverified `BUILTIN` seed is
+        // no longer consulted: it is a frozen 2026-08-09 import with no
+        // provenance, and it carried a false Id-E-Milad row on 2023-09-28.
+        // Manual `USER` rows still apply - they are attributable and reviewable.
+        return load_manual_holiday_name_for_date(connection, trade_date);
     }
     Ok(None)
 }
@@ -316,6 +338,62 @@ pub fn load_holiday_name_for_date(
             |row| row.get(0),
         )
         .optional()
+        .map_err(|e| e.to_string())
+}
+
+/// Manual (`source='USER'`) holidays only - the PHASE-1 lookup for any year
+/// without an accepted official snapshot.
+pub fn load_manual_holiday_name_for_date(
+    connection: &Connection,
+    trade_date: &str,
+) -> AppResult<Option<String>> {
+    connection
+        .query_row(
+            "SELECT name FROM market_holidays WHERE date = ?1 AND source = 'USER' LIMIT 1",
+            params![trade_date],
+            |row| row.get(0),
+        )
+        .optional()
+        .map_err(|e| e.to_string())
+}
+
+/// True when the exchange has an accepted official holiday snapshot for `year`.
+/// BSE may be covered by an accepted NSE snapshot for its shared cash-market
+/// dates, mirroring `get_exchange_holiday_name`; callers must not present that
+/// as independent BSE provenance.
+pub fn has_official_holiday_snapshot(
+    connection: &Connection,
+    exchange: &str,
+    year: i32,
+) -> AppResult<bool> {
+    let normalized_exchange = normalize_exchange_key(exchange);
+    let official_exchange = if normalized_exchange.starts_with("NSE") { "NSE" } else { "BSE" };
+    let has_schema: bool = connection
+        .query_row(
+            "SELECT EXISTS(SELECT 1 FROM sqlite_master WHERE type='table' AND name='official_exchange_holiday_snapshots')",
+            [],
+            |row| row.get(0),
+        )
+        .map_err(|e| e.to_string())?;
+    if !has_schema {
+        return Ok(false);
+    }
+    let own: bool = connection
+        .query_row(
+            "SELECT EXISTS(SELECT 1 FROM official_exchange_holiday_snapshots WHERE exchange=?1 AND year=?2)",
+            params![official_exchange, year],
+            |row| row.get(0),
+        )
+        .map_err(|e| e.to_string())?;
+    if own || official_exchange != "BSE" {
+        return Ok(own);
+    }
+    connection
+        .query_row(
+            "SELECT EXISTS(SELECT 1 FROM official_exchange_holiday_snapshots WHERE exchange='NSE' AND year=?1)",
+            params![year],
+            |row| row.get(0),
+        )
         .map_err(|e| e.to_string())
 }
 
@@ -567,11 +645,47 @@ mod hol04_tests {
     }
 
     #[test]
-    fn hol04_no_official_calendar_preserves_legacy_holiday_lookup() {
+    fn phase1_no_official_calendar_ignores_builtin_and_keeps_user() {
         let db = test_calendar();
         db.execute("INSERT INTO market_holidays (date,name,source) VALUES ('2026-10-02','Historical preserved','BUILTIN')", []).unwrap();
-        assert_eq!(get_exchange_holiday_name(&db, "BSE", "2026-10-02").unwrap().as_deref(), Some("Historical preserved"));
-        assert_eq!(get_exchange_holiday_name(&db, "NSE", "2026-10-02").unwrap().as_deref(), Some("Historical preserved"));
+        // PHASE-1: a year without an accepted official snapshot has no calendar
+        // authority, so an unverified built-in row no longer suppresses a session.
+        assert_eq!(get_exchange_holiday_name(&db, "BSE", "2026-10-02").unwrap(), None);
+        assert_eq!(get_exchange_holiday_name(&db, "NSE", "2026-10-02").unwrap(), None);
+        // Manual holidays stay authoritative and attributable.
+        db.execute("INSERT INTO market_holidays (date,name,source) VALUES ('2026-10-05','Manual closure','USER')", []).unwrap();
+        assert_eq!(get_exchange_holiday_name(&db, "NSE", "2026-10-05").unwrap().as_deref(), Some("Manual closure"));
+        assert_eq!(get_exchange_holiday_name(&db, "BSE_INDEX", "2026-10-05").unwrap().as_deref(), Some("Manual closure"));
+    }
+
+    #[test]
+    fn phase1_stored_bars_outrank_a_wrong_calendar_row() {
+        let db = test_calendar();
+        db.execute("INSERT INTO market_holidays (date,name,source) VALUES ('2023-09-28','Id-E-Milad','USER')", []).unwrap();
+        let holiday_skip = create_calendar_skip_result(&db, "NSE", "2023-09-28", Weekday::Thu).unwrap();
+        assert!(holiday_skip.message.starts_with("Exchange holiday"));
+        // Both stores hold a full session on 2023-09-28, so the skip must lose.
+        assert!(is_calendar_skip_contradicted(&holiday_skip, true));
+        // With no stored bars the skip stands.
+        assert!(!is_calendar_skip_contradicted(&holiday_skip, false));
+        // Weekends follow the same rule.
+        let weekend_skip = create_calendar_skip_result(&db, "NSE", "2023-09-30", Weekday::Sat).unwrap();
+        assert!(weekend_skip.message.starts_with("Weekend ("));
+        assert!(is_calendar_skip_contradicted(&weekend_skip, true));
+        assert!(!is_calendar_skip_contradicted(&weekend_skip, false));
+    }
+
+    #[test]
+    fn phase1_official_snapshot_presence_is_exchange_and_year_scoped() {
+        let db = test_calendar();
+        assert!(!has_official_holiday_snapshot(&db, "NSE", 2026).unwrap());
+        accept(&db, "NSE", "2026-10-02", "Verified NSE holiday");
+        assert!(has_official_holiday_snapshot(&db, "NSE", 2026).unwrap());
+        assert!(has_official_holiday_snapshot(&db, "NSE_INDEX", 2026).unwrap());
+        // BSE is covered through the shared cash market, not its own snapshot.
+        assert!(has_official_holiday_snapshot(&db, "BSE", 2026).unwrap());
+        assert!(!has_official_holiday_snapshot(&db, "NSE", 2023).unwrap());
+        assert!(!has_official_holiday_snapshot(&db, "BSE", 2023).unwrap());
     }
 
     #[test]

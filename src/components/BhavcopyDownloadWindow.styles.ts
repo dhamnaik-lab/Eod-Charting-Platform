@@ -119,6 +119,29 @@ export const marketHolidayPageStyle: CSSProperties = {
   gap: 10,
 };
 
+// HOL-06: one scroll body for the whole tab (the page is `overflow: hidden`, so
+// without this the Add form is clipped by a tall official panel), plus a shared
+// card so every zone has the same visual weight.
+export const marketHolidayScrollBodyStyle: CSSProperties = {
+  display: 'flex',
+  flexDirection: 'column',
+  flex: '1 1 auto',
+  minHeight: 0,
+  overflowY: 'auto',
+  gap: 10,
+  paddingRight: 2,
+};
+
+export const marketHolidayCardStyle: CSSProperties = {
+  display: 'flex',
+  flexDirection: 'column',
+  gap: 7,
+  flexShrink: 0,
+  padding: '10px 12px',
+  border: '1px solid var(--border2)',
+  borderRadius: 6,
+};
+
 export const marketHolidayHeaderStyle: CSSProperties = {
   display: 'flex',
   flexShrink: 0,
@@ -130,8 +153,11 @@ export const marketHolidayHeaderStyle: CSSProperties = {
 const marketHolidayGridColumns = '135px minmax(0, 1fr) 90px 110px';
 
 export const marketHolidayTableStyle: CSSProperties = {
-  flex: '1 1 0',
-  minHeight: 64,
+  // HOL-06: size to content and cap it; growing to fill the page reserved a tall
+  // empty box when the selected year had no manual rows.
+  flex: '0 0 auto',
+  minHeight: 0,
+  maxHeight: 240,
   overflowY: 'auto',
   overflowX: 'hidden',
   border: '1px solid var(--border2)',
@@ -168,8 +194,9 @@ export const marketHolidayAddStyle: CSSProperties = {
   flexDirection: 'column',
   flexShrink: 0,
   gap: 7,
-  paddingTop: 9,
-  borderTop: '1px solid var(--border2)',
+  padding: '10px 12px',
+  border: '1px solid var(--border2)',
+  borderRadius: 6,
 };
 
 export const marketHolidayStatusStyle: CSSProperties = {
@@ -561,7 +588,7 @@ export const statSuccessValueStyle: CSSProperties = {
 };
 
 export const statSkippedValueStyle: CSSProperties = {
-  color: 'var(--yellow, #f59e0b)',
+  color: 'var(--yellow-text)',
 };
 
 export const statFailedValueStyle: CSSProperties = {
@@ -579,7 +606,7 @@ export const logEntryErrorStyle: CSSProperties = {
 };
 
 export const logEntryWarningStyle: CSSProperties = {
-  color: 'var(--yellow, #f59e0b)',
+  color: 'var(--yellow-text)',
 };
 
 export const statusBadgeStyle: CSSProperties = {

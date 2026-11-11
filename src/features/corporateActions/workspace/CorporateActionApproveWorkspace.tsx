@@ -1,3 +1,7 @@
+/**
+ * @deprecated RETIRED DONOR COMPONENT — used only by the unmounted `CorporateActionNormalWorkflowWorkspace.tsx` donor.
+ * Active production approval controls live in `src/components/DatabaseToolsDialogs.tsx` and `CorporateActionClassicWorkspace.tsx`.
+ */
 import type { CorporateActionNormalApprovalResult } from '../workflow/corporateActionNormalWorkflowAdapter';
 
 export interface CorporateActionApproveWorkspaceProps {

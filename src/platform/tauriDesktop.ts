@@ -569,6 +569,30 @@ export function getTauriDesktopApi(): DesktopApi | null {
     listOfficialExchangeHolidaySnapshots: async (year: number) => {
       return tauriInvoke('list_official_exchange_holiday_snapshots', { year });
     },
+    listOfficialExchangeHolidays: async (year: number) => {
+      return tauriInvoke('list_official_exchange_holidays', { year });
+    },
+    getHolidayCalendarView: async (year: number) => {
+      return tauriInvoke('get_holiday_calendar_view', { year });
+    },
+    previewOfficialHolidayCsv: async (csvText: string) => {
+      return tauriInvoke('preview_official_holiday_csv', { csvText });
+    },
+    applyOfficialHolidayCsv: async (csvText: string, sha256: string) => {
+      return tauriInvoke('apply_official_holiday_csv', { csvText, sha256 });
+    },
+    listHolidaySourceRegistry: async (year?: number) => {
+      return tauriInvoke('list_holiday_source_registry', { year: year ?? null });
+    },
+    upsertHolidaySourceUrl: async (input) => {
+      return tauriInvoke('upsert_holiday_source_url', {
+        exchange: input.exchange,
+        year: input.year,
+        url: input.url,
+        requiredFragments: input.requiredFragments ?? null,
+        operatorNote: input.operatorNote ?? null,
+      });
+    },
     previewOfficialExchangeHolidays: async (year: number) => {
       return tauriInvoke('preview_official_exchange_holidays', { year });
     },

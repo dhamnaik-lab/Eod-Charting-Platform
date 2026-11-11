@@ -1827,6 +1827,12 @@ export interface BatchDownloadConfig {
   nseIndexUrlOverride?: string | null;
   bseEquityUrlOverride?: string | null;
   bseIndexUrlOverride?: string | null;
+  /**
+   * Repair switch: plan and import every session in the range even when the
+   * store already covers it, replacing existing bars with the source rows.
+   * Normal Range behaviour stays gap-filling.
+   */
+  forceRedownload?: boolean;
 }
 
 export interface BseHistoryDownloadInput {
@@ -1904,6 +1910,55 @@ export interface OfficialHolidayAcceptedSnapshot {
   recordCount: number;
   sourceUrls: string[];
   sourceSha256: string;
+}
+
+/** HOL-06: one accepted official holiday row, per exchange. */
+export interface OfficialHolidayEntry {
+  exchange: string;
+  date: string;
+  name: string;
+}
+
+/** HOL-06: one (exchange, year) block inside an imported official-holiday CSV. */
+export interface OfficialHolidayCsvGroup {
+  exchange: string;
+  year: number;
+  rows: number;
+  replacesExisting: number;
+}
+
+/** HOL-06: dry-run result of an official-holiday CSV import. */
+export interface OfficialHolidayCsvPreview {
+  sha256: string;
+  totalRows: number;
+  groups: OfficialHolidayCsvGroup[];
+}
+
+export interface OfficialHolidayCsvImportResult {
+  rows: number;
+  groups: number;
+  years: number[];
+}
+
+/** HOL-06: everything the Market Holiday tab needs for one year, in one call. */
+export interface HolidayCalendarView {
+  year: number;
+  officialEntries: OfficialHolidayEntry[];
+  sources: HolidaySourceRow[];
+  snapshots: OfficialHolidayAcceptedSnapshot[];
+}
+
+/** HOL-06: where an exchange/year official calendar is fetched from. */
+export interface HolidaySourceRow {
+  exchange: string;
+  year: number;
+  documentIndex: number;
+  url: string;
+  parser: string;
+  requiredFragments: string[];
+  expectedRows: number | null;
+  operatorNote: string | null;
+  updatedAt: string;
 }
 
 export interface OfficialHolidaySyncResult {
@@ -2313,6 +2368,18 @@ export interface DesktopBridgeApi {
   getBhavcopyDefaultTemplates(): Promise<BhavcopyDefaultTemplates>;
   listMarketHolidays(): Promise<MarketHoliday[]>;
   listOfficialExchangeHolidaySnapshots(year: number): Promise<OfficialHolidayAcceptedSnapshot[]>;
+  listOfficialExchangeHolidays(year: number): Promise<OfficialHolidayEntry[]>;
+  getHolidayCalendarView(year: number): Promise<HolidayCalendarView>;
+  previewOfficialHolidayCsv(csvText: string): Promise<OfficialHolidayCsvPreview>;
+  applyOfficialHolidayCsv(csvText: string, sha256: string): Promise<OfficialHolidayCsvImportResult>;
+  listHolidaySourceRegistry(year?: number): Promise<HolidaySourceRow[]>;
+  upsertHolidaySourceUrl(input: {
+    exchange: string;
+    year: number;
+    url: string;
+    requiredFragments?: string[];
+    operatorNote?: string;
+  }): Promise<HolidaySourceRow>;
   previewOfficialExchangeHolidays(year: number): Promise<OfficialHolidaySyncPreview>;
   applyOfficialExchangeHolidays(token: string, exchanges: string[]): Promise<OfficialHolidaySyncResult>;
   addMarketHoliday(date: string, name: string): Promise<MarketHoliday>;

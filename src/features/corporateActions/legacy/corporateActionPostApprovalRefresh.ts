@@ -5,6 +5,7 @@ import {
   evaluateCorporateActionDividendPreparedScopeBatches,
   type CorporateActionDividendPreparedScopeOutcomeState,
 } from './corporateActionDividendPreparedScopeOrchestration';
+import { immediateCorporateActionValidationRows } from './corporateActionLater';
 
 const key = (value: string | null | undefined) => value?.trim().toUpperCase() ?? '';
 
@@ -64,7 +65,9 @@ export async function refreshCorporateActionQueueAfterApproval(input: {
   }
   const rows = reconcilePreparedCorporateActionRows(input.rows, snapshots);
   const remainingAffected = rows.filter(row => affectedIds.has(row.id));
-  const validationIds = remainingAffected.filter(row =>
+  const previous = input.previousOutcome;
+  const hasPreparedDividendScope = Boolean(previous && previous.result.requested > 0);
+  const validationIds = (hasPreparedDividendScope ? remainingAffected : immediateCorporateActionValidationRows(remainingAffected)).filter(row =>
     ['SPLIT', 'BONUS', 'RIGHTS'].includes(row.actionType)).map(row => row.id);
   const validationRows: CorporateActionScanResultRow[] = [];
   for (let start = 0; start < validationIds.length; start += 100) {
@@ -80,11 +83,10 @@ export async function refreshCorporateActionQueueAfterApproval(input: {
     rows: scopeRows, cycle: { generation, expectedDatabasePath: input.expectedDatabasePath },
     currentGeneration: generation, currentDatabasePath: input.expectedDatabasePath, complete: true,
   });
-  const whole = await build(rows);
-  const targeted = await build(remainingAffected);
+  const whole = await build(hasPreparedDividendScope ? rows : immediateCorporateActionValidationRows(rows));
+  const targeted = await build(hasPreparedDividendScope ? remainingAffected : immediateCorporateActionValidationRows(remainingAffected));
   check();
   if (whole.status !== 'READY' || targeted.status !== 'READY') throw new Error('Could not rebuild remaining Dividend scope.');
-  const previous = input.previousOutcome;
   if (previous && (previous.generation !== input.previousGeneration ||
       previous.databasePath !== input.expectedDatabasePath || !previous.result.complete ||
       previous.result.operationalError || previous.result.failed)) {

@@ -140,7 +140,7 @@ describe('Dividend prepared-scope P3A read-only Tauri bridge', () => {
     const policy = /^pub\(super\) fn evaluate_simple_cash_dividend_policy_r1\([\s\S]*?(?=^pub\(super\) fn evaluate_simple_cash_dividend_prepared_scope_in_connection)/m.exec(source)?.[0];
     assert.ok(policy);
     assert.equal(createHash('sha256').update(policy).digest('hex').toUpperCase(),
-      '48A128A76F02E3C39CCFDECEF4ADDA5EBD0BE5AC0A6FD4BA0300E5D4D691082F');
+      'B5669BE34AD42B47BC55641D641FE315EAC29B2490A5EC23E2263A52240B6EBB');
   });
 
   it('does not add a frontend orchestration caller in P3A', () => {

@@ -33,7 +33,12 @@ describe('HOL-03 official equity holiday sync contract', () => {
     expect(localRefresh).toContain('api.listMarketHolidays()');
     expect(localRefresh).not.toContain('setOfficialCoverage');
     expect(localRefresh).not.toContain('listOfficialExchangeHolidaySnapshots');
-    expect(component).toContain('const rows = await api.listOfficialExchangeHolidaySnapshots(new Date().getFullYear())');
+    // HOL-06: coverage metadata must be bound to the SELECTED calendar year, not
+    // the wall clock. Assert the argument binding, not the statement shape.
+    // HOL-06: one combined read replaces the three separate per-tab calls.
+    expect(localRefresh).not.toContain('getHolidayCalendarView');
+    expect(component).toMatch(/getHolidayCalendarView\(\s*holidayYear\s*\)/);
+    expect(component).not.toMatch(/getHolidayCalendarView\(\s*new Date\(\)\.getFullYear\(\)\s*\)/);
   });
   it('routes the new IPC through the platform bridge', () => {
     expect(types).toContain('previewOfficialExchangeHolidays(year: number)');

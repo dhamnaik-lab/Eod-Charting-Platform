@@ -450,6 +450,34 @@ fn run_migrations(connection: &Connection) -> AppResult<()> {
             CREATE INDEX IF NOT EXISTS idx_official_exchange_holiday_date
               ON official_exchange_holidays(exchange,date);
 
+            -- HOL-06 source registry: the per-exchange/per-year official holiday
+            -- source. Editable from the UI so a changed exchange URL needs no code
+            -- change; `required_fragments` keeps BSE parsing fail-closed by
+            -- pinning the notice identity that must appear in the response.
+            CREATE TABLE IF NOT EXISTS holiday_source_registry (
+              exchange TEXT NOT NULL CHECK(exchange IN ('NSE','BSE')),
+              year INTEGER NOT NULL CHECK(year BETWEEN 1990 AND 2100),
+              document_index INTEGER NOT NULL DEFAULT 0 CHECK(document_index BETWEEN 0 AND 9),
+              url TEXT NOT NULL,
+              parser TEXT NOT NULL CHECK(parser IN ('NSE_JSON','BSE_NOTICE_HTML','BSE_AMENDMENT_2026')),
+              required_fragments TEXT NOT NULL DEFAULT '[]',
+              expected_rows INTEGER,
+              operator_note TEXT,
+              updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+              PRIMARY KEY (exchange, year, document_index)
+            );
+            INSERT OR IGNORE INTO holiday_source_registry
+              (exchange,year,document_index,url,parser,required_fragments,expected_rows,operator_note)
+            VALUES
+              ('NSE',2026,0,'https://www.nseindia.com/api/holiday-master?type=trading','NSE_JSON','[]',20,
+               'NSE holiday-master; always returns the current year, so this row can be copied to a new year once NSE publishes it.'),
+              ('BSE',2026,0,'https://www.bseindia.com/markets/MarketInfo/DispNewNoticesCirculars.aspx?page=20251212-8','BSE_NOTICE_HTML',
+               '[\"Notice No. 20251212-8\",\"Trading Holidays for the Calendar Year 2026\",\"Equity and Equity Derivatives Segments\",\"Following Holidays are Falling on Saturday / Sunday\",\"Muhurat Trading\"]',19,
+               'BSE annual trading-holiday notice for the equity and equity derivatives segments.'),
+              ('BSE',2026,1,'https://www.bseindia.com/markets/MarketInfo/DispNewNoticesCirculars.aspx?page=20260112-8','BSE_AMENDMENT_2026',
+               '[\"Notice No. 20260112-8\",\"Trading Holiday on account of Municipal Corporation Elections in Maharashtra 2026\",\"January 15, 2026\",\"Equity Segment\"]',1,
+               'BSE amendment adding the 15 January 2026 Municipal Corporation election holiday.');
+
             ",
         )
         .map_err(|error| error.to_string())?;

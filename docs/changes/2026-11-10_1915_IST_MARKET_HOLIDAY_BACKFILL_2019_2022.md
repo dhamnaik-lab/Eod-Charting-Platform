@@ -1,0 +1,27 @@
+# DATA-01 — `market_holidays` backfill for 2019–2022
+
+- Timestamp (IST): 2026-11-10 19:15:00 +05:30
+- Active workstream/root: EOD Charting Platform — E:\TA Projects\EOD Charting Platform
+- Source authority: live `EOD DATABASE/market-data.sqlite3` after the 2021–2022 repair re-run
+- Objective: stop the bhavcopy planner from scheduling 54 exchange-holiday weekdays in 2019–2022 as download jobs.
+- Previous limitation:
+  - `market_holidays` held **no rows before 2023**; legacy `BUILTIN` seeding covers 2023–2027 only.
+  - The in-app official sync (`holiday_sync.rs`) accepts **2026–2100 only** and BSE **2026 only**; NSE's endpoint is live, not archival, so it cannot return 2019–2022 lists.
+  - Each re-run therefore planned every weekday and spent ~54 HTTP probes on dates with no file. NSE answers 404 or — worse — `sec_bhavdata_full` with the **previous session's** rows, which the date gate refuses.
+- Evidence collected before writing:
+  - Full store scan of 32,898 NSE+BSE `.eod` files: **0 stored bars on all 54 candidate dates**.
+  - NSE probe of all 54 dates: 54/54 return HTTP 404 or a `sec_bhavdata_full` whose `DATE1` is the previous session; no date returns its own session.
+  - `2019-10-27`, `2020-02-01`, `2020-11-14` are special trading sessions and were deliberately excluded.
+- Final implementation (data only, no code change):
+  - 54 rows inserted into `market_holidays` with `source='USER'` — 2019: 17, 2020: 12, 2021: 13, 2022: 12.
+  - `USER` rows are preserved by `get_exchange_holiday_name` even when an official snapshot later exists for that exchange/year.
+- Behavior preserved: special-session override still wins over a holiday row; no existing row was updated or deleted; no duplicate date; no collision with the three special sessions.
+- Verification:
+  - `duplicate dates: []`, `special-day collisions: []`, `2019-2022 rows: 54`, `sources: [('USER', 54)]`.
+  - `holidays-2019-2022.json` matches the database row-for-row (54/54, no difference either direction).
+  - Expected effect on the next range run: `non-trading calendar days` becomes weekends + holidays (2019–2020: 234; 2021–2022: 234) and the holiday dates log as `Exchange holiday (name)` instead of `No data available`.
+- Backup: `backups/eod-holidays-20261110_1915/market-data.sqlite3` — SQLite online backup of the live WAL database, 260,911,104 bytes, SHA-256 `7239C135E7523AC6078EE0BCAF2610E7DF648657860039B8AE9F5B3695F3A990`.
+- Evidence: `tmp/fixtures/bhavcopy-series-repair/session-gap-probe/holidays-2019-2022.json`, plus the probe scripts in the same directory (`holiday_candidates_evidence.py`, `nse_probe_holidays.py`, `apply_holidays.py`, `verify_holidays.py`, `validate_holiday_json.py`).
+- Rollback: `DELETE FROM market_holidays WHERE source='USER' AND date BETWEEN '2019-01-01' AND '2022-12-31';`
+- Risk/regressions: hand-entered dates and names (the planner uses the date; the name is only a label). A wrong date would suppress a real session — mitigated by the zero-bar store scan and the 54/54 NSE probe.
+- Open items discovered but not fixed: official archived circulars for 2019–2022 would replace the `USER` rows with provenance-backed snapshots; the holiday-sync year restriction is unchanged.

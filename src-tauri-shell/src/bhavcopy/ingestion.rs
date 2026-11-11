@@ -462,6 +462,8 @@ pub(crate) struct BhavcopyBinaryRecord {
 pub(crate) struct BhavcopyBinaryWriteResult {
     pub(crate) error: Option<String>,
     pub(crate) inserted_rows_by_file: Vec<(usize, usize)>,
+    /// Rows written over an already-present date, per parsed file index.
+    pub(crate) replaced_rows_by_file: Vec<(usize, usize)>,
     pub(crate) stats: BinaryAppendMergeStats,
     pub(crate) diagnostics: BinaryWriteDiagnostics,
 }
@@ -702,13 +704,28 @@ pub(crate) fn import_staged_download(
                     });
                 }
             }
+            // Repair re-imports replace existing rows instead of inserting new
+            // ones: report that work truthfully instead of "Imported 0 records".
+            let written = parsed.rows_inserted + parsed.rows_replaced;
+            let summary = if written == 0 {
+                format!("Imported staged 0 records ({} parsed rows)", parsed.rows_inserted)
+            } else if parsed.rows_inserted == 0 {
+                format!("Replaced {} existing records (repair re-import)", parsed.rows_replaced)
+            } else if parsed.rows_replaced == 0 {
+                format!("Imported staged {} records", parsed.rows_inserted)
+            } else {
+                format!(
+                    "Imported {} new / {} replaced records",
+                    parsed.rows_inserted, parsed.rows_replaced
+                )
+            };
             let result = DownloadResult {
                 success: parsed.admission.conflicted == 0,
                 trade_date: staged.task.trade_date,
                 exchange: staged.task.exchange,
-                rows_inserted: parsed.rows_inserted,
+                rows_inserted: written,
                 max_volume: parsed.max_volume,
-                message: parsed.admission.describe_result(format!("Imported staged {} records", parsed.rows_inserted)),
+                message: parsed.admission.describe_result(summary),
             };
             if should_write_download_log(&result) {
                 let _write_guard = lock_bhavcopy_write(write_lock)?;
@@ -2054,15 +2071,26 @@ pub(super) fn import_staged_csv_downloads(
             let log_write_started = Instant::now();
             let mut log_entries_written = 0_usize;
             for (parsed, parsed_result) in parsed_files.iter().zip(parsed_results) {
-                let mut message = if parsed_result.rows_inserted == 0 && !parsed.rows.is_empty() {
+                let records_written = parsed_result.rows_inserted + parsed_result.rows_replaced;
+                let mut message = if records_written == 0 && !parsed.rows.is_empty() {
                     format!(
                         "Already present; 0 new rows ({} parsed rows)",
                         parsed.rows.len()
                     )
-                } else {
+                } else if parsed_result.rows_inserted == 0 {
+                    format!(
+                        "Replaced {} existing records (repair re-import)",
+                        parsed_result.rows_replaced
+                    )
+                } else if parsed_result.rows_replaced == 0 {
                     format!(
                         "Imported symbol-batched staged {} records",
                         parsed_result.rows_inserted
+                    )
+                } else {
+                    format!(
+                        "Imported {} new / {} replaced records",
+                        parsed_result.rows_inserted, parsed_result.rows_replaced
                     )
                 };
                 let security_report = security_reports.get(&(parsed.exchange.clone(), parsed.trade_date.clone()));
@@ -2079,7 +2107,7 @@ pub(super) fn import_staged_csv_downloads(
                     success,
                     trade_date: parsed.trade_date.clone(),
                     exchange: parsed.exchange.clone(),
-                    rows_inserted: parsed_result.rows_inserted,
+                    rows_inserted: records_written,
                     max_volume: parsed_result.max_volume,
                     message,
                 };
@@ -2243,14 +2271,26 @@ pub(crate) fn parse_and_insert(
         return Ok(ParseInsertResult {
             admission: Default::default(),
             rows_inserted: 0,
+            binary_errors: 0,
+            rows_replaced: 0,
             max_volume: 0,
             debug: Some(debug),
         });
     }
 
     let parsed_files = vec![parsed];
-    let (mut results, _) = insert_parsed_bhavcopy_files(database_file_path, &parsed_files)?;
-    Ok(results.remove(0))
+    let (mut results, timing) = insert_parsed_bhavcopy_files(database_file_path, &parsed_files)?;
+    let mut result = results.remove(0);
+    result.binary_errors = timing.binary_errors;
+    if timing.binary_errors > 0 {
+        // The metadata/price rows may be partially committed; never report this
+        // as a success. Recovery evidence stays in the journal and the log.
+        return Err(format!(
+            "Binary store write failed for {} symbol file(s); the import is incomplete and must be retried after checking the binary journal",
+            timing.binary_errors
+        ));
+    }
+    Ok(result)
 }
 
 pub(crate) fn insert_parsed_bhavcopy_files(
@@ -2300,6 +2340,8 @@ pub(crate) fn insert_parsed_bhavcopy_files_with_durability_and_recovery_baseline
         .map(|(i, parsed)| ParseInsertResult {
             admission: admission.reports[i].clone(),
             rows_inserted: 0,
+            binary_errors: 0,
+            rows_replaced: 0,
             max_volume: parsed.rows.iter().zip(&admission.masks[i]).filter(|(_,keep)| **keep).map(|(row,_)| row.volume.max(0) as u64).max().unwrap_or(0),
             debug: None,
         })
@@ -2458,6 +2500,9 @@ pub(crate) fn insert_parsed_bhavcopy_files_with_durability_and_recovery_baseline
                 for (file_index, rows_inserted) in result.inserted_rows_by_file {
                     results[file_index].rows_inserted += rows_inserted;
                 }
+                for (file_index, rows_replaced) in result.replaced_rows_by_file {
+                    results[file_index].rows_replaced += rows_replaced;
+                }
             }
         }
         binary_write_ms = binary_write_started.elapsed().as_millis();
@@ -2496,9 +2541,33 @@ pub(crate) fn sort_bhavcopy_binary_records(
     for symbol_records in binary_records.values_mut() {
         for records in symbol_records.values_mut() {
             records.sort_by_key(|record| record.record.date);
+            fill_missing_prev_close(records);
         }
     }
     binary_records
+}
+
+/// Debt, sovereign-gold-bond and fund series omit `PREV_CLOSE` in the source, so
+/// their stored bars carried `prev_close = 0` and any previous-close read was
+/// wrong (56,250 bars across 175 symbols in 2018-2024). Where a symbol has
+/// consecutive records inside this batch, fill the gap from the preceding
+/// record's close. Values the source did supply are never overwritten, and the
+/// first record of a series keeps 0 because nothing precedes it.
+///
+/// Limitation: this only sees the current batch, so a single-date import of a
+/// source that omits `PREV_CLOSE` still writes 0 for that date.
+pub(crate) fn fill_missing_prev_close(records: &mut [BhavcopyBinaryRecord]) -> usize {
+    let mut filled = 0;
+    for index in 1..records.len() {
+        if records[index].record.prev_close == 0 {
+            let previous_close = records[index - 1].record.close;
+            if previous_close != 0 {
+                records[index].record.prev_close = previous_close;
+                filled += 1;
+            }
+        }
+    }
+    filled
 }
 
 pub(crate) fn bhavcopy_binary_worker_count(total_symbols: usize) -> usize {
@@ -2641,6 +2710,7 @@ pub(crate) fn write_bhavcopy_binary_records_for_symbol(
         Ok(result) => BhavcopyBinaryWriteResult {
             error: None,
             inserted_rows_by_file: count_inserted_rows_by_file(&records, &result.stats),
+            replaced_rows_by_file: count_changed_rows_by_file(&records, &result.stats),
             stats: result.stats,
             diagnostics: result.diagnostics,
         },
@@ -2656,6 +2726,7 @@ pub(crate) fn write_bhavcopy_binary_records_for_symbol(
                     error
                 )),
                 inserted_rows_by_file: Vec::new(),
+                replaced_rows_by_file: Vec::new(),
                 stats: BinaryAppendMergeStats::default(),
                 diagnostics,
             }
@@ -2680,6 +2751,27 @@ pub(crate) fn count_inserted_rows_by_file(
     }
 
     let mut ordered = inserted_rows_by_file.into_iter().collect::<Vec<_>>();
+    ordered.sort_by_key(|(file_index, _)| *file_index);
+    ordered
+}
+
+pub(crate) fn count_changed_rows_by_file(
+    records: &[BhavcopyBinaryRecord],
+    stats: &BinaryAppendMergeStats,
+) -> Vec<(usize, usize)> {
+    if stats.changed_existing_dates.is_empty() {
+        return Vec::new();
+    }
+
+    let changed_dates = stats.changed_existing_dates.iter().copied().collect::<HashSet<_>>();
+    let mut changed_rows_by_file = HashMap::<usize, usize>::new();
+    for record in records {
+        if changed_dates.contains(&record.record.date) {
+            *changed_rows_by_file.entry(record.file_index).or_insert(0) += 1;
+        }
+    }
+
+    let mut ordered = changed_rows_by_file.into_iter().collect::<Vec<_>>();
     ordered.sort_by_key(|(file_index, _)| *file_index);
     ordered
 }

@@ -953,7 +953,9 @@ fn evaluate_simple_cash_dividend_policy_with_peer_cache(
     let latest_ex_date = ex_date
         .checked_add_signed(chrono::Duration::days(DIVIDEND_MAX_PREV_TRADE_GAP_DAYS))
         .ok_or_else(|| "Dividend R1 ex-date window overflow.".to_string())?;
-    let today = chrono::Local::now().date_naive();
+    let today = chrono::Utc::now()
+        .with_timezone(&chrono::FixedOffset::east_opt(5 * 3600 + 30 * 60).expect("valid IST offset"))
+        .date_naive();
     if ex_date > today {
         return Ok(SimpleCashDividendPolicyEligibility::Ineligible(
             "Dividend R1 cannot approve before the official ex-date.".to_string(),

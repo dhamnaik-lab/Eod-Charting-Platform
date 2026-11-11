@@ -159,4 +159,51 @@ describe('targeted post-approval queue refresh', () => {
     other.input.previousOutcome.result.dispositions = [];
     await expect(refreshCorporateActionQueueAfterApproval(other.input)).rejects.toThrow('evidence is incomplete');
   });
+
+  it('reconciles consecutive Split/Bonus approvals when automatic Load & Validate deferred Dividends (previousOutcome is null or empty)', async () => {
+    const rows = [
+      row(1, 'HEGAM', { actionType: 'SPLIT' }),
+      row(2, 'SECOND', { actionType: 'BONUS' }),
+      row(3, 'OTHER', { actionType: 'DIVIDEND' }),
+      row(4, 'OTHER2', { actionType: 'RIGHTS' }),
+    ];
+    const evaluate = vi.fn();
+    const api = {
+      getCorporateActionImportsByIds: vi.fn(async ({ importIds }: { importIds: number[] }) =>
+        rows.filter(item => importIds.includes(item.id)).map(item => ({
+          ...item,
+          reviewStatus: 'APPROVED' as const,
+          approvedCorporateActionId: item.id + 100,
+        }))),
+      runCorporateActionScan: vi.fn(async () => ({ results: [] } as never)),
+      evaluateSimpleCashDividendPreparedScope: evaluate,
+    };
+    const first = await refreshCorporateActionQueueAfterApproval({
+      api,
+      rows,
+      approvedSelection: [1],
+      previousOutcome: null,
+      previousGeneration: 7,
+      expectedDatabasePath: database,
+      shouldContinue: () => true,
+    });
+    expect(first.rows.map(item => item.id)).toEqual([2, 3, 4]);
+    expect(first.scope.importIds).toEqual([]);
+    expect(first.outcome.result.requested).toBe(0);
+    expect(evaluate).not.toHaveBeenCalled();
+
+    const second = await refreshCorporateActionQueueAfterApproval({
+      api,
+      rows: first.rows,
+      approvedSelection: [2],
+      previousOutcome: first.outcome,
+      previousGeneration: 8,
+      expectedDatabasePath: database,
+      shouldContinue: () => true,
+    });
+    expect(second.rows.map(item => item.id)).toEqual([3, 4]);
+    expect(second.scope.importIds).toEqual([]);
+    expect(second.outcome.result.requested).toBe(0);
+    expect(evaluate).not.toHaveBeenCalled();
+  });
 });
