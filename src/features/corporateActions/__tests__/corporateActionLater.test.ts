@@ -96,6 +96,7 @@ describe('Later is display/readiness only', () => {
     expect(rows).toEqual([dividend, split]);
     const ui = readFileSync('src/components/DatabaseToolsDialogs.tsx', 'utf8');
     expect(ui).toContain('rows: immediateCorporateActionValidationRows(result.rows)');
+    expect(ui).toContain('if (isLaterCorporateAction(row)) return false;');
     expect(ui).toContain('deferredCorporateActionReason(row, label)' );
     expect(ui).toContain('<th>Deferred</th>');
     const workspace = readFileSync('src/features/corporateActions/workspace/CorporateActionClassicWorkspace.tsx', 'utf8');

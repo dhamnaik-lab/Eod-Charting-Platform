@@ -134,6 +134,12 @@ import {
 import { formatDividendBlockerReport, summarizeDividendBlockerReasons } from '@/features/corporateActions/legacy/corporateActionDividendBlockerSummary';
 import { buildCorporateActionValidationReportSaveInput } from '@/features/corporateActions/legacy/corporateActionValidationHistory';
 import { deferredCorporateActionReason, isLaterCorporateAction, immediateCorporateActionValidationRows } from '@/features/corporateActions/legacy/corporateActionLater';
+import { evaluateOfficialCorporateActionRowReadiness } from '@/features/corporateActions/legacy/corporateActionOfficialReadiness';
+import {
+  clearCachedCorporateActionPendingReview,
+  getCachedCorporateActionPendingReview,
+  setCachedCorporateActionPendingReview,
+} from '@/features/corporateActions/legacy/corporateActionSessionCache';
 import { summarizeCaPendingByType, formatCaPendingTypeReport } from '@/features/corporateActions/legacy/corporateActionAllTypeReadinessSummary';
 import {
   IDENTITY_RECOVERY_DOCUMENTS,
@@ -3154,12 +3160,27 @@ function CorporateActionDialog({
   useEffect(() => {
     if (!busy && officialPreparationComplete && activeCorporateTab === 'imports' &&
         activeOfficialImportSection === 'review' && activeOfficialImportView === 'review') {
-      pendingReviewRef.current = capturePendingReview();
+      const captured = capturePendingReview();
+      pendingReviewRef.current = captured;
+      setCachedCorporateActionPendingReview(captured);
+    } else if (busy) {
+      clearCachedCorporateActionPendingReview();
     }
   }, [busy, officialPreparationComplete, activeCorporateTab, activeOfficialImportSection,
     activeOfficialImportView, importRows, scanRows, officialPreparationErrors, officialAutoApproval,
     officialDividendPreparedScopeOutcome, officialDividendWriteStageScope, officialTaskProgress,
     importIdentityHints, importLoadLimit, status, activeDatabasePath]);
+
+  useEffect(() => {
+    clearCachedCorporateActionPendingReview(activeDatabasePath);
+    const cached = getCachedCorporateActionPendingReview<ReturnType<typeof capturePendingReview>>(activeDatabasePath);
+    if (!cached) {
+      return;
+    }
+    officialPreparationGenerationRef.current = cached.generation;
+    pendingReviewRef.current = cached;
+    restorePendingReview();
+  }, [activeDatabasePath]);
 
   const loadAndPrepareOfficialImports = async () => {
     if (!api || officialOperationRunningRef.current || (typeof officialApprovalPreparingRef !== "undefined" && officialApprovalPreparingRef.current)) return;
@@ -3325,6 +3346,7 @@ function CorporateActionDialog({
     return api.onDatabaseChanged((nextSnapshot) => {
       if (nextSnapshot.activeDatabasePath !== activeDatabasePath || officialOperationRunningRef.current || officialApprovalPreparingRef.current) return;
       pendingReviewRef.current = null;
+      clearCachedCorporateActionPendingReview();
       officialPreparationGenerationRef.current += 1;
       setOfficialPreparationComplete(false);
       setOfficialApprovalConfirmation(null);
@@ -4019,7 +4041,15 @@ function CorporateActionDialog({
     if (existingDividendByImportId[row.id]?.row === row) return false;
     if (!officialPreparationComplete || officialPreparationErrors[row.id]) return false;
     if (row.actionType !== 'DIVIDEND') {
-      return getCorporateActionNormalApprovalState(row, latestScanByImportId.get(row.id)) === 'READY TO APPROVE';
+      if (isLaterCorporateAction(row)) return false;
+      return evaluateOfficialCorporateActionRowReadiness(row, {
+        officialPreparationComplete,
+        officialPreparationErrors,
+        existingDividendByImportId,
+        latestScanByImportId,
+        dividendPreparedImportIds,
+        officialDividendPreparedScopeDispositionByImportId,
+      });
     }
     const disposition = officialDividendPreparedScopeDispositionByImportId.get(row.id);
     return Boolean(dividendPreparedImportIds.has(row.id)) &&
@@ -4442,7 +4472,14 @@ function CorporateActionDialog({
             await onReloadInstrument(row.symbol, row.exchange, { forceReload: true, preserveViewport: true });
           }
         }
-        completedApprovalSummary = `Explicit Dividend approval: ${dividendTotals.approved}/${dividendTotals.requested} committed; ${dividendTotals.blocked} blocked or already approved. Rust revalidated every item. No raw EOD prices changed.`;
+        const dividendChartHint = dividendTotals.approved > 0
+          ? !adjustedMode
+            ? ' (Chart is in Raw mode; switch Chart > Price Mode > Adjusted and enable Dividend adjustments to view dividend-adjusted history.)'
+            : !includeDividendAdjustments
+              ? ' (Dividend chart adjustments are currently off; enable Dividend adjustments in chart settings to view dividend-adjusted history.)'
+              : ''
+          : '';
+        completedApprovalSummary = `Explicit Dividend approval: ${dividendTotals.approved}/${dividendTotals.requested} committed; ${dividendTotals.blocked} blocked or already approved. Rust revalidated every item. No raw EOD prices changed.${dividendChartHint}`;
       }
       if (!shouldContinue()) return;
       completedApprovalSummary ??= 'Reviewed corporate action approval completed.';
@@ -6780,7 +6817,7 @@ function CorporateActionDialog({
                         </div>
                         {expanded ? group.rows.map((row) => {
                           const scan = latestScanByImportId.get(row.id);
-                          const approvalState = row.actionType === 'DIVIDEND' ? (isOfficialRowReady(row) ? 'READY TO APPROVE' : 'NEEDS REVIEW') : getCorporateActionNormalApprovalState(row, scan);
+                          const approvalState = row.actionType === 'DIVIDEND' || isLaterCorporateAction(row) ? (isOfficialRowReady(row) ? 'READY TO APPROVE' : 'NEEDS REVIEW') : getCorporateActionNormalApprovalState(row, scan);
                           const canApprove = officialPreparationComplete && !officialPreparationErrors[row.id] && approvalState === 'READY TO APPROVE';
                           const dividendDisposition = officialDividendPreparedScopeDispositionByImportId.get(row.id);
                           const statusLabel = row.actionType === 'DIVIDEND' && currentOfficialDividendWriteStageScope

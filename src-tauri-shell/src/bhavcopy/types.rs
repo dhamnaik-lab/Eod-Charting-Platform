@@ -68,6 +68,12 @@ pub struct BatchDownloadConfig {
     pub nse_index_url_override: Option<String>,
     pub bse_equity_url_override: Option<String>,
     pub bse_index_url_override: Option<String>,
+    /// Repair switch: plan every session in the range even when the store
+    /// already covers it. Deliberately explicit (default false) because normal
+    /// Range behaviour is gap-filling, not rewriting
+    /// (see tests::test_range_mode_prefilters_already_imported_trading_days).
+    #[serde(default)]
+    pub force_redownload: bool,
 }
 
 #[derive(Clone, Debug, Serialize)]
@@ -194,6 +200,13 @@ pub struct ImportedTradeDates {
 pub struct ParseInsertResult {
     pub(crate) admission: super::security_admission::AdmissionReport,
     pub rows_inserted: usize,
+    /// Binary-store write failures reported by the writer. Non-zero means the
+    /// import is not trustworthy and must not be reported as a success.
+    pub binary_errors: usize,
+    /// Records written over an existing date (binary store). A repair re-import
+    /// produces replacements, not inserts, and must still report real work
+    /// (see the download_log contract).
+    pub rows_replaced: usize,
     pub max_volume: u64,
     pub debug: Option<String>,
 }

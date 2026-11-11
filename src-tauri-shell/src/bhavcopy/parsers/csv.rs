@@ -1,4 +1,4 @@
-use chrono::NaiveDate;
+use chrono::{Datelike, NaiveDate};
 use csv::ReaderBuilder;
 
 use super::{ParsedBhavcopyFile, ParsedBhavcopyRow};
@@ -188,6 +188,13 @@ pub fn parse_bhavcopy_csv(
         });
     };
 
+    // NSE equity archives carry a per-row trade date. The block below only
+    // resolves the file date from the first populated row; a mixed-date archive
+    // would otherwise be stored entirely under the requested date.
+    let validate_row_dates = date_idx.is_some()
+        && !is_index_data
+        && exchange.eq_ignore_ascii_case("NSE");
+
     let mut resolved_trade_date = trade_date.to_string();
     if let Some(date_idx) = date_idx {
         for row in rows.iter().skip(1) {
@@ -235,6 +242,27 @@ pub fn parse_bhavcopy_csv(
         let raw_symbol = get_csv_value(row, symbol_idx).trim().to_string();
         if raw_symbol.is_empty() {
             continue;
+        }
+
+        // NSE equity: every non-empty row date must be the requested session.
+        // A blank date cell stays tolerated (historical shapes exist) but a
+        // different date fails closed before anything reaches storage.
+        if validate_row_dates {
+            if let Some(idx) = date_idx {
+                let raw = get_csv_value(row, idx).trim().to_string();
+                if !raw.is_empty() {
+                    let Some(normalized) = normalize_trade_date_value(&raw) else {
+                        return Err(format!(
+                            "Unrecognized trade date '{raw}' on row for {raw_symbol}: requested {trade_date}"
+                        ));
+                    };
+                    if normalized != trade_date {
+                        return Err(format!(
+                            "Mixed-date NSE archive: requested {trade_date}, row for {raw_symbol} contains {normalized}"
+                        ));
+                    }
+                }
+            }
         }
 
         // Daily index archives must match on every row, not just the first row.
@@ -421,6 +449,12 @@ pub fn normalize_trade_date_value(value: &str) -> Option<String> {
         "%d.%m.%Y",
     ] {
         if let Ok(parsed) = NaiveDate::parse_from_str(trimmed, format) {
+            // `%Y` also accepts a two-digit year, so an archive row like
+            // `13-Jul-20` parses as year 20 AD. Reject an implausible year and
+            // let the `%d-%b-%y` branch resolve the real century.
+            if parsed.year() < 1900 {
+                continue;
+            }
             return Some(parsed.format("%Y-%m-%d").to_string());
         }
     }

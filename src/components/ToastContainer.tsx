@@ -24,7 +24,7 @@ function ToastItem({ toast, onDismiss }: { toast: ToastMessage; onDismiss: () =>
 
   let accentColor = 'var(--accent)';
   if (isError) accentColor = 'var(--red)';
-  if (isWarning) accentColor = 'var(--yellow, #f59e0b)';
+  if (isWarning) accentColor = 'var(--yellow-text)';
   if (isSuccess) accentColor = 'var(--green)';
 
   return (

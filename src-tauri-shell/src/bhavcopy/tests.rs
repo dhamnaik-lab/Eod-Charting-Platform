@@ -1079,6 +1079,7 @@ fn test_default_nse_index_plan_uses_daily_full_index_list_candidates() {
         nse_index_url_override: None,
         bse_equity_url_override: None,
         bse_index_url_override: None,
+        force_redownload: false,
     };
 
     let plan = build_batch_plan(&conn, &config).unwrap();
@@ -1136,6 +1137,7 @@ fn index_alias_prefilter_reports_exchange_completion_and_unverified_large_ranges
         start_date: "2015-01-01".to_string(), end_date: "2015-02-09".to_string(),
         workers: 2, excluded_series: Vec::new(), nse_equity_url_override: None,
         nse_index_url_override: None, bse_equity_url_override: None, bse_index_url_override: None,
+        force_redownload: false,
     }).unwrap();
     // All 40 exchange-day markers are present and exceed the binary scan
     // limit. They do not establish which individual indices were imported.
@@ -1173,6 +1175,9 @@ fn index_alias_prefilter_reports_exchange_completion_and_unverified_large_ranges
 #[test]
 fn test_special_trading_calendar_covers_recent_live_cash_sessions() {
     let expected = [
+        ("2019-10-27", "Muhurat Trading"),
+        ("2020-02-01", "Union Budget live trading session"),
+        ("2020-11-14", "Muhurat Trading"),
         ("2023-11-12", "Muhurat Trading"),
         ("2024-01-20", "Special live trading session"),
         (
@@ -1217,6 +1222,7 @@ fn test_special_trading_day_bypasses_weekend_for_all_cash_sources() {
         nse_index_url_override: None,
         bse_equity_url_override: None,
         bse_index_url_override: None,
+        force_redownload: false,
     };
 
     let plan = build_batch_plan(&conn, &config).unwrap();
@@ -1257,6 +1263,7 @@ fn test_holiday_calendar_remains_date_by_date_for_all_cash_sources() {
         nse_index_url_override: None,
         bse_equity_url_override: None,
         bse_index_url_override: None,
+        force_redownload: false,
     };
 
     let plan = build_batch_plan(&conn, &config).unwrap();
@@ -1291,6 +1298,7 @@ fn test_bse_uses_shared_cash_market_holiday_calendar() {
         nse_index_url_override: None,
         bse_equity_url_override: None,
         bse_index_url_override: None,
+        force_redownload: false,
     };
 
     let plan = build_batch_plan(&conn, &config).unwrap();
@@ -1422,6 +1430,7 @@ fn test_range_mode_prefilters_already_imported_trading_days() {
         nse_index_url_override: None,
         bse_equity_url_override: None,
         bse_index_url_override: None,
+        force_redownload: false,
     };
 
     let plan = build_batch_plan(&conn, &config).unwrap();
@@ -1433,6 +1442,259 @@ fn test_range_mode_prefilters_already_imported_trading_days() {
         .info_messages
         .iter()
         .any(|message| message.contains("[NSE] Prefiltered 1 already imported trading days")));
+}
+
+#[test]
+fn test_range_mode_force_redownload_plans_existing_dates_for_repair() {
+    let conn = setup_test_db();
+    set_price_storage_mode(&conn, PriceStorageMode::Binary).unwrap();
+    conn.execute(
+        "INSERT INTO download_log (trade_date, exchange, rows_inserted, max_volume, status) VALUES (?, ?, ?, ?, ?)",
+        params!["2026-06-23", "NSE", 3200, 1000, "ok"],
+    )
+    .unwrap();
+
+    let config = BatchDownloadConfig {
+        mode: DownloadMode::Range,
+        exchanges: ExchangeSelection {
+            nse: true,
+            bse: false,
+            nse_index: false,
+            bse_index: false,
+        },
+        start_date: "2026-06-22".to_string(),
+        end_date: "2026-06-24".to_string(),
+        workers: 2,
+        excluded_series: Vec::new(),
+        nse_equity_url_override: None,
+        nse_index_url_override: None,
+        bse_equity_url_override: None,
+        bse_index_url_override: None,
+        force_redownload: true,
+    };
+
+    let plan = build_batch_plan(&conn, &config).unwrap();
+
+    // The already-imported day is planned again: a repair must be able to replace it.
+    assert_eq!(plan.tasks.len(), 3);
+    assert_eq!(plan.tasks[0].trade_date, "2026-06-22");
+    assert_eq!(plan.tasks[1].trade_date, "2026-06-23");
+    assert_eq!(plan.tasks[2].trade_date, "2026-06-24");
+    assert!(!plan
+        .info_messages
+        .iter()
+        .any(|message| message.contains("Prefiltered")));
+    assert!(plan
+        .info_messages
+        .iter()
+        .any(|message| message.contains("[NSE] Repair re-download: existing coverage ignored")));
+}
+
+#[test]
+fn test_force_redownload_is_rejected_outside_range_mode() {
+    use crate::bhavcopy::settings::normalize_batch_config;
+    for mode in [DownloadMode::Update, DownloadMode::FullHistory] {
+        let config = BatchDownloadConfig {
+            mode,
+            exchanges: ExchangeSelection { nse: true, bse: false, nse_index: false, bse_index: false },
+            start_date: "2026-06-22".to_string(),
+            end_date: "2026-06-24".to_string(),
+            workers: 2,
+            excluded_series: Vec::new(),
+            nse_equity_url_override: None,
+            nse_index_url_override: None,
+            bse_equity_url_override: None,
+            bse_index_url_override: None,
+            force_redownload: true,
+        };
+        let error = normalize_batch_config(config).unwrap_err();
+        assert!(error.contains("only available in Date Range mode"), "{error}");
+    }
+
+    let range = BatchDownloadConfig {
+        mode: DownloadMode::Range,
+        exchanges: ExchangeSelection { nse: true, bse: false, nse_index: false, bse_index: false },
+        start_date: "2026-06-22".to_string(),
+        end_date: "2026-06-24".to_string(),
+        workers: 12,
+        excluded_series: Vec::new(),
+        nse_equity_url_override: None,
+        nse_index_url_override: None,
+        bse_equity_url_override: None,
+        bse_index_url_override: None,
+        force_redownload: true,
+    };
+    let normalized = normalize_batch_config(range).unwrap();
+    assert!(normalized.force_redownload);
+    assert_eq!(normalized.workers, 10);
+}
+
+#[test]
+fn test_nse_equity_mixed_date_archive_is_rejected_before_writes() {
+    let (temp_dir, db_path) = create_temp_bhavcopy_db();
+    fs::create_dir_all(temp_dir.path().join("eod_data").join("NSE")).unwrap();
+    let header = "SYMBOL,SERIES,OPEN,HIGH,LOW,CLOSE,TOTTRDQTY,TIMESTAMP,ISIN
+";
+    let mixed = format!(
+        "{header}AAA,EQ,10,11,9,10.5,100,20-NOV-2014,INE000A01001
+BBB,EQ,20,21,19,20.5,200,21-NOV-2014,INE000A01002
+"
+    );
+    let error = parse_and_insert(&db_path, &mixed, "NSE", "2014-11-20", &[])
+        .err()
+        .expect("mixed-date archive must be rejected");
+    assert!(error.contains("Mixed-date NSE archive"), "{error}");
+    assert!(error.contains("BBB"), "{error}");
+
+    // Blank per-row dates stay tolerated (historical shapes exist).
+    let blank = format!(
+        "{header}AAA,EQ,10,11,9,10.5,100,20-NOV-2014,INE000A01001
+BBB,EQ,20,21,19,20.5,200,,INE000A01002
+"
+    );
+    let parsed = parse_and_insert(&db_path, &blank, "NSE", "2014-11-20", &[]).unwrap();
+    assert_eq!(parsed.rows_inserted, 2);
+
+    // BSE parsing keeps its previous semantics.
+    let bse = format!("{header}AAA,EQ,10,11,9,10.5,100,21-NOV-2014,INE000A01001
+");
+    assert!(parse_and_insert(&db_path, &bse, "BSE", "2014-11-20", &[]).is_ok());
+}
+
+#[test]
+fn test_normalize_trade_date_value_resolves_two_digit_years() {
+    assert_eq!(
+        normalize_trade_date_value("13-Jul-20").as_deref(),
+        Some("2020-07-13")
+    );
+    assert_eq!(
+        normalize_trade_date_value("13-Jul-2020").as_deref(),
+        Some("2020-07-13")
+    );
+    assert_eq!(
+        normalize_trade_date_value("27-OCT-2019").as_deref(),
+        Some("2019-10-27")
+    );
+    assert_eq!(
+        normalize_trade_date_value("2020-07-13").as_deref(),
+        Some("2020-07-13")
+    );
+    assert_eq!(normalize_trade_date_value("not-a-date"), None);
+}
+
+#[test]
+fn test_nse_equity_two_digit_year_archive_date_is_accepted() {
+    let (temp_dir, db_path) = create_temp_bhavcopy_db();
+    fs::create_dir_all(temp_dir.path().join("eod_data").join("NSE")).unwrap();
+    // NSE's legacy 2020-07-13 archive carries `13-Jul-20` in every TIMESTAMP
+    // cell; the two-digit year must resolve to 2020, not year 20 AD.
+    let csv = "SYMBOL,SERIES,OPEN,HIGH,LOW,CLOSE,PREVCLOSE,TOTTRDQTY,TIMESTAMP,ISIN
+AAA,EQ,10,11,9,10.5,9.9,100,13-Jul-20,INE000A01001";
+    let parsed = parse_and_insert(&db_path, csv, "NSE", "2020-07-13", &[])
+        .expect("two-digit year archive must be accepted");
+    assert_eq!(parsed.rows_inserted, 1);
+
+    // A file whose resolved date is another session is still refused.
+    let stale = "SYMBOL,SERIES,OPEN,HIGH,LOW,CLOSE,PREVCLOSE,TOTTRDQTY,TIMESTAMP,ISIN
+AAA,EQ,10,11,9,10.5,9.9,100,01-Oct-2019,INE000A01001";
+    let parsed = parse_and_insert(&db_path, stale, "NSE", "2019-10-02", &[]).unwrap();
+    assert_eq!(parsed.rows_inserted, 0);
+    assert!(parsed
+        .debug
+        .as_deref()
+        .unwrap_or_default()
+        .contains("Archive date mismatch"));
+}
+
+#[test]
+fn test_binary_write_failure_is_never_reported_as_success() {
+    let (temp_dir, db_path) = create_temp_bhavcopy_db();
+    let nse_dir = temp_dir.path().join("eod_data").join("NSE");
+    fs::create_dir_all(&nse_dir).unwrap();
+    // Deterministic fault injection: the writer cannot open a directory as the
+    // symbol's binary file, so the binary stage reports an error.
+    fs::create_dir_all(nse_dir.join("AAA.eod")).unwrap();
+    let csv = "SYMBOL,SERIES,OPEN,HIGH,LOW,CLOSE,TOTTRDQTY,TIMESTAMP,ISIN
+               AAA,EQ,10,11,9,10.5,100,20-NOV-2014,INE000A01001";
+    let error = parse_and_insert(&db_path, csv, "NSE", "2014-11-20", &[])
+        .err()
+        .expect("binary failure must be surfaced");
+    assert!(error.contains("Binary store write failed"), "{error}");
+}
+
+#[test]
+fn test_staged_replacement_only_import_is_truthful_and_idempotent() {
+    let (temp_dir, db_path) = create_temp_bhavcopy_db();
+    fs::create_dir_all(temp_dir.path().join("eod_data").join("NSE")).unwrap();
+    {
+        let conn = open_database_connection(&db_path).unwrap();
+        set_price_storage_mode(&conn, PriceStorageMode::Binary).unwrap();
+    }
+    let lock = Mutex::new(());
+    let csv = |close: &str| {
+        format!(
+            "SYMBOL,SERIES,OPEN,HIGH,LOW,CLOSE,TOTTRDQTY,TIMESTAMP,ISIN
+AAA,EQ,10,11,9,{close},100,20-NOV-2014,INE000A01001"
+        )
+    };
+    let staged = |body: String| StagedDownload {
+        task: DownloadTask {
+            exchange: "NSE".to_string(),
+            trade_date: "2014-11-20".to_string(),
+            mode: DownloadMode::Range,
+            candidates: Vec::new(),
+            nse_index_history: None,
+        },
+        content: StagedDownloadContent::Csv(body),
+    };
+
+    // First import: a plain insert.
+    let first = import_staged_download(&db_path, staged(csv("10.5")), &[], &lock).unwrap();
+    assert!(first.success);
+    assert_eq!(first.rows_inserted, 1);
+
+    // Repair re-import of the same date: replacement, still reported as work.
+    let repaired = import_staged_download(&db_path, staged(csv("11.25")), &[], &lock).unwrap();
+    assert!(repaired.success, "{}", repaired.message);
+    assert_eq!(repaired.rows_inserted, 1);
+    assert!(repaired.message.contains("Replaced 1 existing records"), "{}", repaired.message);
+
+    // Re-importing the identical row is an explicit no-op, not fake work.
+    let noop = import_staged_download(&db_path, staged(csv("11.25")), &[], &lock).unwrap();
+    assert_eq!(noop.rows_inserted, 0);
+
+    let file = BinaryEodFile::open(temp_dir.path().join("eod_data").join("NSE").join("AAA.eod")).unwrap();
+    let rows = file.read_all().unwrap();
+    assert_eq!(rows.len(), 1);
+    assert_eq!(rows[0].close, 112_500);
+}
+
+#[test]
+fn test_binary_reimport_reports_replaced_rows_as_work() {
+    let (temp_dir, db_path) = create_temp_bhavcopy_db();
+    fs::create_dir_all(temp_dir.path().join("eod_data").join("NSE")).unwrap();
+    let conn = open_database_connection(&db_path).unwrap();
+    set_price_storage_mode(&conn, PriceStorageMode::Binary).unwrap();
+    drop(conn);
+
+    let first = "SYMBOL,SERIES,OPEN,HIGH,LOW,CLOSE,LAST,PREVCLOSE,TOTTRDQTY,TOTTRDVAL,TIMESTAMP,TOTALTRADES,ISIN\nSBIN,EQ,294.75,298.75,291.25,297.1,297.1,2910.5,18099509,5369829564,20-NOV-2014,39614,INE062A01012";
+    let repair = "SYMBOL,SERIES,OPEN,HIGH,LOW,CLOSE,LAST,PREVCLOSE,TOTTRDQTY,TOTTRDVAL,TIMESTAMP,TOTALTRADES,ISIN\nSBIN,EQ,295.5,299.25,292.0,297.85,297.85,2910.5,18099509,5369829564,20-NOV-2014,39614,INE062A01012";
+    let inserted = parse_and_insert(&db_path, first, "NSE", "2014-11-20", &[]).unwrap();
+    assert_eq!(inserted.rows_inserted, 1);
+    assert_eq!(inserted.rows_replaced, 0);
+
+    // A repair re-imports an existing date: the row is replaced, not inserted,
+    // and the work must still be reported (download_log contract).
+    let replaced = parse_and_insert(&db_path, repair, "NSE", "2014-11-20", &[]).unwrap();
+    assert_eq!(replaced.rows_inserted, 0);
+    assert_eq!(replaced.rows_replaced, 1);
+
+    let stored = BinaryEodFile::open(temp_dir.path().join("eod_data").join("NSE").join("SBIN.eod"))
+        .unwrap()
+        .read_all()
+        .unwrap();
+    assert_eq!(stored.len(), 1);
+    assert_eq!(stored[0].close, 2_978_500);
 }
 
 #[test]
@@ -1463,6 +1725,7 @@ fn test_range_mode_refreshes_metadata_only_binary_dates() {
         nse_index_url_override: None,
         bse_equity_url_override: None,
         bse_index_url_override: None,
+        force_redownload: false,
     };
 
     let plan = build_batch_plan(&conn, &config).unwrap();
@@ -2017,4 +2280,43 @@ fn test_v14_append_newest_fast_classification_bhavcopy_integration_uses_zero_cla
     assert_eq!(timing.binary_diagnostics.last_date_classification_reads, 0);
     assert_eq!(timing.binary_diagnostics.append_newest, 1);
     assert_eq!(timing.binary_diagnostics.deferred_sync_calls, 1);
+}
+
+#[test]
+fn fill_missing_prev_close_uses_the_previous_batch_close() {
+    fn rec(date: u32, close: i64, prev_close: i64) -> BhavcopyBinaryRecord {
+        BhavcopyBinaryRecord {
+            file_index: 0,
+            record: EodRecord {
+                date,
+                flags: 0,
+                open: close,
+                high: close,
+                low: close,
+                close,
+                prev_close,
+                volume: 1,
+                oi: 0,
+            },
+        }
+    }
+    // Sorted ascending; source supplied PREV_CLOSE only on the middle record.
+    let mut records = vec![
+        rec(20240101, 100, 0),
+        rec(20240102, 110, 105),
+        rec(20240103, 120, 0),
+    ];
+    let filled = super::ingestion::fill_missing_prev_close(&mut records);
+    assert_eq!(filled, 1, "only the trailing record had a gap");
+    assert_eq!(records[0].record.prev_close, 0, "first record keeps 0");
+    assert_eq!(records[1].record.prev_close, 105, "source value preserved");
+    assert_eq!(records[2].record.prev_close, 110, "filled from previous close");
+
+    // A single record cannot be filled, and a zero previous close chains.
+    let mut single = vec![rec(20240101, 100, 0)];
+    assert_eq!(super::ingestion::fill_missing_prev_close(&mut single), 0);
+    let mut chain = vec![rec(20240101, 100, 0), rec(20240102, 0, 0), rec(20240103, 120, 0)];
+    super::ingestion::fill_missing_prev_close(&mut chain);
+    assert_eq!(chain[1].record.prev_close, 100, "filled from the first close");
+    assert_eq!(chain[2].record.prev_close, 0, "a zero predecessor close cannot fill");
 }

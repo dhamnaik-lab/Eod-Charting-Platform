@@ -54,10 +54,15 @@ function loadHarness() {
 const a = (id: number): Holiday => ({ id, date: `2026-10-${String(id).padStart(2, '0')}`, name: `Holiday ${id}`, source: 'USER' });
 
 describe('HOL-01 Market Holiday tab refresh and database scope', () => {
-  it('refreshes whenever the user re-enters Market Holiday, not only when rows are empty', () => {
-    assert.match(source, /if \(activeTab === 'marketHoliday'\) return;\s*setActiveTab\('marketHoliday'\);\s*void loadHolidays\(\)/);
-    assert.doesNotMatch(source, /if \(holidays\.length === 0\) void loadHolidays\(\)/);
-    assert.match(source, /onClick=\{\(\) => void loadHolidays\(\)\}/);
+  it('shows the selected year from the database on tab entry, with no network read', () => {
+    // Opening the tab reads stored calendars once, through a single combined call.
+    assert.match(source, /getHolidayCalendarView\(holidayYear\)/);
+    assert.doesNotMatch(source, /setActiveTab\('marketHoliday'\);\s*void loadHolidays\(\)/);
+    // The only network path is the explicit official sync, never a tab or year change.
+    assert.doesNotMatch(source, /if \(holidayRefreshVersion === 0[^)]*\) return;/);
+    // Refresh (and a year change) re-runs the read.
+    assert.match(source, /setHolidayRefreshVersion\(\(version\) => version \+ 1\);\s*void loadHolidays\(\);/);
+    assert.match(source, /setHolidayYear\(Number\(event\.target\.value\)\);\s*setHolidayRefreshVersion\(\(version\) => version \+ 1\);/);
   });
 
   it('applies a successful response and binds it to the requested database', async () => {
@@ -110,7 +115,7 @@ describe('HOL-01 Market Holiday tab refresh and database scope', () => {
     expect(h.state.error).toBe(null);
   });
 
-  it('clears cached rows and pending requests and reloads when the active database changes', () => {
+  it('clears cached rows and pending requests when the active database changes without auto-loading', () => {
     const sourceIndex = source.indexOf('// Never retain rows or pending responses from a previously active database.');
     assert.ok(sourceIndex >= 0);
     const end = source.indexOf('}, [activeDatabasePath]);', sourceIndex);
@@ -120,9 +125,14 @@ describe('HOL-01 Market Holiday tab refresh and database scope', () => {
     assert.match(effect, /setHolidays\(\[\]\)/);
     assert.match(effect, /setHolidayDatabasePath\(null\)/);
     assert.match(effect, /setDeleteConfirmId\(null\)/);
-    assert.match(effect, /if \(activeTab === 'marketHoliday'\) void loadHolidays\(\)/);
+    // HOL-06: a database switch clears state but must not fetch on its own.
+    assert.doesNotMatch(effect, /loadHolidays\(\)/);
+    assert.match(effect, /press Refresh to load/);
     assert.match(source, /holidayDatabasePath === activeDatabasePath \? holidays : \[\]/);
-    assert.match(source, /visibleHolidays\.map\(\(h\)/);
+    // HOL-06: rows render through the year-scoped list, and that list must derive
+    // from the database-scoped `visibleHolidays` rather than a fresh fetch.
+    assert.match(source, /manualHolidaysForYear\s*=\s*manualShowAllYears\s*\?\s*visibleHolidays/);
+    assert.match(source, /manualHolidaysForYear\.(map|filter)\(/);
   });
 
   it('retains add/delete API commands and guards late mutation results after database switches', () => {

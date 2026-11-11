@@ -443,6 +443,8 @@ def main() -> int:
                     })
                 else:
                     verified += 1
+        stored_dates = len({record["date"] for rows in stored.values() for record in rows.values()})             if stored else 0
+        anchor_ratio = (len(dates_with_anchor) / stored_dates) if stored_dates else 0.0
         manifest["summary"] = {
             "stored_symbol_dates": sum(len(r) for r in stored.values()),
             "verified": verified,
@@ -450,8 +452,19 @@ def main() -> int:
             "residual_bars": len(residual_findings),
             "unverifiable_no_source_anchor": len(unverifiable),
             "dates_with_source_anchor": len(dates_with_anchor),
+            "stored_dates_in_range": stored_dates,
+            "anchor_coverage_ratio": round(anchor_ratio, 4),
+            "verification_vacuous": bool(stored_dates) and anchor_ratio < 0.9,
             "total_findings": len(field_mismatch_findings) + len(residual_findings),
         }
+        if manifest["summary"]["verification_vacuous"]:
+            print(
+                "WARNING: verification is VACUOUS for this range: only "
+                f"{len(dates_with_anchor)} of {stored_dates} stored sessions have a source anchor "
+                f"({anchor_ratio:.0%}). field_mismatches == 0 does NOT prove the chunk is correct; "
+                "supply the chunk's own admission evidence (or raw source CSVs via --csv-dir) first.",
+                file=sys.stderr,
+            )
         manifest["field_mismatches"] = field_mismatch_findings
         manifest["residual_bars"] = residual_findings
         manifest["unverifiable"] = unverifiable

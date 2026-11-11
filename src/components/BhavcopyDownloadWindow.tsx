@@ -6,7 +6,13 @@ import {
   type DownloadMode,
   type MarketHoliday,
 } from '@/platform';
-import type { OfficialHolidayAcceptedSnapshot, OfficialHolidaySyncPreview } from '@/types/desktop';
+import type {
+  OfficialHolidayAcceptedSnapshot,
+  OfficialHolidayCsvPreview,
+  OfficialHolidayEntry,
+  HolidaySourceRow,
+  OfficialHolidaySyncPreview,
+} from '@/types/desktop';
 import { isPartialCoverageResult, isSkippedResult, useBhavcopyStore, type LogEntry } from '@/store/bhavcopyStore';
 import { useChartStore } from '@/store/chartStore';
 import { useUiStore } from '@/store/uiStore';
@@ -36,8 +42,10 @@ import {
   logTitleStyle,
   leftPanelStyle,
   marketHolidayAddStyle,
+  marketHolidayCardStyle,
   marketHolidayHeaderStyle,
   marketHolidayPageStyle,
+  marketHolidayScrollBodyStyle,
   marketHolidayStatusStyle,
   marketHolidayTableHeaderStyle,
   marketHolidayTableRowStyle,
@@ -158,7 +166,7 @@ function getDownloadModeHint(mode: DownloadMode): string {
   }
 }
 
-function logLevelText(level: LogEntry['level']) {
+function logLevelText(level: LogEntry['level'], message = '') {
   switch (level) {
     case 'incomplete':
       return 'INCOMPLETE';
@@ -167,7 +175,11 @@ function logLevelText(level: LogEntry['level']) {
     case 'error':
       return 'ERROR';
     case 'warning':
-      return 'SKIP';
+      // A calendar skip and a genuine source miss both arrive as warnings, but
+      // labelling a miss "SKIP" hides work that still needs attention.
+      if (message.startsWith('No data available')) return 'NO DATA';
+      if (message.startsWith('Exchange holiday') || message.startsWith('Weekend (')) return 'SKIP';
+      return 'WARN';
     default:
       return 'INFO';
   }
@@ -230,6 +242,8 @@ export function BhavcopyDownloadWindow({ onClose }: BhavcopyDownloadWindowProps)
       nseIndexUrlOverride: null,
       bseEquityUrlOverride: null,
       bseIndexUrlOverride: null,
+      // Repair-only: re-download and replace bars that already exist.
+      forceRedownload: false,
     };
   });
   const [settingsLoaded, setSettingsLoaded] = useState(false);
@@ -246,7 +260,7 @@ export function BhavcopyDownloadWindow({ onClose }: BhavcopyDownloadWindowProps)
   const [newHolidayDate, setNewHolidayDate] = useState('');
   const [newHolidayName, setNewHolidayName] = useState('');
   const [, setHolidayError] = useState<string | null>(null);
-  const [holidayStatus, setHolidayStatus] = useState<HolidayStatus>({ kind: 'info', message: 'Open Market Holiday to load the holiday list.', time: '' });
+  const [holidayStatus, setHolidayStatus] = useState<HolidayStatus>({ kind: 'info', message: 'Press Refresh to load the holiday list.', time: '' });
   const [holidayMutationPending, setHolidayMutationPending] = useState<'add' | number | null>(null);
   const holidayMutationInFlightRef = useRef(false);
   const holidayMutationVersionRef = useRef(0);
@@ -258,6 +272,29 @@ export function BhavcopyDownloadWindow({ onClose }: BhavcopyDownloadWindowProps)
   const [officialSelected, setOfficialSelected] = useState<{NSE: boolean; BSE: boolean}>({NSE: true,BSE: true});
   const officialRequestVersionRef = useRef(0);
   const [officialPreviewDbPath, setOfficialPreviewDbPath] = useState<string | null>(null);
+  // HOL-06: year-scoped official calendars, rendered per exchange.
+  const [holidayYear, setHolidayYear] = useState<number>(new Date().getFullYear());
+  // HOL-06: nothing loads automatically on tab entry; Refresh (or a year change)
+  // is the only trigger. 0 means "not requested yet".
+  const [holidayRefreshVersion, setHolidayRefreshVersion] = useState(0);
+  // HOL-06: the legacy manual list follows the selected year, because the year
+  // selector must control what the operator sees.
+  const [manualShowAllYears, setManualShowAllYears] = useState(false);
+  const manualHolidaysForYear = manualShowAllYears
+    ? visibleHolidays
+    : visibleHolidays.filter((row) => row.date.startsWith(`${holidayYear}`));
+  const [officialEntries, setOfficialEntries] = useState<OfficialHolidayEntry[]>([]);
+  const [holidaySources, setHolidaySources] = useState<HolidaySourceRow[]>([]);
+  // HOL-06: CSV import of official calendars (preview, then explicit Import).
+  const [csvPreview, setCsvPreview] = useState<OfficialHolidayCsvPreview | null>(null);
+  const [csvText, setCsvText] = useState<string | null>(null);
+  const [csvBusy, setCsvBusy] = useState(false);
+  const csvInputRef = useRef<HTMLInputElement | null>(null);
+  // HOL-06: inline editor for the per-exchange source URL.
+  const [editingSourceExchange, setEditingSourceExchange] = useState<string | null>(null);
+  const [sourceUrlDraft, setSourceUrlDraft] = useState('');
+  const [sourceFragmentsDraft, setSourceFragmentsDraft] = useState('');
+  const [sourceSaving, setSourceSaving] = useState(false);
   const logAreaRef = useRef<HTMLDivElement>(null);
   const api = getDesktopApi();
 
@@ -381,31 +418,8 @@ export function BhavcopyDownloadWindow({ onClose }: BhavcopyDownloadWindowProps)
     setOfficialReviewed(false);
     setOfficialBusy(false);
     setHolidaysLoading(false);
-    reportHolidayStatus('info', 'Holiday database changed; reload required.');
-    if (activeTab === 'marketHoliday') void loadHolidays();
+    reportHolidayStatus('info', 'Holiday database changed; press Refresh to load.');
   }, [activeDatabasePath]);
-
-  // HOL-03 accepted-snapshot metadata is independent of the existing local
-  // Refresh request. Keep loadHolidays() limited to listMarketHolidays() so a
-  // coverage fetch cannot alter or delay the established HOL-01/02 behavior.
-  useEffect(() => {
-    if (activeTab !== 'marketHoliday' || !activeDatabasePath || !api) return;
-    let cancelled = false;
-    const databasePath = activeDatabasePath;
-    void (async () => {
-      try {
-        const rows = await api.listOfficialExchangeHolidaySnapshots(new Date().getFullYear());
-        if (!cancelled && (useChartStore.getState().snapshot?.activeDatabasePath ?? null) === databasePath) {
-          setOfficialCoverage(rows);
-        }
-      } catch {
-        if (!cancelled && (useChartStore.getState().snapshot?.activeDatabasePath ?? null) === databasePath) {
-          setOfficialCoverage([]);
-        }
-      }
-    })();
-    return () => { cancelled = true; };
-  }, [activeTab, activeDatabasePath]);
 
   const handlePreviewOfficialHolidays = async () => {
     if (!api || officialBusy || holidayMutationInFlightRef.current) return;
@@ -419,7 +433,9 @@ export function BhavcopyDownloadWindow({ onClose }: BhavcopyDownloadWindowProps)
     setOfficialReviewed(false);
     reportHolidayStatus('info', 'Checking official NSE/BSE equity holiday sources...');
     try {
-      const result = await api.previewOfficialExchangeHolidays(new Date().getFullYear());
+      // HOL-06: sync the year the operator selected, so a new year can be
+      // captured from the UI without a release.
+      const result = await api.previewOfficialExchangeHolidays(holidayYear);
       if (!stillActive()) return;
       setOfficialPreview(result);
       setOfficialPreviewDbPath(databasePath);
@@ -549,6 +565,109 @@ export function BhavcopyDownloadWindow({ onClose }: BhavcopyDownloadWindowProps)
     }
   };
 
+  // HOL-06: one read-only call returns the official entries, the registered
+  // sources and the accepted snapshots for the selected year. This used to be
+  // three separate IPC calls, each opening its own SQLite connection, which is
+  // what made opening this tab feel slow. It reads the database only - no
+  // network happens until the operator presses Sync.
+  useEffect(() => {
+    if (activeTab !== 'marketHoliday' || !activeDatabasePath || !api) return;
+    let cancelled = false;
+    const databasePath = activeDatabasePath;
+    void (async () => {
+      try {
+        const view = await api.getHolidayCalendarView(holidayYear);
+        if (cancelled) return;
+        if ((useChartStore.getState().snapshot?.activeDatabasePath ?? null) !== databasePath) return;
+        setOfficialEntries(view.officialEntries);
+        setHolidaySources(view.sources);
+        setOfficialCoverage(view.snapshots);
+      } catch (err) {
+        if (cancelled) return;
+        setOfficialEntries([]);
+        setHolidaySources([]);
+        setOfficialCoverage([]);
+        reportHolidayStatus('error', err instanceof Error ? err.message : String(err));
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab, activeDatabasePath, holidayYear, holidayRefreshVersion]);
+
+  const saveHolidaySourceUrl = async (exchange: string) => {
+    if (!api || sourceSaving) return;
+    setSourceSaving(true);
+    try {
+      const fragments = sourceFragmentsDraft
+        .split('\n')
+        .map((line) => line.trim())
+        .filter((line) => line.length > 0);
+      const saved = await api.upsertHolidaySourceUrl({
+        exchange,
+        year: holidayYear,
+        url: sourceUrlDraft,
+        requiredFragments: fragments.length > 0 ? fragments : undefined,
+      });
+      setHolidaySources((rows) => {
+        const kept = rows.filter((row) => !(row.exchange === exchange && row.documentIndex === saved.documentIndex));
+        return [...kept, saved].sort(
+          (a, b) => a.exchange.localeCompare(b.exchange) || a.documentIndex - b.documentIndex,
+        );
+      });
+      setEditingSourceExchange(null);
+      reportHolidayStatus(
+        'success',
+        `${exchange} ${holidayYear} source saved. Run Sync Official Holidays to fetch and validate it.`,
+      );
+    } catch (err) {
+      reportHolidayStatus('error', err instanceof Error ? err.message : String(err));
+    } finally {
+      setSourceSaving(false);
+    }
+  };
+
+  const handleCsvFile = async (file: File) => {
+    if (!api) return;
+    setCsvBusy(true);
+    setCsvPreview(null);
+    setCsvText(null);
+    try {
+      const text = await file.text();
+      const preview = await api.previewOfficialHolidayCsv(text);
+      setCsvText(text);
+      setCsvPreview(preview);
+      reportHolidayStatus(
+        'info',
+        `CSV validated: ${preview.totalRows} rows in ${preview.groups.length} exchange/year blocks. Review, then Import.`,
+      );
+    } catch (err) {
+      reportHolidayStatus('error', err instanceof Error ? err.message : String(err));
+    } finally {
+      setCsvBusy(false);
+    }
+  };
+
+  const handleCsvImport = async () => {
+    if (!api || !csvPreview || !csvText) return;
+    setCsvBusy(true);
+    try {
+      const result = await api.applyOfficialHolidayCsv(csvText, csvPreview.sha256);
+      setCsvPreview(null);
+      setCsvText(null);
+      reportHolidayStatus(
+        'success',
+        `Imported ${result.rows} official rows across ${result.groups} blocks (years ${result.years.join(', ')}).`,
+      );
+      setHolidayRefreshVersion((version) => version + 1);
+    } catch (err) {
+      reportHolidayStatus('error', err instanceof Error ? err.message : String(err));
+    } finally {
+      setCsvBusy(false);
+    }
+  };
+
   const renderMarketHolidayPage = () => (
     <div style={marketHolidayPageStyle}>
       <div style={marketHolidayHeaderStyle}>
@@ -565,12 +684,16 @@ export function BhavcopyDownloadWindow({ onClose }: BhavcopyDownloadWindowProps)
             style={{ ...secondaryButtonStyle, borderRadius: 14, padding: '4px 12px' }}
             disabled={officialBusy || holidaysLoading || holidayMutationPending !== null}
             onClick={() => void handlePreviewOfficialHolidays()}
-          >{officialBusy ? 'Checking...' : 'Sync Official Holidays'}</button>
+            title={`Fetch and validate the official ${holidayYear} calendar from the registered sources`}
+          >{officialBusy ? 'Checking...' : `Sync Official Holidays (${holidayYear})`}</button>
         <button
           type="button"
           aria-label="Refresh market holidays"
           style={{ ...secondaryButtonStyle, flexShrink: 0, borderRadius: 14, padding: '4px 12px' }}
-          onClick={() => void loadHolidays()}
+          onClick={() => {
+            setHolidayRefreshVersion((version) => version + 1);
+            void loadHolidays();
+          }}
           disabled={holidaysLoading || holidayMutationPending !== null}
         >
           {holidaysLoading ? 'Refreshing...' : 'Refresh'}
@@ -578,9 +701,188 @@ export function BhavcopyDownloadWindow({ onClose }: BhavcopyDownloadWindowProps)
         </div>
       </div>
 
+      <div style={marketHolidayScrollBodyStyle}>
+      <div style={marketHolidayCardStyle} aria-label="Official holiday calendar by year">
+        <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, flexWrap: 'wrap' }}>
+          <span style={{ ...sectionTitleStyle, fontSize: 12 }}>Official calendars</span>
+          <span style={{ color: 'var(--text-dim)', fontSize: 11 }}>Accepted exchange data only</span>
+          <input
+            ref={csvInputRef}
+            type="file"
+            accept=".csv,text/csv"
+            style={{ display: 'none' }}
+            onChange={(event) => {
+              const file = event.target.files?.[0];
+              event.target.value = '';
+              if (file) void handleCsvFile(file);
+            }}
+          />
+          <button
+            type="button"
+            style={{ ...secondaryButtonStyle, marginLeft: 'auto', borderRadius: 12, padding: '3px 10px', fontSize: 11 }}
+            disabled={csvBusy}
+            onClick={() => csvInputRef.current?.click()}
+          >{csvBusy ? 'Working...' : 'Import official CSV'}</button>
+        </div>
+        <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+          <label htmlFor="official-holiday-year" style={{ fontSize: 12 }}>Calendar year</label>
+          <select
+            id="official-holiday-year"
+            value={holidayYear}
+            onChange={(event) => {
+              setHolidayYear(Number(event.target.value));
+              setHolidayRefreshVersion((version) => version + 1);
+            }}
+            style={{ ...modeSelectStyle, width: 104 }}
+          >
+            {Array.from({ length: 9 }, (_, index) => new Date().getFullYear() - 5 + index).map((year) => (
+              <option key={year} value={year}>{year}</option>
+            ))}
+          </select>
+          <span style={{ color: 'var(--text-dim)', fontSize: 11 }}>
+            Only accepted official calendars are used. Nothing before 2026 is stored unless it came from an official source.
+          </span>
+        </div>
+        {csvPreview && (
+          <div
+            style={{ border: '1px solid var(--border2)', borderRadius: 5, padding: '7px 9px', fontSize: 11 }}
+            aria-label="Official holiday CSV preview"
+          >
+            <div style={{ fontWeight: 600, marginBottom: 4 }}>
+              CSV preview — {csvPreview.totalRows} rows, SHA-256 {csvPreview.sha256.slice(0, 12)}…
+            </div>
+            {csvPreview.groups.map((group) => (
+              <div key={`${group.exchange}-${group.year}`} style={{ display: 'flex', gap: 8 }}>
+                <span style={{ fontFamily: 'monospace' }}>{group.exchange} {group.year}</span>
+                <span>{group.rows} rows</span>
+                <span style={{ color: 'var(--text-dim)' }}>replaces {group.replacesExisting} stored</span>
+              </div>
+            ))}
+            <div style={{ display: 'flex', gap: 6, marginTop: 6 }}>
+              <button
+                type="button"
+                style={{ ...secondaryButtonStyle, borderRadius: 12, padding: '2px 10px' }}
+                disabled={csvBusy}
+                onClick={() => void handleCsvImport()}
+              >{csvBusy ? 'Importing...' : 'Import into database'}</button>
+              <button
+                type="button"
+                style={{ ...secondaryButtonStyle, borderRadius: 12, padding: '2px 10px' }}
+                disabled={csvBusy}
+                onClick={() => { setCsvPreview(null); setCsvText(null); }}
+              >Cancel</button>
+            </div>
+          </div>
+        )}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+          {(['NSE', 'BSE'] as const).map((exchange) => {
+            const baseSource = holidaySources.find((row) => row.exchange === exchange && row.documentIndex === 0);
+            const rows = officialEntries.filter((entry) => entry.exchange === exchange);
+            const accepted = officialCoverage.find(
+              (row) => row.exchange === exchange && row.year === holidayYear,
+            );
+            return (
+              <div key={exchange} style={{ minWidth: 0 }}>
+                <div style={{ fontWeight: 600, fontSize: 12, marginBottom: 3 }}>
+                  {exchange} equity — {rows.length} {rows.length === 1 ? 'holiday' : 'holidays'}
+                </div>
+                <div
+                  style={{
+                    fontSize: 11,
+                    marginBottom: 3,
+                    overflowWrap: 'anywhere',
+                    color: baseSource ? 'var(--text-dim)' : 'var(--red-text)',
+                  }}
+                >
+                  {baseSource
+                    ? `Source: ${baseSource.url}`
+                    : `No official source registered for ${exchange} ${holidayYear}.`}
+                </div>
+                {baseSource && (
+                  <div style={{ fontSize: 10, color: 'var(--text-mute)', marginBottom: 4 }}>
+                    {baseSource.parser} ·{' '}
+                    {baseSource.expectedRows === null
+                      ? 'row count not pinned'
+                      : `expected ${baseSource.expectedRows} rows`}{' '}
+                    · updated {baseSource.updatedAt}
+                  </div>
+                )}
+                {accepted && (
+                  <div style={{ fontSize: 10, color: 'var(--text-dim)', marginBottom: 4 }}>
+                    Accepted {accepted.acceptedAt} · {accepted.recordCount} records · SHA-256{' '}
+                    {accepted.sourceSha256.slice(0, 12)}…
+                  </div>
+                )}
+                {editingSourceExchange === exchange ? (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginBottom: 6 }}>
+                    <input
+                      value={sourceUrlDraft}
+                      onChange={(event) => setSourceUrlDraft(event.target.value)}
+                      aria-label={`${exchange} holiday source URL`}
+                      placeholder="https://www.nseindia.com/... or https://www.bseindia.com/..."
+                      style={{ ...dateInputStyle, fontFamily: 'monospace', fontSize: 11 }}
+                    />
+                    {exchange === 'BSE' && (
+                      <textarea
+                        value={sourceFragmentsDraft}
+                        onChange={(event) => setSourceFragmentsDraft(event.target.value)}
+                        aria-label={`${exchange} holiday source required fragments`}
+                        placeholder={'One required notice fragment per line, e.g.\nNotice No. 20251212-8'}
+                        rows={3}
+                        style={{ ...dateInputStyle, fontFamily: 'monospace', fontSize: 11, resize: 'vertical' }}
+                      />
+                    )}
+                    <div style={{ fontSize: 10, color: 'var(--text-mute)' }}>
+                      https only, host limited to nseindia.com / bseindia.com.
+                      {exchange === 'BSE' && ' Fragments pin the notice identity so a changed notice fails closed.'}
+                    </div>
+                    <div style={{ display: 'flex', gap: 6 }}>
+                      <button
+                        type="button"
+                        style={{ ...secondaryButtonStyle, borderRadius: 12, padding: '2px 10px' }}
+                        disabled={sourceSaving || sourceUrlDraft.trim().length === 0}
+                        onClick={() => void saveHolidaySourceUrl(exchange)}
+                      >{sourceSaving ? 'Saving...' : 'Save source'}</button>
+                      <button
+                        type="button"
+                        style={{ ...secondaryButtonStyle, borderRadius: 12, padding: '2px 10px' }}
+                        disabled={sourceSaving}
+                        onClick={() => setEditingSourceExchange(null)}
+                      >Cancel</button>
+                    </div>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    style={{ ...secondaryButtonStyle, borderRadius: 12, padding: '2px 10px', marginBottom: 6, fontSize: 11 }}
+                    onClick={() => {
+                      setEditingSourceExchange(exchange);
+                      setSourceUrlDraft(baseSource?.url ?? '');
+                      setSourceFragmentsDraft((baseSource?.requiredFragments ?? []).join('\n'));
+                    }}
+                  >{baseSource ? 'Edit source URL' : 'Register source URL'}</button>
+                )}
+                {rows.length === 0 ? (
+                  <div style={{ fontSize: 12, color: 'var(--text-dim)' }}>Not yet accepted for {holidayYear}.</div>
+                ) : (
+                  rows.map((entry) => (
+                    <div
+                      key={`${entry.exchange}-${entry.date}`}
+                      style={{ display: 'flex', gap: 8, fontSize: 11, fontFamily: 'monospace' }}
+                    >
+                      <span style={{ color: 'var(--text-dim)' }}>{entry.date}</span>
+                      <span style={{ overflowWrap: 'anywhere' }}>{entry.name}</span>
+                    </div>
+                  ))
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
       {officialPreview && officialPreviewDbPath === activeDatabasePath && (
-        <div style={{ flexShrink: 0, maxHeight: 165, overflowY: 'auto', padding: '8px 10px',
-          border: '1px solid var(--border2)', borderRadius: 5, fontSize: 12 }}
+        <div style={{ ...marketHolidayCardStyle, maxHeight: 200, overflowY: 'auto', fontSize: 12 }}
           aria-label="Official holiday sync preview">
           <div style={{ fontWeight: 600, marginBottom: 5 }}>Official {officialPreview.year} cash-market holidays — preview only, no changes yet</div>
           {officialPreview.exchanges.map((entry) => (
@@ -618,11 +920,18 @@ export function BhavcopyDownloadWindow({ onClose }: BhavcopyDownloadWindowProps)
         </div>
       )}
 
-      {officialCoverage.length > 0 && (
-        <div style={{ padding: '3px 9px', fontSize: 11, flexShrink: 0, color: 'var(--text-dim)' }}>
-          Accepted official calendars: {officialCoverage.map((row) => `${row.exchange} ${row.year}: ${row.recordCount} records (${row.acceptedAt} UTC)`).join(' | ')}
-        </div>
-      )}
+      <div style={marketHolidayCardStyle}>
+      <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, flexWrap: 'wrap' }}>
+        <span style={{ ...sectionTitleStyle, fontSize: 12 }}>Manual holiday overrides — {manualShowAllYears ? 'all years' : holidayYear}</span>
+        <span style={{ color: 'var(--text-dim)', fontSize: 11 }}>
+          Hand-entered dates only; official calendars are shown above.
+        </span>
+        <label style={{ marginLeft: 'auto', display: 'flex', gap: 5, alignItems: 'center', fontSize: 11, color: 'var(--text-dim)' }}>
+          <input type="checkbox" checked={manualShowAllYears} onChange={(event) => setManualShowAllYears(event.target.checked)} />
+          Show all years
+        </label>
+        <span style={{ fontSize: 11, color: 'var(--text-dim)' }}>{manualHolidaysForYear.length} rows</span>
+      </div>
 
       <div style={marketHolidayTableStyle} role="table" aria-label="Market holiday dates">
         <div style={marketHolidayTableHeaderStyle} role="row">
@@ -631,12 +940,14 @@ export function BhavcopyDownloadWindow({ onClose }: BhavcopyDownloadWindowProps)
           <span role="columnheader">Source</span>
           <span role="columnheader">Actions</span>
         </div>
-        {holidaysLoading && visibleHolidays.length === 0 ? (
+        {holidaysLoading && manualHolidaysForYear.length === 0 ? (
           <div style={{ padding: 12, color: 'var(--text-dim)' }}>Loading holidays...</div>
-        ) : visibleHolidays.length === 0 ? (
-          <div style={{ padding: 12, color: 'var(--text-dim)' }}>No holidays loaded.</div>
+        ) : manualHolidaysForYear.length === 0 ? (
+          <div style={{ padding: 12, color: 'var(--text-dim)' }}>
+            No manual holidays for {manualShowAllYears ? 'any year' : holidayYear}.
+          </div>
         ) : (
-          visibleHolidays.map((h) => (
+          manualHolidaysForYear.map((h) => (
             <div key={h.id} style={marketHolidayTableRowStyle} role="row">
               <span role="cell" style={{ fontFamily: 'monospace', color: 'var(--text-dim)' }}>{h.date}</span>
               <span role="cell" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={h.name}>{h.name}</span>
@@ -671,6 +982,8 @@ export function BhavcopyDownloadWindow({ onClose }: BhavcopyDownloadWindowProps)
         )}
       </div>
 
+      </div>
+
       <div style={marketHolidayAddStyle}>
         <div style={sectionTitleStyle}>Add Holiday</div>
         <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
@@ -701,6 +1014,8 @@ export function BhavcopyDownloadWindow({ onClose }: BhavcopyDownloadWindowProps)
           >{holidayMutationPending === 'add' ? 'Adding...' : 'Add'}</button>
         </div>
       </div>
+      </div>
+
       <div
         style={marketHolidayStatusStyle}
         role={holidayStatus.kind === 'error' ? 'alert' : 'status'}
@@ -747,7 +1062,13 @@ export function BhavcopyDownloadWindow({ onClose }: BhavcopyDownloadWindowProps)
   };
 
   const handleModeChange = (mode: DownloadMode) => {
-    updateConfig((previous) => ({ ...previous, mode }));
+    // Repair re-download is a Date Range capability only: every other mode
+    // skips dates that are already imported, so the flag would be a no-op.
+    updateConfig((previous) => ({
+      ...previous,
+      mode,
+      forceRedownload: mode === 'range' ? previous.forceRedownload : false,
+    }));
   };
 
   // All close/unmount paths dismiss only terminal status. The command and its
@@ -803,6 +1124,9 @@ export function BhavcopyDownloadWindow({ onClose }: BhavcopyDownloadWindowProps)
       addLog('info', getDownloadModeHint(config.mode));
     }
     addLog('info', `Workers: ${config.workers}`);
+    if (config.forceRedownload) {
+      addLog('info', 'Repair mode: existing dates in range will be re-imported and their stored bars replaced.');
+    }
 
     let failure: string | null = null;
     let cancelled = false;
@@ -818,6 +1142,7 @@ export function BhavcopyDownloadWindow({ onClose }: BhavcopyDownloadWindowProps)
         nseIndexUrlOverride: config.nseIndexUrlOverride,
         bseEquityUrlOverride: config.bseEquityUrlOverride,
         bseIndexUrlOverride: config.bseIndexUrlOverride,
+        forceRedownload: config.forceRedownload ?? false,
       }, runId, () => batch.acknowledgeBatch(runId, api.cancelBhavcopyBatch));
       const { results: result } = response;
       cancelled = response.cancelled;
@@ -871,7 +1196,7 @@ export function BhavcopyDownloadWindow({ onClose }: BhavcopyDownloadWindowProps)
 
   const copyLogToClipboard = () => {
     if (filteredLogs.length === 0) return;
-    const logText = filteredLogs.map((log) => `[${log.time}] ${logLevelText(log.level)}: ${log.message}`).join('\n');
+    const logText = filteredLogs.map((log) => `[${log.time}] ${logLevelText(log.level, log.message)}: ${log.message}`).join('\n');
     navigator.clipboard.writeText(logText).then(() => {
       setCopySuccess(true);
       window.setTimeout(() => setCopySuccess(false), 2000);
@@ -908,8 +1233,8 @@ export function BhavcopyDownloadWindow({ onClose }: BhavcopyDownloadWindowProps)
             style={tabButtonStyle(activeTab === 'marketHoliday')}
             onClick={() => {
               if (activeTab === 'marketHoliday') return;
+              // Deliberately no data load here: Refresh is the only trigger.
               setActiveTab('marketHoliday');
-              void loadHolidays();
             }}
           >
             Market Holiday
@@ -1025,6 +1350,27 @@ export function BhavcopyDownloadWindow({ onClose }: BhavcopyDownloadWindowProps)
           </div>
 
           <div style={sectionStyle}>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, cursor: 'pointer' }}>
+              <input
+                type="checkbox"
+                checked={config.forceRedownload ?? false}
+                onChange={(e) =>
+                  setConfig((prev) => ({ ...prev, forceRedownload: e.target.checked }))
+                }
+                disabled={isDownloading || config.mode !== 'range'}
+              />
+              <span style={config.mode === 'range' ? undefined : { opacity: 0.6 }}>
+                Re-download existing dates (repair)
+                <span style={workersHintStyle}>
+                  {config.mode === 'range'
+                    ? ' — replaces stored bars with the source rows'
+                    : ' — Date Range only'}
+                </span>
+              </span>
+            </label>
+          </div>
+
+          <div style={sectionStyle}>
             <div style={sectionTitleStyle}>Workers</div>
             <div style={workersStyle}>
               <input
@@ -1066,6 +1412,12 @@ export function BhavcopyDownloadWindow({ onClose }: BhavcopyDownloadWindowProps)
                   <span style={{ ...statValueStyle, ...(skippedCount > 0 ? statSkippedValueStyle : null) }}>{skippedCount}</span>
                   <span style={statLabelStyle}>Skip</span>
                 </div>
+                {partialCount > 0 && (
+                  <div style={statStyle}>
+                    <span style={{ ...statValueStyle, ...statSkippedValueStyle }}>{partialCount}</span>
+                    <span style={statLabelStyle}>Incomplete</span>
+                  </div>
+                )}
                 <div style={statStyle}>
                   <span style={{ ...statValueStyle, ...(failedCount > 0 ? statFailedValueStyle : null) }}>{failedCount}</span>
                   <span style={statLabelStyle}>Fail</span>
@@ -1120,7 +1472,7 @@ export function BhavcopyDownloadWindow({ onClose }: BhavcopyDownloadWindowProps)
                       ...(log.level === 'warning' || log.level === 'incomplete' ? logEntryWarningStyle : null),
                     }}
                   >
-                    [{log.time}] {logLevelText(log.level)}: {log.message}
+                    [{log.time}] {logLevelText(log.level, log.message)}: {log.message}
                   </div>
                 ))
               )}
@@ -1150,7 +1502,8 @@ export function BhavcopyDownloadWindow({ onClose }: BhavcopyDownloadWindowProps)
             ) : completedCount > 0 ? (
               <>
                 <span style={{ color: 'var(--green-text)' }}>
-                  Imported {successCount}
+                  Imported {successCount + partialCount}
+                  {partialCount > 0 ? ` (${partialCount} partial)` : ''}
                 </span>
                 <span style={{ color: 'var(--text-dim)' }}>Skipped {skippedCount}</span>
                 <span style={{ color: 'var(--red-text)' }}>

@@ -252,7 +252,7 @@ function formatRange(start: string | null | undefined, end: string | null | unde
 function issueTypeStyle(type: ParityIssueType): React.CSSProperties {
   switch (type) {
     case 'BINARY_MISSING':
-      return { color: 'var(--yellow, #f59e0b)' };
+      return { color: 'var(--yellow-text)' };
     case 'FILE_CORRUPT':
       return { color: 'var(--red-text)', fontWeight: 700 };
     case 'COUNT_MISMATCH':

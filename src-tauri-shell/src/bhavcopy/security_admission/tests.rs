@@ -117,6 +117,115 @@ fn security_admission_preserves_broad_equity_without_isin() {
     assert_eq!(count(&path), 12);
 }
 #[test]
+fn security_admission_pre_isin_eq_plus_auxiliary_keeps_the_equity_bar() {
+    // 2005-2009 NSE archives have no ISIN column: EQ and the block-deal bucket
+    // (IL/BL) both carry an empty ISIN. The equity row must win, not conflict.
+    for series in ["IL", "BL", "IQ"] {
+        let path = db();
+        let file = parse(&format!(
+            "SBIN,EQ,642.85,650.00,640.00,642.85,640.00,2493564,20-NOV-2014,
+             SBIN,{series},670.00,670.00,670.00,670.00,642.85,1,20-NOV-2014,
+"
+        ));
+        let (results, _) = insert_parsed_bhavcopy_files(&path, &[file]).unwrap();
+        assert_eq!(results[0].admission.conflicted, 0, "{series}");
+        assert_eq!(results[0].admission.market_rows, 1, "{series}");
+        assert_eq!(results[0].rows_inserted, 1, "{series}");
+        let stored = BinaryEodFile::open(
+            path.parent().unwrap().join("eod_data/NSE/SBIN.eod"),
+        )
+        .unwrap()
+        .read_all()
+        .unwrap();
+        assert_eq!(stored.len(), 1, "{series}");
+        assert_eq!(stored[0].close, 6_428_500, "{series}");
+    }
+}
+
+#[test]
+fn security_admission_pre_isin_eq_plus_legacy_bucket_keeps_the_equity_bar() {
+    // `E1`/`E2` are the pre-2009 second equity bucket; paired with EQ they are a
+    // market-segment quote, standalone they remain ordinary equity rows.
+    let path = db();
+    let file = parse(
+        "SBIN,EQ,642.85,650.00,640.00,642.85,640.00,2493564,20-NOV-2014,
+         SBIN,E1,650.00,650.00,650.00,650.00,642.85,4000,20-NOV-2014,
+",
+    );
+    let (results, _) = insert_parsed_bhavcopy_files(&path, &[file]).unwrap();
+    assert_eq!(results[0].admission.conflicted, 0);
+    assert_eq!(results[0].admission.market_rows, 1);
+    assert_eq!(results[0].rows_inserted, 1);
+
+    // A standalone E1 row is still written as equity (no regression).
+    let solo = db();
+    let file = parse("ONLY,E1,100,105,95,102,99,5000,20-NOV-2014,
+");
+    let (results, _) = insert_parsed_bhavcopy_files(&solo, &[file]).unwrap();
+    assert_eq!(results[0].rows_inserted, 1);
+    assert_eq!(results[0].admission.market_rows, 0);
+}
+
+#[test]
+fn security_admission_buyback_bo_never_replaces_equity_ohlcv() {
+    // EQ + BO (buyback window) for the same symbol/date: the equity bar wins and
+    // the buyback print is retained as evidence only.
+    let path = db();
+    let file = parse(
+        "SBIN,EQ,294.75,298.75,291.25,297.10,2910.5,18099509,20-NOV-2014,INE062A01012
+         SBIN,BO,299.00,299.00,299.00,299.00,297.10,5000,20-NOV-2014,INE062A01012
+",
+    );
+    let (results, _) = insert_parsed_bhavcopy_files(&path, &[file]).unwrap();
+    assert_eq!(results[0].admission.conflicted, 0);
+    assert_eq!(results[0].admission.market_rows, 1);
+    assert_eq!(results[0].rows_inserted, 1);
+    let stored = BinaryEodFile::open(path.parent().unwrap().join("eod_data/NSE/SBIN.eod"))
+        .unwrap()
+        .read_all()
+        .unwrap();
+    assert_eq!(stored.len(), 1);
+    assert_eq!(stored[0].close, 2_971_000);
+
+    // BO only: no canonical daily price is fabricated.
+    let solo = db();
+    let file = parse("ONLY,BO,299.00,299.00,299.00,299.00,297.10,5000,20-NOV-2014,INE062A01012
+");
+    let (results, _) = insert_parsed_bhavcopy_files(&solo, &[file]).unwrap();
+    assert_eq!(results[0].rows_inserted, 0);
+    assert_eq!(results[0].admission.market_rows, 1);
+    assert_eq!(results[0].admission.conflicted, 0);
+
+    // BO with a different ISIN cannot be treated as the same instrument.
+    let mismatch = db();
+    let file = parse(
+        "SBIN,EQ,294.75,298.75,291.25,297.10,2910.5,18099509,20-NOV-2014,INE062A01012
+         SBIN,BO,299.00,299.00,299.00,299.00,297.10,5000,20-NOV-2014,INE999Z01010
+",
+    );
+    let (results, _) = insert_parsed_bhavcopy_files(&mismatch, &[file]).unwrap();
+    assert_eq!(results[0].admission.conflicted, 2);
+    assert_eq!(results[0].rows_inserted, 0);
+}
+
+#[test]
+fn security_admission_legacy_e_family_bucket_keeps_the_equity_bar() {
+    // KARURVYSYA-style: EQ paired with E4/E5 legacy buckets plus a block print.
+    let path = db();
+    let file = parse(
+        "KARURVYSYA,EQ,120.00,124.00,118.00,121.50,120.00,64000,20-NOV-2014,
+         KARURVYSYA,E4,60.00,60.00,60.00,60.00,60.00,36,20-NOV-2014,
+         KARURVYSYA,E5,58.00,58.00,58.00,58.00,58.00,22,20-NOV-2014,
+         KARURVYSYA,IL,121.00,121.00,121.00,121.00,120.00,6,20-NOV-2014,
+",
+    );
+    let (results, _) = insert_parsed_bhavcopy_files(&path, &[file]).unwrap();
+    assert_eq!(results[0].admission.conflicted, 0);
+    assert_eq!(results[0].admission.market_rows, 3);
+    assert_eq!(results[0].rows_inserted, 1);
+}
+
+#[test]
 fn security_admission_conflict_blocks_whole_key_but_preserves_other_symbols() {
     for binary in [false, true] {
         let path = db();

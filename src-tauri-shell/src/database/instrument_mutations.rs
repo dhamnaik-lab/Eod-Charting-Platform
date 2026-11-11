@@ -616,10 +616,10 @@ fn record_price_adjustment_action_with_basis(
         return Err("This corporate action already exists.".to_string());
     }
 
-    // The same economic Split/Bonus can arrive as share-ratio terms or as a
-    // face-value conversion. These differ in SQL columns, but must not create
-    // two independent adjustment multipliers for the same event/date.
-    if matches!(action_type, "SPLIT" | "BONUS") {
+    // The same economic Split/Bonus/Dividend/Rights can arrive with different
+    // raw term columns, but must not create two independent adjustment
+    // multipliers for the same event/date.
+    if matches!(action_type, "SPLIT" | "BONUS" | "DIVIDEND" | "RIGHTS") {
         let mut statement = connection
             .prepare(
                 "SELECT id, factor FROM corporate_actions
@@ -1761,6 +1761,16 @@ fn load_previous_trade_close_basis(
     context: &super::ResolvedInstrumentContext,
     effective_date: &str,
 ) -> AppResult<PreviousTradeCloseBasis> {
+    let today_ist = chrono::Utc::now()
+        .with_timezone(&chrono::FixedOffset::east_opt(5 * 3600 + 30 * 60).expect("valid IST offset"))
+        .format("%Y-%m-%d")
+        .to_string();
+    if effective_date > today_ist.as_str() {
+        return Err(
+            "Cannot compute a price adjustment from local EOD closes for a future effective date."
+                .to_string(),
+        );
+    }
     let base_path = base_path.ok_or_else(|| {
         "Price adjustments need the active database folder to load local price history.".to_string()
     })?;
@@ -2528,5 +2538,75 @@ mod tests {
             |row| row.get(0),
         ).unwrap();
         assert_eq!(status, "UNRESOLVED");
+    }
+
+    #[test]
+    fn phase_r2_manual_price_adjustment_blocks_future_effective_date_and_equivalent_rights_factor() {
+        let connection = Connection::open_in_memory().unwrap();
+        prepare_database_connection(&connection).unwrap();
+        connection
+            .execute(
+                "INSERT INTO instruments (symbol, exchange, isin, name, is_active, series)
+                 VALUES ('R2TEST', 'NSE', 'INE000A00999', 'R2 Test Limited', 1, 'EQ')",
+                [],
+            )
+            .unwrap();
+        let context = resolve_instrument_context(&connection, "R2TEST", "NSE")
+            .unwrap()
+            .unwrap();
+
+        let future_error =
+            load_previous_trade_close_basis(&connection, None, &context, "2099-01-15").unwrap_err();
+        assert!(
+            future_error.contains("future effective date"),
+            "{future_error}"
+        );
+
+        let mut rights_input = CorporateActionInputPayload {
+            action_type: "RIGHTS".to_string(),
+            exchange: "NSE".to_string(),
+            effective_date: "2026-06-12".to_string(),
+            symbol: Some("R2TEST".to_string()),
+            isin: Some("INE000A00999".to_string()),
+            record_date: None,
+            ratio_num: Some(1.0),
+            ratio_den: Some(4.0),
+            old_face_value: None,
+            new_face_value: None,
+            cash_amount: Some(80.0),
+            adjust_volume: Some(false),
+            old_symbol: None,
+            old_name: None,
+            new_symbol: None,
+            new_name: None,
+            current_symbol: Some("R2TEST".to_string()),
+            current_name: None,
+            note: Some("Rights 1:4 @ 80".to_string()),
+            source: Some("MANUAL".to_string()),
+            source_ref: None,
+        };
+        record_price_adjustment_action_with_basis(
+            &connection,
+            &rights_input,
+            "RIGHTS",
+            None,
+            Some(("2026-06-11", 100.0)),
+        )
+        .unwrap();
+
+        rights_input.ratio_num = Some(2.0);
+        rights_input.ratio_den = Some(8.0);
+        let duplicate_error = record_price_adjustment_action_with_basis(
+            &connection,
+            &rights_input,
+            "RIGHTS",
+            None,
+            Some(("2026-06-11", 100.0)),
+        )
+        .unwrap_err();
+        assert!(
+            duplicate_error.contains("economically equivalent RIGHTS"),
+            "{duplicate_error}"
+        );
     }
 }

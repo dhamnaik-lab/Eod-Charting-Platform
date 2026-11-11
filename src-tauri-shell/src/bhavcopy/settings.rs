@@ -153,6 +153,16 @@ pub fn normalize_batch_config(config: BatchDownloadConfig) -> AppResult<BatchDow
             return Err("Start date must be on or before end date.".to_string());
         }
     }
+    // Repair re-download only has meaning in Range mode: every other mode
+    // intentionally skips dates the store already covers (see the per-task
+    // guards in mod.rs), so accepting the flag elsewhere would silently
+    // promise a replacement that never happens.
+    if config.force_redownload && !matches!(config.mode, DownloadMode::Range) {
+        return Err(
+            "Repair re-download is only available in Date Range mode: other modes skip dates that are already imported."
+                .to_string(),
+        );
+    }
     Ok(BatchDownloadConfig {
         mode: config.mode,
         exchanges: config.exchanges,
@@ -160,6 +170,7 @@ pub fn normalize_batch_config(config: BatchDownloadConfig) -> AppResult<BatchDow
         end_date: config.end_date,
         workers: config.workers.clamp(1, 10),
         excluded_series: normalize_excluded_series(config.excluded_series),
+        force_redownload: config.force_redownload,
         nse_equity_url_override: config
             .nse_equity_url_override
             .map(|s| s.trim().to_string())

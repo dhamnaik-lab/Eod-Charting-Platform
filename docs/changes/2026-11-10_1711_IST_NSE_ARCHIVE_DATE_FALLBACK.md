@@ -1,0 +1,31 @@
+# P1.15 — NSE archive date gate: two-digit years and candidate fallback
+
+- Timestamp (IST): 2026-11-10 17:11:18 +05:30
+- Active workstream/root: EOD Charting Platform — E:\TA Projects\EOD Charting Platform
+- Source authority: current working tree after the 2019–2020 repair sweep; P1.11–P1.14 already applied
+- Objective: stop a source file that carries another session's rows from ending a download task, and accept NSE's two-digit-year `TIMESTAMP` files.
+- Previous defect/limitation:
+  - `normalize_trade_date_value` tried `%d-%b-%Y` first. NSE's legacy `cm13JUL2020bhav.csv.zip` carries `13-Jul-20` in all 2,001 `TIMESTAMP` cells, so chrono read the year as 20 AD and the guard reported `Archive date mismatch: requested 2020-07-13, file contains 0020-07-13`.
+  - `stage_single_download` only advanced to the next candidate on a *download* failure. A file rejected by the date gate ended the task, so `sec_bhavdata_full_13072020.csv` (correct `13-Jul-2020`) was never tried. 1,831 NSE bars on 2020-07-13 kept `prev_close = 0`.
+  - `NSE_SPECIAL_TRADING_DAYS`/`BSE_SPECIAL_TRADING_DAYS` began at 2023-11-12, so the 2019-10-27 (Muhurat), 2020-02-01 (Union Budget) and 2020-11-14 (Muhurat) weekend sessions were never planned; all their bars carry `prev_close = 0` (1,726 / 1,764 / 1,818).
+- Files inspected: `src-tauri-shell/src/bhavcopy/parsers/csv.rs`, `mod.rs`, `calendar.rs`, `ingestion.rs`, `tests.rs`
+- Files created: `tmp/fixtures/bhavcopy-series-repair/session-gap-probe/` (probe scripts + `evidence.json`), this record
+- Files modified: `src-tauri-shell/src/bhavcopy/parsers/csv.rs`, `src-tauri-shell/src/bhavcopy/mod.rs`, `src-tauri-shell/src/bhavcopy/calendar.rs`, `src-tauri-shell/src/bhavcopy/tests.rs`, `HANDOFF.md`
+- Backup: `backups/pre_opencode_changes_20261110_170732_bhavcopy-nse-date-fallback` (4 files, manifest SHA-256 `A916D014BEB4916EBC7F827F6138EF4811E589130833A263AF1B509C05A886F7`)
+- Final implementation:
+  - `normalize_trade_date_value` rejects any parsed year `< 1900` and continues down the format list, so `13-Jul-20` resolves through `%d-%b-%y` to `2020-07-13`. A genuinely four-digit bad year still returns `None`.
+  - `stage_single_download` now runs `parse_bhavcopy_csv` for `NSE` equity as well as `NSE_INDEX`. An NSE rejection (wrong date, mixed dates, unrecognised date) is a **soft miss**: it increments `not_found_count` and the loop tries the next candidate. All candidates soft-missing reports the existing "No data available for this date (source unavailable or missing)" skip instead of a failure; if a hard transport error is also present, the last date rejection is appended to the failure message.
+  - Both special-session tables now start with `2019-10-27`, `2020-02-01`, `2020-11-14`.
+- Behavior preserved: the first-row and per-row NSE date guards still fail closed before any write; BSE and index parsing unchanged; index candidates keep their existing hard-error semantics; no series, admission or storage rule touched.
+- Test plan and run evidence:
+  - `scripts/Invoke-EOD-SharedCargo.ps1 -Mode Run -CargoAction check` — PASS (11.61 s)
+  - `… -CargoAction test -CargoArguments @('two_digit_year')` — PASS, 2/2
+  - `… -CargoAction test -CargoArguments @('special_trading')` — PASS, 3/3
+  - `… -CargoAction test -CargoArguments @('bhavcopy::')` — PASS, 153 passed / 0 failed / 4 ignored
+- Renderer/Tauri/build results: no renderer change; no release or portable build run (user rebuilds manually).
+- Manual checkpoints: NOT PERFORMED — runtime verification needs the rebuilt portable app.
+- Risk/regressions: a date-rejected NSE candidate no longer marks the job failed, so a date whose every candidate is wrong now logs as "no data" — intended. Staging parses each NSE CSV once more (≈2,000 rows) per accepted candidate.
+- Rollback: restore the four files from the backup directory above.
+- Relevant SHA-256 evidence: probe evidence `tmp/fixtures/bhavcopy-series-repair/session-gap-probe/evidence.json`.
+- Open items discovered but not fixed: `official_exchange_holidays`/`market_holidays` still hold **no 2019–2020 rows**, so a re-run still plans the 29 holiday weekdays (17 of them fail on NSE's stale `sec_bhavdata_full` file). Needs the official holiday sync for 2019 and 2020.
+- Recommended next step: after the user rebuilds, re-run `2020-07-13`, `2019-10-27`, `2020-02-01` and `2020-11-14` with the repair switch to fill 7,139 `prev_close` values, then sync the 2019–2020 holiday calendar.

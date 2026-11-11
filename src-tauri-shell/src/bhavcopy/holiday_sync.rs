@@ -117,11 +117,345 @@ fn source_client() -> AppResult<Client> {
         .user_agent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/133.0 Safari/537.36")
         .build().map_err(|e| e.to_string())
 }
-fn fetch_official(client: &Client, url: &'static str) -> AppResult<Vec<u8>> {
-    // The only callers pass pinned first-party HTTPS URLs. Never accept a redirect.
-    if !matches!(url, NSE_URL | BSE_2026_BASE | BSE_2026_AMEND) {
-        return Err("Official holiday source URL is not approved.".into());
+
+/// HOL-06: where an exchange's official holiday calendar for one year is fetched
+/// from. Editable from the UI so a changed exchange URL needs no code change.
+#[derive(Clone, Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct HolidaySourceRow {
+    pub exchange: String,
+    pub year: i32,
+    pub document_index: i32,
+    pub url: String,
+    pub parser: String,
+    pub required_fragments: Vec<String>,
+    pub expected_rows: Option<i64>,
+    pub operator_note: Option<String>,
+    pub updated_at: String,
+}
+
+/// Hosts permitted as a holiday source. HTTPS is required and the URL may not
+/// carry a redirect parameter, so an edited URL cannot become an open fetch.
+const ALLOWED_HOLIDAY_SOURCE_HOSTS: &[&str] =
+    &["www.nseindia.com", "www.bseindia.com", "nsearchives.nseindia.com"];
+
+fn validate_holiday_source_url(url: &str) -> AppResult<()> {
+    let parsed = reqwest::Url::parse(url)
+        .map_err(|_| "Holiday source URL is not a valid URL.".to_string())?;
+    if parsed.scheme() != "https" {
+        return Err("Holiday source URL must use https.".into());
     }
+    let host = parsed.host_str().unwrap_or_default().to_ascii_lowercase();
+    if !ALLOWED_HOLIDAY_SOURCE_HOSTS
+        .iter()
+        .any(|allowed| host == *allowed)
+    {
+        return Err(format!("Holiday source host is not approved: {host}"));
+    }
+    Ok(())
+}
+
+fn parser_for_exchange(exchange: &str) -> AppResult<&'static str> {
+    match exchange {
+        "NSE" => Ok("NSE_JSON"),
+        "BSE" => Ok("BSE_NOTICE_HTML"),
+        other => Err(format!("Unsupported holiday source exchange: {other}")),
+    }
+}
+
+fn read_source_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<HolidaySourceRow> {
+    let fragments: String = row.get(5)?;
+    Ok(HolidaySourceRow {
+        exchange: row.get(0)?,
+        year: row.get(1)?,
+        document_index: row.get(2)?,
+        url: row.get(3)?,
+        parser: row.get(4)?,
+        required_fragments: serde_json::from_str(&fragments).unwrap_or_default(),
+        expected_rows: row.get(6)?,
+        operator_note: row.get(7)?,
+        updated_at: row.get(8)?,
+    })
+}
+
+const SOURCE_COLUMNS: &str =
+    "exchange,year,document_index,url,parser,required_fragments,expected_rows,operator_note,updated_at";
+
+/// HOL-06: accepted official holidays for one year, per exchange. The Market
+/// Holiday tab renders this instead of `market_holidays`, whose `date` column is
+/// globally unique and therefore cannot show two exchanges on the same date.
+#[derive(Clone, Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct OfficialHolidayEntry {
+    pub exchange: String,
+    pub date: String,
+    pub name: String,
+}
+
+#[tauri::command]
+pub fn list_official_exchange_holidays(
+    app: AppHandle,
+    year: i32,
+) -> AppResult<Vec<OfficialHolidayEntry>> {
+    let folder = active_folder(&app)?;
+    let db = crate::database::open_read_only_connection_for_folder(&folder)?;
+    let mut statement = db
+        .prepare(
+            "SELECT exchange,date,name FROM official_exchange_holidays\n             WHERE year=?1 ORDER BY exchange,date",
+        )
+        .map_err(|e| e.to_string())?;
+    let rows = statement
+        .query_map(params![year], |row| {
+            Ok(OfficialHolidayEntry {
+                exchange: row.get(0)?,
+                date: row.get(1)?,
+                name: row.get(2)?,
+            })
+        })
+        .map_err(|e| e.to_string())?;
+    rows.collect::<Result<Vec<_>, _>>().map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn list_holiday_source_registry(
+    app: AppHandle,
+    year: Option<i32>,
+) -> AppResult<Vec<HolidaySourceRow>> {
+    let folder = active_folder(&app)?;
+    let db = crate::database::open_read_only_connection_for_folder(&folder)?;
+    let mut statement = db
+        .prepare(&format!(
+            "SELECT {SOURCE_COLUMNS} FROM holiday_source_registry\n             WHERE (?1 IS NULL OR year = ?1) ORDER BY year DESC, exchange, document_index"
+        ))
+        .map_err(|e| e.to_string())?;
+    let rows = statement
+        .query_map(params![year], read_source_row)
+        .map_err(|e| e.to_string())?;
+    rows.collect::<Result<Vec<_>, _>>().map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn upsert_holiday_source_url(
+    app: AppHandle,
+    exchange: String,
+    year: i32,
+    url: String,
+    required_fragments: Option<Vec<String>>,
+    operator_note: Option<String>,
+) -> AppResult<HolidaySourceRow> {
+    if !(1990..=2100).contains(&year) {
+        return Err("Holiday source year is out of range.".into());
+    }
+    let parser = parser_for_exchange(&exchange)?;
+    let url = url.trim().to_string();
+    validate_holiday_source_url(&url)?;
+    let fragments = required_fragments.unwrap_or_default();
+    if fragments.iter().any(|fragment| fragment.trim().is_empty()) {
+        return Err("Holiday source fragments must not be empty.".into());
+    }
+    let fragments_json = serde_json::to_string(&fragments).map_err(|e| e.to_string())?;
+    let folder = active_folder(&app)?;
+    let db = crate::database::open_connection_for_folder(&folder, false)?;
+    db.execute(
+        "INSERT INTO holiday_source_registry
+           (exchange,year,url,parser,required_fragments,operator_note,updated_at)
+         VALUES (?1,?2,?3,?4,?5,?6,datetime('now'))
+         ON CONFLICT(exchange,year) DO UPDATE SET
+           url = excluded.url,
+           parser = excluded.parser,
+           required_fragments = excluded.required_fragments,
+           operator_note = excluded.operator_note,
+           updated_at = datetime('now')",
+        params![exchange, year, url, parser, fragments_json, operator_note],
+    )
+    .map_err(|e| e.to_string())?;
+    db.query_row(
+        &format!(
+            "SELECT {SOURCE_COLUMNS} FROM holiday_source_registry\n             WHERE exchange=?1 AND year=?2 ORDER BY document_index LIMIT 1"
+        ),
+        params![exchange, year],
+        read_source_row,
+    )
+    .map_err(|e| e.to_string())
+}
+
+/// Every registered document for one exchange/year, in fetch order.
+fn registry_documents(
+    connection: &Connection,
+    exchange: &str,
+    year: i32,
+) -> AppResult<Vec<HolidaySourceRow>> {
+    let mut statement = connection
+        .prepare(&format!(
+            "SELECT {SOURCE_COLUMNS} FROM holiday_source_registry\n             WHERE exchange=?1 AND year=?2 ORDER BY document_index"
+        ))
+        .map_err(|e| e.to_string())?;
+    let rows = statement
+        .query_map(params![exchange, year], read_source_row)
+        .map_err(|e| e.to_string())?;
+    rows.collect::<Result<Vec<_>, _>>().map_err(|e| e.to_string())
+}
+
+/// "January 26,2023" — the date layout used by the 2019–2021 and 2023–2025 BSE
+/// annual notices, where the 2026 notice uses `DD-Mon-YY`.
+fn parse_bse_long_date(month: &str, day_year: &str) -> Option<NaiveDate> {
+    let (day, year) = day_year.split_once(',')?;
+    let month = match month {
+        "January" => 1,
+        "February" => 2,
+        "March" => 3,
+        "April" => 4,
+        "May" => 5,
+        "June" => 6,
+        "July" => 7,
+        "August" => 8,
+        "September" => 9,
+        "October" => 10,
+        "November" => 11,
+        "December" => 12,
+        _ => return None,
+    };
+    NaiveDate::from_ymd_opt(year.trim().parse().ok()?, month, day.trim().parse().ok()?)
+}
+
+/// Generic BSE annual-notice parser: the notice identity and the expected row
+/// count come from the registry row, so a new year needs data, not code.
+fn parse_bse_notice(
+    html: &[u8],
+    year: i32,
+    required: &[String],
+    expected_rows: Option<i64>,
+) -> AppResult<Vec<OfficialHolidayRow>> {
+    let raw = std::str::from_utf8(html).map_err(|_| "BSE notice is not UTF-8.".to_string())?;
+    let text = html_visible_text(raw);
+    if required.iter().any(|fragment| !text.contains(fragment.as_str())) {
+        return Err(format!(
+            "BSE response is not the registered equity holiday notice for {year}."
+        ));
+    }
+    let start = text
+        .find("Trading Members are hereby informed")
+        .ok_or_else(|| "BSE circular content not found.".to_string())?;
+    let content = &text[start..];
+    let tokens: Vec<&str> = content.split_whitespace().collect();
+    let mut rows = Vec::new();
+    let mut i = 1_usize;
+    while i + 1 < tokens.len() {
+        // Two date layouts exist in the BSE annual notices:
+        //   2026-style  "26-Jan-26"          (one token)
+        //   older       "January 26,2023"     (two tokens)
+        let parsed = match NaiveDate::parse_from_str(tokens[i], "%d-%b-%y") {
+            Ok(date) => Some((date, i + 1)),
+            Err(_) => parse_bse_long_date(tokens[i], tokens[i + 1]).map(|date| (date, i + 2)),
+        };
+        let Some((date, weekday_index)) = parsed else {
+            i += 1;
+            continue;
+        };
+        if date.year() != year {
+            i += 1;
+            continue;
+        }
+        let weekday = super::calendar::weekday_name(date.weekday());
+        match tokens.get(weekday_index) {
+            Some(token) if *token == weekday => {}
+            _ => return Err("BSE circular weekday mismatch.".into()),
+        }
+        let row_number = (i.saturating_sub(18)..i)
+            .rev()
+            .find(|&j| {
+                tokens[j]
+                    .parse::<usize>()
+                    .ok()
+                    .is_some_and(|n| n > 0 && n <= 60)
+            })
+            .ok_or_else(|| "BSE circular row number missing.".to_string())?;
+        let name = tokens[row_number + 1..i].join(" ");
+        if name.is_empty() || name.len() > 160 {
+            return Err("BSE circular holiday name invalid.".into());
+        }
+        rows.push(OfficialHolidayRow {
+            date: date.format("%Y-%m-%d").to_string(),
+            name,
+        });
+        i = weekday_index + 1;
+    }
+    if let Some(expected) = expected_rows {
+        if rows.len() as i64 != expected {
+            return Err(format!(
+                "BSE notice for {year} expected {expected} dated rows, found {}.",
+                rows.len()
+            ));
+        }
+    } else if rows.is_empty() {
+        return Err(format!("BSE notice for {year} produced no dated rows."));
+    }
+    validate_rows(rows, year)
+}
+
+fn parse_registered_document(
+    bytes: &[u8],
+    document: &HolidaySourceRow,
+    year: i32,
+) -> AppResult<Vec<OfficialHolidayRow>> {
+    match document.parser.as_str() {
+        "NSE_JSON" => parse_nse_cash_market(bytes, year),
+        "BSE_NOTICE_HTML" => parse_bse_notice(
+            bytes,
+            year,
+            &document.required_fragments,
+            document.expected_rows,
+        ),
+        "BSE_AMENDMENT_2026" => {
+            let raw = std::str::from_utf8(bytes)
+                .map_err(|_| "BSE amendment is not UTF-8.".to_string())?;
+            let text = html_visible_text(raw);
+            if document
+                .required_fragments
+                .iter()
+                .any(|fragment| !text.contains(fragment.as_str()))
+            {
+                return Err(format!(
+                    "BSE amendment for {year} could not be authenticated from its official text."
+                ));
+            }
+            // The amendment notice asserts one dated holiday; keep it as one row.
+            validate_bse_2026_amendment(bytes).map(|row| vec![row])
+        }
+        other => Err(format!("Unsupported holiday source parser: {other}")),
+    }
+}
+
+/// Fetch, authenticate and parse every registered document for one exchange/year.
+fn fetch_exchange_from_registry(
+    client: &Client,
+    connection: &Connection,
+    exchange: &str,
+    year: i32,
+) -> AppResult<(Vec<OfficialHolidayRow>, Vec<String>, String)> {
+    let documents = registry_documents(connection, exchange, year)?;
+    if documents.is_empty() {
+        return Err(format!(
+            "No official holiday source is registered for {exchange} {year}."
+        ));
+    }
+    let mut rows = Vec::new();
+    let mut urls = Vec::new();
+    let mut concat = Vec::new();
+    for document in &documents {
+        validate_holiday_source_url(&document.url)?;
+        let bytes = fetch_official(client, &document.url)?;
+        rows.extend(parse_registered_document(&bytes, document, year)?);
+        urls.push(document.url.clone());
+        concat.extend_from_slice(&bytes);
+    }
+    let rows = validate_rows(rows, year)?;
+    Ok((rows, urls, hex_sha(&concat)))
+}
+fn fetch_official(client: &Client, url: &str) -> AppResult<Vec<u8>> {
+    // Callers pass a registry URL. Validate scheme/host here as well so an edited
+    // URL can never turn into an open fetch, and never follow a redirect.
+    validate_holiday_source_url(url)?;
     let response = client.get(url)
         .header(ACCEPT, "application/json,text/html;q=0.9,*/*;q=0.8")
         .header(ACCEPT_LANGUAGE, "en-US,en;q=0.9")
@@ -247,11 +581,13 @@ fn validate_bse_2026_amendment(html: &[u8]) -> AppResult<OfficialHolidayRow> {
     }
     Ok(OfficialHolidayRow {date:"2026-01-15".into(), name:"Municipal Corporation Elections in Maharashtra".into()})
 }
+#[allow(dead_code)] // strict 2026 reference path, kept for regression comparison
 fn fetch_nse(client: &Client, year: i32) -> AppResult<(Vec<OfficialHolidayRow>, Vec<String>, String)> {
     let body = fetch_official(client, NSE_URL)?;
     let rows = parse_nse_cash_market(&body, year)?;
     Ok((rows, vec![NSE_URL.into()], hex_sha(&body)))
 }
+#[allow(dead_code)] // strict 2026 reference path, kept for regression comparison
 fn fetch_bse(client: &Client, year: i32) -> AppResult<(Vec<OfficialHolidayRow>, Vec<String>, String)> {
     if year != 2026 { return Err("BSE official equity calendar for this year is not yet supported. No changes applied.".into()); }
     let base = fetch_official(client, BSE_2026_BASE)?;
@@ -302,7 +638,7 @@ fn local_comparison(connection: &Connection, year: i32, exchange: &str, official
 }
 #[tauri::command]
 pub async fn preview_official_exchange_holidays(app: AppHandle, year: i32) -> AppResult<OfficialHolidaySyncPreview> {
-    if !(2026..=2100).contains(&year) { return Err("Choose a supported official holiday calendar year.".into()); }
+    if !(1990..=2100).contains(&year) { return Err("Choose a supported official holiday calendar year.".into()); }
     tauri::async_runtime::spawn_blocking(move || {
         let folder = active_folder(&app)?;
         let db = crate::database::open_read_only_connection_for_folder(&folder)?;
@@ -311,7 +647,9 @@ pub async fn preview_official_exchange_holidays(app: AppHandle, year: i32) -> Ap
         let client = source_client()?;
         let mut exchanges = Vec::new();
         for exchange in ["NSE","BSE"] {
-            let source = if exchange == "NSE" {fetch_nse(&client,year)} else {fetch_bse(&client,year)};
+            // HOL-06: the year is served only when the registry holds a document
+            // for it, so a new year is added as data rather than by editing code.
+            let source = fetch_exchange_from_registry(&client, &db, exchange, year);
             let preview = match source {
                 Ok((holidays,urls,sha)) => {
                     let (new_dates,legacy_only_dates,changed_names) = local_comparison(&db,year,exchange,&holidays)?;
@@ -467,7 +805,9 @@ mod tests {
         db.execute("INSERT INTO market_holidays VALUES('2026-01-16','User global','USER')",[]).unwrap();
         assert_eq!(super::super::calendar::get_exchange_holiday_name(&db,"NSE", "2026-01-16").unwrap(),Some("User global".into()));
         db.execute("INSERT INTO market_holidays VALUES('2027-01-15','Legacy next year','BUILTIN')",[]).unwrap();
-        assert_eq!(super::super::calendar::get_exchange_holiday_name(&db,"NSE", "2027-01-15").unwrap(),Some("Legacy next year".into()));
+        // PHASE-1: a year without an accepted official snapshot no longer reads
+        // unverified BUILTIN seed rows; only manual USER rows apply.
+        assert_eq!(super::super::calendar::get_exchange_holiday_name(&db,"NSE", "2027-01-15").unwrap(),None);
         db.execute("INSERT INTO official_exchange_holidays VALUES ('NSE',2026,'2026-11-08','Muhurat holiday')",[]).unwrap();
         assert_eq!(super::super::calendar::get_exchange_holiday_name(&db,"NSE", "2026-11-08").unwrap(),None);
     }
@@ -510,4 +850,506 @@ mod tests {
         let count: i64 = db.query_row("SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name IN ('market_holidays','official_exchange_holiday_snapshots','official_exchange_holidays')",[],|r|r.get(0)).unwrap();
         assert_eq!(count,3);
     }
+}
+
+#[cfg(test)]
+mod hol06_tests {
+    use super::*;
+
+    #[test]
+    fn hol06_source_url_policy_is_https_and_host_pinned() {
+        assert!(validate_holiday_source_url(
+            "https://www.nseindia.com/api/holiday-master?type=trading"
+        )
+        .is_ok());
+        assert!(validate_holiday_source_url(
+            "https://www.bseindia.com/markets/MarketInfo/DispNewNoticesCirculars.aspx?page=20251212-8"
+        )
+        .is_ok());
+        assert!(validate_holiday_source_url("http://www.nseindia.com/api").is_err());
+        assert!(validate_holiday_source_url("https://evil.example.com/holidays").is_err());
+        assert!(validate_holiday_source_url("https://www.nseindia.com.evil.example/h").is_err());
+        assert!(validate_holiday_source_url("not a url").is_err());
+        assert!(validate_holiday_source_url("").is_err());
+    }
+
+    #[test]
+    fn hol06_parser_is_derived_from_exchange_not_user_input() {
+        assert_eq!(parser_for_exchange("NSE").unwrap(), "NSE_JSON");
+        assert_eq!(parser_for_exchange("BSE").unwrap(), "BSE_NOTICE_HTML");
+        assert!(parser_for_exchange("NSE_INDEX").is_err());
+        assert!(parser_for_exchange("bse").is_err());
+    }
+
+    #[test]
+    fn hol06_registry_schema_and_defaults_are_additive() {
+        let db = Connection::open_in_memory().unwrap();
+        crate::database::prepare_database_connection(&db).unwrap();
+        let rows: Vec<(String, i32, i32, String)> = db
+            .prepare(
+                "SELECT exchange,year,document_index,parser FROM holiday_source_registry\n                 ORDER BY exchange,year,document_index",
+            )
+            .unwrap()
+            .query_map([], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?)))
+            .unwrap()
+            .collect::<Result<Vec<_>, _>>()
+            .unwrap();
+        assert_eq!(
+            rows,
+            vec![
+                ("BSE".to_string(), 2026, 0, "BSE_NOTICE_HTML".to_string()),
+                ("BSE".to_string(), 2026, 1, "BSE_AMENDMENT_2026".to_string()),
+                ("NSE".to_string(), 2026, 0, "NSE_JSON".to_string()),
+            ]
+        );
+        // Defaults must be idempotent: a second preparation must not duplicate.
+        crate::database::prepare_database_connection(&db).unwrap();
+        let count: i64 = db
+            .query_row("SELECT COUNT(*) FROM holiday_source_registry", [], |r| {
+                r.get(0)
+            })
+            .unwrap();
+        assert_eq!(count, 3);
+    }
+
+    #[test]
+    fn hol06_registry_presence_is_the_year_gate() {
+        // A year without a registered document fails closed before any network
+        // call, so an unsupported year can never silently return an empty calendar.
+        let db = Connection::open_in_memory().unwrap();
+        crate::database::prepare_database_connection(&db).unwrap();
+        let client = source_client().unwrap();
+        let error = fetch_exchange_from_registry(&client, &db, "NSE", 2023).unwrap_err();
+        assert!(error.contains("No official holiday source is registered"), "{error}");
+        let error = fetch_exchange_from_registry(&client, &db, "BSE", 2025).unwrap_err();
+        assert!(error.contains("No official holiday source is registered"), "{error}");
+        // 2026 is registered for both exchanges, so it must not fail on registry.
+        assert!(registry_documents(&db, "NSE", 2026).unwrap().len() == 1);
+        assert!(registry_documents(&db, "BSE", 2026).unwrap().len() == 2);
+    }
+}
+
+#[cfg(test)]
+mod hol06_bse_date_formats {
+    use super::*;
+
+    fn long_form_notice(dates: &[&str]) -> Vec<u8> {
+        let mut body = String::from("Trading Members are hereby informed ");
+        for (index, iso) in dates.iter().enumerate() {
+            let date = NaiveDate::parse_from_str(iso, "%Y-%m-%d").unwrap();
+            let weekday = super::super::calendar::weekday_name(date.weekday());
+            body.push_str(&format!(
+                "{} Holiday {} {:02},{} {} ",  // N Holiday <MonthName> <DD>,<YYYY> <Weekday>
+                index + 1,
+                date.format("%B"),
+                date.day(),
+                date.year(),
+                weekday,
+            ));
+        }
+        format!("<html>{body}</html>").into_bytes()
+    }
+
+    const Y2023: &[&str] = &[
+        "2023-01-26", "2023-03-07", "2023-03-30", "2023-04-04", "2023-04-07", "2023-04-14",
+        "2023-05-01", "2023-06-29", "2023-08-15", "2023-09-19", "2023-10-02", "2023-10-24",
+        "2023-11-14", "2023-11-27", "2023-12-25",
+    ];
+
+    #[test]
+    fn parses_the_older_long_date_notice_layout() {
+        let rows = parse_bse_notice(&long_form_notice(Y2023), 2023, &[], Some(15)).unwrap();
+        assert_eq!(rows.len(), 15);
+        assert_eq!(rows[0].date, "2023-01-26");
+        // The month token belongs to the date, so it is not part of the name.
+        assert_eq!(rows[0].name, "Holiday");
+        assert_eq!(rows[14].date, "2023-12-25");
+        // A row-count mismatch still fails closed.
+        assert!(parse_bse_notice(&long_form_notice(Y2023), 2023, &[], Some(19)).is_err());
+        // A wrong year fails closed.
+        assert!(parse_bse_notice(&long_form_notice(Y2023), 2024, &[], Some(15)).is_err());
+    }
+
+    #[test]
+    fn still_parses_the_2026_short_date_layout() {
+        let mut body = String::from("Trading Members are hereby informed ");
+        for (index, iso) in Y2023.iter().enumerate() {
+            let date = NaiveDate::parse_from_str(iso, "%Y-%m-%d").unwrap();
+            let weekday = super::super::calendar::weekday_name(date.weekday());
+            body.push_str(&format!(
+                "{} Holiday {} {} ",
+                index + 1,
+                date.format("%d-%b-%y"),
+                weekday
+            ));
+        }
+        let html = format!("<html>{body}</html>").into_bytes();
+        let rows = parse_bse_notice(&html, 2023, &[], Some(15)).unwrap();
+        assert_eq!(rows.len(), 15);
+        assert_eq!(rows[0].date, "2023-01-26");
+    }
+
+    #[test]
+    fn weekday_mismatch_fails_closed() {
+        let good = String::from_utf8(long_form_notice(Y2023)).unwrap();
+        let broken = good.replacen("Thursday", "Friday", 1);
+        assert!(parse_bse_notice(broken.as_bytes(), 2023, &[], Some(15)).is_err());
+    }
+}
+
+/// One (exchange, year) block inside an imported CSV.
+#[derive(Clone, Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct OfficialHolidayCsvGroup {
+    pub exchange: String,
+    pub year: i32,
+    pub rows: usize,
+    pub replaces_existing: usize,
+}
+
+/// Dry-run result of an official-holiday CSV import. `sha256` binds the later
+/// apply to the exact text that was previewed.
+#[derive(Clone, Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct OfficialHolidayCsvPreview {
+    pub sha256: String,
+    pub total_rows: usize,
+    pub groups: Vec<OfficialHolidayCsvGroup>,
+}
+
+#[derive(Clone, Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct OfficialHolidayCsvImportResult {
+    pub rows: usize,
+    pub groups: usize,
+    pub years: Vec<i32>,
+}
+
+struct ImportedHoliday {
+    exchange: String,
+    year: i32,
+    date: String,
+    name: String,
+    source_urls: Option<String>,
+    source_sha256: Option<String>,
+}
+
+/// Parse and validate an official-holiday CSV. Rows land in
+/// `official_exchange_holidays`, so every rule that protects the accepted
+/// snapshots applies here too: known exchange, date/year agreement, non-empty
+/// name, no duplicate (exchange, year, date), and a plausible 12-35 rows per
+/// (exchange, year) block so a truncated file cannot silently wipe a calendar.
+fn parse_official_holiday_csv(text: &str) -> AppResult<Vec<ImportedHoliday>> {
+    let mut reader = csv::ReaderBuilder::new()
+        .flexible(true)
+        .trim(csv::Trim::All)
+        .from_reader(text.as_bytes());
+    let headers = reader.headers().map_err(|e| e.to_string())?.clone();
+    let column = |want: &str| headers.iter().position(|h| h.eq_ignore_ascii_case(want));
+    let (Some(exchange_at), Some(year_at), Some(date_at), Some(name_at)) = (
+        column("exchange"),
+        column("year"),
+        column("date"),
+        column("name"),
+    ) else {
+        return Err("Official holiday CSV needs exchange, year, date and name columns.".into());
+    };
+    let urls_at = column("source_urls");
+    let sha_at = column("source_sha256");
+
+    let mut rows: Vec<ImportedHoliday> = Vec::new();
+    let mut seen = HashSet::<(String, String)>::new();
+    for (line, record) in reader.records().enumerate() {
+        let record = record.map_err(|e| format!("CSV line {}: {e}", line + 2))?;
+        let field = |at: Option<usize>| at.and_then(|i| record.get(i)).unwrap_or("").trim().to_string();
+        let exchange = field(Some(exchange_at)).to_uppercase();
+        if exchange != "NSE" && exchange != "BSE" {
+            return Err(format!("CSV line {}: exchange must be NSE or BSE.", line + 2));
+        }
+        let year: i32 = field(Some(year_at))
+            .parse()
+            .map_err(|_| format!("CSV line {}: year is not a number.", line + 2))?;
+        if !(1990..=2100).contains(&year) {
+            return Err(format!("CSV line {}: year {year} is out of range.", line + 2));
+        }
+        let date = field(Some(date_at));
+        let parsed = NaiveDate::parse_from_str(&date, "%Y-%m-%d")
+            .map_err(|_| format!("CSV line {}: date '{date}' is not YYYY-MM-DD.", line + 2))?;
+        if parsed.year() != year {
+            return Err(format!(
+                "CSV line {}: date {date} does not belong to year {year}.",
+                line + 2
+            ));
+        }
+        let name = field(Some(name_at));
+        if name.is_empty() || name.len() > 160 {
+            return Err(format!("CSV line {}: holiday name is invalid.", line + 2));
+        }
+        if !seen.insert((exchange.clone(), date.clone())) {
+            return Err(format!(
+                "CSV line {}: duplicate {exchange} holiday on {date}.",
+                line + 2
+            ));
+        }
+        rows.push(ImportedHoliday {
+            exchange,
+            year,
+            date,
+            name,
+            source_urls: urls_at.map(|_| field(urls_at)).filter(|v| !v.is_empty()),
+            source_sha256: sha_at.map(|_| field(sha_at)).filter(|v| !v.is_empty()),
+        });
+    }
+    if rows.is_empty() {
+        return Err("Official holiday CSV has no data rows.".into());
+    }
+    let mut counts: BTreeMap<(String, i32), usize> = BTreeMap::new();
+    for row in &rows {
+        *counts.entry((row.exchange.clone(), row.year)).or_insert(0) += 1;
+    }
+    for ((exchange, year), count) in &counts {
+        if !(12..=35).contains(count) {
+            return Err(format!(
+                "{exchange} {year} has {count} rows; an official calendar needs 12-35."
+            ));
+        }
+    }
+    Ok(rows)
+}
+
+#[tauri::command]
+pub fn preview_official_holiday_csv(app: AppHandle, csv_text: String) -> AppResult<OfficialHolidayCsvPreview> {
+    if csv_text.len() > 2 * 1024 * 1024 {
+        return Err("Official holiday CSV is too large.".into());
+    }
+    let rows = parse_official_holiday_csv(&csv_text)?;
+    let folder = active_folder(&app)?;
+    let db = crate::database::open_read_only_connection_for_folder(&folder)?;
+    let mut groups: Vec<OfficialHolidayCsvGroup> = Vec::new();
+    for ((exchange, year), count) in rows
+        .iter()
+        .fold(BTreeMap::<(String, i32), usize>::new(), |mut acc, row| {
+            *acc.entry((row.exchange.clone(), row.year)).or_insert(0) += 1;
+            acc
+        })
+    {
+        let existing: i64 = db
+            .query_row(
+                "SELECT COUNT(*) FROM official_exchange_holidays WHERE exchange=?1 AND year=?2",
+                params![exchange, year],
+                |row| row.get(0),
+            )
+            .map_err(|e| e.to_string())?;
+        groups.push(OfficialHolidayCsvGroup {
+            exchange,
+            year,
+            rows: count,
+            replaces_existing: existing as usize,
+        });
+    }
+    Ok(OfficialHolidayCsvPreview {
+        sha256: hex_sha(csv_text.as_bytes()),
+        total_rows: rows.len(),
+        groups,
+    })
+}
+
+#[tauri::command]
+pub fn apply_official_holiday_csv(
+    app: AppHandle,
+    csv_text: String,
+    sha256: String,
+) -> AppResult<OfficialHolidayCsvImportResult> {
+    if hex_sha(csv_text.as_bytes()) != sha256.to_uppercase() {
+        return Err("Official holiday CSV changed since it was previewed.".into());
+    }
+    let rows = parse_official_holiday_csv(&csv_text)?;
+    let folder = active_folder(&app)?;
+    let mut db = crate::database::open_connection_for_folder(&folder, false)?;
+    let csv_sha = hex_sha(csv_text.as_bytes());
+    let accepted_at = chrono::Utc::now().format("%Y-%m-%d %H:%M:%S").to_string();
+    let tx = db.transaction().map_err(|e| e.to_string())?;
+    let mut touched = BTreeMap::<(String, i32), Vec<&ImportedHoliday>>::new();
+    for row in &rows {
+        touched.entry((row.exchange.clone(), row.year)).or_default().push(row);
+    }
+    let mut years = Vec::new();
+    for ((exchange, year), group) in &touched {
+        tx.execute(
+            "DELETE FROM official_exchange_holidays WHERE exchange=?1 AND year=?2",
+            params![exchange, year],
+        )
+        .map_err(|e| e.to_string())?;
+        let urls = group
+            .iter()
+            .find_map(|row| row.source_urls.clone())
+            .unwrap_or_else(|| format!("csv:sha256:{csv_sha}"));
+        let source_sha = group
+            .iter()
+            .find_map(|row| row.source_sha256.clone())
+            .unwrap_or_else(|| csv_sha.clone());
+        tx.execute(
+            "INSERT OR REPLACE INTO official_exchange_holiday_snapshots
+               (exchange,year,source_urls,source_sha256,accepted_at,record_count)
+             VALUES (?1,?2,?3,?4,?5,?6)",
+            params![exchange, year, urls, source_sha, accepted_at, group.len() as i64],
+        )
+        .map_err(|e| e.to_string())?;
+        for row in group {
+            tx.execute(
+                "INSERT INTO official_exchange_holidays (exchange,year,date,name)
+                 VALUES (?1,?2,?3,?4)",
+                params![row.exchange, row.year, row.date, row.name],
+            )
+            .map_err(|e| e.to_string())?;
+        }
+        years.push(*year);
+    }
+    tx.commit().map_err(|e| e.to_string())?;
+    years.sort_unstable();
+    years.dedup();
+    Ok(OfficialHolidayCsvImportResult {
+        rows: rows.len(),
+        groups: touched.len(),
+        years,
+    })
+}
+
+#[cfg(test)]
+mod hol06_csv_import {
+    use super::*;
+
+    fn csv_of(exchange: &str, year: i32, count: usize) -> String {
+        let mut text = String::from("exchange,year,date,name,source_urls,source_sha256
+");
+        for day in 1..=count {
+            text.push_str(&format!(
+                "{exchange},{year},{year}-01-{day:02},Holiday {day},https://example.org/n,ABC
+"
+            ));
+        }
+        text
+    }
+
+    #[test]
+    fn accepts_a_well_formed_block() {
+        let rows = parse_official_holiday_csv(&csv_of("BSE", 2027, 12)).unwrap();
+        assert_eq!(rows.len(), 12);
+        assert_eq!(rows[0].exchange, "BSE");
+        assert_eq!(rows[0].year, 2027);
+        assert_eq!(rows[0].source_urls.as_deref(), Some("https://example.org/n"));
+    }
+
+    #[test]
+    fn rejects_bad_exchange_year_and_date() {
+        assert!(parse_official_holiday_csv(&csv_of("NSEX", 2027, 12)).is_err());
+        // date must belong to the declared year
+        let mut text = csv_of("NSE", 2027, 12);
+        text = text.replace("NSE,2027,2027-01-03", "NSE,2027,2026-01-03");
+        assert!(parse_official_holiday_csv(&text).is_err());
+        // duplicate (exchange, date)
+        let mut text = csv_of("NSE", 2027, 12);
+        text = text.replace("NSE,2027,2027-01-05", "NSE,2027,2027-01-04");
+        assert!(parse_official_holiday_csv(&text).is_err());
+        // malformed date
+        let mut text = csv_of("NSE", 2027, 12);
+        text = text.replace("NSE,2027,2027-01-06", "NSE,2027,06-01-2027");
+        assert!(parse_official_holiday_csv(&text).is_err());
+    }
+
+    #[test]
+    fn rejects_missing_columns_and_implausible_counts() {
+        assert!(parse_official_holiday_csv("date,name
+2027-01-01,Holi
+").is_err());
+        // too few rows for an annual calendar
+        assert!(parse_official_holiday_csv(&csv_of("NSE", 2027, 5)).is_err());
+        // empty file
+        assert!(parse_official_holiday_csv("exchange,year,date,name
+").is_err());
+    }
+}
+
+/// Everything the Market Holiday tab needs for one year, in a single read-only
+/// connection and a single IPC round-trip. The tab used to issue three separate
+/// commands (entries, sources, snapshots), each opening its own SQLite handle,
+/// which is what made opening the tab feel slow.
+#[derive(Clone, Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct HolidayCalendarView {
+    pub year: i32,
+    pub official_entries: Vec<OfficialHolidayEntry>,
+    pub sources: Vec<HolidaySourceRow>,
+    pub snapshots: Vec<OfficialHolidayAcceptedSnapshot>,
+}
+
+#[tauri::command]
+pub fn get_holiday_calendar_view(app: AppHandle, year: i32) -> AppResult<HolidayCalendarView> {
+    let folder = active_folder(&app)?;
+    let db = crate::database::open_read_only_connection_for_folder(&folder)?;
+
+    let mut entry_stmt = db
+        .prepare(
+            "SELECT exchange,date,name FROM official_exchange_holidays
+             WHERE year=?1 ORDER BY exchange,date",
+        )
+        .map_err(|e| e.to_string())?;
+    let official_entries = entry_stmt
+        .query_map(params![year], |row| {
+            Ok(OfficialHolidayEntry {
+                exchange: row.get(0)?,
+                date: row.get(1)?,
+                name: row.get(2)?,
+            })
+        })
+        .map_err(|e| e.to_string())?
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|e| e.to_string())?;
+
+    let sources = registry_documents_for_year(&db, year)?;
+
+    let mut snap_stmt = db
+        .prepare(
+            "SELECT exchange,year,accepted_at,record_count,source_urls,source_sha256
+             FROM official_exchange_holiday_snapshots WHERE year=?1 ORDER BY exchange",
+        )
+        .map_err(|e| e.to_string())?;
+    let snapshots = snap_stmt
+        .query_map(params![year], |row| {
+            let urls: String = row.get(4)?;
+            Ok(OfficialHolidayAcceptedSnapshot {
+                exchange: row.get(0)?,
+                year: row.get(1)?,
+                accepted_at: row.get(2)?,
+                record_count: row.get(3)?,
+                source_urls: serde_json::from_str(&urls).unwrap_or_default(),
+                source_sha256: row.get(5)?,
+            })
+        })
+        .map_err(|e| e.to_string())?
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|e| e.to_string())?;
+
+    Ok(HolidayCalendarView {
+        year,
+        official_entries,
+        sources,
+        snapshots,
+    })
+}
+
+fn registry_documents_for_year(
+    connection: &Connection,
+    year: i32,
+) -> AppResult<Vec<HolidaySourceRow>> {
+    let mut statement = connection
+        .prepare(&format!(
+            "SELECT {SOURCE_COLUMNS} FROM holiday_source_registry
+             WHERE year=?1 ORDER BY exchange, document_index"
+        ))
+        .map_err(|e| e.to_string())?;
+    let rows = statement
+        .query_map(params![year], read_source_row)
+        .map_err(|e| e.to_string())?;
+    rows.collect::<Result<Vec<_>, _>>().map_err(|e| e.to_string())
 }

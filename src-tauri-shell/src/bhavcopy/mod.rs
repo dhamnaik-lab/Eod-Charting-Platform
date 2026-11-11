@@ -676,6 +676,19 @@ fn build_batch_plan(connection: &Connection, config: &BatchDownloadConfig) -> Ap
         } else {
             storage_mode_load_imported_trade_dates(connection, &exchange, &start_date, &end_date)?
         };
+
+        // PHASE-1: make a missing official calendar explicit rather than letting
+        // an unverified built-in seed silently stand in for it.
+        let start_year: i32 = start_date.get(..4).and_then(|v| v.parse().ok()).unwrap_or(0);
+        let end_year: i32 = end_date.get(..4).and_then(|v| v.parse().ok()).unwrap_or(0);
+        for year in start_year..=end_year {
+            if year > 0 && !has_official_holiday_snapshot(connection, &exchange, year)? {
+                info_messages.push(format!(
+                    "[{}] Calendar: no official holiday snapshot for {year}; built-in dates are not used (manual holidays only)",
+                    format_exchange_log_label(&exchange)
+                ));
+            }
+        }
         if imported_dates.metadata_lookup_ms > 0
             || imported_dates.binary_reconcile_ms > 0
             || imported_dates.binary_reconcile_files_scanned > 0
@@ -708,11 +721,30 @@ fn build_batch_plan(connection: &Connection, config: &BatchDownloadConfig) -> Ap
                 &trade_date,
                 parsed_date.weekday(),
             ) {
-                calendar_skip_results.push(skip_result);
-                continue;
+                // PHASE-1: observed bars outrank the calendar. A wrong holiday row
+                // must not suppress a real session (2023-09-28 held 2,331 NSE bars
+                // while market_holidays called it Id-E-Milad).
+                if is_calendar_skip_contradicted(
+                    &skip_result,
+                    imported_dates.dates.contains(&trade_date),
+                ) {
+                    info_messages.push(format!(
+                        "[{}] {}: CALENDAR CONTRADICTION - stored bars exist but the calendar says '{}'; scheduling instead of skipping",
+                        format_exchange_log_label(&exchange),
+                        trade_date,
+                        skip_result.message
+                    ));
+                } else {
+                    calendar_skip_results.push(skip_result);
+                    continue;
+                }
             }
 
-            if imported_dates.dates.contains(&trade_date) {
+            // Normal Range behaviour is gap-filling: already-imported days are
+            // skipped. `force_redownload` is the explicit repair switch that
+            // plans every session so an existing (possibly wrong) bar can be
+            // replaced by the source row.
+            if !config.force_redownload && imported_dates.dates.contains(&trade_date) {
                 skipped_existing_days += 1;
                 continue;
             }
@@ -790,6 +822,12 @@ fn build_batch_plan(connection: &Connection, config: &BatchDownloadConfig) -> Ap
                 "[{}] Scheduled {} metadata-only trading days for refresh because binary files are missing or incomplete",
                 format_exchange_log_label(&exchange),
                 imported_dates.metadata_only_dates
+            ));
+        }
+        if config.force_redownload {
+            info_messages.push(format!(
+                "[{}] Repair re-download: existing coverage ignored for this range; every planned session is imported and existing bars are replaced by the source rows",
+                format_exchange_log_label(&exchange)
             ));
         }
     }
@@ -933,6 +971,7 @@ fn stage_single_download(
     stop: &BatchStop,
 ) -> AppResult<StagedDownloadOutcome> {
     let mut last_hard_error: Option<String> = None;
+    let mut last_date_rejection: Option<String> = None;
     let mut primary_hard_error: Option<String> = None;
     let mut not_found_count = 0_usize;
     let referer = bhavcopy_referer_for_exchange(&task.exchange);
@@ -970,14 +1009,21 @@ fn stage_single_download(
                     last_hard_error = Some("Official source returned HTML instead of Bhavcopy data.".into());
                     continue;
                 }
-                if task.exchange == "NSE_INDEX" {
+                if task.exchange == "NSE_INDEX" || task.exchange == "NSE" {
                     let validation = parse_bhavcopy_csv(&csv_content, &task.exchange, &task.trade_date, &[]);
                     let error = match validation {
                         Ok(parsed) => parsed.debug,
                         Err(error) => Some(error),
                     };
                     if let Some(error) = error {
-                        last_hard_error = Some(format!("Index archive integrity: {error}"));
+                        if task.exchange == "NSE_INDEX" {
+                            last_hard_error = Some(format!("Index archive integrity: {error}"));
+                        } else {
+                            // An NSE file that carries another session's rows is a
+                            // soft miss: the next candidate may still hold this date.
+                            last_date_rejection = Some(format!("Archive integrity: {error}"));
+                            not_found_count += 1;
+                        }
                         continue;
                     }
                 }
@@ -1029,7 +1075,10 @@ fn stage_single_download(
         exchange: task.exchange.clone(),
         rows_inserted: 0,
         max_volume: 0,
-        message: primary_hard_error.or(last_hard_error).unwrap_or_else(|| "Download failed".to_string()),
+        message: primary_hard_error
+            .or(last_hard_error)
+            .or(last_date_rejection)
+            .unwrap_or_else(|| "Download failed".to_string()),
     }))
 }
 

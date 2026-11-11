@@ -31,6 +31,7 @@ fn config() -> BatchDownloadConfig {
         nse_index_url_override: None,
         bse_equity_url_override: None,
         bse_index_url_override: None,
+        force_redownload: false,
     }
 }
 fn parsed(name: &str, date: &str, close: f64) -> ParsedBhavcopyFile {

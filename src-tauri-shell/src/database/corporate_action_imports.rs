@@ -1382,64 +1382,82 @@ fn import_corporate_actions_csv_internal(
         errors: Vec::new(),
     };
 
-    for row in reader.records() {
-        result.rows_read += 1;
-        let record = match row {
-            Ok(record) => record,
-            Err(error) => {
-                result.rows_error += 1;
-                result.errors.push(error.to_string());
-                continue;
-            }
-        };
+    run_connection_transaction(connection, |connection| {
+        for row in reader.records() {
+            result.rows_read += 1;
+            let record = match row {
+                Ok(record) => record,
+                Err(error) => {
+                    result.rows_error += 1;
+                    result.errors.push(error.to_string());
+                    continue;
+                }
+            };
 
-        let candidate = match build_import_candidate(
-            connection,
-            &exchange,
-            source,
-            source_file.clone(),
-            &header_map,
-            &record,
-        ) {
-            Ok(candidate) => candidate,
-            Err(error) => {
-                result.rows_error += 1;
-                result
-                    .errors
-                    .push(format!("Row {}: {error}", result.rows_read));
-                continue;
-            }
-        };
+            let candidate = match build_import_candidate(
+                connection,
+                &exchange,
+                source,
+                source_file.clone(),
+                &header_map,
+                &record,
+            ) {
+                Ok(candidate) => candidate,
+                Err(error) => {
+                    result.rows_error += 1;
+                    result
+                        .errors
+                        .push(format!("Row {}: {error}", result.rows_read));
+                    continue;
+                }
+            };
 
-        count_candidate_status(
-            candidate.review_status.as_str(),
-            candidate.parse_status.as_str(),
-            &mut result.rows_unresolved,
-            &mut result.rows_parsed,
-            &mut result.rows_unsupported,
-        );
+            count_candidate_status(
+                candidate.review_status.as_str(),
+                candidate.parse_status.as_str(),
+                &mut result.rows_unresolved,
+                &mut result.rows_parsed,
+                &mut result.rows_unsupported,
+            );
 
-        match store_import_candidate_evidence_aware(connection, &candidate) {
-            Ok(HistoricalCandidateStoreOutcome::Inserted { row, .. }) => {
-                result.rows_inserted += 1;
-                result.imports.push(row);
-            }
-            Ok(HistoricalCandidateStoreOutcome::Duplicate { .. }) => {
-                result.rows_duplicate += 1;
-            }
-            Ok(HistoricalCandidateStoreOutcome::EvidenceAttached { .. }) => {
-                // Preserve the existing ordinary result/API contract: no new import row
-                // was created, so equivalent-event evidence remains in rows_duplicate.
-                result.rows_duplicate += 1;
-            }
-            Err(error) => {
-                result.rows_error += 1;
-                result
-                    .errors
-                    .push(format!("Row {}: {error}", result.rows_read));
+            connection
+                .execute_batch("SAVEPOINT corporate_action_csv_row")
+                .map_err(|error| error.to_string())?;
+            match store_import_candidate_evidence_aware(connection, &candidate) {
+                Ok(HistoricalCandidateStoreOutcome::Inserted { row, .. }) => {
+                    connection
+                        .execute_batch("RELEASE SAVEPOINT corporate_action_csv_row")
+                        .map_err(|error| error.to_string())?;
+                    result.rows_inserted += 1;
+                    result.imports.push(row);
+                }
+                Ok(HistoricalCandidateStoreOutcome::Duplicate { .. }) => {
+                    connection
+                        .execute_batch("RELEASE SAVEPOINT corporate_action_csv_row")
+                        .map_err(|error| error.to_string())?;
+                    result.rows_duplicate += 1;
+                }
+                Ok(HistoricalCandidateStoreOutcome::EvidenceAttached { .. }) => {
+                    connection
+                        .execute_batch("RELEASE SAVEPOINT corporate_action_csv_row")
+                        .map_err(|error| error.to_string())?;
+                    // Preserve the existing ordinary result/API contract: no new import row
+                    // was created, so equivalent-event evidence remains in rows_duplicate.
+                    result.rows_duplicate += 1;
+                }
+                Err(error) => {
+                    let _ = connection.execute_batch(
+                        "ROLLBACK TO SAVEPOINT corporate_action_csv_row; RELEASE SAVEPOINT corporate_action_csv_row",
+                    );
+                    result.rows_error += 1;
+                    result
+                        .errors
+                        .push(format!("Row {}: {error}", result.rows_read));
+                }
             }
         }
-    }
+        Ok(())
+    })?;
 
     Ok(result)
 }

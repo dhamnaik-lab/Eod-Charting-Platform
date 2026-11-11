@@ -85,9 +85,14 @@ function harness() {
 const row = (id: number): Holiday => ({ id, date: '2026-10-29', name: 'Test Holiday', source: 'USER' });
 
 describe('HOL-02 holiday layout and status regression', () => {
-  it('uses a bounded column layout with table-only scroll, sticky header, fixed add section and fixed status', () => {
+  it('uses a bounded page with one scrolling body, sticky header, capped table, fixed add section and fixed status', () => {
     assert.match(styles, /marketHolidayPageStyle:[\s\S]*?flexDirection: 'column'[\s\S]*?overflow: 'hidden'/);
-    assert.match(styles, /marketHolidayTableStyle:[\s\S]*?flex: '1 1 0'[\s\S]*?overflowY: 'auto'/);
+    // HOL-06: the body scrolls as a whole, so a tall official panel can no longer
+    // clip the Add form off the bottom of the tab.
+    assert.match(styles, /marketHolidayScrollBodyStyle:[\s\S]*?minHeight: 0[\s\S]*?overflowY: 'auto'/);
+    // The table sizes to its content under a cap instead of growing to fill the
+    // page, which reserved a tall empty box when a year had no manual rows.
+    assert.match(styles, /marketHolidayTableStyle:[\s\S]*?flex: '0 0 auto'[\s\S]*?maxHeight: 240[\s\S]*?overflowY: 'auto'/);
     assert.match(styles, /marketHolidayTableHeaderStyle:[\s\S]*?position: 'sticky'[\s\S]*?top: 0/);
     assert.match(styles, /marketHolidayAddStyle:[\s\S]*?flexShrink: 0/);
     assert.match(styles, /marketHolidayStatusStyle:[\s\S]*?flexShrink: 0/);

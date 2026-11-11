@@ -49,7 +49,25 @@
    `--out …/verify-<chunk>.json` writes `verify-<chunk>-v1.json`
    (`docs/BHAVCOPY_INTEGRITY_AND_VERIFICATION_TOOLS.md` §3).
 
-## 1. The repair runs (Date Range mode only)
+## 1. The repair runs (Date Range mode + the repair switch)
+
+**Range mode does NOT re-import dates the store already covers.** The planning
+prefilter (`bhavcopy/mod.rs`, "Prefiltered N already imported trading days")
+skips them by design — that is gap-filling, and it is covered by
+`test_range_mode_prefilters_already_imported_trading_days`. A repair needs the
+explicit switch:
+
+> **Tick `Re-download existing dates (repair)`** in the Bhavcopy window before
+> starting a chunk. The checkbox is only enabled in **Date Range** mode; the
+> backend now rejects the flag in Update/Full History (it would be a silent
+> no-op there), and switching mode clears it. It sets `forceRedownload: true`, which plans every session
+> in the range and replaces stored bars with the source rows. The batch log then
+> starts with `[NSE] Repair re-download: existing coverage ignored for this
+> range …`. Leave it unticked for normal downloads.
+
+A repaired date reports `Replaced N existing records (repair re-import)` (not
+`Already present; 0 new rows`), and `Download complete … imported rows: N`
+counts replacements, so a login of `0` means nothing was written.
 
 Settings for every run: **Exchange NSE only**, **Workers 2**, mode **Date
 Range** (Range never uses the imported-date prefilter). Do not run BSE, do not
@@ -79,6 +97,18 @@ Expected write path: overlapping dates take the immediately-durable
 must never run through the deferred `APPEND_NEWEST` checkpointing path. If the
 app reports an `APPEND_NEWEST` write for a repair chunk, stop and investigate.
 
+## 1b. After the identity repair (P1.10, applied 2026-11-09)
+
+Six symbols (`HDFC`, `DHFL`, `IBULHSGFIN`, `IDFCBANK`, `SREINFRA`, `SRTRANSFIN`) had their `instruments`
+row restored to `EQ` + the equity ISIN from NSE's own admitted bhavcopy row. Their stored bars are still
+bond values until the affected range is imported again:
+
+1. Rebuild the portable app (the evidence writer changed).
+2. Re-run with the repair switch in 2-year chunks: `2010-11-01 → 2012-12-31`,
+   `2013-01-01 → 2014-12-31`, `2015-01-01 → 2016-12-31`, `2017-01-01 → 2017-09-30`.
+3. Expect those six symbols to report `Replaced … existing records` and to flip to equity-scale prices;
+   the per-date `Security subset` should shrink to SGB/IRBINVIT/HCLTECH/unequal-row cases.
+
 ## 2. Checks after every chunk
 
 After each chunk completes:
@@ -102,7 +132,11 @@ After each chunk completes:
      --evidence-dir "EOD DATABASE/bhavcopy_admission" `
      --out tmp/fixtures/bhavcopy-series-repair/verify-<chunk>-v1.json
    ```
-   Pass criterion for the chunk: the summary's `field_mismatches == 0`
+   Pass criterion for the chunk: `field_mismatches == 0` **and**
+   `anchor_coverage_ratio >= 0.9` (equivalently `verification_vacuous` is
+   false). A manifest with a handful of anchored sessions and
+   `field_mismatches: 0` proves nothing — the tool now prints
+   `WARNING: verification is VACUOUS for this range …` in that case; the summary's `field_mismatches == 0`
    (open/high/low/close/volume/oi equality against the admitted anchor for
    every symbol with an admitted equity row). `residual_bars` are expected and
    acceptable until the P4 decision — they are pairs whose source has no
@@ -132,6 +166,13 @@ After each chunk completes:
    defaults now merge fragments into era-level ranges (`--plateau-merge-gap 60`
    plus the `--plateau-merge-level 0.25` guard); pass `--plateau-merge-gap 0`
    when you need the raw fragments for one symbol.
+
+### New failure mode to expect (S3, since 2026-11-09)
+
+Per-row NSE equity date validation can now reject an archive with
+`Mixed-date NSE archive: requested <date>, row for <symbol> contains <date>`.
+That is a **HOLD, not a data problem**: it means the source archive mixed
+sessions. Do not retry blindly; record the date and move to the next chunk.
 
 ## 3. Stop conditions
 

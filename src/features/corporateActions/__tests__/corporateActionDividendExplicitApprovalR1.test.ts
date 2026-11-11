@@ -52,8 +52,10 @@ describe('CA explicit Dividend approval integration — preservation', () => {
   it('Rust owner revalidates and requires post-ex-date prices before a write', () => {
     expect(policy).toContain('evaluate_simple_cash_dividend_policy_r1(');
     expect(policy).toContain('Dividend R1 requires a valid local ex-date');
+    expect(policy).toContain('FixedOffset::east_opt(5 * 3600 + 30 * 60)');
     expect(policy).toContain('ROLLBACK TO SAVEPOINT corporate_action_dividend_r1_item');
     expect(rust).toContain('execute_simple_cash_dividend_write_stage_transaction_owner(app, private_input)');
     expect(rust).toContain('emit_database_changed(&app_handle, &snapshot)?');
+    expect(ui).toContain('Dividend chart adjustments are currently off');
   });
 });
