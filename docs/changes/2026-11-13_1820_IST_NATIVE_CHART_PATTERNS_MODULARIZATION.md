@@ -36,3 +36,12 @@ GitHub base `b830573a8a491c207e9e853bc422ca62f8ebe45f`, original monolith blob `
 - Initial renderer CI workflow run `43434529770` **FAIL**: 6 Vitest suites could not import `./scannerChartPriceBasis` from the relocated `src/features/chartPatterns/scanService.ts`; TypeScript TS2307 and Vite failed from the same missing relative path. Other 253 suites passed; 1 skipped in that run.
 - Fixed that single relocated import to the existing shared scanner price-basis utility at `@/plugins/scanner/scannerChartPriceBasis`. No scanner logic, thresholds or behavior changed.
 - A fresh PR CI run must validate the correction; previous failure is not a passing result.
+
+## Automated CI results following correction
+
+- GitHub Actions **Renderer CI recovery run `43435027978`**, commit `95e3dba440ff73e3f5b9e05d7c6ea95cee372252` — **PASS**.
+- `npm test` / Vitest — **259 test files passed, 1 skipped; 1,793 tests passed, 1 skipped (1,794 total)**.
+- `npm run typecheck:renderer` / TypeScript — **PASS** (exit 0).
+- `npm run build:renderer` / Vite — **PASS**, 840 modules transformed.
+- Non-blocking warning seen during Vitest: `NaN` invalid for CSS `left` in a rendered test. No evidence here that this refactor introduced the warning; track separately if reproducible.
+- These Linux CI results do **not** establish Windows Tauri/portable builds, manual scanner UI acceptance, or independent before/after real-market-data equivalence. Codex/local testing is required before merge.
