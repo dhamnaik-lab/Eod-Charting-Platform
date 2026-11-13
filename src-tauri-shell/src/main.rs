@@ -799,6 +799,29 @@ fn settings_section_payload(section: &'static str) -> Option<Value> {
 }
 
 fn main() {
+    // Maintenance paths are resolved before Tauri startup.
+    let args: Vec<_> = std::env::args_os().collect();
+    let _maintenance_database_use = if args.iter().any(|arg| arg.to_str().is_some_and(|arg| arg.starts_with("--maintenance-corporate-action-"))) {
+        match database::database_use::acquire_use() {
+            Ok(permit) => {
+                for pair in args.windows(2).filter(|pair| pair[0] == "--database-file") {
+                    let path = std::path::Path::new(&pair[1]);
+                    let folder = path.parent().filter(|p| !p.as_os_str().is_empty()).unwrap_or_else(|| std::path::Path::new("."));
+                    if let Err(error) = database::require_database_not_marked(folder) {
+                        eprintln!("{error}");
+                        std::process::exit(1);
+                    }
+                }
+                Some(permit)
+            }
+            Err(error) => {
+                eprintln!("{error}");
+                std::process::exit(1);
+            }
+        }
+    } else {
+        None
+    };
     match try_run_five_pair_consolidation_apply_maintenance(std::env::args()) {
         Ok(Some(exit_code)) => std::process::exit(exit_code),
         Ok(None) => {}

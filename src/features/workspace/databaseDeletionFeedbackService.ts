@@ -1,6 +1,22 @@
 export interface DatabaseDeletionFailure {
   path: string;
   message: string;
+  reason?: string;
+}
+
+const deletionReasonPattern = /^(DATABASE_(?:DELETION_(?:REFUSED|FAILED(?:_MARKED)?|PARTIAL|REGISTRY_FAILED|INTERRUPTED)|OPERATION_BUSY)|PRICE_STORE_OPERATION_BUSY)(?::\s*|$)/;
+
+function formatDeletionFailure(path: string, error: unknown): DatabaseDeletionFailure {
+  const message = error instanceof Error ? error.message : String(error);
+  const match = message.match(deletionReasonPattern);
+  if (!match) return { path, message };
+
+  const reason = match[1];
+  const detail = message.slice(match[0].length);
+  if (reason.endsWith('_BUSY')) {
+    return { path, reason, message: 'Database operations are in progress. Try again after they finish.' };
+  }
+  return { path, reason, message: detail || message };
 }
 
 export interface DatabaseDeletionResult {
@@ -26,10 +42,7 @@ export async function deleteDatabasesSequentially(
     } catch (error) {
       return {
         deletedPaths,
-        failure: {
-          path,
-          message: error instanceof Error ? error.message : String(error),
-        },
+        failure: formatDeletionFailure(path, error),
         unattemptedPaths: paths.slice(deletedPaths.length + 1),
       };
     }

@@ -259,7 +259,7 @@ export function IndicatorPickerDialog({ onAdd, onClose }: IndicatorPickerDialogP
                 setMasterFilter('favorites');
               }}
             >
-              <span style={{ flex: 1, fontWeight: 600, color: 'var(--amber, #f59e0b)' }}>★ Favorites</span>
+              <span style={{ flex: 1, fontWeight: 600, color: 'var(--yellow-text)' }}>★ Favorites</span>
               <span style={railBadgeStyle}>{totalFavoritesCount}</span>
             </button>
 

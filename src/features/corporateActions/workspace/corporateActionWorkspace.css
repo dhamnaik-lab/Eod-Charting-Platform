@@ -11,6 +11,58 @@
   background: var(--workspace-bg);
 }
 
+.corporate-action-section-nav {
+  display: flex;
+  flex-wrap: wrap;
+  flex: 0 0 auto;
+  gap: 4px;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg2);
+}
+
+.corporate-action-section-nav button {
+  padding: 6px 10px;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  cursor: pointer;
+}
+
+.corporate-action-section-nav button[aria-current="page"],
+.corporate-action-section-nav button:hover:not(:disabled) {
+  background: var(--bg3);
+  border-color: var(--border2);
+}
+
+.corporate-action-section-nav button:disabled {
+  color: var(--text-dim);
+  cursor: default;
+}
+
+.corporate-action-section-content {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  overflow: auto;
+}
+
+.corporate-action-report-content {
+  padding: 12px;
+  overflow: auto;
+}
+
+.corporate-action-workflow-help {
+  flex: 0 0 auto;
+  padding: 5px 10px;
+  border-bottom: 1px solid var(--border);
+  color: var(--text-dim);
+}
+
 .corporate-action-workspace-topbar {
   display: flex;
   align-items: center;

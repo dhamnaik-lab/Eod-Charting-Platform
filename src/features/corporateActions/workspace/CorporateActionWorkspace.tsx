@@ -14,6 +14,22 @@ export interface CorporateActionWorkspaceProps {
   statusContent?: ReactNode;
 }
 
+const CORPORATE_ACTION_SECTIONS = [
+  ['actions', 'Actions'],
+  ['identity', 'Identity & History'],
+  ['reports', 'History & Reports'],
+  ['maintenance', 'Maintenance'],
+] as const;
+
+export type CorporateActionSection = (typeof CORPORATE_ACTION_SECTIONS)[number][0];
+
+interface UnifiedWorkspaceProps {
+  section: CorporateActionSection;
+  onSectionChange: (section: CorporateActionSection) => void;
+  busy: boolean;
+  children: ReactNode;
+}
+
 const STAGE_COPY: Readonly<
   Record<CorporateActionWorkflowStage, { title: string; description: string }>
 > = {
@@ -35,7 +51,30 @@ const STAGE_COPY: Readonly<
   },
 };
 
-export function CorporateActionWorkspace({
+export function CorporateActionWorkspace(props: CorporateActionWorkspaceProps | UnifiedWorkspaceProps) {
+  if ('section' in props) {
+    const { section, onSectionChange, busy, children } = props;
+    const label = CORPORATE_ACTION_SECTIONS.find(([id]) => id === section)?.[1];
+    return (
+      <section className="corporate-action-workspace" data-corporate-action-workspace aria-label="Corporate Actions workspace">
+        <nav className="corporate-action-section-nav" aria-label="Corporate Actions sections">
+          {CORPORATE_ACTION_SECTIONS.map(([id, title]) => (
+            <button key={id} type="button" aria-current={id === section ? 'page' : undefined}
+              disabled={busy && id !== section} onClick={() => onSectionChange(id)}>
+              {title}
+            </button>
+          ))}
+        </nav>
+        <section className="corporate-action-section-content" aria-label={label}>
+          {children}
+        </section>
+      </section>
+    );
+  }
+  return <CorporateActionStageWorkspace {...props} />;
+}
+
+function CorporateActionStageWorkspace({
   activeStage,
   counts,
   onClose,

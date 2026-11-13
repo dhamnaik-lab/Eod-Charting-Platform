@@ -23,9 +23,8 @@ describe('Corporate Action Identity Import characterization authority', () => {
     const source = readSource();
     const identity = sliceBetween(source, 'const renderIdentityTab = () => (', 'const renderImportsTab');
 
-    expect(source).toContain("setActiveCorporateTab('manual')");
-    expect(source).toContain('Manual Entry');
-    expect(source).toContain("setActiveCorporateTab('identity')");
+    expect(source).toContain("activeCorporateTab === 'manual' && renderManualTab()");
+    expect(source).toContain("section === 'identity' && renderIdentityTab()");
     expect(source).toContain('Identity Import');
 
     for (const label of [

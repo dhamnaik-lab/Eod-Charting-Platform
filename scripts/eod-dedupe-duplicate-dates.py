@@ -156,6 +156,11 @@ def main() -> int:
                 kept_records.append(record)
                 continue
             if date in seen:
+                # The survivor was already kept for this date; this record is a
+                # redundant duplicate. Count it, otherwise a file whose survivor
+                # sorts first reports zero drops and is silently left out of the
+                # plan - so --apply would do nothing at all.
+                dropped += 1
                 continue
             # first record on a duplicated date: keep only if it is the survivor
             wanted = decision["keep"]

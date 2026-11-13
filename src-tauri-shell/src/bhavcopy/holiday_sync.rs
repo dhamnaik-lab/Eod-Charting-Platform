@@ -105,7 +105,7 @@ fn preview_slot() -> &'static Mutex<Option<PendingPreview>> {
 fn hex_sha(bytes: &[u8]) -> String {
     format!("{:X}", Sha256::digest(bytes))
 }
-fn active_folder(app: &AppHandle) -> AppResult<PathBuf> {
+fn active_folder(app: &AppHandle) -> AppResult<crate::database::database_use::DatabasePath> {
     crate::database::resolve_active_database_folder(app)?
         .ok_or_else(|| "Open a database before syncing holidays.".to_string())
 }
@@ -296,11 +296,8 @@ fn registry_documents(
     rows.collect::<Result<Vec<_>, _>>().map_err(|e| e.to_string())
 }
 
-/// "January 26,2023" — the date layout used by the 2019–2021 and 2023–2025 BSE
-/// annual notices, where the 2026 notice uses `DD-Mon-YY`.
-fn parse_bse_long_date(month: &str, day_year: &str) -> Option<NaiveDate> {
-    let (day, year) = day_year.split_once(',')?;
-    let month = match month {
+fn bse_month_number(month: &str) -> Option<u32> {
+    Some(match month {
         "January" => 1,
         "February" => 2,
         "March" => 3,
@@ -314,8 +311,26 @@ fn parse_bse_long_date(month: &str, day_year: &str) -> Option<NaiveDate> {
         "November" => 11,
         "December" => 12,
         _ => return None,
-    };
-    NaiveDate::from_ymd_opt(year.trim().parse().ok()?, month, day.trim().parse().ok()?)
+    })
+}
+
+/// "January 26,2023" — the 2019–2021 and 2023–2025 BSE annual notices.
+fn parse_bse_long_date(month: &str, day_year: &str) -> Option<NaiveDate> {
+    let (day, year) = day_year.split_once(',')?;
+    NaiveDate::from_ymd_opt(
+        year.trim().parse().ok()?,
+        bse_month_number(month)?,
+        day.trim().parse().ok()?,
+    )
+}
+
+/// "26 January 2024" — the 2024 BSE annual notice layout (three tokens).
+fn parse_bse_day_month_year(day: &str, month: &str, year: &str) -> Option<NaiveDate> {
+    NaiveDate::from_ymd_opt(
+        year.parse().ok()?,
+        bse_month_number(month)?,
+        day.parse().ok()?,
+    )
 }
 
 /// Generic BSE annual-notice parser: the notice identity and the expected row
@@ -346,7 +361,21 @@ fn parse_bse_notice(
         //   older       "January 26,2023"     (two tokens)
         let parsed = match NaiveDate::parse_from_str(tokens[i], "%d-%b-%y") {
             Ok(date) => Some((date, i + 1)),
-            Err(_) => parse_bse_long_date(tokens[i], tokens[i + 1]).map(|date| (date, i + 2)),
+            Err(_) => {
+                let long_form = if i + 1 < tokens.len() {
+                    parse_bse_long_date(tokens[i], tokens[i + 1]).map(|date| (date, i + 2))
+                } else {
+                    None
+                };
+                long_form.or_else(|| {
+                    if i + 2 < tokens.len() {
+                        parse_bse_day_month_year(tokens[i], tokens[i + 1], tokens[i + 2])
+                            .map(|date| (date, i + 3))
+                    } else {
+                        None
+                    }
+                })
+            }
         };
         let Some((date, weekday_index)) = parsed else {
             i += 1;
@@ -668,7 +697,7 @@ pub async fn preview_official_exchange_holidays(app: AppHandle, year: i32) -> Ap
         let token = hex_sha(digest.as_bytes());
         let data = OfficialHolidaySyncPreview {token,year,exchanges};
         *preview_slot().lock().map_err(|_|"Holiday preview lock unavailable".to_string())? = Some(PendingPreview {
-            created:Instant::now(),db_folder:folder,legacy_hash:legacy,original_snapshot_hash:originals,data:data.clone()
+            created:Instant::now(),db_folder:folder.to_path_buf(),legacy_hash:legacy,original_snapshot_hash:originals,data:data.clone()
         });
         Ok(data)
     }).await.map_err(|e|e.to_string())?
@@ -711,8 +740,9 @@ pub fn apply_official_exchange_holidays(app:AppHandle, token:String, exchanges:V
     let mut slot = preview_slot().lock().map_err(|_|"Holiday preview lock unavailable".to_string())?;
     let pending = slot.as_ref().ok_or_else(||"Preview expired; fetch official calendars again.".to_string())?;
     if pending.data.token != token || pending.created.elapsed() > PREVIEW_TTL {return Err("Official preview token expired or mismatched.".into());}
-    if active_folder(&app)? != pending.db_folder {return Err("Active database changed; preview invalidated.".into());}
-    let mut db = crate::database::open_connection_for_folder(&pending.db_folder,false)?;
+    let active = active_folder(&app)?;
+    if active.as_ref() != pending.db_folder.as_path() {return Err("Active database changed; preview invalidated.".into());}
+    let mut db = crate::database::open_connection_for_folder(&active,false)?;
     if legacy_hash(&db)? != pending.legacy_hash || snapshot_hash(&db)? != pending.original_snapshot_hash {
         return Err("Holiday records changed since preview; refresh before accepting.".into());
     }
@@ -730,7 +760,7 @@ pub fn apply_official_exchange_holidays(app:AppHandle, token:String, exchanges:V
     }
     // If the active database changes during the transaction, drop the
     // uncommitted transaction rather than publish to the previous profile.
-    if active_folder(&app)? != pending.db_folder {
+    if active_folder(&app)? != active {
         return Err("Active database changed during holiday acceptance; transaction rolled back.".into());
     }
     tx.commit().map_err(|e|e.to_string())?;
@@ -1216,6 +1246,45 @@ pub fn apply_official_holiday_csv(
 }
 
 #[cfg(test)]
+mod hol06_bse_third_layout {
+    use super::*;
+
+    // The 2024 BSE notice writes "26 January 2024", a three-token date.
+    fn notice_2024(rows: usize) -> Vec<u8> {
+        let mut body = String::from("Trading Members are hereby informed ");
+        for day in 1..=rows {
+            let date = NaiveDate::from_ymd_opt(2024, 1, day as u32).unwrap();
+            let weekday = super::super::calendar::weekday_name(date.weekday());
+            body.push_str(&format!(
+                "{} Holiday {:02} {} {} ",
+                day,
+                date.day(),
+                date.format("%B"),
+                date.year()
+            ));
+            body.push_str(&format!("{} ", weekday));
+        }
+        format!("<html>{body}</html>").into_bytes()
+    }
+
+    #[test]
+    fn parses_day_month_year_notices() {
+        let rows = parse_bse_notice(&notice_2024(12), 2024, &[], Some(12)).unwrap();
+        assert_eq!(rows.len(), 12);
+        assert_eq!(rows[0].date, "2024-01-01");
+        // The day token belongs to the date, so it is not part of the name.
+        assert_eq!(rows[0].name, "Holiday");
+        // Weekday mismatch still fails closed for this layout too.
+        let broken = String::from_utf8(notice_2024(12))
+            .unwrap()
+            .replacen("Monday", "Tuesday", 1);
+        assert!(parse_bse_notice(broken.as_bytes(), 2024, &[], Some(12)).is_err());
+        // A wrong row count is still refused.
+        assert!(parse_bse_notice(&notice_2024(12), 2024, &[], Some(19)).is_err());
+    }
+}
+
+#[cfg(test)]
 mod hol06_csv_import {
     use super::*;
 
@@ -1278,6 +1347,9 @@ mod hol06_csv_import {
 #[serde(rename_all = "camelCase")]
 pub struct HolidayCalendarView {
     pub year: i32,
+    /// Every year that has an accepted snapshot, newest first. The tab builds its
+    /// year selector from this, so a year with data can never be unreachable.
+    pub available_years: Vec<i32>,
     pub official_entries: Vec<OfficialHolidayEntry>,
     pub sources: Vec<HolidaySourceRow>,
     pub snapshots: Vec<OfficialHolidayAcceptedSnapshot>,
@@ -1330,8 +1402,18 @@ pub fn get_holiday_calendar_view(app: AppHandle, year: i32) -> AppResult<Holiday
         .collect::<Result<Vec<_>, _>>()
         .map_err(|e| e.to_string())?;
 
+    let mut years_stmt = db
+        .prepare("SELECT DISTINCT year FROM official_exchange_holiday_snapshots ORDER BY year DESC")
+        .map_err(|e| e.to_string())?;
+    let available_years = years_stmt
+        .query_map([], |row| row.get::<_, i32>(0))
+        .map_err(|e| e.to_string())?
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|e| e.to_string())?;
+
     Ok(HolidayCalendarView {
         year,
+        available_years,
         official_entries,
         sources,
         snapshots,

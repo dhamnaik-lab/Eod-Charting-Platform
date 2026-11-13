@@ -1290,7 +1290,10 @@ pub(crate) fn can_resume_buffered_checkpoint(state: &RecoverySessionState) -> bo
     )
 }
 
-pub(crate) fn spawn_background_bhavcopy_checkpoint(app_handle: AppHandle, database_file_path: PathBuf) {
+pub(crate) fn spawn_background_bhavcopy_checkpoint(
+    app_handle: AppHandle,
+    database_file_path: crate::database::database_use::DatabasePath,
+) {
     tauri::async_runtime::spawn_blocking(move || {
         if let Err(error) =
             checkpoint_pending_buffered_sessions_background(&app_handle, &database_file_path)
@@ -2400,9 +2403,18 @@ pub(crate) fn insert_parsed_bhavcopy_files_with_durability_and_recovery_baseline
     let mut insert_eod = transaction
         .prepare(
             "
-              INSERT OR REPLACE INTO eod_prices
+              INSERT INTO eod_prices
               (symbol, exchange, date, open, high, low, close, prev_close, volume, open_interest, trades)
               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+              ON CONFLICT(symbol, exchange, date) DO UPDATE SET
+                open = excluded.open,
+                high = excluded.high,
+                low = excluded.low,
+                close = excluded.close,
+                prev_close = excluded.prev_close,
+                volume = excluded.volume,
+                open_interest = excluded.open_interest,
+                trades = excluded.trades
             ",
         )
         .map_err(|error| error.to_string())?;

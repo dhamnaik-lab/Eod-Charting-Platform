@@ -1943,6 +1943,7 @@ export interface OfficialHolidayCsvImportResult {
 /** HOL-06: everything the Market Holiday tab needs for one year, in one call. */
 export interface HolidayCalendarView {
   year: number;
+  availableYears: number[];
   officialEntries: OfficialHolidayEntry[];
   sources: HolidaySourceRow[];
   snapshots: OfficialHolidayAcceptedSnapshot[];

@@ -8,6 +8,7 @@ pub(crate) enum PriceStoreOperationKind {
     BhavcopyWrite,
     ManualImport,
     QuoteMutation,
+    DatabaseDeletion,
 }
 
 pub(crate) struct PriceStoreOperationPermit {

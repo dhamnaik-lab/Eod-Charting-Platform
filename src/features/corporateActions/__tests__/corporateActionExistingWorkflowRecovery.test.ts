@@ -3,7 +3,7 @@ import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 describe('Corporate Action existing workflow recovery', () => {
-  it('routes the preserved working CorporateActionDialog as the sole active Corporate Action surface', () => {
+  it('routes one managed workspace with all four operational sections', () => {
     const root = readFileSync(resolve(process.cwd(), 'src/RootApp.tsx'), 'utf8');
     const databaseTools = readFileSync(
       resolve(process.cwd(), 'src/components/DatabaseToolsDialogs.tsx'),
@@ -16,12 +16,19 @@ describe('Corporate Action existing workflow recovery', () => {
     );
     const main = readFileSync(resolve(process.cwd(), 'src-tauri-shell/src/main.rs'), 'utf8');
 
-    expect(databaseTools).toContain('function CorporateActionDialog');
-    expect(databaseTools).toContain('Manual Entry');
-    expect(databaseTools).toContain('Identity Import');
-    expect(databaseTools).toContain('Official Imports');
-    expect(databaseTools).toContain('Scan Database');
-    expect(databaseTools).toContain('Review Issues');
+    expect(databaseTools).toContain('function UnifiedCorporateActions');
+    expect(databaseTools.match(/<UnifiedCorporateActions\b/g)).toHaveLength(1);
+    expect(databaseTools).toContain('<CorporateActionManagedWindow id={CORPORATE_ACTION_WINDOW_ID}');
+    expect(databaseTools).toContain('<CorporateActionWorkspace section={section}');
+    expect(databaseTools).toContain("section === 'identity' && renderIdentityTab()");
+    expect(databaseTools).toContain('<CorporateActionMaintenanceWorkspace section={maintenanceSection}');
+    expect(databaseTools).toContain("activeCorporateTab === 'manual' && renderManualTab()");
+    expect(databaseTools).toContain("activeCorporateTab === 'imports' && renderImportsTab()");
+    expect(databaseTools).toContain("activeCorporateTab === 'scan' && renderScanTab()");
+    expect(databaseTools).toContain("activeCorporateTab === 'issues' && renderIssuesTab()");
+    expect(databaseTools).toContain("classicReport === 'reconciliation'");
+    expect(databaseTools).toContain('<CorporateActionReconciliationPanel api={api}');
+    expect(databaseTools).not.toContain('<CorporateActionDialog');
     expect(databaseTools).toContain('fetchOfficialCorporateActionsAndReload');
     expect(databaseTools).toContain('loadCorporateActionImportRows');
     expect(databaseTools).toContain("from '@/features/corporateActions/legacy/corporateActionImportOperations'");

@@ -3,10 +3,7 @@ import { resolve } from 'node:path';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 import { useWindowStore } from '@/store/windowStore';
-import {
-  CORPORATE_ACTION_MAINTENANCE_WINDOW_ID,
-  CORPORATE_ACTION_NORMAL_WINDOW_ID,
-} from '../workspace/CorporateActionManagedWindow';
+import { CORPORATE_ACTION_WINDOW_ID } from '../workspace/CorporateActionManagedWindow';
 import {
   buildCorporateActionNormalDefaultFetchRange,
   buildCorporateActionNormalFetchInputs,
@@ -17,8 +14,7 @@ import {
 } from '../workspace/CorporateActionNormalWorkflowWorkspace';
 
 describe('Task 6A manual checkpoint corrections', () => {
-  it('keeps the managed-window reconstruction available as donor code but outside RootApp', () => {
-    const root = readFileSync(resolve(process.cwd(), 'src/RootApp.tsx'), 'utf8');
+  it('uses the managed window without forcing maximization on open', () => {
     const managed = readFileSync(
       resolve(
         process.cwd(),
@@ -27,14 +23,11 @@ describe('Task 6A manual checkpoint corrections', () => {
       'utf8',
     );
 
-    expect(CORPORATE_ACTION_NORMAL_WINDOW_ID).toBe('corporate-action-normal');
-    expect(CORPORATE_ACTION_MAINTENANCE_WINDOW_ID).toBe('corporate-action-maintenance');
-    expect(root).not.toContain('<CorporateActionManagedWindow');
-    expect(root).not.toContain('CORPORATE_ACTION_NORMAL_WINDOW_ID');
-    expect(root).not.toContain('CORPORATE_ACTION_MAINTENANCE_WINDOW_ID');
+    expect(CORPORATE_ACTION_WINDOW_ID).toBe('corporate-actions');
     expect(managed).toContain('<FloatingWindow');
     expect(managed).toContain('preserveChildrenWhenMinimized');
-    expect(managed).toContain('maximizeWindow(id)');
+    expect(managed).toContain('openWindow(id)');
+    expect(managed).not.toContain('maximizeWindow(id)');
   });
 
   it('preserves managed window state across minimize and restore with opt-in child preservation', () => {

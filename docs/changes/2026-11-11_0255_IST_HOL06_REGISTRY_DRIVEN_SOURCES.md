@@ -156,6 +156,8 @@ Note: after one Refresh, a **database switch** will still re-run the dependency-
 
 Two HOL-01 tests encoded the old auto-refresh contract and were rewritten: the tab test now asserts the *absence* of auto-load and the presence of the Refresh/version wiring; the database-change test asserts state is cleared **without** calling `loadHolidays()`.
 
+> **Superseded by [HOL-07](2026-11-13_IST_HOLIDAY_CALENDAR_ADVISORY.md) (13 Nov 2026):** the calendar no longer skips weekday holidays at all, so the contradiction guard and the holiday-skip counts described here are historical. Weekends remain the only calendar-driven skip.
+
 ## Historical source probe and older BSE date layout (11 November 2026)
 
 Probed every `official_or_primary_url` in the research package for 2019–2026: **all 16 returned HTTP 200** (8 NSE, 8 BSE). Two blockers surfaced:

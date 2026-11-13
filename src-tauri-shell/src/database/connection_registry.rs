@@ -8,6 +8,7 @@ use std::time::UNIX_EPOCH;
 use tauri::{AppHandle, Manager};
 
 use super::watchlists::load_watchlists;
+use super::{database_deletion, database_use::{self, DatabasePath}};
 use super::{
     emit_database_changed, load_db_stats, now_iso, path_to_string, prepare_database_connection,
     set_price_storage_mode, AppResult, AppSnapshot, DbStats, KnownDatabase, PathInput,
@@ -81,6 +82,8 @@ pub async fn get_db_stats(app: AppHandle) -> AppResult<Option<DbStats>> {
 }
 
 pub(crate) fn ensure_registry_initialized(app: &AppHandle) -> AppResult<()> {
+    let _permit = database_use::acquire_use()?;
+    let _registry = database_use::lock_registry()?;
     let _ = read_registry(app)?;
     Ok(())
 }
@@ -98,7 +101,9 @@ pub async fn create_database_interactive(
     let app_for_task = app.clone();
     let snapshot = tauri::async_runtime::spawn_blocking(move || {
         if let Some(folder_path) = selected_path {
-            create_database_at_internal(&app_for_task, folder_path, requested_mode)
+            let _permit = database_use::acquire_use()?;
+            let _registry = database_use::lock_registry()?;
+            create_database_at_internal(&app_for_task, folder_path, requested_mode, _registry)
         } else {
             get_app_snapshot_internal(
                 &app_for_task,
@@ -133,7 +138,9 @@ pub async fn open_database_interactive(app: AppHandle) -> AppResult<AppSnapshot>
     let app_for_task = app.clone();
     let snapshot = tauri::async_runtime::spawn_blocking(move || {
         if let Some(folder_path) = selected_path {
-            open_database_at_internal(&app_for_task, folder_path)
+            let _permit = database_use::acquire_use()?;
+            let _registry = database_use::lock_registry()?;
+            open_database_at_internal(&app_for_task, folder_path, _registry)
         } else {
             get_app_snapshot_internal(
                 &app_for_task,
@@ -163,7 +170,9 @@ pub async fn open_database_interactive(app: AppHandle) -> AppResult<AppSnapshot>
 pub async fn activate_database_path(app: AppHandle, input: PathInput) -> AppResult<AppSnapshot> {
     let app_for_task = app.clone();
     let snapshot = tauri::async_runtime::spawn_blocking(move || {
-        open_database_at_internal(&app_for_task, PathBuf::from(input.file_path))
+        let _permit = database_use::acquire_use()?;
+        let _registry = database_use::lock_registry()?;
+        open_database_at_internal(&app_for_task, PathBuf::from(input.file_path), _registry)
     })
     .await
     .map_err(|error| error.to_string())??;
@@ -179,16 +188,19 @@ pub async fn activate_database_path(app: AppHandle, input: PathInput) -> AppResu
 
 #[tauri::command]
 pub fn close_database(app: AppHandle) -> AppResult<AppSnapshot> {
+    let _permit = database_use::acquire_use()?;
+    let _registry = database_use::lock_registry()?;
     let mut registry = read_registry(&app)?;
     registry.last_active_path = None;
     write_registry(&app, &registry)?;
     clear_cached_connection(&app)?;
-    let snapshot = get_app_snapshot_internal(
+    let snapshot = snapshot_locked(
         &app,
         Some(&SnapshotOptions {
             include_stats: Some(false),
             include_watchlists: Some(false),
         }),
+        _registry,
     )?;
     log_runtime_event(&app, "INFO", "close-database", None);
     emit_database_changed(&app, &snapshot)?;
@@ -197,18 +209,21 @@ pub fn close_database(app: AppHandle) -> AppResult<AppSnapshot> {
 
 #[tauri::command]
 pub fn remove_recent_database(app: AppHandle, input: PathInput) -> AppResult<AppSnapshot> {
+    let _permit = database_use::acquire_use()?;
+    let _registry = database_use::lock_registry()?;
     let folder_path = normalize_database_folder_path(PathBuf::from(input.file_path))?;
     let folder_string = path_to_string(&folder_path);
     let mut registry = read_registry(&app)?;
     registry.recent.retain(|entry| entry.path != folder_string);
     write_registry(&app, &registry)?;
 
-    let snapshot = get_app_snapshot_internal(
+    let snapshot = snapshot_locked(
         &app,
         Some(&SnapshotOptions {
             include_stats: Some(false),
             include_watchlists: Some(false),
         }),
+        _registry,
     )?;
 
     log_runtime_event(
@@ -223,61 +238,300 @@ pub fn remove_recent_database(app: AppHandle, input: PathInput) -> AppResult<App
 
 #[tauri::command]
 pub async fn delete_database(app: AppHandle, input: PathInput) -> AppResult<AppSnapshot> {
-    let folder_path = normalize_database_folder_path(PathBuf::from(input.file_path))?;
-    let folder_string = path_to_string(&folder_path);
-
-    // Update registry and clear connection before deletion
-    {
-        let mut registry = read_registry(&app)?;
-
-        if registry.last_active_path.as_deref() == Some(folder_string.as_str()) {
-            registry.last_active_path = None;
-        }
-
-        registry.recent.retain(|entry| entry.path != folder_string);
-        write_registry(&app, &registry)?;
-    }
-
-    clear_cached_connection(&app)?;
-
-    // Perform heavy filesystem deletion in a blocking worker
-    let folder_path_for_task = folder_path.clone();
     tauri::async_runtime::spawn_blocking(move || {
-        if folder_path_for_task.exists() {
-            fs::remove_dir_all(&folder_path_for_task).map_err(|error| error.to_string())?;
+        #[cfg(windows)]
+        return delete_database_locked(&app, &input.file_path);
+        #[cfg(not(windows))]
+        {
+            let _ = (app, input);
+            Err(database_deletion::refuse("Handle-bound database deletion requires Windows NTFS."))
         }
-        Ok::<(), String>(())
     })
     .await
-    .map_err(|error| error.to_string())??;
+    .map_err(|error| format!("{}: Deletion worker ended unexpectedly: {error}", database_deletion::PARTIAL))?
+}
 
-    let snapshot = get_app_snapshot_internal(
-        &app,
-        Some(&SnapshotOptions {
-            include_stats: Some(false),
-            include_watchlists: Some(false),
-        }),
-    )?;
+#[cfg(windows)]
+fn delete_database_locked(app: &AppHandle, input: &str) -> AppResult<AppSnapshot> {
+    use super::price_store_operation_lock::{try_acquire_price_store_operation, PriceStoreOperationKind};
+    use database_deletion::{identity, refuse, PinnedTree};
 
-    log_runtime_event(
-        &app,
-        "INFO",
-        "delete-database",
-        Some(folder_string.as_str()),
-    );
-    emit_database_changed(&app, &snapshot)?;
+    let state_dir = database_use::state_dir()?;
+    let use_permit = database_use::acquire_deletion(&state_dir)?;
+    let price_permit = try_acquire_price_store_operation(PriceStoreOperationKind::DatabaseDeletion)?;
+    let _registry_lock = database_use::lock_registry()?;
+    let requested = database_deletion::validate_path(input)?;
+    let tree = PinnedTree::open(requested).map_err(preflight_failure)?;
+    let canonical = requested.canonicalize().map_err(refuse)?;
+    if identity(&canonical).map_err(refuse)? != tree.id {
+        return Err(refuse("The requested directory changed during verification."));
+    }
+    database_deletion::require_unblocked(&canonical)?;
 
-    Ok(snapshot)
+    let runtime = resolve_runtime_context(app)?;
+    let working_directory = std::env::current_dir().map_err(refuse)?;
+    let profile = get_registry_path(app)?;
+    let profile_dir = profile.parent().ok_or_else(|| refuse("The app profile has no directory."))?;
+    let default_profile = crate::app_profile::get_default_app_profile_directory(app)?;
+    for protected in [&working_directory, &runtime.executable_dir] {
+        if contains_identity(protected, tree.id)? {
+            return Err(refuse("The target contains a protected application directory."));
+        }
+    }
+    for protected in [
+        runtime.data_dir.as_path(), runtime.state_dir.as_path(), runtime.log_dir.as_path(),
+        profile_dir, default_profile.as_path(), state_dir.as_path(),
+    ] {
+        if contains_identity(protected, tree.id)? || protected.canonicalize().ok().is_some_and(|protected| {
+            identity(&protected).ok().is_some_and(|id| contains_identity(&canonical, id).unwrap_or(true))
+        }) {
+            return Err(refuse("The target overlaps a protected application directory."));
+        }
+    }
+    let safety_store = PinnedTree::pin_marker_store(&state_dir).map_err(preflight_failure)?;
+
+    // Read the existing registry without initialization or migration on the deletion path.
+    let mut registry = read_existing_registry(&profile)?;
+    let (matching_recents, active_matches) = registry_deletion_matches(&registry, tree.id)?;
+    verify_deletion_ownership(&tree.path, false)?;
+    let cache_closed = close_matching_cached_connection(app, tree.id)?;
+    let (database, database_id, evidence) = verify_deletion_ownership(&tree.path, true)?;
+    tree.preflight(&database).map_err(preflight_failure)?;
+    let pinned_database = tree.pin_database(&database, database_id).map_err(preflight_failure)?;
+    drop(evidence);
+    let deletion = VerifiedDeletion { tree, canonical, database, pinned_database, matching_recents, active_matches };
+    let outcome = complete_verified_deletion(&state_dir, &profile, &mut registry, deletion, |_| Ok(()));
+    // The registry remains serialized while publishing. Renderer listeners
+    // can now acquire a shared use permit for their follow-up snapshot.
+    drop(safety_store);
+    drop(price_permit);
+    drop(use_permit);
+    if let Err(error) = outcome {
+        if active_matches || cache_closed {
+            if let Ok(persisted) = read_existing_registry(&profile) {
+                publish_deletion_snapshot(app, &persisted);
+            }
+        }
+        return Err(error);
+    }
+    log_runtime_event(app, "INFO", "delete-database", Some(input));
+    Ok(publish_deletion_snapshot(app, &registry))
+}
+
+#[cfg(windows)]
+fn registry_deletion_matches(
+    registry: &DatabaseRegistryFile,
+    target: database_deletion::Identity,
+) -> AppResult<(Vec<bool>, bool)> {
+    use database_deletion::{identity, refuse};
+    let mut matching_recents = Vec::with_capacity(registry.recent.len());
+    let mut verified_registration = false;
+    for entry in &registry.recent {
+        let path = Path::new(&entry.path);
+        let matched = identity(path).is_ok_and(|id| id == target);
+        if !matched && contains_identity(path, target)? {
+            return Err(refuse("The target contains another registered database."));
+        }
+        if matched && database_deletion::has_redirect(path).is_ok_and(|redirected| !redirected) {
+            verified_registration = true;
+        }
+        matching_recents.push(matched);
+    }
+    if !verified_registration {
+        return Err(refuse("No recent database registration could be verified without redirection."));
+    }
+
+    let active_matches = if let Some(path) = registry.last_active_path.as_deref() {
+        let path = Path::new(path);
+        let matched = identity(path).is_ok_and(|id| id == target);
+        if !matched && contains_identity(path, target)? {
+            return Err(refuse("The target contains the active database."));
+        }
+        matched
+    } else {
+        false
+    };
+    Ok((matching_recents, active_matches))
+}
+
+#[cfg(windows)]
+struct VerifiedDeletion {
+    tree: database_deletion::PinnedTree,
+    canonical: PathBuf,
+    database: PathBuf,
+    pinned_database: fs::File,
+    matching_recents: Vec<bool>,
+    active_matches: bool,
+}
+
+#[cfg(windows)]
+fn complete_verified_deletion(
+    state_dir: &Path,
+    profile: &Path,
+    registry: &mut DatabaseRegistryFile,
+    deletion: VerifiedDeletion,
+    before_entry: impl FnMut(&Path) -> std::io::Result<()>,
+) -> AppResult<()> {
+    use database_deletion::{Marker, FAILED, FAILED_MARKED, PARTIAL, REGISTRY_FAILED};
+    let VerifiedDeletion { tree, canonical, database, pinned_database, matching_recents, active_matches } = deletion;
+    let mut markers = database_deletion::read_markers(state_dir)?;
+    let id = tree.id;
+    markers.push(Marker { id, path: canonical.clone() });
+    database_deletion::write_markers(state_dir, &markers)
+        .map_err(|error| format!("{FAILED}: Could not persist the safety marker: {error}"))?;
+    if active_matches {
+        registry.last_active_path = None;
+        if let Err(error) = write_registry_at(profile, registry) {
+            let detail = clear_deletion_marker(state_dir, &mut markers, id).err();
+            return Err(format!("{FAILED}: Could not clear the active database pointer: {error}{}",
+                detail.map_or_else(String::new, |detail| format!(". Safety marker retained: {detail}"))));
+        }
+    }
+
+    if let Err(failure) = tree.remove((&database, pinned_database), before_entry) {
+        // After the destructive phase begins, any unconfirmed outcome retains the marker.
+        let reason = if failure.removed == 0 { FAILED_MARKED } else { PARTIAL };
+        return Err(format!("{reason}: Removed {} entries from {}. The safety marker was retained. Windows reported: {}",
+            failure.removed, canonical.display(), failure.error));
+    }
+
+    let mut matches = matching_recents.into_iter();
+    registry.recent.retain(|_| !matches.next().expect("one match for each recent entry"));
+    if let Err(error) = write_registry_at(profile, registry) {
+        return Err(format!("{REGISTRY_FAILED}: The directory was removed but the registry could not be saved: {error}"));
+    }
+    clear_deletion_marker(state_dir, &mut markers, id)
+        .map_err(|error| format!("{REGISTRY_FAILED}: The directory and recent entry were removed but the safety marker could not be cleared: {error}"))
+}
+
+#[cfg(windows)]
+fn clear_deletion_marker(
+    state_dir: &Path,
+    markers: &mut Vec<database_deletion::Marker>,
+    id: database_deletion::Identity,
+) -> AppResult<()> {
+    markers.retain(|marker| marker.id != id);
+    database_deletion::write_markers(state_dir, markers)
+}
+
+#[cfg(windows)]
+fn preflight_failure(error: std::io::Error) -> String {
+    if matches!(error.raw_os_error(), Some(32 | 33)) {
+        return format!("{}: {error}", database_use::BUSY);
+    }
+    database_deletion::refuse(error)
+}
+
+#[cfg(windows)]
+fn contains_identity(path: &Path, target: database_deletion::Identity) -> AppResult<bool> {
+    let canonical = match path.canonicalize() {
+        Ok(path) => path,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(false),
+        Err(error) => return Err(database_deletion::refuse(error)),
+    };
+    for ancestor in canonical.ancestors() {
+        if database_deletion::identity(ancestor).map_err(database_deletion::refuse)? == target {
+            return Ok(true);
+        }
+    }
+    Ok(false)
+}
+
+#[cfg(windows)]
+pub(super) fn verify_deletion_ownership(folder: &Path, deny_writes: bool) -> AppResult<(PathBuf, database_deletion::Identity, Vec<fs::File>)> {
+    use database_deletion::{refuse, safe_component, verify_file};
+    let manifest_path = folder.join(DATABASE_MANIFEST_FILE);
+    let mut evidence = Vec::new();
+    let name = match fs::symlink_metadata(&manifest_path) {
+        Ok(_) => {
+            let (manifest_handle, _) = verify_file(&manifest_path, deny_writes).map_err(preflight_failure)?;
+            if manifest_handle.metadata().map_err(refuse)?.len() > 1_048_576 {
+                return Err(refuse("The database manifest is too large."));
+            }
+            let manifest: DatabaseManifest = serde_json::from_reader(&manifest_handle).map_err(refuse)?;
+            if manifest.format != "eod-chart-db" || manifest.version != 1 ||
+                !safe_component(std::ffi::OsStr::new(&manifest.db_file))
+            {
+                return Err(refuse("The database manifest has an invalid format or database filename."));
+            }
+            evidence.push(manifest_handle);
+            manifest.db_file
+        }
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => DATABASE_FILE_NAME.to_string(),
+        Err(error) => return Err(refuse(error)),
+    };
+    let database = folder.join(&name);
+    let (file, id) = verify_file(&database, deny_writes).map_err(preflight_failure)?;
+    evidence.push(file);
+    for suffix in ["-wal", "-shm", "-journal"] {
+        let path = folder.join(format!("{name}{suffix}"));
+        match fs::symlink_metadata(&path) {
+            Ok(_) => evidence.push(verify_file(&path, deny_writes).map_err(preflight_failure)?.0),
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+            Err(error) => return Err(refuse(error)),
+        }
+    }
+    let connection = Connection::open_with_flags(&database, OpenFlags::SQLITE_OPEN_READ_ONLY | OpenFlags::SQLITE_OPEN_NO_MUTEX)
+        .map_err(refuse)?;
+    let trusted_tables: i64 = connection.query_row(
+        "SELECT count(*) FROM sqlite_master WHERE type = 'table' AND name IN ('instruments', 'eod_prices', 'download_log')",
+        [], |row| row.get(0),
+    ).map_err(refuse)?;
+    if trusted_tables != 3 {
+        return Err(refuse("The SQLite file does not have the EOD Chart database schema."));
+    }
+    for sql in [
+        "SELECT symbol, exchange, isin FROM instruments LIMIT 0",
+        "SELECT symbol, exchange, date, open, high, low, close FROM eod_prices LIMIT 0",
+        "SELECT trade_date, exchange, rows_inserted FROM download_log LIMIT 0",
+    ] {
+        connection.prepare(sql).map_err(refuse)?;
+    }
+    Ok((database, id, evidence))
+}
+
+#[cfg(windows)]
+fn close_matching_cached_connection(app: &AppHandle, id: database_deletion::Identity) -> AppResult<bool> {
+    let state = app.state::<ActiveDatabaseConnectionState>();
+    let mut cached = state.cached.lock().map_err(|_| "Unable to lock the active database connection.")?;
+    if !cached.as_ref().is_some_and(|entry| database_deletion::identity(&entry.folder_path).is_ok_and(|cached_id| cached_id == id)) {
+        return Ok(false);
+    }
+    let entry = cached.take().expect("a matching cached connection");
+    if let Err((connection, error)) = entry.connection.close() {
+        *cached = Some(CachedDatabaseConnection { connection, ..entry });
+        return Err(format!("{}: Unable to close the database connection: {error}", database_deletion::FAILED));
+    }
+    Ok(true)
+}
+
+#[cfg(windows)]
+fn publish_deletion_snapshot(app: &AppHandle, registry: &DatabaseRegistryFile) -> AppSnapshot {
+    let active_database_path = registry.last_active_path.as_ref()
+        .filter(|path| database_deletion::blocked(Path::new(path)).is_ok_and(|blocked| !blocked))
+        .cloned();
+    let theme = if active_database_path.is_some() {
+        crate::app_profile::read_saved_app_profile_theme(app).unwrap_or_else(|_| "dark".to_string())
+    } else {
+        "dark".to_string()
+    };
+    let snapshot = AppSnapshot { active_database_path, known_databases: registry.recent.clone(), db_stats: None, watchlists: Vec::new(), theme };
+    if let Err(error) = emit_database_changed(app, &snapshot) {
+        log_runtime_event(app, "WARN", "delete-database-snapshot", Some(&error));
+    }
+    snapshot
 }
 
 fn create_database_at_internal(
     app: &AppHandle,
     folder_path: PathBuf,
     requested_mode: Option<PriceStorageMode>,
+    registry_guard: fs::File,
 ) -> AppResult<AppSnapshot> {
     let normalized_path = normalize_database_folder_path(folder_path)?;
+    database_deletion::require_unblocked(&normalized_path)?;
     if is_database_folder(&normalized_path)? {
-        return open_database_at_internal(app, normalized_path);
+        return open_database_at_internal(app, normalized_path, registry_guard);
     }
 
     prepare_database_folder(&normalized_path)?;
@@ -291,17 +545,19 @@ fn create_database_at_internal(
         Ok(())
     })?;
     touch_registry(app, &normalized_path, &manifest.name)?;
-    get_app_snapshot_internal(
+    snapshot_locked(
         app,
         Some(&SnapshotOptions {
             include_stats: Some(false),
             include_watchlists: Some(false),
         }),
+        registry_guard,
     )
 }
 
-fn open_database_at_internal(app: &AppHandle, folder_path: PathBuf) -> AppResult<AppSnapshot> {
+fn open_database_at_internal(app: &AppHandle, folder_path: PathBuf, registry_guard: fs::File) -> AppResult<AppSnapshot> {
     let normalized_path = normalize_database_folder_path(folder_path)?;
+    database_deletion::require_unblocked(&normalized_path)?;
     if !normalized_path.exists() || !normalized_path.is_dir() {
         return Err(format!(
             "Database folder does not exist: {}",
@@ -330,12 +586,13 @@ fn open_database_at_internal(app: &AppHandle, folder_path: PathBuf) -> AppResult
 
     with_connection_for_folder(app, &normalized_path, false, |_| Ok(()))?;
     touch_registry(app, &normalized_path, &manifest.name)?;
-    get_app_snapshot_internal(
+    snapshot_locked(
         app,
         Some(&SnapshotOptions {
             include_stats: Some(false),
             include_watchlists: Some(false),
         }),
+        registry_guard,
     )
 }
 
@@ -343,8 +600,16 @@ pub(crate) fn get_app_snapshot_internal(
     app: &AppHandle,
     options: Option<&SnapshotOptions>,
 ) -> AppResult<AppSnapshot> {
+    let _permit = database_use::acquire_use()?;
+    let registry_guard = database_use::lock_registry()?;
+    snapshot_locked(app, options, registry_guard)
+}
+
+fn snapshot_locked(app: &AppHandle, options: Option<&SnapshotOptions>, registry_guard: fs::File) -> AppResult<AppSnapshot> {
     let registry = read_registry(app)?;
-    let active_database_folder = resolve_active_database_folder(app)?;
+    let active_database_folder = resolve_active_folder_locked(app, &registry)?;
+    // Theme initialization can read legacy settings through with_active_connection.
+    drop(registry_guard);
     let active_database_path = active_database_folder
         .as_ref()
         .map(|value| path_to_string(value));
@@ -398,34 +663,43 @@ where
     with_connection_for_folder(app, &folder_path, false, callback).map(Some)
 }
 
-pub(crate) fn resolve_active_database_folder(app: &AppHandle) -> AppResult<Option<PathBuf>> {
-    let mut registry = read_registry(app)?;
+pub(crate) fn resolve_active_database_folder(app: &AppHandle) -> AppResult<Option<DatabasePath>> {
+    let permit = database_use::acquire_use()?;
+    let _registry = database_use::lock_registry()?;
+    let registry = read_registry(app)?;
+    Ok(resolve_active_folder_locked(app, &registry)?.map(|path| DatabasePath::new(path, permit)))
+}
+
+fn resolve_active_folder_locked(app: &AppHandle, registry: &DatabaseRegistryFile) -> AppResult<Option<PathBuf>> {
     let Some(active_path) = registry.last_active_path.clone() else {
         clear_cached_connection(app)?;
         return Ok(None);
     };
 
     let folder_path = normalize_database_folder_path(PathBuf::from(active_path))?;
+    if database_deletion::blocked(&folder_path)? {
+        clear_cached_connection(app)?;
+        return Ok(None);
+    }
     if folder_path.exists() && is_database_folder(&folder_path)? {
         return Ok(Some(folder_path));
     }
 
-    registry.last_active_path = None;
-    write_registry(app, &registry)?;
+    let mut next = registry.clone();
+    next.last_active_path = None;
+    write_registry(app, &next)?;
     clear_cached_connection(app)?;
     Ok(None)
 }
 
-pub(crate) fn get_active_database_file_path(app: &AppHandle) -> AppResult<Option<PathBuf>> {
+pub(crate) fn get_active_database_file_path(app: &AppHandle) -> AppResult<Option<DatabasePath>> {
     let Some(folder_path) = resolve_active_database_folder(app)? else {
         return Ok(None);
     };
 
     let manifest = read_database_manifest(&folder_path)?;
-    Ok(Some(resolve_database_file_path(
-        &folder_path,
-        manifest.as_ref(),
-    )))
+    let path = resolve_database_file_path(&folder_path, manifest.as_ref());
+    Ok(Some(folder_path.with_path(path)))
 }
 
 fn read_registry(app: &AppHandle) -> AppResult<DatabaseRegistryFile> {
@@ -439,8 +713,13 @@ fn read_registry(app: &AppHandle) -> AppResult<DatabaseRegistryFile> {
         return Ok(registry);
     }
 
-    let raw = fs::read_to_string(&registry_path).map_err(|error| error.to_string())?;
-    let parsed = serde_json::from_str::<DatabaseRegistryFile>(&raw).unwrap_or_default();
+    read_existing_registry(&registry_path)
+}
+
+fn read_existing_registry(registry_path: &Path) -> AppResult<DatabaseRegistryFile> {
+    let raw = fs::read_to_string(registry_path).map_err(|error| error.to_string())?;
+    let parsed = serde_json::from_str::<DatabaseRegistryFile>(&raw)
+        .map_err(|error| format!("Unable to parse database registry: {error}"))?;
     let recent = parsed
         .recent
         .into_iter()
@@ -507,8 +786,12 @@ fn migrate_legacy_registry_if_needed(app: &AppHandle, registry_path: &Path) -> A
 
 fn write_registry(app: &AppHandle, registry: &DatabaseRegistryFile) -> AppResult<()> {
     let registry_path = get_registry_path(app)?;
+    write_registry_at(&registry_path, registry)
+}
+
+fn write_registry_at(registry_path: &Path, registry: &DatabaseRegistryFile) -> AppResult<()> {
     let serialized = serde_json::to_string_pretty(registry).map_err(|error| error.to_string())?;
-    fs::write(registry_path, serialized).map_err(|error| error.to_string())
+    database_use::atomic_write(registry_path, serialized.as_bytes())
 }
 
 fn touch_registry(app: &AppHandle, folder_path: &Path, label: &str) -> AppResult<()> {
@@ -750,6 +1033,7 @@ fn ensure_connection_cached(
     folder_path: &Path,
     create_if_missing: bool,
 ) -> AppResult<()> {
+    database_deletion::require_unblocked(folder_path)?;
     let needs_refresh = cached
         .as_ref()
         .map(|entry| entry.folder_path != folder_path)
@@ -849,14 +1133,170 @@ fn get_or_load_cached_db_stats(app: &AppHandle, folder_path: &Path) -> AppResult
 }
 
 // R1-A: no registry read/repair, connection initialization or cache mutation.
-pub(crate) fn peek_active_database_folder_read_only(app: &AppHandle) -> AppResult<Option<PathBuf>> {
+pub(crate) fn peek_active_database_folder_read_only(app: &AppHandle) -> AppResult<Option<DatabasePath>> {
     let Some(state) = app.try_state::<ActiveDatabaseConnectionState>() else { return Ok(None); };
-    peek_cached_folder_only(&state)
+    let permit = database_use::acquire_use()?;
+    let Some(path) = peek_cached_folder_only(&state)? else { return Ok(None); };
+    if database_deletion::blocked(&path)? {
+        return Ok(None);
+    }
+    Ok(Some(DatabasePath::new(path, permit)))
 }
 
 fn peek_cached_folder_only(state: &ActiveDatabaseConnectionState) -> AppResult<Option<PathBuf>> {
     let cached = state.cached.lock().map_err(|_| "Cached database context lock is poisoned.".to_string())?;
     Ok(cached.as_ref().map(|entry| entry.folder_path.clone()))
+}
+
+#[cfg(all(test, windows))]
+mod deletion_registry_tests {
+    use super::*;
+    use database_deletion::{blocked_in, PinnedTree, FAILED, PARTIAL, REGISTRY_FAILED};
+    use std::os::windows::fs::OpenOptionsExt;
+
+    struct Fixture {
+        _workspace: tempfile::TempDir,
+        state: PathBuf,
+        registry_path: PathBuf,
+        folder: PathBuf,
+    }
+
+    impl Fixture {
+        fn new() -> Self {
+            let parent = Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap()
+                .join("tmp/fixtures/db-safe-01");
+            fs::create_dir_all(&parent).unwrap();
+            let workspace = tempfile::tempdir_in(parent).unwrap();
+            let state = workspace.path().join("safety-state");
+            let registry_path = workspace.path().join("registry.json");
+            let folder = workspace.path().join("db");
+            fs::create_dir(&state).unwrap();
+            fs::create_dir(&folder).unwrap();
+            let connection = Connection::open(folder.join(DATABASE_FILE_NAME)).unwrap();
+            prepare_database_connection(&connection).unwrap();
+            Self { _workspace: workspace, state, registry_path, folder }
+        }
+
+        fn registry(&self, active: bool) -> DatabaseRegistryFile {
+            let path = path_to_string(&self.folder);
+            let registry = DatabaseRegistryFile {
+                recent: vec![KnownDatabase { path: path.clone(), label: "fixture".into(), last_opened_at: "".into() }],
+                last_active_path: active.then_some(path),
+            };
+            write_registry_at(&self.registry_path, &registry).unwrap();
+            registry
+        }
+
+        fn preflight(&self, registry: &DatabaseRegistryFile) -> VerifiedDeletion {
+            let tree = PinnedTree::open(&self.folder).unwrap();
+            let (matching_recents, active_matches) = registry_deletion_matches(registry, tree.id).unwrap();
+            let canonical = self.folder.canonicalize().unwrap();
+            let (database, id, evidence) = verify_deletion_ownership(&tree.path, true).unwrap();
+            tree.preflight(&database).unwrap();
+            let pinned_database = tree.pin_database(&database, id).unwrap();
+            drop(evidence);
+            VerifiedDeletion { tree, canonical, database, pinned_database, matching_recents, active_matches }
+        }
+    }
+
+    #[test]
+    fn registered_deletion_requires_identity_and_removes_aliases_after_success() {
+        let fixture = Fixture::new();
+        let id = database_deletion::identity(&fixture.folder).unwrap();
+        assert!(registry_deletion_matches(&DatabaseRegistryFile::default(), id).is_err());
+        let mut registry = fixture.registry(true);
+        let mut alias = registry.recent[0].clone();
+        alias.path = path_to_string(&fixture.folder.canonicalize().unwrap());
+        registry.recent.push(alias);
+        let _safety_store = PinnedTree::pin_marker_store(&fixture.state).unwrap();
+        let moved_state = fixture.state.with_file_name("moved-safety-state");
+        assert!(fs::rename(&fixture.state, moved_state).is_err());
+        let deletion = fixture.preflight(&registry);
+        assert_eq!(deletion.matching_recents, [true, true]);
+        assert!(deletion.active_matches);
+        complete_verified_deletion(&fixture.state, &fixture.registry_path, &mut registry, deletion, |_| {
+            assert!(read_existing_registry(&fixture.registry_path).unwrap().last_active_path.is_none());
+            assert_eq!(read_existing_registry(&fixture.registry_path).unwrap().recent.len(), 2);
+            assert!(blocked_in(&fixture.state, &fixture.folder).unwrap());
+            Ok(())
+        }).unwrap();
+        assert!(!fixture.folder.exists());
+        assert!(read_existing_registry(&fixture.registry_path).unwrap().recent.is_empty());
+        assert!(database_deletion::read_markers(&fixture.state).unwrap().is_empty());
+    }
+
+    #[test]
+    fn locked_marker_stops_deletion_before_registry_or_database_changes() {
+        let fixture = Fixture::new();
+        let mut registry = fixture.registry(true);
+        let _safety_store = PinnedTree::pin_marker_store(&fixture.state).unwrap();
+        database_deletion::write_markers(&fixture.state, &[]).unwrap();
+        let marker = fixture.state.join("interrupted-deletions.json");
+        let _marker_lock = fs::OpenOptions::new()
+            .read(true)
+            .share_mode(3)
+            .open(marker)
+            .unwrap();
+        let deletion = fixture.preflight(&registry);
+
+        let error = complete_verified_deletion(
+            &fixture.state,
+            &fixture.registry_path,
+            &mut registry,
+            deletion,
+            |_| panic!("removal must not start before the marker is persisted"),
+        )
+        .unwrap_err();
+
+        assert!(error.starts_with(FAILED), "{error}");
+        assert!(error.contains("Could not persist the safety marker"), "{error}");
+        assert!(fixture.folder.join(DATABASE_FILE_NAME).is_file());
+        let persisted = read_existing_registry(&fixture.registry_path).unwrap();
+        assert_eq!(persisted.last_active_path, registry.last_active_path);
+        assert!(persisted.last_active_path.is_some());
+        assert_eq!(persisted.recent.len(), 1);
+    }
+
+    #[test]
+    fn partial_deletion_keeps_recents_and_blocks_stale_profiles() {
+        let fixture = Fixture::new();
+        let mut registry = fixture.registry(true);
+        let stale_profile = fixture._workspace.path().join("other-profile.json");
+        write_registry_at(&stale_profile, &registry).unwrap();
+        fs::create_dir_all(fixture.folder.join("eod_data/NSE")).unwrap();
+        fs::write(fixture.folder.join("eod_data/NSE/one.eod"), b"fixture").unwrap();
+        let deletion = fixture.preflight(&registry);
+        let error = complete_verified_deletion(&fixture.state, &fixture.registry_path, &mut registry, deletion, |entry| {
+            if entry.ends_with(DATABASE_FILE_NAME) {
+                return Err(std::io::Error::other("injected before SQLite removal"));
+            }
+            Ok(())
+        }).unwrap_err();
+        assert!(error.starts_with(PARTIAL), "{error}");
+        let persisted = read_existing_registry(&fixture.registry_path).unwrap();
+        assert!(persisted.last_active_path.is_none());
+        assert_eq!(persisted.recent.len(), 1);
+        assert!(fixture.folder.join(DATABASE_FILE_NAME).is_file());
+        assert!(!fixture.folder.join("eod_data/NSE/one.eod").exists());
+        let active = read_existing_registry(&stale_profile).unwrap().last_active_path.unwrap();
+        assert!(blocked_in(&fixture.state, Path::new(&active)).unwrap());
+    }
+
+    #[test]
+    fn registry_failure_before_and_after_removal_reports_distinct_states() {
+        for active in [true, false] {
+            let fixture = Fixture::new();
+            let mut registry = fixture.registry(active);
+            let deletion = fixture.preflight(&registry);
+            let _read_lock = fs::OpenOptions::new().read(true).share_mode(3)
+                .open(&fixture.registry_path).unwrap();
+            let error = complete_verified_deletion(&fixture.state, &fixture.registry_path, &mut registry, deletion, |_| Ok(())).unwrap_err();
+            assert!(error.starts_with(if active { FAILED } else { REGISTRY_FAILED }), "{error}");
+            assert_eq!(fixture.folder.exists(), active);
+            assert_eq!(read_existing_registry(&fixture.registry_path).unwrap().recent.len(), 1);
+            assert_eq!(database_deletion::read_markers(&fixture.state).unwrap().is_empty(), active);
+        }
+    }
 }
 
 #[cfg(test)]

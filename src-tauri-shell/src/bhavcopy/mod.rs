@@ -185,9 +185,9 @@ pub async fn run_tracked_bhavcopy_batch(
     let run = TRACKED_BATCH.start(run_id)?;
     started.send(()).map_err(|error| error.to_string())?;
     tauri::async_runtime::spawn_blocking(move || {
-        let results = run_bhavcopy_batch(app.clone(), database_file_path, config, &run.stop);
+        let results = run_bhavcopy_batch(app.clone(), database_file_path.clone(), config, &run.stop);
         let cancelled = run.finish();
-        finish_batch_progress(&app, results, cancelled)
+        finish_batch_progress(&app, &database_file_path, results, cancelled)
     })
     .await
     .map_err(|error| error.to_string())?
@@ -201,8 +201,8 @@ pub async fn download_bhavcopy_batch(
     let database_file_path = get_active_database_file_path(&app)?
         .ok_or_else(|| "Open a database before downloading bhavcopy data.".to_string())?;
     tauri::async_runtime::spawn_blocking(move || {
-        let results = run_bhavcopy_batch(app.clone(), database_file_path, config, &BatchStop::default());
-        Ok(finish_batch_progress(&app, results, false)?.results)
+        let results = run_bhavcopy_batch(app.clone(), database_file_path.clone(), config, &BatchStop::default());
+        Ok(finish_batch_progress(&app, &database_file_path, results, false)?.results)
     })
     .await
     .map_err(|error| error.to_string())?
@@ -210,7 +210,7 @@ pub async fn download_bhavcopy_batch(
 
 fn run_bhavcopy_batch(
     app_handle: AppHandle,
-    database_file_path: std::path::PathBuf,
+    database_file_path: crate::database::database_use::DatabasePath,
     config: BatchDownloadConfig,
     stop: &BatchStop,
 ) -> AppResult<Vec<DownloadResult>> {
@@ -416,6 +416,9 @@ fn run_bhavcopy_batch(
                     let _write_guard = lock_bhavcopy_write(&write_lock)?;
                     upsert_batch_download_log_entry(&connection, &result)?;
                 }
+                // Attempted, but the exchange was closed: reclassify so a holiday
+                // never surfaces as a failed download job.
+                let result = reconcile_holiday_failure(&connection, result);
                 emit_progress(
                     &app_handle,
                     progress,
@@ -633,6 +636,7 @@ fn run_bhavcopy_batch(
 
 fn finish_batch_progress(
     app: &AppHandle,
+    database_file_path: &Path,
     results: AppResult<Vec<DownloadResult>>,
     cancelled: bool,
 ) -> AppResult<TrackedBhavcopyBatchResult> {
@@ -644,8 +648,56 @@ fn finish_batch_progress(
         emit_progress(app, 100, format!(
             "Completed download jobs: {jobs}; non-trading calendar days: {calendar_skips}; imported rows: {rows}"
         ));
+        if let Some(line) = no_data_annotation_line(database_file_path, &results) {
+            emit_progress(app, 100, line);
+        }
     }
     Ok(TrackedBhavcopyBatchResult { cancelled, results })
+}
+
+/// Explain every "no data" date using the calendar.
+///
+/// This is the calendar's only job in the planner now: a holiday row must never
+/// block a download, but it must tell the operator whether an empty weekday was
+/// a genuine exchange closure or a source gap. A wrong calendar row can therefore
+/// never suppress data - it can only mislabel a miss, which this line makes
+/// visible.
+fn no_data_annotation_line(
+    database_file_path: &Path,
+    results: &[DownloadResult],
+) -> Option<String> {
+    let mut pairs: Vec<(String, String)> = results
+        .iter()
+        .filter(|result| result.message.starts_with("No data available"))
+        .map(|result| (result.exchange.clone(), result.trade_date.clone()))
+        .collect();
+    if pairs.is_empty() {
+        return None;
+    }
+    pairs.sort();
+    pairs.dedup();
+    let connection = Connection::open(database_file_path).ok()?;
+    let mut holiday = Vec::new();
+    let mut gap = Vec::new();
+    for (exchange, date) in &pairs {
+        match get_exchange_holiday_name(&connection, exchange, calendar_date_key(date)).ok().flatten() {
+            Some(name) => holiday.push(format!("{date} {exchange} = holiday ({name})")),
+            None => gap.push(format!("{date} {exchange}")),
+        }
+    }
+    let mut line = format!(
+        "No-data review: {} date/exchange pairs - {} on a calendar holiday, {} not on any calendar holiday (source gaps)",
+        pairs.len(),
+        holiday.len(),
+        gap.len()
+    );
+    if !holiday.is_empty() {
+        line.push_str(&format!(". Holidays: {}", holiday.join("; ")));
+    }
+    if !gap.is_empty() {
+        line.push_str(&format!(". Gaps: {}", gap.join("; ")));
+    }
+    Some(line)
 }
 
 fn build_batch_plan(connection: &Connection, config: &BatchDownloadConfig) -> AppResult<BatchPlan> {

@@ -71,7 +71,8 @@ export interface CorporateActionClassicWorkspaceProps {
   onCancel: () => void;
   onFetch: () => void;
   onValidate: () => void;
-  onViewChange: (approved: boolean) => void;
+  readOnly?: boolean;
+  onClearFilters: () => void;
   onExchangeChange: (value: string) => void;
   onDateChange: (from: string, to: string) => void;
   onTypesChange: (value: string[]) => void;
@@ -133,7 +134,8 @@ function ClassicProgress({ progress }: { progress: NonNullable<CorporateActionCl
   return <span>{Math.floor(seconds/60)}m {seconds%60}s · {progress.completed}/{progress.total??'…'}</span>;
 }
 export function CorporateActionClassicWorkspace(p: CorporateActionClassicWorkspaceProps) {
-  const [statusFilter, setStatusFilter] = useState<ClassicStatusFilter>(p.approved ? 'all' : 'ready');
+  const reviewOnly = p.readOnly || p.approved;
+  const [statusFilter, setStatusFilter] = useState<ClassicStatusFilter>(reviewOnly ? 'all' : 'ready');
   const [tableExchange, setTableExchange] = useState<'all' | 'NSE' | 'BSE'>('all');
   const [sort, setSort] = useState<{column: typeof columns[number][0]; descending: boolean}>(CLASSIC_DEFAULT_SORT);
   const [focusedId, setFocusedId] = useState<number | null>(null);
@@ -161,7 +163,7 @@ export function CorporateActionClassicWorkspace(p: CorporateActionClassicWorkspa
     observer.observe(element); return () => observer.disconnect();
   }, []);
   useEffect(() => { if (scrollRef.current) scrollRef.current.scrollTop=0; setScrollTop(0); },[statusFilter,tableExchange,sort,p.search,p.types,p.approved]);
-  useEffect(()=>{setStatusFilter(p.approved ? 'all' : 'ready');},[p.approved,p.filterResetKey]);
+  useEffect(()=>{setStatusFilter(reviewOnly ? 'all' : 'ready');},[reviewOnly,p.filterResetKey]);
   useEffect(()=>{setSort(CLASSIC_DEFAULT_SORT);},[p.filterResetKey]);
   useEffect(()=>{setTableExchange('all');},[p.filterResetKey]);
   const dateFields = <><span title="These dates limit official source collection. Load & Validate checks all outstanding pending dates.">Fetch dates only:</span>
@@ -178,9 +180,9 @@ export function CorporateActionClassicWorkspace(p: CorporateActionClassicWorkspa
   return <div className="ca-classic-workspace" ref={rootRef} onKeyDown={event => {
     if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'f') { event.preventDefault(); searchRef.current?.focus(); }
   }}>
-    <div className="ca-classic-toolbar" aria-label="Corporate Action commands">
-      <button type="button" disabled={p.busy || p.approved || !p.hasDatabase || !p.fromDate || !p.toDate || p.fromDate > p.toDate} onClick={p.onFetch}>Fetch</button>
-      <button type="button" title={p.approved?'Load approved actions.':'Check all outstanding pending dates. Table exchange, Type, Status and Find only filter the table.'} disabled={p.busy || !p.hasDatabase} onClick={p.onValidate}>{p.approved ? 'Load Approved' : 'Load & Validate'}</button>
+    {!reviewOnly && <div className="ca-classic-toolbar" aria-label="Corporate Action commands">
+      <button type="button" disabled={p.busy || !p.hasDatabase || !p.fromDate || !p.toDate || p.fromDate > p.toDate} onClick={p.onFetch}>Fetch Data</button>
+      <button type="button" title="Check all outstanding pending dates. Table exchange, Type, Status and Find only filter the table." disabled={p.busy || !p.hasDatabase} onClick={p.onValidate}>Load &amp; Validate</button>
       <CorporateActionClassicMenu label="Approve…" primary items={[
         {label:`Approve selected (${selected.length})`,disabled:p.busy || !p.hasDatabase || p.approved || selected.length === 0,onClick:()=>p.onApprove('selected',readyIds)},
         {label:`Approve all filtered Ready (${readyIds.length})`,disabled:p.busy || !p.hasDatabase || p.approved || readyIds.length === 0,onClick:()=>p.onApprove('all-ready',readyIds)},
@@ -190,10 +192,8 @@ export function CorporateActionClassicWorkspace(p: CorporateActionClassicWorkspa
       </select></label>
       <div className="ca-classic-inline-dates">{dateFields}</div>
       <details className="ca-classic-menu ca-classic-fetch-options"><summary>Fetch dates only</summary><div className="ca-classic-menu-items ca-classic-date-popup">{dateFields}</div></details>
-    </div>
+    </div>}
     <div className="ca-classic-toolbar ca-classic-filters" aria-label="Corporate Action filters">
-      <label>View:<select aria-label="Action view" value={p.approved?'approved':'pending'} disabled={p.busy} onChange={event=>{p.onFilterChange();p.onViewChange(event.target.value==='approved');}}>
-        <option value="pending">Pending</option><option value="approved">Approved</option></select></label>
       <ClassicTypeFilter types={p.types} onChange={types=>{p.onFilterChange();p.onTypesChange(types);}} />
       <label>Table exchange:<select aria-label="Table exchange filter" value={tableExchange}
         title="Filter loaded events only; does not change source scope or run validation."
@@ -214,6 +214,7 @@ export function CorporateActionClassicWorkspace(p: CorporateActionClassicWorkspa
       </div>
       <button type="button" disabled={!p.hasDatabase} onClick={p.onCurrentSymbol}>Current symbol</button>
       <button type="button" aria-pressed={detailsOpen} onClick={()=>setDetailsOpen(!detailsOpen)}>Details</button>
+      <button type="button" onClick={p.onClearFilters}>Clear filters</button>
     </div>
     <div className="ca-classic-content">
       <div className="ca-classic-grid-scroll" ref={scrollRef} onScroll={event=>setScrollTop(event.currentTarget.scrollTop)}>
@@ -228,11 +229,11 @@ export function CorporateActionClassicWorkspace(p: CorporateActionClassicWorkspa
               if (element && index*rowHeight<element.scrollTop) element.scrollTop=index*rowHeight;
               else if (element && (index+2)*rowHeight>element.scrollTop+element.clientHeight) element.scrollTop=(index+2)*rowHeight-element.clientHeight;
             } else if (event.key==='Enter') { event.preventDefault();setDetailsOpen(true); }
-            else if (event.key===' ' && focused?.ready && !p.busy && !p.approved) { event.preventDefault();p.onToggleMany(focused.rows.map(row=>row.record.id),!focused.rows.every(item=>p.selectedIds.has(item.record.id))); }
+            else if (event.key===' ' && focused?.ready && !p.busy && !reviewOnly) { event.preventDefault();p.onToggleMany(focused.rows.map(row=>row.record.id),!focused.rows.every(item=>p.selectedIds.has(item.record.id))); }
           }}>
           <colgroup><col style={{width:38}} />{columns.map(([key])=><col key={key} style={{width:columnWidths[key] ?? ({exchange:95,symbol:145,company:240,action:130,date:125,terms:220,status:240})[key]}} />)}</colgroup>
           <thead><tr><th scope="col"><input type="checkbox" aria-label="Select all visible Ready actions" checked={allSelected}
-            ref={element=>{if(element)element.indeterminate=selected.length>0&&!allSelected;}} disabled={p.busy || p.approved || readyIds.length===0}
+            ref={element=>{if(element)element.indeterminate=selected.length>0&&!allSelected;}} disabled={p.busy || reviewOnly || readyIds.length===0}
             onChange={event=>p.onToggleMany(readyIds,event.target.checked)} /></th>
             {columns.map(([key,label])=><th key={key} scope="col" aria-sort={sort.column===key?(sort.descending?'descending':'ascending'):'none'}>
               <button type="button" onClick={()=>setSort({column:key,descending:sort.column===key&&!sort.descending})}>{label}</button>
@@ -248,7 +249,7 @@ export function CorporateActionClassicWorkspace(p: CorporateActionClassicWorkspa
             {visible.slice(start,end).map((event,index)=>{const r=event.rows[0].record;return <tr key={event.key} aria-rowindex={start+index+2}
               className={focusedId===event.key?'ca-classic-row-focused':undefined} onClick={()=>setFocusedId(event.key)} onDoubleClick={()=>{setFocusedId(event.key);setDetailsOpen(true);}}>
               <td><input type="checkbox" aria-label={`Select ${r.exchange}:${classicIdentityLabel(r)} ${r.exDate} ${event.action}`} checked={event.ready&&event.rows.every(row=>p.selectedIds.has(row.record.id))}
-                disabled={p.busy||p.approved||!event.ready} onChange={e=>p.onToggleMany(event.rows.map(row=>row.record.id),e.target.checked)} /></td>
+                disabled={p.busy||reviewOnly||!event.ready} onChange={e=>p.onToggleMany(event.rows.map(row=>row.record.id),e.target.checked)} /></td>
               <td>{r.exchange}</td><td title={`${r.exchange}:${classicIdentityLabel(r)}`}>{classicIdentityLabel(r)}</td><td title={r.companyName??''}>{r.companyName??'—'}</td>
               <td>{event.rows.length>1?<button type="button" className="ca-classic-component-button" onClick={()=>{setFocusedId(event.key);setDetailsOpen(true);}}>{event.action}</button>:event.action}</td>
               <td>{r.exDate?r.exDate.split('-').reverse().join('-'):'—'}</td><td title={event.terms}>{event.terms}</td>

@@ -121,6 +121,8 @@ pub fn save_app_profile_settings(
     app: AppHandle,
     input: AppProfileSettingsSaveInput,
 ) -> AppResult<OperationResult> {
+    let _permit = crate::database::database_use::acquire_use()?;
+    let _registry = crate::database::database_use::lock_registry()?;
     let current_profile_dir = get_app_profile_directory(&app)?;
     let default_profile_dir = get_default_app_profile_directory(&app)?;
     let requested_profile_dir = input
@@ -206,6 +208,14 @@ pub(crate) fn get_app_profile_database_registry_path(app: &AppHandle) -> AppResu
 
 pub(crate) fn read_app_profile_theme(app: &AppHandle) -> AppResult<String> {
     Ok(read_or_initialize_app_profile_settings(app, &get_app_profile_directory(app)?)?.theme)
+}
+
+#[cfg(windows)]
+pub(crate) fn read_saved_app_profile_theme(app: &AppHandle) -> AppResult<String> {
+    let path = get_app_profile_directory(app)?.join(APP_PROFILE_SETTINGS_FILE_NAME);
+    let raw = fs::read_to_string(path).map_err(|error| error.to_string())?;
+    let settings: AppProfileSettingsFile = serde_json::from_str(&raw).map_err(|error| error.to_string())?;
+    Ok(settings.theme)
 }
 
 fn resolve_app_profile_directory(app: &AppHandle) -> AppResult<PathBuf> {

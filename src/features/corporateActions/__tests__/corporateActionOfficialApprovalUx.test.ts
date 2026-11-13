@@ -5,10 +5,10 @@ import { describe, expect, it } from 'vitest';
 const DATABASE_TOOLS = resolve(process.cwd(), 'src/components/DatabaseToolsDialogs.tsx');
 
 describe('Official Imports user-friendly approval UI contract', () => {
-  it('keeps the existing CorporateActionDialog and presents app-managed preparation plus explicit apply choices', () => {
+  it('uses the unified controller and presents app-managed preparation plus explicit apply choices', () => {
     const source = readFileSync(DATABASE_TOOLS, 'utf8');
 
-    expect(source).toContain('function CorporateActionDialog');
+    expect(source).toContain('function UnifiedCorporateActions');
     expect(source).toContain('Load &amp; Validate');
     expect(source).toContain('Approve Selected (');
     expect(source).toContain('Approve All Ready (');

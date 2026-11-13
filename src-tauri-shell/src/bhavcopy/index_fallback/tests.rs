@@ -881,15 +881,21 @@ fn transport_refusal_empty_oversize_and_timeout_remain_distinct() {
 }
 
 #[test]
-fn bse_2011_evidenced_holiday_is_excluded_without_changing_other_exchange_dates() {
+fn bse_2011_evidenced_holiday_is_readable_but_never_blocks_a_download() {
     let temp = tempfile::tempdir().unwrap();
     let db = temp.path().join("fixture.db");
     let conn = open_database_connection(&db).unwrap();
     for exchange in ["BSE", "BSE_INDEX"] {
-        let holiday =
+        // The evidenced BSE notice date is a weekday holiday. It must no longer
+        // suppress the download; it is kept so a no-data result can be explained.
+        assert!(
             create_calendar_skip_result(&conn, exchange, "2011-01-26", chrono::Weekday::Wed)
-                .unwrap();
-        assert!(holiday.message.contains("20101122-22"));
+                .is_none()
+        );
+        let holiday = super::super::calendar::get_exchange_holiday_name(&conn, exchange, "2011-01-26")
+            .unwrap()
+            .unwrap_or_default();
+        assert!(holiday.contains("20101122-22"), "{exchange}: {holiday}");
         assert!(
             create_calendar_skip_result(&conn, exchange, "2011-01-25", chrono::Weekday::Tue)
                 .is_none()

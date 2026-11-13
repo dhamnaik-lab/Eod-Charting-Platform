@@ -735,7 +735,7 @@ pub async fn list_corporate_action_import_resolution_suggestions(
 fn resolve_reviewed_corporate_action_database(
     app: &AppHandle,
     expected_database_path: &str,
-) -> AppResult<std::path::PathBuf> {
+) -> AppResult<super::database_use::DatabasePath> {
     let folder_path = resolve_active_database_folder(app)?.ok_or_else(|| {
         "Open a database before approving corporate action imports.".to_string()
     })?;

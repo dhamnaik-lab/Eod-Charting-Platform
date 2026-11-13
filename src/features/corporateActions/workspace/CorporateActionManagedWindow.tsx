@@ -3,8 +3,7 @@ import { FloatingWindow } from '@/components/FloatingWindow';
 import { useWindowStore } from '@/store/windowStore';
 import './corporateActionManagedWindow.css';
 
-export const CORPORATE_ACTION_NORMAL_WINDOW_ID = 'corporate-action-normal';
-export const CORPORATE_ACTION_MAINTENANCE_WINDOW_ID = 'corporate-action-maintenance';
+export const CORPORATE_ACTION_WINDOW_ID = 'corporate-actions';
 
 export interface CorporateActionManagedWindowProps {
   id: string;
@@ -24,7 +23,6 @@ export function CorporateActionManagedWindow({
   const registerWindow = useWindowStore((state) => state.registerWindow);
   const unregisterWindow = useWindowStore((state) => state.unregisterWindow);
   const openWindow = useWindowStore((state) => state.openWindow);
-  const maximizeWindow = useWindowStore((state) => state.maximizeWindow);
   const windowState = useWindowStore((state) => state.windows[id]);
   const mountedRef = useRef(false);
   const lastOpenRequestCountRef = useRef(openRequestCount);
@@ -50,7 +48,6 @@ export function CorporateActionManagedWindow({
       minHeight: Math.min(480, height),
     });
     openWindow(id);
-    maximizeWindow(id);
     lastOpenRequestCountRef.current = openRequestCount;
     mountedRef.current = true;
 
@@ -58,7 +55,7 @@ export function CorporateActionManagedWindow({
       mountedRef.current = false;
       unregisterWindow(id);
     };
-  }, [id, title, registerWindow, unregisterWindow, openWindow, maximizeWindow]);
+  }, [id, title, registerWindow, unregisterWindow, openWindow]);
 
   useEffect(() => {
     if (!mountedRef.current) {

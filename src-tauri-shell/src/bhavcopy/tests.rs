@@ -891,6 +891,113 @@ fn test_bse_index_api_filename_uses_downloadable_case() {
 }
 
 #[test]
+fn db_safe_03_bhavcopy_reimport_preserves_delivery_including_nulls() {
+    let (_temp_dir, db_path) = create_temp_bhavcopy_db();
+    let conn = open_database_connection(&db_path).unwrap();
+    set_price_storage_mode(&conn, PriceStorageMode::Hybrid).unwrap();
+    let date = "2026-06-16";
+    let original = "SYMBOL,SERIES,OPEN,HIGH,LOW,CLOSE,TOTTRDQTY,TIMESTAMP\n\
+                    DELIVCO,EQ,100,110,95,105,1000,16-JUN-2026\n\
+                    NULLCO,EQ,100,110,95,105,1000,16-JUN-2026";
+    let corrected = "SYMBOL,SERIES,OPEN,HIGH,LOW,CLOSE,TOTTRDQTY,PREVCLOSE,TOTALTRADES,TIMESTAMP\n\
+                     DELIVCO,EQ,102,112,99,109,1200,101,60,16-JUN-2026\n\
+                     NULLCO,EQ,102,112,99,109,1200,101,60,16-JUN-2026";
+    let original = parse_bhavcopy_csv(original, "NSE", date, &[]).unwrap();
+    insert_parsed_bhavcopy_files(&db_path, &[original]).unwrap();
+    conn.execute(
+        "UPDATE eod_prices SET delivery_qty = 500, delivery_pct = 50
+         WHERE symbol = 'DELIVCO'",
+        [],
+    )
+    .unwrap();
+
+    let corrected = parse_bhavcopy_csv(corrected, "NSE", date, &[]).unwrap();
+    let (results, timing) = insert_parsed_bhavcopy_files(&db_path, &[corrected]).unwrap();
+    assert_eq!(results[0].rows_inserted, 2);
+    assert_eq!(results[0].max_volume, 1200);
+    assert_eq!(timing.binary_changed_dates, 2);
+    assert_eq!(timing.binary_errors, 0);
+    for (symbol, delivery) in [
+        ("DELIVCO", (Some(500_i64), Some(50.0_f64))),
+        ("NULLCO", (None, None)),
+    ] {
+        let fields = conn
+            .query_row(
+                "SELECT open, high, low, close, volume, prev_close, trades, delivery_qty, delivery_pct
+                 FROM eod_prices WHERE symbol = ? AND exchange = 'NSE' AND date = ?",
+                params![symbol, date],
+                |row| {
+                    Ok((
+                        [row.get::<_, f64>(0)?, row.get(1)?, row.get(2)?, row.get(3)?],
+                        row.get::<_, i64>(4)?,
+                        row.get::<_, Option<f64>>(5)?,
+                        row.get::<_, Option<i64>>(6)?,
+                        (row.get::<_, Option<i64>>(7)?, row.get::<_, Option<f64>>(8)?),
+                    ))
+                },
+            )
+            .unwrap();
+        assert_eq!(fields, ([102.0, 112.0, 99.0, 109.0], 1200, Some(101.0), Some(60), delivery));
+    }
+}
+
+#[test]
+fn db_safe_03_bhavcopy_journal_replay_write_preserves_delivery() {
+    let (temp_dir, db_path) = create_temp_bhavcopy_db();
+    let conn = open_database_connection(&db_path).unwrap();
+    set_price_storage_mode(&conn, PriceStorageMode::Hybrid).unwrap();
+    let date = "2026-06-16";
+    conn.execute(
+        "INSERT INTO eod_prices
+         (symbol, exchange, date, open, high, low, close, delivery_qty, delivery_pct)
+         VALUES ('DELIVCO', 'NSE', ?, 100, 110, 95, 105, 500, 50)",
+        [date],
+    )
+    .unwrap();
+    let csv = "SYMBOL,SERIES,OPEN,HIGH,LOW,CLOSE,TOTTRDQTY,TIMESTAMP\n\
+               DELIVCO,EQ,102,112,99,109,1200,16-JUN-2026";
+    let parsed = parse_bhavcopy_csv(csv, "NSE", date, &[]).unwrap();
+    let config = BatchDownloadConfig {
+        mode: DownloadMode::Range,
+        exchanges: ExchangeSelection {
+            nse: true,
+            bse: false,
+            nse_index: false,
+            bse_index: false,
+        },
+        start_date: date.into(),
+        end_date: date.into(),
+        workers: 1,
+        excluded_series: Vec::new(),
+        nse_equity_url_override: None,
+        nse_index_url_override: None,
+        bse_equity_url_override: None,
+        bse_index_url_override: None,
+        force_redownload: true,
+    };
+    prepare_bhavcopy_recovery_session(&db_path, &config, &[parsed]).unwrap();
+    let sessions = crate::bhavcopy_recovery::load_pending_sessions(temp_dir.path()).unwrap();
+    assert_eq!(sessions.len(), 1);
+    let replay = parsed_files_from_recovery_session(&sessions[0]).unwrap();
+    let (_, timing) = insert_parsed_bhavcopy_files_with_durability(
+        &db_path,
+        &replay,
+        BinaryWriteDurability::Immediate,
+    )
+    .unwrap();
+    assert_eq!(timing.binary_errors, 0);
+    let fields = conn
+        .query_row(
+            "SELECT close, volume, delivery_qty, delivery_pct FROM eod_prices
+             WHERE symbol = 'DELIVCO' AND exchange = 'NSE' AND date = ?",
+            [date],
+            |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?)),
+        )
+        .unwrap();
+    assert_eq!(fields, (109.0_f64, 1200_i64, Some(500_i64), Some(50.0_f64)));
+}
+
+#[test]
 fn test_insert_parsed_bhavcopy_files_batches_binary_records_by_symbol() {
     let (temp_dir, db_path) = create_temp_bhavcopy_db();
     let conn = open_database_connection(&db_path).unwrap();
@@ -1268,14 +1375,17 @@ fn test_holiday_calendar_remains_date_by_date_for_all_cash_sources() {
 
     let plan = build_batch_plan(&conn, &config).unwrap();
 
-    assert!(plan.tasks.is_empty());
-    assert_eq!(plan.calendar_skip_results.len(), 4);
+    // A holiday row no longer suppresses the download. The date is planned for
+    // every cash source and the calendar only explains the outcome afterwards.
+    assert!(plan.calendar_skip_results.is_empty());
+    assert_eq!(plan.tasks.len(), 4);
     for exchange in ["NSE", "BSE", "NSE_INDEX", "BSE_INDEX"] {
-        assert!(plan.calendar_skip_results.iter().any(|result| {
-            result.exchange == exchange
-                && result.trade_date == "2026-06-26"
-                && result.message == "Exchange holiday (Muharram)"
-        }));
+        assert!(
+            plan.tasks
+                .iter()
+                .any(|task| task.exchange == exchange && task.trade_date == "2026-06-26"),
+            "{exchange} 2026-06-26 should be attempted despite being a calendar holiday"
+        );
     }
 }
 
@@ -1303,18 +1413,18 @@ fn test_bse_uses_shared_cash_market_holiday_calendar() {
 
     let plan = build_batch_plan(&conn, &config).unwrap();
 
-    assert!(plan.tasks.is_empty());
-    assert_eq!(plan.calendar_skip_results.len(), 2);
-    assert!(plan.calendar_skip_results.iter().any(|result| {
-        result.exchange == "BSE"
-            && result.trade_date == "2026-06-26"
-            && result.message == "Exchange holiday (Muharram)"
-    }));
-    assert!(plan.calendar_skip_results.iter().any(|result| {
-        result.exchange == "BSE_INDEX"
-            && result.trade_date == "2026-06-26"
-            && result.message == "Exchange holiday (Muharram)"
-    }));
+    // BSE shares the cash-market calendar, but a holiday is still not a reason to
+    // refuse the download - both BSE streams get planned.
+    assert!(plan.calendar_skip_results.is_empty());
+    assert_eq!(plan.tasks.len(), 2);
+    for exchange in ["BSE", "BSE_INDEX"] {
+        assert!(
+            plan.tasks
+                .iter()
+                .any(|task| task.exchange == exchange && task.trade_date == "2026-06-26"),
+            "{exchange} should be attempted"
+        );
+    }
 }
 
 #[test]

@@ -3,43 +3,22 @@ import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { useUiStore } from '@/store/uiStore';
 
-describe('Corporate Action Maintenance navigation foundation', () => {
-  it('keeps Normal and Maintenance global contexts independently open and closable', () => {
+describe('Corporate Actions entry points', () => {
+  it('requests one window and reuses its open state on a repeated command', () => {
     const initial = useUiStore.getState();
-    const normalCount = initial.corporateActionOpenRequestCount;
-    const maintenanceCount = initial.corporateActionMaintenanceOpenRequestCount;
-
     try {
-      useUiStore.setState({
-        corporateActionOpen: false,
-        corporateActionMaintenanceOpen: false,
-      });
-
+      useUiStore.setState({ corporateActionOpen: false });
+      useUiStore.getState().openCorporateAction();
       useUiStore.getState().openCorporateAction();
       expect(useUiStore.getState().corporateActionOpen).toBe(true);
-      expect(useUiStore.getState().corporateActionMaintenanceOpen).toBe(false);
-      expect(useUiStore.getState().corporateActionOpenRequestCount).toBe(normalCount + 1);
-
-      useUiStore.getState().openCorporateActionMaintenance();
-      expect(useUiStore.getState().corporateActionOpen).toBe(true);
-      expect(useUiStore.getState().corporateActionMaintenanceOpen).toBe(true);
-      expect(useUiStore.getState().corporateActionMaintenanceOpenRequestCount).toBe(
-        maintenanceCount + 1,
-      );
-
-      useUiStore.getState().closeCorporateActionMaintenance();
-      expect(useUiStore.getState().corporateActionOpen).toBe(true);
-      expect(useUiStore.getState().corporateActionMaintenanceOpen).toBe(false);
-
+      expect(useUiStore.getState().corporateActionOpenRequestCount).toBe(initial.corporateActionOpenRequestCount + 2);
+      expect(useUiStore.getState()).not.toHaveProperty('openCorporateActionMaintenance');
       useUiStore.getState().closeCorporateAction();
       expect(useUiStore.getState().corporateActionOpen).toBe(false);
     } finally {
       useUiStore.setState({
         corporateActionOpen: initial.corporateActionOpen,
         corporateActionOpenRequestCount: initial.corporateActionOpenRequestCount,
-        corporateActionMaintenanceOpen: initial.corporateActionMaintenanceOpen,
-        corporateActionMaintenanceOpenRequestCount:
-          initial.corporateActionMaintenanceOpenRequestCount,
       });
     }
   });

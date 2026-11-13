@@ -161,8 +161,6 @@ interface UiStoreState {
   mergeSymbolsOpenRequestCount: number;
   corporateActionOpen: boolean;
   corporateActionOpenRequestCount: number;
-  corporateActionMaintenanceOpen: boolean;
-  corporateActionMaintenanceOpenRequestCount: number;
   bhavcopyWindowOpen: boolean;
   bhavcopyOpenRequestCount: number;
   scannerWindowOpen: boolean;
@@ -228,8 +226,6 @@ interface UiStoreState {
   closeMergeSymbols: () => void;
   openCorporateAction: () => void;
   closeCorporateAction: () => void;
-  openCorporateActionMaintenance: () => void;
-  closeCorporateActionMaintenance: () => void;
   openBhavcopyWindow: () => void;
   closeBhavcopyWindow: () => void;
   scannerRequestedSection: ScannerWorkspaceSection | null;
@@ -319,8 +315,6 @@ export const useUiStore = create<UiStoreState>((set, get) => ({
   mergeSymbolsOpenRequestCount: 0,
   corporateActionOpen: false,
   corporateActionOpenRequestCount: 0,
-  corporateActionMaintenanceOpen: false,
-  corporateActionMaintenanceOpenRequestCount: 0,
   bhavcopyWindowOpen: false,
   bhavcopyOpenRequestCount: 0,
   scannerWindowOpen: false,
@@ -411,13 +405,6 @@ export const useUiStore = create<UiStoreState>((set, get) => ({
       corporateActionOpenRequestCount: state.corporateActionOpenRequestCount + 1,
     })),
   closeCorporateAction: () => set({ corporateActionOpen: false }),
-  openCorporateActionMaintenance: () =>
-    set((state) => ({
-      corporateActionMaintenanceOpen: true,
-      corporateActionMaintenanceOpenRequestCount:
-        state.corporateActionMaintenanceOpenRequestCount + 1,
-    })),
-  closeCorporateActionMaintenance: () => set({ corporateActionMaintenanceOpen: false }),
   openBhavcopyWindow: () => set((state) => ({ bhavcopyWindowOpen: true, bhavcopyOpenRequestCount: state.bhavcopyOpenRequestCount + 1 })),
   closeBhavcopyWindow: () => set({ bhavcopyWindowOpen: false }),
   openScannerWindow: (section) =>

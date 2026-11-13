@@ -1,5 +1,4 @@
-.corporate-action-managed-window .corporate-action-workspace,
-.corporate-action-managed-window .ca-maintenance-workspace {
+.corporate-action-managed-window .corporate-action-workspace {
   position: relative;
   inset: auto;
   z-index: auto;
@@ -8,7 +7,6 @@
   flex: 1 1 auto;
 }
 
-.corporate-action-managed-window .corporate-action-workspace-close,
-.corporate-action-managed-window .ca-maintenance-workspace__close {
+.corporate-action-managed-window .corporate-action-workspace-close {
   display: none;
 }

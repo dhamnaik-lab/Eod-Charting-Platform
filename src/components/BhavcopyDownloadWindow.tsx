@@ -274,6 +274,9 @@ export function BhavcopyDownloadWindow({ onClose }: BhavcopyDownloadWindowProps)
   const [officialPreviewDbPath, setOfficialPreviewDbPath] = useState<string | null>(null);
   // HOL-06: year-scoped official calendars, rendered per exchange.
   const [holidayYear, setHolidayYear] = useState<number>(new Date().getFullYear());
+  // HOL-06: years that actually hold an accepted calendar, so the selector can
+  // never hide data the database already has.
+  const [availableHolidayYears, setAvailableHolidayYears] = useState<number[]>([]);
   // HOL-06: nothing loads automatically on tab entry; Refresh (or a year change)
   // is the only trigger. 0 means "not requested yet".
   const [holidayRefreshVersion, setHolidayRefreshVersion] = useState(0);
@@ -283,6 +286,13 @@ export function BhavcopyDownloadWindow({ onClose }: BhavcopyDownloadWindowProps)
   const manualHolidaysForYear = manualShowAllYears
     ? visibleHolidays
     : visibleHolidays.filter((row) => row.date.startsWith(`${holidayYear}`));
+  // Years offered in the selector: everything the database holds, plus the
+  // current and next year so a new calendar can be registered before it exists.
+  const holidayYearOptions = useMemo(() => {
+    const current = new Date().getFullYear();
+    const years = new Set<number>([current, current + 1, holidayYear, ...availableHolidayYears]);
+    return [...years].sort((left, right) => right - left);
+  }, [availableHolidayYears, holidayYear]);
   const [officialEntries, setOfficialEntries] = useState<OfficialHolidayEntry[]>([]);
   const [holidaySources, setHolidaySources] = useState<HolidaySourceRow[]>([]);
   // HOL-06: CSV import of official calendars (preview, then explicit Import).
@@ -580,6 +590,7 @@ export function BhavcopyDownloadWindow({ onClose }: BhavcopyDownloadWindowProps)
         if (cancelled) return;
         if ((useChartStore.getState().snapshot?.activeDatabasePath ?? null) !== databasePath) return;
         setOfficialEntries(view.officialEntries);
+        setAvailableHolidayYears(view.availableYears);
         setHolidaySources(view.sources);
         setOfficialCoverage(view.snapshots);
       } catch (err) {
@@ -735,7 +746,7 @@ export function BhavcopyDownloadWindow({ onClose }: BhavcopyDownloadWindowProps)
             }}
             style={{ ...modeSelectStyle, width: 104 }}
           >
-            {Array.from({ length: 9 }, (_, index) => new Date().getFullYear() - 5 + index).map((year) => (
+            {holidayYearOptions.map((year) => (
               <option key={year} value={year}>{year}</option>
             ))}
           </select>

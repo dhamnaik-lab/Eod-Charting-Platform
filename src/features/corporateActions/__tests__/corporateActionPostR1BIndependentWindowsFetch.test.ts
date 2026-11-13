@@ -5,7 +5,6 @@ import type {
   CorporateActionOfficialFetchResult,
   DesktopApi,
 } from '@/platform';
-import { useUiStore } from '@/store/uiStore';
 import { useWindowStore } from '@/store/windowStore';
 import {
   buildCorporateActionNormalFetchInputs,
@@ -13,10 +12,7 @@ import {
   fetchCorporateActionNormalData,
   reduceCorporateActionNormalWorkflowFacts,
 } from '../workflow/corporateActionNormalWorkflowAdapter';
-import {
-  CORPORATE_ACTION_MAINTENANCE_WINDOW_ID,
-  CORPORATE_ACTION_NORMAL_WINDOW_ID,
-} from '../workspace/CorporateActionManagedWindow';
+import { CORPORATE_ACTION_WINDOW_ID } from '../workspace/CorporateActionManagedWindow';
 
 type NormalApi = Pick<
   DesktopApi,
@@ -65,95 +61,41 @@ function apiBase(): NormalApi {
   };
 }
 
-describe('Task 6A post-R1B independent windows and fetch observability', () => {
-  it('keeps Normal and Maintenance independently open and closing one preserves the other', () => {
-    const initial = useUiStore.getState();
-
-    try {
-      useUiStore.setState({
-        corporateActionOpen: false,
-        corporateActionMaintenanceOpen: false,
-      });
-
-      useUiStore.getState().openCorporateAction();
-      useUiStore.getState().openCorporateActionMaintenance();
-
-      expect(useUiStore.getState().corporateActionOpen).toBe(true);
-      expect(useUiStore.getState().corporateActionMaintenanceOpen).toBe(true);
-
-      useUiStore.getState().closeCorporateActionMaintenance();
-      expect(useUiStore.getState().corporateActionOpen).toBe(true);
-      expect(useUiStore.getState().corporateActionMaintenanceOpen).toBe(false);
-    } finally {
-      useUiStore.setState({
-        corporateActionOpen: initial.corporateActionOpen,
-        corporateActionOpenRequestCount: initial.corporateActionOpenRequestCount,
-        corporateActionMaintenanceOpen: initial.corporateActionMaintenanceOpen,
-        corporateActionMaintenanceOpenRequestCount:
-          initial.corporateActionMaintenanceOpenRequestCount,
-      });
-    }
-  });
-
-  it('allows two distinct Corporate Action window registrations to remain minimized', () => {
+describe('Corporate Actions window lifecycle and official fetch observability', () => {
+  it('restores and focuses the same managed window when the user opens it again', () => {
+    const id = CORPORATE_ACTION_WINDOW_ID;
     const store = useWindowStore.getState();
-
     store.registerWindow({
-      id: CORPORATE_ACTION_NORMAL_WINDOW_ID,
+      id,
       title: 'Corporate Actions',
       bounds: { x: 10, y: 10, width: 700, height: 500 },
       minWidth: 320,
       minHeight: 240,
     });
-    store.registerWindow({
-      id: CORPORATE_ACTION_MAINTENANCE_WINDOW_ID,
-      title: 'Corporate Action Maintenance',
-      bounds: { x: 30, y: 30, width: 700, height: 500 },
-      minWidth: 320,
-      minHeight: 240,
-    });
-    store.openWindow(CORPORATE_ACTION_NORMAL_WINDOW_ID);
-    store.openWindow(CORPORATE_ACTION_MAINTENANCE_WINDOW_ID);
-    store.minimizeWindow(CORPORATE_ACTION_NORMAL_WINDOW_ID);
-    store.minimizeWindow(CORPORATE_ACTION_MAINTENANCE_WINDOW_ID);
-
     try {
-      const minimized = Object.values(useWindowStore.getState().windows)
-        .filter((windowState) => windowState.isOpen && windowState.isMinimized)
-        .map((windowState) => windowState.id);
-
-      expect(minimized).toContain(CORPORATE_ACTION_NORMAL_WINDOW_ID);
-      expect(minimized).toContain(CORPORATE_ACTION_MAINTENANCE_WINDOW_ID);
+      store.openWindow(id);
+      store.minimizeWindow(id);
+      expect(useWindowStore.getState().windows[id]?.isMinimized).toBe(true);
+      store.openWindow(id);
+      expect(useWindowStore.getState().windows[id]?.isMinimized).toBe(false);
+      expect(useWindowStore.getState().activeWindowId).toBe(id);
+      store.closeWindow(id);
+      expect(useWindowStore.getState().windows[id]?.isOpen).toBe(false);
     } finally {
-      useWindowStore.getState().unregisterWindow(CORPORATE_ACTION_NORMAL_WINDOW_ID);
-      useWindowStore.getState().unregisterWindow(CORPORATE_ACTION_MAINTENANCE_WINDOW_ID);
+      store.unregisterWindow(id);
     }
   });
 
-  it('keeps repeated-open managed-window support donor-only after existing-workflow recovery', () => {
-    const root = readFileSync(resolve(process.cwd(), 'src/RootApp.tsx'), 'utf8');
+  it('forwards repeated open requests to the managed window from the single controller', () => {
+    const dialogs = readFileSync(resolve(process.cwd(), 'src/components/DatabaseToolsDialogs.tsx'), 'utf8');
     const managed = readFileSync(
-      resolve(
-        process.cwd(),
-        'src/features/corporateActions/workspace/CorporateActionManagedWindow.tsx',
-      ),
+      resolve(process.cwd(), 'src/features/corporateActions/workspace/CorporateActionManagedWindow.tsx'),
       'utf8',
     );
-
-    expect(root).not.toContain('corporateActionOpenRequestCount');
-    expect(root).not.toContain('corporateActionMaintenanceOpenRequestCount');
-    expect(root).not.toContain('openRequestCount={corporateActionOpenRequestCount}');
-    expect(managed).toContain('openRequestCount');
+    expect(dialogs).toContain('openRequestCount={corporateActionOpenRequestCount}');
+    expect(dialogs).toContain('onClose={handleClose} openRequestCount={openRequestCount}');
+    expect(managed).toContain('lastOpenRequestCountRef.current === openRequestCount');
     expect(managed).toContain('openWindow(id)');
-  });
-
-  it('gives Maintenance a distinct minimized Sidebar identity before the generic Corporate Action identity', () => {
-    const sidebar = readFileSync(resolve(process.cwd(), 'src/components/Sidebar.tsx'), 'utf8');
-    const maintenanceMarker = sidebar.indexOf("id.includes('corporate-action-maintenance')");
-    const genericMarker = sidebar.indexOf("id.includes('corporate') || id.includes('identity')");
-
-    expect(maintenanceMarker).toBeGreaterThanOrEqual(0);
-    expect(genericMarker).toBeGreaterThan(maintenanceMarker);
   });
 
   it('scopes official fetch inputs to BOTH, NSE, or BSE without force refresh', () => {

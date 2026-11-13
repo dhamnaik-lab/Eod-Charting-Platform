@@ -10,7 +10,7 @@ interface DeleteDatabaseDialogProps {
 
 export function DeleteDatabaseDialog({ onClose }: DeleteDatabaseDialogProps) {
   const snapshot = useChartStore((state) => state.snapshot);
-  const closeDatabase = useChartStore((state) => state.closeDatabase);
+  const addToast = useChartStore((state) => state.addToast);
   const api = getDesktopApi();
   const [selectedDatabases, setSelectedDatabases] = useState<Set<string>>(new Set());
   const [confirmText, setConfirmText] = useState('');
@@ -96,9 +96,6 @@ export function DeleteDatabaseDialog({ onClose }: DeleteDatabaseDialogProps) {
         (dbPath) => api.deleteDatabase(dbPath),
         (dbPath) => {
           setDeletedPaths((prev) => new Set(prev).add(dbPath));
-          if (snapshot?.activeDatabasePath === dbPath) {
-            void closeDatabase();
-          }
         },
       );
       if (result.failure) {
@@ -106,6 +103,12 @@ export function DeleteDatabaseDialog({ onClose }: DeleteDatabaseDialogProps) {
         setConfirmText(''); // Require deliberate confirmation before retrying remaining paths.
         return;
       }
+      const [firstDeletedPath] = result.deletedPaths;
+      const deletedLabel = knownDatabases.find((db) => db.path === firstDeletedPath)?.label ?? firstDeletedPath;
+      const message = result.deletedPaths.length === 1
+        ? `${deletedLabel} deleted.`
+        : `${result.deletedPaths.length} databases deleted.`;
+      addToast(message, 'success', 'Database');
       onClose();
     } finally {
       deletionInFlightRef.current = false;
@@ -168,7 +171,14 @@ export function DeleteDatabaseDialog({ onClose }: DeleteDatabaseDialogProps) {
             <div style={failureStyle} role="alert">
               <strong>Deletion stopped at {knownDatabases.find((db) => db.path === failure.path)?.label ?? failure.path}.</strong>
               <div>{failure.message}</div>
-              <div>Remaining selected databases were not attempted. Re-enter DELETE to retry only pending selections, or close this dialog.</div>
+              <div>
+                {failure.reason === 'DATABASE_DELETION_PARTIAL' ||
+                failure.reason === 'DATABASE_DELETION_FAILED_MARKED' ||
+                failure.reason === 'DATABASE_DELETION_INTERRUPTED' ||
+                failure.reason === 'DATABASE_DELETION_REGISTRY_FAILED'
+                  ? 'Review the affected database before continuing. Other pending selections were not attempted.'
+                  : 'Remaining selected databases were not attempted. Re-enter DELETE to retry only pending selections, or close this dialog.'}
+              </div>
             </div>
           ) : null}
 

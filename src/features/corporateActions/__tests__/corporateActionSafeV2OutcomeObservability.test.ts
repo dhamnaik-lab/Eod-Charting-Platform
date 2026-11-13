@@ -20,8 +20,8 @@ function variable(name: string): ts.VariableDeclaration {
     ts.forEachChild(node, visit);
   };
   const dialog = ast.statements.find((node): node is ts.FunctionDeclaration =>
-    ts.isFunctionDeclaration(node) && node.name?.text === 'CorporateActionDialog');
-  assert.ok(dialog, 'Missing CorporateActionDialog');
+    ts.isFunctionDeclaration(node) && node.name?.text === 'UnifiedCorporateActions');
+  assert.ok(dialog, 'Missing UnifiedCorporateActions');
   visit(dialog);
   assert.ok(found?.initializer, `Missing dialog variable: ${name}`);
   return found;

@@ -740,15 +740,16 @@ pub async fn apply_nifty_history(
         .get(&input.token)
         .cloned()
         .ok_or("Preview expired; review the source again")?;
-    if review.database != active {
+    if review.database.as_path() != active.as_ref() {
         return Err("Database changed since preview; review again".into());
     }
     tauri::async_runtime::spawn_blocking(move || {
+        let _active = active;
         let _permit = try_acquire_price_store_operation(PriceStoreOperationKind::ManualImport)?;
         let _lock = MANUAL_IMPORT_MUTATION_LOCK
             .lock()
             .map_err(|_| "Manual Import lock poisoned")?;
-        if get_active_database_file_path(&app)?.as_ref() != Some(&review.database) {
+        if get_active_database_file_path(&app)?.as_deref() != Some(review.database.as_path()) {
             return Err("Database changed; review again".into());
         }
         let result = apply_internal(&review)?;

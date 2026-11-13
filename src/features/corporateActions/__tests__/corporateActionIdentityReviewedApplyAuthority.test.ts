@@ -93,7 +93,7 @@ describe('Identity I3 NSE reviewed-preview apply authority', () => {
     const databaseChangeEffect = sliceBetween(
       source,
       'setLastSuccessfulOfficialFetch(readCorporateActionNormalLastFetch(activeDatabasePath));',
-      'registerWindow({',
+      'if (!hasDatabase) {',
     );
     expect(databaseChangeEffect).toContain('setNseReviewedApplyAuthority(null)');
     expect(databaseChangeEffect).toContain('[activeDatabasePath]');

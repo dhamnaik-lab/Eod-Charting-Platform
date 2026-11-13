@@ -4,6 +4,37 @@ import { describe, expect, it, vi } from 'vitest';
 import { deleteDatabasesSequentially } from '../databaseDeletionFeedbackService';
 
 describe('database deletion feedback and partial completion', () => {
+  it('displays the machine-readable busy reason without reporting a deletion', async () => {
+    const onDeleted = vi.fn();
+    const result = await deleteDatabasesSequentially(['active'], async () => {
+      throw new Error('DATABASE_OPERATION_BUSY');
+    }, onDeleted);
+    expect(result.failure).toEqual({
+      path: 'active',
+      reason: 'DATABASE_OPERATION_BUSY',
+      message: 'Database operations are in progress. Try again after they finish.',
+    });
+    expect(result.deletedPaths).toEqual([]);
+    expect(onDeleted).not.toHaveBeenCalled();
+  });
+  it('reports a partial backend deletion without adding it to the completed paths', async () => {
+    const onDeleted = vi.fn();
+    const deleteDatabase = vi.fn(async (path: string) => {
+      if (path === 'damaged') throw 'DATABASE_DELETION_PARTIAL: Removed 2 entries. The safety marker was retained.';
+    });
+    const result = await deleteDatabasesSequentially(['first', 'damaged', 'third'], deleteDatabase, onDeleted);
+    expect(result).toEqual({
+      deletedPaths: ['first'],
+      failure: {
+        path: 'damaged',
+        reason: 'DATABASE_DELETION_PARTIAL',
+        message: 'Removed 2 entries. The safety marker was retained.',
+      },
+      unattemptedPaths: ['third'],
+    });
+    expect(onDeleted.mock.calls).toEqual([['first']]);
+    expect(deleteDatabase).toHaveBeenCalledTimes(2);
+  });
   it('deletes selected paths in order and reports complete success', async () => {
     const deleteDatabase = vi.fn(async (_path: string) => ({ success: true }));
     const onDeleted = vi.fn();
@@ -87,5 +118,13 @@ describe('database deletion feedback and partial completion', () => {
     expect(source).toContain('role="status"');
     expect(source).toContain('deletionInFlightRef.current');
     expect(source).not.toContain("console.error('Failed to delete databases:'");
+  });
+
+  it('wires a global success toast after the failure guard and before closing', () => {
+    const source = readFileSync(resolve(process.cwd(), 'src/components/DeleteDatabaseDialog.tsx'), 'utf8');
+    expect(source).toContain('useChartStore((state) => state.addToast)');
+    expect(source).toContain('${deletedLabel} deleted.');
+    expect(source).toContain('${result.deletedPaths.length} databases deleted.');
+    expect(source).toMatch(/if \(result\.failure\) \{[^}]*return;\s*\}[\s\S]*?addToast\(message, 'success', 'Database'\);\s*onClose\(\);/);
   });
 });

@@ -181,18 +181,50 @@ pub fn create_weekend_skip_result(
     )
 }
 
+/// A failed download that lands on a calendar holiday is not a failure: the
+/// exchange published no file because it was closed. The download is still
+/// attempted (the calendar never blocks), but the outcome is reclassified as an
+/// expected skip so a holiday is never reported as an error.
+/// Index results carry a decorated date (`2026-01-15 archive`), so the calendar
+/// lookup must use the bare date or every index holiday looks like a gap.
+pub fn calendar_date_key(trade_date: &str) -> &str {
+    trade_date.split_whitespace().next().unwrap_or(trade_date)
+}
+
+pub fn reconcile_holiday_failure(
+    connection: &Connection,
+    result: DownloadResult,
+) -> DownloadResult {
+    if result.success {
+        return result;
+    }
+    match get_exchange_holiday_name(connection, &result.exchange, calendar_date_key(&result.trade_date)) {
+        Ok(Some(holiday_name)) => skipped_download_result(
+            &result.exchange,
+            &result.trade_date,
+            format!("Exchange holiday ({holiday_name}); no source file published"),
+        ),
+        _ => result,
+    }
+}
+
 pub fn create_calendar_skip_result(
     connection: &Connection,
     exchange: &str,
     trade_date: &str,
     weekday: Weekday,
 ) -> Option<DownloadResult> {
+    // A special session wins over everything: the exchange really traded, even on
+    // a weekend or a date the calendar calls a holiday.
     if is_special_trading_day(exchange, trade_date) {
         return None;
     }
 
-    let holiday_name = get_exchange_holiday_name(connection, exchange, trade_date).unwrap_or(None);
+    // Weekends are structural non-sessions and stay skipped. The calendar name is
+    // still attached when the exchange calls that weekend date a holiday.
     if matches!(weekday, Weekday::Sat | Weekday::Sun) {
+        let holiday_name =
+            get_exchange_holiday_name(connection, exchange, trade_date).unwrap_or(None);
         return Some(match holiday_name {
             Some(holiday_name) => skipped_download_result(
                 exchange,
@@ -206,7 +238,11 @@ pub fn create_calendar_skip_result(
         });
     }
 
-    holiday_name.map(|holiday_name| create_holiday_skip_result(exchange, trade_date, &holiday_name))
+    // Deliberately no holiday skip on a weekday. The calendar must never decide
+    // that data does not exist: a wrong or stale row would silently suppress a
+    // real session. The download is attempted and the calendar is used to explain
+    // the outcome instead (see the no-data annotation in the batch summary).
+    None
 }
 
 pub fn is_calendar_skip_result(result: &DownloadResult) -> bool {
@@ -659,20 +695,53 @@ mod hol04_tests {
     }
 
     #[test]
-    fn phase1_stored_bars_outrank_a_wrong_calendar_row() {
+    fn decorated_index_dates_still_resolve_to_the_calendar() {
+        let db = test_calendar();
+        db.execute("INSERT INTO market_holidays (date,name,source) VALUES ('2026-01-15','Election','USER')", []).unwrap();
+        // Index results carry "<date> archive"; the lookup must use the bare date.
+        assert_eq!(calendar_date_key("2026-01-15 archive"), "2026-01-15");
+        let failed = failed_download_result("NSE_INDEX", "2026-01-15 archive", "no data available");
+        let reconciled = reconcile_holiday_failure(&db, failed);
+        assert!(reconciled.success, "an index holiday must not count as a failure");
+        assert!(reconciled.message.starts_with("Exchange holiday (Election)"));
+    }
+
+    #[test]
+    fn holiday_failure_is_reclassified_as_an_expected_skip() {
+        let db = test_calendar();
+        db.execute("INSERT INTO market_holidays (date,name,source) VALUES ('2026-06-26','Muharram','USER')", []).unwrap();
+        let failed = failed_download_result("NSE", "2026-06-26", "no data available for this date");
+        let reconciled = reconcile_holiday_failure(&db, failed);
+        assert!(reconciled.success, "a closed day must not count as a failure");
+        assert_eq!(reconciled.rows_inserted, 0);
+        assert!(reconciled.message.starts_with("Exchange holiday (Muharram)"));
+        assert!(is_calendar_skip_result(&reconciled));
+        // A failure on a normal trading day stays a failure.
+        let genuine = failed_download_result("NSE", "2026-06-25", "no data available for this date");
+        let kept = reconcile_holiday_failure(&db, genuine);
+        assert!(!kept.success);
+        assert!(kept.message.starts_with("no data available"));
+    }
+
+    #[test]
+    fn weekday_holiday_never_blocks_a_download() {
         let db = test_calendar();
         db.execute("INSERT INTO market_holidays (date,name,source) VALUES ('2023-09-28','Id-E-Milad','USER')", []).unwrap();
-        let holiday_skip = create_calendar_skip_result(&db, "NSE", "2023-09-28", Weekday::Thu).unwrap();
-        assert!(holiday_skip.message.starts_with("Exchange holiday"));
-        // Both stores hold a full session on 2023-09-28, so the skip must lose.
-        assert!(is_calendar_skip_contradicted(&holiday_skip, true));
-        // With no stored bars the skip stands.
-        assert!(!is_calendar_skip_contradicted(&holiday_skip, false));
-        // Weekends follow the same rule.
+        // The calendar row exists, yet a weekday is still planned: a wrong or stale
+        // row must never decide that data does not exist.
+        assert!(create_calendar_skip_result(&db, "NSE", "2023-09-28", Weekday::Thu).is_none());
+        // The row is still readable, so a no-data result can be explained.
+        assert_eq!(
+            get_exchange_holiday_name(&db, "NSE", "2023-09-28").unwrap().as_deref(),
+            Some("Id-E-Milad")
+        );
+        // Weekends keep skipping (structural), with the holiday name attached.
         let weekend_skip = create_calendar_skip_result(&db, "NSE", "2023-09-30", Weekday::Sat).unwrap();
         assert!(weekend_skip.message.starts_with("Weekend ("));
         assert!(is_calendar_skip_contradicted(&weekend_skip, true));
         assert!(!is_calendar_skip_contradicted(&weekend_skip, false));
+        // A special session overrides even a weekend.
+        assert!(create_calendar_skip_result(&db, "NSE", "2023-11-12", Weekday::Sun).is_none());
     }
 
     #[test]

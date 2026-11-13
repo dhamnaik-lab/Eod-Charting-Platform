@@ -16,6 +16,20 @@ const counts = {
 };
 
 describe('Corporate Action full-page workspace shell', () => {
+  it('mounts one selected section and keeps the other sections in the same navigation', () => {
+    const html = renderToStaticMarkup(
+      <CorporateActionWorkspace section="identity" busy={false} onSectionChange={() => undefined}>
+        <button type="button">Preview Changes</button>
+      </CorporateActionWorkspace>,
+    );
+    expect(html).toContain('aria-current="page">Identity &amp; History');
+    expect(html).toContain('>Actions</button>');
+    expect(html).toContain('>History &amp; Reports</button>');
+    expect(html).toContain('>Maintenance</button>');
+    expect(html).toContain('>Preview Changes</button>');
+    expect((html.match(/aria-current="page"/g) ?? [])).toHaveLength(1);
+  });
+
   it('renders Review as the single current step after completed Fetch and Load', () => {
     const html = renderToStaticMarkup(
       <CorporateActionWorkflowHeader activeStage="review" counts={counts} />,
@@ -32,7 +46,7 @@ describe('Corporate Action full-page workspace shell', () => {
     );
   });
 
-  it('routes Corporate Actions through the preserved legacy dialog without recreating chart tab or sheet state', () => {
+  it('routes Corporate Actions through the managed workspace without recreating chart tab or sheet state', () => {
     const rootApp = readFileSync(resolve(process.cwd(), 'src/RootApp.tsx'), 'utf8');
 
     expect(rootApp).toContain('<LazyDatabaseToolsDialogs />');

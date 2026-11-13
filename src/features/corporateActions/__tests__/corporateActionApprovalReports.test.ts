@@ -50,7 +50,7 @@ describe('approval reports and rollback wording', () => {
   it('keeps report snapshots separate from readiness and scopes history by database', () => {
     const source = readFileSync('src/components/DatabaseToolsDialogs.tsx', 'utf8');
     expect(source).toContain('?? lastScanReport?.summary');
-    expect(source).toContain('Historical report only');
+    expect(source).toContain('Readiness may have changed');
     expect(source).toContain('lastScanReportRef.current?.databasePath === activeDatabasePath');
     expect(source).toContain("reviewStatus:'APPROVED',limit:APPROVAL_HISTORY_PAGE_SIZE,offset:previous?.offset ?? 0");
     expect(source).toContain('recentApprovalRequestRef.current');
@@ -70,6 +70,6 @@ describe('approval reports and rollback wording', () => {
     expect(source).toContain('colSpan={columns.length+1}');
     expect(source).toContain('>(CLASSIC_DEFAULT_SORT)');
     expect(source).toContain('setSort(CLASSIC_DEFAULT_SORT)');
-    expect(source).toContain('disabled={p.busy||p.approved||!event.ready}');
+    expect(source).toContain('disabled={p.busy||reviewOnly||!event.ready}');
   });
 });

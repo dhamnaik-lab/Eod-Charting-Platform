@@ -26,6 +26,8 @@ So the bars are correct and the calendar row is wrong. The two supplied PDFs are
 
 `get_exchange_holiday_name` used official data only when that exchange/year had an accepted snapshot, and otherwise fell back to the hardcoded rows. 2023–2025 and 2027 therefore ran entirely on the frozen seed.
 
+> **Superseded by [HOL-07](2026-11-13_IST_HOLIDAY_CALENDAR_ADVISORY.md) (13 Nov 2026):** the calendar no longer skips weekday holidays at all, so the contradiction guard and the holiday-skip counts described here are historical. Weekends remain the only calendar-driven skip.
+
 ## Change (code only; no data deleted)
 
 `src-tauri-shell/src/bhavcopy/calendar.rs`

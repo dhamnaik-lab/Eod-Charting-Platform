@@ -4,22 +4,23 @@ import { describe, expect, it } from 'vitest';
 
 const source = (path: string) => readFileSync(resolve(process.cwd(), path), 'utf8');
 
-/** Active-dialog contract only: never mount the retired alternate CA workspace. */
-describe('Corporate Actions three-action completion R1 — preservation contract', () => {
+describe('Unified Corporate Actions approval safeguards', () => {
   const ui = source('src/components/DatabaseToolsDialogs.tsx');
 
-  it('presents Fetch, Load & Validate and explicit Approve on the accepted dialog', () => {
-    expect(ui).toContain('function CorporateActionDialog');
-    expect(ui).toContain('Fetch from Officials');
-    expect(ui).toContain('Load &amp; Validate');
-    expect(ui).toContain('Approve All Ready (');
-    expect(ui).toContain('Approve Selected (');
+  it('connects the unified Actions queue to Fetch, Load & Validate, and explicit Approve', () => {
+    const queue = source('src/features/corporateActions/workspace/CorporateActionClassicWorkspace.tsx');
+    expect(ui).toContain('function UnifiedCorporateActions');
+    expect(ui).toContain('onFetch={()=>void fetchOfficialActions()}');
+    expect(ui).toContain('loadAndPrepareOfficialImports())}');
+    expect(ui).toContain('onApprove={(mode,ids)=>void requestOfficialImportApproval(mode,ids)}');
+    expect(queue).toContain('Fetch Data</button>');
+    expect(queue).toContain('Load &amp; Validate');
+    expect(queue).toContain('Approve all filtered Ready');
+    expect(queue).toContain('Approve selected');
     expect(ui).not.toContain('Load & Prepare');
     expect(ui).not.toContain('Fetch &amp; Import');
     expect(ui).toContain('Historical Backfill');
-    for (const label of ['Manual Entry', 'Identity Import', 'Official Imports', 'Scan Database', 'Review Issues']) {
-      expect(ui).toContain(label);
-    }
+    expect(ui).toContain('CorporateActionMaintenanceWorkspace section={maintenanceSection}');
   });
 
   it('keeps automatic preparation and explicit approval separated', () => {
@@ -30,6 +31,16 @@ describe('Corporate Actions three-action completion R1 — preservation contract
     expect(ui).toContain('recheckReviewedCorporateActionImports');
     expect(ui).toContain('applyReviewedCorporateActionBatches');
     expect(ui).toContain('forceReload: true, preserveViewport: true');
+  });
+
+  it('clears the previous validation status when fetch starts and exposes cancellation in Actions', () => {
+    const fetch = ui.slice(ui.indexOf('const fetchOfficialActions ='), ui.indexOf('const cancelOfficialFetch ='));
+    expect(fetch).toContain('setOfficialTaskProgress(null)');
+    expect(fetch).toContain('officialFetchOrHistoryRequest.current === request');
+    expect(fetch).toContain('if (!isCurrent()) return;');
+    const actions = ui.slice(ui.indexOf("{section === 'actions' && <>"), ui.indexOf("{section === 'identity' && renderIdentityTab()}"));
+    expect(actions).toContain('Cancel Fetch');
+    expect(actions).toContain('cancelOfficialFetch()');
   });
 
   it('activates specialized Dividend writer only after explicit Approve and preserves raw EOD', () => {

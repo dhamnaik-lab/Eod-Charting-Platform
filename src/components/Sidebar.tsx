@@ -68,7 +68,6 @@ function getMinimizedWindowIcon(id: string): string {
   if (id.includes('indicator')) return '📊';
   if (id.includes('alert')) return '🔔';
   if (id.includes('quote')) return '📝';
-  if (id.includes('corporate-action-maintenance')) return '\uD83D\uDEE0';
   if (id.includes('corporate') || id.includes('identity')) return '🏢';
   if (id.includes('parity')) return '⚖';
   if (id.includes('import')) return '📄';

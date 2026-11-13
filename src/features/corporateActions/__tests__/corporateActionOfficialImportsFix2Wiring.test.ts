@@ -55,8 +55,8 @@ describe('Official Imports FIX2 active wiring', () => {
 });
 
 describe('Official Imports FIX2 lifecycle scope', () => {
-  it('keeps the operation fence inside CorporateActionDialog rather than the Quote Editor', () => {
+  it('keeps the operation fence inside UnifiedCorporateActions rather than the Quote Editor', () => {
     const source=read('src/components/DatabaseToolsDialogs.tsx');
-    assert.doesNotMatch(source.slice(0,source.indexOf('function CorporateActionDialog')),/officialPreparationGenerationRef/);
+    assert.doesNotMatch(source.slice(0,source.indexOf('function UnifiedCorporateActions')),/officialPreparationGenerationRef/);
   });
 });

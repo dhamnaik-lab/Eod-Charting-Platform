@@ -1149,11 +1149,18 @@ where
             ",
         )
         .map_err(|error| error.to_string())?;
-    let mut insert_replace = transaction
+    let mut upsert = transaction
         .prepare(
             "
-              INSERT OR REPLACE INTO eod_prices (symbol, exchange, date, open, high, low, close, volume, open_interest)
+              INSERT INTO eod_prices (symbol, exchange, date, open, high, low, close, volume, open_interest)
               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+              ON CONFLICT(symbol, exchange, date) DO UPDATE SET
+                open = excluded.open,
+                high = excluded.high,
+                low = excluded.low,
+                close = excluded.close,
+                volume = excluded.volume,
+                open_interest = excluded.open_interest
             ",
         )
         .map_err(|error| error.to_string())?;
@@ -1255,7 +1262,7 @@ where
                             parsed.volume,
                             parsed.open_interest,
                         ]),
-                        DuplicateMode::Overwrite => insert_replace.execute(params![
+                        DuplicateMode::Overwrite => upsert.execute(params![
                             &parsed.symbol,
                             &parsed.exchange,
                             &parsed.date,
@@ -1343,7 +1350,7 @@ where
 
     drop(insert_instrument);
     drop(insert_ignore);
-    drop(insert_replace);
+    drop(upsert);
     drop(insert_strict);
     transaction.commit().map_err(|error| error.to_string())?;
     on_progress(
@@ -2196,6 +2203,7 @@ fn read_first_non_empty_lines(file_path: &Path, max_lines: usize) -> AppResult<V
 mod tests {
     use super::*;
     use crate::database::set_price_storage_mode;
+    use rusqlite::OptionalExtension;
     use std::io::Write;
     use tempfile::tempdir;
 
@@ -2283,33 +2291,103 @@ mod tests {
 
     fn setup_test_db(db_path: &Path) -> Connection {
         let conn = Connection::open(db_path).unwrap();
-        conn.execute(
-            "CREATE TABLE settings (key TEXT PRIMARY KEY, value TEXT NOT NULL, updated_at TEXT DEFAULT (datetime('now')))",
-            [],
-        ).unwrap();
-        conn.execute(
-            "CREATE TABLE instruments (
-                symbol TEXT,
-                exchange TEXT,
-                name TEXT,
-                series TEXT,
-                isin TEXT,
-                is_active INTEGER NOT NULL DEFAULT 1,
-                lifecycle_status TEXT NOT NULL DEFAULT 'CURRENT',
-                updated_at TEXT,
-                UNIQUE(symbol, exchange)
-            )",
-            [],
-        )
-        .unwrap();
-        conn.execute(
-            "CREATE TABLE eod_prices (
-                symbol TEXT, exchange TEXT, date TEXT, open REAL, high REAL, low REAL, close REAL, volume INTEGER, open_interest INTEGER
-            )",
-            [],
-        ).unwrap();
         prepare_database_connection(&conn).unwrap();
         conn
+    }
+
+    #[test]
+    fn db_safe_03_manual_import_preserves_unsupplied_fields_across_duplicate_modes() {
+        for mode in [Some("overwrite"), None, Some("skip"), Some("error")] {
+            let temp_dir = tempdir().unwrap();
+            let mut conn = setup_test_db(&temp_dir.path().join("test.db"));
+            set_price_storage_mode(&conn, PriceStorageMode::Hybrid).unwrap();
+            conn.execute(
+                "INSERT INTO eod_prices
+                 (symbol, exchange, date, open, high, low, close, volume, open_interest,
+                  prev_close, trades, delivery_qty, delivery_pct)
+                 VALUES ('RELIANCE', 'NSE', '2024-05-15', 99, 102, 98, 100, 1000, 20,
+                         97, 42, 500, 50)",
+                [],
+            )
+            .unwrap();
+            let csv_path = temp_dir.path().join("import.csv");
+            fs::write(
+                &csv_path,
+                "Symbol,Date,Open,High,Low,Close,Volume,OpenInterest\n\
+                 RELIANCE,2024-05-14,94,98,93,96,900,16\n\
+                 RELIANCE,2024-05-15,103,108,101,106,2000,30\n",
+            )
+            .unwrap();
+            let options = ImportOptionsInput {
+                file_paths: vec![csv_path.to_string_lossy().into_owned()],
+                exchange: Some("NSE".into()),
+                has_header: Some(true),
+                date_format: Some("YYYY-MM-DD".into()),
+                delimiter: Some(",".into()),
+                on_duplicate: mode.map(str::to_owned),
+                trim_whitespace: Some(true),
+                allow_exchange_mismatch: Some(false),
+            };
+
+            let result = import_single_file(&mut conn, &options, &csv_path, |_, _| {});
+            let overwrite = mode == Some("overwrite");
+            if mode == Some("error") {
+                assert!(result.err().unwrap().contains("UNIQUE constraint failed"));
+            } else {
+                let result = result.unwrap();
+                assert_eq!(result.rows_inserted, if overwrite { 2 } else { 1 });
+                assert_eq!(result.rows_skipped, if overwrite { 0 } else { 1 });
+            }
+
+            let (ohlc, volume, oi, prev_close, trades, qty, pct) = conn
+                .query_row(
+                    "SELECT open, high, low, close, volume, open_interest,
+                            prev_close, trades, delivery_qty, delivery_pct
+                     FROM eod_prices
+                     WHERE symbol = 'RELIANCE' AND exchange = 'NSE' AND date = '2024-05-15'",
+                    [],
+                    |row| {
+                        Ok((
+                            [row.get::<_, f64>(0)?, row.get(1)?, row.get(2)?, row.get(3)?],
+                            row.get::<_, i64>(4)?,
+                            row.get::<_, i64>(5)?,
+                            row.get::<_, Option<f64>>(6)?,
+                            row.get::<_, Option<i64>>(7)?,
+                            row.get::<_, Option<i64>>(8)?,
+                            row.get::<_, Option<f64>>(9)?,
+                        ))
+                    },
+                )
+                .unwrap();
+            let expected = if overwrite {
+                ([103.0, 108.0, 101.0, 106.0], 2000, 30)
+            } else {
+                ([99.0, 102.0, 98.0, 100.0], 1000, 20)
+            };
+            assert_eq!((ohlc, volume, oi), expected, "mode: {mode:?}");
+            assert_eq!(
+                (prev_close, trades, qty, pct),
+                (Some(97.0), Some(42), Some(500), Some(50.0))
+            );
+
+            let added_delivery: Option<(Option<i64>, Option<f64>)> = conn
+                .query_row(
+                    "SELECT delivery_qty, delivery_pct FROM eod_prices WHERE date = '2024-05-14'",
+                    [],
+                    |row| Ok((row.get(0)?, row.get(1)?)),
+                )
+                .optional()
+                .unwrap();
+            assert_eq!(
+                added_delivery,
+                if mode == Some("error") {
+                    None
+                } else {
+                    Some((None, None))
+                },
+                "mode: {mode:?}"
+            );
+        }
     }
 
     #[test]

@@ -79,7 +79,7 @@ describe('Corporate Actions local quick search', () => {
       hasDatabase: true, approved: false, exchange: 'BOTH', fromDate: '', toDate: '',
       types: ['DIVIDEND'], search: '', message: '', canCancel: false,
       onCancel: operation, onFetch: operation, onValidate: operation,
-      onViewChange: operation, onExchangeChange: operation, onDateChange: operation,
+      onClearFilters: operation, onExchangeChange: operation, onDateChange: operation,
       onTypesChange: operation, onSearchChange: operation, onCurrentSymbol: operation,
       onToggleMany: operation, onFilterChange: operation, onApprove: operation,
       renderDetails: () => null,
@@ -104,7 +104,7 @@ describe('Corporate Actions local quick search', () => {
       rows: [row(1, 'HDBFS')], loadedCount: 1, selectedIds: new Set(), busy: false,
       hasDatabase: true, approved: false, exchange: 'BOTH', fromDate: '', toDate: '', types: ['DIVIDEND'],
       search: 'ici', message: '', canCancel: false, onCancel: operation, onFetch: operation,
-      onValidate: operation, onViewChange: operation, onExchangeChange: operation, onDateChange: operation,
+      onValidate: operation, onClearFilters: operation, onExchangeChange: operation, onDateChange: operation,
       onTypesChange: operation, onSearchChange: operation, onCurrentSymbol: operation, onToggleMany: operation,
       onFilterChange: operation, onApprove: operation, renderDetails: () => null,
     };
