@@ -19,7 +19,8 @@ import { useUiStore } from '@/store/uiStore';
 import { useWindowStore } from '@/store/windowStore';
 import { getDesktopApi, type Watchlist } from '@/platform';
 import { isPluginEnabled } from '@/plugins/registry';
-import { CORE_EOD_SCANNER_PLUGIN_ID, listCoreScannerDefinitions } from '@/plugins/scanner/scannerPlugin';
+import { CORE_EOD_SCANNER_PLUGIN_ID } from '@/plugins/scanner/scannerPlugin';
+import { listApplicationScannerDefinitions, requiresCoreScannerPlugin } from '@/features/scanner/catalog';
 import {
   DEFAULT_LOOKBACK_BARS,
   DEFAULT_MAX_SYMBOLS,
@@ -154,7 +155,7 @@ export function ScannerWindow() {
     () => watchlists.filter((watchlist) => selectedWatchlistIds.includes(watchlist.id)),
     [watchlists, selectedWatchlistIds],
   );
-  const scannerDefinitions = useMemo(() => listCoreScannerDefinitions(), []);
+  const scannerDefinitions = useMemo(() => listApplicationScannerDefinitions(), []);
   const visibleScannerDefinitions = useMemo(
     () => filterAndSortScannerDefinitions(scannerDefinitions, priorityFilter, prioritySort),
     [scannerDefinitions, priorityFilter, prioritySort],
@@ -641,7 +642,7 @@ export function ScannerWindow() {
       const settings = await readAppSettings();
       setConfiguredAlertRules(settings.eodAlertRules);
       setAlertHistory(settings.eodAlertHistory);
-      if (!isPluginEnabled(CORE_EOD_SCANNER_PLUGIN_ID, settings.pluginEnabled)) {
+      if (requiresCoreScannerPlugin(selectedScannerIds) && !isPluginEnabled(CORE_EOD_SCANNER_PLUGIN_ID, settings.pluginEnabled)) {
         setStatus('Core EOD Scanner plugin is disabled in Settings.');
         return;
       }
@@ -766,7 +767,7 @@ export function ScannerWindow() {
       }
 
       const alertScannerIds = getScannerIdsForAlertRules(enabledAlertRules, allScannerIds);
-      if (alertScannerIds.length > 0 && !isPluginEnabled(CORE_EOD_SCANNER_PLUGIN_ID, settings.pluginEnabled)) {
+      if (requiresCoreScannerPlugin(alertScannerIds) && !isPluginEnabled(CORE_EOD_SCANNER_PLUGIN_ID, settings.pluginEnabled)) {
         setStatus('Core EOD Scanner plugin is disabled in Settings.');
         return;
       }

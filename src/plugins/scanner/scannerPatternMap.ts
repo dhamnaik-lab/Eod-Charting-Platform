@@ -1,5 +1,5 @@
 import type { InstrumentKey } from '@/platform';
-import type { ChartPatternFamily, ChartPatternGeometry } from '@/plugins/scanner/chartPatternTypes';
+import type { ChartPatternFamily, ChartPatternGeometry } from '@/features/chartPatterns/types';
 import type { ScannerDefinition, ScannerDirection, ScannerPriority, ScannerResult } from '@/plugins/scanner/types';
 
 export type ScannerPatternMapStatus = 'confirmed' | 'developing';

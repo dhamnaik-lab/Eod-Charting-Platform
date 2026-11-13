@@ -1,7 +1,7 @@
 import type { OHLCBar } from '@/engine/types';
 import type { InstrumentKey } from '@/platform';
 import type { ScannerChartOverlay } from '@/store/uiStore';
-import { chartPatternScannerDefinitions, runChartPatternScanner } from './chartPatternScanners';
+import { chartPatternScannerDefinitions, runChartPatternScanner } from '@/features/chartPatterns';
 import { buildScannerTimeframeBars } from './scannerChartTimeframe';
 import type { WorkspaceTimeframe } from '@/features/workspace/workspacePersistence';
 

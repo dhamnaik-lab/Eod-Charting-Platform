@@ -3,7 +3,7 @@
 import {
   evaluateChartPatterns,
   type ChartPatternEvaluationInput,
-} from '@/plugins/scanner/chartPatternEvaluation';
+} from '@/features/chartPatterns/evaluation';
 
 interface EvaluateMessage {
   type: 'evaluate';

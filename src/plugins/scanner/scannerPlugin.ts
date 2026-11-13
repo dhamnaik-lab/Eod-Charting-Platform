@@ -1,6 +1,5 @@
 import type { RegisteredPlugin } from '@/plugins/types';
 import type { ScannerDefinition } from '@/plugins/scanner/types';
-import { chartPatternScannerDefinitions } from '@/plugins/scanner/chartPatternScanners';
 import { coreOhlcvScannerDefinitions } from '@/plugins/scanner/coreOhlcvScanners';
 import { dailyMarketScannerDefinitions } from '@/plugins/scanner/dailyMarketScanners';
 import { signalScannerDefinitions } from '@/plugins/scanner/signalScanners';
@@ -21,7 +20,6 @@ export const coreEodScannerPlugin: RegisteredPlugin = {
     capabilities: [
       'core-ohlcv-scanners',
       'daily-market-scanners',
-      'chart-pattern-gap-scanners',
       'visual-signals-crossover-scanners',
       'read-only-eod-bars',
       'floating-window-ui',
@@ -29,8 +27,8 @@ export const coreEodScannerPlugin: RegisteredPlugin = {
   },
 };
 
-export function listCoreScannerDefinitions(): ScannerDefinition[] {
-  const dynamicScanners: ScannerDefinition[] = pluginHost.listRegisteredScanners().map((s) => ({
+export function listExternalScannerDefinitions(): ScannerDefinition[] {
+  return pluginHost.listRegisteredScanners().map((s) => ({
     id: s.id,
     name: s.name,
     categoryId: 'external_plugins',
@@ -43,11 +41,13 @@ export function listCoreScannerDefinitions(): ScannerDefinition[] {
     suggestedOutputColumns: [],
     implementationStatus: 'ready_for_engine',
   }));
+}
+
+export function listCoreScannerDefinitions(): ScannerDefinition[] {
   return [
     ...dailyMarketScannerDefinitions,
     ...coreOhlcvScannerDefinitions,
-    ...chartPatternScannerDefinitions,
     ...signalScannerDefinitions,
-    ...dynamicScanners,
+    ...listExternalScannerDefinitions(),
   ];
 }
