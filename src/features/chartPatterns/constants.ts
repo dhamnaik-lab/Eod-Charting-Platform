@@ -1,0 +1,13 @@
+export const CHART_GAP_CATEGORY_ID = 'chart_patterns_gap';
+export const CHART_GAP_CATEGORY_NAME = 'Chart Patterns - Gaps';
+export const CHART_REVERSAL_CATEGORY_ID = 'chart_patterns_reversal';
+export const CHART_REVERSAL_CATEGORY_NAME = 'Chart Patterns - Reversals';
+export const CHART_COMPLEX_CATEGORY_ID = 'chart_patterns_complex';
+export const CHART_COMPLEX_CATEGORY_NAME = 'Chart Patterns - Complex Bases';
+export const CHART_STRUCTURE_CATEGORY_ID = 'chart_patterns_structure';
+export const CHART_STRUCTURE_CATEGORY_NAME = 'Chart Patterns - Structures';
+export const MIN_GAP_PCT = 0.25;
+export const LEVEL_TOLERANCE_PCT = 3;
+export const REVERSAL_LOOKBACK_BARS = 180;
+export const STRUCTURE_LOOKBACK_BARS = 120;
+export const CUP_HANDLE_LOOKBACK_BARS = 160;

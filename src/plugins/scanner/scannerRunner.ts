@@ -16,9 +16,9 @@ import {
   type ScannerRunOutput,
   type ScannerRunRequest,
 } from '@/plugins/scanner/types';
-import { chartPatternScannerDefinitions } from '@/plugins/scanner/chartPatternScanners';
-import type { ChartPatternEvaluationOutput } from '@/plugins/scanner/chartPatternEvaluation';
-import { createChartPatternEvaluationExecutor } from '@/plugins/scanner/chartPatternWorkerClient';
+import { chartPatternScannerDefinitions } from '@/features/chartPatterns';
+import type { ChartPatternEvaluationOutput } from '@/features/chartPatterns/evaluation';
+import { createChartPatternEvaluationExecutor } from '@/features/chartPatterns/workerClient';
 import { coreOhlcvScannerDefinitions, runCoreScanner } from '@/plugins/scanner/coreOhlcvScanners';
 import { dailyMarketScannerDefinitions, runDailyMarketScanner } from '@/plugins/scanner/dailyMarketScanners';
 import { evaluateSignalScannerDefinitions } from '@/plugins/scanner/signalScanners';
