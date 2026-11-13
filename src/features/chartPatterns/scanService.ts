@@ -1,6 +1,6 @@
 import type { DesktopApi, InstrumentKey } from '@/platform';
 import { mapEodRowsToScannerBars, type EodBar } from '@/features/scanner/types';
-import { sameScannerPriceBasis, type ScannerChartPriceBasis } from './scannerChartPriceBasis';
+import { sameScannerPriceBasis, type ScannerChartPriceBasis } from '@/plugins/scanner/scannerChartPriceBasis';
 import type { OHLCBar } from '@/engine/types';
 
 export function scannerHistoryMatchesChart(bars: EodBar[], chartBars: OHLCBar[]): boolean {

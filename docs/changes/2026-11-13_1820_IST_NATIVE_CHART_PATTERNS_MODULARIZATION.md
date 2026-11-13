@@ -30,3 +30,9 @@ Do not merge the PR if validation fails. After merge, revert its isolated change
 
 ## Evidence
 GitHub base `b830573a8a491c207e9e853bc422ca62f8ebe45f`, original monolith blob `69684551e72b75b0dabf2e97dcac5bfaecbbbed1`. GitHub commit and CI evidence to be recorded on PR.
+
+## CI correction on draft PR #102
+
+- Initial renderer CI workflow run `43434529770` **FAIL**: 6 Vitest suites could not import `./scannerChartPriceBasis` from the relocated `src/features/chartPatterns/scanService.ts`; TypeScript TS2307 and Vite failed from the same missing relative path. Other 253 suites passed; 1 skipped in that run.
+- Fixed that single relocated import to the existing shared scanner price-basis utility at `@/plugins/scanner/scannerChartPriceBasis`. No scanner logic, thresholds or behavior changed.
+- A fresh PR CI run must validate the correction; previous failure is not a passing result.
