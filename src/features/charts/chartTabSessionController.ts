@@ -39,7 +39,7 @@ export interface ChartTabSessionController {
   setIncludeRightsAdjustments: (enabled: boolean) => void;
   createChartTab: () => void;
   duplicateChartTab: (tabId: string) => void;
-  activateChartTab: (tabId: string) => void;
+  activateChartTab: (tabId: string, tileLayoutMode?: LayoutMode) => void;
   closeChartTab: (tabId: string) => void;
   loadWorkspaceFromLayout: (layoutData: string) => void;
 }
@@ -217,13 +217,25 @@ export function createChartTabSessionController(
       deps.setState(nextState);
       deps.resetChartInteractionUi();
     },
-    activateChartTab: (tabId) => {
-      const nextState = buildActivateChartTabState(deps.getState(), tabId);
+    activateChartTab: (tabId, tileLayoutMode) => {
+      const currentState = deps.getState();
+      const nextState = buildActivateChartTabState(currentState, tabId);
       if (!nextState) {
         return;
       }
 
-      deps.setState(nextState);
+      // Tile selection must retain the visible workspace layout without
+      // changing how ordinary tab selection restores a tab's saved mode.
+      deps.setState(tileLayoutMode === undefined
+        ? nextState
+        : {
+            ...nextState,
+            chartTabs: currentState.chartTabs.map((tab) =>
+              tab.id === tabId && tab.layoutMode !== tileLayoutMode
+                ? { ...tab, layoutMode: tileLayoutMode }
+                : tab,
+            ),
+          });
       deps.resetChartInteractionUi();
 
       const activeState = deps.getState();
