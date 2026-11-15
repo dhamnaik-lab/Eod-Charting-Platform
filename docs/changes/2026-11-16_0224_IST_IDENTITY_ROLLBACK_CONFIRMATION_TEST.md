@@ -55,11 +55,11 @@ The regression now verifies:
 | Gate | Command/evidence | Actual result |
 | --- | --- | --- |
 | Untouched main baseline | GitHub CI #43759843377 | **Confirmed** two failures, including stale rollback native-dialog assertion; typecheck/build pass |
-| Identity focused regression | `npm test -- src/features/identityRecovery/__tests__/identityEr4HistoryVisibility.test.ts` | **Pending**; GitHub full suite will exercise it |
-| Renderer Vitest | `npm test` | **Pending CI**; one *other* CA fixture failure expected on unchanged main |
-| Renderer TypeScript | `npm run typecheck:renderer` | **Pending CI** |
-| Renderer build | `npm run build:renderer` | **Pending CI** |
-| Source diff | GitHub compare against `main@42ae31ba` | **Pending final confirmation** |
+| Identity recovery regression | Included in CI full `npm test`; not separately invoked | **PASS:** 6/6 tests |
+| Renderer Vitest | `npm test` | **FAIL overall:** 1,827 passed, 1 failed, 1 skipped; only failure is the out-of-scope CA fixture contract |
+| Renderer TypeScript | `npm run typecheck:renderer` | **PASS** in [GitHub Renderer CI 43760816073](https://github.com/dhamnaik-lab/Eod-Charting-Platform/actions/runs/43760816073) |
+| Renderer build | `npm run build:renderer` | **PASS**, Vite built in 7.66s in CI 43760816073 |
+| Source diff | GitHub compare against `main@42ae31ba` | **PASS:** exactly 2 files (1 test, 1 documentation), 0 behind baseline |
 | Windows portable/manual | `npm run tauri:portable:win` | **User-held / not run** |
 
 ## Risks and limitations
@@ -77,4 +77,6 @@ Discard this draft branch or revert only the test change to the exact file blob 
 
 - Pinned source `42ae31bae7937dde944c87a997b94da933ad1a0b`
 - Initial test-only commit `98fa87ab74e8c192d064f908c1bdee8d2d07a585`
-- GitHub CI run and final SHA to be appended upon validation.
+- Tested source commit: `06b922c3bc3cef1094d7c3032271c3d2c7aebcc3`.
+- [GitHub Renderer CI 43760816073](https://github.com/dhamnaik-lab/Eod-Charting-Platform/actions/runs/43760816073): identity tests 6/6 PASS; full suite fails only the unrelated CA readiness fixture, TypeScript and Vite build PASS.
+- Subsequent documentation-only update does not affect renderer/test source.
