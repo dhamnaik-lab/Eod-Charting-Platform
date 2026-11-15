@@ -627,11 +627,6 @@ function buildPriceSummary(
         text: formatPrice(bar.close, 2, 2), color: closeColor,
         tooltip: separateSettlementClose ? `Trade range ${formatPrice(bar.low, 2, 2)}–${formatPrice(bar.high, 2, 2)}. BSE publishes the official close separately.` : undefined,
       },
-      {
-        text: missingIndexReference ? "Change unavailable"
-          : `${formatSignedValue(change, 2, 2)} (${formatSignedValue(changePct, 2, 2)}%)`,
-        color: closeColor,
-      },
       { text: "Vol", color: "var(--legend-muted)", muted: true },
       {
         text: Number.isFinite(bar.volume) && bar.volume >= 0 ? formatVolume(bar.volume) : "—",
@@ -639,6 +634,11 @@ function buildPriceSummary(
         tooltip: Number.isFinite(bar.volume) && bar.volume >= 0
           ? `Volume ${bar.volume.toLocaleString("en-IN")}`
           : "Volume unavailable",
+      },
+      {
+        text: missingIndexReference ? "Change unavailable"
+          : `${formatSignedValue(change, 2, 2)} (${formatSignedValue(changePct, 2, 2)}%)`,
+        color: closeColor,
       },
     ],
   };
