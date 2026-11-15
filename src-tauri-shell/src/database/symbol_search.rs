@@ -16,15 +16,24 @@ struct SearchEntry {
 }
 
 #[tauri::command]
-pub fn search_symbols(
+pub async fn search_symbols(
     app: AppHandle,
+    input: SearchSymbolsInput,
+) -> AppResult<Vec<InstrumentSummary>> {
+    tauri::async_runtime::spawn_blocking(move || search_symbols_internal(&app, input))
+        .await
+        .map_err(|error| error.to_string())?
+}
+
+fn search_symbols_internal(
+    app: &AppHandle,
     input: SearchSymbolsInput,
 ) -> AppResult<Vec<InstrumentSummary>> {
     if input.query.trim().is_empty() {
         return Ok(Vec::new());
     }
 
-    with_active_connection(&app, |connection| {
+    with_active_connection(app, |connection| {
         list_instrument_summaries_internal(
             connection,
             Some(input.query.as_str()),
@@ -38,11 +47,20 @@ pub fn search_symbols(
 }
 
 #[tauri::command]
-pub fn list_symbols(
+pub async fn list_symbols(
     app: AppHandle,
     input: Option<ListSymbolsInput>,
 ) -> AppResult<Vec<InstrumentSummary>> {
-    with_active_connection(&app, |connection| {
+    tauri::async_runtime::spawn_blocking(move || list_symbols_internal(&app, input))
+        .await
+        .map_err(|error| error.to_string())?
+}
+
+fn list_symbols_internal(
+    app: &AppHandle,
+    input: Option<ListSymbolsInput>,
+) -> AppResult<Vec<InstrumentSummary>> {
+    with_active_connection(app, |connection| {
         list_instrument_summaries_internal(
             connection,
             input.as_ref().and_then(|value| value.query.as_deref()),

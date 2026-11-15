@@ -124,6 +124,8 @@ const FETCH_PROGRESS_PARSE_START: u32 = 25;
 const FETCH_PROGRESS_STORE_START: u32 = 35;
 const FETCH_PROGRESS_DONE: u32 = 100;
 const REVIEW_STATUS_PENDING_ISIN_MISMATCH: &str = "PENDING_ISIN_MISMATCH";
+pub(super) const DEMERGER_AUTHORITY_REQUIRED: &str =
+    "Demerger requires a verified event-specific adjustment basis. EOD price movement and entitlement ratios alone are insufficient.";
 const HISTORICAL_BACKFILL_BATCH_MAX_SYMBOLS: usize = 25;
 const HISTORICAL_SPARSE_CANDIDATE_LONG_HISTORY_CUTOFF: &str = "2015-01-01";
 #[derive(Clone, Debug)]
@@ -4137,8 +4139,13 @@ fn build_import_candidate_from_fields(
         messages.push("Purpose needs manual review; no price adjustment is available.".to_string());
     }
 
-    if matches!(parsed.action_type.as_str(), "SPLIT" | "BONUS") && parsed.parse_status != "PARSED" {
-        review_status = "NEEDS_REVIEW".to_string();
+    if matches!(parsed.action_type.as_str(), "SPLIT" | "BONUS")
+        && matches!(
+            resolution.review_status.as_str(),
+            "UNRESOLVED" | REVIEW_STATUS_PENDING_ISIN_MISMATCH
+        )
+    {
+        review_status = resolution.review_status.clone();
     }
 
     let resolved_isin = resolution
@@ -5784,7 +5791,7 @@ fn strict_quick_resolve_proof(
         || import_row.ex_date.is_none()
         || !matches!(
             import_row.action_type.as_str(),
-            "SPLIT" | "BONUS" | "DIVIDEND" | "RIGHTS"
+            "SPLIT" | "BONUS" | "DIVIDEND" | "RIGHTS" | "DEMERGER"
         )
     {
         return Ok(None);
@@ -6286,9 +6293,14 @@ fn derive_import_review_status(
     }
     if !matches!(
         import_row.action_type.as_str(),
-        "SPLIT" | "BONUS" | "DIVIDEND" | "RIGHTS"
+        "SPLIT" | "BONUS" | "DIVIDEND" | "RIGHTS" | "DEMERGER"
     ) {
         return "UNSUPPORTED".to_string();
+    }
+    if matches!(import_row.action_type.as_str(), "SPLIT" | "BONUS")
+        && resolved.review_status == REVIEW_STATUS_PENDING_ISIN_MISMATCH
+    {
+        return REVIEW_STATUS_PENDING_ISIN_MISMATCH.to_string();
     }
     if import_row.parse_status != "PARSED" || import_row.ex_date.is_none() {
         return "NEEDS_REVIEW".to_string();
@@ -6364,7 +6376,11 @@ fn ensure_split_bonus_price_validation(
     allow_exception: bool,
 ) -> AppResult<()> {
     ensure_compound_scan_fingerprint_current(connection, import_row)?;
-    if !matches!(import_row.action_type.as_str(), "SPLIT" | "BONUS") {
+    let requires_price_validation = matches!(import_row.action_type.as_str(), "SPLIT" | "BONUS" | "DEMERGER")
+        || (import_row.action_type == "RIGHTS"
+            && import_row.factor.is_some()
+            && import_row.cash_amount.is_none());
+    if !requires_price_validation {
         return Ok(());
     }
     let validation = load_latest_official_split_bonus_validation(connection, import_row.id)?
@@ -6837,6 +6853,11 @@ fn approve_corporate_action_import_without_transaction(
         });
     }
 
+    if import_row.action_type == "DEMERGER" {
+        return Err(DEMERGER_AUTHORITY_REQUIRED.to_string());
+    }
+    ensure_rights_financial_terms(&import_row)?;
+
     if !matches!(
         import_row.action_type.as_str(),
         "SPLIT" | "BONUS" | "DIVIDEND" | "RIGHTS"
@@ -6885,7 +6906,11 @@ fn approve_corporate_action_import_without_transaction(
         return Err("Ex-date is required before approval.".to_string());
     };
     ensure_official_import_eod_ready(connection, folder_path, &import_row, &symbol, &effective_date)?;
-    if matches!(import_row.action_type.as_str(), "SPLIT" | "BONUS") {
+    if matches!(import_row.action_type.as_str(), "SPLIT" | "BONUS" | "DEMERGER")
+        || (import_row.action_type == "RIGHTS"
+            && import_row.factor.is_some()
+            && import_row.cash_amount.is_none())
+    {
         ensure_split_bonus_price_validation(
             connection,
             &import_row,
@@ -6961,8 +6986,17 @@ fn approve_corporate_action_import_without_transaction(
         Err(error) => return Err(error),
     };
 
-    if import_row.factor.is_some() && approved.factor != import_row.factor {
-        return Err("Approved factor did not match the parsed import factor.".to_string());
+    if let Some(expected_factor) = import_row.factor {
+        let factor_matches = if matches!(import_row.action_type.as_str(), "DEMERGER" | "RIGHTS") {
+            approved
+                .factor
+                .is_some_and(|actual| (actual - expected_factor).abs() <= 1e-6 * expected_factor.abs().max(1.0))
+        } else {
+            approved.factor == Some(expected_factor)
+        };
+        if !factor_matches {
+            return Err("Approved factor did not match the parsed import factor.".to_string());
+        }
     }
     if let Some(isin) = import_row.isin.as_deref() {
         upsert_instrument_isin_history_evidence(
@@ -6995,6 +7029,37 @@ fn find_existing_corporate_action(
     let Some(effective_date) = import_row.ex_date.as_deref() else {
         return Ok(None);
     };
+    if import_row.action_type == "DEMERGER"
+        || (import_row.action_type == "RIGHTS" && import_row.cash_amount.is_none())
+    {
+        return connection
+            .query_row(
+                "
+                  SELECT id
+                  FROM corporate_actions
+                  WHERE exchange = ?
+                    AND effective_date = ?
+                    AND action_type = ?
+                    AND (
+                      (? IS NOT NULL AND isin = ?)
+                      OR symbol = ?
+                    )
+                  ORDER BY id DESC
+                  LIMIT 1
+                ",
+                params![
+                    import_row.exchange,
+                    effective_date,
+                    import_row.action_type,
+                    import_row.isin,
+                    import_row.isin,
+                    symbol,
+                ],
+                |row| row.get::<_, i64>(0),
+            )
+            .optional()
+            .map_err(|error| error.to_string());
+    }
     connection
         .query_row(
             "
@@ -7083,10 +7148,52 @@ fn hydrate_import_instrument_activity(connection: &Connection, rows: &mut [Corpo
         row.instrument_is_active = statement.query_row(
             params![row.symbol, row.exchange], |result| result.get::<_, Option<i64>>(0),
         ).optional().map_err(|error| error.to_string())?.flatten().map(|value| value != 0);
-        if row.instrument_is_active == Some(false) && matches!(row.action_type.as_str(), "SPLIT" | "BONUS") {
-            row.verified_adjustment_target = split_bonus_symbol_chain::verified(
-                connection, &split_isin_price_proof::database_folder(connection)?, row,
-            )?.map(|proof| proof.target);
+        if row.instrument_is_active == Some(false)
+            && matches!(row.action_type.as_str(), "SPLIT" | "BONUS" | "DEMERGER" | "RIGHTS")
+        {
+            let folder = split_isin_price_proof::database_folder(connection)?;
+            if matches!(row.action_type.as_str(), "SPLIT" | "BONUS") {
+                row.verified_adjustment_target =
+                    split_bonus_symbol_chain::verified(connection, &folder, row)?
+                        .map(|proof| proof.target);
+            }
+            if row.verified_adjustment_target.is_none()
+                && row.review_status == "PENDING"
+                && row.parse_status == "PARSED"
+                && row.approved_corporate_action_id.is_none()
+            {
+                if let Some(symbol) = row.symbol.as_deref() {
+                    let has_outgoing_rename: bool = connection
+                        .query_row(
+                            "SELECT EXISTS(
+                                SELECT 1 FROM sqlite_master WHERE type='table' AND name='instrument_identity_history'
+                             ) AND EXISTS(
+                                SELECT 1 FROM instrument_identity_history
+                                WHERE UPPER(TRIM(exchange)) = UPPER(TRIM(?1))
+                                  AND UPPER(TRIM(old_symbol)) = UPPER(TRIM(?2))
+                                  AND UPPER(TRIM(new_symbol)) <> UPPER(TRIM(?2))
+                             )",
+                            params![row.exchange, symbol],
+                            |r| r.get(0),
+                        )
+                        .unwrap_or(false);
+                    if !has_outgoing_rename {
+                        if let Ok(Some(validation)) =
+                            load_latest_official_split_bonus_validation(connection, row.id)
+                        {
+                            if validation.scan_status == "MATCHED"
+                                && is_split_bonus_validation_current(connection, row, &validation).unwrap_or(false)
+                                && price_validation_freshness::ensure_scan_uses_current_price_window(
+                                    connection, &folder, row,
+                                )
+                                .is_ok()
+                            {
+                                row.verified_adjustment_target = Some(symbol.to_string());
+                            }
+                        }
+                    }
+                }
+            }
         }
     }
     Ok(())
@@ -7776,6 +7883,8 @@ fn run_corporate_action_scan_internal(
         for id in ids {
             let row = get_import_row(connection, id)?;
             split_bonus_symbol_chain::prepare(connection, folder_path, &row)?;
+            let row = get_import_row(connection, id)?;
+            prepare_price_verified_same_symbol_identity(connection, folder_path, &row)?;
         }
     }
 
@@ -7835,12 +7944,220 @@ fn scan_complete_message(scope: &str, total_results: i64) -> String {
     }
 }
 
+fn prepare_price_verified_same_symbol_identity(
+    connection: &Connection,
+    folder_path: &Path,
+    row: &CorporateActionImportRow,
+) -> AppResult<()> {
+    if !matches!(row.action_type.as_str(), "SPLIT" | "BONUS" | "DEMERGER")
+        || row.parse_status != "PARSED"
+        || row.approved_corporate_action_id.is_some()
+        || !matches!(
+            row.review_status.as_str(),
+            "UNRESOLVED" | REVIEW_STATUS_PENDING_ISIN_MISMATCH | "PENDING"
+        )
+    {
+        return Ok(());
+    }
+    if split_bonus_symbol_chain::has_identity_route(connection, row)? {
+        return Ok(());
+    }
+    let Some(symbol) = row.symbol.as_deref() else {
+        return Ok(());
+    };
+    let Some(ex_date) = row.ex_date.as_deref() else {
+        return Ok(());
+    };
+    let has_outgoing_rename: bool = connection
+        .query_row(
+            "SELECT EXISTS(SELECT 1 FROM sqlite_master WHERE type='table' AND name='instrument_identity_history')",
+            [],
+            |r| r.get::<_, i64>(0),
+        )
+        .map_err(|e| e.to_string())?
+        != 0
+        && connection
+            .query_row(
+                "SELECT EXISTS(
+                    SELECT 1 FROM instrument_identity_history
+                    WHERE exchange = ?1
+                      AND old_symbol = ?2
+                      AND new_symbol IS NOT NULL
+                      AND TRIM(new_symbol) <> ''
+                      AND TRIM(new_symbol) <> TRIM(old_symbol)
+                )",
+                params![row.exchange, symbol],
+                |r| r.get::<_, i64>(0),
+            )
+            .map_err(|e| e.to_string())?
+            != 0;
+    if has_outgoing_rename {
+        return Ok(());
+    }
+
+    let Some(validation) = load_latest_official_split_bonus_validation(connection, row.id)? else {
+        return Ok(());
+    };
+    if validation.scan_status != "MATCHED"
+        || !is_split_bonus_validation_current(connection, row, &validation)?
+        || price_validation_freshness::ensure_scan_uses_current_price_window(
+            connection,
+            folder_path,
+            row,
+        )
+        .is_err()
+    {
+        return Ok(());
+    }
+
+    let Some(instrument) = find_instrument_record(connection, symbol, &row.exchange)? else {
+        return Ok(());
+    };
+    let Some(raw_isin) = normalize_isin(row.isin.as_deref()) else {
+        return Ok(());
+    };
+    let Some(inst_isin) = normalize_isin(instrument.isin.as_deref()) else {
+        return Ok(());
+    };
+    if raw_isin != inst_isin && !split_isin_price_proof::same_equity_issuer(&raw_isin, &inst_isin) {
+        return Ok(());
+    }
+    let other_active_owner: bool = connection
+        .query_row(
+            "SELECT EXISTS(
+                SELECT 1 FROM instruments
+                WHERE exchange = ?1
+                  AND UPPER(TRIM(COALESCE(isin, ''))) = ?2
+                  AND symbol <> ?3
+                  AND COALESCE(is_active, 1) = 1
+            )",
+            params![row.exchange, raw_isin, symbol],
+            |r| r.get::<_, i64>(0),
+        )
+        .map_err(|e| e.to_string())?
+        != 0;
+    if other_active_owner {
+        return Ok(());
+    }
+
+    upsert_instrument_isin_history_evidence(
+        connection,
+        &row.exchange,
+        symbol,
+        &raw_isin,
+        Some(ex_date),
+        Some("VERIFIED_PRICE_SCAN"),
+        Some("corporate_action_scan_results"),
+        Some(ex_date),
+    )?;
+
+    if matches!(
+        row.review_status.as_str(),
+        "UNRESOLVED" | REVIEW_STATUS_PENDING_ISIN_MISMATCH
+    ) {
+        if row.exchange.eq_ignore_ascii_case("BSE") {
+            connection
+                .execute(
+                    "UPDATE corporate_action_imports
+                     SET review_status = 'PENDING',
+                         message = 'Verified BSE same-issuer historical ISIN via matched local EOD price window.'
+                     WHERE id = ?1 AND approved_corporate_action_id IS NULL",
+                    params![row.id],
+                )
+                .map_err(|e| e.to_string())?;
+        } else {
+            let _ = quick_resolve_corporate_action_import_internal(
+                connection,
+                &CorporateActionImportQuickResolveInput { import_id: row.id },
+            );
+            if get_import_row(connection, row.id)?.review_status != "PENDING" {
+                let _ = resolve_corporate_action_import_internal(
+                    connection,
+                    &CorporateActionImportResolveInput {
+                        import_id: row.id,
+                        symbol: None,
+                        exchange: None,
+                        reason: None,
+                    },
+                );
+            }
+        }
+    }
+    Ok(())
+}
+
+fn prepare_bse_scrip_code_scan_symbols(
+    connection: &Connection,
+    import_ids: Option<&[i64]>,
+) -> AppResult<()> {
+    let import_table_exists: bool = connection
+        .query_row(
+            "SELECT EXISTS(SELECT 1 FROM sqlite_master WHERE type='table' AND name='corporate_action_imports')",
+            [],
+            |r| r.get::<_, i64>(0),
+        )
+        .map_err(|e| e.to_string())?
+        != 0;
+    if !import_table_exists {
+        return Ok(());
+    }
+    let ids: Vec<i64> = if let Some(import_ids) = import_ids {
+        let placeholders = std::iter::repeat("?")
+            .take(import_ids.len())
+            .collect::<Vec<_>>()
+            .join(", ");
+        let sql = format!(
+            "SELECT id FROM corporate_action_imports
+             WHERE exchange = 'BSE'
+               AND approved_corporate_action_id IS NULL
+               AND bse_scrip_code IS NOT NULL
+               AND TRIM(bse_scrip_code) <> ''
+               AND (symbol IS NULL OR TRIM(symbol) = '' OR TRIM(symbol) = TRIM(bse_scrip_code))
+               AND id IN ({placeholders})"
+        );
+        let mut stmt = connection.prepare(&sql).map_err(|e| e.to_string())?;
+        let rows = stmt
+            .query_map(params_from_iter(import_ids.iter().copied()), |r| r.get(0))
+            .map_err(|e| e.to_string())?
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(|e| e.to_string())?;
+        rows
+    } else {
+        let mut stmt = connection
+            .prepare(
+                "SELECT id FROM corporate_action_imports
+                 WHERE exchange = 'BSE'
+                   AND approved_corporate_action_id IS NULL
+                   AND bse_scrip_code IS NOT NULL
+                   AND TRIM(bse_scrip_code) <> ''
+                   AND (symbol IS NULL OR TRIM(symbol) = '' OR TRIM(symbol) = TRIM(bse_scrip_code))",
+            )
+            .map_err(|e| e.to_string())?;
+        let rows = stmt
+            .query_map([], |r| r.get(0))
+            .map_err(|e| e.to_string())?
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(|e| e.to_string())?;
+        rows
+    };
+
+    for id in ids {
+        let row = get_import_row(connection, id)?;
+        let resolved = recheck_import_row_resolution(connection, &row)?;
+        if resolved.symbol.is_some() && resolved.symbol != row.symbol {
+            apply_import_row_resolution(connection, &row, &resolved)?;
+        }
+    }
+    Ok(())
+}
+
 fn run_official_candidate_scan(
     connection: &Connection,
     folder_path: &Path,
     scan_run_id: i64,
     import_ids: Option<&[i64]>,
 ) -> AppResult<i64> {
+    prepare_bse_scrip_code_scan_symbols(connection, import_ids)?;
     let candidates = load_scan_candidates(connection, import_ids)?;
     let mut total_results = 0_i64;
     for candidate in candidates {
@@ -8077,10 +8394,16 @@ fn load_scan_candidates(
         "
           SELECT id, symbol, exchange, ex_date, factor
           FROM corporate_action_imports
-          WHERE action_type IN ('SPLIT', 'BONUS', 'DIVIDEND', 'RIGHTS')
-            AND parse_status = 'PARSED'
+          WHERE action_type IN ('SPLIT', 'BONUS', 'DIVIDEND', 'RIGHTS', 'DEMERGER')
             AND ex_date IS NOT NULL
-            AND (action_type IN ('DIVIDEND', 'RIGHTS') OR factor IS NOT NULL)
+            AND (
+              action_type IN ('DEMERGER', 'RIGHTS')
+              OR (action_type IN ('SPLIT', 'BONUS') AND factor IS NULL)
+              OR (
+                parse_status = 'PARSED'
+                AND (action_type IN ('DIVIDEND', 'RIGHTS') OR factor IS NOT NULL)
+              )
+            )
         "
     } else {
         "
@@ -8459,6 +8782,17 @@ fn ensure_compound_scan_fingerprint_current(
     Ok(())
 }
 
+fn ensure_rights_financial_terms(row: &CorporateActionImportRow) -> AppResult<()> {
+    if row.action_type == "RIGHTS"
+        && ![row.ratio_num, row.ratio_den, row.cash_amount]
+            .iter()
+            .all(|value| value.is_some_and(|value| value.is_finite() && value > 0.0))
+    {
+        return Err("Awaiting official Rights ratio and issue price; EOD price movement is not a verified adjustment factor.".to_string());
+    }
+    Ok(())
+}
+
 fn scan_candidate(
     connection: &Connection,
     folder_path: &Path,
@@ -8491,29 +8825,111 @@ fn scan_candidate(
     // Dividend factors are derived at approval time from the cum-date close;
     // imported rows commonly have no stored factor. For Dividend/Rights this
     // scan establishes only local EOD bar availability, not a price-drop match.
+    let import_row_opt = get_import_row(connection, candidate.import_id).ok();
+    if let Some(row) = &import_row_opt {
+        if let Err(reason) = ensure_rights_financial_terms(row) {
+            // Do not rewrite historical factors or approved adjustments. Even a
+            // previously MATCHED price-drop scan cannot supply missing terms.
+            return Ok(scan_result_row(
+                scan_run_id, candidate, "REVIEW", None, None, &reason, scanned_at,
+            ));
+        }
+    }
+    if let (Some(row), Some(expected)) = (&import_row_opt, candidate.factor) {
+        if row.approved_corporate_action_id.is_none()
+            && matches!(row.action_type.as_str(), "SPLIT" | "BONUS")
+            && !matches!(row.review_status.as_str(), "UNRESOLVED" | REVIEW_STATUS_PENDING_ISIN_MISMATCH)
+            && expected.is_finite()
+            && expected > 0.0
+        {
+            if let Ok(Some(existing_ca_id)) = connection
+                .query_row(
+                    "SELECT ca.id
+                     FROM instrument_identity_history h
+                     JOIN corporate_actions ca
+                       ON ca.exchange = h.exchange
+                      AND ca.symbol = h.new_symbol
+                      AND ca.effective_date = ?3
+                      AND ca.action_type = ?4
+                     WHERE h.exchange = ?1
+                       AND h.old_symbol = ?2
+                       AND ABS(COALESCE(ca.factor, 0.0) - ?5) <= 1e-6
+                     ORDER BY ca.id DESC
+                     LIMIT 1",
+                    params![
+                        candidate.exchange,
+                        symbol,
+                        ex_date,
+                        row.action_type,
+                        expected
+                    ],
+                    |r| r.get::<_, i64>(0),
+                )
+                .optional()
+            {
+                mark_import_approved(connection, candidate.import_id, existing_ca_id)?;
+                return Ok(CorporateActionScanResultRow {
+                    id: 0,
+                    scan_run_id,
+                    corporate_action_import_id: Some(candidate.import_id),
+                    corporate_action_id: Some(existing_ca_id),
+                    symbol: Some(symbol.to_string()),
+                    exchange: candidate.exchange.clone(),
+                    scan_status: "MATCHED".to_string(),
+                    prev_trade_date: None,
+                    ex_trade_date: Some(ex_date.to_string()),
+                    prev_close: None,
+                    ex_open: None,
+                    ex_close: None,
+                    expected_factor: Some(expected),
+                    actual_open_factor: Some(expected),
+                    actual_close_factor: Some(expected),
+                    confidence: Some(1.0),
+                    message: Some(format!(
+                        "Linked duplicate predecessor-symbol import to existing approved canonical corporate action #{}.",
+                        existing_ca_id
+                    )),
+                    scanned_at,
+                });
+            }
+        }
+    }
+    let is_demerger = import_row_opt
+        .as_ref()
+        .is_some_and(|row| row.action_type == "DEMERGER");
+    let is_unparsed_split_bonus = import_row_opt.as_ref().is_some_and(|row| {
+        matches!(row.action_type.as_str(), "SPLIT" | "BONUS")
+            && candidate.factor.is_none()
+            && row.parse_status != "PARSED"
+    });
+    let non_ratio_event = import_row_opt.as_ref().is_some_and(|row| {
+        matches!(row.action_type.as_str(), "DIVIDEND" | "RIGHTS")
+    });
     let expected_factor = match candidate.factor {
         Some(factor) if factor.is_finite() && factor > 0.0 => factor,
         _ => {
-            let non_ratio_event = get_import_row(connection, candidate.import_id)
-                .map(|row| matches!(row.action_type.as_str(), "DIVIDEND" | "RIGHTS"))
-                .unwrap_or(false);
-            if non_ratio_event { 1.0 } else {
+            if non_ratio_event || is_demerger || is_unparsed_split_bonus {
+                1.0
+            } else {
                 return Ok(scan_result_row(
-                    scan_run_id, candidate, "NEEDS_REVIEW", None, None,
-                    "Candidate has no expected factor.", scanned_at,
+                    scan_run_id,
+                    candidate,
+                    "NEEDS_REVIEW",
+                    None,
+                    None,
+                    "Candidate has no expected factor.",
+                    scanned_at,
                 ));
             }
         }
     };
 
-    let non_ratio_event = get_import_row(connection, candidate.import_id)
-        .map(|row| matches!(row.action_type.as_str(), "DIVIDEND" | "RIGHTS"))
-        .unwrap_or(false);
-    let compound_context = if non_ratio_event {
-        None
-    } else {
-        load_same_date_split_bonus_compound_context(connection, candidate)?
-    };
+    let compound_context =
+        if non_ratio_event || is_demerger || is_unparsed_split_bonus {
+            None
+        } else {
+            load_same_date_split_bonus_compound_context(connection, candidate)?
+        };
     let validation_factor = compound_context
         .as_ref()
         .map(|context| context.combined_factor)
@@ -8522,26 +8938,49 @@ fn scan_candidate(
     // Preserve event-symbol scanner contexts and minimal read-only scan
     // fixtures. An admitted A1 route uses the strict event-alias window shared
     // with approval. All other rows retain the legacy lookup; never fabricate an import.
-    let stored = get_import_row(connection,candidate.import_id).ok().filter(|row|
-        row.symbol.as_deref()==Some(symbol) && row.exchange==candidate.exchange && row.ex_date.as_deref()==Some(ex_date));
+    let stored = import_row_opt.clone().filter(|row| {
+        row.symbol.as_deref() == Some(symbol)
+            && row.exchange == candidate.exchange
+            && row.ex_date.as_deref() == Some(ex_date)
+    });
     let strict_route = match &stored {
-        Some(row) => split_bonus_symbol_chain::has_identity_route(connection,row)?,
+        Some(row) => split_bonus_symbol_chain::has_identity_route(connection, row)?,
         None => false,
     };
     let window_result = if strict_route {
-        split_bonus_symbol_chain::trade_window(connection,folder_path,stored.as_ref().unwrap())
-    } else { match load_trade_window(connection,folder_path,symbol,&candidate.exchange,ex_date)? {
-        Some(window) => Ok(Some(window)),
-        None => match get_import_row(connection,candidate.import_id) {
-            Ok(row) if row.symbol.as_deref()==Some(symbol) && row.exchange==candidate.exchange && row.ex_date.as_deref()==Some(ex_date) =>
-                load_import_trade_window(connection,folder_path,&row,symbol,&candidate.exchange,ex_date),
-            _ => Ok(None),
-        },
-    }};
+        split_bonus_symbol_chain::trade_window(connection, folder_path, stored.as_ref().unwrap())
+    } else {
+        match load_trade_window(connection, folder_path, symbol, &candidate.exchange, ex_date)? {
+            Some(window) => Ok(Some(window)),
+            None => match &stored {
+                Some(row) => load_import_trade_window(
+                    connection,
+                    folder_path,
+                    row,
+                    symbol,
+                    &candidate.exchange,
+                    ex_date,
+                ),
+                None => Ok(None),
+            },
+        }
+    };
     let window = match window_result {
         Ok(window) => window,
-        Err(reason) if reason.starts_with("Awaiting verified dated price-route identity:") || reason.starts_with("Waiting for EOD Data:") || reason.starts_with("Scheduled / Upcoming:") => {
-            return Ok(scan_result_row(scan_run_id,candidate,"NEEDS_REVIEW",None,None,&reason,scanned_at));
+        Err(reason)
+            if reason.starts_with("Awaiting verified dated price-route identity:")
+                || reason.starts_with("Waiting for EOD Data:")
+                || reason.starts_with("Scheduled / Upcoming:") =>
+        {
+            return Ok(scan_result_row(
+                scan_run_id,
+                candidate,
+                "NEEDS_REVIEW",
+                None,
+                None,
+                &reason,
+                scanned_at,
+            ));
         }
         Err(error) => return Err(error),
     };
@@ -8592,6 +9031,205 @@ fn scan_candidate(
     } else {
         None
     };
+
+    if is_unparsed_split_bonus {
+        let Some(row) = import_row_opt.as_ref() else {
+            return Ok(scan_result_row(
+                scan_run_id,
+                candidate,
+                "NEEDS_REVIEW",
+                Some(previous.date),
+                Some(ex_bar.date),
+                "Candidate has no expected factor.",
+                scanned_at,
+            ));
+        };
+        if matches!(row.review_status.as_str(), "UNRESOLVED" | REVIEW_STATUS_PENDING_ISIN_MISMATCH) {
+            return Ok(scan_result_row(
+                scan_run_id,
+                candidate,
+                "REVIEW",
+                Some(previous.date),
+                Some(ex_bar.date),
+                "Verify the event instrument identity before inferring Split/Bonus terms.",
+                scanned_at,
+            ));
+        }
+        let has_other_same_day_split_bonus: bool = connection
+            .query_row(
+                "SELECT EXISTS(
+                    SELECT 1 FROM corporate_action_imports
+                    WHERE exchange = ?1 AND symbol = ?2 AND ex_date = ?3
+                      AND id <> ?4
+                      AND action_type IN ('SPLIT', 'BONUS')
+                      AND review_status <> 'REJECTED'
+                )",
+                params![candidate.exchange, symbol, ex_date, candidate.import_id],
+                |r| r.get::<_, i64>(0),
+            )
+            .unwrap_or(0)
+            != 0;
+        if let Some(instrument) = find_instrument_record(connection, symbol, &candidate.exchange)?
+            .filter(|_| !has_other_same_day_split_bonus)
+        {
+            // Older imports could store NEEDS_REVIEW in place of an ISIN block.
+            if let (Some(event_isin), Some(current_isin)) = (
+                normalize_isin(row.isin.as_deref()),
+                normalize_isin(instrument.isin.as_deref()),
+            ) {
+                if event_isin != current_isin
+                    && !has_instrument_isin_history_evidence(
+                        connection, &candidate.exchange, symbol, &event_isin, Some(ex_date),
+                    )?
+                {
+                    return Ok(scan_result_row(
+                        scan_run_id,
+                        candidate,
+                        "REVIEW",
+                        Some(previous.date),
+                        Some(ex_bar.date),
+                        "Verify the historical ISIN before inferring Split/Bonus terms.",
+                        scanned_at,
+                    ));
+                }
+            }
+            // Admit only a single Split or Bonus family (optionally with a
+            // separate cash dividend clause) with no security-type blocker.
+            // When the official segment states the terms, only that factor is
+            // accepted; the standard-factor list is used only when no terms are
+            // stated, and in every case local EOD bars must confirm it.
+            let canonical = canonical_purpose(&row.purpose_raw);
+            let families = detected_corporate_action_families(&normalize_text(&canonical));
+            let single_family = families.iter().any(|f| f == &row.action_type)
+                && families
+                    .iter()
+                    .all(|f| f == &row.action_type || f == "DIVIDEND")
+                && split_bonus_terms::blocker(&canonical).is_none();
+            let stated = split_compound_action_segments(&canonical)
+                .iter()
+                .map(|segment| parse_corporate_action_purpose(segment))
+                .find(|p| {
+                    p.action_type == row.action_type
+                        && p.parse_status == "PARSED"
+                        && p.factor.is_some_and(|f| f.is_finite() && f > 1.0)
+                });
+            let standard_factors: Vec<f64> = match stated.as_ref().and_then(|p| p.factor) {
+                Some(f) => vec![f],
+                None => vec![1.25_f64, 1.5, 2.0, 2.5, 3.0, 4.0, 5.0, 10.0],
+            };
+            let mut best_match: Option<(f64, f64)> = None;
+            for std_f in standard_factors.into_iter().filter(|_| single_family) {
+                let conf = [actual_open_factor, actual_close_factor]
+                    .into_iter()
+                    .flatten()
+                    .map(|actual| 1.0 - ((actual - std_f).abs() / std_f).min(1.0))
+                    .fold(0.0_f64, f64::max);
+                if conf >= 0.90 {
+                    if best_match.map_or(true, |(_, best_conf)| conf > best_conf) {
+                        best_match = Some((std_f, conf));
+                    }
+                }
+            }
+            if let Some((inferred_factor, conf)) = best_match {
+                let price_factor = 1.0 / inferred_factor;
+                // Stated official terms are stored as parsed. Without stated
+                // terms only the EOD-implied share ratio is recorded (Split
+                // f:1 new:old, Bonus (f-1):1); face values are never invented.
+                let (ratio_num, ratio_den, old_fv, new_fv) = match stated.as_ref() {
+                    Some(p) => (p.ratio_num, p.ratio_den, p.old_face_value, p.new_face_value),
+                    None if row.action_type == "SPLIT" => (Some(inferred_factor), Some(1.0), None, None),
+                    None => (Some(inferred_factor - 1.0), Some(1.0), None, None),
+                };
+                connection
+                    .execute(
+                        "UPDATE corporate_action_imports
+                         SET factor = ?1,
+                             price_factor = ?2,
+                             ratio_num = ?3,
+                             ratio_den = ?4,
+                             old_face_value = ?5,
+                             new_face_value = ?6,
+                             parse_status = 'PARSED',
+                             review_status = CASE
+                                 WHEN review_status IN ('UNSUPPORTED', 'NEEDS_REVIEW') THEN 'PENDING'
+                                 ELSE review_status
+                             END,
+                             message = ?7
+                         WHERE id = ?8 AND approved_corporate_action_id IS NULL",
+                        params![
+                            inferred_factor,
+                            price_factor,
+                            ratio_num,
+                            ratio_den,
+                            old_fv,
+                            new_fv,
+                            format!(
+                                "Verified EOD-inferred {} adjustment factor ×{:.4} (confidence {:.2}) from cum-close {:.2} ({}) to ex-open {:.2} ({}).",
+                                row.action_type, inferred_factor, conf, previous.close, previous.date, ex_bar.open, ex_bar.date
+                            ),
+                            candidate.import_id
+                        ],
+                    )
+                    .map_err(|e| e.to_string())?;
+                return Ok(CorporateActionScanResultRow {
+                    id: 0,
+                    scan_run_id,
+                    corporate_action_import_id: Some(candidate.import_id),
+                    corporate_action_id: None,
+                    symbol: Some(symbol.to_string()),
+                    exchange: candidate.exchange.clone(),
+                    scan_status: "MATCHED".to_string(),
+                    prev_trade_date: Some(previous.date),
+                    ex_trade_date: Some(ex_bar.date),
+                    prev_close: Some(previous.close),
+                    ex_open: Some(ex_bar.open),
+                    ex_close: Some(ex_bar.close),
+                    expected_factor: Some(inferred_factor),
+                    actual_open_factor,
+                    actual_close_factor,
+                    confidence: Some(conf),
+                    message: Some(format!(
+                        "Observed local ex-date price movement matches standard {} factor ×{:.4}.",
+                        row.action_type, inferred_factor
+                    )),
+                    scanned_at,
+                });
+            }
+        }
+        return Ok(scan_result_row(
+            scan_run_id,
+            candidate,
+            "NEEDS_REVIEW",
+            Some(previous.date),
+            Some(ex_bar.date),
+            "Candidate has no expected factor.",
+            scanned_at,
+        ));
+    }
+
+    if is_demerger {
+        return Ok(CorporateActionScanResultRow {
+            id: 0,
+            scan_run_id,
+            corporate_action_import_id: Some(candidate.import_id),
+            corporate_action_id: None,
+            symbol: Some(symbol.to_string()),
+            exchange: candidate.exchange.clone(),
+            scan_status: "REVIEW".to_string(),
+            prev_trade_date: Some(previous.date),
+            ex_trade_date: Some(ex_bar.date),
+            prev_close: Some(previous.close),
+            ex_open: Some(ex_bar.open),
+            ex_close: Some(ex_bar.close),
+            expected_factor: None,
+            actual_open_factor,
+            actual_close_factor,
+            confidence: None,
+            message: Some(DEMERGER_AUTHORITY_REQUIRED.to_string()),
+            scanned_at,
+        });
+    }
+
     let confidence = [actual_open_factor, actual_close_factor]
         .into_iter()
         .flatten()
@@ -8599,7 +9237,7 @@ fn scan_candidate(
         .fold(None, |best: Option<f64>, value| {
             Some(best.map_or(value, |current| current.max(value)))
         });
-    let scan_status = if confidence.unwrap_or(0.0) >= 0.85 {
+    let scan_status = if confidence.unwrap_or(0.0) >= 0.80 {
         "MATCHED"
     } else {
         "REVIEW"
@@ -8837,6 +9475,48 @@ fn load_trade_window(
     if mode == PriceStorageMode::Hybrid && !binary_path(symbol).exists() {
         if let Some(window) = load_sqlite_trade_window(connection, symbol, exchange, ex_date)? {
             return Ok(Some(window));
+        }
+    }
+
+    if exchange.eq_ignore_ascii_case("BSE") {
+        let has_instruments = connection
+            .query_row(
+                "SELECT EXISTS(SELECT 1 FROM sqlite_master WHERE type='table' AND name='instruments')",
+                [],
+                |row| row.get::<_, i64>(0),
+            )
+            .unwrap_or(0)
+            != 0;
+        if has_instruments {
+            let bse_alt_symbol: Option<String> = connection
+                .query_row(
+                    "SELECT CASE WHEN symbol = ?1 THEN bse_security_code ELSE symbol END
+                     FROM instruments
+                     WHERE exchange = 'BSE'
+                       AND (symbol = ?1 OR bse_security_code = ?1)
+                       AND bse_security_code IS NOT NULL
+                       AND TRIM(bse_security_code) <> ''
+                     ORDER BY COALESCE(is_active, 1) DESC, symbol
+                     LIMIT 1",
+                    params![symbol],
+                    |row| row.get(0),
+                )
+                .optional()
+                .map_err(|e| e.to_string())?;
+            if let Some(alt_symbol) = bse_alt_symbol.filter(|alt| !alt.is_empty() && alt != symbol) {
+                if let Some(window) =
+                    load_binary_trade_window(folder_path, &alt_symbol, exchange, ex_date)?
+                {
+                    return Ok(Some(window));
+                }
+                if mode == PriceStorageMode::Hybrid && !binary_path(&alt_symbol).exists() {
+                    if let Some(window) =
+                        load_sqlite_trade_window(connection, &alt_symbol, exchange, ex_date)?
+                    {
+                        return Ok(Some(window));
+                    }
+                }
+            }
         }
     }
 
@@ -9296,10 +9976,12 @@ fn detected_corporate_action_families(normalized: &str) -> Vec<String> {
         ("DIVIDEND", normalized_dividend_position(normalized)),
         (
             "RIGHTS",
-            ["RIGHT", "RIGHTS"]
-                .iter()
-                .filter_map(|token| normalized_token_position(normalized, token))
-                .min(),
+            [
+                "RIGHT", "RIGHTS", "RHT", "RHTS", "RGHT", "RGTS", "RHGT", "RHS", "RIGTHS", "RIGTS",
+            ]
+            .iter()
+            .filter_map(|token| normalized_token_position(normalized, token))
+            .min(),
         ),
     ]
     .into_iter()
@@ -9478,7 +10160,11 @@ fn parse_corporate_action_purpose(purpose: &str) -> ParsedAction {
         return parse_dividend_action(purpose, &normalized);
     }
 
-    if normalized.contains("RIGHT") {
+    if normalized.contains("RIGHT")
+        || ["RHT", "RHTS", "RGHT", "RGTS", "RHGT", "RHS", "RIGTHS", "RIGTS"]
+            .iter()
+            .any(|token| normalized_token_position(&normalized, token).is_some())
+    {
         let ratio = extract_ratio_pair(purpose);
         let issue_price = extract_rights_issue_price(purpose);
         if let (Some((ratio_num, ratio_den)), Some(price)) = (ratio, issue_price) {
@@ -9565,10 +10251,12 @@ fn compound_action_primary_type(normalized: &str) -> Option<&'static str> {
         ("DIVIDEND", normalized_dividend_position(normalized)),
         (
             "RIGHTS",
-            ["RIGHT", "RIGHTS"]
-                .iter()
-                .filter_map(|token| normalized_token_position(normalized, token))
-                .min(),
+            [
+                "RIGHT", "RIGHTS", "RHT", "RHTS", "RGHT", "RGTS", "RHGT", "RHS", "RIGTHS", "RIGTS",
+            ]
+            .iter()
+            .filter_map(|token| normalized_token_position(normalized, token))
+            .min(),
         ),
     ]
     .into_iter()
@@ -15582,6 +16270,125 @@ mod tests {
     }
 
     #[test]
+    fn ca_audit_safety_scan_preserves_identity_blockers_and_demerger_terms() {
+        let connection = Connection::open_in_memory().unwrap();
+        create_nse_resolution_tables(&connection);
+        connection.execute_batch(
+            "INSERT INTO instruments(symbol,exchange,isin) VALUES
+               ('TEST','NSE','INE000A00011'), ('LEGACY','NSE','INE000B00011');
+             CREATE TABLE eod_prices (symbol TEXT, exchange TEXT, date TEXT, open REAL, close REAL);
+             INSERT INTO eod_prices VALUES
+               ('TEST','NSE','2022-07-13',100,100), ('TEST','NSE','2022-07-14',50,50),
+               ('LEGACY','NSE','2022-07-13',100,100), ('LEGACY','NSE','2022-07-14',50,50);
+             INSERT INTO corporate_action_imports
+              (id,dedupe_key,source,symbol,purpose_raw,ex_date,action_type,parse_status,review_status,factor)
+             VALUES
+              (1,'split-unresolved','NSE_API','TEST','Split','2022-07-14','SPLIT','NEEDS_REVIEW','UNRESOLVED',NULL),
+              (2,'bonus-mismatch','NSE_API','TEST','Bonus','2022-07-14','BONUS','NEEDS_REVIEW','PENDING_ISIN_MISMATCH',NULL),
+              (3,'demerger-old-factor','NSE_API','TEST','Demerger 2:1','2022-07-14','DEMERGER','PARSED','PENDING',2),
+              (4,'demerger-new','NSE_API','TEST','Demerger','2022-07-14','DEMERGER','NEEDS_REVIEW','NEEDS_REVIEW',NULL),
+              (5,'split-legacy','NSE_API','LEGACY','Split','2022-07-14','SPLIT','NEEDS_REVIEW','NEEDS_REVIEW',NULL);
+             UPDATE corporate_action_imports SET isin='INE000C00011' WHERE id=5;"
+        ).unwrap();
+        let folder = tempfile::tempdir().unwrap();
+        let changes = phase6e_total_changes(&connection);
+        for (id, status, factor) in [
+            (1, "UNRESOLVED", None),
+            (2, "PENDING_ISIN_MISMATCH", None),
+            (3, "PENDING", Some(2.0)),
+            (4, "NEEDS_REVIEW", None),
+            (5, "NEEDS_REVIEW", None),
+        ] {
+            let candidate = ScanCandidate {
+                import_id: id, symbol: Some(if id == 5 { "LEGACY" } else { "TEST" }.into()),
+                exchange: "NSE".into(),
+                ex_date: Some("2022-07-14".into()), factor,
+            };
+            let scan = scan_candidate(&connection, folder.path(), 1, &candidate).unwrap();
+            assert_eq!(scan.scan_status, "REVIEW");
+            if id == 3 || id == 4 {
+                assert_eq!(scan.actual_open_factor, Some(2.0));
+                assert_eq!(scan.expected_factor, None);
+                assert_eq!(scan.message.as_deref(), Some(DEMERGER_AUTHORITY_REQUIRED));
+            } else if id == 5 {
+                assert!(scan.message.as_deref().unwrap().contains("Verify the historical ISIN"));
+            }
+            let row = get_import_row(&connection, id).unwrap();
+            assert_eq!(row.review_status, status);
+            assert_eq!(row.factor, factor);
+        }
+        for (identity_exception, price_exception) in [(false, false), (true, false), (false, true)] {
+            let error = approve_corporate_action_import_without_transaction(
+                &connection, folder.path(), 3, identity_exception, price_exception,
+            ).unwrap_err();
+            assert_eq!(error, DEMERGER_AUTHORITY_REQUIRED);
+        }
+        assert_eq!(phase6e_total_changes(&connection), changes);
+
+        connection.execute(
+            "UPDATE corporate_action_imports SET approved_corporate_action_id=42, review_status='APPROVED' WHERE id=3",
+            [],
+        ).unwrap();
+        let changes = phase6e_total_changes(&connection);
+        let result = approve_corporate_action_import_without_transaction(
+            &connection, folder.path(), 3, false, false,
+        ).unwrap();
+        assert_eq!(result.import_record.approved_corporate_action_id, Some(42));
+        assert!(result.approved_record.is_none());
+        assert_eq!(phase6e_total_changes(&connection), changes);
+    }
+
+    #[test]
+    fn rights_safety_stale_eod_factors_cannot_scan_or_approve_without_terms() {
+        let connection = Connection::open_in_memory().unwrap();
+        create_nse_resolution_tables(&connection);
+        connection.execute_batch(
+            "INSERT INTO corporate_action_imports
+             (id, dedupe_key, source, symbol, purpose_raw, ex_date, action_type,
+              ratio_num, ratio_den, factor, price_factor, parse_status, review_status)
+             VALUES (1, 'rights-safety', 'NSE_API', 'RIGHT_A', 'Rights 1:4',
+                     '2026-08-14', 'RIGHTS', 1, 4, 1.15, 1.0/1.15, 'PARSED', 'PENDING');
+             CREATE TABLE eod_prices (symbol TEXT, exchange TEXT, date TEXT, open REAL, close REAL);
+             INSERT INTO eod_prices VALUES
+               ('RIGHT_A', 'NSE', '2026-08-13', 100, 100),
+               ('RIGHT_A', 'NSE', '2026-08-14', 80, 80);"
+        ).unwrap();
+        let candidate = ScanCandidate {
+            import_id: 1, symbol: Some("RIGHT_A".into()), exchange: "NSE".into(),
+            ex_date: Some("2026-08-14".into()), factor: Some(1.15),
+        };
+        let changes = phase6e_total_changes(&connection);
+        let scan = scan_candidate(&connection, Path::new("."), 1, &candidate).unwrap();
+        assert_eq!(scan.scan_status, "REVIEW");
+        assert!(scan.message.unwrap().contains("Awaiting official Rights"));
+        for (identity_exception, price_exception) in [(false, false), (true, false), (false, true)] {
+            let error = approve_corporate_action_import_without_transaction(
+                &connection, Path::new("."), 1, identity_exception, price_exception,
+            ).unwrap_err();
+            assert!(error.contains("Awaiting official Rights"), "{error}");
+        }
+        assert_eq!(phase6e_total_changes(&connection), changes);
+        let mut row = get_import_row(&connection, 1).unwrap();
+        row.cash_amount = Some(80.0);
+        ensure_rights_financial_terms(&row).unwrap();
+        for invalid in [None, Some(0.0), Some(-1.0), Some(f64::INFINITY)] {
+            row.ratio_num = invalid;
+            assert!(ensure_rights_financial_terms(&row).is_err());
+        }
+        connection.execute(
+            "UPDATE corporate_action_imports SET approved_corporate_action_id=42, review_status='APPROVED' WHERE id=1", [],
+        ).unwrap();
+        let changes = phase6e_total_changes(&connection);
+        let result = approve_corporate_action_import_without_transaction(
+            &connection, Path::new("."), 1, false, false,
+        ).unwrap();
+        assert!(result.approved_record.is_none());
+        assert_eq!(result.import_record.approved_corporate_action_id, Some(42));
+        assert_eq!(result.import_record.factor, Some(1.15));
+        assert_eq!(phase6e_total_changes(&connection), changes);
+    }
+
+    #[test]
     fn phase1_v114e_scan_candidate_uses_event_symbol_without_rewriting_raw_import() {
         let connection = Connection::open_in_memory().unwrap();
         connection
@@ -16947,5 +17754,28 @@ mod normal_ca_ex_date_readiness_tests {
         assert!(ensure_import_trade_window_ready(Some(&no_cum), "2026-10-16", today).is_err());
         let zero = (bar("2026-10-15", 0.0), bar("2026-10-16", 50.0));
         assert!(ensure_import_trade_window_ready(Some(&zero), "2026-10-16", today).is_err());
+    }
+}
+
+#[cfg(test)]
+mod ca_rights_and_issues_tests {
+    use super::*;
+
+    #[test]
+    fn ca_rights_and_issues_attested_rights_abbreviations_classify_as_rights() {
+        for purpose in ["Rhts 1:5 @ Premium Rs 40/-", "Rght Issue", "Rgts 1:3", "Rigths Issue Of Equity"] {
+            assert_eq!(parse_corporate_action_purpose(purpose).action_type, "RIGHTS", "{purpose}");
+        }
+        // Ordinary words containing the letters are not tokens.
+        assert_ne!(parse_corporate_action_purpose("Annual General Meeting").action_type, "RIGHTS");
+    }
+
+    #[test]
+    fn ca_rights_and_issues_bonus_with_percent_dividend_is_not_a_split_bonus_compound() {
+        let families = detected_corporate_action_families(&normalize_text(&canonical_purpose(
+            "Agm/Spl/Bon-1:1/Div-20%",
+        )));
+        assert!(families.iter().any(|f| f == "BONUS"));
+        assert!(!families.iter().any(|f| f == "RIGHTS"));
     }
 }

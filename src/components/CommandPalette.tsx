@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { useDialogFocus } from '@/features/app/useDialogFocus';
 import type { InstrumentSummary } from '@/platform';
 import { useChartStore } from '@/store/chartStore';
 import { getUiStoreState, useUiStore } from '@/store/uiStore';
@@ -109,6 +110,8 @@ export function CommandPalette() {
   const [recentSymbols, setRecentSymbols] = useState<InstrumentSummary[]>([]);
   const [selectedIndex, setSelectedIndex] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
+  const dialogRef = useRef<HTMLDivElement>(null);
+  useDialogFocus(dialogRef, () => setOpen(false), true, open);
   const itemRefs = useRef<Array<HTMLButtonElement | null>>([]);
 
   const isSymbolMode = mode === 'symbol';
@@ -166,7 +169,7 @@ export function CommandPalette() {
         return;
       }
 
-      if (e.key === 'Escape' && getUiStoreState().commandPaletteOpen) {
+      if (!e.defaultPrevented && e.key === 'Escape' && getUiStoreState().commandPaletteOpen) {
         getUiStoreState().setCommandPaletteOpen(false);
       }
     };
@@ -267,6 +270,11 @@ export function CommandPalette() {
   return (
     <div style={overlayStyle} onMouseDown={() => setOpen(false)}>
       <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-label="Command palette"
+        tabIndex={-1}
         style={{
           ...panelStyle,
           left: position.x,

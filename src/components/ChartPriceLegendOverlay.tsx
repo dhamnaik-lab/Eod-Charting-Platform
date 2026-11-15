@@ -1,4 +1,5 @@
-import { useMemo, useState, type CSSProperties, type MouseEvent } from "react";
+import { useMemo, useState, type CSSProperties, type MouseEvent, type SyntheticEvent } from "react";
+import { createPortal } from "react-dom";
 import { buildRenderableIndicators } from "@/engine/Indicators";
 import { formatPrice, formatSignedValue } from "@/engine/Renderer";
 import type {
@@ -211,6 +212,36 @@ export function ChartPriceLegendOverlay({
   ) {
     return null;
   }
+  const settingsDialog = activeIndicator?.kind === "CUSTOM" ? (
+    <CustomFormulaDialog
+      indicator={activeIndicator}
+      onSubmit={(draft) => {
+        onSaveIndicator({ ...activeIndicator, ...draft });
+        setEditingIndicatorId(null);
+      }}
+      onRemove={(id) => {
+        onRemoveIndicator(id);
+        setEditingIndicatorId(null);
+      }}
+      onClose={() => setEditingIndicatorId(null)}
+    />
+  ) : activeIndicator ? (
+    <IndicatorSettingsDialog
+      indicator={activeIndicator}
+      scaleMode={paneScaleOverrides ? getIndicatorPaneScaleStatus(activeIndicator, paneScaleOverrides) : undefined}
+      allIndicators={overlays}
+      sourceBars={bars}
+      onSave={(updated) => {
+        onSaveIndicator(updated);
+        setEditingIndicatorId(null);
+      }}
+      onRemove={(id) => {
+        onRemoveIndicator(id);
+        setEditingIndicatorId(null);
+      }}
+      onClose={() => setEditingIndicatorId(null)}
+    />
+  ) : null;
   return (
     <>
       {" "}
@@ -289,37 +320,23 @@ export function ChartPriceLegendOverlay({
           </div>
         ) : null}{" "}
       </div>{" "}
-      <style>{`        .price-legend-item .price-legend-actions {          opacity: 0;        }        .price-legend-item:hover .price-legend-actions,        .price-legend-item:focus-within .price-legend-actions {          opacity: 1;        }      `}</style>{" "}
-      {activeIndicator?.kind === "CUSTOM" ? (
-        <CustomFormulaDialog
-          indicator={activeIndicator}
-          onSubmit={(draft) => {
-            onSaveIndicator({ ...activeIndicator, ...draft });
-            setEditingIndicatorId(null);
-          }}
-          onRemove={(id) => {
-            onRemoveIndicator(id);
-            setEditingIndicatorId(null);
-          }}
-          onClose={() => setEditingIndicatorId(null)}
-        />
-      ) : activeIndicator ? (
-        <IndicatorSettingsDialog
-          indicator={activeIndicator}
-          scaleMode={paneScaleOverrides ? getIndicatorPaneScaleStatus(activeIndicator, paneScaleOverrides) : undefined}
-          allIndicators={overlays}
-          sourceBars={bars}
-          onSave={(updated) => {
-            onSaveIndicator(updated);
-            setEditingIndicatorId(null);
-          }}
-          onRemove={(id) => {
-            onRemoveIndicator(id);
-            setEditingIndicatorId(null);
-          }}
-          onClose={() => setEditingIndicatorId(null)}
-        />
-      ) : null}{" "}
+      {settingsDialog
+        ? (typeof document !== "undefined" && document.body
+            ? createPortal(
+                <div
+                  style={{ display: "contents" }}
+                  onMouseDown={stopPortalBubble}
+                  onPointerDown={stopPortalBubble}
+                  onClick={stopPortalBubble}
+                  onDoubleClick={stopPortalBubble}
+                  onContextMenu={stopPortalBubble}
+                >
+                  {settingsDialog}
+                </div>,
+                document.body,
+              )
+            : settingsDialog)
+        : null}{" "}
     </>
   );
 }
@@ -361,11 +378,18 @@ function LegendItemView({
       >
         {item.label}
       </span>{" "}
-      <span className="price-legend-actions" style={legendActionsStyle}>
+      <span
+        className="price-legend-actions"
+        style={legendActionsStyle}
+        onMouseDown={stopLegendPointer}
+        onClick={(event) => event.stopPropagation()}
+        onDoubleClick={stopLegendPointer}
+      >
         {" "}
         <button
           type="button"
           style={legendButtonStyle}
+          aria-label={`${item.label} settings`}
           title={`${item.label} settings`}
           onMouseDown={stopLegendPointer}
           onClick={(event) => {
@@ -379,6 +403,7 @@ function LegendItemView({
         <button
           type="button"
           style={legendButtonStyle}
+          aria-label={isVisible ? `Hide ${item.label}` : `Show ${item.label}`}
           title={isVisible ? `Hide ${item.label}` : `Show ${item.label}`}
           onMouseDown={stopLegendPointer}
           onClick={(event) => {
@@ -391,7 +416,9 @@ function LegendItemView({
         </button>{" "}
         <button
           type="button"
+          data-tone="danger"
           style={{ ...legendButtonStyle, color: "var(--red-text)" }}
+          aria-label={`Remove ${item.label}`}
           title={`Remove ${item.label}`}
           onMouseDown={stopLegendPointer}
           onClick={(event) => {
@@ -502,6 +529,9 @@ function LegendToggleIcon({ expanded }: { expanded: boolean }) {
 }
 function stopLegendPointer(event: MouseEvent<HTMLElement>) {
   event.preventDefault();
+  event.stopPropagation();
+}
+function stopPortalBubble(event: SyntheticEvent) {
   event.stopPropagation();
 }
 function resolveValueIndex(
@@ -875,7 +905,7 @@ const legendActionsStyle: CSSProperties = {
   display: "inline-flex",
   alignItems: "center",
   gap: 2,
-  transition: "opacity 0.12s ease",
+  flex: "0 0 auto",
   pointerEvents: "auto",
 };
 const legendButtonStyle: CSSProperties = {
@@ -884,6 +914,7 @@ const legendButtonStyle: CSSProperties = {
   display: "inline-flex",
   alignItems: "center",
   justifyContent: "center",
+  flex: "0 0 auto",
   padding: 0,
   border: "1px solid var(--border)",
   borderRadius: "var(--control-radius)",

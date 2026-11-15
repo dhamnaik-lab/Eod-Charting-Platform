@@ -21,6 +21,15 @@ function tab(id: string): ChartTabState {
 }
 
 describe('B20: single evaluation of active chart-tab state mutations', () => {
+  it('updates the originating tile without changing the active tile', () => {
+    const original = [tab('active'), tab('tile')];
+    const state = { chartTabs: original, activeChartTabId: 'active' };
+    const next = updateActiveTab(state, (value) => setTabShowVolume(value, false), 'tile');
+    expect(next.chartTabs[0]).toBe(original[0]);
+    expect(next.chartTabs[1].showVolume).toBe(false);
+    expect(state.activeChartTabId).toBe('active');
+  });
+
   it('does not call the updater when the active ID is missing', () => {
     const original = [tab('one'), tab('two')];
     const updater = vi.fn((value: ChartTabState) => ({ ...value, showVolume: false }));

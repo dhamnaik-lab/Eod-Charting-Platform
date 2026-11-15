@@ -1,20 +1,96 @@
 //! Expand explicit ordinary Split + Bonus terms into pending components only.
 use super::*;
 
+pub(super) fn component_families(purpose: &str) -> Vec<String> {
+    let mut families = detected_corporate_action_families(&normalize_text(purpose));
+    if !families.iter().any(|family| family == "DIVIDEND") {
+        // Whitespace normalization leaves "Div150%" as the single token
+        // "DIV150". Use the existing letter/number tokenizer on separate clauses
+        // so a compact percentage cannot make a mixed notice look Split-only.
+        let clauses = split_compound_action_segments(purpose);
+        if clauses.len() > 1 && clauses.iter().any(|clause| {
+            clause.contains('%')
+                && legacy_purpose_tokens(clause).first().is_some_and(|word| {
+                    word.eq_ignore_ascii_case("DIV") || word.eq_ignore_ascii_case("DIVIDEND")
+                })
+        }) {
+            families.push("DIVIDEND".into());
+        }
+    }
+    families
+}
+
+/// Recognize a separately stated face-value Split followed by a percentage-only
+/// Dividend. The percentage supplies no cash terms or Dividend authority.
+pub(super) fn split_with_separate_percentage_dividend(
+    row: &CorporateActionImportRow,
+) -> Option<ParsedAction> {
+    if row.action_type != "SPLIT" || row.parse_status != "PARSED" {
+        return None;
+    }
+    let canonical = canonical_purpose(&row.purpose_raw);
+    let segments = split_compound_action_segments(&canonical);
+    let [split, dividend] = segments.as_slice() else {
+        return None;
+    };
+    let split_upper = split.to_ascii_uppercase();
+    let words = split_upper.split_whitespace().collect::<Vec<_>>();
+    let (old, new) = match words.as_slice() {
+        ["FV", "SPLIT", old, "TO", new]
+        | ["FACE", "VALUE", "SPLIT", "FROM", "RS", old, "TO", "RS", new] => {
+            (old.parse::<f64>().ok()?, new.parse::<f64>().ok()?)
+        }
+        _ => return None,
+    };
+    let dividend_upper = dividend.to_ascii_uppercase();
+    let percentage = dividend_upper.strip_suffix('%')?.trim_end();
+    let percentage = percentage
+        .strip_prefix("DIVIDEND")
+        .or_else(|| percentage.strip_prefix("DIV"))?
+        .trim_start();
+    positive_number(percentage.parse().ok()?)?;
+
+    let parsed = parse_corporate_action_purpose(split);
+    if parsed.action_type != "SPLIT"
+        || parsed.parse_status != "PARSED"
+        || parsed.old_face_value != Some(old)
+        || parsed.new_face_value != Some(new)
+        || parsed.old_face_value != row.old_face_value
+        || parsed.new_face_value != row.new_face_value
+        || parsed.ratio_num != row.ratio_num
+        || parsed.ratio_den != row.ratio_den
+        || parsed.factor != row.factor
+        || parsed.price_factor != row.price_factor
+        || row.cash_amount.is_some()
+    {
+        return None;
+    }
+    Some(parsed)
+}
+
 pub(super) fn components(purpose: &str) -> Option<Vec<ParsedAction>> {
     let canonical = canonical_purpose(purpose);
     let purpose = canonical.as_str();
     if split_bonus_terms::blocker(purpose).is_some() {
         return None;
     }
-    let families = detected_corporate_action_families(&normalize_text(purpose));
+    let families = component_families(purpose);
     if families.len() != 2
         || !families.iter().any(|s| s == "SPLIT")
         || !families.iter().any(|s| s == "BONUS")
     {
         return None;
     }
-    let segments = split_compound_action_segments(purpose);
+    let segments = split_compound_action_segments(purpose)
+        .into_iter()
+        .filter(|segment| {
+            let parsed = parse_corporate_action_purpose(segment);
+            if parsed.action_type != "OTHER" {
+                return true;
+            }
+            !informational_closure::is_informational_purpose(segment)
+        })
+        .collect::<Vec<_>>();
     if segments.len() != 2 {
         return None;
     }
@@ -115,7 +191,8 @@ pub(super) fn ensure_components_prepared(
     row: &CorporateActionImportRow,
 ) -> AppResult<()> {
     if !matches!(row.action_type.as_str(), "SPLIT" | "BONUS")
-        || detected_corporate_action_families(&normalize_text(&row.purpose_raw)).len() < 2
+        || component_families(&row.purpose_raw).len() < 2
+        || split_with_separate_percentage_dividend(row).is_some()
     {
         return Ok(());
     }

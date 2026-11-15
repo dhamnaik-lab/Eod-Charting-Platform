@@ -2,6 +2,7 @@
 pub use self::corporate_action_imports::{preview_split_bonus_reconciliation, CorporateActionReconciliationPreflightInput, CorporateActionReconciliationPreflightResult, CorporateActionReconciliationPreflightRow, CorporateActionReconciliationBlocker};
 pub(crate) use self::connection_registry::peek_active_database_folder_read_only;
 pub mod binary_eod;
+pub(crate) mod storage_paths;
 mod bootstrap;
 #[cfg(test)]
 mod bse_history_repair_acceptance;

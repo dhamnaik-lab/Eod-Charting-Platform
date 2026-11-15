@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { retainChartHover, setChartHover } from '@/features/charts/chartHoverStore';
 import {
   ensureIndicatorPaneHeights,
   pruneCollapsedIndicatorPanes,
@@ -39,7 +40,6 @@ import {
   selectTabDrawing,
   setTabChartType,
   setTabFutureMarginMode,
-  setTabHoverBar,
   setTabIndicatorPaneCollapsed,
   setTabIndicatorPaneHeight,
   setTabInvertPriceScale,
@@ -556,13 +556,13 @@ export const useChartStore = create<ChartStoreState>((set, get, store) => {
       );
     }
   },
-  syncViewport: (viewport) =>
+  syncViewport: (viewport, tabId) =>
     set((state) => ({
-      ...updateActiveTab(state, (tab) => syncTabViewport(tab, viewport)),
+      ...updateActiveTab(state, (tab) => syncTabViewport(tab, viewport), tabId),
     })),
-  scrollToViewportStart: (startIndex) =>
+  scrollToViewportStart: (startIndex, tabId) =>
     set((state) => ({
-      ...updateActiveTab(state, (tab) => scrollTabViewportToStart(tab, startIndex)),
+      ...updateActiveTab(state, (tab) => scrollTabViewportToStart(tab, startIndex), tabId),
     })),
   nudgeViewport: (deltaBars) =>
     set((state) => ({
@@ -576,9 +576,9 @@ export const useChartStore = create<ChartStoreState>((set, get, store) => {
     set((state) => ({
       ...updateActiveTab(state, (tab) => resetTabViewport(tab)),
     })),
-  setIndicatorPaneHeight: (height, paneId) =>
+  setIndicatorPaneHeight: (height, paneId, tabId) =>
     set((state) => ({
-      ...updateActiveTab(state, (tab) => setTabIndicatorPaneHeight(tab, height, paneId)),
+      ...updateActiveTab(state, (tab) => setTabIndicatorPaneHeight(tab, height, paneId), tabId),
     })),
   resetIndicatorPaneHeights: () =>
     set((state) => ({
@@ -590,9 +590,9 @@ export const useChartStore = create<ChartStoreState>((set, get, store) => {
         setTabIndicatorPaneCollapsed(tab, paneId, collapsed),
       ),
     })),
-  setPaneScaleOverride: (paneId, range) =>
+  setPaneScaleOverride: (paneId, range, tabId) =>
     set((state) => ({
-      ...updateActiveTab(state, (tab) => setTabPaneScaleOverride(tab, paneId, range)),
+      ...updateActiveTab(state, (tab) => setTabPaneScaleOverride(tab, paneId, range), tabId),
     })),
   fitAllPanes: () =>
     set((state) => ({
@@ -635,10 +635,11 @@ export const useChartStore = create<ChartStoreState>((set, get, store) => {
   setSymbolExchangeFilter: chartSearch.setSymbolExchangeFilter,
   setSymbolSeriesFilter: chartSearch.setSymbolSeriesFilter,
   refreshSymbolBrowser: chartSearch.refreshSymbolBrowser,
-  setHoverBar: (bar) =>
-    set((state) => ({
-      ...updateActiveTab(state, (tab) => setTabHoverBar(tab, bar)),
-    })),
+  setHoverBar: (bar, tabId) => {
+    const state = get();
+    const tab = state.chartTabs.find(value => value.id === (tabId ?? state.activeChartTabId));
+    if (tab) setChartHover(tab, bar);
+  },
   setVisibleBarCount: (count) =>
     set((state) => ({
       ...updateActiveTab(state, (tab) => setTabVisibleBarCount(tab, count)),
@@ -675,17 +676,17 @@ export const useChartStore = create<ChartStoreState>((set, get, store) => {
     set((state) => ({
       ...updateActiveTab(state, (tab) => moveTabIndicatorPane(tab, indicatorId, direction)),
     })),
-  selectDrawing: (drawingId) =>
+  selectDrawing: (drawingId, tabId) =>
     set((state) => ({
-      ...updateActiveTab(state, (tab) => selectTabDrawing(tab, drawingId)),
+      ...updateActiveTab(state, (tab) => selectTabDrawing(tab, drawingId), tabId),
     })),
-  addDrawing: (drawing) =>
+  addDrawing: (drawing, tabId) =>
     set((state) => ({
-      ...updateActiveTab(state, (tab) => addTabDrawing(tab, drawing)),
+      ...updateActiveTab(state, (tab) => addTabDrawing(tab, drawing), tabId),
     })),
-  updateDrawing: (drawing) =>
+  updateDrawing: (drawing, tabId) =>
     set((state) => ({
-      ...updateActiveTab(state, (tab) => updateTabDrawing(tab, drawing)),
+      ...updateActiveTab(state, (tab) => updateTabDrawing(tab, drawing), tabId),
     })),
   toggleDrawingLock: (drawingId) =>
     set((state) => ({
@@ -720,6 +721,7 @@ export const useChartStore = create<ChartStoreState>((set, get, store) => {
 });
 
 useChartStore.subscribe((state, previousState) => {
+  if (state.chartTabs !== previousState.chartTabs) retainChartHover(state.chartTabs);
   const nextDatabasePath = state.snapshot?.activeDatabasePath ?? '';
   const previousDatabasePath = previousState.snapshot?.activeDatabasePath ?? '';
 

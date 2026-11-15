@@ -38,6 +38,18 @@ interface WindowStoreState {
   updateWindowBounds: (id: string, bounds: Partial<WindowBounds>) => void;
 }
 
+function fitWindowToViewport(bounds: WindowBounds): WindowBounds {
+  if (typeof window === 'undefined' || window.innerWidth <= 0 || window.innerHeight <= 0) return bounds;
+  const width = Math.min(bounds.width, window.innerWidth);
+  const height = Math.min(bounds.height, window.innerHeight);
+  return {
+    width,
+    height,
+    x: Math.max(0, Math.min(bounds.x, window.innerWidth - width)),
+    y: Math.max(0, Math.min(bounds.y, window.innerHeight - height)),
+  };
+}
+
 export const useWindowStore = create<WindowStoreState>((set, get) => ({
   windows: {},
   activeWindowId: null,
@@ -46,13 +58,14 @@ export const useWindowStore = create<WindowStoreState>((set, get) => ({
     set((state) => {
       if (state.windows[windowConfig.id]) return state;
 
-      const maxZIndex = Object.values(state.windows).reduce((max, w) => Math.max(max, w.zIndex), 100);
+      const maxZIndex = Object.values(state.windows).reduce((max, w) => Math.max(max, w.zIndex), 300);
 
       return {
         windows: {
           ...state.windows,
           [windowConfig.id]: {
             ...windowConfig,
+            bounds: fitWindowToViewport(windowConfig.bounds),
             isOpen: false,
             isMinimized: false,
             isMaximized: false,
@@ -98,14 +111,12 @@ export const useWindowStore = create<WindowStoreState>((set, get) => ({
     set((state) => {
       if (!state.windows[id]) return state;
 
-      const maxZIndex = Object.values(state.windows).reduce((max, w) => Math.max(max, w.zIndex), 100);
-
+      // Re-rank instead of increasing forever into the modal/confirmation tiers.
+      const ordered = Object.values(state.windows).filter(win => win.id !== id).sort((a, b) => a.zIndex - b.zIndex);
+      ordered.push(state.windows[id]);
       return {
         activeWindowId: id,
-        windows: {
-          ...state.windows,
-          [id]: { ...state.windows[id], zIndex: maxZIndex + 1 },
-        },
+        windows: Object.fromEntries(ordered.map((win, index) => [win.id, { ...win, zIndex: 301 + index }])),
       };
     }),
 
@@ -139,11 +150,11 @@ export const useWindowStore = create<WindowStoreState>((set, get) => ({
           ...state.windows,
           [id]: {
             ...win,
-            bounds: {
+            bounds: fitWindowToViewport({
               ...win.bounds,
               width: nextWidth,
               height: nextHeight,
-            },
+            }),
           },
         },
       };
@@ -179,7 +190,7 @@ export const useWindowStore = create<WindowStoreState>((set, get) => ({
             ...window,
             isMaximized: false,
             isMinimized: false,
-            bounds: window.previousBounds ?? window.bounds,
+            bounds: fitWindowToViewport(window.previousBounds ?? window.bounds),
           },
         },
       };
@@ -204,7 +215,7 @@ export const useWindowStore = create<WindowStoreState>((set, get) => ({
           ...state.windows,
           [id]: {
             ...state.windows[id],
-            bounds: { ...state.windows[id].bounds, ...newBounds },
+            bounds: fitWindowToViewport({ ...state.windows[id].bounds, ...newBounds }),
           },
         },
       };

@@ -1,10 +1,11 @@
 import type { CorporateActionImportRow } from '@/platform';
+import { hasRightsFinancialTerms } from '../corporateActionValidation';
 
 type LaterRow = Pick<CorporateActionImportRow, 'actionType'> & Partial<Pick<CorporateActionImportRow,
-  'purposeRaw' | 'instrumentIsActive' | 'verifiedAdjustmentTarget' | 'reviewStatus' | 'approvedCorporateActionId'>>;
+  'purposeRaw' | 'instrumentIsActive' | 'verifiedAdjustmentTarget' | 'reviewStatus' | 'approvedCorporateActionId' | 'parseStatus' | 'factor' | 'priceFactor' | 'cashAmount' | 'ratioNum' | 'ratioDen'>>;
 
 // Digits may be glued to Deb/Debs entitlement terms; Debt/Debit/Debut are words.
-const NON_EQUITY_TERMS = /\b(?:DEBENTURES?|DEBS?\d*|NCRPS|CRPS|CCPS|OCPS|PREFERENCE|PREFERRED|DVR|DIFFERENTIAL VOTING)\b/;
+const NON_EQUITY_TERMS = /\b(?:DEBENTURES?|DEBS?\d*|NCRPS|CRPS|CCPS|OCPS|PREFERENCE|PREFERRED|PREF|WARRANTS?|CCD|NCD|FCD|ZCCB|BOND|BONDS|DVR|DIFFERENTIAL VOTING)\b/;
 const SHARE_DISTRIBUTION = /^FOR DISTRIBUTION OF CHENNAI SUPER KINGS\b.*\bSHARES\b/;
 
 function isInterestDistribution(purpose: string): boolean {
@@ -17,11 +18,14 @@ export function isLaterCorporateAction(row: LaterRow): boolean {
   if (row.reviewStatus === 'APPROVED' || row.approvedCorporateActionId != null
     || row.reviewStatus === 'CLOSED_INFORMATIONAL') return false;
   if (row.instrumentIsActive === false && !row.verifiedAdjustmentTarget) return true;
-  if (['DIVIDEND', 'RIGHTS', 'DEMERGER'].includes(row.actionType)) return true;
-  if (isInterestDistribution(row.purposeRaw ?? '')) return true;
+  if (row.actionType === 'DIVIDEND') return true;
   const purpose = (row.purposeRaw ?? '').toUpperCase().replace(/[^A-Z0-9]+/g, ' ').trim();
+  if (row.actionType === 'RIGHTS' &&
+      (row.parseStatus !== 'PARSED' || !hasRightsFinancialTerms(row) || NON_EQUITY_TERMS.test(purpose))) return true;
+  if (row.actionType === 'DEMERGER') return true;
+  if (isInterestDistribution(row.purposeRaw ?? '')) return true;
   if (SHARE_DISTRIBUTION.test(purpose)) return true;
-  if (/\b(?:CAPITAL REDUCTION|REDUCTION OF (?:SHARE |EQUITY )?CAPITAL)\b/.test(purpose)) return true;
+  if (/\b(?:CAPITAL REDUCTION|RED(?:UCTION)? OF (?:SHARE |EQUITY )?CAP(?:ITAL)?)\b/.test(purpose)) return true;
   if (/\b(?:INCOME DISTRIBUTION|DISTRIBUTION OF INCOME)\b/.test(purpose)
     || (/\b(?:INVIT|REIT|PER UNIT)\b/.test(purpose) && /\bDISTR(?:I|IT)BUTION\b/.test(purpose))) return true;
   // Security-type admission rules shared with split_bonus_terms::blocker.
@@ -43,10 +47,10 @@ export function deferredCorporateActionReason(row: LaterRow & { message?: string
   if (row.instrumentIsActive === false && !row.verifiedAdjustmentTarget) return 'Delisted or inactive symbol';
   if (isInterestDistribution(row.purposeRaw ?? '') || /\b(?:INCOME DISTRIBUTION|DISTRIBUTION OF INCOME)\b/.test(purpose)
     || (/\bPER UNIT\b/.test(purpose) && /\b(?:INTEREST|DISTRIBUTION|DISTRITBUTION)\b/.test(purpose))) return 'InvIT/REIT distribution: not an equity price adjustment yet';
-  if (/\b(?:CAPITAL REDUCTION|REDUCTION OF (?:SHARE |EQUITY )?CAPITAL)\b/.test(purpose)) return 'Capital reduction: rules not built yet';
+  if (/\b(?:CAPITAL REDUCTION|RED(?:UCTION)? OF (?:SHARE |EQUITY )?CAP(?:ITAL)?)\b/.test(purpose)) return 'Capital reduction: rules not built yet';
   if (['SPLIT', 'BONUS'].includes(row.actionType) && NON_EQUITY_TERMS.test(purpose)) return 'Non-equity terms (debenture/preference/DVR)';
   if (row.actionType === 'DIVIDEND') return 'Dividend: verification deferred (not run in Load & Validate)';
-  if (row.actionType === 'RIGHTS') return 'Rights: adjustment rules not built yet';
-  if (row.actionType === 'DEMERGER') return 'Demerger: needs cost split rules';
+  if (row.actionType === 'RIGHTS') return 'Rights: awaiting verified official ratio and issue price; EOD price movement is insufficient';
+  if (row.actionType === 'DEMERGER') return 'Demerger: awaiting a verified event-specific adjustment basis';
   return row.message || existing || 'Requires review';
 }

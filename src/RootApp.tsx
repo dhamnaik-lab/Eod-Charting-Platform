@@ -1,5 +1,8 @@
 import { lazy, useEffect, useState } from 'react';
 import { ChartCanvas } from '@/components/ChartCanvas';
+import { discoverAndLoadExternalPlugins } from '@/plugins/pluginLoader';
+import { pluginHost } from '@/plugins/registry';
+import type { PluginEnabledMap } from '@/plugins/types';
 import { TileHeader } from '@/components/TileHeader';
 import { ChartToolDock } from '@/components/ChartToolDock';
 import { ChartTabs } from '@/components/ChartTabs';
@@ -208,6 +211,29 @@ export default function RootApp() {
       unsubscribe();
     };
   }, [setCurrentTheme, setCustomChartColors]);
+
+  useEffect(() => {
+    let disposed = false;
+    let receivedSettingsChange = false;
+    let pending: Promise<void> = discoverAndLoadExternalPlugins().then(() => undefined).catch(() => undefined);
+    const syncPlugins = (enabled: PluginEnabledMap | null | undefined) => {
+      pending = pending.then(async () => {
+        if (!disposed) await pluginHost.syncEnabledPlugins(enabled);
+      }).catch((error) => console.error('Unable to sync plugin settings', error));
+    };
+    const unsubscribe = subscribeAppSettingsChanges((settings) => {
+      receivedSettingsChange = true;
+      syncPlugins(settings.pluginEnabled);
+    });
+    void readAppSettings().then((settings) => {
+      if (!disposed && !receivedSettingsChange) syncPlugins(settings.pluginEnabled);
+    }).catch(() => undefined);
+
+    return () => {
+      disposed = true;
+      unsubscribe();
+    };
+  }, []);
 
   useEffect(() => {
     let cancelled = false;

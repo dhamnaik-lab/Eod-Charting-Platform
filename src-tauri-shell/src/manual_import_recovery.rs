@@ -1,3 +1,4 @@
+use crate::database::storage_paths::{check_sibling, directory, eod_path, file};
 use crate::database::binary_eod::{BinaryEodFile, EodRecord, DEFAULT_SCALE};
 use chrono::Utc;
 use rusqlite::{params, Connection, OptionalExtension};
@@ -241,6 +242,7 @@ pub fn prepare_binary_import_session(
     let mut instrument_symbols_sorted = instrument_symbols.iter().cloned().collect::<Vec<_>>();
     instrument_symbols_sorted.sort();
     for symbol in &instrument_symbols_sorted {
+        eod_path(database_folder, exchange, symbol)?;
         let exists: bool = connection
             .query_row(
                 "SELECT 1 FROM instruments WHERE symbol = ? AND exchange = ? LIMIT 1",
@@ -258,10 +260,7 @@ pub fn prepare_binary_import_session(
     let mut symbols = records.keys().cloned().collect::<Vec<_>>();
     symbols.sort();
     for symbol in &symbols {
-        let bin_path = database_folder
-            .join("eod_data")
-            .join(exchange)
-            .join(format!("{}.eod", symbol));
+        let bin_path = eod_path(database_folder, exchange, symbol)?;
         let existing = load_normalized_records_by_date(&bin_path)?;
         let mut seen_dates = BTreeSet::<u32>::new();
         let incoming = records
@@ -304,10 +303,10 @@ pub fn prepare_binary_import_session(
     }
 
     let session_id = next_session_id();
-    let directory = recovery_sessions_root(database_folder).join(&session_id);
+    let directory = directory(database_folder, &[RECOVERY_ROOT, RECOVERY_SESSIONS, &session_id])?;
     fs::create_dir_all(&directory).map_err(|error| error.to_string())?;
-    let journal_temp_path = directory.join(JOURNAL_TEMP_FILE);
-    let journal_path = directory.join(JOURNAL_FILE);
+    let journal_temp_path = file(&directory, JOURNAL_TEMP_FILE)?;
+    let journal_path = file(&directory, JOURNAL_FILE)?;
     let (journal_byte_length, journal_sha256) = write_journal_file(&journal_temp_path, &changes)?;
     fs::rename(&journal_temp_path, &journal_path).map_err(|error| error.to_string())?;
 
@@ -375,7 +374,7 @@ pub fn summary_from_handle(handle: &ManualImportRecoveryHandle) -> ManualImportR
 pub fn list_session_summaries(
     database_folder: &Path,
 ) -> AppResult<Vec<ManualImportRecoverySummary>> {
-    let root = recovery_sessions_root(database_folder);
+    let root = directory(database_folder, &[RECOVERY_ROOT, RECOVERY_SESSIONS])?;
     if !root.exists() {
         return Ok(Vec::new());
     }
@@ -383,13 +382,17 @@ pub fn list_session_summaries(
     let mut manifests = Vec::<ManualImportRecoveryManifest>::new();
     for entry in fs::read_dir(&root).map_err(|error| error.to_string())? {
         let entry = entry.map_err(|error| error.to_string())?;
-        let directory = entry.path();
+        let name = entry.file_name();
+        let Some(name) = name.to_str() else { continue };
+        let Ok(directory) = directory(&root, &[name]) else { continue };
         if !directory.is_dir() {
             continue;
         }
         if let Ok(manifest) = read_manifest_with_backup(&directory) {
             if manifest.schema_version == MANUAL_IMPORT_RECOVERY_SCHEMA_VERSION
                 && manifest.database_folder == canonical_database
+                && manifest.session_id == name
+                && manifest.journal_file == JOURNAL_FILE
             {
                 manifests.push(manifest);
             }
@@ -429,17 +432,24 @@ where
         ));
     }
 
+    let mut grouped = BTreeMap::<String, Vec<ManualImportRecoveryChange>>::new();
+    for change in std::mem::take(&mut session.changes) {
+        if change.exchange != session.manifest.exchange {
+            return Err("Manual Import recovery row exchange does not match its manifest.".to_string());
+        }
+        grouped.entry(change.symbol.clone()).or_default().push(change);
+    }
+    for symbol in grouped.keys() {
+        let path = eod_path(database_folder, &session.manifest.exchange, symbol)?;
+        check_replacement_paths(&path, session_id)?;
+    }
+    for symbol in &session.manifest.created_instruments {
+        eod_path(database_folder, &session.manifest.exchange, symbol)?;
+    }
+
     session.manifest.state = ManualImportRecoveryState::Undoing;
     session.manifest.updated_at = now_iso();
     write_manifest_atomic(&session.directory, &session.manifest)?;
-
-    let mut grouped = BTreeMap::<String, Vec<ManualImportRecoveryChange>>::new();
-    for change in &session.changes {
-        grouped
-            .entry(change.symbol.clone())
-            .or_default()
-            .push(change.clone());
-    }
 
     let total_symbols = grouped.len();
     let mut reverted_inserted_rows = 0_usize;
@@ -449,10 +459,7 @@ where
 
     for (index, (symbol, changes)) in grouped.into_iter().enumerate() {
         on_progress(index, total_symbols, &symbol);
-        let bin_path = database_folder
-            .join("eod_data")
-            .join(&session.manifest.exchange)
-            .join(format!("{}.eod", symbol));
+        let bin_path = eod_path(database_folder, &session.manifest.exchange, &symbol)?;
         repair_interrupted_replace(&bin_path, session_id)?;
         let mut current = load_normalized_records_by_date(&bin_path)?;
         let mut modified = false;
@@ -598,10 +605,7 @@ fn rollback_created_instruments(
     let mut preserved = 0_usize;
     let referenced_symbols = load_symbol_reference_set(connection, exchange)?;
     for symbol in symbols {
-        let bin_path = database_folder
-            .join("eod_data")
-            .join(exchange)
-            .join(format!("{}.eod", symbol));
+        let bin_path = eod_path(database_folder, exchange, symbol)?;
         let has_binary_quotes = if bin_path.exists() {
             BinaryEodFile::open(&bin_path)
                 .map(|file| file.header.record_count > 0)
@@ -756,7 +760,7 @@ fn quote_identifier(value: &str) -> String {
 }
 
 fn load_session(database_folder: &Path, session_id: &str) -> AppResult<LoadedManualImportRecoverySession> {
-    let directory = recovery_sessions_root(database_folder).join(session_id);
+    let directory = directory(database_folder, &[RECOVERY_ROOT, RECOVERY_SESSIONS, session_id])?;
     if !directory.exists() {
         return Err(format!("Manual Import recovery session {} was not found.", session_id));
     }
@@ -774,7 +778,10 @@ fn load_session(database_folder: &Path, session_id: &str) -> AppResult<LoadedMan
             session_id
         ));
     }
-    let journal_path = directory.join(&manifest.journal_file);
+    if manifest.session_id != session_id || manifest.journal_file != JOURNAL_FILE {
+        return Err("Manual Import recovery manifest does not match the session or journal filename.".to_string());
+    }
+    let journal_path = file(&directory, JOURNAL_FILE)?;
     let metadata = fs::metadata(&journal_path).map_err(|error| error.to_string())?;
     if metadata.len() != manifest.journal_byte_length {
         return Err(format!(
@@ -897,7 +904,15 @@ fn write_normalized_records_recoverably(
     Ok(())
 }
 
+fn check_replacement_paths(path: &Path, session_id: &str) -> AppResult<()> {
+    let staged = staged_path(path, session_id);
+    check_sibling(&backup_path(path, session_id))?;
+    check_sibling(&staged)?;
+    check_sibling(&staged.with_extension("tmp"))
+}
+
 fn repair_interrupted_replace(path: &Path, session_id: &str) -> AppResult<()> {
+    check_replacement_paths(path, session_id)?;
     let backup = backup_path(path, session_id);
     let staged = staged_path(path, session_id);
     if backup.exists() && !path.exists() {
@@ -967,9 +982,9 @@ fn read_journal_file(path: &Path) -> AppResult<Vec<ManualImportRecoveryChange>> 
 
 fn write_manifest_atomic(directory: &Path, manifest: &ManualImportRecoveryManifest) -> AppResult<()> {
     fs::create_dir_all(directory).map_err(|error| error.to_string())?;
-    let manifest_path = directory.join(MANIFEST_FILE);
-    let backup_path = directory.join(MANIFEST_BACKUP_FILE);
-    let temp_path = directory.join(MANIFEST_TEMP_FILE);
+    let manifest_path = file(directory, MANIFEST_FILE)?;
+    let backup_path = file(directory, MANIFEST_BACKUP_FILE)?;
+    let temp_path = file(directory, MANIFEST_TEMP_FILE)?;
     let bytes = serde_json::to_vec_pretty(manifest).map_err(|error| error.to_string())?;
     {
         let mut file = File::create(&temp_path).map_err(|error| error.to_string())?;
@@ -996,11 +1011,10 @@ fn write_manifest_atomic(directory: &Path, manifest: &ManualImportRecoveryManife
 }
 
 fn read_manifest_with_backup(directory: &Path) -> AppResult<ManualImportRecoveryManifest> {
-    let primary = directory.join(MANIFEST_FILE);
-    let backup = directory.join(MANIFEST_BACKUP_FILE);
+    let primary = file(directory, MANIFEST_FILE)?;
     match read_manifest(&primary) {
         Ok(value) => Ok(value),
-        Err(primary_error) => read_manifest(&backup).map_err(|backup_error| {
+        Err(primary_error) => file(directory, MANIFEST_BACKUP_FILE).and_then(|backup| read_manifest(&backup)).map_err(|backup_error| {
             format!(
                 "Unable to read Manual Import recovery manifest: primary {}, backup {}",
                 primary_error, backup_error
@@ -1041,10 +1055,6 @@ fn sha256_file(path: &Path) -> AppResult<String> {
         hasher.update(&buffer[..read]);
     }
     Ok(format!("{:x}", hasher.finalize()))
-}
-
-fn recovery_sessions_root(database_folder: &Path) -> PathBuf {
-    database_folder.join(RECOVERY_ROOT).join(RECOVERY_SESSIONS)
 }
 
 fn canonical_database_folder(path: &Path) -> AppResult<String> {
@@ -1140,6 +1150,34 @@ mod tests {
             volume: 100,
             oi: 0,
         }
+    }
+
+    #[test]
+    fn issue_01_rejects_alternate_journal_filename_before_undo() {
+        let root = tempdir().unwrap();
+        let db_path = root.path().join("data.db");
+        let connection = setup_connection(&db_path);
+        let source = root.path().join("source.csv");
+        fs::write(&source, "source fixture").unwrap();
+        let mut handle = prepare_binary_import_session(
+            &db_path,
+            &connection,
+            "NSE",
+            "skip",
+            &[source],
+            1,
+            0,
+            &HashSet::from(["M&M".to_string()]),
+            &HashMap::from([("M&M".to_string(), vec![record(20240102, 1000)])]),
+        ).unwrap().unwrap();
+        update_session_state(&mut handle, ManualImportRecoveryState::Applied, Some(1), Some(0), None).unwrap();
+        handle.manifest.journal_file = "alternate.ndjson".to_string();
+        write_manifest_atomic(&handle.directory, &handle.manifest).unwrap();
+
+        let session_id = &handle.manifest.session_id;
+        let error = undo_session(&db_path, &connection, session_id, |_, _, _| {}).unwrap_err();
+        assert!(error.contains("does not match the session or journal filename"));
+        assert_eq!(read_manifest_with_backup(&handle.directory).unwrap().state, ManualImportRecoveryState::Applied);
     }
 
     #[test]

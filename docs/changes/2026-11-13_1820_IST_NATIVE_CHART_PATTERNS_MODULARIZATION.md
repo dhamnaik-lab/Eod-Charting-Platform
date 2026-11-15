@@ -1,5 +1,7 @@
 # Native Chart Pattern Scanner Modularization
 
+**Closeout (14 November 2026).** Renderer validation and scoped native Windows acceptance passed. PR #102 merged at `ca1cd936` and local main fast-forwarded to the same commit. The merged tree matches the tested PR build. [Renderer audit](../audits/2026-11-13_1926_IST_PR102_NATIVE_CHART_PATTERNS_VALIDATION.md) · [Native acceptance](../audits/2026-11-14_0129_IST_PR102_NATIVE_WINDOWS_ACCEPTANCE.md)
+
 - **IST timestamp:** 2026-11-13 18:20 IST (implementation session)
 - **Workstream:** EOD Charting Platform; authorized local root `E:\\TA Projects\\EOD Charting Platform`
 - **GitHub authority:** `main` commit `b830573a8a491c207e9e853bc422ca62f8ebe45f`, chart-pattern blob `69684551e72b75b0dabf2e97dcac5bfaecbbbed1`

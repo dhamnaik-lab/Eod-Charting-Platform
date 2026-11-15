@@ -637,6 +637,9 @@ fn run_migrations(connection: &Connection) -> AppResult<()> {
             CREATE INDEX IF NOT EXISTS idx_corporate_action_scan_results_run
               ON corporate_action_scan_results(scan_run_id, scan_status);
 
+            CREATE INDEX IF NOT EXISTS idx_corporate_action_scan_results_import_latest
+              ON corporate_action_scan_results(corporate_action_import_id, scanned_at DESC, id DESC);
+
             CREATE INDEX IF NOT EXISTS idx_corporate_action_activity_runs_started
               ON corporate_action_activity_runs(started_at_utc DESC, id DESC);
 

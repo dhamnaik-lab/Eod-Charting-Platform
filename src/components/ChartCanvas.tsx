@@ -74,7 +74,6 @@ import { buildChartPriceLegendSnapshot, ChartPriceLegendOverlay } from './ChartP
 import { computeGannSetup, DEFAULT_GANN_OPTIONS } from '@/plugins/analysis/gannPriceTime/engine';
 import { renderGannOverlay } from '@/plugins/analysis/gannPriceTime/canvasOverlay';
 import { isPluginEnabled, pluginHost } from '@/plugins/registry';
-import { discoverAndLoadExternalPlugins } from '@/plugins/pluginLoader';
 import { GANN_PRICE_TIME_PLUGIN_ID } from '@/plugins/analysis/gannPriceTime/gannPlugin';
 
 const DEFAULT_VOLUME_PCT = 0.14;
@@ -210,21 +209,22 @@ export function ChartCanvas({
   const setLogScale = useChartStore((state) => state.setLogScale);
   const applyChartSettingsDialog = useChartStore((state) => state.applyChartSettingsDialog);
   const setChartVisualSettings = useChartStore((state) => state.setChartVisualSettings);
-  const showVolume = useChartStore((state) => getActiveChartTab(state.chartTabs, state.activeChartTabId)?.showVolume ?? true);
+  const chartTab = useChartStore((state) => tabId
+    ? state.chartTabs.find((tab) => tab.id === tabId)
+    : getActiveChartTab(state.chartTabs, state.activeChartTabId));
+  const showVolume = chartTab?.showVolume ?? true;
   const setShowVolume = useChartStore((state) => state.setShowVolume);
   const setInvertPriceScale = useChartStore((state) => state.setInvertPriceScale);
   const setShowValueLabels = useChartStore((state) => state.setShowValueLabels);
   const setValueLabelSettings = useChartStore((state) => state.setValueLabelSettings);
   const setShowLeftAxis = useChartStore((state) => state.setShowLeftAxis);
   const setFutureMarginMode = useChartStore((state) => state.setFutureMarginMode);
-  const logScale = useChartStore((state) => getActiveChartTab(state.chartTabs, state.activeChartTabId)?.logScale ?? false);
-  const invertPriceScale = useChartStore((state) => getActiveChartTab(state.chartTabs, state.activeChartTabId)?.invertPriceScale ?? false);
-  const valueLabelSettings = useChartStore(
-    (state) => getActiveChartTab(state.chartTabs, state.activeChartTabId)?.valueLabelSettings ?? DEFAULT_CHART_VALUE_LABEL_SETTINGS,
-  );
-  const showLeftAxis = useChartStore((state) => getActiveChartTab(state.chartTabs, state.activeChartTabId)?.showLeftAxis ?? false);
-  const futureMarginMode = useChartStore((state) => getActiveChartTab(state.chartTabs, state.activeChartTabId)?.futureMarginMode ?? 'normal');
-  const timeframe = useChartStore((state) => getActiveChartTab(state.chartTabs, state.activeChartTabId)?.timeframe ?? 'D');
+  const logScale = chartTab?.logScale ?? false;
+  const invertPriceScale = chartTab?.invertPriceScale ?? false;
+  const valueLabelSettings = chartTab?.valueLabelSettings ?? DEFAULT_CHART_VALUE_LABEL_SETTINGS;
+  const showLeftAxis = chartTab?.showLeftAxis ?? false;
+  const futureMarginMode = chartTab?.futureMarginMode ?? 'normal';
+  const timeframe = chartTab?.timeframe ?? 'D';
   const setTimeframe = useChartStore((state) => state.setTimeframe);
   const updateIndicator = useChartStore((state) => state.updateIndicator);
   const removeIndicator = useChartStore((state) => state.removeIndicator);
@@ -298,9 +298,7 @@ export function ChartCanvas({
     () => overlays.filter((indicator) => indicator.placement === 'pane'),
     [overlays],
   );
-  const scannerSourceTab = useChartStore((state) => tabId
-    ? state.chartTabs.find((tab) => tab.id === tabId)
-    : getActiveChartTab(state.chartTabs, state.activeChartTabId));
+  const scannerSourceTab = chartTab;
   const scannerDatabasePath = useChartStore((state) => state.snapshot?.activeDatabasePath ?? null);
   const scannerChartContext = useMemo<ScannerChartContext | null>(() => {
     const priceBasis = scannerSourceTab ? getLoadedScannerPriceBasis(scannerSourceTab) : null;
@@ -777,23 +775,25 @@ export function ChartCanvas({
 
   useEffect(() => {
     let active = true;
+    let receivedSettingsChange = false;
 
     const applyGannPluginSetting = (settings: AppSettings) => {
       if (!active) {
         return;
       }
       setGannPluginEnabled(isPluginEnabled(GANN_PRICE_TIME_PLUGIN_ID, settings.pluginEnabled));
-      void pluginHost.syncEnabledPlugins(settings.pluginEnabled);
     };
 
-    const unsubscribe = subscribeAppSettingsChanges(applyGannPluginSetting);
+    const unsubscribe = subscribeAppSettingsChanges((settings) => {
+      receivedSettingsChange = true;
+      applyGannPluginSetting(settings);
+    });
     void readAppSettings()
-      .then(async (s) => {
-        await discoverAndLoadExternalPlugins(s.pluginEnabled);
-        applyGannPluginSetting(s);
+      .then((settings) => {
+        if (!receivedSettingsChange) applyGannPluginSetting(settings);
       })
       .catch(() => {
-        if (active) {
+        if (active && !receivedSettingsChange) {
           setGannPluginEnabled(false);
         }
       });
@@ -831,24 +831,24 @@ export function ChartCanvas({
         const nextDate = nextHoverBar?.date ?? null;
         if (latestHoverBarDateRef.current !== nextDate) {
           latestHoverBarDateRef.current = nextDate;
-          setHoverBar(nextHoverBar);
+          setHoverBar(nextHoverBar, tabId ?? undefined);
           if (nextDate && useUiStore.getState().crosshairSyncEnabled && useUiStore.getState().syncedCrosshairDate !== nextDate) {
             setSyncedCrosshairDate(nextDate);
           }
         }
       }
       if (event.type === 'viewportChange' && event.viewport) {
-        syncViewport(event.viewport);
+        syncViewport(event.viewport, tabId ?? undefined);
       }
       if (event.type === 'axisWidthChange' && typeof event.axisWidth === 'number') {
         setAxisWidth(event.axisWidth);
       }
       if (event.type === 'drawingComplete' && event.drawing) {
-        addDrawing(event.drawing);
+        addDrawing(event.drawing, tabId ?? undefined);
         setDrawingTool('cursor');
         if (event.drawing.kind === 'text') {
           const pointer = latestChartPointerRef.current ?? { x: 12, y: 28 };
-          selectDrawing(event.drawing.id);
+          selectDrawing(event.drawing.id, tabId ?? undefined);
           setInlineTextEditor({
             drawingId: event.drawing.id,
             text: '',
@@ -859,7 +859,7 @@ export function ChartCanvas({
         }
       }
       if (event.type === 'drawingUpdate' && event.drawing) {
-        updateDrawing(event.drawing);
+        updateDrawing(event.drawing, tabId ?? undefined);
         scheduleDrawingAlertGeometrySync(event.drawing);
       }
       if (event.type === 'drawingSelect') {
@@ -874,7 +874,7 @@ export function ChartCanvas({
             const entryBarIndex = findBarIndexOnOrAfter(latestBarsRef.current, entry.date);
             if (entryBarIndex >= 0) {
               const visibleSpan = Math.max(20, Math.round(latestViewportRef.current.endIndex - latestViewportRef.current.startIndex));
-              scrollToViewportStart(Math.max(0, entryBarIndex - Math.floor(visibleSpan / 2)));
+              scrollToViewportStart(Math.max(0, entryBarIndex - Math.floor(visibleSpan / 2)), tabId ?? undefined);
             }
             showScannerChartOverlay({
               id: `scanner-map-selection:${entry.id}:${Date.now()}`,
@@ -890,13 +890,13 @@ export function ChartCanvas({
               editable: entry.editable,
             });
           }
-          selectDrawing(null);
+          selectDrawing(null, tabId ?? undefined);
           return;
         }
-        selectDrawing(event.drawingId ?? null);
+        selectDrawing(event.drawingId ?? null, tabId ?? undefined);
       }
       if (event.type === 'paneScaleChange' && event.paneId) {
-        setPaneScaleOverride(event.paneId, event.paneScaleRange ?? null);
+        setPaneScaleOverride(event.paneId, event.paneScaleRange ?? null, tabId ?? undefined);
       }
     });
     engine.mount();
@@ -906,7 +906,7 @@ export function ChartCanvas({
       engine.unmount();
       engineRef.current = null;
     };
-  }, [addDrawing, scrollToViewportStart, selectDrawing, selectScannerPatternMapEntry, setDrawingTool, setHoverBar, setPaneScaleOverride, showScannerChartOverlay, syncViewport, updateDrawing]);
+  }, [addDrawing, scrollToViewportStart, selectDrawing, selectScannerPatternMapEntry, setDrawingTool, setHoverBar, setPaneScaleOverride, showScannerChartOverlay, syncViewport, tabId, updateDrawing]);
 
   useEffect(() => {
     const engine = engineRef.current;
@@ -1585,7 +1585,7 @@ export function ChartCanvas({
 
     const onMove = (moveEvent: MouseEvent) => {
       const delta = moveEvent.clientY - startY;
-      setIndicatorPaneHeight(startHeight - delta, paneId);
+      setIndicatorPaneHeight(startHeight - delta, paneId, tabId ?? undefined);
       setResizeGhostY(moveEvent.clientY - rect.top);
     };
     const onUp = () => {
@@ -1800,6 +1800,9 @@ export function ChartCanvas({
           });
         }}
         onMouseDownCapture={(event) => {
+          if (isChartExternalOrDialogEvent(event.target, event.currentTarget)) {
+            return;
+          }
           if (tabId && tabId !== activeChartTabId) {
             activateChartTab(tabId);
           }
@@ -1813,10 +1816,16 @@ export function ChartCanvas({
             y: event.clientY - rect.top,
           };
         }}
-        onPointerDownCapture={() => {
+        onPointerDownCapture={(event) => {
+          if (isChartExternalOrDialogEvent(event.target, event.currentTarget)) {
+            return;
+          }
           chartViewportRef.current?.focus();
         }}
         onDoubleClick={(event) => {
+          if (isChartExternalOrDialogEvent(event.target, event.currentTarget)) {
+            return;
+          }
           if (activeDrawingTool !== 'cursor') {
             return;
           }
@@ -2074,6 +2083,7 @@ export function ChartCanvas({
           paneScaleOverrides={paneScaleOverrides}
           paneSettingsIndicator={paneSettingsIndicator}
           onStartPaneResize={startPaneSeparatorResize}
+          onResizePane={(paneId, height) => setIndicatorPaneHeight(height, paneId, tabId ?? undefined)}
           onTogglePaneCollapsed={setIndicatorPaneCollapsed}
           onResetPaneScale={(paneId) => setPaneScaleOverride(paneId, null)}
           onMovePane={moveIndicatorPane}
@@ -3034,4 +3044,21 @@ function getDrawingToolLabel(tool: DrawingTool): string {
 
 function getDrawingLabel(drawing: ChartDrawing): string {
   return getDrawingToolLabel(drawing.kind);
+}
+
+function isChartExternalOrDialogEvent(
+  eventTarget: EventTarget | null,
+  viewportElement: HTMLDivElement,
+): boolean {
+  if (typeof Node === 'undefined' || !(eventTarget instanceof Node)) {
+    return false;
+  }
+  if (!viewportElement.contains(eventTarget)) {
+    return true;
+  }
+  const element =
+    typeof Element !== 'undefined' && eventTarget instanceof Element
+      ? eventTarget
+      : eventTarget.parentElement;
+  return Boolean(element?.closest('[role="dialog"]'));
 }

@@ -68,7 +68,7 @@ export async function refreshCorporateActionQueueAfterApproval(input: {
   const previous = input.previousOutcome;
   const hasPreparedDividendScope = Boolean(previous && previous.result.requested > 0);
   const validationIds = (hasPreparedDividendScope ? remainingAffected : immediateCorporateActionValidationRows(remainingAffected)).filter(row =>
-    ['SPLIT', 'BONUS', 'RIGHTS'].includes(row.actionType)).map(row => row.id);
+    ['SPLIT', 'BONUS', 'RIGHTS', 'DEMERGER'].includes(row.actionType)).map(row => row.id);
   const validationRows: CorporateActionScanResultRow[] = [];
   for (let start = 0; start < validationIds.length; start += 100) {
     check();

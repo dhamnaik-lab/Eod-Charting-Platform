@@ -1,0 +1,2232 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="midnight-slate-pro">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>EOD Charting Platform — Evidence-First Application Design Audit &amp; Spec (main @ b830573)</title>
+  <style>
+html[data-theme="midnight-slate-pro"] {
+  --bg: #070b10;
+  --bg2: #0d131a;
+  --bg3: #141b24;
+  --bg4: #1a2430;
+  --text: #e6edf3;
+  --text-dim: #9aa8b8;
+  --text-mute: #7e8e9f;
+  --border: #26313d;
+  --border2: #334151;
+  --accent: #3b82f6;
+  --accent-contrast: #071019;
+  --accent-soft: rgba(59, 130, 246, 0.22);
+  --green: #22c55e;
+  --red: #ef4444;
+  --amber: #f59e0b;
+  --control-bg: #111923;
+  --control-bg-hover: #172232;
+  --overlay-bg: rgba(5, 10, 17, 0.72);
+  --chart-bg: #071019;
+  --chart-grid: rgba(78, 101, 128, 0.18);
+  --chart-axis-bg: #0d1722;
+  --chart-axis-text: #9fb0c3;
+  --candle-up: #22c55e;
+  --candle-down: #ef4444;
+  --is-light: 0;
+  --surface-card: #0d131a;
+  --surface-elevated: #141b24;
+  color-scheme: dark;
+}
+html[data-theme="amoled-black"] {
+  --bg: #000000;
+  --bg2: #050505;
+  --bg3: #0a0a0a;
+  --bg4: #111111;
+  --text: #f8fafc;
+  --text-dim: #a7b2bf;
+  --text-mute: #718097;
+  --border: #1f2937;
+  --border2: #2f3a48;
+  --accent: #38bdf8;
+  --accent-contrast: #071019;
+  --accent-soft: rgba(56, 189, 248, 0.22);
+  --green: #20c997;
+  --red: #ff4d4f;
+  --amber: #f59e0b;
+  --control-bg: #080808;
+  --control-bg-hover: #111111;
+  --overlay-bg: rgba(0, 0, 0, 0.78);
+  --chart-bg: #000000;
+  --chart-grid: rgba(71, 85, 105, 0.16);
+  --chart-axis-bg: #050505;
+  --chart-axis-text: #94a3b8;
+  --candle-up: #20c997;
+  --candle-down: #ff4d4f;
+  --is-light: 0;
+  --surface-card: #050505;
+  --surface-elevated: #0a0a0a;
+  color-scheme: dark;
+}
+html[data-theme="classic-light"] {
+  --bg: #f3f4f6;
+  --bg2: #ffffff;
+  --bg3: #f9fafb;
+  --bg4: #eef2f7;
+  --text: #111827;
+  --text-dim: #4b5563;
+  --text-mute: #616a78;
+  --border: #d1d5db;
+  --border2: #b8c0cc;
+  --accent: #2563eb;
+  --accent-contrast: #ffffff;
+  --accent-soft: rgba(37, 99, 235, 0.14);
+  --green: #059669;
+  --red: #dc2626;
+  --amber: #b45309;
+  --control-bg: #ffffff;
+  --control-bg-hover: #f3f4f6;
+  --overlay-bg: rgba(248, 250, 252, 0.72);
+  --chart-bg: #ffffff;
+  --chart-grid: rgba(203, 213, 225, 0.35);
+  --chart-axis-bg: #f3f4f6;
+  --chart-axis-text: #475569;
+  --candle-up: #059669;
+  --candle-down: #dc2626;
+  --is-light: 1;
+  --surface-card: #ffffff;
+  --surface-elevated: #f9fafb;
+  color-scheme: light;
+}
+html[data-theme="classic-light-refined"] {
+  --bg: #f4f7fb;
+  --bg2: #ffffff;
+  --bg3: #fafcff;
+  --bg4: #eaf1f8;
+  --text: #1e293b;
+  --text-dim: #475569;
+  --text-mute: #5b6779;
+  --border: #d9e2ec;
+  --border2: #c7d3e0;
+  --accent: #2563eb;
+  --accent-contrast: #ffffff;
+  --accent-soft: rgba(37, 99, 235, 0.11);
+  --green: #059669;
+  --red: #dc2626;
+  --amber: #b45309;
+  --control-bg: #ffffff;
+  --control-bg-hover: #f1f5fb;
+  --overlay-bg: rgba(248, 250, 252, 0.72);
+  --chart-bg: #ffffff;
+  --chart-grid: rgba(203, 213, 225, 0.35);
+  --chart-axis-bg: #f3f4f6;
+  --chart-axis-text: #475569;
+  --candle-up: #059669;
+  --candle-down: #dc2626;
+  --is-light: 1;
+  --surface-card: #ffffff;
+  --surface-elevated: #fafcff;
+  color-scheme: light;
+}
+html[data-theme="deep-light"] {
+  --bg: #f1f5f9;
+  --bg2: #ffffff;
+  --bg3: #f8fafc;
+  --bg4: #e2e8f0;
+  --text: #0f172a;
+  --text-dim: #334155;
+  --text-mute: #586373;
+  --border: #cbd5e1;
+  --border2: #94a3b8;
+  --accent: #1d4ed8;
+  --accent-contrast: #ffffff;
+  --accent-soft: rgba(29, 78, 216, 0.14);
+  --green: #047857;
+  --red: #b91c1c;
+  --amber: #b45309;
+  --control-bg: #ffffff;
+  --control-bg-hover: #f1f5f9;
+  --overlay-bg: rgba(241, 245, 249, 0.76);
+  --chart-bg: #f8fafc;
+  --chart-grid: rgba(203, 213, 225, 0.4);
+  --chart-axis-bg: #f1f5f9;
+  --chart-axis-text: #334155;
+  --candle-up: #047857;
+  --candle-down: #b91c1c;
+  --is-light: 1;
+  --surface-card: #ffffff;
+  --surface-elevated: #f8fafc;
+  color-scheme: light;
+}
+html[data-theme="refinitiv-dark"] {
+  --bg: #080e18;
+  --bg2: #0f172a;
+  --bg3: #1e293b;
+  --bg4: #334155;
+  --text: #f8fafc;
+  --text-dim: #a0afbf;
+  --text-mute: #a8b5c4;
+  --border: #1e293b;
+  --border2: #334155;
+  --accent: #0284c7;
+  --accent-contrast: #071019;
+  --accent-soft: rgba(2, 132, 199, 0.22);
+  --green: #10b981;
+  --red: #f43f5e;
+  --amber: #f59e0b;
+  --control-bg: #0c1322;
+  --control-bg-hover: #152035;
+  --overlay-bg: rgba(4, 7, 13, 0.78);
+  --chart-bg: #080e18;
+  --chart-grid: rgba(148, 163, 184, 0.14);
+  --chart-axis-bg: #0f172a;
+  --chart-axis-text: #94a3b8;
+  --candle-up: #10b981;
+  --candle-down: #f43f5e;
+  --is-light: 0;
+  --surface-card: #0f172a;
+  --surface-elevated: #1e293b;
+  color-scheme: dark;
+}
+html[data-theme="tos-charcoal"] {
+  --bg: #181a1f;
+  --bg2: #21252b;
+  --bg3: #2c313a;
+  --bg4: #3b4048;
+  --text: #abb2bf;
+  --text-dim: #a7b1bf;
+  --text-mute: #a5afbd;
+  --border: #333842;
+  --border2: #4b5263;
+  --accent: #61afef;
+  --accent-contrast: #071019;
+  --accent-soft: rgba(97, 175, 239, 0.22);
+  --green: #26a69a;
+  --red: #ef5350;
+  --amber: #f59e0b;
+  --control-bg: #1e2227;
+  --control-bg-hover: #282c34;
+  --overlay-bg: rgba(20, 22, 26, 0.78);
+  --chart-bg: #181a1f;
+  --chart-grid: rgba(171, 178, 191, 0.12);
+  --chart-axis-bg: #21252b;
+  --chart-axis-text: #abb2bf;
+  --candle-up: #26a69a;
+  --candle-down: #ef5350;
+  --is-light: 0;
+  --surface-card: #21252b;
+  --surface-elevated: #2c313a;
+  color-scheme: dark;
+}
+
+    :root {
+      --font-sans: 'Segoe UI', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+      --font-mono: 'Cascadia Mono', 'Consolas', ui-monospace, SFMono-Regular, monospace;
+      --radius-sm: 6px;
+      --radius-md: 10px;
+      --radius-lg: 14px;
+    }
+
+    *, *::before, *::after {
+      box-sizing: border-box;
+    }
+
+    html {
+      scroll-behavior: smooth;
+    }
+
+    body {
+      margin: 0;
+      font-family: var(--font-sans);
+      font-size: 14px;
+      line-height: 1.55;
+      background: var(--bg);
+      color: var(--text);
+      -webkit-font-smoothing: antialiased;
+    }
+
+    .mono, code, pre {
+      font-family: var(--font-mono);
+      font-variant-numeric: tabular-nums;
+    }
+
+    .tnum {
+      font-variant-numeric: tabular-nums;
+    }
+
+    .skip-link {
+      position: absolute;
+      left: -9999px;
+      top: 8px;
+      z-index: 9999;
+      padding: 8px 14px;
+      border-radius: var(--radius-sm);
+      background: var(--accent);
+      color: var(--accent-contrast);
+      font-weight: 700;
+      text-decoration: none;
+    }
+    .skip-link:focus {
+      left: 12px;
+    }
+
+    a {
+      color: var(--accent);
+    }
+
+    :focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: 2px;
+    }
+
+    /* Sticky Top Audit Bar */
+    .topbar {
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      background: var(--bg2);
+      border-bottom: 1px solid var(--border);
+      padding: 10px 18px;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+    }
+
+    .topbar-brand {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 10px;
+      min-width: 0;
+    }
+
+    .brand-title {
+      font-size: 15px;
+      font-weight: 700;
+      letter-spacing: -0.01em;
+    }
+
+    .sha-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 3px 9px;
+      border-radius: 999px;
+      background: var(--control-bg);
+      border: 1px solid var(--border2);
+      font-size: 12px;
+      color: var(--text-dim);
+      max-width: 100%;
+      overflow-wrap: anywhere;
+    }
+
+    .topbar-controls {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .topbar-controls label {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-dim);
+    }
+
+    select, input[type="search"], input[type="text"], button {
+      font: inherit;
+    }
+
+    .ui-select, .ui-input {
+      background: var(--bg3);
+      color: var(--text);
+      border: 1px solid var(--border2);
+      border-radius: var(--radius-sm);
+      padding: 6px 10px;
+      font-size: 13px;
+      min-height: 32px;
+    }
+
+    .ui-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      min-height: 32px;
+      padding: 6px 12px;
+      border-radius: var(--radius-sm);
+      border: 1px solid var(--border2);
+      background: var(--control-bg);
+      color: var(--text);
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    .ui-btn:hover {
+      background: var(--control-bg-hover);
+      border-color: var(--accent);
+    }
+
+    .ui-btn.primary {
+      background: var(--accent);
+      color: var(--accent-contrast);
+      border-color: var(--accent);
+    }
+
+    .ui-btn.active {
+      border-color: var(--accent);
+      background: var(--accent-soft);
+    }
+
+    .section-nav {
+      background: var(--bg2);
+      border-bottom: 1px solid var(--border);
+      padding: 8px 18px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+
+    .section-nav a {
+      padding: 4px 10px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 600;
+      text-decoration: none;
+      color: var(--text-dim);
+      background: var(--bg3);
+      border: 1px solid transparent;
+    }
+
+    .section-nav a:hover {
+      color: var(--text);
+      border-color: var(--border2);
+    }
+
+    .container {
+      max-width: 1380px;
+      margin: 0 auto;
+      padding: 20px 18px 64px;
+      display: flex;
+      flex-direction: column;
+      gap: 28px;
+    }
+
+    .audit-section {
+      background: var(--surface-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 20px;
+      scroll-margin-top: 86px;
+    }
+
+    .section-head {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 10px;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 12px;
+      margin-bottom: 16px;
+    }
+
+    .section-head h2 {
+      margin: 0;
+      font-size: 19px;
+      letter-spacing: -0.01em;
+    }
+
+    .section-num {
+      color: var(--accent);
+      margin-right: 6px;
+      font-family: var(--font-mono);
+    }
+
+    .subhead {
+      font-size: 15px;
+      margin: 18px 0 10px;
+      color: var(--text);
+    }
+
+    .muted {
+      color: var(--text-dim);
+      font-size: 13px;
+    }
+
+    /* Grids */
+    .kpi-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(195px, 1fr));
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+
+    .kpi-card {
+      background: var(--bg3);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      padding: 12px 14px;
+    }
+
+    .kpi-label {
+      font-size: 12px;
+      color: var(--text-dim);
+      margin-bottom: 4px;
+    }
+
+    .kpi-val {
+      font-size: 20px;
+      font-weight: 700;
+      font-family: var(--font-mono);
+      font-variant-numeric: tabular-nums;
+    }
+
+    .kpi-note {
+      font-size: 12px;
+      color: var(--text-mute);
+      margin-top: 4px;
+    }
+
+    .grid-2 {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+      gap: 14px;
+    }
+
+    /* Tables */
+    .table-wrap {
+      width: 100%;
+      overflow-x: auto;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      background: var(--bg2);
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+
+    th, td {
+      padding: 9px 11px;
+      text-align: left;
+      border-bottom: 1px solid var(--border);
+      vertical-align: top;
+    }
+
+    th {
+      background: var(--bg3);
+      font-weight: 700;
+      font-size: 12px;
+      color: var(--text-dim);
+      white-space: nowrap;
+    }
+
+    tr:last-child td {
+      border-bottom: none;
+    }
+
+    /* Badges */
+    .badge-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      align-items: center;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      padding: 2px 8px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 600;
+      border: 1px solid var(--border2);
+      background: var(--bg3);
+      color: var(--text);
+      white-space: nowrap;
+    }
+
+    .ev-A { border-color: var(--green); }
+    .ev-B { border-color: var(--accent); }
+    .ev-C { border-color: var(--amber); }
+    .ev-D { border-color: var(--accent); background: var(--accent-soft); }
+    .ev-E { border-style: dashed; color: var(--text-dim); }
+    .sev-Critical { border-color: var(--red); color: var(--red); }
+    .sev-High { border-color: var(--amber); color: var(--amber); }
+    .sev-Medium { border-color: var(--accent); }
+    .sev-Low { color: var(--text-dim); }
+
+    /* Callouts */
+    .notice {
+      padding: 12px 14px;
+      border-radius: var(--radius-md);
+      border: 1px solid var(--border2);
+      border-left: 4px solid var(--accent);
+      background: var(--bg3);
+      font-size: 13px;
+      margin-bottom: 14px;
+    }
+
+    .notice.warn {
+      border-left-color: var(--amber);
+    }
+
+    /* Filter Bar & Matrix */
+    .filter-bar {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(175px, 1fr));
+      gap: 10px;
+      padding: 12px;
+      background: var(--bg3);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      margin-bottom: 14px;
+    }
+
+    .filter-group {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .filter-group label {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-dim);
+    }
+
+    .finding-list {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .finding-card {
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      background: var(--bg2);
+      padding: 14px 16px;
+    }
+
+    .finding-top {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 10px;
+      margin-bottom: 8px;
+    }
+
+    .finding-title {
+      font-size: 15px;
+      font-weight: 700;
+      margin: 0;
+    }
+
+    .finding-meta {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 10px 16px;
+      margin-top: 10px;
+      padding-top: 10px;
+      border-top: 1px solid var(--border);
+      font-size: 13px;
+    }
+
+    .meta-k {
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--text-dim);
+      margin-bottom: 3px;
+    }
+
+    .file-chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 5px;
+    }
+
+    .file-chip {
+      font-family: var(--font-mono);
+      font-size: 12px;
+      background: var(--bg3);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 1px 6px;
+      overflow-wrap: anywhere;
+    }
+
+    /* Prototype Tabs & Sandboxes */
+    .proto-tabs {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-bottom: 14px;
+    }
+
+    .proto-tab[aria-selected="true"] {
+      background: var(--accent);
+      color: var(--accent-contrast);
+      border-color: var(--accent);
+    }
+
+    .proto-panel {
+      border: 1px solid var(--border2);
+      border-radius: var(--radius-md);
+      background: var(--bg2);
+      padding: 16px;
+    }
+
+    .proto-banner {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 12px;
+      margin-bottom: 14px;
+      border-radius: var(--radius-sm);
+      border: 1px dashed var(--amber);
+      background: var(--bg3);
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .proto-controls {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 14px;
+      padding: 10px;
+      background: var(--bg3);
+      border-radius: var(--radius-sm);
+      border: 1px solid var(--border);
+    }
+
+    .svg-frame {
+      width: 100%;
+      overflow-x: auto;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      background: var(--bg);
+    }
+
+    svg {
+      display: block;
+      max-width: 100%;
+      height: auto;
+    }
+
+    /* Proto 2 Mock Chrome */
+    .mock-shell {
+      border: 1px solid var(--border2);
+      border-radius: var(--radius-sm);
+      overflow: hidden;
+      background: var(--bg);
+    }
+
+    .mock-titlebar {
+      min-height: 36px;
+      background: var(--bg3);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      padding: 4px 10px;
+      gap: 8px;
+    }
+
+    .mock-workspace {
+      display: grid;
+      grid-template-columns: 46px minmax(0, 1fr) 230px;
+      min-height: 250px;
+    }
+
+    @media (max-width: 780px) {
+      .mock-workspace {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .mock-rail {
+      background: var(--bg2);
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 6px 4px;
+      gap: 6px;
+    }
+
+    .mock-drawer {
+      background: var(--bg2);
+      border-left: 1px solid var(--border);
+      padding: 10px;
+      font-size: 12px;
+    }
+
+    /* Proto 3 Viewport Simulator */
+    .vp-stage {
+      position: relative;
+      border: 2px solid var(--border2);
+      border-radius: var(--radius-sm);
+      background: var(--bg);
+      overflow: hidden;
+      min-height: 290px;
+      padding: 10px;
+    }
+
+    .vp-window {
+      position: absolute;
+      border-radius: 6px;
+      border: 1px solid var(--border2);
+      background: var(--bg2);
+      padding: 8px 10px;
+      box-shadow: 0 8px 20px rgba(0,0,0,0.35);
+      font-size: 12px;
+    }
+
+    /* Proto 4 2x2 Tile Grid */
+    .tile-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+    }
+
+    @media (max-width: 680px) {
+      .tile-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .chart-tile {
+      border: 1px solid var(--border2);
+      border-radius: var(--radius-sm);
+      background: var(--bg);
+      padding: 8px 10px;
+      cursor: crosshair;
+    }
+
+    .chart-tile.active-tile {
+      border-color: var(--accent);
+    }
+
+    /* Spec Code Blocks */
+    .spec-card {
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      background: var(--bg2);
+      margin-bottom: 14px;
+      overflow: hidden;
+    }
+
+    .spec-header {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      padding: 10px 14px;
+      background: var(--bg3);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .spec-card pre {
+      margin: 0;
+      padding: 14px;
+      overflow-x: auto;
+      font-size: 12.5px;
+      line-height: 1.45;
+      background: var(--bg);
+      color: var(--text);
+    }
+
+    /* Focus Lab Override for Proto 5 comparison */
+    .focus-broken button:focus-visible {
+      outline: none !important;
+      box-shadow: none !important;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      html { scroll-behavior: auto; }
+      *, *::before, *::after {
+        animation-duration: 0.001ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.001ms !important;
+      }
+    }
+
+    @media (forced-colors: active) {
+      .audit-section, .finding-card, .ui-btn, .proto-panel {
+        border: 1px solid ButtonText;
+      }
+      :focus-visible {
+        outline: 2px solid Highlight;
+      }
+    }
+  </style>
+</head>
+<body>
+  <a class="skip-link" href="#main-content">Skip to main audit content</a>
+
+  <header class="topbar">
+    <div class="topbar-brand">
+      <div class="brand-title">EOD Charting Platform — Design Audit &amp; Engineering Spec</div>
+      <div class="sha-pill mono">main @ b830573 (PR #102 excluded) · READ-ONLY AUDIT</div>
+    </div>
+    <div class="topbar-controls">
+      <label for="globalThemeSelect">Live Preview Theme:</label>
+      <select id="globalThemeSelect" class="ui-select" aria-label="Select application theme"></select>
+      <span id="globalContrastBadge" class="badge mono tnum" aria-live="polite">text/bg --</span>
+    </div>
+  </header>
+
+  <nav class="section-nav" aria-label="Audit sections">
+    <a href="#sec-1">1. Overview &amp; Authority</a>
+    <a href="#sec-2">2. Strengths &amp; Correction Ledger</a>
+    <a href="#sec-3">3. 4-Layer Audit Matrix</a>
+    <a href="#sec-4">4. Official Benchmarks</a>
+    <a href="#sec-5">5. 5 Interactive Prototypes</a>
+    <a href="#sec-6">6. Architecture Diagrams</a>
+    <a href="#sec-7">7. Bounded Roadmap</a>
+    <a href="#sec-8">8. Illustrative Specs</a>
+  </nav>
+
+  <main id="main-content" tabindex="-1" class="container">
+    <!-- SECTION 1 -->
+    <section id="sec-1" class="audit-section" aria-labelledby="h-sec-1">
+      <div class="section-head">
+        <h2 id="h-sec-1"><span class="section-num">01</span>Executive Overview, Source Authority &amp; Verified Baseline</h2>
+        <span class="badge ev-A">Pinned SHA Verified · Documentation Only</span>
+      </div>
+
+      <div class="notice">
+        <strong>Evidence Standard:</strong> Every statement distinguishes <strong>A. Confirmed Source Fact</strong> (exact pinned SHA + <code class="mono">file:line</code>), <strong>B. Runtime-Reproduced Defect</strong>, <strong>C. Suspected Risk</strong>, <strong>D. Design Opportunity</strong>, and <strong>E. Not Verified</strong>. Unverified <code class="mono">/10</code> scores, stale line counts, and unmeasured runtime speedups from earlier drafts have been removed.
+      </div>
+
+      <div class="kpi-grid">
+        <div class="kpi-card">
+          <div class="kpi-label">Live Application Source</div>
+          <div class="kpi-val">801 files</div>
+          <div class="kpi-note">677 src/ (.ts/.tsx/.css) + 124 .rs</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-label">Registered Rust IPC Surface</div>
+          <div class="kpi-val">149 cmds</div>
+          <div class="kpi-note">61 sync / 88 async · 14 .emit() · 1 Channel&lt;()&gt;</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-label">Theme &amp; Token Gaps</div>
+          <div class="kpi-val">18 vars</div>
+          <div class="kpi-note">57 undefined CSS refs + axis tag #fff &lt; 4.5:1</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-label">Viewport &amp; Modal Gaps</div>
+          <div class="kpi-val">15 / 16</div>
+          <div class="kpi-note">Static windows overflow 960x640; 25 focus erasures</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-label">Test &amp; Static Bundle Facts</div>
+          <div class="kpi-val">260 / 8</div>
+          <div class="kpi-note">93 readFileSync tests · 8 generated watchlists (151,784 lines)</div>
+        </div>
+      </div>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Authority Field</th>
+              <th>Verified Record</th>
+              <th>Layer Maturity Band (Qualitative Evidence Summary)</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>GitHub Source Authority</strong></td>
+              <td class="mono">dhamnaik-lab/Eod-Charting-Platform @ b830573a8a491c207e9e853bc422ca62f8ebe45f (2026-11-13T11:46:49Z)</td>
+              <td>Matches local <code class="mono">.git/refs/heads/main</code>; open PR #102 (<code class="mono">refactor/native-chart-patterns-20261113</code>) treated as separate/excluded.</td>
+            </tr>
+            <tr>
+              <td><strong>Core Stack Versions</strong></td>
+              <td class="mono">Tauri 2.11.5 · React ^18.3.1 · Zustand ^4.5.2 · TS ^5.4.5 · Vite 6.4.3 · Vitest 4.1.11 · rusqlite 0.31.0</td>
+              <td>Verified directly from <code class="mono">package.json</code> &amp; <code class="mono">src-tauri-shell/Cargo.toml</code>.</td>
+            </tr>
+            <tr>
+              <td><strong>Layer 1 · UI &amp; Themes</strong></td>
+              <td><span class="badge sev-High">Confirmed Contrast, Token &amp; Layout Gaps</span></td>
+              <td>7 palettes + boot script exist, but axis tags (<code class="mono">1.53–2.23:1</code>), accent button text, 18 missing CSS vars, dark hardcodes, z-index inversions, and 15/16 window overflows need remediation.</td>
+            </tr>
+            <tr>
+              <td><strong>Layer 2 · Renderer &amp; FE</strong></td>
+              <td><span class="badge sev-High">Solid Canvas Core · Tile &amp; State Leaks</span></td>
+              <td>Dual canvas + conflation + <code class="mono">axisWidthChange</code> anti-freeze deferral work well, but idle rAF, tile <code class="mono">activeTab</code> leak, and hover autosave churn need bounded isolation.</td>
+            </tr>
+            <tr>
+              <td><strong>Layer 3 · Rust &amp; Durability</strong></td>
+              <td><span class="badge sev-Critical">Path Checks &amp; SQLite/.eod Sync Gaps</span></td>
+              <td><code class="mono">externalLoadingSupported: false</code> safely disables plugin JS today; urgent fixes target <code class="mono">.eod</code>/recovery path segment validation and dual-store divergence.</td>
+            </tr>
+            <tr>
+              <td><strong>Layer 4 · A11y &amp; Keyboard</strong></td>
+              <td><span class="badge sev-Critical">Partial Dialog ARIA · Widespread Focus Loss</span></td>
+              <td>CA classic dialog has model ARIA/trap, but 25 raw <code class="mono">outline: none</code> rules, modal Tab escapes, blocked CSP font links, and no accessible OHLCV readout fail baseline WCAG AA.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- SECTION 2 -->
+    <section id="sec-2" class="audit-section" aria-labelledby="h-sec-2">
+      <div class="section-head">
+        <h2 id="h-sec-2"><span class="section-num">02</span>Baseline Strengths, Preservation Contracts &amp; Plan Correction Ledger</h2>
+        <span class="badge ev-A">Verified Against Live main</span>
+      </div>
+
+      <h3 class="subhead">A. Confirmed Baseline Strengths (Must Preserve)</h3>
+      <div class="grid-2">
+        <div class="finding-card">
+          <strong>Rendering &amp; Anti-Freeze Guard (Class A)</strong>
+          <p class="muted">Dual-layer <code class="mono">baseCanvas</code> + <code class="mono">overlayCanvas</code>, 2/4/8 conflation, and explicit <code class="mono">setTimeout(() =&gt; emit("axisWidthChange"), 0)</code> at <code class="mono">ChartEngine.ts:1873-1875</code>.</p>
+        </div>
+        <div class="finding-card">
+          <strong>Pre-Paint Theme Boot &amp; Safe External Links (Class A)</strong>
+          <p class="muted"><code class="mono">public/theme-boot.js:15-41</code> avoids FOUC for all 7 themes; <code class="mono">main.rs:250-263</code> strictly validates <code class="mono">http/https</code> with host before <code class="mono">open::that</code>.</p>
+        </div>
+        <div class="finding-card">
+          <strong>Accessible Modal Reference &amp; Clamped CA Window (Class A)</strong>
+          <p class="muted"><code class="mono">CorporateActionClassicWorkspace.tsx:26-53</code> implements <code class="mono">role="dialog"</code>, focus trap, Escape &amp; restore; <code class="mono">CorporateActionManagedWindow.tsx:33-50</code> clamps to viewport; <code class="mono">FloatingDialogShell.tsx:61-63</code> already sets <code class="mono">role="dialog"</code> &amp; <code class="mono">aria-modal</code>.</p>
+        </div>
+        <div class="finding-card">
+          <strong>Disabled External JS Execution &amp; Request Cancellation (Class A)</strong>
+          <p class="muted"><code class="mono">pluginLoader.ts:61-95</code> sets <code class="mono">externalLoadingSupported: false</code>; <code class="mono">chartLoadGuard.ts</code> revokes superseded async tab reads; <code class="mono">connection_registry.rs:950</code> provides <code class="mono">PRAGMA query_only</code> read-only SQLite helper.</p>
+        </div>
+      </div>
+
+      <h3 class="subhead">B. Mandatory Preservation Contracts (<code class="mono">AGENTS.md</code> / <code class="mono">GEMINI.md</code>)</h3>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Contract Domain</th>
+              <th>Authoritative References</th>
+              <th>Hard Non-Regression Invariant</th>
+            </tr>
+          </thead>
+          <tbody id="preservationTableBody"></tbody>
+        </table>
+      </div>
+
+      <h3 class="subhead">C. Correction Ledger: Plan Claims Re-Audited Against Live <code class="mono">main</code></h3>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Earlier Draft / Historical Claim</th>
+              <th>Verification Outcome</th>
+              <th>Actual Live Source Behavior &amp; Citation</th>
+            </tr>
+          </thead>
+          <tbody id="ledgerTableBody"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- SECTION 3 -->
+    <section id="sec-3" class="audit-section" aria-labelledby="h-sec-3">
+      <div class="section-head">
+        <h2 id="h-sec-3"><span class="section-num">03</span>Searchable &amp; Filterable 4-Layer Audit Matrix</h2>
+        <span id="matrixCountBadge" class="badge mono tnum">0 findings shown</span>
+      </div>
+
+      <div class="filter-bar" role="region" aria-label="Audit matrix filters">
+        <div class="filter-group">
+          <label for="filterLayer">Audit Layer</label>
+          <select id="filterLayer" class="ui-select">
+            <option value="ALL">All 4 Layers</option>
+            <option value="UI & Themes">Layer 1 · UI &amp; Themes</option>
+            <option value="Chart Renderer & Frontend">Layer 2 · Chart Renderer &amp; Frontend</option>
+            <option value="Tauri / Rust / Security & Durability">Layer 3 · Tauri / Rust / Security</option>
+            <option value="Accessibility, Keyboard & Edge States">Layer 4 · A11y, Keyboard &amp; Edge</option>
+          </select>
+        </div>
+        <div class="filter-group">
+          <label for="filterSeverity">Severity</label>
+          <select id="filterSeverity" class="ui-select">
+            <option value="ALL">All Severities</option>
+            <option value="Critical">Critical</option>
+            <option value="High">High</option>
+            <option value="Medium">Medium</option>
+            <option value="Low">Low</option>
+          </select>
+        </div>
+        <div class="filter-group">
+          <label for="filterEvidence">Verification Status</label>
+          <select id="filterEvidence" class="ui-select">
+            <option value="ALL">All Evidence Classes</option>
+            <option value="A">A · Confirmed Source Fact</option>
+            <option value="C">C · Suspected Risk</option>
+            <option value="D">D · Design Opportunity</option>
+          </select>
+        </div>
+        <div class="filter-group">
+          <label for="filterPriority">Implementation Priority</label>
+          <select id="filterPriority" class="ui-select">
+            <option value="ALL">All Priorities</option>
+            <option value="P0">P0 · Immediate Bounded</option>
+            <option value="P1">P1 · High Value</option>
+            <option value="P2">P2 · Planned</option>
+            <option value="P3">P3 · Architecture-Gated</option>
+          </select>
+        </div>
+        <div class="filter-group">
+          <label for="filterKeyword">Keyword Search</label>
+          <input id="filterKeyword" type="search" class="ui-input" placeholder="e.g. Renderer, quotes.rs, zIndex, focus" />
+        </div>
+      </div>
+
+      <div id="auditFindingList" class="finding-list" aria-live="polite"></div>
+    </section>
+
+    <!-- SECTION 4 -->
+    <section id="sec-4" class="audit-section" aria-labelledby="h-sec-4">
+      <div class="section-head">
+        <h2 id="h-sec-4"><span class="section-num">04</span>Official Engineering &amp; Accessibility Benchmarks</h2>
+        <span class="badge ev-A">Verified Official Docs Only · Offline Links</span>
+      </div>
+      <p class="muted">Hyperlinks below open only when explicitly clicked by the user; zero network requests occur at load time. Benchmarks distinguish W3C ordinary-text 4.5:1 vs large-text 3.0:1 vs non-text UI/graphical 3.0:1 criteria and exceptions.</p>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Official Benchmark Source</th>
+              <th>Standards &amp; Criteria Verified</th>
+              <th>Canonical Reference Link</th>
+              <th>Application to EOD Charting Platform</th>
+            </tr>
+          </thead>
+          <tbody id="benchmarkTableBody"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- SECTION 5 -->
+    <section id="sec-5" class="audit-section" aria-labelledby="h-sec-5">
+      <div class="section-head">
+        <h2 id="h-sec-5"><span class="section-num">05</span>Interactive Design Sandboxes (5 Standalone Demonstrations)</h2>
+        <span class="badge ev-D">NON-PRODUCTION PROTOTYPE SANDBOXES</span>
+      </div>
+
+      <div class="proto-tabs" role="tablist" aria-label="Design prototype selector">
+        <button type="button" class="ui-btn proto-tab" role="tab" id="tab-p1" aria-selected="true" aria-controls="panel-p1" data-proto="p1">1. 7-Theme &amp; WCAG Lab</button>
+        <button type="button" class="ui-btn proto-tab" role="tab" id="tab-p2" aria-selected="false" aria-controls="panel-p2" data-proto="p2">2. Titlebar, Dock &amp; Object Tree</button>
+        <button type="button" class="ui-btn proto-tab" role="tab" id="tab-p3" aria-selected="false" aria-controls="panel-p3" data-proto="p3">3. 960x640 Clamp, Z-Stack &amp; Confirms</button>
+        <button type="button" class="ui-btn proto-tab" role="tab" id="tab-p4" aria-selected="false" aria-controls="panel-p4" data-proto="p4">4. 2x2 Tile &amp; Hover/Autosave Sim</button>
+        <button type="button" class="ui-btn proto-tab" role="tab" id="tab-p5" aria-selected="false" aria-controls="panel-p5" data-proto="p5">5. Keyboard Inspector &amp; OHLCV Table</button>
+      </div>
+
+      <!-- PROTOTYPE 1 -->
+      <div id="panel-p1" class="proto-panel" role="tabpanel" aria-labelledby="tab-p1">
+        <div class="proto-banner">
+          <span>NON-PRODUCTION PROTOTYPE — 7-Theme Contrast Lab, Candlestick &amp; Axis-Tag Previewer</span>
+          <span class="badge">Live W3C sRGB Formula</span>
+        </div>
+        <div class="proto-controls">
+          <label for="p1Theme">Theme:</label>
+          <select id="p1Theme" class="ui-select"></select>
+          <button type="button" id="p1TagModeBtn" class="ui-btn" aria-pressed="false">Tag Mode: Current (#ffffff hardcoded)</button>
+          <button type="button" id="p1CvdBtn" class="ui-btn" aria-pressed="false">Colorblind: Off (Green/Red)</button>
+          <button type="button" id="p1HollowBtn" class="ui-btn" aria-pressed="false">Up-Candle Style: Filled</button>
+        </div>
+        <div class="grid-2">
+          <div class="svg-frame">
+            <svg id="p1ChartSvg" viewBox="0 0 560 270" role="img" aria-label="Candlestick and axis tag contrast simulation"></svg>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Token Pair</th>
+                  <th>Criterion</th>
+                  <th>Current Ratio</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody id="p1ContrastBody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- PROTOTYPE 2 -->
+      <div id="panel-p2" class="proto-panel" role="tabpanel" aria-labelledby="tab-p2" hidden>
+        <div class="proto-banner">
+          <span>NON-PRODUCTION PROTOTYPE — Optional Custom Command Titlebar, SVG Dock, Object Tree &amp; Data Window</span>
+          <span class="badge ev-D">Architecture Review Required for Titlebar</span>
+        </div>
+        <div class="proto-controls">
+          <button type="button" id="p2ToggleTree" class="ui-btn active" aria-pressed="true">Object Tree Drawer: Open</button>
+          <button type="button" id="p2ToggleDataWin" class="ui-btn active" aria-pressed="true">Data Window Card: Visible</button>
+          <button type="button" id="p2SimCmd" class="ui-btn">Simulate Ctrl+K Command Palette</button>
+          <span id="p2Status" class="muted mono" aria-live="polite">Ready</span>
+        </div>
+        <div class="mock-shell">
+          <div class="mock-titlebar">
+            <div class="badge-row">
+              <strong class="mono">EOD</strong>
+              <button type="button" class="ui-btn" data-menu="File">File ▾</button>
+              <button type="button" class="ui-btn" data-menu="View">View ▾</button>
+              <button type="button" class="ui-btn" data-menu="Tools">Tools ▾</button>
+              <button type="button" class="ui-btn" data-menu="Help">Help ▾</button>
+            </div>
+            <button type="button" id="p2SearchPill" class="ui-btn mono">Search Symbols / Commands (Ctrl+K)</button>
+            <div class="badge-row">
+              <span class="badge ev-A">NSE · WAL OK</span>
+              <span class="badge mono">— ☐ ✕</span>
+            </div>
+          </div>
+          <div class="mock-workspace">
+            <div class="mock-rail" role="toolbar" aria-label="Disambiguated SVG drawing dock">
+              <button type="button" class="ui-btn" title="Cursor" data-tool="Cursor">↖</button>
+              <button type="button" class="ui-btn" title="Trendline" data-tool="Trendline">↗</button>
+              <button type="button" class="ui-btn" title="Arrow Marker (distinct SVG)" data-tool="Arrow Marker">➜</button>
+              <button type="button" class="ui-btn" title="Triangle Polygon (distinct from Arrow)" data-tool="Triangle">△</button>
+              <button type="button" class="ui-btn" title="Andrews Pitchfork (PF)" data-tool="Andrews Pitchfork">Ψ</button>
+              <button type="button" class="ui-btn" title="Pitchfan (distinct fan SVG)" data-tool="Pitchfan">✳</button>
+            </div>
+            <div style="padding: 12px;">
+              <div class="muted" style="margin-bottom:8px;">Active Canvas Pane (RELIANCE · Daily · Raw EOD Immutable Source)</div>
+              <div id="p2DataWinCard" class="kpi-card" style="max-width:360px; margin-bottom:10px;">
+                <div class="kpi-label">Data Window (Hover-Isolated Readout)</div>
+                <div class="mono tnum">2026-11-12 · O 2980.40 H 3015.00 L 2968.20 C 3008.75</div>
+                <div id="p2LayersSummary" class="kpi-note">Visible Studies: EMA(20), RSI(14) · Drawings: Trendline #1</div>
+              </div>
+              <div id="p2CmdBox" class="notice" hidden>
+                <strong>Command Palette Mock:</strong> Type symbol or action (Esc / Close button dismisses safely).
+                <button type="button" id="p2CloseCmd" class="ui-btn" style="margin-left:8px;">Close</button>
+              </div>
+            </div>
+            <aside id="p2Drawer" class="mock-drawer" aria-label="Object Tree">
+              <div style="font-weight:700; margin-bottom:8px;">Object Tree</div>
+              <div id="p2TreeList" class="finding-list"></div>
+            </aside>
+          </div>
+        </div>
+      </div>
+
+      <!-- PROTOTYPE 3 -->
+      <div id="panel-p3" class="proto-panel" role="tabpanel" aria-labelledby="tab-p3" hidden>
+        <div class="proto-banner">
+          <span>NON-PRODUCTION PROTOTYPE — 960x640 Viewport Clamp, Z-Stacking Tiers, Confirmation &amp; Empty States</span>
+          <span class="badge">Preserves Manual Approval</span>
+        </div>
+        <div class="proto-controls">
+          <button type="button" id="p3SizeBtn" class="ui-btn" aria-pressed="true">Viewport: 960x640 (Min Bounds)</button>
+          <button type="button" id="p3FixBtn" class="ui-btn" aria-pressed="false">Stack Mode: Current Main (Overflow + Z-Inversion)</button>
+          <label for="p3ConfirmKind">Confirm Prompt:</label>
+          <select id="p3ConfirmKind" class="ui-select">
+            <option value="undo">Undo Manual Import Session</option>
+            <option value="mismatch">NSE/BSE Exchange Mismatch</option>
+            <option value="allDelete">All-Exchange Bulk Quote Delete</option>
+          </select>
+          <button type="button" id="p3OpenConfirm" class="ui-btn primary">Preview Styled Confirm</button>
+          <button type="button" id="p3ToggleEmpty" class="ui-btn">Empty DB CTA Preview</button>
+        </div>
+
+        <div class="vp-stage" id="p3Stage">
+          <div id="p3WinFloating" class="vp-window" style="left:14px; top:14px; width:240px; height:120px;">
+            <strong class="mono">FloatingWindow (Bhavcopy)</strong>
+            <div id="p3FloatZ" class="muted mono">z-index: 101</div>
+          </div>
+          <div id="p3WinSettings" class="vp-window">
+            <strong class="mono" id="p3SettingsTitle">IndicatorPicker (960x620 @ 160,70)</strong>
+            <div id="p3SettingsMeta" class="muted mono">z-index: 50 (OCCLUDED &amp; OVERFLOWS!)</div>
+          </div>
+          <div id="p3EmptyOverlay" class="vp-window" style="right:14px; bottom:14px; width:290px;" hidden>
+            <strong>Empty-State Quick-Start (Non-Destructive)</strong>
+            <p class="muted" style="margin:6px 0;">No active database opened. Choose an initial action:</p>
+            <div class="badge-row">
+              <button type="button" class="ui-btn primary">Open Database</button>
+              <button type="button" class="ui-btn">Bhavcopy</button>
+              <button type="button" class="ui-btn">Import CSV</button>
+            </div>
+          </div>
+        </div>
+
+        <div id="p3ConfirmModal" class="notice warn" style="margin-top:12px;" role="alertdialog" aria-labelledby="p3ConfirmTitle" hidden>
+          <div style="display:flex; justify-content:space-between; align-items:center; gap:8px;">
+            <strong id="p3ConfirmTitle">Confirm Action</strong>
+            <span class="badge mono">Replaces blocking window.confirm()</span>
+          </div>
+          <p id="p3ConfirmBody" style="margin:8px 0;"></p>
+          <div class="badge-row">
+            <button type="button" id="p3ConfirmCancel" class="ui-btn">Cancel (Esc)</button>
+            <button type="button" id="p3ConfirmOk" class="ui-btn primary">Confirm Bounded Action</button>
+            <span id="p3ConfirmResult" class="muted mono" aria-live="polite"></span>
+          </div>
+        </div>
+      </div>
+
+      <!-- PROTOTYPE 4 -->
+      <div id="panel-p4" class="proto-panel" role="tabpanel" aria-labelledby="tab-p4" hidden>
+        <div class="proto-banner">
+          <span>NON-PRODUCTION PROTOTYPE — 2x2 Tile Isolation &amp; Hover / Autosave Churn Simulator</span>
+          <span class="badge">Illustrative Behavioral Comparison</span>
+        </div>
+        <div class="proto-controls">
+          <button type="button" id="p4ArchBtn" class="ui-btn" aria-pressed="false">Behavior: Current Main (Active-Tab Leak + Autosave Churn)</button>
+          <button type="button" id="p4SyncBtn" class="ui-btn" aria-pressed="false">Optional Crosshair Sync: Off</button>
+          <button type="button" id="p4ResetBtn" class="ui-btn">Reset Counters</button>
+        </div>
+        <div class="kpi-grid">
+          <div class="kpi-card">
+            <div class="kpi-label">Active Tab ID</div>
+            <div id="p4ActiveTab" class="kpi-val">tile-1</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-label">chartTabs Array Clones</div>
+            <div id="p4Clones" class="kpi-val">0</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-label">RootApp Re-renders</div>
+            <div id="p4Rerenders" class="kpi-val">0</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-label">260ms Autosave Resets</div>
+            <div id="p4Autosaves" class="kpi-val">0</div>
+          </div>
+        </div>
+        <div class="tile-grid" id="p4Grid"></div>
+      </div>
+
+      <!-- PROTOTYPE 5 -->
+      <div id="panel-p5" class="proto-panel" role="tabpanel" aria-labelledby="tab-p5" hidden>
+        <div class="proto-banner">
+          <span>NON-PRODUCTION PROTOTYPE — Keyboard Inspector (Shift+Arrow / I), Accessible OHLCV Table &amp; Focus Ring Lab</span>
+          <span class="badge">Preserves ArrowLeft/Right Pan &amp; ArrowUp/Down Symbol Switch</span>
+        </div>
+        <div class="proto-controls">
+          <button type="button" id="p5FocusModeBtn" class="ui-btn" aria-pressed="false">Focus Style: Fixed (2px :focus-visible)</button>
+          <button type="button" id="p5InspectorBtn" class="ui-btn" aria-pressed="true">Inspector Mode (I): On — Shift+Arrow Steps Bars</button>
+          <button type="button" id="p5TableToggleBtn" class="ui-btn" aria-pressed="false">Show Semantic OHLCV Table</button>
+          <button type="button" id="p5StepPrev" class="ui-btn">Prev Bar (Shift+←)</button>
+          <button type="button" id="p5StepNext" class="ui-btn">Next Bar (Shift+→)</button>
+        </div>
+        <div id="p5StageWrap">
+          <div class="svg-frame" tabindex="0" id="p5ChartFocusBox" aria-label="Interactive candlestick bar inspector. Press Shift plus Left or Right arrow to step bars; plain Left or Right arrow pans viewport.">
+            <svg id="p5ChartSvg" viewBox="0 0 640 210"></svg>
+          </div>
+          <div id="p5LiveReadout" class="notice mono tnum" style="margin-top:10px;" aria-live="polite">Bar #4</div>
+          <div id="p5TableWrap" class="table-wrap" hidden>
+            <table>
+              <thead>
+                <tr>
+                  <th scope="col">Session Date</th>
+                  <th scope="col">Open</th>
+                  <th scope="col">High</th>
+                  <th scope="col">Low</th>
+                  <th scope="col">Close</th>
+                  <th scope="col">Volume</th>
+                </tr>
+              </thead>
+              <tbody id="p5TableBody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- SECTION 6 -->
+    <section id="sec-6" class="audit-section" aria-labelledby="h-sec-6">
+      <div class="section-head">
+        <h2 id="h-sec-6"><span class="section-num">06</span>Before / After Architecture &amp; Boundary Diagrams</h2>
+        <span class="badge ev-D">Existing Verified vs Conceptual Target (Review Required)</span>
+      </div>
+
+      <h3 class="subhead">Diagram A: Frontend Canvas, Hover Isolation &amp; Anti-Freeze Preservation</h3>
+      <div class="svg-frame">
+        <svg viewBox="0 0 980 280" role="img" aria-label="Before and after frontend state and canvas pipeline">
+          <rect x="8" y="10" width="465" height="260" rx="8" fill="none" stroke="currentColor" stroke-opacity="0.35" />
+          <text x="22" y="34" fill="currentColor" font-size="13" font-weight="700">EXISTING VERIFIED ARCHITECTURE (main @ b830573)</text>
+          <rect x="24" y="54" width="195" height="48" rx="6" fill="currentColor" fill-opacity="0.08" stroke="currentColor" stroke-opacity="0.4" />
+          <text x="34" y="76" fill="currentColor" font-size="11.5" font-weight="600">ChartCanvas Tile (gets activeTab)</text>
+          <text x="34" y="93" fill="currentColor" font-size="10.5" opacity="0.8">ChartCanvas.tsx:213-227, 823-901</text>
+
+          <rect x="255" y="54" width="200" height="48" rx="6" fill="currentColor" fill-opacity="0.08" stroke="currentColor" stroke-opacity="0.4" />
+          <text x="265" y="76" fill="currentColor" font-size="11.5" font-weight="600">setHoverBar Clones chartTabs</text>
+          <text x="265" y="93" fill="currentColor" font-size="10.5" opacity="0.8">chartStore.ts:638-641, 722-758</text>
+
+          <rect x="24" y="130" width="195" height="52" rx="6" fill="currentColor" fill-opacity="0.08" stroke="currentColor" stroke-opacity="0.4" />
+          <text x="34" y="152" fill="currentColor" font-size="11.5" font-weight="600">RootApp + StatusBar Re-render</text>
+          <text x="34" y="169" fill="currentColor" font-size="10.5" opacity="0.8">+ 260ms Autosave Reset Churn</text>
+
+          <rect x="255" y="130" width="200" height="52" rx="6" fill="currentColor" fill-opacity="0.08" stroke="currentColor" stroke-opacity="0.4" />
+          <text x="265" y="152" fill="currentColor" font-size="11.5" font-weight="600">Idle rAF Loop + 3-4x Indicator Pass</text>
+          <text x="265" y="169" fill="currentColor" font-size="10.5" opacity="0.8">Preserves setTimeout(axisWidthChange)</text>
+
+          <rect x="24" y="206" width="431" height="44" rx="6" fill="currentColor" fill-opacity="0.05" stroke="currentColor" stroke-dasharray="4 3" stroke-opacity="0.5" />
+          <text x="34" y="232" fill="currentColor" font-size="11">Renderer.ts:4480 #ffffff axis tags · Crosshair dark pill · pluginHost global race</text>
+          <path d="M219 78 L255 78 M355 102 L355 130 M122 102 L122 130" stroke="currentColor" stroke-width="1.5" stroke-opacity="0.65" />
+
+          <rect x="505" y="10" width="465" height="260" rx="8" fill="none" stroke="currentColor" stroke-opacity="0.6" stroke-dasharray="6 3" />
+          <text x="519" y="34" fill="currentColor" font-size="13" font-weight="700">CONCEPTUAL TARGET OPTION (REQUIRES SCOPED REVIEW)</text>
+          <rect x="521" y="54" width="205" height="48" rx="6" fill="currentColor" fill-opacity="0.08" stroke="currentColor" stroke-opacity="0.55" />
+          <text x="531" y="76" fill="currentColor" font-size="11.5" font-weight="600">ChartCanvas Scoped by tabId</text>
+          <text x="531" y="93" fill="currentColor" font-size="10.5" opacity="0.8">Strict tile slice selectors &amp; actions</text>
+
+          <rect x="748" y="54" width="205" height="48" rx="6" fill="currentColor" fill-opacity="0.08" stroke="currentColor" stroke-opacity="0.55" />
+          <text x="758" y="76" fill="currentColor" font-size="11.5" font-weight="600">Decoupled transientHoverStore</text>
+          <text x="758" y="93" fill="currentColor" font-size="10.5" opacity="0.8">0 chartTabs clones · 0 autosave churn</text>
+
+          <rect x="521" y="130" width="205" height="52" rx="6" fill="currentColor" fill-opacity="0.08" stroke="currentColor" stroke-opacity="0.55" />
+          <text x="531" y="152" fill="currentColor" font-size="11.5" font-weight="600">On-Demand Dirty rAF + Memo Cache</text>
+          <text x="531" y="169" fill="currentColor" font-size="10.5" opacity="0.8">Keeps ChartEngine:1873 setTimeout intact</text>
+
+          <rect x="748" y="130" width="205" height="52" rx="6" fill="currentColor" fill-opacity="0.08" stroke="currentColor" stroke-opacity="0.55" />
+          <text x="758" y="152" fill="currentColor" font-size="11.5" font-weight="600">Tokenized sRGB Axis &amp; Crosshair</text>
+          <text x="758" y="169" fill="currentColor" font-size="10.5" opacity="0.8">&gt;=4.5:1 text · WCAG focus-visible &amp; trap</text>
+
+          <rect x="521" y="206" width="432" height="44" rx="6" fill="currentColor" fill-opacity="0.05" stroke="currentColor" stroke-opacity="0.4" />
+          <text x="531" y="232" fill="currentColor" font-size="11">App-level pluginHost · viewport-clamped FloatingWindow · 5-tier zIndex scale</text>
+          <path d="M726 78 L748 78 M623 102 L623 130 M850 102 L850 130" stroke="currentColor" stroke-width="1.5" stroke-opacity="0.65" />
+        </svg>
+      </div>
+
+      <h3 class="subhead">Diagram B: Tauri v2 IPC, WAL Read Concurrency &amp; SQLite/.eod Recovery Boundary</h3>
+      <div class="svg-frame">
+        <svg viewBox="0 0 980 280" role="img" aria-label="Before and after backend IPC and dual-store architecture">
+          <rect x="8" y="10" width="465" height="260" rx="8" fill="none" stroke="currentColor" stroke-opacity="0.35" />
+          <text x="22" y="34" fill="currentColor" font-size="13" font-weight="700">EXISTING VERIFIED BACKEND (main @ b830573)</text>
+          <rect x="24" y="54" width="200" height="52" rx="6" fill="currentColor" fill-opacity="0.08" stroke="currentColor" stroke-opacity="0.4" />
+          <text x="34" y="75" fill="currentColor" font-size="11.5" font-weight="600">149 IPC (61 sync / 88 async)</text>
+          <text x="34" y="92" fill="currentColor" font-size="10.5" opacity="0.8">b64 JSON bars · 30s sync reqwest</text>
+
+          <rect x="250" y="54" width="205" height="52" rx="6" fill="currentColor" fill-opacity="0.08" stroke="currentColor" stroke-opacity="0.4" />
+          <text x="260" y="75" fill="currentColor" font-size="11.5" font-weight="600">Single ActiveDbConnection Mutex</text>
+          <text x="260" y="92" fill="currentColor" font-size="10.5" opacity="0.8">Serializes read-only WAL queries</text>
+
+          <rect x="24" y="134" width="431" height="56" rx="6" fill="currentColor" fill-opacity="0.08" stroke="currentColor" stroke-opacity="0.4" />
+          <text x="34" y="156" fill="currentColor" font-size="11.5" font-weight="600">SQLite Commit BEFORE .eod Mutation + Missing Path Allowlist</text>
+          <text x="34" y="174" fill="currentColor" font-size="10.5" opacity="0.8">quotes.rs:591-609 swallows .eod err · manual_import_recovery joins raw session_id</text>
+
+          <rect x="24" y="208" width="431" height="42" rx="6" fill="currentColor" fill-opacity="0.05" stroke="currentColor" stroke-opacity="0.4" />
+          <text x="34" y="233" fill="currentColor" font-size="11">Plugin JS evaluation disabled (externalLoadingSupported=false); ZIP lacks .take()</text>
+
+          <rect x="505" y="10" width="465" height="260" rx="8" fill="none" stroke="currentColor" stroke-opacity="0.6" stroke-dasharray="6 3" />
+          <text x="519" y="34" fill="currentColor" font-size="13" font-weight="700">CONCEPTUAL TARGET (SEPARATE ARCHITECTURE REVIEW)</text>
+          <rect x="521" y="54" width="205" height="52" rx="6" fill="currentColor" fill-opacity="0.08" stroke="currentColor" stroke-opacity="0.55" />
+          <text x="531" y="75" fill="currentColor" font-size="11.5" font-weight="600">Async + spawn_blocking + Response</text>
+          <text x="531" y="92" fill="currentColor" font-size="10.5" opacity="0.8">Raw ArrayBuffer option · ZIP .take(cap)</text>
+
+          <rect x="748" y="54" width="205" height="52" rx="6" fill="currentColor" fill-opacity="0.08" stroke="currentColor" stroke-opacity="0.55" />
+          <text x="758" y="75" fill="currentColor" font-size="11.5" font-weight="600">WAL RO Helper vs Permit Lock</text>
+          <text x="758" y="92" fill="currentColor" font-size="10.5" opacity="0.8">Parallel chart reads; reviewed write locks</text>
+
+          <rect x="521" y="134" width="432" height="56" rx="6" fill="currentColor" fill-opacity="0.08" stroke="currentColor" stroke-opacity="0.55" />
+          <text x="531" y="156" fill="currentColor" font-size="11.5" font-weight="600">safe_path_segment + Write-Ahead Intent / Compensation Model</text>
+          <text x="531" y="174" fill="currentColor" font-size="10.5" opacity="0.8">Not 1 SQLite tx: staged temp .eod + SQLite intent + startup reconciliation + deep parity</text>
+
+          <rect x="521" y="208" width="432" height="42" rx="6" fill="currentColor" fill-opacity="0.05" stroke="currentColor" stroke-opacity="0.4" />
+          <text x="531" y="233" fill="currentColor" font-size="11">Preserves Bhavcopy 4-worker cap, APPEND_NEWEST journal &amp; 3-action CA approval</text>
+        </svg>
+      </div>
+    </section>
+
+    <!-- SECTION 7 -->
+    <section id="sec-7" class="audit-section" aria-labelledby="h-sec-7">
+      <div class="section-head">
+        <h2 id="h-sec-7"><span class="section-num">07</span>Prioritized Bounded Implementation Roadmap</h2>
+        <span class="badge ev-C">Approval Required Per Bounded Task</span>
+      </div>
+      <p class="muted">No item below is pre-approved. Cross-store recovery, concurrency locking changes, custom titlebar decorations, and binary IPC wire changes require separate dedicated architecture review.</p>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Issue</th>
+              <th>Bounded Scope &amp; Layer</th>
+              <th>Prereqs &amp; Risk</th>
+              <th>Preservation &amp; Verification Gates</th>
+              <th>Approval Gate</th>
+            </tr>
+          </thead>
+          <tbody id="roadmapTableBody"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- SECTION 8 -->
+    <section id="sec-8" class="audit-section" aria-labelledby="h-sec-8">
+      <div class="section-head">
+        <h2 id="h-sec-8"><span class="section-num">08</span>Engineering Design Specifications &amp; Illustrative Concept Code</h2>
+        <span class="badge ev-D">ILLUSTRATIVE ONLY — NOT VALIDATED OR APPLIED</span>
+      </div>
+      <p class="muted">All specifications below are conceptual engineering blueprints requiring explicit scoped implementation approval (and separate architecture review where labeled) before editing production files.</p>
+      <div id="specContainer"></div>
+    </section>
+  </main>
+
+  <script id="audit-payload" type="application/json">{"sha":"b830573a8a491c207e9e853bc422ca62f8ebe45f","palettes":{"midnight-slate-pro":{"label":"Midnight Slate Pro","isLight":false,"vars":{"bg":"#070b10","bg2":"#0d131a","bg3":"#141b24","bg4":"#1a2430","text":"#e6edf3","textDim":"#9aa8b8","textMute":"#7e8e9f","border":"#26313d","border2":"#334151","accent":"#3b82f6","accentContrast":"#071019","accentSoft":"rgba(59, 130, 246, 0.22)","green":"#22c55e","red":"#ef4444","amber":"#f59e0b","controlBg":"#111923","controlBgHover":"#172232","overlayBg":"rgba(5, 10, 17, 0.72)"},"chart":{"background":"#071019","axisBackground":"#0d1722","axisLabelBackground":"#1d4f8f","panelBorder":"rgba(124, 148, 176, 0.22)","gridLine":"rgba(78, 101, 128, 0.18)","gridLineMajor":"rgba(116, 143, 174, 0.28)","axisText":"#9fb0c3","crosshair":"#60a5fa","candleUp":"#22c55e","candleDown":"#ef4444","wickUp":"#4ade80","wickDown":"#f87171","volumeUp":"rgba(34, 197, 94, 0.24)","volumeDown":"rgba(239, 68, 68, 0.24)","borderColor":"#223247","backgroundBottom":"#040a12","sessionHighlight":"rgba(255, 255, 255, 0.018)"}},"amoled-black":{"label":"AMOLED Black","isLight":false,"vars":{"bg":"#000000","bg2":"#050505","bg3":"#0a0a0a","bg4":"#111111","text":"#f8fafc","textDim":"#a7b2bf","textMute":"#718097","border":"#1f2937","border2":"#2f3a48","accent":"#38bdf8","accentContrast":"#071019","accentSoft":"rgba(56, 189, 248, 0.22)","green":"#20c997","red":"#ff4d4f","amber":"#f59e0b","controlBg":"#080808","controlBgHover":"#111111","overlayBg":"rgba(0, 0, 0, 0.78)"},"chart":{"background":"#000000","axisBackground":"#050505","axisLabelBackground":"#164e63","panelBorder":"rgba(148, 163, 184, 0.2)","gridLine":"rgba(71, 85, 105, 0.16)","gridLineMajor":"rgba(100, 116, 139, 0.26)","axisText":"#94a3b8","crosshair":"#38bdf8","candleUp":"#20c997","candleDown":"#ff4d4f","wickUp":"#4ade80","wickDown":"#fb7185","volumeUp":"rgba(32, 201, 151, 0.22)","volumeDown":"rgba(255, 77, 79, 0.22)","borderColor":"#1f2937","backgroundBottom":"#000000","sessionHighlight":"rgba(255, 255, 255, 0.012)"}},"classic-light":{"label":"Classic Light","isLight":true,"vars":{"bg":"#f3f4f6","bg2":"#ffffff","bg3":"#f9fafb","bg4":"#eef2f7","text":"#111827","textDim":"#4b5563","textMute":"#616a78","border":"#d1d5db","border2":"#b8c0cc","accent":"#2563eb","accentContrast":"#ffffff","accentSoft":"rgba(37, 99, 235, 0.14)","green":"#059669","red":"#dc2626","amber":"#b45309","controlBg":"#ffffff","controlBgHover":"#f3f4f6","overlayBg":"rgba(248, 250, 252, 0.72)"},"chart":{"background":"#ffffff","axisBackground":"#f3f4f6","axisLabelBackground":"#2563eb","panelBorder":"rgba(75, 85, 99, 0.22)","gridLine":"rgba(203, 213, 225, 0.35)","gridLineMajor":"rgba(148, 163, 184, 0.45)","axisText":"#475569","crosshair":"#2563eb","candleUp":"#059669","candleDown":"#dc2626","wickUp":"#047857","wickDown":"#b91c1c","volumeUp":"rgba(5, 150, 105, 0.2)","volumeDown":"rgba(220, 38, 38, 0.2)","borderColor":"#e5e7eb","backgroundBottom":"#f9fafb","sessionHighlight":"rgba(15, 23, 42, 0.025)"}},"classic-light-refined":{"label":"Classic Light Refined","isLight":true,"vars":{"bg":"#f4f7fb","bg2":"#ffffff","bg3":"#fafcff","bg4":"#eaf1f8","text":"#1e293b","textDim":"#475569","textMute":"#5b6779","border":"#d9e2ec","border2":"#c7d3e0","accent":"#2563eb","accentContrast":"#ffffff","accentSoft":"rgba(37, 99, 235, 0.11)","green":"#059669","red":"#dc2626","amber":"#b45309","controlBg":"#ffffff","controlBgHover":"#f1f5fb","overlayBg":"rgba(248, 250, 252, 0.72)"},"chart":{"background":"#ffffff","axisBackground":"#f3f4f6","axisLabelBackground":"#2563eb","panelBorder":"rgba(75, 85, 99, 0.22)","gridLine":"rgba(203, 213, 225, 0.35)","gridLineMajor":"rgba(148, 163, 184, 0.45)","axisText":"#475569","crosshair":"#2563eb","candleUp":"#059669","candleDown":"#dc2626","wickUp":"#047857","wickDown":"#b91c1c","volumeUp":"rgba(5, 150, 105, 0.2)","volumeDown":"rgba(220, 38, 38, 0.2)","borderColor":"#e5e7eb","backgroundBottom":"#f9fafb","sessionHighlight":"rgba(15, 23, 42, 0.025)"}},"deep-light":{"label":"Deep Light","isLight":true,"vars":{"bg":"#f1f5f9","bg2":"#ffffff","bg3":"#f8fafc","bg4":"#e2e8f0","text":"#0f172a","textDim":"#334155","textMute":"#586373","border":"#cbd5e1","border2":"#94a3b8","accent":"#1d4ed8","accentContrast":"#ffffff","accentSoft":"rgba(29, 78, 216, 0.14)","green":"#047857","red":"#b91c1c","amber":"#b45309","controlBg":"#ffffff","controlBgHover":"#f1f5f9","overlayBg":"rgba(241, 245, 249, 0.76)"},"chart":{"background":"#f8fafc","axisBackground":"#f1f5f9","axisLabelBackground":"#1d4ed8","panelBorder":"rgba(100, 116, 139, 0.22)","gridLine":"rgba(203, 213, 225, 0.4)","gridLineMajor":"rgba(148, 163, 184, 0.5)","axisText":"#334155","crosshair":"#1d4ed8","candleUp":"#047857","candleDown":"#b91c1c","wickUp":"#047857","wickDown":"#b91c1c","volumeUp":"rgba(4, 120, 87, 0.35)","volumeDown":"rgba(185, 28, 28, 0.35)","borderColor":"#cbd5e1","backgroundBottom":"#f1f5f9","sessionHighlight":"rgba(15, 23, 42, 0.03)"}},"refinitiv-dark":{"label":"Eikon Dark Pro","isLight":false,"vars":{"bg":"#080e18","bg2":"#0f172a","bg3":"#1e293b","bg4":"#334155","text":"#f8fafc","textDim":"#a0afbf","textMute":"#a8b5c4","border":"#1e293b","border2":"#334155","accent":"#0284c7","accentContrast":"#071019","accentSoft":"rgba(2, 132, 199, 0.22)","green":"#10b981","red":"#f43f5e","amber":"#f59e0b","controlBg":"#0c1322","controlBgHover":"#152035","overlayBg":"rgba(4, 7, 13, 0.78)"},"chart":{"background":"#080e18","axisBackground":"#0f172a","axisLabelBackground":"#0284c7","panelBorder":"rgba(56, 189, 248, 0.2)","gridLine":"rgba(148, 163, 184, 0.14)","gridLineMajor":"rgba(148, 163, 184, 0.25)","axisText":"#94a3b8","crosshair":"#0284c7","candleUp":"#10b981","candleDown":"#f43f5e","wickUp":"#34d399","wickDown":"#fb7185","volumeUp":"rgba(16, 185, 129, 0.25)","volumeDown":"rgba(244, 63, 94, 0.25)","borderColor":"#1e293b","backgroundBottom":"#04070d","sessionHighlight":"rgba(56, 189, 248, 0.02)"}},"tos-charcoal":{"label":"Charcoal Pro","isLight":false,"vars":{"bg":"#181a1f","bg2":"#21252b","bg3":"#2c313a","bg4":"#3b4048","text":"#abb2bf","textDim":"#a7b1bf","textMute":"#a5afbd","border":"#333842","border2":"#4b5263","accent":"#61afef","accentContrast":"#071019","accentSoft":"rgba(97, 175, 239, 0.22)","green":"#26a69a","red":"#ef5350","amber":"#f59e0b","controlBg":"#1e2227","controlBgHover":"#282c34","overlayBg":"rgba(20, 22, 26, 0.78)"},"chart":{"background":"#181a1f","axisBackground":"#21252b","axisLabelBackground":"#61afef","panelBorder":"rgba(171, 178, 191, 0.2)","gridLine":"rgba(171, 178, 191, 0.12)","gridLineMajor":"rgba(171, 178, 191, 0.22)","axisText":"#abb2bf","crosshair":"#61afef","candleUp":"#26a69a","candleDown":"#ef5350","wickUp":"#4db6ac","wickDown":"#e57373","volumeUp":"rgba(38, 166, 154, 0.25)","volumeDown":"rgba(239, 83, 80, 0.25)","borderColor":"#333842","backgroundBottom":"#14161a","sessionHighlight":"rgba(97, 175, 239, 0.02)"}}},"findings":[{"id":"UI-01","layer":"UI \u0026 Themes","title":"Small-text \u0026 button contrast failures across theme tokens and Renderer axis tags","evidenceClass":"A","evidenceLabel":"A · Confirmed Source Fact","severity":"High","userImpact":"High","confidence":"High","priority":"P0","affectedFiles":["src/components/KeyboardShortcutsDialog.tsx:280-287","src/components/FavoriteToolsToolbar.tsx:149-150","src/engine/Renderer.ts:4480, 4619-4654","src/engine/ChartEngine.ts:2820-2845","src/features/app/themePalettes.json"],"behavior":"Recalculated W3C sRGB contrast shows sub-4.5:1 ordinary-text pairs in KeyboardShortcutsDialog primary button (--text on --accent: 1.11:1 in tos-charcoal, 2.05:1 amoled-black, 2.66:1 deep-light, 2.83:1 classic-light-refined, 3.11:1 midnight-slate-pro, 3.43:1 classic-light, 3.91:1 refinitiv-dark) and FavoriteToolsToolbar active #ffffff on --accent (2.14:1 amoled-black, 2.36:1 tos-charcoal, 3.68:1 midnight-slate-pro, 4.10:1 refinitiv-dark). Renderer.ts:4480 hardcodes ctx.fillStyle = \"#ffffff\" for price/event axis tags, giving 1.53:1 on High (#78e7a0), 2.03:1 on Low (#ff9a9a), and 2.23:1 on PrevClose (rgba(154,176,200,0.92)). Additionally, Renderer.ts:4635-4654 lacks sRGB gamma linearization in isDarkColor() and parseHexColor() accepts 6-digit hex only, causing rgba(...) strings to fall back.","impact":"Small uppercase/monospace numbers on price tags and active accent buttons fail WCAG 2.2 SC 1.4.3 (4.5:1 ordinary text) and in some pairs fail 3.0:1 graphical/large-text floors. Separately, dark-theme candleUp/Bg and light-theme candleUp/Bg differ by 3.77:1 vs \u003e=3.0:1 non-text graphical floor (WCAG 1.4.11). Note: WCAG 1.4.3 applies to text; 1.4.11 applies at 3.0:1 to meaningful UI controls and graphical chart bars.","correction":"Use --accent-contrast for text on --accent buttons, replace Renderer.ts:4480 hardcoded \"#ffffff\" with resolveHighContrastText(tagColor, ...), upgrade parseColor/luminance in Renderer.ts to parse #rgb/#rrggbb/rgba() and apply W3C sRGB linearization, and calibrate axis tag hues across light/dark palettes.","preservation":"Preserve user customChartColors overrides and all 7 theme IDs known to public/theme-boot.js.","validation":"Unit test sRGB contrast helper against #rgb/#rrggbb/rgba() and verify \u003e=4.5:1 text ratios across all 7 themes in Vitest + headless screenshot spot check."},{"id":"UI-02","layer":"UI \u0026 Themes","title":"tos-charcoal near-flat text hierarchy and refinitiv-dark inverted muted luminance","evidenceClass":"A","evidenceLabel":"A · Confirmed Source Fact","severity":"Medium","userImpact":"Medium","confidence":"High","priority":"P1","affectedFiles":["src/features/app/themePalettes.json","src/styles/theme-tokens.generated.css"],"behavior":"In tos-charcoal, text (8.17:1), textDim (8.03:1), and textMute (7.85:1) against panel/bg are separated by only 0.32 contrast points, flattening visual hierarchy. In refinitiv-dark, textMute (9.27:1) has higher contrast than textDim (8.63:1), inverting secondary vs tertiary hierarchy.","impact":"Metadata, disabled hints, and primary labels blend together on tos-charcoal and swap hierarchy weight on refinitiv-dark.","correction":"Re-tune text, textDim, and textMute steps in themePalettes.json while maintaining \u003e=4.5:1 on text and textDim, then regenerate theme-tokens.generated.css via existing generator.","preservation":"Keep public/theme-boot.js theme ID list aligned with APP_THEME_IDS.","validation":"Verify monotonic contrast ordering (text \u003e textDim \u003e= 4.5:1) via unit assertion across all 7 themes."},{"id":"UI-03","layer":"UI \u0026 Themes","title":"18 undefined CSS custom properties referenced 57 times in TSX/CSS","evidenceClass":"A","evidenceLabel":"A · Confirmed Source Fact","severity":"Medium","userImpact":"Medium","confidence":"High","priority":"P1","affectedFiles":["src/styles/theme-tokens.generated.css","src/styles/global.css","src/features/corporateActions/maintenance/corporateActionMaintenanceWorkspace.css","src/components/DatabaseToolsDialogs.tsx"],"behavior":"Static token scan shows 18 CSS custom properties referenced 57 times across src/ without definitions in theme-tokens.generated.css or global.css (including --border-color: 14 refs, --text-secondary: 7, --bg1: 6, --danger: 4, --panel-bg: 4, --text-primary: 4, --surface-subtle: 3, --warning: 3, --muted: 2, --text-muted: 2, and single refs to --text2, --border-strong, --panel-soft, --bg-elevated, --app-bg, --bg-secondary, --surface-2, --accent-color). Some CSS sites carry dark hex fallbacks (e.g. #182232, #f3f6fb), causing light themes to inherit dark surfaces/text.","impact":"Components using undefined tokens rely on hardcoded dark fallbacks or transparent/inherited values, breaking theme cohesion especially on classic-light, classic-light-refined, and deep-light.","correction":"Map all 18 aliases onto canonical theme-tokens or replace component references with canonical tokens (--bg, --bg2, --bg3, --text, --text-dim, --border, --red, --accent).","preservation":"Do not break Corporate Action workspace visual layout tests or generated theme boot sequence.","validation":"Add a deterministic CSS-token check ensuring zero undefined var(--*) references across non-test src/ files."},{"id":"UI-04","layer":"UI \u0026 Themes","title":"Hardcoded dark colors in Crosshair pill and ChartEngine light-theme overlays","evidenceClass":"A","evidenceLabel":"A · Confirmed Source Fact","severity":"High","userImpact":"Medium","confidence":"High","priority":"P1","affectedFiles":["src/engine/Crosshair.ts:137-155","src/engine/ChartEngine.ts:1146, 1255, 1785"],"behavior":"Crosshair.ts:137-155 paints the price crosshair label pill with fixed rgba(9, 18, 29, 0.96) and #ffffff even when date pill (:163-167) uses theme.axisBackground. ChartEngine.ts hardcodes #546e7a (\"No chart data loaded\", :1146), rgba(34, 197, 94, ...) area fill (:1255), and rgba(8, 14, 22, 0.34) collapsed pane scrim (:1785).","impact":"Light themes display dark navy overlays/scrims and mismatched price vs date axis pills.","correction":"Introduce semantic theme fields (crosshairLabelBg, emptyTextColor, collapsedScrimBg, areaGradientColor) resolved via themeTokens with resolveHighContrastText().","preservation":"Preserve crosshair geometry, dashed line offsets, and chart price/date formatting.","validation":"Visual canvas snapshot or helper unit test verifying light-theme crosshair and empty-state fill tokens."},{"id":"UI-05","layer":"UI \u0026 Themes","title":"15 of 16 static registerWindow() dialogs overflow minimum 960x640 window; active z-index inversion","evidenceClass":"A","evidenceLabel":"A · Confirmed Source Fact","severity":"High","userImpact":"High","confidence":"High","priority":"P0","affectedFiles":["src-tauri-shell/tauri.conf.json:19-20","src/store/windowStore.ts:45-140","src/components/FloatingWindow.tsx:198-213","src/components/ChartDrawingPropertiesDialog.tsx:1307","src/components/CompareOverlayDialog.tsx:235","src/components/CustomFormulaDialog.tsx:211","src/components/common/FloatingDialogShell.tsx:132, 144","src/components/ChartSettingsDialog.tsx:975","src/components/BhavcopySourceSettingsDialog.tsx:85"],"behavior":"tauri.conf.json sets minWidth: 960, minHeight: 640. Of 16 static registerWindow() calls, 15 exceed 960px width, 640px height, or x+width/y+height bounds (e.g. IndicatorPickerDialog 960x620@(160,70), AboutDialog 760x640@(220,110)); only MERGE_SYMBOLS_WINDOW_ID (480x400@(200,120)) fits cleanly. CorporateActionManagedWindow dynamically clamps (viewport-48). Separately, FloatingWindow starts zIndex at 101+, whereas modal dialogs use zIndex 10 (ChartDrawingPropertiesDialog), 40 (CompareOverlayDialog), 44 (CustomFormulaDialog), 45/50 (FloatingDialogShell / IndicatorSettings), and 60 (ChartSettingsDialog). Stacked overlays use 1000-1300 (BhavcopySourceSettingsDialog 1100, WatchlistDialogs 1300).","impact":"On 960x640 or 125%-scaled 1280x720 screens, dialog chrome/close buttons can extend beyond viewport bounds, and open FloatingWindows render above chart settings/drawing dialogs.","correction":"Clamp bounds inside registerWindow() and window resize listeners using viewport innerWidth/innerHeight, and standardize a 5-tier z-index CSS token scale (Base \u003c Docked \u003c Floating 300 \u003c Modal 900 \u003c Confirm/Toast 1300+).","preservation":"Keep CorporateActionManagedWindow dynamic clamp behavior and stored floating positions when still within viewport.","validation":"Unit test registerWindow() + clampBounds() at 960x640 and 1440x900; check stacking order with open FloatingWindow + ChartSettingsDialog."},{"id":"UI-06","layer":"UI \u0026 Themes","title":"Five blocking native window.confirm() prompts \u0026 zero-data empty state lacks action CTAs","evidenceClass":"A","evidenceLabel":"A · Confirmed Source Fact","severity":"Medium","userImpact":"Medium","confidence":"High","priority":"P1","affectedFiles":["src/components/ImportCsvDialog.tsx:105, 455","src/components/DatabaseToolsDialogs.tsx:808, 2678, 2752","src/engine/ChartEngine.ts:1150","src/components/ChartCanvas.tsx:1904-1923"],"behavior":"Five workflows invoke native OS window.confirm() (Manual Import Undo, CSV exchange mismatch, All-Exchange quote delete, Official Source promote, and Official Source rollback), which bypasses app theming and keyboard focus management. When no symbol or bars are loaded, ChartEngine paints \"No chart data loaded\" onto canvas with no interactive quick-start action.","impact":"Native modal prompts break visual theme and screen-reader context; first-run / empty states offer no direct Open DB / Bhavcopy / Import actions.","correction":"Replace window.confirm() with a themed accessible ConfirmActionDialog with explicit destructive/reversible action metadata, and render a DOM overlay quick-start card over 0-bar empty state.","preservation":"Require explicit user confirmation on destructive quotes/rollback/CA actions without loosening safety checks.","validation":"Vitest RTL checks for ConfirmActionDialog confirm/cancel/Escape focus return and empty-state CTA handlers."},{"id":"UI-07","layer":"UI \u0026 Themes","title":"Orphaned OhlcvBar component vs dead ohlcvBarVisible state, duplicate tool glyphs \u0026 broken CSS hooks","evidenceClass":"A","evidenceLabel":"A · Confirmed Source Fact","severity":"Medium","userImpact":"Low","confidence":"High","priority":"P2","affectedFiles":["src/components/OhlcvBar.tsx:1-53","src/store/uiStore.ts:96, 215, 281, 363-364","src/features/app/menuCommandRouter.ts:70","src/features/workspace/chartRuntimeController.ts:87, 125","src/components/ChartToolDock.tsx:143, 148, 151, 159","src/components/ToastContainer.tsx:88","src/components/Sidebar.tsx:2166, 2286, 2848","src/components/TileHeader.tsx:34-36","src/components/StatusBar.tsx:42-95","src/components/ChartSettingsDialog.tsx:185-212"],"behavior":"OhlcvBar.tsx is never imported in RootApp or ChartCanvas while menu:toggleOhlcvBar mutates uiFlags.ohlcvBarVisible and syncs native menu checkmarks (ChartPriceLegendOverlay renders OHLCV instead). ChartToolDock assigns identical text glyphs (\"triangle\" on arrowMarker :143 \u0026 triangle :148; \"PF\" on andrewsPitchfork :151 \u0026 pitchfan :159). ToastContainer references undefined @keyframes toast-slide-in (:88); Sidebar sets unused CSS var --knob-left (:2848) and calls openQuoteEditor() (:2166, :2286) without passing the right-clicked symbol; ChartSettingsDialog mixes explicit Apply button with live toggle side-effects; TileHeader and StatusBar omit font-variant-numeric: tabular-nums.","impact":"View menu OHLCV toggle appears to do nothing; tool dock icons collide visually; Sidebar context-menu Edit Quotations ignores clicked row if inactive; jitter in price/clock columns.","correction":"Either bind menu:toggleOhlcvBar to ChartPriceLegendOverlay visibility or remove dead state; assign SVG icons to colliding tools; define toast-slide-in keyframes \u0026 tabular-nums; pass clicked symbol into openQuoteEditor(symbol?).","preservation":"Keep ChartPriceLegendOverlay existing NSE_INDEX prevClose presentation.","validation":"Unit test menu toggle visibility, Sidebar quote-editor target prefill, and unique ChartToolDock icon checks."},{"id":"UI-08","layer":"UI \u0026 Themes","title":"Native Win32 white menu bar clashing with dark themes (Custom Titlebar Candidate)","evidenceClass":"D","evidenceLabel":"D · Design Opportunity","severity":"Low","userImpact":"Medium","confidence":"High","priority":"P3","affectedFiles":["src-tauri-shell/src/main.rs:467-763","src-tauri-shell/tauri.conf.json"],"behavior":"main.rs builds a standard OS native Menu via SubmenuBuilder. On Windows 10/11, the native Win32 menu bar renders light system chrome above dark themes (midnight-slate-pro, amoled-black, refinitiv-dark, tos-charcoal). (Note: Windows dark-mode menu skinning depends on WebView/Win32 theme APIs or custom decorations:false chrome).","impact":"Visual contrast jar between bright native menu strip and dark charting workspace.","correction":"Evaluate either Windows SetPreferredAppMode / dark menu bar support OR an optional frameless integrated 34px HTML titlebar with data-tauri-drag-region and mirrored Menu state. Requires separate architecture review due to OS snap/DPI/accelerator interactions.","preservation":"Must preserve every native menu accelerator, checked menu synchronization, and window CloseRequested handling.","validation":"Architecture review + Windows 10/11 DPI scaling (100%/125%/150%) and keyboard Alt-menu navigation tests."},{"id":"FE-01","layer":"Chart Renderer \u0026 Frontend","title":"Continuous idle requestAnimationFrame loop per mounted ChartEngine instance","evidenceClass":"A","evidenceLabel":"A · Confirmed Source Fact","severity":"High","userImpact":"Medium","confidence":"High","priority":"P1","affectedFiles":["src/engine/ChartEngine.ts:1060-1075"],"behavior":"ChartEngine.startRenderLoop() unconditionally schedules requestAnimationFrame(tick) every frame even when viewport, bars, indicators, drawings, and crosshair are unchanged (though baseNeedsRender/overlayNeedsRender dirty flags gate canvas draws inside tick).","impact":"Continuously wakes the WebView JS main thread at 60Hz+ per visible chart tile when idle; in 2x2 tile mode, 4 rAF callbacks run continuously. Actual CPU/battery impact not benchmarked in this read-only audit.","correction":"Replace always-on rAF loop with markDirty(base|overlay) scheduling a single pending requestAnimationFrame callback only when flags are dirty, plus explicit cancelAnimationFrame on destroy().","preservation":"MUST preserve ChartEngine.ts:1873-1875 setTimeout(() =\u003e emit(\"axisWidthChange\"), 0) deferral fixed in May 11 anti-freeze pass (GEMINI.md).","validation":"Vitest unit test counting rAF registrations under idle vs pan/crosshair/data-update transitions + manual multi-tile smoke test."},{"id":"FE-02","layer":"Chart Renderer \u0026 Frontend","title":"Multi-chart tile isolation leak: ChartCanvas reads/mutates activeChartTab and shares global pluginHost","evidenceClass":"A","evidenceLabel":"A · Confirmed Source Fact","severity":"High","userImpact":"High","confidence":"High","priority":"P0","affectedFiles":["src/components/ChartCanvas.tsx:213-227, 432-437, 786-795, 823-901","src/plugins/pluginHost.ts:267-319","src/store/chartStore.ts"],"behavior":"Even when mounted with a tile-specific tabId prop, ChartCanvas.tsx:213-227 selects activeTab via getActiveChartTab() and lines 432-437 (runForChart) / 823-901 call store actions targeting activeChartTabId (auto-activating the tab on interaction or updating the active tab instead of target tabId). Meanwhile, ChartCanvas.tsx:786-795 invokes global singleton pluginHost.syncEnabledPlugins() per mounted tile.","impact":"In multi-chart tile layouts, non-active tiles cannot operate independently without stealing activeTab focus or reading activeTab derived overlays/hover states, and concurrent tiles race on global pluginHost lifecycle.","correction":"Scope ChartCanvas selectors strictly to tabs.find(t =\u003e t.id === (tabId ?? activeChartTabId)), parameterize store actions (setTabHoverBar, syncTabViewport, addTabDrawing, setTabPaneScaleOverride) with explicit targetTabId, and lift pluginHost discovery/sync to App root instead of per-tile mount effects.","preservation":"Preserve single-tab default behavior, workspace snapshot format, and activeChartTabId keyboard focus semantics.","validation":"Add React/store multi-tile isolation test verifying 2+ simultaneous ChartCanvas tiles maintain independent hoverBar, viewport, drawings, and pane scales."},{"id":"FE-03","layer":"Chart Renderer \u0026 Frontend","title":"Hover \u0026 splitter drag clone chartTabs, triggering RootApp re-renders \u0026 resetting 260ms autosave timer","evidenceClass":"A","evidenceLabel":"A · Confirmed Source Fact","severity":"High","userImpact":"Medium","confidence":"High","priority":"P1","affectedFiles":["src/store/chartStore.ts:179-204, 638-641, 722-758","src/RootApp.tsx:123-126","src/components/StatusBar.tsx:14-21"],"behavior":"setHoverBar (chartStore.ts:638-641) replaces the chartTabs array reference. chartStore.ts:722-758 subscribes to state.chartTabs !== previousState.chartTabs and calls scheduleWorkspaceAutosave() which resets a 260ms debounce timer and serializes full workspace state (stringifyWorkspaceState). RootApp.tsx:123 subscribes directly to chartTabs, and StatusBar.tsx:14-21 runs a 1s setInterval clock calling countVisibleBars on activeTab.","impact":"Pointer movement over the chart triggers store reference churn on chartTabs, re-rendering RootApp/StatusBar and repeatedly arming full workspace JSON serialization for transient cursor data that does not need persistence.","correction":"Decouple transient hoverBar (move to hoverByTabId map / ref-based UI subscriber) from persistent chartTabs slice so cursor scrub never mutates chartTabs or triggers workspace autosave.","preservation":"Preserve persisted workspace schema compatibility and existing workspaceAutosaveError telemetry.","validation":"Unit test asserting setHoverBar does not invoke scheduleWorkspaceAutosave or change state.chartTabs reference."},{"id":"FE-04","layer":"Chart Renderer \u0026 Frontend","title":"Multiple buildRenderableIndicators passes per frame, 0px bodyWidth on zoom-out, and canvas coord bugs","evidenceClass":"A","evidenceLabel":"A · Confirmed Source Fact","severity":"Medium","userImpact":"Medium","confidence":"High","priority":"P1","affectedFiles":["src/engine/ChartEngine.ts:1347-1349, 1858-1884","src/plugins/registry.ts","src/engine/Renderer.ts:326, 581, 739"],"behavior":"ChartEngine.getRenderState (1858-1884) runs up to 3 iterations computing buildRenderableIndicators when axis width converges (and keeps setTimeout emit axisWidthChange at 1873-1875), while line 1347-1349 invokes buildRenderableIndicators again when signalRules.length \u003e 0. In Renderer.ts:581 and :739, Math.round(bodyWidth) can round below 1px to 0px on wide zoom-out (disappearing candle/volume bodies), and :326 uses physical ctx.canvas.width instead of logical width for session highlights.","impact":"Redundant indicator recomputation during panning/zooming; invisible candle bodies at dense zoom-out; clipped session highlight on high-DPI (\u003e1x) displays.","correction":"Memoize indicator calculations keyed by (bars, conflationFactor, indicators, compareOverlays); clamp Math.max(1, Math.round(bodyWidth)) in candle/volume draw calls (keeping 1px when bar spacing permits); replace ctx.canvas.width at Renderer.ts:326 with logical width parameter.","preservation":"DO NOT remove or synchronously inline setTimeout(() =\u003e emit(\"axisWidthChange\"), 0) at ChartEngine.ts:1873-1875.","validation":"Unit tests for dense zoom-out \u003e=1px bar draw, DPR=1.5/2 session highlight bounds, and ChartEngine axisWidthChange async emission."},{"id":"FE-05","layer":"Chart Renderer \u0026 Frontend","title":"Unbounded instrumentDataCache, 50k bhavcopyStore log buffer, missing RootApp ErrorBoundary \u0026 prod test hook","evidenceClass":"A","evidenceLabel":"A · Confirmed Source Fact","severity":"Medium","userImpact":"Medium","confidence":"High","priority":"P2","affectedFiles":["src/features/charts/chartInstrumentHydrationService.ts:91-144","src/store/bhavcopyStore.ts:63","src/main.tsx:8-40","src/components/ErrorBoundary.tsx:40-85","src/components/SettingsDialog.tsx:25-46"],"behavior":"createInstrumentDataCache uses a bare Map without max-entry LRU eviction. bhavcopyStore caps logs at MAX_LOG_ENTRIES = 50000. main.tsx mounts RootApp without a top-level ErrorBoundary and unconditionally exposes window.__EOD_CHART_TEST__ in production bundles. SettingsDialog statically imports 7 DNN plugin modules; 8 static .generated.ts watchlist files total 151,784 lines.","impact":"Long browsing sessions retain every loaded symbol series in memory; unhandled root render error displays a blank screen; SettingsDialog pulls DNN code eagerly.","correction":"Add bounded LRU eviction (e.g. 64-128 entries) in createInstrumentDataCache while preserving cache.getGeneration()/clear() semantics; wrap RootApp in ErrorBoundary with Escape/Reload fallback; gate window.__EOD_CHART_TEST__ behind DEV/E2E env flag; lazy-load DNN Settings panel \u0026 static watchlist chunks.","preservation":"Preserve chartRequestConsistency cache generation invalidation semantics and existing E2E test harness flags.","validation":"Unit test LRU eviction preserving request generation guarantees + Vite bundle build check."},{"id":"FE-06","layer":"Chart Renderer \u0026 Frontend","title":"Replace base64+JSON binary bar transfer \u0026 screenshot writes with Tauri v2 ipc::Response / Request","evidenceClass":"D","evidenceLabel":"D · Design Opportunity","severity":"Low","userImpact":"Medium","confidence":"High","priority":"P3","affectedFiles":["src-tauri-shell/src/database/eod_data.rs:53-87","src-tauri-shell/src/imports.rs:455-462"],"behavior":"get_eod_data_binary encodes 64-byte binary bar structs into base64 strings wrapped in JSON (increasing payload size ~33% plus JSON/atob decode overhead), and save_chart_image passes PNG screenshots as base64 strings.","impact":"Extra memory copies and JSON/base64 overhead on large chart series loads. Exact wall-clock delta not measured here (Class E perf claim omitted).","correction":"Evaluate Tauri v2 tauri::ipc::Response returning raw Vec\u003cu8\u003e bytes (ArrayBuffer in JS) with header/metadata separation, plus optional Request raw bytes for screenshots. Requires IPC contract architecture review.","preservation":"Maintain backward-compatible JS DesktopApi response shape or dual-version transition tests.","validation":"IPC roundtrip test comparing decoded OHLCV floats/dates byte-for-byte with existing get_eod_data_binary."},{"id":"BE-01","layer":"Tauri / Rust / Security \u0026 Durability","title":"Unsanitized symbol/exchange/session_id path joins in .eod store \u0026 manual_import_recovery","evidenceClass":"C","evidenceLabel":"A/C · Confirmed Missing Validation -\u003e Suspected Risk","severity":"Critical","userImpact":"High","confidence":"High","priority":"P0","affectedFiles":["src-tauri-shell/src/database.rs:2473-2487","src-tauri-shell/src/database/quotes.rs:65-73, 575-578, 696-699","src-tauri-shell/src/imports.rs:619-637","src-tauri-shell/src/manual_import_recovery.rs:412-424, 758-776","src-tauri-shell/capabilities/default.json:1-6"],"behavior":"Confirmed Source Facts (Class A): normalize_symbol and normalize_exchange in database.rs:2473-2487 only trim whitespace, uppercase, and reject empty strings; they do NOT reject \"/\", \"\\\", \"..\", or Windows drive prefixes (\":\"). quotes.rs joins exchange/symbol directly into filesystem .eod paths (:69-73, :575-578, :696-699). Similarly, IPC command undo_manual_import_recovery (imports.rs:619-637) forwards user input.session_id into undo_session -\u003e load_session (manual_import_recovery.rs:758-762), which calls recovery_sessions_root(database_folder).join(session_id) before manifest validation (manifest schema \u0026 database_folder match checked after read at :763-776).\nReachability \u0026 Boundaries: Local main webview (capabilities/default.json) can invoke these commands; no remote URLs are permitted in tauri.conf.json CSP, so exploitation requires a compromised webview/XSS or malformed CSV/external feed payload injecting path separators into DB/session identifiers (not yet runtime-exploited in this audit -\u003e Class C Suspected Risk).","impact":"Crafted symbol, exchange, or session_id values containing traversal segments or Windows rooted paths could escape the database price/recovery folder when creating, deleting, or reading files.","correction":"Add shared safe_path_segment(\u0026str) validator rejecting \"/\", \"\\\", \"..\", NUL, \":\" and reserved Windows device names, AND enforce canonicalize().starts_with(canonical_root) at file open/create boundaries.","preservation":"Must accept legitimate NSE/BSE ticker characters including \"-\", \"\u0026\", numbers, and suffixes (e.g. M\u0026M, BAJAJ-AUTO, NIFTY 50).","validation":"Unit tests passing M\u0026M / NIFTY 50 / EQ while rejecting \"../x\", \"A\\B\", \"C:foo\", and UNC paths across both quotes.rs and manual_import_recovery.rs."},{"id":"BE-02","layer":"Tauri / Rust / Security \u0026 Durability","title":"Dual-store split-brain: SQLite committed before .eod mutations \u0026 swallowed .eod errors","evidenceClass":"A","evidenceLabel":"A · Confirmed Code Defect / C · Split-Brain Risk","severity":"Critical","userImpact":"High","confidence":"High","priority":"P0","affectedFiles":["src-tauri-shell/src/database/quotes.rs:565-615, 677-720, 887-965","src-tauri-shell/src/database/instrument_mutations.rs:15-50, 90-460","src-tauri-shell/src/database/binary_eod.rs:1681-1689, 1445-1461"],"behavior":"In quotes.rs, upsert_quote_internal commits the SQLite transaction first and then mutates the .eod binary file (:575-609); if opening/rewriting the .eod file fails, it logs eprintln! and returns Ok(final_row). delete_quote_internal (:695-700) commits SQLite delete first, then propagates ? error if .eod rewrite fails — leaving SQLite deleted while .eod still holds the quote. merge_symbols_internal (instrument_mutations.rs:164-455) likewise commits SQLite merge before touching .eod files, swallows .eod open/merge/delete failures via eprintln!, and omits eod_binary_state invalidation. Separately, binary_eod.rs:1682-1686 parity deep-value check (!quick_check) is a no-op comment, and :1445-1461 opens each .eod file twice during stats scan.","impact":"Mid-operation I/O error or power loss causes silent divergence between SQLite metadata/quotes and binary .eod price history, and deep parity check currently reports no row-value mismatches.","correction":"NOTE: SQLite transactions and filesystem .eod files CANNOT form a single ACID database transaction. Design a separately reviewed write-ahead intent/compensation journal (prepare intent + temp rewrite + SQLite commit + atomic rename + startup recovery/reconciliation) AND acquire PriceStoreOperationPermit on merge_symbols. Implement actual record-by-record comparison under !quick_check and reuse open file handle in stats scan.","preservation":"Preserve quote-only deletion invariant (removing last quote never deletes instrument identity) and Bhavcopy APPEND_NEWEST journal contract.","validation":"Architecture review first! Then fault-injection Rust tests simulating .eod write failure/mid-merge interruption verifying deterministic recovery \u0026 deep parity detection."},{"id":"BE-03","layer":"Tauri / Rust / Security \u0026 Durability","title":"Asymmetric PriceStoreOperationPermit locking on merge_symbols, apply_corporate_action \u0026 manual CA approvals","evidenceClass":"A","evidenceLabel":"A · Confirmed Source Fact / C · Concurrency Risk","severity":"High","userImpact":"High","confidence":"High","priority":"P1","affectedFiles":["src-tauri-shell/src/database/price_store_operation_lock.rs:1-127","src-tauri-shell/src/database/instrument_mutations.rs:15-88","src-tauri-shell/src/database/corporate_action_imports.rs:747-801, 1103-1157"],"behavior":"try_acquire_price_store_operation guards download_bhavcopy*, import_csv, undo_manual_import_recovery, upsert_quote, delete_quote*, and auto_approve_corporate_action_imports. However, merge_symbols, apply_corporate_action, approve_corporate_action_import, approve_corporate_action_import_with_isin_mismatch, and approve_recommended_corporate_action_isin_mismatches do not acquire this permit (explicitly asserted excluded for approve_corporate_action_imports in price_store_operation_lock.rs:116-120).","impact":"A user running manual symbol merge or manual CA approval concurrently with an active quote edit or Bhavcopy checkpoint could interleave writes on shared .eod / SQLite price state.","correction":"Review command concurrency architecture first: evaluate extending PriceStoreOperationKind or scoped read/write locks cleanly with explicit UI busy feedback so manual CA workflow guarantees are preserved without breaking existing lock tests.","preservation":"Preserve AGENTS.md three-action CA approval flow (Fetch -\u003e Load -\u003e explicit Approve) and Bhavcopy 4-worker cap.","validation":"Architecture review + concurrent Tokio/thread contention tests checking deterministic fail-closed BUSY errors."},{"id":"BE-04","layer":"Tauri / Rust / Security \u0026 Durability","title":"Plugin ZIP decompression bomb trust of header size \u0026 dormant external plugin code evaluation","evidenceClass":"C","evidenceLabel":"A · Confirmed Code / C · Hardening Gap (No Active RCE)","severity":"High","userImpact":"Medium","confidence":"High","priority":"P1","affectedFiles":["src/plugins/pluginLoader.ts:39-139","src/plugins/pluginHost.ts:270-279","src-tauri-shell/src/plugin_data.rs:310-365, 659-665"],"behavior":"CORRECTION OF EARLIER PLAN: On current main (b830573), external JS plugin execution is EXPLICITLY DISABLED: loadExternalPluginFromDescriptor (pluginLoader.ts:89-95) sets externalLoadingSupported: false and ignores _code, and pluginHost.startPlugin (:270-279) refuses external plugins without isolated runtime. evaluatePluginModuleCode (:39-59) has zero callers. However, dormant read_external_plugin_module IPC (plugin_data.rs:339) remains callable, and ZIP installation (:659-663) trusts untrusted ZIP header entry.size() \u003c= MAX_EXTERNAL_PLUGIN_JS_BYTES before calling raw entry.read_to_end() without a .take(limit + 1) stream cap.","impact":"No RCE exists on current main today, but a malformed/spoofed ZIP archive could trigger unbounded heap allocation during plugin import, and dead evaluator code remains an attractive hazard if prematurely wired without sandboxing.","correction":"Remove unused evaluatePluginModuleCode (:39-59), gate/remove unused read_external_plugin_module IPC until an isolated sandbox/capability model is approved, and wrap ZIP read_to_end with entry.take(MAX_EXTERNAL_PLUGIN_JS_BYTES + 1) enforcing post-decompression length.","preservation":"Keep built-in plugins (Gann/DNN metadata) unaffected.","validation":"Rust unit test with forged ZIP header length (spoofed small uncompressed size) verifying bounded rejection."},{"id":"BE-05","layer":"Tauri / Rust / Security \u0026 Durability","title":"61 blocking sync commands, single Mutex serializing reads, unvalidated BSE URL join \u0026 abrupt exit","evidenceClass":"C","evidenceLabel":"A · Confirmed Structure / C · Contention \u0026 Transport Risk","severity":"High","userImpact":"Medium","confidence":"High","priority":"P1","affectedFiles":["src-tauri-shell/src/main.rs:250-270, 399-465, 896-905, 1185-1325","src-tauri-shell/src/database/symbol_search.rs:19, 41, 142-154","src-tauri-shell/src/database/connection_registry.rs:19-21, 96-145, 945-1005","src-tauri-shell/src/bhavcopy/transport.rs:192-194","src-tauri-shell/src/runtime.rs:69-85","src-tauri-shell/src/app_profile.rs:300-330"],"behavior":"149 registered commands split into 61 sync / 88 async; sync handlers include fetch_official_watchlist_source (30s reqwest::blocking::Client, main.rs:399-465), symbol_search (correlated MAX(price.date) subquery), and list_quotes (database.rs:1935). ActiveDatabaseConnectionState uses a single Mutex serializing SQLite WAL reads (connection_registry.rs:19-21, 992-1004) while rfd::FileDialog runs directly in async handler before spawn_blocking (:96-99, :134-136). bhavcopy/transport.rs:192-194 concatenates download_base + filename via format!(). main.rs:896-905 calls exit(0) on CloseRequested. runtime.rs:69-85 resolves portable log_dir to default profile log dir instead of portable_root; app_profile.rs:327 writes app-settings.json non-atomically.","impact":"Sync network/SQLite calls block Tauri IPC worker dispatch; single connection Mutex prevents parallel read-only chart queries under WAL; unvalidated URL string join risks subtle URL errors; abrupt exit can interrupt background checkpoints (leaving resumable CHECKPOINTING state).","correction":"Move sync blocking handlers to async + spawn_blocking; separate read-only WAL connection helper (open_readonly_database_connection already exists at connection_registry.rs:950!) for query concurrency; use Url::join() in transport.rs; marshal rfd dialogs appropriately; write app-settings.json via temp+rename; evaluate graceful CloseRequested shutdown drain.","preservation":"Preserve portable mode data isolation expectations, Bhavcopy recovery resumability, and 4-worker cap.","validation":"Targeted Rust tests for URL join validation, atomic app-settings write, and concurrent read-only WAL query tests."},{"id":"A11Y-01","layer":"Accessibility, Keyboard \u0026 Edge States","title":"25 focus-erasing outline:none declarations \u0026 missing Tab focus trap / Escape across overlay dialogs","evidenceClass":"A","evidenceLabel":"A · Confirmed Source Fact","severity":"Critical","userImpact":"High","confidence":"High","priority":"P0","affectedFiles":["src/styles/global.css:57-61, 70-84","src/features/corporateActions/maintenance/corporateActionMaintenanceWorkspace.css:93","src/components/common/FloatingDialogShell.tsx:59-73","src/components/FloatingWindow.tsx:216-223","src/components/ChartSettingsDialog.tsx:215-222","src/components/CommandPalette.tsx","src/components/WatchlistDialogs.tsx:80-95","src/components/ChartDrawingPropertiesDialog.tsx","src/features/corporateActions/workspace/CorporateActionClassicWorkspace.tsx:26-53"],"behavior":"Static scan finds 26 non-test outline: none occurrences: global.css:59 is intentionally scoped to aside button:not(:focus-visible), whereas corporateActionMaintenanceWorkspace.css:93 explicitly strips focus inside :focus-visible (.ca-maintenance-workspace__rail-item:focus-visible { outline: none; }), and 24 inline component style objects set outline: \"none\". On modal semantics, CorporateActionClassicDialog (CorporateActionClassicWorkspace.tsx:26-53) already implements role=\"dialog\", aria-modal=\"true\", aria-labelledby, Tab focus trap, Escape, and focus restoration, and FloatingDialogShell already has role=\"dialog\", aria-modal={!isModeless}, and aria-labelledby (:61-63). However, FloatingDialogShell, ChartSettingsDialog, WatchlistDialogs, CommandPalette, and others lack shared Tab focus trapping / return-focus (or missing role=\"dialog\" on WatchlistDialogs/ChartSettingsDialog).","impact":"Keyboard-only users lose visible focus indicators across inline-styled buttons and CA maintenance sidebar items (WCAG 2.4.7 / 2.4.11) and Tab escapes active modal dialogs into background controls.","correction":"Remove all raw outline: none overrides (rely on global :focus-visible ring rules and custom outline only where non-obscured 2px focus indicator exists), create a reusable useModalFocusTrap(ref, { isOpen, modal, onClose }) modeled on CorporateActionClassicDialog, and wire role=\"dialog\" + aria-modal + aria-labelledby consistently.","preservation":"Keep modeless floating windows usable concurrently with chart canvas when isModeless=true (trap Tab only on modal overlays or allow F6/Esc cycle).","validation":"Vitest + @testing-library/react focus-trap \u0026 return-focus tests + automated Tab traversal check with zero outline:none violations."},{"id":"A11Y-02","layer":"Accessibility, Keyboard \u0026 Edge States","title":"Blocked external Google Fonts under strict CSP, incomplete pre-paint theme CSS \u0026 narrow reduced-motion rule","evidenceClass":"A","evidenceLabel":"A · Confirmed Source Fact","severity":"Medium","userImpact":"Medium","confidence":"High","priority":"P1","affectedFiles":["index.html:8-28","src-tauri-shell/tauri.conf.json:27","src/styles/global.css:176-181","src/features/app/__tests__/reducedMotionB26.test.ts"],"behavior":"index.html:8-13 loads fonts.googleapis.com / fonts.gstatic.com stylesheets, while tauri.conf.json:27 restricts font-src \"self\" data: and style-src \"self\" \"unsafe-inline\" (blocking external Google Fonts at runtime). Inline critical CSS in index.html:14-28 covers default dark #070b10 and light themes (classic-light, classic-light-refined, deep-light), omitting distinct pre-CSS background colors for amoled-black (#000000), refinitiv-dark, and tos-charcoal until main CSS loads. global.css:176-181 restricts @media (prefers-reduced-motion: reduce) strictly to .sidebar-row-shell, .sidebar-indicator-row (and note existing regression test reducedMotionB26.test.ts checks that rule structure).","impact":"Console CSP blocks Google Font requests on every startup; dark themes briefly flash #070b10 before theme tokens paint; modal/toast/spinner transitions ignore prefers-reduced-motion; zero @media (forced-colors: active) styling exists.","correction":"Remove external Google Fonts links from index.html (pure system/local fonts); align pre-CSS html[data-theme] background rules with all 7 themePalettes; expand prefers-reduced-motion carefully while respecting existing reducedMotionB26 test expectations; add forced-colors borders.","preservation":"Update reducedMotionB26.test.ts cleanly only if approved alongside CSS changes; keep offline zero-network behavior.","validation":"Zero CSP console errors on app launch + inspect computed prefers-reduced-motion rules."},{"id":"A11Y-03","layer":"Accessibility, Keyboard \u0026 Edge States","title":"Interactive semantics \u0026 keyboard traps: nested button in ChartTabs, hover-only pane controls, Sidebar Arrow traps","evidenceClass":"A","evidenceLabel":"A · Confirmed Source Fact","severity":"High","userImpact":"High","confidence":"High","priority":"P1","affectedFiles":["src/components/ChartTabs.tsx:39-73","src/components/ChartPaneControlsOverlay.tsx:83-107, 218-224","src/components/Sidebar.tsx:1125-1151, 2641-2648","src/components/ChartCanvas.tsx:1644-1683"],"behavior":"ChartTabs.tsx:39-73 places a \u003cbutton\u003e (Close tab) inside an interactive \u003cdiv role=\"button\" tabIndex={0}\u003e (invalid nested interactive HTML). ChartPaneControlsOverlay.tsx:83-107 binds role=\"separator\" onKeyDown calling event.preventDefault() on ArrowUp/Down with zero resize action, and :218-224 hides .pane-controls at opacity: 0 unless hovered/focused. Sidebar.tsx:2641-2648 omits \"input\" from shouldKeepNativeArrowKeyBehavior(), hijacking input cursor/autocomplete navigation, and :1125-1151 indexes selectedWatchlistItems while scrolling sortedWatchlistItems (mismatch when sorted). ChartCanvas.tsx:1644-1683 binds ArrowLeft/ArrowRight to pan and ArrowUp/Down to navigateSymbol, leaving no accessible OHLCV table or bar-stepping inspector.","impact":"Screen readers double-announce/misread tabs; keyboard users cannot resize panes via Arrow keys; sorted watchlists scroll wrong row; no non-visual OHLCV inspection exists.","correction":"Refactor ChartTabs to WAI-ARIA role=\"tablist\" + adjacent wrapper holding role=\"tab\" button and close button as siblings; wire pane separator ArrowUp/ArrowDown resize deltas; add \"input\" check \u0026 sort order parity in Sidebar; keep existing ArrowLeft/ArrowRight pan and add opt-in Shift+Arrow / I Bar Inspector + accessible OHLCV table (Design Opportunity).","preservation":"DO NOT redefine accepted ArrowLeft/ArrowRight pan or ArrowUp/Down symbol switch behavior on ChartCanvas.","validation":"RTL keyboard navigation tests for ChartTabs, Sidebar sorted list, Pane separator Arrow resize, and opt-in Bar Inspector."}],"ledger":[{"claim":"External plugin loader executes unsigned arbitrary JS with unrestricted access to all 149 Rust commands (alleged Active Critical RCE)","sourceStatus":"E -\u003e Disproved on main; Reclassified C/D Hardening","verifiedFact":"src/plugins/pluginLoader.ts:61-95 sets externalLoadingSupported: false and ignores _code; pluginHost.ts:270-279 blocks external execution. evaluatePluginModuleCode (:39) has 0 runtime callers. ZIP read_to_end lacks .take(limit+1) cap (plugin_data.rs:662-663).","sourceRef":"pluginLoader.ts:39-139; pluginHost.ts:270-279; plugin_data.rs:339, 659-663"},{"claim":"Backend exposes 0 tauri::ipc::Channel usages","sourceStatus":"Corrected (A)","verifiedFact":"1 active Channel\u003c()\u003e usage exists on run_tracked_bhavcopy_batch at src-tauri-shell/src/bhavcopy/mod.rs:27, 181 (alongside 14 .emit() calls and 149 generate_handler! commands: 61 sync / 88 async).","sourceRef":"bhavcopy/mod.rs:27, 181; main.rs:1185-1325"},{"claim":"FloatingDialogShell missing role=\"dialog\" and aria-modal; cited src/components/FloatingDialogShell.tsx","sourceStatus":"Corrected (A)","verifiedFact":"Actual path is src/components/common/FloatingDialogShell.tsx. Lines :61-63 ALREADY render role=\"dialog\", aria-modal={!isModeless}, and aria-labelledby={titleId}. The remaining gap is lacking a Tab focus trap / Escape / return-focus lifecycle.","sourceRef":"src/components/common/FloatingDialogShell.tsx:59-73"},{"claim":"Test suite counts 259 test files (92 readFileSync source tests) and 6 generated watchlist files (148,220 lines)","sourceStatus":"Recalculated (A)","verifiedFact":"Live main contains 260 test files (93 with readFileSync) out of 677 src/ files (+124 .rs = 801 total), and 8 .generated.ts watchlist files totaling 151,784 lines (6961+27549+8900+1302+26817+2255+12498+65502).","sourceRef":"Deterministic AST/glob scan on main @ b830573"},{"claim":"Arbitrary /10 design scorecard ratings (e.g. 6.0, 4.5, 3.5) and unmeasured runtime FPS/CPU claims","sourceStatus":"Removed / Marked E","verifiedFact":"Removed subjective /10 scores and unbenchmarked speedup claims. Replaced with exact recalculated W3C sRGB ratios, exact registerWindow pixel fits at 960x640, and verified structural counts; runtime metrics remain Class E until profiled live.","sourceRef":"themePalettes.json; windowStore calls; Renderer.ts"},{"claim":"Win32 menu bar, Ctrl+K upgrades, Object Tree, and Binary ipc::Response are confirmed defects","sourceStatus":"Reclassified D","verifiedFact":"All four are valid D · Design Opportunities, not broken main contracts. Replacing Win32 menus (decorations: false) and changing IPC serialization formats require explicit separate Architecture Review.","sourceRef":"main.rs:467-763; eod_data.rs:71-87"}],"preservation":[["Corporate Actions 3-Action Workflow","AGENTS.md + corporate_action_imports.rs + CorporateActionClassicWorkspace.tsx","Fetch from Officials -\u003e Load \u0026 Validate -\u003e explicit user Approve Ready. Never auto-execute financial approval; preserve raw .eod immutability \u0026 maintenance workspace."],["Quote-Only Deletion \u0026 Recovery Boundary","AGENTS.md + database/quotes.rs + manual_import_recovery.rs","Deleting quotes (even last quote) must never auto-delete instrument identity; provenance-scoped cleanup stays strictly inside Manual Import Recovery."],["Exchange Identity \u0026 NSE Series Fidelity","AGENTS.md","Do not synthesize BSE symbols from company names; do not whitelist-drop supported NSE series (EQ, BE, BZ, SM, ST, SZ)."],["Bhavcopy Durability \u0026 Calendar Semantics","AGENTS.md + bhavcopy/*","Binary worker cap = 4; only recovery-journal APPEND_NEWEST defers sync_data() with resumable checkpointing; special sessions override weekends/holidays; network failures never relabeled as holidays; 18:00 auto-probe."],["Accepted Fibonacci Geometry","AGENTS.md","Preserve Fib Wedge data-space geometry, Fib Spiral same-timeframe basis, and fibFan projected anchor-to-target rays."],["Chart Navigation \u0026 Workspace Persistence","ChartCanvas.tsx:1644-1683 + chartStore.ts","Keep ArrowLeft/ArrowRight pan and ArrowUp/ArrowDown symbol switch; maintain backward-compatible workspace JSON schema."],["Anti-Freeze axisWidthChange Deferral","GEMINI.md + ChartEngine.ts:1873-1875","Never remove setTimeout(() =\u003e emit(\"axisWidthChange\"), 0) unless proven exact root cause with a validated non-freezing replacement."]],"benchmarks":[{"source":"W3C WCAG 2.2 Recommendation","focus":"1.4.3 Contrast (Min 4.5:1 normal / 3:1 large text), 1.4.11 Non-text Contrast (3:1 UI controls \u0026 chart graphics), 2.4.7 Focus Visible, 2.4.11 Focus Not Obscured (AA), 2.4.13 Focus Appearance (AAA)","url":"https://www.w3.org/TR/WCAG22/","mapping":"Distinguishes ordinary text \u003e=4.5:1 (axis tags, small button labels, tabular readouts) from \u003e=3:1 graphical/control borders (candlestick fills, active toolbar icons), while respecting inactive/UA exceptions."},{"source":"W3C WAI-ARIA Authoring Practices Guide (APG)","focus":"Modal Dialog (role=\"dialog\", aria-modal, focus trap, Escape, focus restore), Tabs (tablist/tab/tabpanel), Toolbar (roving tabindex), Combobox patterns","url":"https://www.w3.org/WAI/ARIA/apg/patterns/","mapping":"Directly governs ChartTabs sibling close-button refactor, ChartToolDock roving tabindex, CommandPalette combobox announcements, and shared ModalFocusTrap hook."},{"source":"Tauri v2 Window Customization \u0026 IPC","focus":"Window decorations/custom titlebar drag-region, tauri::ipc::Channel, binary tauri::ipc::Response, Capabilities boundary (windows: [\"main\"])","url":"https://v2.tauri.app/learn/window-customization/","mapping":"Guides optional frameless command titlebar architecture evaluation without losing Win32 drag/snap behavior; requires capability scoping and separate review."},{"source":"Tauri v2 Calling Rust from the Frontend","focus":"Async commands, spawn_blocking isolation, typed Channels \u0026 raw binary IPC Response payloads","url":"https://v2.tauri.app/develop/calling-rust/","mapping":"Basis for eliminating 61 sync blocking handlers and evaluating binary ArrayBuffer bar transfer on get_eod_data_binary after compatibility review."},{"source":"TradingView Lightweight Charts Documentation (v5)","focus":"Multi-pane canvas separation, shared master TimeScale, Magnet crosshair, subscribeCrosshairMove decoupling","url":"https://tradingview.github.io/lightweight-charts/docs","mapping":"Validates separating pointer-scrub crosshair subscribers from persistent workspace React state and strict pane/tile state encapsulation."}],"roadmap":[{"id":"ISSUE-01","title":"Path Segment Allowlist \u0026 Canonical Containment in .eod Store \u0026 Manual Import Recovery","layer":"Backend Security","priority":"P0","risk":"Low (if valid ticker symbols like M\u0026M preserved)","prereqs":"Pinned main baseline tests for quotes.rs \u0026 manual_import_recovery.rs","preserves":"Allow NSE/BSE punctuation (-, \u0026, space, numbers) while blocking /, \\, .., :; preserve quote-only deletion.","gates":"cargo test quote \u0026 manual_import_recovery suites; adversarial path-injection unit tests pass.","approval":"Scoped Implementation Approval"},{"id":"ISSUE-02","title":"WCAG Text/Tag Token Alignment, W3C sRGB Color Parser \u0026 Hardcoded #ffffff Removal","layer":"UI \u0026 Themes","priority":"P0","risk":"Low","prereqs":"Verified themePalettes.json generator pipeline","preserves":"Preserve all 7 theme IDs in public/theme-boot.js and user customChartColors overrides.","gates":"Automated contrast test verifying \u003e=4.5:1 text across all 7 themes + Renderer rgba() parse tests.","approval":"Scoped Implementation Approval"},{"id":"ISSUE-03","title":"Multi-Chart Tile Store \u0026 Plugin Isolation (tabId-Scoped Selectors \u0026 Actions)","layer":"Frontend Architecture","priority":"P0","risk":"Medium (touches ChartCanvas \u0026 chartStore)","prereqs":"None beyond ChartCanvas/chartStore baseline","preserves":"Preserve single-tab defaults, workspace persistence format, and ChartEngine axisWidthChange setTimeout.","gates":"New multi-tile Vitest integration suite verifying independent hoverBar, viewport, drawings, and pane scale per tile.","approval":"Scoped Implementation Approval"},{"id":"ISSUE-04","title":"Shared ModalFocusTrap Hook, Raw outline:none Removal \u0026 Tab/Toolbar ARIA Semantics","layer":"Accessibility","priority":"P0","risk":"Low-Medium","prereqs":"None","preserves":"Keep CorporateActionClassicDialog working focus trap; keep modeless dialogs non-blocking when isModeless=true.","gates":"Keyboard focus-trap/Escape/focus-restore Vitest suite + zero unintended outline:none check.","approval":"Scoped Implementation Approval"},{"id":"ISSUE-05","title":"Viewport Clamping in windowStore \u0026 Tiered Z-Index CSS Tokens + Styled Confirm Dialog","layer":"UI \u0026 Layout","priority":"P1","risk":"Low","prereqs":"None","preserves":"Keep CorporateActionManagedWindow responsive bounds and explicit operator confirm safety prompts.","gates":"960x640 and 1440x900 registerWindow bounds test + z-index tier test + ConfirmActionDialog tests.","approval":"Scoped Implementation Approval"},{"id":"ISSUE-06","title":"ZIP Bounded .take(limit + 1) Read \u0026 Dead Plugin JS Evaluator Removal","layer":"Backend Security","priority":"P1","risk":"Low","prereqs":"None (external execution already disabled)","preserves":"Built-in plugins and manifest metadata inspection remain intact.","gates":"Rust test with spoofed ZIP header size enforcing hard byte cap.","approval":"Scoped Implementation Approval"},{"id":"ISSUE-07","title":"Decoupled Crosshair Hover Store, On-Demand rAF Loop \u0026 Cached Indicator Pass","layer":"Renderer \u0026 State Perf","priority":"P1","risk":"Medium-High (touches ChartEngine.ts \u0026 chartStore.ts)","prereqs":"ISSUE-03 complete","preserves":"MUST keep ChartEngine.ts:1873-1875 setTimeout(() =\u003e emit(\"axisWidthChange\"), 0) freeze guard \u0026 workspace autosave schema.","gates":"Assert 0 autosave resets \u0026 0 RootApp re-renders on hover scrub; dense zoom-out \u003e=1px bar test; DPR session highlight test.","approval":"Scoped Implementation Approval (Dangerous-File Care)"},{"id":"ISSUE-08","title":"Dual-Store Write-Ahead / Compensation Recovery \u0026 Deep Parity Check + Command Concurrency Review","layer":"Data Integrity","priority":"P1","risk":"High (mutates SQLite/.eod durability \u0026 CA/merge locking)","prereqs":"ISSUE-01 complete + separate failure-model design doc","preserves":"Preserve Bhavcopy APPEND_NEWEST journal rules, 4-worker cap, quote-only deletion, and CA 3-action manual workflow.","gates":"Failure-injection Rust tests (disk error / mid-merge crash), verified deep parity value check, concurrency contention tests.","approval":"SEPARATE ARCHITECTURE REVIEW REQUIRED"},{"id":"ISSUE-09","title":"Async Command Migration, Read-Only WAL Pool, Portable Log/Settings Hygiene \u0026 Close Drain","layer":"Backend Scalability","priority":"P2","risk":"Medium-High (concurrency \u0026 shutdown lifecycle)","prereqs":"ISSUE-08 concurrency rules agreed","preserves":"Preserve existing snapshot payloads and resumable Bhavcopy CHECKPOINTING recovery.","gates":"Concurrent WAL read benchmark/test + atomic app-settings crash test + URL::join transport tests.","approval":"SEPARATE ARCHITECTURE REVIEW REQUIRED"},{"id":"ISSUE-10","title":"Binary IPC (tauri::ipc::Response) + Optional Custom Titlebar / Object Tree / Accessible OHLCV Inspector","layer":"UX \u0026 IPC Enhancements","priority":"P3","risk":"Medium (changes binary IPC wire \u0026 OS window chrome)","prereqs":"ISSUE-02..ISSUE-09 complete","preserves":"Preserve ArrowLeft/ArrowRight pan, ArrowUp/Down symbol switch, and Win32 menu command parity.","gates":"IPC byte-parity test + Windows 10/11 DPI manual check + WAI-ARIA toolbar/table keyboard checks.","approval":"SEPARATE ARCHITECTURE REVIEW REQUIRED"}],"specs":[{"id":"SPEC-01","title":"Rust: Strict Path Segment Allowlist \u0026 Canonical Root Containment (Illustrative Blueprint — Not Validated)","gate":"Bounded Fix — Scoped Approval","lang":"rust","code":"// ILLUSTRATIVE CONCEPT PSEUDOCODE — NOT PRODUCTION-READY OR COMPILED\nuse std::path::{Component, Path, PathBuf};\n\npub fn safe_path_segment(raw: \u0026str, label: \u0026str) -\u003e Result\u003cString, String\u003e {\n    let trimmed = raw.trim();\n    if trimmed.is_empty() {\n        return Err(format!(\"{label} must not be empty.\"));\n    }\n    if trimmed == \".\" || trimmed == \"..\" || trimmed.contains(\"..\") {\n        return Err(format!(\"{label} contains disallowed traversal segments.\"));\n    }\n    if trimmed.chars().any(|c| matches!(c, '/' | '\\\\' | ':' | '\\0')) {\n        return Err(format!(\"{label} contains disallowed path characters.\"));\n    }\n    Ok(trimmed.to_string())\n}\n\npub fn resolve_contained_child(root: \u0026Path, segments: \u0026[\u0026str]) -\u003e Result\u003cPathBuf, String\u003e {\n    let canonical_root = std::fs::canonicalize(root).map_err(|e| e.to_string())?;\n    let mut candidate = canonical_root.clone();\n    for seg in segments {\n        let safe = safe_path_segment(seg, \"path segment\")?;\n        let mut comps = Path::new(\u0026safe).components();\n        match (comps.next(), comps.next()) {\n            (Some(Component::Normal(_)), None) =\u003e candidate.push(safe),\n            _ =\u003e return Err(\"Non-normal path component rejected.\".to_string()),\n        }\n    }\n    if !candidate.starts_with(\u0026canonical_root) {\n        return Err(\"Resolved path escaped allowed root directory.\".to_string());\n    }\n    Ok(candidate)\n}"},{"id":"SPEC-02","title":"Rust: Dual-Store Write-Ahead Intent \u0026 Compensation Recovery Outline (Requires Separate Architecture Review)","gate":"ARCHITECTURE REVIEW REQUIRED","lang":"rust","code":"// ILLUSTRATIVE DESIGN OUTLINE ONLY — SQLITE + .EOD ARE NOT ONE ACID TRANSACTION\n// Requires dedicated failure-model review preserving Bhavcopy journal \u0026 CA invariants.\n//\n// Phase 1 (Prepare): Acquire PriceStoreOperationPermit; validate paths \u0026 inputs;\n//   stage new .eod binary payload into \"\u003cSYMBOL\u003e.eod.tmp\" + fsync temp file.\n// Phase 2 (Record Intent): Inside SQLite transaction, write symbol/quote changes AND\n//   append an idempotent recovery_intent row (op_id, target_eod_path, tmp_path, backup_hash).\n// Phase 3 (Commit Binary Swap): Atomically backup/replace target .eod via rename + dir sync;\n//   mark intent COMPLETED (or prune intent row).\n// Startup / Command Pre-Flight Recovery:\n//   Scan pending intents: if SQLite committed and .eod.tmp exists \u0026 verifies SHA-256 -\u003e finish swap;\n//   if SQLite rolled back -\u003e clean .eod.tmp; never log eprintln! and silently return Ok() on failure."},{"id":"SPEC-03","title":"Rust \u0026 TS: Tauri v2 Binary tauri::ipc::Response Wire Concept (Requires Separate Architecture Review)","gate":"ARCHITECTURE REVIEW REQUIRED","lang":"rust","code":"// ILLUSTRATIVE CONCEPT — REQUIRES IPC COMPATIBILITY \u0026 ARCHITECTURE REVIEW\n#[tauri::command]\npub async fn get_eod_data_raw_bytes(app: AppHandle, input: EodDataInputPayload) -\u003e Result\u003ctauri::ipc::Response, String\u003e {\n    let bytes: Vec\u003cu8\u003e = tauri::async_runtime::spawn_blocking(move || {\n        // Pack metadata length + JSON header + fixed 64-byte little-endian bar records\n        // without base64 expansion or per-bar JSON stringification.\n        todo!(\"encode header_len + header_json + bar_f64_records\")\n    }).await.map_err(|e| e.to_string())??;\n    Ok(tauri::ipc::Response::new(bytes))\n}\n// TypeScript side reads ArrayBuffer directly:\n// const buffer = await invoke\u003cArrayBuffer\u003e('get_eod_data_raw_bytes', input);\n// const view = new DataView(buffer);"},{"id":"SPEC-04","title":"TypeScript: W3C sRGB Color Parser, Luminance Contrast \u0026 Axis-Tag Contrast Fix","gate":"Bounded Fix — Scoped Approval","lang":"typescript","code":"// ILLUSTRATIVE PATCH CONCEPT FOR Renderer.ts — NOT VALIDATED\nexport function parseCssColor(color: string): [number, number, number] | null {\n  const s = color.trim();\n  if (s.startsWith('#')) {\n    const hex = s.slice(1);\n    if (hex.length === 3) {\n      return [0, 1, 2].map((i) =\u003e parseInt(hex[i] + hex[i], 16)) as [number, number, number];\n    }\n    if (hex.length === 6 || hex.length === 8) {\n      return [0, 2, 4].map((i) =\u003e parseInt(hex.slice(i, i + 2), 16)) as [number, number, number];\n    }\n  }\n  const m = /^rgba?\\(\\s*(\\d+)\\s*,\\s*(\\d+)\\s*,\\s*(\\d+)/i.exec(s);\n  return m ? [Number(m[1]), Number(m[2]), Number(m[3])] : null;\n}\n\nfunction linearizeChannel(c255: number): number {\n  const s = c255 / 255;\n  return s \u003c= 0.03928 ? s / 12.92 : Math.pow((s + 0.055) / 1.055, 2.4);\n}\n\nexport function relativeLuminance(rgb: [number, number, number]): number {\n  const [r, g, b] = rgb.map(linearizeChannel);\n  return 0.2126 * r + 0.7152 * g + 0.0722 * b;\n}\n\nexport function contrastRatio(fg: string, bg: string): number {\n  const a = parseCssColor(fg);\n  const b = parseCssColor(bg);\n  if (!a || !b) return 1;\n  const l1 = relativeLuminance(a);\n  const l2 = relativeLuminance(b);\n  return (Math.max(l1, l2) + 0.05) / (Math.min(l1, l2) + 0.05);\n}\n\nexport function resolveAccessibleText(bgColor: string): '#000000' | '#ffffff' {\n  return contrastRatio('#000000', bgColor) \u003e= contrastRatio('#ffffff', bgColor) ? '#000000' : '#ffffff';\n}"},{"id":"SPEC-05","title":"CSS: Focus-Visible Restoration, Z-Index Tier Tokens, Reduced-Motion \u0026 Missing Token Aliases","gate":"Bounded Fix — Scoped Approval","lang":"css","code":"/* ILLUSTRATIVE CSS CONCEPT — PRESERVE EXISTING TESTS BEFORE APPLYING */\n:root {\n  --z-floating-window: 300;\n  --z-modal-backdrop: 900;\n  --z-modal-panel: 910;\n  --z-confirm-dialog: 1400;\n  --z-toast: 1500;\n  /* Bridge legacy/divergent token aliases onto canonical theme tokens */\n  --bg1: var(--bg);\n  --bg-secondary: var(--bg2);\n  --panel-bg: var(--bg2);\n  --panel-soft: var(--bg3);\n  --bg-elevated: var(--bg3);\n  --surface-subtle: var(--control-bg);\n  --surface-2: var(--control-bg);\n  --text-primary: var(--text);\n  --text-secondary: var(--text-dim);\n  --text2: var(--text-dim);\n  --text-muted: var(--text-mute);\n  --muted: var(--text-mute);\n  --border-color: var(--border);\n  --border-strong: var(--border2);\n  --danger: var(--red);\n  --warning: var(--amber);\n  --accent-color: var(--accent);\n}\n\nbutton:focus-visible,\n[role=\"tab\"]:focus-visible,\n[role=\"button\"]:focus-visible,\n.ca-maintenance-workspace__rail-item:focus-visible {\n  outline: 2px solid var(--accent);\n  outline-offset: 2px;\n}"},{"id":"SPEC-06","title":"TypeScript: ChartEngine On-Demand rAF (Preserving GEMINI.md axisWidthChange setTimeout) + Tile Selector","gate":"Bounded Fix — Dangerous-File Scoped Approval","lang":"typescript","code":"// ILLUSTRATIVE CONCEPT — PRESERVES axisWidthChange setTimeout DEFERRAL\nclass DirtyDrivenLoopConcept {\n  private rafId: number | null = null;\n  private baseDirty = true;\n  private overlayDirty = true;\n\n  public markDirty(layer: 'base' | 'overlay' | 'both' = 'both'): void {\n    if (layer === 'base' || layer === 'both') this.baseDirty = true;\n    if (layer === 'overlay' || layer === 'both') this.overlayDirty = true;\n    if (this.rafId === null) {\n      this.rafId = requestAnimationFrame(() =\u003e {\n        this.rafId = null;\n        this.flushFrame();\n      });\n    }\n  }\n\n  private flushFrame(): void {\n    if (this.baseDirty) {\n      this.baseDirty = false;\n      // Preserve ChartEngine.ts:1873-1875 anti-freeze deferral on axis width change:\n      // setTimeout(() =\u003e this.emit('axisWidthChange', nextWidth), 0);\n    }\n    if (this.overlayDirty) {\n      this.overlayDirty = false;\n    }\n  }\n}"}]}</script>
+  <script>
+    (function () {
+      'use strict';
+
+      var rawJson = document.getElementById('audit-payload').textContent || '{}';
+      var DATA = JSON.parse(rawJson);
+
+      function el(tag, attrs, children) {
+        var node = document.createElement(tag);
+        if (attrs) {
+          Object.keys(attrs).forEach(function (k) {
+            if (k === 'text') node.textContent = attrs[k];
+            else if (k === 'className') node.className = attrs[k];
+            else if (k === 'hidden') node.hidden = Boolean(attrs[k]);
+            else node.setAttribute(k, String(attrs[k]));
+          });
+        }
+        if (children) {
+          (Array.isArray(children) ? children : [children]).forEach(function (c) {
+            if (c !== null && c !== undefined) {
+              node.appendChild(typeof c === 'string' ? document.createTextNode(c) : c);
+            }
+          });
+        }
+        return node;
+      }
+
+      function svgEl(tag, attrs, children) {
+        var node = document.createElementNS('http://www.w3.org/2000/svg', tag);
+        if (attrs) {
+          Object.keys(attrs).forEach(function (k) {
+            node.setAttribute(k, String(attrs[k]));
+          });
+        }
+        if (children) {
+          (Array.isArray(children) ? children : [children]).forEach(function (c) {
+            if (c !== null && c !== undefined) node.appendChild(c);
+          });
+        }
+        return node;
+      }
+
+      function parseCssColor(str) {
+        if (!str) return null;
+        var s = String(str).trim();
+        if (s[0] === '#') {
+          var h = s.slice(1);
+          if (h.length === 3) {
+            return [parseInt(h[0] + h[0], 16), parseInt(h[1] + h[1], 16), parseInt(h[2] + h[2], 16), 1];
+          }
+          if (h.length === 6) {
+            return [parseInt(h.slice(0, 2), 16), parseInt(h.slice(2, 4), 16), parseInt(h.slice(4, 6), 16), 1];
+          }
+        }
+        var m = /^rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)(?:\s*,\s*([\d.]+))?\s*\)$/i.exec(s);
+        if (m) return [Number(m[1]), Number(m[2]), Number(m[3]), m[4] !== undefined ? Number(m[4]) : 1];
+        return null;
+      }
+
+      function compositeOver(fg, bg) {
+        var a = fg[3] !== undefined ? fg[3] : 1;
+        return [
+          Math.round(fg[0] * a + bg[0] * (1 - a)),
+          Math.round(fg[1] * a + bg[1] * (1 - a)),
+          Math.round(fg[2] * a + bg[2] * (1 - a)),
+          1
+        ];
+      }
+
+      function relLum(rgb) {
+        var c = [rgb[0], rgb[1], rgb[2]].map(function (v) {
+          var s = v / 255;
+          return s <= 0.03928 ? s / 12.92 : Math.pow((s + 0.055) / 1.055, 2.4);
+        });
+        return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2];
+      }
+
+      function wcagRatio(fgStr, bgStr, canvasBackdrop) {
+        var b = parseCssColor(bgStr);
+        var f = parseCssColor(fgStr);
+        if (!f || !b) return 1;
+        if (b[3] < 1) {
+          var back = parseCssColor(canvasBackdrop) || [0, 0, 0, 1];
+          b = compositeOver(b, back);
+        }
+        if (f[3] < 1) f = compositeOver(f, b);
+        var l1 = relLum(f);
+        var l2 = relLum(b);
+        return (Math.max(l1, l2) + 0.05) / (Math.min(l1, l2) + 0.05);
+      }
+
+      function bestTextForBg(bgStr, canvasBackdrop) {
+        return wcagRatio('#000000', bgStr, canvasBackdrop) >= wcagRatio('#ffffff', bgStr, canvasBackdrop) ? '#000000' : '#ffffff';
+      }
+
+      // 1. Global Theme Switcher
+      var themeSelect = document.getElementById('globalThemeSelect');
+      var p1ThemeSelect = document.getElementById('p1Theme');
+      var themeIds = Object.keys(DATA.palettes);
+      themeIds.forEach(function (id) {
+        var label = DATA.palettes[id].label || id;
+        themeSelect.appendChild(el('option', { value: id, text: label }));
+        p1ThemeSelect.appendChild(el('option', { value: id, text: label }));
+      });
+
+      function applyGlobalTheme(themeId) {
+        if (!DATA.palettes[themeId]) return;
+        document.documentElement.setAttribute('data-theme', themeId);
+        themeSelect.value = themeId;
+        p1ThemeSelect.value = themeId;
+        var v = DATA.palettes[themeId].vars;
+        var r = wcagRatio(v.text, v.bg);
+        document.getElementById('globalContrastBadge').textContent = 'text/bg ' + r.toFixed(2) + ':1';
+        renderProto1();
+      }
+      themeSelect.addEventListener('change', function () { applyGlobalTheme(themeSelect.value); });
+      p1ThemeSelect.addEventListener('change', function () { applyGlobalTheme(p1ThemeSelect.value); });
+
+      // 2. Render Section 2 Tables
+      var presBody = document.getElementById('preservationTableBody');
+      DATA.preservation.forEach(function (row) {
+        presBody.appendChild(el('tr', null, [
+          el('td', null, el('strong', { text: row[0] })),
+          el('td', { className: 'mono', text: row[1] }),
+          el('td', { text: row[2] })
+        ]));
+      });
+
+      var ledgerBody = document.getElementById('ledgerTableBody');
+      DATA.ledger.forEach(function (row) {
+        ledgerBody.appendChild(el('tr', null, [
+          el('td', { text: row.claim }),
+          el('td', null, el('span', { className: 'badge', text: row.sourceStatus })),
+          el('td', null, [
+            el('div', { text: row.verifiedFact }),
+            el('div', { className: 'mono muted', text: row.sourceRef })
+          ])
+        ]));
+      });
+
+      // 3. Filterable Matrix
+      var fLayer = document.getElementById('filterLayer');
+      var fSeverity = document.getElementById('filterSeverity');
+      var fEvidence = document.getElementById('filterEvidence');
+      var fPriority = document.getElementById('filterPriority');
+      var fKeyword = document.getElementById('filterKeyword');
+      var listEl = document.getElementById('auditFindingList');
+      var countBadge = document.getElementById('matrixCountBadge');
+
+      function renderFindings() {
+        var q = (fKeyword.value || '').trim().toLowerCase();
+        var filtered = DATA.findings.filter(function (f) {
+          if (fLayer.value !== 'ALL' && f.layer !== fLayer.value) return false;
+          if (fSeverity.value !== 'ALL' && f.severity !== fSeverity.value) return false;
+          if (fEvidence.value !== 'ALL' && f.evidenceClass !== fEvidence.value) return false;
+          if (fPriority.value !== 'ALL' && f.priority !== fPriority.value) return false;
+          if (q) {
+            var hay = [f.id, f.layer, f.title, f.behavior, f.impact, f.correction, f.affectedFiles.join(' ')].join(' ').toLowerCase();
+            if (hay.indexOf(q) === -1) return false;
+          }
+          return true;
+        });
+
+        while (listEl.firstChild) listEl.removeChild(listEl.firstChild);
+        countBadge.textContent = filtered.length + ' of ' + DATA.findings.length + ' findings shown';
+
+        if (filtered.length === 0) {
+          listEl.appendChild(el('div', { className: 'notice', text: 'No findings match the current filter combination.' }));
+          return;
+        }
+
+        filtered.forEach(function (f) {
+          var badges = el('div', { className: 'badge-row' }, [
+            el('span', { className: 'badge mono', text: f.id }),
+            el('span', { className: 'badge', text: f.layer }),
+            el('span', { className: 'badge ev-' + f.evidenceClass, text: f.evidenceLabel }),
+            el('span', { className: 'badge sev-' + f.severity, text: 'Severity: ' + f.severity }),
+            el('span', { className: 'badge', text: 'Impact: ' + f.userImpact }),
+            el('span', { className: 'badge', text: 'Confidence: ' + f.confidence }),
+            el('span', { className: 'badge', text: 'Priority: ' + f.priority })
+          ]);
+
+          var fileChips = el('div', { className: 'file-chips' },
+            f.affectedFiles.map(function (fp) { return el('span', { className: 'file-chip', text: fp }); })
+          );
+
+          listEl.appendChild(el('article', { className: 'finding-card' }, [
+            el('div', { className: 'finding-top' }, [
+              el('h3', { className: 'finding-title', text: f.title }),
+              badges
+            ]),
+            el('p', { style: 'margin: 8px 0 6px;', text: f.behavior }),
+            fileChips,
+            el('div', { className: 'finding-meta' }, [
+              el('div', null, [el('div', { className: 'meta-k', text: 'Impact' }), el('div', { text: f.impact })]),
+              el('div', null, [el('div', { className: 'meta-k', text: 'Bounded Correction' }), el('div', { text: f.correction })]),
+              el('div', null, [el('div', { className: 'meta-k', text: 'Preservation Check' }), el('div', { text: f.preservation })]),
+              el('div', null, [el('div', { className: 'meta-k', text: 'Validation Needed' }), el('div', { text: f.validation })])
+            ])
+          ]));
+        });
+      }
+
+      [fLayer, fSeverity, fEvidence, fPriority].forEach(function (ctrl) {
+        ctrl.addEventListener('change', renderFindings);
+      });
+      fKeyword.addEventListener('input', renderFindings);
+      renderFindings();
+
+      // 4. Section 4 Benchmarks
+      var benchBody = document.getElementById('benchmarkTableBody');
+      DATA.benchmarks.forEach(function (b) {
+        var link = el('a', { href: b.url, target: '_blank', rel: 'noopener noreferrer', className: 'mono', text: b.url });
+        benchBody.appendChild(el('tr', null, [
+          el('td', null, el('strong', { text: b.source })),
+          el('td', { text: b.focus }),
+          el('td', null, link),
+          el('td', { text: b.mapping })
+        ]));
+      });
+
+      // 5. Prototype Tab Switching (Accessible APG Tabs with Arrow navigation)
+      var protoTabs = Array.prototype.slice.call(document.querySelectorAll('.proto-tab'));
+      function activateProto(id) {
+        protoTabs.forEach(function (btn) {
+          var active = btn.getAttribute('data-proto') === id;
+          btn.setAttribute('aria-selected', active ? 'true' : 'false');
+          btn.setAttribute('tabindex', active ? '0' : '-1');
+          var panel = document.getElementById('panel-' + btn.getAttribute('data-proto'));
+          if (panel) panel.hidden = !active;
+        });
+      }
+      protoTabs.forEach(function (btn, idx) {
+        btn.addEventListener('click', function () { activateProto(btn.getAttribute('data-proto')); });
+        btn.addEventListener('keydown', function (ev) {
+          var next = idx;
+          if (ev.key === 'ArrowRight') next = (idx + 1) % protoTabs.length;
+          else if (ev.key === 'ArrowLeft') next = (idx - 1 + protoTabs.length) % protoTabs.length;
+          else if (ev.key === 'Home') next = 0;
+          else if (ev.key === 'End') next = protoTabs.length - 1;
+          else return;
+          ev.preventDefault();
+          protoTabs[next].focus();
+          activateProto(protoTabs[next].getAttribute('data-proto'));
+        });
+      });
+
+      // PROTOTYPE 1: 7-Theme Contrast Lab
+      var p1FixedTags = false;
+      var p1Cvd = false;
+      var p1Hollow = false;
+      var p1TagBtn = document.getElementById('p1TagModeBtn');
+      var p1CvdBtn = document.getElementById('p1CvdBtn');
+      var p1HollowBtn = document.getElementById('p1HollowBtn');
+
+      p1TagBtn.addEventListener('click', function () {
+        p1FixedTags = !p1FixedTags;
+        p1TagBtn.setAttribute('aria-pressed', String(p1FixedTags));
+        p1TagBtn.classList.toggle('active', p1FixedTags);
+        p1TagBtn.textContent = p1FixedTags ? 'Tag Mode: Adaptive W3C Contrast' : 'Tag Mode: Current (#ffffff hardcoded)';
+        renderProto1();
+      });
+      p1CvdBtn.addEventListener('click', function () {
+        p1Cvd = !p1Cvd;
+        p1CvdBtn.setAttribute('aria-pressed', String(p1Cvd));
+        p1CvdBtn.classList.toggle('active', p1Cvd);
+        p1CvdBtn.textContent = p1Cvd ? 'Colorblind: On (Okabe-Ito Blue/Orange)' : 'Colorblind: Off (Green/Red)';
+        renderProto1();
+      });
+      p1HollowBtn.addEventListener('click', function () {
+        p1Hollow = !p1Hollow;
+        p1HollowBtn.setAttribute('aria-pressed', String(p1Hollow));
+        p1HollowBtn.classList.toggle('active', p1Hollow);
+        p1HollowBtn.textContent = p1Hollow ? 'Up-Candle Style: Hollow Stroke' : 'Up-Candle Style: Filled';
+        renderProto1();
+      });
+
+      function renderProto1() {
+        var id = p1ThemeSelect.value || 'midnight-slate-pro';
+        var pal = DATA.palettes[id];
+        var v = pal.vars;
+        var c = pal.chart || {};
+        var upCol = p1Cvd ? '#0072B2' : (c.candleUp || v.green);
+        var dnCol = p1Cvd ? '#D55E00' : (c.candleDown || v.red);
+        var chartBg = c.background || v.bg;
+        var axisBg = c.axisBackground || v.bg2;
+        var highBg = p1FixedTags ? (pal.isLight ? '#15803d' : '#78e7a0') : '#78e7a0';
+        var lowBg = p1FixedTags ? (pal.isLight ? '#b91c1c' : '#ff9a9a') : '#ff9a9a';
+        var prevBg = p1FixedTags ? (pal.isLight ? '#334155' : '#9ab0c8') : 'rgba(154, 176, 200, 0.92)';
+        var highFg = p1FixedTags ? bestTextForBg(highBg) : '#ffffff';
+        var lowFg = p1FixedTags ? bestTextForBg(lowBg) : '#ffffff';
+        var prevFg = p1FixedTags ? bestTextForBg(prevBg, axisBg) : '#ffffff';
+        var chBg = p1FixedTags ? v.accent : 'rgba(9, 18, 29, 0.96)';
+        var chFg = p1FixedTags ? v.accentContrast : '#ffffff';
+        var btnFg = p1FixedTags ? v.accentContrast : v.text;
+
+        var rows = [
+          ['Primary Text on bg (--text / --bg)', 'WCAG 1.4.3 Text (>=4.5:1)', wcagRatio(v.text, v.bg), 4.5],
+          ['Dim Text on bg (--textDim / --bg)', 'WCAG 1.4.3 Text (>=4.5:1)', wcagRatio(v.textDim, v.bg), 4.5],
+          ['Muted Text on bg (--textMute / --bg)', 'WCAG 1.4.3 Small Text (>=4.5:1)', wcagRatio(v.textMute, v.bg), 4.5],
+          ['Accent Btn Text (' + (p1FixedTags ? '--accentContrast' : '--text') + ' / --accent)', 'WCAG 1.4.3 Text (>=4.5:1)', wcagRatio(btnFg, v.accent), 4.5],
+          ['Axis High Tag (' + highFg + ' / ' + highBg + ')', 'WCAG 1.4.3 Tag Text (>=4.5:1)', wcagRatio(highFg, highBg), 4.5],
+          ['Axis Low Tag (' + lowFg + ' / ' + lowBg + ')', 'WCAG 1.4.3 Tag Text (>=4.5:1)', wcagRatio(lowFg, lowBg), 4.5],
+          ['PrevClose Tag (' + prevFg + ' / PrevBg)', 'WCAG 1.4.3 Tag Text (>=4.5:1)', wcagRatio(prevFg, prevBg, axisBg), 4.5],
+          ['Crosshair Pill (' + chFg + ' / PillBg)', 'WCAG 1.4.3 Tag Text (>=4.5:1)', wcagRatio(chFg, chBg, axisBg), 4.5],
+          ['Up Candle Body on Chart Bg', 'WCAG 1.4.11 Graphical (>=3.0:1)', wcagRatio(upCol, chartBg), 3.0],
+          ['Down Candle Body on Chart Bg', 'WCAG 1.4.11 Graphical (>=3.0:1)', wcagRatio(dnCol, chartBg), 3.0]
+        ];
+
+        var body = document.getElementById('p1ContrastBody');
+        while (body.firstChild) body.removeChild(body.firstChild);
+        rows.forEach(function (r) {
+          var pass = r[2] >= r[3];
+          body.appendChild(el('tr', null, [
+            el('td', { text: r[0] }),
+            el('td', { className: 'muted', text: r[1] }),
+            el('td', { className: 'mono tnum', text: r[2].toFixed(2) + ':1' }),
+            el('td', null, el('span', { className: 'badge ' + (pass ? 'ev-A' : 'sev-Critical'), text: pass ? 'PASS' : 'FAIL' }))
+          ]));
+        });
+
+        var svg = document.getElementById('p1ChartSvg');
+        while (svg.firstChild) svg.removeChild(svg.firstChild);
+        svg.appendChild(svgEl('rect', { x: 0, y: 0, width: 560, height: 270, fill: chartBg }));
+        svg.appendChild(svgEl('rect', { x: 445, y: 0, width: 115, height: 270, fill: axisBg }));
+        svg.appendChild(svgEl('line', { x1: 445, y1: 0, x2: 445, y2: 270, stroke: v.border }));
+
+        var bars = [
+          { x: 60, h: 170, l: 210, o: 200, c: 178, up: true },
+          { x: 115, h: 145, l: 190, o: 178, c: 155, up: true },
+          { x: 170, h: 135, l: 175, o: 145, c: 168, up: false },
+          { x: 225, h: 115, l: 165, o: 160, c: 124, up: true },
+          { x: 280, h: 85, l: 140, o: 124, c: 96, up: true },
+          { x: 335, h: 88, l: 152, o: 98, c: 138, up: false },
+          { x: 390, h: 65, l: 130, o: 122, c: 76, up: true }
+        ];
+        bars.forEach(function (b) {
+          var col = b.up ? upCol : dnCol;
+          svg.appendChild(svgEl('line', { x1: b.x, y1: b.h, x2: b.x, y2: b.l, stroke: col, 'stroke-width': 2 }));
+          var top = Math.min(b.o, b.c);
+          var ht = Math.max(8, Math.abs(b.c - b.o));
+          svg.appendChild(svgEl('rect', {
+            x: b.x - 10, y: top, width: 20, height: ht, rx: 2,
+            fill: (b.up && p1Hollow) ? chartBg : col,
+            stroke: col, 'stroke-width': 2
+          }));
+        });
+
+        var tags = [
+          { y: 52, bg: highBg, fg: highFg, txt: 'H 3015.0' },
+          { y: 105, bg: chBg, fg: chFg, txt: '2992.4' },
+          { y: 158, bg: prevBg, fg: prevFg, txt: 'P 2971.0' },
+          { y: 210, bg: lowBg, fg: lowFg, txt: 'L 2940.5' }
+        ];
+        tags.forEach(function (t) {
+          svg.appendChild(svgEl('rect', { x: 454, y: t.y, width: 92, height: 22, rx: 4, fill: t.bg }));
+          var tx = svgEl('text', { x: 500, y: t.y + 15, fill: t.fg, 'font-size': 11, 'font-family': 'Cascadia Mono, Consolas, monospace', 'text-anchor': 'middle', 'font-weight': 700 });
+          tx.textContent = t.txt;
+          svg.appendChild(tx);
+        });
+      }
+
+      // PROTOTYPE 2: Titlebar, SVG Dock, Object Tree
+      var p2Layers = [
+        { name: 'Candles (Main)', visible: true, locked: true },
+        { name: 'EMA (20)', visible: true, locked: false },
+        { name: 'RSI (14)', visible: true, locked: false },
+        { name: 'Trendline #1', visible: true, locked: false }
+      ];
+      function renderProto2Tree() {
+        var list = document.getElementById('p2TreeList');
+        while (list.firstChild) list.removeChild(list.firstChild);
+        p2Layers.forEach(function (item) {
+          var visBtn = el('button', { type: 'button', className: 'ui-btn', style: 'min-height:24px; padding:2px 6px; font-size:11px;', text: item.visible ? 'Hide' : 'Show' });
+          visBtn.addEventListener('click', function () {
+            item.visible = !item.visible;
+            renderProto2Tree();
+            document.getElementById('p2LayersSummary').textContent = 'Visible Objects: ' + p2Layers.filter(function (x) { return x.visible; }).map(function (x) { return x.name; }).join(', ');
+          });
+          var lockBtn = el('button', { type: 'button', className: 'ui-btn', style: 'min-height:24px; padding:2px 6px; font-size:11px;', text: item.locked ? 'Locked' : 'Unlock' });
+          lockBtn.addEventListener('click', function () {
+            item.locked = !item.locked;
+            renderProto2Tree();
+          });
+          list.appendChild(el('div', { className: 'kpi-card', style: 'padding:6px 8px;' }, [
+            el('div', { style: 'font-weight:600; margin-bottom:4px;', text: item.name }),
+            el('div', { className: 'badge-row' }, [visBtn, lockBtn])
+          ]));
+        });
+      }
+      renderProto2Tree();
+      document.getElementById('p2ToggleTree').addEventListener('click', function (e) {
+        var dr = document.getElementById('p2Drawer');
+        dr.hidden = !dr.hidden;
+        e.currentTarget.setAttribute('aria-pressed', String(!dr.hidden));
+        e.currentTarget.classList.toggle('active', !dr.hidden);
+        e.currentTarget.textContent = 'Object Tree Drawer: ' + (dr.hidden ? 'Closed' : 'Open');
+      });
+      document.getElementById('p2ToggleDataWin').addEventListener('click', function (e) {
+        var dw = document.getElementById('p2DataWinCard');
+        dw.hidden = !dw.hidden;
+        e.currentTarget.setAttribute('aria-pressed', String(!dw.hidden));
+        e.currentTarget.classList.toggle('active', !dw.hidden);
+        e.currentTarget.textContent = 'Data Window Card: ' + (dw.hidden ? 'Hidden' : 'Visible');
+      });
+      document.getElementById('p2SimCmd').addEventListener('click', function () {
+        document.getElementById('p2CmdBox').hidden = false;
+      });
+      document.getElementById('p2SearchPill').addEventListener('click', function () {
+        document.getElementById('p2CmdBox').hidden = false;
+      });
+      document.getElementById('p2CloseCmd').addEventListener('click', function () {
+        document.getElementById('p2CmdBox').hidden = true;
+      });
+      document.querySelectorAll('#panel-p2 [data-tool], #panel-p2 [data-menu]').forEach(function (b) {
+        b.addEventListener('click', function () {
+          var v = b.getAttribute('data-tool') || ('Menu ' + b.getAttribute('data-menu'));
+          document.getElementById('p2Status').textContent = 'Selected: ' + v;
+        });
+      });
+
+      // PROTOTYPE 3: Viewport Clamp, Z-Stack, Styled Confirm
+      var p3MinVp = true;
+      var p3Fixed = false;
+      function updateProto3Stage() {
+        var stage = document.getElementById('p3Stage');
+        var winFloat = document.getElementById('p3WinFloating');
+        var winSet = document.getElementById('p3WinSettings');
+        var fZ = document.getElementById('p3FloatZ');
+        var sTitle = document.getElementById('p3SettingsTitle');
+        var sMeta = document.getElementById('p3SettingsMeta');
+
+        stage.style.maxWidth = p3MinVp ? '640px' : '100%';
+        if (p3Fixed) {
+          winFloat.style.zIndex = '300';
+          winSet.style.zIndex = '910';
+          winSet.style.left = '90px';
+          winSet.style.top = '48px';
+          winSet.style.width = 'calc(100% - 110px)';
+          winSet.style.height = '210px';
+          fZ.textContent = 'z-index: 300 (Tier 3 Floating)';
+          sTitle.textContent = 'IndicatorPicker (Clamped inside viewport - 24px)';
+          sMeta.textContent = 'z-index: 910 (Tier 4 Modal) — No clipping, no occlusion';
+        } else {
+          winFloat.style.zIndex = '101';
+          winSet.style.zIndex = '50';
+          winSet.style.left = '120px';
+          winSet.style.top = '54px';
+          winSet.style.width = p3MinVp ? '590px' : '640px';
+          winSet.style.height = '265px';
+          fZ.textContent = 'z-index: 101 (Occludes Modal!)';
+          sTitle.textContent = 'IndicatorPicker (Raw 960x620 @ 160,70)';
+          sMeta.textContent = 'z-index: 50 < 101 -> OCCLUDED & OVERFLOWS RIGHT/BOTTOM';
+        }
+      }
+      document.getElementById('p3SizeBtn').addEventListener('click', function (e) {
+        p3MinVp = !p3MinVp;
+        e.currentTarget.setAttribute('aria-pressed', String(p3MinVp));
+        e.currentTarget.textContent = p3MinVp ? 'Viewport: 960x640 (Min Bounds)' : 'Viewport: 1440x900';
+        updateProto3Stage();
+      });
+      document.getElementById('p3FixBtn').addEventListener('click', function (e) {
+        p3Fixed = !p3Fixed;
+        e.currentTarget.setAttribute('aria-pressed', String(p3Fixed));
+        e.currentTarget.classList.toggle('active', p3Fixed);
+        e.currentTarget.textContent = p3Fixed ? 'Stack Mode: Fixed (Clamped + Tiered Z)' : 'Stack Mode: Current Main (Overflow + Z-Inversion)';
+        updateProto3Stage();
+      });
+      document.getElementById('p3ToggleEmpty').addEventListener('click', function () {
+        var box = document.getElementById('p3EmptyOverlay');
+        box.hidden = !box.hidden;
+      });
+      var CONFIRM_TEXTS = {
+        undo: ['Confirm Manual Import Undo', 'Undo session MI-20261112? Quotes modified after import are preserved as conflicts rather than silently overwritten.'],
+        mismatch: ['Confirm Source Exchange Mismatch', 'Selected CSV files appear to contain BSE tickers while target database exchange is NSE. Continue import?'],
+        allDelete: ['Confirm All-Exchange Quote Delete', 'Delete matching quote dates across ALL exchanges (2026-11-10..2026-11-12)? Symbol/instrument identities remain preserved.']
+      };
+      document.getElementById('p3OpenConfirm').addEventListener('click', function () {
+        var kind = document.getElementById('p3ConfirmKind').value;
+        var info = CONFIRM_TEXTS[kind] || CONFIRM_TEXTS.undo;
+        document.getElementById('p3ConfirmTitle').textContent = info[0];
+        document.getElementById('p3ConfirmBody').textContent = info[1];
+        document.getElementById('p3ConfirmResult').textContent = '';
+        var mod = document.getElementById('p3ConfirmModal');
+        mod.hidden = false;
+        document.getElementById('p3ConfirmCancel').focus();
+      });
+      document.getElementById('p3ConfirmCancel').addEventListener('click', function () {
+        document.getElementById('p3ConfirmResult').textContent = 'Cancelled safely (zero writes).';
+      });
+      document.getElementById('p3ConfirmOk').addEventListener('click', function () {
+        document.getElementById('p3ConfirmResult').textContent = 'Confirmed explicit user action (z-tier 1400).';
+      });
+      document.addEventListener('keydown', function (ev) {
+        if (ev.key !== 'Escape') return;
+        var p3Mod = document.getElementById('p3ConfirmModal');
+        if (p3Mod && !p3Mod.hidden) {
+          p3Mod.hidden = true;
+          document.getElementById('p3OpenConfirm').focus();
+        }
+        var p2Box = document.getElementById('p2CmdBox');
+        if (p2Box && !p2Box.hidden) {
+          p2Box.hidden = true;
+          document.getElementById('p2SearchPill').focus();
+        }
+      });
+      updateProto3Stage();
+
+      // PROTOTYPE 4: 2x2 Tile Isolation Simulator
+      var p4FixedArch = false;
+      var p4CrossSync = false;
+      var p4Clones = 0;
+      var p4Rerenders = 0;
+      var p4Autosaves = 0;
+      var p4ActiveId = 'tile-1';
+      var P4_TILES = [
+        { id: 'tile-1', sym: 'NSE:NIFTY [D]', base: 24310 },
+        { id: 'tile-2', sym: 'NSE:BANKNIFTY [W]', base: 51840 },
+        { id: 'tile-3', sym: 'NSE:RELIANCE [D]', base: 3008 },
+        { id: 'tile-4', sym: 'NSE:TCS [M]', base: 4145 }
+      ];
+
+      function updateProto4Stats() {
+        document.getElementById('p4ActiveTab').textContent = p4ActiveId;
+        document.getElementById('p4Clones').textContent = String(p4Clones);
+        document.getElementById('p4Rerenders').textContent = String(p4Rerenders);
+        document.getElementById('p4Autosaves').textContent = String(p4Autosaves);
+        P4_TILES.forEach(function (t) {
+          var card = document.getElementById('p4card-' + t.id);
+          if (card) card.classList.toggle('active-tile', t.id === p4ActiveId);
+        });
+      }
+
+      var p4Grid = document.getElementById('p4Grid');
+      P4_TILES.forEach(function (t) {
+        var readout = el('div', { className: 'mono tnum muted', id: 'p4read-' + t.id, text: 'Move pointer across tile to inspect bar...' });
+        var card = el('div', { className: 'chart-tile', id: 'p4card-' + t.id, tabindex: '0', 'aria-label': t.sym + ' simulation tile' }, [
+          el('div', { style: 'display:flex; justify-content:space-between; font-weight:700; margin-bottom:6px;' }, [
+            el('span', { className: 'mono', text: t.sym }),
+            el('span', { className: 'badge mono', text: t.id })
+          ]),
+          readout
+        ]);
+
+        function onHoverStep(offset) {
+          var price = (t.base + offset * 3.25).toFixed(2);
+          if (!p4FixedArch) {
+            p4Clones += 1;
+            p4Rerenders += 1;
+            p4Autosaves += 1;
+            var activeRead = document.getElementById('p4read-' + p4ActiveId);
+            if (activeRead) {
+              activeRead.textContent = 'LEAKED to activeTab (' + p4ActiveId + '): ' + t.sym + ' @ ' + price;
+            }
+          } else {
+            if (p4CrossSync) {
+              P4_TILES.forEach(function (other) {
+                var rEl = document.getElementById('p4read-' + other.id);
+                if (rEl) rEl.textContent = 'Synced Hover Bar #' + (offset + 10) + ' -> ' + (other.base + offset * 3.25).toFixed(2);
+              });
+            } else {
+              readout.textContent = 'Isolated Hover [' + t.id + '] -> ' + price + ' (0 autosaves)';
+            }
+          }
+          updateProto4Stats();
+        }
+
+        card.addEventListener('mousemove', function (ev) {
+          var rect = card.getBoundingClientRect();
+          var rel = Math.round((ev.clientX - rect.left) / 14);
+          onHoverStep(rel);
+        });
+        card.addEventListener('click', function () {
+          p4ActiveId = t.id;
+          onHoverStep(5);
+        });
+        card.addEventListener('keydown', function (ev) {
+          if (ev.key === 'Enter' || ev.key === ' ') {
+            ev.preventDefault();
+            p4ActiveId = t.id;
+            onHoverStep(5);
+          }
+        });
+        p4Grid.appendChild(card);
+      });
+
+      document.getElementById('p4ArchBtn').addEventListener('click', function (e) {
+        p4FixedArch = !p4FixedArch;
+        e.currentTarget.setAttribute('aria-pressed', String(p4FixedArch));
+        e.currentTarget.classList.toggle('active', p4FixedArch);
+        e.currentTarget.textContent = p4FixedArch
+          ? 'Behavior: Fixed (tabId Slice + Transient Hover)'
+          : 'Behavior: Current Main (Active-Tab Leak + Autosave Churn)';
+      });
+      document.getElementById('p4SyncBtn').addEventListener('click', function (e) {
+        p4CrossSync = !p4CrossSync;
+        e.currentTarget.setAttribute('aria-pressed', String(p4CrossSync));
+        e.currentTarget.classList.toggle('active', p4CrossSync);
+        e.currentTarget.textContent = 'Optional Crosshair Sync: ' + (p4CrossSync ? 'On' : 'Off');
+      });
+      document.getElementById('p4ResetBtn').addEventListener('click', function () {
+        p4Clones = 0; p4Rerenders = 0; p4Autosaves = 0;
+        updateProto4Stats();
+      });
+      updateProto4Stats();
+
+      // PROTOTYPE 5: Keyboard Chart Inspector & Semantic OHLCV Table
+      var P5_BARS = [
+        { date: '2026-11-03', o: 2945.0, h: 2972.5, l: 2938.0, c: 2964.2, v: 4120500 },
+        { date: '2026-11-04', o: 2965.0, h: 2989.0, l: 2952.0, c: 2981.1, v: 4680100 },
+        { date: '2026-11-05', o: 2980.0, h: 2991.5, l: 2958.5, c: 2962.0, v: 3910400 },
+        { date: '2026-11-06', o: 2963.5, h: 2998.0, l: 2960.0, c: 2992.4, v: 5210800 },
+        { date: '2026-11-10', o: 2990.0, h: 3015.0, l: 2976.0, c: 3008.75, v: 6044200 },
+        { date: '2026-11-11', o: 3007.0, h: 3022.0, l: 2991.0, c: 3001.5, v: 4412300 },
+        { date: '2026-11-12', o: 3002.0, h: 3034.5, l: 2995.0, c: 3029.8, v: 5890110 }
+      ];
+      var p5Idx = 4;
+      var p5InspectorOn = true;
+      var p5FocusBroken = false;
+
+      var p5TableBody = document.getElementById('p5TableBody');
+      function renderProto5() {
+        var b = P5_BARS[p5Idx];
+        document.getElementById('p5LiveReadout').textContent =
+          'Session ' + b.date + ' · O ' + b.o.toFixed(2) + ' · H ' + b.h.toFixed(2) + ' · L ' + b.l.toFixed(2) + ' · C ' + b.c.toFixed(2) + ' · Vol ' + b.v.toLocaleString('en-IN') + ' (Inspector ' + (p5InspectorOn ? 'Active' : 'Paused') + ')';
+
+        var svg = document.getElementById('p5ChartSvg');
+        while (svg.firstChild) svg.removeChild(svg.firstChild);
+        svg.appendChild(svgEl('rect', { x: 0, y: 0, width: 640, height: 210, fill: 'var(--chart-bg)' }));
+        P5_BARS.forEach(function (bar, i) {
+          var cx = 65 + i * 82;
+          var minP = 2930, maxP = 3040;
+          var py = function (p) { return 180 - ((p - minP) / (maxP - minP)) * 145; };
+          var col = bar.c >= bar.o ? 'var(--candle-up)' : 'var(--candle-down)';
+          if (i === p5Idx && p5InspectorOn) {
+            svg.appendChild(svgEl('rect', { x: cx - 22, y: 14, width: 44, height: 182, rx: 4, fill: 'var(--accent-soft)', stroke: 'var(--accent)', 'stroke-width': 1.5 }));
+          }
+          svg.appendChild(svgEl('line', { x1: cx, y1: py(bar.h), x2: cx, y2: py(bar.l), stroke: col, 'stroke-width': 2 }));
+          var yO = py(bar.o), yC = py(bar.c);
+          svg.appendChild(svgEl('rect', { x: cx - 10, y: Math.min(yO, yC), width: 20, height: Math.max(5, Math.abs(yC - yO)), fill: col, rx: 2 }));
+          var lbl = svgEl('text', { x: cx, y: 202, fill: 'var(--text-dim)', 'font-size': 10, 'text-anchor': 'middle', 'font-family': 'Cascadia Mono, monospace' });
+          lbl.textContent = bar.date.slice(5);
+          svg.appendChild(lbl);
+        });
+
+        while (p5TableBody.firstChild) p5TableBody.removeChild(p5TableBody.firstChild);
+        P5_BARS.forEach(function (bar, i) {
+          var row = el('tr', i === p5Idx ? { style: 'background: var(--accent-soft); font-weight: 700;' } : null, [
+            el('td', { className: 'mono tnum', text: bar.date }),
+            el('td', { className: 'mono tnum', text: bar.o.toFixed(2) }),
+            el('td', { className: 'mono tnum', text: bar.h.toFixed(2) }),
+            el('td', { className: 'mono tnum', text: bar.l.toFixed(2) }),
+            el('td', { className: 'mono tnum', text: bar.c.toFixed(2) }),
+            el('td', { className: 'mono tnum', text: bar.v.toLocaleString('en-IN') })
+          ]);
+          p5TableBody.appendChild(row);
+        });
+      }
+      document.getElementById('p5StepPrev').addEventListener('click', function () { p5Idx = Math.max(0, p5Idx - 1); renderProto5(); });
+      document.getElementById('p5StepNext').addEventListener('click', function () { p5Idx = Math.min(P5_BARS.length - 1, p5Idx + 1); renderProto5(); });
+      document.getElementById('p5InspectorBtn').addEventListener('click', function (e) {
+        p5InspectorOn = !p5InspectorOn;
+        e.currentTarget.setAttribute('aria-pressed', String(p5InspectorOn));
+        e.currentTarget.classList.toggle('active', p5InspectorOn);
+        e.currentTarget.textContent = 'Inspector Mode (I): ' + (p5InspectorOn ? 'On — Shift+Arrow Steps Bars' : 'Off');
+        renderProto5();
+      });
+      document.getElementById('p5TableToggleBtn').addEventListener('click', function (e) {
+        var wrap = document.getElementById('p5TableWrap');
+        wrap.hidden = !wrap.hidden;
+        e.currentTarget.setAttribute('aria-pressed', String(!wrap.hidden));
+        e.currentTarget.textContent = wrap.hidden ? 'Show Semantic OHLCV Table' : 'Hide Semantic OHLCV Table';
+      });
+      document.getElementById('p5FocusModeBtn').addEventListener('click', function (e) {
+        p5FocusBroken = !p5FocusBroken;
+        document.getElementById('p5StageWrap').classList.toggle('focus-broken', p5FocusBroken);
+        e.currentTarget.setAttribute('aria-pressed', String(p5FocusBroken));
+        e.currentTarget.textContent = p5FocusBroken ? 'Focus Style: Current Broken (outline: none)' : 'Focus Style: Fixed (2px :focus-visible)';
+      });
+      document.getElementById('p5ChartFocusBox').addEventListener('keydown', function (ev) {
+        if (ev.key.toLowerCase() === 'i') {
+          ev.preventDefault();
+          p5InspectorOn = !p5InspectorOn;
+          document.getElementById('p5InspectorBtn').textContent = 'Inspector Mode (I): ' + (p5InspectorOn ? 'On — Shift+Arrow Steps Bars' : 'Off');
+          renderProto5();
+        } else if (ev.shiftKey && ev.key === 'ArrowLeft') {
+          ev.preventDefault();
+          p5Idx = Math.max(0, p5Idx - 1);
+          renderProto5();
+        } else if (ev.shiftKey && ev.key === 'ArrowRight') {
+          ev.preventDefault();
+          p5Idx = Math.min(P5_BARS.length - 1, p5Idx + 1);
+          renderProto5();
+        } else if (!ev.shiftKey && (ev.key === 'ArrowLeft' || ev.key === 'ArrowRight')) {
+          document.getElementById('p5LiveReadout').textContent = 'Accepted contract preserved: plain ' + ev.key + ' pans chart viewport (inspector unchanged).';
+        }
+      });
+      renderProto5();
+
+      // SECTION 7: Roadmap
+      var roadBody = document.getElementById('roadmapTableBody');
+      DATA.roadmap.forEach(function (r) {
+        roadBody.appendChild(el('tr', null, [
+          el('td', null, [el('strong', { className: 'mono', text: r.id }), el('div', { className: 'badge', text: r.priority })]),
+          el('td', null, [el('strong', { text: r.title }), el('div', { className: 'muted', text: r.layer })]),
+          el('td', null, [el('div', { text: 'Prereqs: ' + r.prereqs }), el('div', { className: 'muted', text: 'Risk: ' + r.risk })]),
+          el('td', null, [el('div', { text: 'Preserve: ' + r.preserves }), el('div', { className: 'muted', text: 'Gates: ' + r.gates })]),
+          el('td', null, el('span', { className: 'badge ev-C', text: r.approval }))
+        ]));
+      });
+
+      // SECTION 8: Illustrative Specs & Safe Copy Buttons
+      var specContainer = document.getElementById('specContainer');
+      DATA.specs.forEach(function (sp) {
+        var status = el('span', { className: 'muted mono', 'aria-live': 'polite', text: '' });
+        var copyBtn = el('button', { type: 'button', className: 'ui-btn', text: 'Copy Spec (' + sp.id + ')' });
+        copyBtn.addEventListener('click', function () {
+          function done(msg) {
+            status.textContent = msg;
+            setTimeout(function () { status.textContent = ''; }, 2400);
+          }
+          if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(sp.code).then(function () { done('Copied'); }, function () { done('Clipboard blocked (select text)'); });
+          } else {
+            try {
+              var ta = el('textarea', { style: 'position:fixed; left:-9999px;' });
+              ta.value = sp.code;
+              document.body.appendChild(ta);
+              ta.select();
+              var ok = document.execCommand('copy');
+              document.body.removeChild(ta);
+              done(ok ? 'Copied' : 'Copy unavailable');
+            } catch (err) {
+              done('Copy unavailable');
+            }
+          }
+        });
+
+        specContainer.appendChild(el('article', { className: 'spec-card' }, [
+          el('div', { className: 'spec-header' }, [
+            el('div', { className: 'badge-row' }, [
+              el('span', { className: 'badge mono', text: sp.id }),
+              el('strong', { text: sp.title }),
+              el('span', { className: 'badge ev-C', text: sp.gate })
+            ]),
+            el('div', { className: 'badge-row' }, [status, copyBtn])
+          ]),
+          el('pre', null, el('code', { text: sp.code }))
+        ]));
+      });
+
+      // Initialize default theme metrics cleanly
+      applyGlobalTheme('midnight-slate-pro');
+    })();
+  </script>
+</body>
+</html>

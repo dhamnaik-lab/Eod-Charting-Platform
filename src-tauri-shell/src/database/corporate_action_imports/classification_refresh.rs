@@ -20,6 +20,21 @@ pub async fn refresh_corporate_action_import_classifications(
             false,
             |connection| {
                 run_connection_transaction(connection, |connection| {
+                    if let Ok(Some((url, raw_csv, source_hash))) = connection
+                        .query_row(
+                            "SELECT source_url, raw_csv, source_hash FROM corporate_action_symbol_chain_sources ORDER BY id DESC LIMIT 1",
+                            [],
+                            |r| Ok((r.get::<_, String>(0)?, r.get::<_, String>(1)?, r.get::<_, String>(2)?)),
+                        )
+                        .optional()
+                    {
+                        if url == "https://nsearchives.nseindia.com/content/equities/symbolchange.csv"
+                            && !raw_csv.is_empty()
+                            && source_hash == format!("{:x}", <sha2::Sha256 as sha2::Digest>::digest(raw_csv.as_bytes()))
+                        {
+                            let _ = dated_symbol_chain::retain_source(connection, &url, raw_csv.as_bytes());
+                        }
+                    }
                     refresh_classifications(connection, &input.import_ids)
                 })
             },
@@ -104,11 +119,18 @@ fn refresh_classifications_once(
         // Fetch has populated official instrument metadata. Never remap an
         // existing identity or manufacture historical/event-date proof.
         if row.exchange == "BSE" && row.source == "BSE_API"
-            && matches!(row.review_status.as_str(), "UNRESOLVED" | "NEEDS_REVIEW" | "UNSUPPORTED") && row.symbol.is_none()
-            && row.isin.is_none() && row.bse_scrip_code.is_some() && row.evidence_count > 0
+            && ((matches!(row.review_status.as_str(), "UNRESOLVED" | "NEEDS_REVIEW" | "UNSUPPORTED")
+                && row.symbol.is_none()
+                && row.isin.is_none())
+                || (row.symbol.is_some() && row.symbol == row.bse_scrip_code))
+            && row.bse_scrip_code.is_some() && row.evidence_count > 0
         {
             let resolved = recheck_import_row_resolution(connection, row)?;
-            if resolved.symbol.is_some() && resolved.isin.is_some() && resolved.review_status == "PENDING" {
+            if resolved.symbol.is_some()
+                && resolved.symbol != row.symbol
+                && resolved.isin.is_some()
+                && resolved.review_status == "PENDING"
+            {
                 apply_import_row_resolution(connection, row, &resolved)?;
                 if matches!(row.review_status.as_str(), "NEEDS_REVIEW" | "UNSUPPORTED") {
                     // Identity metadata must not clear a separate terms/type block.
@@ -124,10 +146,13 @@ fn refresh_classifications_once(
         identity_recheck::recheck_pending_machine_identity(connection, row)?;
         let current = get_import_row(connection, row.id)?;
         let row = &current;
+        if split_bonus_preparation::split_with_separate_percentage_dividend(row).is_some() {
+            continue;
+        }
         let components = split_bonus_preparation::components(&row.purpose_raw);
         let eligible = row.action_type == "OTHER"
             || (matches!(row.action_type.as_str(), "SPLIT" | "BONUS")
-                && detected_corporate_action_families(&normalize_text(&row.purpose_raw)).len() > 1)
+                && split_bonus_preparation::component_families(&row.purpose_raw).len() > 1)
             || (row.action_type == "DIVIDEND"
                 && (matches!(row.review_status.as_str(), "UNSUPPORTED" | "NEEDS_REVIEW")
                     || row.purpose_raw.contains('%')));
@@ -664,6 +689,27 @@ mod tests {
             ),
             simple_cash_dividend_evidence::SimpleCashDividendEvidence::Ineligible(_)
         ));
+    }
+
+    #[test]
+    fn separate_percentage_dividend_keeps_matching_split_during_preparation() {
+        let c = fixture();
+        let purpose = "Fv Spl 100 To 10/Div150%";
+        insert(&c, 1, "SPLIT", "PENDING", purpose, None);
+        c.execute(
+            "UPDATE corporate_action_imports
+             SET parse_status='PARSED', old_face_value=100, new_face_value=10, factor=10, price_factor=0.1
+             WHERE id=1",
+            [],
+        ).unwrap();
+        let rows = refresh_classifications(&c, &[1]).unwrap();
+        assert_eq!(rows.len(), 1);
+        assert_eq!(rows[0].purpose_raw, purpose);
+        assert_eq!(rows[0].parse_status, "PARSED");
+        assert_eq!(rows[0].review_status, "PENDING");
+        assert_eq!(rows[0].factor, Some(10.0));
+        let count: i64 = c.query_row("SELECT COUNT(*) FROM corporate_action_imports", [], |r| r.get(0)).unwrap();
+        assert_eq!(count, 1);
     }
 
     #[test]

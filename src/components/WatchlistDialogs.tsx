@@ -1,4 +1,5 @@
-import type { CSSProperties, KeyboardEvent, ReactNode } from 'react';
+import { useRef, type CSSProperties, type KeyboardEvent, type ReactNode } from 'react';
+import { useDialogFocus } from '@/features/app/useDialogFocus';
 
 interface WatchlistNameDialogProps {
   title: string;
@@ -27,6 +28,8 @@ export function WatchlistNameDialog({
   onConfirm,
   onCancel,
 }: WatchlistNameDialogProps) {
+  const ref = useRef<HTMLDivElement>(null);
+  useDialogFocus(ref, onCancel);
   const handleKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
     if (event.key === 'Enter') {
       event.preventDefault();
@@ -40,7 +43,8 @@ export function WatchlistNameDialog({
 
   return (
     <div style={backdropStyle} onMouseDown={onCancel}>
-      <div style={dialogStyle} onMouseDown={(event) => event.stopPropagation()}>
+      <div ref={ref} role="dialog" aria-modal="true" aria-label={title} tabIndex={-1}
+        style={dialogStyle} onMouseDown={(event) => event.stopPropagation()}>
         <div style={titleStyle}>{title}</div>
         <label style={labelStyle}>
           <span>{label}</span>
@@ -77,9 +81,12 @@ export function WatchlistConfirmDialog({
   onConfirm,
   onCancel,
 }: WatchlistConfirmDialogProps) {
+  const ref = useRef<HTMLDivElement>(null);
+  useDialogFocus(ref, onCancel);
   return (
     <div style={backdropStyle} onMouseDown={onCancel}>
-      <div style={dialogStyle} onMouseDown={(event) => event.stopPropagation()}>
+      <div ref={ref} role="dialog" aria-modal="true" aria-label={title} tabIndex={-1}
+        style={dialogStyle} onMouseDown={(event) => event.stopPropagation()}>
         <div style={titleStyle}>{title}</div>
         <div style={bodyStyle}>{message}</div>
         <div style={actionsStyle}>

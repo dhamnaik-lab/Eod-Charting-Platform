@@ -197,6 +197,7 @@ pub fn read_plugin_text_file(input: PluginTextFileReadInput) -> AppResult<Plugin
 // --- Phase P2: External Plugin Package Discovery, Loader & Installer ---
 
 const MAX_EXTERNAL_PLUGIN_JS_BYTES: u64 = 4 * 1024 * 1024;
+const MAX_EXTERNAL_PLUGIN_MANIFEST_BYTES: u64 = 64 * 1024;
 const EXTERNAL_PLUGINS_DIR_NAME: &str = "plugins";
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -607,6 +608,23 @@ where
     Ok(description)
 }
 
+fn read_plugin_zip_entry(
+    entry: zip::read::ZipFile<'_>,
+    limit: u64,
+    description: &str,
+) -> AppResult<Vec<u8>> {
+    let size_error = || format!("Plugin {description} exceeds the {limit}-byte limit.");
+    if entry.size() > limit {
+        return Err(size_error());
+    }
+    let mut bytes = Vec::new();
+    entry.take(limit + 1).read_to_end(&mut bytes).map_err(|error| error.to_string())?;
+    if bytes.len() as u64 > limit {
+        return Err(size_error());
+    }
+    Ok(bytes)
+}
+
 fn install_external_plugin_from_path(
     plugins_root: &std::path::Path,
     picked_path: &std::path::Path,
@@ -631,36 +649,30 @@ fn install_external_plugin_from_path(
     let file = fs::File::open(picked_path).map_err(|error| error.to_string())?;
     let mut archive = zip::ZipArchive::new(file)
         .map_err(|error| format!("Invalid plugin archive: {error}"))?;
-    let mut manifest_raw: Option<String> = None;
+    let mut manifest_raw = None;
     for i in 0..archive.len() {
-        let mut entry = archive.by_index(i).map_err(|error| error.to_string())?;
-        if entry.name().ends_with("manifest.json") && entry.size() <= 64 * 1024 {
-            let mut contents = String::new();
-            entry.read_to_string(&mut contents).map_err(|error| error.to_string())?;
-            manifest_raw = Some(contents);
+        let entry = archive.by_index(i).map_err(|error| error.to_string())?;
+        if entry.name().rsplit('/').next() == Some("manifest.json") {
+            manifest_raw = Some(read_plugin_zip_entry(entry, MAX_EXTERNAL_PLUGIN_MANIFEST_BYTES, "manifest")?);
             break;
         }
     }
     let raw = manifest_raw.ok_or("Plugin archive does not contain manifest.json.")?;
     let parsed: ExternalPluginManifestFile =
-        serde_json::from_str(&raw).map_err(|error| error.to_string())?;
+        serde_json::from_slice(&raw).map_err(|error| error.to_string())?;
     let id = validate_external_plugin_id(&parsed.id)?;
     let entry_name = validate_external_entry_file(&parsed.entry)?;
     install_external_plugin_staged(
         plugins_root,
         &id,
         |staging| {
-            fs::write(staging.join("manifest.json"), raw.as_bytes())
+            fs::write(staging.join("manifest.json"), &raw)
                 .map_err(|error| error.to_string())?;
             let mut found_entry = false;
             for i in 0..archive.len() {
-                let mut entry = archive.by_index(i).map_err(|error| error.to_string())?;
-                if entry.name().ends_with(&entry_name) {
-                    if entry.size() > MAX_EXTERNAL_PLUGIN_JS_BYTES {
-                        return Err("Plugin JS bundle exceeds 4 MB limit.".to_string());
-                    }
-                    let mut buffer = Vec::new();
-                    entry.read_to_end(&mut buffer).map_err(|error| error.to_string())?;
+                let entry = archive.by_index(i).map_err(|error| error.to_string())?;
+                if entry.name().rsplit('/').next() == Some(entry_name.as_str()) {
+                    let buffer = read_plugin_zip_entry(entry, MAX_EXTERNAL_PLUGIN_JS_BYTES, "JS bundle")?;
                     fs::write(staging.join(&entry_name), &buffer)
                         .map_err(|error| error.to_string())?;
                     found_entry = true;
@@ -721,6 +733,25 @@ mod external_plugin_install_safety_tests {
             archive.write_all(code.as_bytes()).unwrap();
         }
         archive.finish().unwrap();
+    }
+
+    #[test]
+    fn rejects_oversized_plugin_archive_entries() {
+        let temp = tempfile::tempdir().unwrap();
+        let root = temp.path().join("plugins");
+        let path = temp.path().join("oversized.zip");
+        let mut archive = zip::ZipWriter::new(fs::File::create(&path).unwrap());
+        archive.start_file("manifest.json", zip::write::FileOptions::default()).unwrap();
+        archive.write_all(&vec![b' '; MAX_EXTERNAL_PLUGIN_MANIFEST_BYTES as usize + 1]).unwrap();
+        archive.finish().unwrap();
+        let result = install_external_plugin_from_path(&root, &path);
+        assert!(matches!(result, Err(error) if error.contains("manifest exceeds")));
+
+        let code = " ".repeat(MAX_EXTERNAL_PLUGIN_JS_BYTES as usize + 1);
+        make_archive(&path, "1.0.0", Some(&code));
+        let result = install_external_plugin_from_path(&root, &path);
+        assert!(matches!(result, Err(error) if error.contains("JS bundle exceeds")));
+        assert!(!root.join(ID).exists());
     }
 
     #[test]

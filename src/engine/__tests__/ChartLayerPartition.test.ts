@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ChartEngine } from '../ChartEngine';
+import * as Indicators from '../Indicators';
 import { DARK_THEME, DEFAULT_CHART_VISUAL_SETTINGS, type OHLCBar } from '../types';
 
 function makeCtx(): CanvasRenderingContext2D {
@@ -107,5 +108,33 @@ describe('Phase 1A & 1B: Multi-Layer Canvas Partition & Unmount Cleanup', () => 
     expect(canvases[0]!.height).toBe(0);
     expect(canvases[1]!.width).toBe(0);
     expect(canvases[1]!.height).toBe(0);
+  });
+
+  it('reuses indicator bundles across viewport frames but invalidates changed data and settings', () => {
+    const build = vi.spyOn(Indicators, 'buildRenderableIndicators');
+    const engine = new ChartEngine(new MockNode() as unknown as HTMLDivElement, {
+      theme: DARK_THEME, visualSettings: DEFAULT_CHART_VISUAL_SETTINGS, timeframe: 'D', chartType: 'candles',
+    });
+    engine.mount();
+    const bars = sampleBars(90);
+    const overlays = [{ id: 'sma', kind: 'SMA' as const, placement: 'overlay' as const, period: 10, source: 'close' as const, color: '#fff' }];
+    engine.loadBars(bars); engine.setOverlays(overlays); engine.flushRenderFrame();
+    build.mockClear();
+    try {
+      for (let i = 0; i < 10; i++) { engine.setViewport({ startIndex: i, endIndex: 60 + i }); engine.flushRenderFrame(); }
+      console.info(JSON.stringify({ viewportFrames: 10, indicatorBundleBuilds: build.mock.calls.length }));
+      expect(build.mock.calls.length).toBe(0);
+      // Setters must invalidate even if callers reuse array identity.
+      engine.setOverlays(overlays); engine.flushRenderFrame();
+      expect(build).toHaveBeenCalledTimes(1);
+      engine.loadBars(bars); engine.flushRenderFrame();
+      expect(build).toHaveBeenCalledTimes(2);
+      overlays[0].period = 20;
+      engine.setViewport({ startIndex: 0, endIndex: 60 }); engine.flushRenderFrame();
+      expect(build).toHaveBeenCalledTimes(3);
+      bars[bars.length - 1].close += 1;
+      engine.setViewport({ startIndex: 1, endIndex: 61 }); engine.flushRenderFrame();
+      expect(build).toHaveBeenCalledTimes(4);
+    } finally { engine.unmount(); build.mockRestore(); }
   });
 });

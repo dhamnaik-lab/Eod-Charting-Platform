@@ -1,3 +1,4 @@
+use super::storage_paths::{check_sibling, eod_directory, eod_file, eod_path, eod_write_path};
 use rusqlite::{params, params_from_iter, types::Value, Connection};
 use std::collections::HashMap;
 use std::fs;
@@ -67,10 +68,11 @@ fn collect_binary_delete_targets(
     requested_symbols: Option<&Vec<String>>,
 ) -> AppResult<Vec<PathBuf>> {
     if let Some(symbols) = requested_symbols {
-        return Ok(symbols
-            .iter()
-            .map(|symbol| exchange_path.join(format!("{}.eod", symbol)))
-            .collect());
+        return symbols.iter().map(|symbol| {
+            let path = eod_file(exchange_path, symbol)?;
+            check_sibling(&path.with_extension("tmp"))?;
+            Ok(path)
+        }).collect();
     }
 
     let paths = fs::read_dir(exchange_path)
@@ -79,6 +81,10 @@ fn collect_binary_delete_targets(
         .map(|entry| entry.path())
         .filter(|path| path.extension().and_then(|value| value.to_str()) == Some("eod"))
         .collect::<Vec<_>>();
+    for path in &paths {
+        check_sibling(path)?;
+        check_sibling(&path.with_extension("tmp"))?;
+    }
     Ok(paths)
 }
 
@@ -232,10 +238,7 @@ pub(super) fn list_quotes_internal(
     // 1. Load from Binary if exists
     let mut merged: HashMap<String, QuoteRow> = HashMap::new();
     if let Some(folder_path) = base_path {
-        let bin_path = folder_path
-            .join("eod_data")
-            .join(&exchange)
-            .join(format!("{}.eod", symbol));
+        let bin_path = eod_path(folder_path, &exchange, &symbol)?;
         if bin_path.exists() {
             let bin_file = BinaryEodFile::open(&bin_path)?;
             let records = bin_file.read_latest(limit)?;
@@ -384,7 +387,7 @@ pub(super) fn list_quotes_by_date_internal(
     let mut merged = HashMap::<String, QuoteRow>::new();
 
     if let Some(folder_path) = base_path {
-        let exchange_path = folder_path.join("eod_data").join(&exchange);
+        let exchange_path = eod_directory(folder_path, &exchange)?;
         if exchange_path.exists() {
             let target_date = date_to_u32(&date);
             for entry in fs::read_dir(&exchange_path).map_err(|error| error.to_string())? {
@@ -394,6 +397,7 @@ pub(super) fn list_quotes_by_date_internal(
                     continue;
                 }
 
+                check_sibling(&path)?;
                 let bin_file = BinaryEodFile::open(&path)?;
                 let records = bin_file.read_range(target_date, target_date)?;
                 if let Some(record) = records.into_iter().next() {
@@ -478,6 +482,9 @@ pub(super) fn upsert_quote_internal(
     base_path: Option<&Path>,
 ) -> AppResult<QuoteRow> {
     let quote = normalize_quote_input(input)?;
+    let bin_path = base_path
+        .map(|folder| eod_write_path(folder, &quote.exchange, &quote.symbol))
+        .transpose()?;
 
     run_connection_transaction(connection, |connection| {
         connection
@@ -571,11 +578,7 @@ pub(super) fn upsert_quote_internal(
         .map_err(|error| error.to_string())?;
 
     // Dual-write to Binary EOD
-    if let Some(folder_path) = base_path {
-        let bin_path = folder_path
-            .join("eod_data")
-            .join(&final_row.exchange)
-            .join(format!("{}.eod", final_row.symbol));
+    if let (Some(folder_path), Some(bin_path)) = (base_path, bin_path) {
         let record = EodRecord {
             date: date_to_u32(&final_row.date),
             flags: 0,
@@ -672,6 +675,9 @@ pub(super) fn delete_quote_internal(
     let symbol = normalize_symbol(&input.symbol)?;
     let exchange = normalize_exchange(&input.exchange)?;
     let date = normalize_trade_date(&input.date)?;
+    let bin_path = base_path
+        .map(|folder| eod_write_path(folder, &exchange, &symbol))
+        .transpose()?;
     let mut deleted_sqlite = 0_i64;
 
     run_connection_transaction(connection, |connection| {
@@ -692,11 +698,7 @@ pub(super) fn delete_quote_internal(
 
     let mut deleted_binary = false;
     // Dual-delete from Binary EOD
-    if let Some(folder_path) = base_path {
-        let bin_path = folder_path
-            .join("eod_data")
-            .join(&exchange)
-            .join(format!("{}.eod", symbol));
+    if let (Some(folder_path), Some(bin_path)) = (base_path, bin_path) {
         deleted_binary = BinaryEodFile::delete_record_by_date(&bin_path, date_to_u32(&date))?;
         if deleted_binary {
             invalidate_binary_state_rows_after_mutation(
@@ -745,6 +747,9 @@ pub(super) fn delete_quote_range_internal(
         (to_date, from_date)
     };
 
+    let bin_path = base_path
+        .map(|folder| eod_write_path(folder, &exchange, &symbol))
+        .transpose()?;
     let mut deleted_sqlite = 0_i64;
     run_connection_transaction(connection, |connection| {
         deleted_sqlite = connection
@@ -764,11 +769,7 @@ pub(super) fn delete_quote_range_internal(
     })?;
 
     let mut deleted_binary = 0_i64;
-    if let Some(folder_path) = base_path {
-        let bin_path = folder_path
-            .join("eod_data")
-            .join(&exchange)
-            .join(format!("{}.eod", symbol));
+    if let (Some(folder_path), Some(bin_path)) = (base_path, bin_path) {
         deleted_binary = BinaryEodFile::delete_records_in_range(
             &bin_path,
             date_to_u32(&start_date),
@@ -831,6 +832,11 @@ pub(super) fn delete_quote_date_internal(
         })
         .transpose()?;
 
+    let exchange_path = base_path.map(|folder| eod_directory(folder, &exchange)).transpose()?;
+    let target_paths = match exchange_path.as_deref() {
+        Some(path) if path.exists() => collect_binary_delete_targets(path, requested_symbols.as_ref())?,
+        _ => Vec::new(),
+    };
     let affected_symbols = if let Some(symbols) = requested_symbols.clone() {
         symbols
     } else {
@@ -854,25 +860,10 @@ pub(super) fn delete_quote_date_internal(
             .map_err(|error| error.to_string())?;
         if !rows.is_empty() {
             rows
-        } else if let Some(folder_path) = base_path {
-            let exchange_path = folder_path.join("eod_data").join(&exchange);
-            if exchange_path.exists() {
-                fs::read_dir(&exchange_path)
-                    .map_err(|error| error.to_string())?
-                    .filter_map(|entry| entry.ok())
-                    .map(|entry| entry.path())
-                    .filter(|path| path.extension().and_then(|value| value.to_str()) == Some("eod"))
-                    .filter_map(|path| {
-                        path.file_stem()
-                            .and_then(|value| value.to_str())
-                            .map(|value| value.to_string())
-                    })
-                    .collect::<Vec<_>>()
-            } else {
-                Vec::new()
-            }
         } else {
-            Vec::new()
+            target_paths.iter()
+                .filter_map(|path| path.file_stem()?.to_str().map(str::to_owned))
+                .collect()
         }
     };
 
@@ -930,12 +921,9 @@ pub(super) fn delete_quote_date_internal(
 
     let mut deleted_binary = 0_i64;
     if let Some(folder_path) = base_path {
-        let exchange_path = folder_path.join("eod_data").join(&exchange);
-        if exchange_path.exists() {
+        if exchange_path.as_deref().is_some_and(Path::exists) {
             let start_date_u32 = date_to_u32(&start_date);
             let end_date_u32 = date_to_u32(&end_date);
-            let target_paths =
-                collect_binary_delete_targets(&exchange_path, requested_symbols.as_ref())?;
             let binary_result = delete_binary_records_across_paths(
                 target_paths,
                 start_date_u32,
@@ -996,13 +984,14 @@ pub(super) fn delete_quote_date_scope_internal(
         .symbols
         .as_ref()
         .filter(|symbols| !symbols.is_empty())
-        .cloned();
+        .map(|symbols| symbols.iter().map(|symbol| normalize_symbol(symbol)).collect::<AppResult<Vec<_>>>())
+        .transpose()?;
 
     let target_file_counts = if let Some(folder_path) = base_path {
         targets
             .iter()
             .map(|exchange| {
-                let exchange_path = folder_path.join("eod_data").join(exchange);
+                let exchange_path = eod_directory(folder_path, exchange)?;
                 if !exchange_path.exists() {
                     return Ok(0_usize);
                 }
@@ -1188,6 +1177,28 @@ mod tests {
         )
         .unwrap();
         conn
+    }
+
+    #[test]
+    fn issue_01_refuses_unsafe_binary_target_before_deleting_sqlite_quote() {
+        let conn = setup_test_db();
+        let root = tempdir().unwrap();
+        let exchange_dir = root.path().join("eod_data").join("NSE");
+        fs::create_dir_all(exchange_dir.join("M&M.eod")).unwrap();
+        conn.execute(
+            "INSERT INTO eod_prices (symbol, exchange, date, close) VALUES ('M&M', 'NSE', '2024-05-15', 10)",
+            [],
+        ).unwrap();
+
+        let input = DeleteQuoteInput {
+            symbol: "M&M".to_string(),
+            exchange: "NSE".to_string(),
+            date: "2024-05-15".to_string(),
+        };
+        let error = delete_quote_internal(&conn, &input, Some(root.path())).unwrap_err();
+        assert!(error.contains("Unexpected storage path type"));
+        let count: i64 = conn.query_row("SELECT COUNT(*) FROM eod_prices", [], |row| row.get(0)).unwrap();
+        assert_eq!(count, 1);
     }
 
     #[test]

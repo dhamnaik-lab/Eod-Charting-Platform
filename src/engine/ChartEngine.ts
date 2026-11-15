@@ -1,4 +1,4 @@
-import { buildRenderableIndicators, type RenderableOverlay, type RenderablePane } from './Indicators';
+import { buildRenderableIndicators, getIndicatorCacheBucket, type RenderableOverlay, type RenderablePane } from './Indicators';
 import { computeCrosshair, drawCrosshair } from './Crosshair';
 import { computeVolumeProfile } from './VolumeProfile';
 import { drawHeatmap } from './Heatmap';
@@ -290,6 +290,13 @@ export class ChartEngine {
   private panLastTime = 0;
   private kineticAnimationId: number | null = null;
   private rafId: number | null = null;
+  private renderLoopActive = false;
+  private renderingFrame = false;
+  private indicatorBundles = new WeakMap<OHLCBar[], {
+    bucket: ReturnType<typeof getIndicatorCacheBucket>;
+    signature: string;
+    bundle: ReturnType<typeof buildRenderableIndicators>;
+  }>();
   private axisWidth: number;
   private leftAxisWidth: number;
   private leftAxisMode: 'percentage' | 'absolute' | 'custom';
@@ -419,6 +426,8 @@ export class ChartEngine {
   }
 
   unmount(): void {
+    this.renderLoopActive = false;
+    this.indicatorBundles = new WeakMap();
     this.cleanupFns.splice(0).forEach((cleanup) => cleanup());
     if (this.rafId !== null) {
       cancelAnimationFrame(this.rafId);
@@ -451,6 +460,7 @@ export class ChartEngine {
   }
 
   loadBars(bars: OHLCBar[]): void {
+    this.indicatorBundles = new WeakMap();
     this.bars = bars;
     this.conflationLevels = this.dataConflationEnabled ? precomputeConflation(bars, [2, 4, 8]) : [];
     if (this.bars.length === 0) {
@@ -492,6 +502,7 @@ export class ChartEngine {
   }
 
   setOverlays(overlays: OverlayIndicator[]): void {
+    this.indicatorBundles = new WeakMap();
     this.overlays = overlays;
     this.markDirty();
   }
@@ -1058,20 +1069,17 @@ export class ChartEngine {
   }
 
   private startRenderLoop(): void {
-    const tick = () => {
-      if (this.isDirty) {
-        this.renderBase();
-        this.isDirty = false;
-        this.isOverlayDirty = true;
-      }
-      if (this.isOverlayDirty) {
-        this.renderOverlay();
-        this.isOverlayDirty = false;
-      }
-      this.rafId = requestAnimationFrame(tick);
-    };
+    this.renderLoopActive = true;
+    this.scheduleRenderFrame();
+  }
 
-    this.rafId = requestAnimationFrame(tick);
+  private scheduleRenderFrame(): void {
+    if (!this.renderLoopActive || this.renderingFrame || this.rafId !== null
+      || (!this.isDirty && !this.isOverlayDirty)) return;
+    this.rafId = requestAnimationFrame(() => {
+      this.rafId = null;
+      this.flushRenderFrame();
+    });
   }
 
   private getActiveConflation(): { bars: OHLCBar[]; factor: number } {
@@ -1345,7 +1353,7 @@ export class ChartEngine {
     });
 
     if (this.signalRules.length > 0) {
-      const bundle = buildRenderableIndicators(renderBars, this.overlays);
+      const bundle = this.getIndicatorBundle(renderBars);
       const signalMarkers = evaluateSignalRules(renderBars, bundle, this.signalRules);
       if (signalMarkers.length > 0) {
         drawSignalMarkers(
@@ -1447,6 +1455,7 @@ export class ChartEngine {
         width,
         layout.axisWidth,
         layout.priceAxisGap,
+        this.theme.axisBackground,
       );
     }
     this.baseCtx.restore();
@@ -1564,6 +1573,7 @@ export class ChartEngine {
           width,
           layout.axisWidth,
           layout.priceAxisGap,
+          this.theme.axisBackground,
         );
       }
       this.baseCtx.restore();
@@ -1802,14 +1812,24 @@ export class ChartEngine {
     this.isDirty = true;
     this.isOverlayDirty = true;
     this.clearCachedRenderState();
+    this.scheduleRenderFrame();
   }
 
   public markOverlayDirty(): void {
     this.isOverlayDirty = true;
+    this.scheduleRenderFrame();
   }
   public flushRenderFrame(): void {
-    if (this.isDirty) { this.renderBase(); this.isDirty = false; this.isOverlayDirty = true; }
-    if (this.isOverlayDirty) { this.renderOverlay(); this.isOverlayDirty = false; }
+    if (this.renderingFrame) return;
+    this.renderingFrame = true;
+    try {
+      // Clear before rendering so reentrant invalidation is not lost.
+      if (this.isDirty) { this.isDirty = false; this.renderBase(); this.isOverlayDirty = true; }
+      if (this.isOverlayDirty) { this.isOverlayDirty = false; this.renderOverlay(); }
+    } finally {
+      this.renderingFrame = false;
+      this.scheduleRenderFrame();
+    }
   }
   public getRenderDiagnostics() {
     return { baseRenderCount: this.baseRenderCount, overlayRenderCount: this.overlayRenderCount, renderStateBuildCount: this.renderStateBuildCount, isBaseDirty: this.isDirty, isOverlayDirty: this.isOverlayDirty };
@@ -1878,9 +1898,19 @@ export class ChartEngine {
     return renderState;
   }
 
+  private getIndicatorBundle(bars: OHLCBar[]): ReturnType<typeof buildRenderableIndicators> {
+    // Reuse the registry's mutation signatures rather than assuming immutable input arrays.
+    const bucket = getIndicatorCacheBucket(bars, this.overlays);
+    const cached = this.indicatorBundles.get(bars);
+    if (cached?.bucket === bucket && cached.signature === bucket.indicatorSetSignature) return cached.bundle;
+    const bundle = buildRenderableIndicators(bars, this.overlays);
+    this.indicatorBundles.set(bars, { bucket, signature: bucket.indicatorSetSignature, bundle });
+    return bundle;
+  }
+
   private buildRenderState(width: number, height: number, axisWidth: number): RenderState {
     this.renderStateBuildCount += 1;
-    const renderableIndicators = buildRenderableIndicators(this.bars, this.overlays);
+    const renderableIndicators = this.getIndicatorBundle(this.bars);
     const compareRenderables = this.buildCompareRenderables();
     const effectiveVolumePct = this.showVolume ? this.volumePct : 0;
     const layout = computeChartLayout(

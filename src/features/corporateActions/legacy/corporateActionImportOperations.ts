@@ -10,7 +10,7 @@ import type {
   CorporateActionAutoApprovalResult,
   DesktopApi,
 } from '@/platform';
-import { getCorporateActionApprovalState, getCorporateActionNormalApprovalState, isSplitOrBonus } from '../corporateActionValidation';
+import { getCorporateActionApprovalState, getCorporateActionNormalApprovalState, isPriceValidatedAction, isSplitOrBonus } from '../corporateActionValidation';
 import { chunkCorporateActionApprovalIds } from '../corporateActionBulkApproval';
 import { hasCombinedSplitBonusAnnouncement, needsCorporateActionClassificationRefresh } from './corporateActionAnnouncementClassification';
 import {
@@ -44,7 +44,7 @@ export async function loadCorporateActionImportRows({
 }: LoadCorporateActionImportRowsInput): Promise<LoadCorporateActionImportRowsResult> {
   const rows = await api.listCorporateActionImports(listInput);
   const validationImportIds = includeApprovedValidation
-    ? [...new Set(rows.filter((row) => isSplitOrBonus(row)).map((row) => row.id))]
+    ? [...new Set(rows.filter((row) => isPriceValidatedAction(row)).map((row) => row.id))]
     : [];
   const validationRows: CorporateActionScanResultRow[] = [];
 
@@ -311,7 +311,7 @@ function isValidationTarget(row: CorporateActionImportRow): boolean {
     isSplitOrBonus(row) &&
       row.parseStatus === 'PARSED' &&
       row.reviewStatus !== 'APPROVED' &&
-      row.symbol &&
+      (row.symbol || row.bseScripCode) &&
       row.exDate &&
       row.factor != null,
   );
@@ -488,7 +488,15 @@ export async function prepareCorporateActionPendingImports({
   if (explicitApprovalOnly && mayHaveNewComponents) {
     const prepared = await loadAllPendingCorporateActionImports({ api, shouldContinue, onProgress, pageSize });
     const preparedIds = new Set(prepared.rows.map(row => row.id));
-    if (!prepared.complete || loaded.rows.some(row => !preparedIds.has(row.id))) {
+    if (
+      !prepared.complete ||
+      loaded.rows.some(
+        row =>
+          rowsById.get(row.id)?.reviewStatus !== 'APPROVED' &&
+          rowsById.get(row.id)?.approvedCorporateActionId == null &&
+          !preparedIds.has(row.id),
+      )
+    ) {
       return { rows: prepared.rows, validationRows: [], validationImportIds: [], identityHints: {},
         autoApproval: null, errors: [...errors, ...prepared.errors], complete: false,
         message: 'Prepared action components changed or could not be loaded completely. Approval remains unavailable.' };
@@ -529,9 +537,12 @@ export async function prepareCorporateActionPendingImports({
 
   const validationIds = refreshedRows.filter((row) =>
     isValidationTarget(row) || (explicitApprovalOnly &&
-      ['DIVIDEND', 'RIGHTS'].includes(row.actionType) &&
-      row.parseStatus === 'PARSED' && row.reviewStatus !== 'APPROVED' &&
-      Boolean(row.symbol) && Boolean(row.exDate)),
+      ((['DIVIDEND', 'RIGHTS'].includes(row.actionType) &&
+        row.parseStatus === 'PARSED' && row.reviewStatus !== 'APPROVED' &&
+        Boolean(row.symbol) && Boolean(row.exDate)) ||
+       (['DEMERGER', 'RIGHTS', 'SPLIT', 'BONUS'].includes(row.actionType) &&
+        row.reviewStatus !== 'APPROVED' &&
+        Boolean(row.symbol || row.bseScripCode) && Boolean(row.exDate)))),
   ).map((row) => row.id);
   // The targeted official-import scan can observe Dividend/Rights local EOD
   // availability without treating their price drop as a factor match. Only the
@@ -718,7 +729,7 @@ export async function recheckReviewedCorporateActionImports(input: {
   onProgress?.({ stage: 'rechecking', completed: 0, total: importIds.length, message: `Reading ${importIds.length} exact reviewed action(s)...` });
   const rows = await readExactCorporateActionImports(api, importIds, expectedDatabasePath, shouldContinue, (completed,total) =>
     onProgress?.({stage:'rechecking',completed,total,message:`Read ${completed}/${total} exact reviewed action(s).`}));
-  const scanIds = rows.filter((row) => isSplitOrBonus(row) ||
+  const scanIds = rows.filter((row) => isPriceValidatedAction(row) ||
     (input.explicitApprovalOnly === true && ['DIVIDEND', 'RIGHTS'].includes(row.actionType))).map((row) => row.id);
   const scans: CorporateActionScanResultRow[] = [];
   for (const batch of chunkIds(scanIds, 500)) {

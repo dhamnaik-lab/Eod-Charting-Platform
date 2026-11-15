@@ -70,6 +70,7 @@ function paneControlsMarkup(indicator: OverlayIndicator): string {
     paneScaleOverrides: {},
     paneSettingsIndicator: null,
     onStartPaneResize: () => undefined,
+    onResizePane: () => undefined,
     onTogglePaneCollapsed: () => undefined,
     onResetPaneScale: () => undefined,
     onMovePane: () => undefined,

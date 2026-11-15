@@ -147,7 +147,7 @@ export function FavoriteToolsToolbar() {
               alignItems: 'center',
               justifyContent: 'center',
               background: isActive ? 'var(--accent)' : 'transparent',
-              color: isActive ? '#ffffff' : 'var(--text)',
+              color: isActive ? 'var(--accent-contrast)' : 'var(--text)',
               border: `1px solid ${isActive ? 'var(--accent)' : 'transparent'}`,
               borderRadius: 4,
               cursor: 'pointer',

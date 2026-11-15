@@ -1568,10 +1568,15 @@ fn filter_binary_records_for_symbol(
     symbol: String,
     records: Vec<EodRecord>,
 ) -> BinaryFilterResult {
-    let bin_path = folder_path
-        .join("eod_data")
-        .join(exchange)
-        .join(format!("{}.eod", symbol));
+    let bin_path = match crate::database::storage_paths::eod_path(folder_path, exchange, &symbol) {
+        Ok(path) => path,
+        Err(error) => return BinaryFilterResult {
+            symbol,
+            records: Vec::new(),
+            skipped_rows: 0,
+            error: Some(error),
+        },
+    };
 
     if !bin_path.exists() {
         return BinaryFilterResult {
@@ -1737,10 +1742,15 @@ fn write_binary_records_for_symbol(
     symbol: String,
     records: Vec<EodRecord>,
 ) -> BinaryWriteResult {
-    let bin_path = folder_path
-        .join("eod_data")
-        .join(exchange)
-        .join(format!("{}.eod", symbol));
+    let bin_path = match crate::database::storage_paths::eod_write_path(folder_path, exchange, &symbol) {
+        Ok(path) => path,
+        Err(error) => return BinaryWriteResult {
+            symbol,
+            error: Some(error),
+            stats: BinaryAppendMergeStats::default(),
+            diagnostics: BinaryWriteDiagnostics::default(),
+        },
+    };
     let write_started = std::time::Instant::now();
 
     match BinaryEodFile::append_or_merge_records_with_stats(

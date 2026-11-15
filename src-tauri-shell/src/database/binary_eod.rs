@@ -498,6 +498,7 @@ impl BinaryEodFile {
         }
 
         let temp_path = path.as_ref().with_extension("tmp");
+        super::storage_paths::check_sibling(&temp_path)?;
         let sync_data_us;
         {
             let mut file = File::create(&temp_path).map_err(|e| e.to_string())?;
@@ -1397,7 +1398,9 @@ impl BinaryEodFile {
 
 pub fn get_all_binary_stats(base_path: &Path) -> Vec<BinarySymbolStats> {
     let mut stats = Vec::new();
-    let eod_data_dir = base_path.join("eod_data");
+    let Ok(eod_data_dir) = super::storage_paths::directory(base_path, &["eod_data"]) else {
+        return stats;
+    };
 
     if !eod_data_dir.exists() {
         return stats;
@@ -1409,7 +1412,9 @@ pub fn get_all_binary_stats(base_path: &Path) -> Vec<BinarySymbolStats> {
     };
 
     for exchange_entry in exchanges.flatten() {
-        let exchange_path = exchange_entry.path();
+        let exchange_name = exchange_entry.file_name();
+        let Some(exchange) = exchange_name.to_str() else { continue };
+        let Ok(exchange_path) = super::storage_paths::eod_directory(base_path, exchange) else { continue };
         if !exchange_path.is_dir() {
             continue;
         }
@@ -1436,6 +1441,9 @@ pub fn get_all_binary_stats(base_path: &Path) -> Vec<BinarySymbolStats> {
                 continue;
             }
 
+            if super::storage_paths::check_sibling(&symbol_path).is_err() {
+                continue;
+            }
             if let Ok(metadata) = fs::metadata(&symbol_path) {
                 let file_size = metadata.len();
                 if file_size < HEADER_SIZE as u64 {
@@ -1486,10 +1494,7 @@ pub fn get_binary_eod_status(
     let folder_path = resolve_active_database_folder(&app)?
         .ok_or_else(|| "Open a database before checking status.".to_string())?;
 
-    let bin_path = folder_path
-        .join("eod_data")
-        .join(&exchange)
-        .join(format!("{}.eod", symbol));
+    let bin_path = super::storage_paths::eod_path(&folder_path, &exchange, &symbol)?;
     Ok(BinaryEodFile::get_status(bin_path, &symbol, &exchange))
 }
 
@@ -1603,8 +1608,21 @@ fn validate_symbol_parity(
     }
 
     // 2. Load Binary metadata
-    let dir = base_path.join("eod_data").join(exchange);
-    let path = dir.join(format!("{}.eod", symbol));
+    let path = match super::storage_paths::eod_path(base_path, exchange, symbol) {
+        Ok(path) => path,
+        Err(message) => return Some(ParityIssue {
+            symbol: symbol.to_string(),
+            exchange: exchange.to_string(),
+            issue_type: ParityIssueType::FileCorrupt,
+            sqlite_count,
+            binary_count: 0,
+            sqlite_first_date: sqlite_min,
+            sqlite_last_date: sqlite_max,
+            binary_first_date: None,
+            binary_last_date: None,
+            message,
+        }),
+    };
 
     if !path.exists() {
         return Some(ParityIssue {
@@ -1790,8 +1808,7 @@ fn migrate_symbol_to_binary(
 
     let record_count = records.len() as u64;
 
-    let dir = base_path.join("eod_data").join(exchange);
-    let path = dir.join(format!("{}.eod", symbol));
+    let path = super::storage_paths::eod_write_path(base_path, exchange, symbol)?;
 
     BinaryEodFile::write_all(path, symbol, exchange, DEFAULT_SCALE, &mut records)?;
     Ok(record_count)

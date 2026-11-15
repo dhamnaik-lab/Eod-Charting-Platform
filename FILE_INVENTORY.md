@@ -1,8 +1,12 @@
 # File inventory — current source navigation
 
+Audit UI/performance owners: [transient tile hover](src/features/charts/chartHoverStore.ts), [dialog focus](src/features/app/useDialogFocus.ts), [action confirmations](src/components/common/useActionConfirmation.tsx), [isolated browser runner](scripts/verify-audit-ui.mjs), and [implementation/evidence record](docs/changes/2026-11-15_2019_IST_AUDIT_BOUNDED_UI_PERFORMANCE.md).
+
 Short repository-relative map of active entry points. Design details belong to [Architecture](ARCHITECTURE_CURRENT_EOD_CHARTING_PLATFORM.md); verification and gaps belong to [Feature status](FEATURE_STATUS_MATRIX_EOD_CHARTING_PLATFORM.md).
 
 Corporate Actions A1: [identity findings and evidence limits](docs/plans/2026-11-08_CA_A1_IDENTITY_FINDINGS.md), with the GUJGASLTD fail-closed regression in [dated-chain tests](src-tauri-shell/src/database/corporate_action_imports/dated_symbol_chain/tests.rs).
+
+Corporate Actions reconciliation performance is documented in the [scan lookup index record](docs/changes/2026-11-15_1836_IST_CA_RECONCILIATION_SCAN_INDEX.md).
 Approved design: [A1 verified cross-symbol Split/Bonus owner](docs/plans/2026-11-08_CA_A1_CROSS_SYMBOL_DESIGN.md). Implementation: [proof and preparation](src-tauri-shell/src/database/corporate_action_imports/split_bonus_symbol_chain.rs), [regressions](src-tauri-shell/src/database/corporate_action_imports/split_bonus_symbol_chain/tests.rs); additive proof schema lives in [bootstrap](src-tauri-shell/src/database/bootstrap.rs). App acceptance remains pending copied prices and the user rebuild.
 
 ## Application and bridge

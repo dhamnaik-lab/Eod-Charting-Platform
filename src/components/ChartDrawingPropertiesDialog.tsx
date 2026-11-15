@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type CSSProperties, type Dispatch, type PointerEvent as ReactPointerEvent, type SetStateAction } from 'react';
+import { useDialogFocus } from '@/features/app/useDialogFocus';
 import type { ChartDrawing, DrawingLabelPosition, DrawingLineStyle, TextDrawingBase } from '@/engine/types';
 import type { DrawingPresentationSettings, UnifiedFillPresentationSettings, UnifiedLinePresentationSettings, UnifiedSettingsTimeframe, UnifiedTimeframeVisibilitySettings } from '@/engine/UnifiedStyleContracts';
 import { DRAWING_SETTINGS_TABS, getDrawingSettingsTabs, getDrawingStyleSchema, isAdvancedDrawingStyleKind, type DrawingSettingsTab } from '@/engine/DrawingStyleSchema';
@@ -79,6 +80,7 @@ export function ChartDrawingPropertiesDialog({
 }: ChartDrawingPropertiesDialogProps) {
   const backdropRef = useRef<HTMLDivElement | null>(null);
   const panelRef = useRef<HTMLDivElement | null>(null);
+  useDialogFocus(panelRef, onClose, true, Boolean(drawingProperties));
   const [activeTab, setActiveTab] = useState<DrawingSettingsTab>('style');
   const [dialogBounds, setDialogBounds] = useState<DialogBounds>(() => readDrawingPropertiesDialogBounds());
 
@@ -891,6 +893,10 @@ export function ChartDrawingPropertiesDialog({
     <div ref={backdropRef} style={propertiesBackdropStyle} onMouseDown={onClose}>
       <div
         ref={panelRef}
+        role="dialog"
+        aria-modal="true"
+        aria-label="Drawing properties"
+        tabIndex={-1}
         style={{ ...propertiesPanelStyle, left: dialogBounds.x, top: dialogBounds.y, width: dialogBounds.width, height: dialogBounds.height }}
         onMouseDown={(event) => event.stopPropagation()}
       >
@@ -1304,7 +1310,7 @@ const propertiesBackdropStyle: CSSProperties = {
   position: 'absolute',
   inset: 0,
   background: 'rgba(0, 0, 0, 0.15)', // Clear non-blur overlay
-  zIndex: 10,
+  zIndex: 900,
   overflow: 'hidden',
 };
 

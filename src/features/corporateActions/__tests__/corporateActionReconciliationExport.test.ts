@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { serializeCorporateActionReconciliation, reconciliationExportRows, RECONCILIATION_EXPORT_COLUMNS } from '../reconciliation/corporateActionReconciliationExport';
+import { serializeCorporateActionReconciliation, serializeReconciliationReport, reconciliationExportRows, RECONCILIATION_EXPORT_COLUMNS } from '../reconciliation/corporateActionReconciliationExport';
 import type { CorporateActionReconciliationPreflightResult as Result, CorporateActionReconciliationPreflightRow as Row } from '@/platform/types';
 
 function row(id: number, purpose = 'અજંતા, "test"\r\nnext\tline'): Row {
@@ -32,6 +32,40 @@ function parse(text: string, separator: string): string[][] {
 }
 
 describe('R1-A exact diagnostic export',()=>{
+ it('combines snapshots in request order and retains per-batch provenance',()=>{
+  const first=result([row(2)]);first.fingerprint='first';
+  const second=result([row(1)]);second.fingerprint='second';second.generatedAt='2026-11-15T01:00:00Z';
+  for(const format of ['csv','txt'] as const){
+   const saved=serializeReconciliationReport({requestedIds:[2,1],batches:[first,second],status:'COMPLETE',message:'All captured'},format);
+   const table=parse(saved.content,format==='csv'?',':'\t');const column=(name:string)=>table[0].indexOf(name);
+   expect(saved.rowCount).toBe(2);expect(table.slice(1).map(r=>r[column('Import ID')])).toEqual(['2','1']);
+   expect(table.slice(1).map(r=>r[column('Batch fingerprint')])).toEqual(['first','second']);
+   expect(table[2][column('Generated at')]).toBe(second.generatedAt);
+   expect(table[1][column('Snapshot scope')]).toBe('SEPARATE_BATCH_SNAPSHOTS_NOT_ATOMIC');
+  }
+ });
+ it('exports uncaptured IDs explicitly after cancellation or failure, without fabricating readiness',()=>{
+  for(const status of ['CANCELLED','FAILED'] as const){
+   const saved=serializeReconciliationReport({requestedIds:[1,2],batches:[result([row(1)])],status,message:'Stopped'},'csv');
+   const table=parse(saved.content,',');const cell=(name:string)=>table[2][table[0].indexOf(name)];
+   expect(saved.rowCount).toBe(2);expect(cell('Import ID')).toBe('2');expect(cell('Outcome')).toBe('NOT_CAPTURED');
+   expect(cell('Report status')).toBe(status);expect(cell('Captured ID count')).toBe('1');expect(cell('Not captured ID count')).toBe('1');
+   expect(cell('Ordinary readiness')).toBe('');expect(cell('Batch fingerprint')).toBe('');
+  }
+ });
+ it('rejects misleading completion, duplicate captured IDs and active reports',()=>{
+  const report={requestedIds:[1,2],batches:[result([row(1)])],status:'COMPLETE' as const,message:''};
+  expect(()=>serializeReconciliationReport(report,'csv')).toThrow('incomplete');
+  expect(()=>serializeReconciliationReport({...report,status:'RUNNING'},'csv')).toThrow();
+  expect(()=>serializeReconciliationReport({...report,status:'FAILED',batches:[...report.batches,...report.batches]},'csv')).toThrow('accounting');
+ });
+ it('exports actionable next steps and readiness explanation without granting approval',()=>{
+  const data=result([row(1)]);const table=reconciliationExportRows(data,[1]);
+  expect(table[0][RECONCILIATION_EXPORT_COLUMNS.indexOf('Next steps')]).toBe('diagnose');
+  expect(table[0][RECONCILIATION_EXPORT_COLUMNS.indexOf('Readiness explanation')]).toBe(data.rows[0].ordinaryReadiness.message);
+  data.rows[0].ordinaryReadiness.state='READY_FOR_WRITER_RECHECK';
+  expect(()=>reconciliationExportRows(data,[1])).toThrow('Conflicting readiness');
+ });
  it('exports blocked selected rows in the requested order without changing approval flags',()=>{
   const data=result([row(1),row(2)]);const before=JSON.stringify(data);
   const table=reconciliationExportRows(data,[2,1]);

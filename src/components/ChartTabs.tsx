@@ -34,12 +34,11 @@ export function ChartTabs() {
   return (
     <>
       <div style={tabStripStyle}>
-        <div style={tabListStyle} className="tab-strip-scroll">
+        <div style={tabListStyle} className="tab-strip-scroll" role="tablist" aria-label="Charts">
           {chartTabs.map((tab) => (
             <div
               key={tab.id}
               style={tabContainerStyle(tab.id === activeChartTabId)}
-              onClick={() => activateChartTab(tab.id)}
               onContextMenu={(event) => {
                 event.preventDefault();
                 activateChartTab(tab.id);
@@ -48,16 +47,29 @@ export function ChartTabs() {
                   ...clampChartTabContextMenuPosition(event.clientX, event.clientY, window.innerWidth, window.innerHeight),
                 });
               }}
-              role="button"
-              tabIndex={0}
+            >
+              <button
+              type="button"
+              role="tab"
+              aria-selected={tab.id === activeChartTabId}
+              tabIndex={tab.id === activeChartTabId ? 0 : -1}
+              style={{ border: 0, background: 'transparent', padding: 0, minWidth: 0, flex: 1, cursor: 'pointer', ...tabLabelStyle(tab.id === activeChartTabId) }}
+              onClick={() => activateChartTab(tab.id)}
               onKeyDown={(event) => {
-                if (event.key === 'Enter' || event.key === ' ') {
+                const index = chartTabs.findIndex(value => value.id === tab.id);
+                const nextIndex = event.key === 'ArrowRight' ? (index + 1) % chartTabs.length
+                  : event.key === 'ArrowLeft' ? (index - 1 + chartTabs.length) % chartTabs.length
+                  : event.key === 'Home' ? 0 : event.key === 'End' ? chartTabs.length - 1 : null;
+                if (nextIndex !== null) {
                   event.preventDefault();
-                  activateChartTab(tab.id);
+                  event.stopPropagation();
+                  activateChartTab(chartTabs[nextIndex].id);
+                  event.currentTarget.closest('[role="tablist"]')?.querySelectorAll<HTMLElement>('[role="tab"]')[nextIndex]?.focus();
                 }
               }}
             >
-              <span style={tabLabelStyle(tab.id === activeChartTabId)}>{tab.title}</span>
+              {tab.title}
+              </button>
               <button
                 type="button"
                 style={closeTabButtonStyle}

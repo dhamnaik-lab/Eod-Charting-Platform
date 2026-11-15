@@ -1,25 +1,7 @@
 import { getDesktopApi } from '@/platform';
 import type { ExternalPluginPackageDescriptor } from '@/types/desktop';
 import { pluginHost } from './registry';
-import type { EodPlugin, PluginEnabledMap, PluginManifest, RegisteredPlugin } from './types';
-
-const B64_CHARS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
-
-function encodeUtf8ToBase64(text: string): string {
-  const bytes = new TextEncoder().encode(text);
-  let out = '';
-  for (let i = 0; i < bytes.length; i += 3) {
-    const b0 = bytes[i] ?? 0;
-    const b1 = i + 1 < bytes.length ? (bytes[i + 1] ?? 0) : 0;
-    const b2 = i + 2 < bytes.length ? (bytes[i + 2] ?? 0) : 0;
-    const n = (b0 << 16) | (b1 << 8) | b2;
-    out += B64_CHARS[(n >> 18) & 63];
-    out += B64_CHARS[(n >> 12) & 63];
-    out += i + 1 < bytes.length ? B64_CHARS[(n >> 6) & 63] : '=';
-    out += i + 2 < bytes.length ? B64_CHARS[n & 63] : '=';
-  }
-  return out;
-}
+import type { PluginEnabledMap, PluginManifest, RegisteredPlugin } from './types';
 
 export function normalizeExternalManifest(desc: ExternalPluginPackageDescriptor): PluginManifest {
   return {
@@ -34,28 +16,6 @@ export function normalizeExternalManifest(desc: ExternalPluginPackageDescriptor)
     capabilities: desc.capabilities ?? [],
     permissions: (desc.permissions as PluginManifest['permissions']) ?? [],
   };
-}
-
-export async function evaluatePluginModuleCode(code: string): Promise<EodPlugin> {
-  const blob = new Blob([code], { type: 'text/javascript' });
-  const blobUrl = URL.createObjectURL(blob);
-  const moduleUrl = blobUrl.startsWith('blob:nodedata:')
-    ? `data:text/javascript;base64,${encodeUtf8ToBase64(code)}`
-    : blobUrl;
-  try {
-    const mod = await import(/* @vite-ignore */ moduleUrl);
-    const exported = mod.default ?? mod.plugin ?? mod;
-    if (typeof exported === 'function') {
-      const instance = new exported() as EodPlugin;
-      if (typeof instance.onload === 'function') return instance;
-    }
-    if (exported && typeof exported.onload === 'function') {
-      return exported as EodPlugin;
-    }
-    throw new Error('Plugin module must default-export a class or object with an onload(ctx) method.');
-  } finally {
-    URL.revokeObjectURL(blobUrl);
-  }
 }
 
 // Installation and discovery must never evaluate code, even when saved settings request enablement.

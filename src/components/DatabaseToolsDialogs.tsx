@@ -1,4 +1,5 @@
 import { HistoricalApplyStatus } from '@/features/corporateActions/identity/HistoricalApplyStatus';
+import { useActionConfirmation } from '@/components/common/useActionConfirmation';
 import { HistoricalApplyHistory } from '@/features/corporateActions/identity/HistoricalApplyHistory';
 import { historicalChangeCount } from '@/features/corporateActions/identity/historicalApplyModel';
 import { identityDisplayKey, useIdentityDisplayPreferences } from '@/features/corporateActions/identity/identityDisplayPreferences';
@@ -501,6 +502,7 @@ function QuoteEditorDialog({
 }) {
   const api = getDesktopApi();
   const QUOTE_EDITOR_WINDOW_ID = 'quote-editor';
+  const confirmation = useActionConfirmation();
 
   const registerWindow = useWindowStore((state) => state.registerWindow);
   const openWindow = useWindowStore((state) => state.openWindow);
@@ -805,7 +807,7 @@ function QuoteEditorDialog({
 
         if (
           normalizedExchange === 'ALL' &&
-          !window.confirm(buildAllExchangeDeleteConfirmation(fromDate, toDate))
+          !await confirmation.confirm(buildAllExchangeDeleteConfirmation(fromDate, toDate))
         ) {
           setStatus('Delete cancelled.');
           return;
@@ -956,6 +958,7 @@ function QuoteEditorDialog({
 
   return (
     <FloatingWindow id={QUOTE_EDITOR_WINDOW_ID} onClose={handleClose}>
+      {confirmation.dialog}
       <div style={quoteEditorWindowBodyStyle}>
         <div style={quoteEditorLayoutStyle}>
           <div style={quoteEditorLeftPaneStyle}>
@@ -1516,7 +1519,7 @@ function UnifiedCorporateActions({
   const [exchange, setExchange] = useState(activeInstrument?.exchange ?? 'NSE');
   const [effectiveDate, setEffectiveDate] = useState(indiaIsoDate());
   const [actionType, setActionType] = useState<CorporateActionInput['actionType']>('SPLIT');
-  const [ratioText, setRatioText] = useState('1:1');
+  const [ratioText, setRatioText] = useState('');
   const [cashAmountText, setCashAmountText] = useState('');
   const [recordDate, setRecordDate] = useState('');
   const [isin, setIsin] = useState('');
@@ -1562,6 +1565,7 @@ function UnifiedCorporateActions({
   const [bseOfficialMasterFilePath, setBseOfficialMasterFilePath] = useState('');
   const [bseManualMasterFilePath, setBseManualMasterFilePath] = useState('');
   const [bseCurrentUniverseSyncResult, setBseCurrentUniverseSyncResult] = useState<BseCurrentUniverseSyncResult | null>(null);
+  const confirmation = useActionConfirmation();
   const identityConfirmation=useIdentityApplyConfirmation(JSON.stringify([
     activeDatabasePath,identityExchange,identitySourceMode,identityArchiveRoot,bseMasterFilePath,
     activeCorporateTab,identityPreferences.view,busy,nseReviewedApplyAuthority,bseReviewedApplyAuthority,
@@ -2675,7 +2679,7 @@ function UnifiedCorporateActions({
       return;
     }
     if (
-      !window.confirm(
+      !await confirmation.confirm(
         'This changes only the configured official source URL.\nIt does not import data or execute I3/I4 Apply.',
       )
     ) {
@@ -2749,7 +2753,7 @@ function UnifiedCorporateActions({
       return;
     }
     if (
-      !window.confirm(
+      !await confirmation.confirm(
         'This creates a new ROLLBACK source version using the selected historical URL.\nIt preserves history and does not execute I3/I4 Apply.',
       )
     ) {
@@ -5178,7 +5182,15 @@ function UnifiedCorporateActions({
           <div style={utilityFieldLabelStyle}>Action:</div>
           <select
             value={actionType}
-            onChange={(event) => setActionType(event.target.value as CorporateActionInput['actionType'])}
+            onChange={(event) => {
+              const next = event.target.value as CorporateActionInput['actionType'];
+              if (next === 'SPLIT' || actionType === 'SPLIT') {
+                setRatioText(next === 'SPLIT' ? '' : '1:1');
+                setOldFaceValue('');
+                setNewFaceValue('');
+              }
+              setActionType(next);
+            }}
             style={utilityInputStyle}
           >
             <option value="SPLIT">Split</option>
@@ -5208,7 +5220,13 @@ function UnifiedCorporateActions({
                   <div style={utilityFieldLabelStyle}>Ratio:</div>
                   <input
                     value={ratioText}
-                    onChange={(event) => setRatioText(event.target.value)}
+                    onChange={(event) => {
+                      setRatioText(event.target.value);
+                      if (actionType === 'SPLIT' && event.target.value.trim()) {
+                        setOldFaceValue('');
+                        setNewFaceValue('');
+                      }
+                    }}
                     style={utilityInputStyle}
                     placeholder={actionType === 'SPLIT' ? '2:1' : actionType === 'RIGHTS' ? '1:9' : '1:1'}
                   />
@@ -5221,7 +5239,10 @@ function UnifiedCorporateActions({
                     type="number"
                     step="0.01"
                     value={oldFaceValue}
-                    onChange={(event) => setOldFaceValue(event.target.value)}
+                    onChange={(event) => {
+                      setOldFaceValue(event.target.value);
+                      if (event.target.value) setRatioText('');
+                    }}
                     style={utilityInputStyle}
                     placeholder="Optional"
                   />
@@ -5230,7 +5251,10 @@ function UnifiedCorporateActions({
                     type="number"
                     step="0.01"
                     value={newFaceValue}
-                    onChange={(event) => setNewFaceValue(event.target.value)}
+                    onChange={(event) => {
+                      setNewFaceValue(event.target.value);
+                      if (event.target.value) setRatioText('');
+                    }}
                     style={utilityInputStyle}
                     placeholder="Optional"
                   />
@@ -6068,6 +6092,7 @@ function UnifiedCorporateActions({
         </>}
       />
       {identityConfirmation.dialog}
+      {confirmation.dialog}
       {bseNames.confirmationDialog}
     </>
   );

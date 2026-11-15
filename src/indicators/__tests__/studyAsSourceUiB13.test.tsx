@@ -173,6 +173,7 @@ describe('B13: valid Study-as-Source choices and both settings mounts', () => {
       paneScaleOverrides: {},
       paneSettingsIndicator: downstream,
       onStartPaneResize: () => undefined,
+      onResizePane: () => undefined,
       onTogglePaneCollapsed: () => undefined,
       onResetPaneScale: () => undefined,
       onMovePane: () => undefined,

@@ -1123,20 +1123,20 @@ export function Sidebar({ width, collapsed, pinned, onToggleCollapse, onTogglePi
       }
 
       if (activePanel === 'watchlist') {
-        if (selectedWatchlistItems.length === 0) {
+        if (sortedWatchlistItems.length === 0) {
           return;
         }
 
-        const currentIndex = selectedWatchlistItems.findIndex(
+        const currentIndex = sortedWatchlistItems.findIndex(
           (item) => activeInstrumentKey === buildInstrumentKey(item.symbol, item.exchange),
         );
         const nextIndex =
           currentIndex === -1
             ? direction > 0
               ? 0
-              : selectedWatchlistItems.length - 1
-            : Math.max(0, Math.min(selectedWatchlistItems.length - 1, currentIndex + direction));
-        const nextItem = selectedWatchlistItems[nextIndex];
+              : sortedWatchlistItems.length - 1
+            : Math.max(0, Math.min(sortedWatchlistItems.length - 1, currentIndex + direction));
+        const nextItem = sortedWatchlistItems[nextIndex];
         if (!nextItem || nextIndex === currentIndex) {
           event.preventDefault();
           return;
@@ -1144,10 +1144,7 @@ export function Sidebar({ width, collapsed, pinned, onToggleCollapse, onTogglePi
 
         event.preventDefault();
         handleOpenInstrument(nextItem);
-        const visibleIndex = sortedWatchlistItems.findIndex(
-        (item) => item.symbol === nextItem.symbol && item.exchange === nextItem.exchange,
-      );
-      keepWatchlistItemInView(visibleIndex);
+        keepWatchlistItemInView(nextIndex);
       }
     },
     [
@@ -1156,7 +1153,6 @@ export function Sidebar({ width, collapsed, pinned, onToggleCollapse, onTogglePi
       handleOpenInstrument,
       keepSymbolEntryInView,
       keepWatchlistItemInView,
-      selectedWatchlistItems,
       sortedWatchlistItems,
       displaySymbolBrowserItems,
       watchlistItemContextMenu,
@@ -2644,7 +2640,7 @@ function shouldKeepNativeArrowKeyBehavior(target: EventTarget | null): boolean {
   }
 
   const tagName = target.tagName.toLowerCase();
-  return tagName === 'select' || tagName === 'textarea' || target.isContentEditable;
+  return tagName === 'input' || tagName === 'select' || tagName === 'textarea' || target.isContentEditable;
 }
 
 function normalizeWheelDelta(deltaY: number, deltaMode: number, viewportHeight: number): number {

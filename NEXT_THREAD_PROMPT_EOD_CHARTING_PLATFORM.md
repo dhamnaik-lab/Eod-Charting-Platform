@@ -1,5 +1,17 @@
 # EOD Charting Platform — phase tracker for the next thread
 
+## Application design audit bounded pass — source complete, native acceptance next
+
+- **Completed (15 November 2026):** transient tile hover; shared modal lifecycle and chart-tab keyboard semantics; bounded window stacking and themed confirmations; demand-driven chart frames and indicator-bundle reuse; blocking-worker dispatch for symbol reads. Renderer typecheck, 80 focused Vitest tests, 7 Rust tests and 13 isolated browser checks passed.
+- **Next:** user portable rebuild, then two-tile/native UI acceptance and post-change symbol-list/snapshot latency. The pre-change actual-database profile showed 1.07–1.29 s concurrent snapshot latency. Do not infer new-binary timing from the old portable or headless checks.
+- **Open:** separate official-watchlist download profiling; broader contention/settings/shutdown; ISSUE-08 recovery/parity and ISSUE-10 optional features. [Record and backups](docs/changes/2026-11-15_2019_IST_AUDIT_BOUNDED_UI_PERFORMANCE.md).
+
+## Completed source integration: native chart-pattern scanners (PR #102)
+
+- All 54 chart-pattern scanners are application-owned. PR #102 merged at `ca1cd936` and local main is synchronized. The merged tree matches the accepted portable build.
+- Renderer CI, local renderer validation and scoped native Windows acceptance passed. [Renderer audit](docs/audits/2026-11-13_1926_IST_PR102_NATIVE_CHART_PATTERNS_VALIDATION.md) · [Native acceptance](docs/audits/2026-11-14_0129_IST_PR102_NATIVE_WINDOWS_ACCEPTANCE.md)
+- **Next:** Rebuild the usual portable EXE from main when needed. The pinned PR portable already contains the migration.
+
 ## Completed source integration: full local WIP reconciliation before user rebuild
 
 - Preserved 117 entries plus three theme commits; main and PR75 reconciled. Local renderer/Rust/tooling checks passed. Publication gate: exact tested tree, GitHub CI and clean main synchronization.
@@ -10,6 +22,22 @@
 **Rule:** This file is the sole owner of **running, completed and next phase status**. A phase is assigned to one of these sections only when the user explicitly confirms its identity and status. Source code, test names, timestamps, historical chats and this reconstructed documentation are **not** phase completion or priority authority. See [AGENTS.md](AGENTS.md) for working rules and [PROJECT_STATE](PROJECT_STATE_EOD_CHARTING_PLATFORM.md) for the dated source audit.
 
 ## Running phases
+
+**CA reconciliation performance (15 November 2026).** Same-date peer query reuse passed the user-run reconciliation suite. Actual-database profiling traced the four-minute 500-row baseline to repeated scan-results scans. Portable build `20261115.183601` is available and hash verified. Apply the approved import-ID index by opening the specified portable against the actual database, then check query plans and time the same 500 IDs. These runtime checks remain Pending. See [HANDOFF.md](HANDOFF.md) and the [index change record](docs/changes/2026-11-15_1836_IST_CA_RECONCILIATION_SCAN_INDEX.md).
+
+**Listed Split with separate percentage Dividend (15 November 2026).** Source patch and focused regressions prepared for LMW-shaped notices. Load & Validate, reconciliation, and approval share the same explicit Split terms check. Manual validation and disposable desktop acceptance Pending. See [HANDOFF.md](HANDOFF.md) for commands and backup. BSE consolidation evidence collection is a separate next step.
+
+**CA audit safety, phase 1 (15 November 2026).** Source patch and focused regressions prepared for identity blocker preservation, Demerger authority hold and conflicting manual Split terms. Manual validation and portable acceptance Pending. See [HANDOFF.md](HANDOFF.md) for the verified pre-backup, commands and acceptance scope. The Demerger evidence workflow and review of previously promoted imports are separate work.
+
+**CA batched reports (15 November 2026).** User-authorized reporting correction implemented: sequential <=500-ID requests, cancellation/progress, exact accounting and explicit partial exports, paged display, and corrected absent-price-window wording. Checks and native acceptance Pending; commands in [the change record](docs/changes/2026-11-15_0043_IST_CA_BATCHED_REPORTS.md). Previous diagnostic tests passed per user terminal, but do not cover these edits. Stop after this bounded task; user has a separate topic next.
+
+**CA self-service diagnostics (14 November 2026).** First bounded step implemented: NSE/BSE financial-action coverage, consistent blocked/readiness labels, shared security-term blockers, exact BSE identity diagnostics, and displayed/exported next steps. All checks for this patch Pending. Run the commands in [the change record](docs/changes/2026-11-14_1901_IST_CA_DIAGNOSTIC_COVERAGE.md); then user-owned rebuild and re-export. Guided identity/data/official-term resolution and Demerger financial-authority review are not implemented by this step. No database changes or approvals.
+
+**Rights adjustment safety correction (14 November 2026).** Bounded source correction and regression preparation complete; manual validation Pending. EOD price movement alone no longer admits Rights financial adjustment; complete official terms retain TERP. Next: execute the serial commands in [the change record](docs/changes/2026-11-14_1738_IST_RIGHTS_ADJUSTMENT_SAFETY.md), then user-owned portable/native acceptance. No additional CA task or approval is initiated.
+
+**Portable audit smoke (14 November 2026).** The manually rebuilt `20261114.041815` passed scoped native checks on a disposable database, including inactive-tile hover isolation. See [HANDOFF.md](HANDOFF.md) for the evidence path and remaining acceptance.
+
+**Application design audit (updated 15 November 2026).** The bounded UI/performance source pass is complete; native multi-tile and rebuilt-portable acceptance remain open. See the current phase above and [HANDOFF.md](HANDOFF.md). The [architecture review](docs/audits/2026-11-14-audit-architecture-decisions.md) preserves the separate ISSUE-08 through ISSUE-10 decisions.
 
 **Unified Corporate Actions and Identity (12 November 2026).** Source integration is implemented in the active managed window. Renderer tests/build and shared-target Tauri check/debug build passed. Populated native fixtures passed the scoped exchange fetch, identity history and source recovery, file export, issue resolution, backfill, explicit Bonus approval and chart-refresh checkpoints. Build `20261112.010220` passed the recorded hash check. Corporate Actions portable operator verification remains open on a disposable fixture. See the [implementation record](docs/changes/2026-11-12_0030_IST_CORPORATE_ACTIONS_UNIFIED_UI.md), [operator acceptance record](docs/changes/2026-11-12_0057_IST_CORPORATE_ACTIONS_OPERATOR_ACCEPTANCE.md), and [parity matrix](docs/changes/CORPORATE_ACTIONS_UNIFIED_UI_PARITY.md).
 
@@ -42,6 +70,10 @@ Final NSE Tasks 1–2 are implemented on `feat/ca-nse-final-20261108` from updat
 **Corporate Actions Tasks A/B (7 November 2026):** diagnosis and automated verification are complete; runtime acceptance for NSE wording and Later is pending the portable rebuild. Other running-phase assignments await user confirmation.
 
 ## Completed phases
+
+- **Application design audit ISSUE-02 and ISSUE-06 (14 November 2026).** Contrast and bounded plugin ZIP reads implemented locally. Native desktop acceptance remains pending.
+
+- **Application design audit ISSUE-01 (14 November 2026).** Local implementation and focused Windows Rust checks passed, including the junction fixture. Native desktop acceptance is pending after a manual portable rebuild. See [HANDOFF.md](HANDOFF.md) for backups and scope.
 
 **DB-SAFE-03 verification complete (13 November 2026).** Automated checks, portable build and native disposable Hybrid acceptance passed. The [change record](docs/changes/2026-11-12_2341_IST_DB_SAFE_03_DELIVERY_PRESERVATION.md) records the executable hash, observed behavior and remaining limits.
 

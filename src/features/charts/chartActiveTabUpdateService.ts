@@ -1,19 +1,20 @@
 import type { ChartStoreState, ChartTabState } from '@/store/chartStoreTypes';
 
 /**
- * Apply each matching active-tab transformation once, preserving the original
+ * Apply each matching tab transformation once, preserving the original
  * tab-array reference when no tab changes. Copy only on the first real change.
  */
 export function updateActiveTab(
   state: Pick<ChartStoreState, 'chartTabs' | 'activeChartTabId'>,
   updater: (tab: ChartTabState) => ChartTabState,
+  tabId: string | null = state.activeChartTabId,
 ): Pick<ChartStoreState, 'chartTabs'> {
-  const { chartTabs, activeChartTabId } = state;
+  const { chartTabs } = state;
   let updatedTabs: ChartTabState[] | null = null;
 
   for (let index = 0; index < chartTabs.length; index += 1) {
     const tab = chartTabs[index];
-    if (tab.id !== activeChartTabId) {
+    if (tab.id !== tabId) {
       continue;
     }
 

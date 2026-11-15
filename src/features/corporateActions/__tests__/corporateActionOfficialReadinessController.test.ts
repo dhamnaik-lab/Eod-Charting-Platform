@@ -181,7 +181,12 @@ describe('Corporate Actions official readiness & queue-refresh behavioral contro
     }
 
     const eligibleIds = selectEligibleOfficialImportRows(allRows, context).map((row) => row.id);
-    expect(eligibleIds).toEqual([1, 2, 7, 9]);
+    expect(eligibleIds).toEqual([1, 2, 3, 7, 9]);
+    // A current MATCHED price scan cannot substitute for the Rights issue price.
+    const staleEodRights = { ...rightsRow, cashAmount: null, priceFactor: 1 / 1.05 };
+    expect(isClassicCorporateActionRowReady(staleEodRights, context)).toBe(false);
+    expect(evaluateOfficialCorporateActionRowReadiness(staleEodRights, context)).toBe(false);
+    expect(selectEligibleOfficialImportRows([staleEodRights], context)).toEqual([]);
   });
 
   it('blocks readiness when preparation is incomplete, row has a preparation error, or Dividend is already processed', () => {

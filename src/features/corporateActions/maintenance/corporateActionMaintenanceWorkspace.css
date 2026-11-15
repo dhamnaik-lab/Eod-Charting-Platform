@@ -90,7 +90,11 @@
 .ca-maintenance-workspace__rail-item:focus-visible {
   background: var(--control-bg, #182232);
   color: var(--text-primary, #f3f6fb);
-  outline: none;
+}
+
+.ca-maintenance-workspace__rail-item:focus-visible {
+  outline: 2px solid var(--focus-ring, var(--accent));
+  outline-offset: -2px;
 }
 
 .ca-maintenance-workspace__rail-item[data-active='true'] {

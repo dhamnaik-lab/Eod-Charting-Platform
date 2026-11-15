@@ -1,4 +1,5 @@
-import { useDeferredValue, useEffect, useMemo, useState } from 'react';
+import { useDeferredValue, useEffect, useMemo, useState, useRef } from 'react';
+import { useDialogFocus } from '@/features/app/useDialogFocus';
 
 import type { ChartCompareOverlay } from '@/engine/types';
 import type { InstrumentSummary } from '@/platform';
@@ -60,22 +61,12 @@ export function CompareOverlayDialog({
     return () => window.clearTimeout(timer);
   }, [clearSearch, deferredQuery, runSearch]);
 
-  useEffect(() => {
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        clearSearch();
-        onClose();
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [clearSearch, onClose]);
-
   const handleClose = () => {
     clearSearch();
     onClose();
   };
+  const dialogRef = useRef<HTMLDivElement>(null);
+  useDialogFocus(dialogRef, handleClose);
 
   const handleAdd = () => {
     if (!selectedResult) {
@@ -89,7 +80,8 @@ export function CompareOverlayDialog({
 
   return (
     <div style={dialogBackdropStyle} onMouseDown={handleClose}>
-      <div style={dialogPanelStyle} onMouseDown={(event) => event.stopPropagation()}>
+      <div ref={dialogRef} role="dialog" aria-modal="true" aria-label="Compare" tabIndex={-1}
+        style={dialogPanelStyle} onMouseDown={(event) => event.stopPropagation()}>
         <div style={dialogHeaderStyle}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
             <strong style={{ fontSize: 18, color: 'var(--text)' }}>Compare</strong>
@@ -232,7 +224,7 @@ const dialogBackdropStyle: React.CSSProperties = {
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',
-  zIndex: 40,
+  zIndex: 900,
 };
 
 const dialogPanelStyle: React.CSSProperties = {

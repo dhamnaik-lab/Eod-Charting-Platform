@@ -177,6 +177,83 @@ fn run(c:&Connection, ids:Vec<i64>)->CorporateActionReconciliationPreflightResul
 fn codes(r:&CorporateActionReconciliationPreflightRow)->Vec<&str>{r.blockers.iter().map(|b|b.code.as_str()).collect()}
 fn canonical(c:&Connection,id:i64,factor:f64){c.execute("INSERT INTO corporate_actions(id,symbol,exchange,isin,effective_date,action_type,factor,old_face_value,new_face_value,adjust_volume,applied_at) VALUES(?,'TEST','NSE','INEAUTO01001','2026-08-14','SPLIT',?,10,5,1,'2026-08-14T00:00:00Z')",params![id,factor]).unwrap();}
 
+#[test]
+fn r1a_preflight_same_date_cache_500_row_parity_and_timings() {
+    let c = fixture();
+    for id in 1..=500 {
+        seed(&c, id, "PENDING");
+        let exchange = if id % 2 == 0 { "NSE" } else { "BSE" };
+        let date = format!("2026-08-{:02}", (id - 1) / 50 + 1);
+        c.execute(
+            "UPDATE corporate_action_imports
+             SET exchange=?, ex_date=?, action_type='DIVIDEND', purpose_raw='Dividend Rs 1 per share',
+                 cash_amount=1, old_face_value=NULL, new_face_value=NULL, factor=NULL, price_factor=NULL
+             WHERE id=?",
+            params![exchange, date, id],
+        ).unwrap();
+    }
+    c.pragma_update(None, "query_only", true).unwrap();
+    let request = input((1..=500).collect());
+    let before: i64 = c.query_row("SELECT total_changes()", [], |r| r.get(0)).unwrap();
+    let compare = |capacity| {
+        let mut cache = SameDateCache::new(capacity);
+        cache.timings = Some(DependencyTimings::default());
+        preflight_with_same_date_cache(&c, &request, "E:/TEST", "fixture", "fixture-build", cache)
+    };
+    let uncached = compare(0);
+    let cached = compare(SAME_DATE_CACHE_CAPACITY);
+    assert_eq!(uncached.status, "COMPLETE");
+    assert_eq!(cached.status, "COMPLETE");
+    assert_eq!(cached.rows.len(), 500);
+    assert!(cached.fingerprint.is_some());
+    assert_eq!(cached.fingerprint, uncached.fingerprint);
+    assert!(serde_json::to_value(&cached.rows).unwrap() == serde_json::to_value(&uncached.rows).unwrap(),
+        "cached and uncached row diagnostics must match");
+    assert_eq!(cached.executed_repairs, 0);
+    assert_eq!(cached.approval_writes, 0);
+    assert_eq!(c.query_row("SELECT total_changes()", [], |r| r.get::<_, i64>(0)).unwrap(), before);
+}
+
+#[test]
+fn r1a_preflight_same_date_cache_keeps_event_evidence_and_reloads_next_snapshot() {
+    let c = fixture();
+    for id in 1..=3 {
+        seed(&c, id, "PENDING");
+    }
+    event_identity_resolution::create_event_identity_resolution_schema_for_controlled_apply(&c).unwrap();
+    c.execute(
+        "INSERT INTO corporate_action_event_identity_resolutions(
+          import_id,exchange,raw_symbol,raw_isin,event_symbol,event_isin,resolution_type,
+          resolution_authority,chain_id,transition_old_symbol,transition_new_symbol,
+          transition_effective_date,raw_identity_source_ref,raw_identity_source_sha256,
+          raw_identity_source_line_number,v114d1_evidence_sha256,resolution_fingerprint)
+         VALUES(3,'NSE','TEST','INEAUTO01001','OLDTEST',NULL,'NSE_VERIFIED_PRE_TRANSITION_EVENT_SYMBOL',
+          'V1.14D.1_RAW_NSE_IDENTITY_EXACT_MATCH','fixture-chain','OLDTEST','TEST','2026-09-01',
+          'fixture.csv','fixture-sha',1,'fixture-evidence','fixture-fingerprint')",
+        [],
+    ).unwrap();
+    let request = input(vec![1, 2]);
+    let compare = || {
+        c.pragma_update(None, "query_only", true).unwrap();
+        let cached = preflight_with_connection(&c, &request, "E:/TEST", "fixture", "fixture-build");
+        let uncached = preflight_with_same_date_cache(
+            &c, &request, "E:/TEST", "fixture", "fixture-build", SameDateCache::new(0),
+        );
+        assert_eq!(cached.status, "COMPLETE");
+        assert_eq!(cached.fingerprint, uncached.fingerprint);
+        assert_eq!(serde_json::to_value(&cached.rows).unwrap(), serde_json::to_value(&uncached.rows).unwrap());
+        cached
+    };
+    let before = compare();
+    c.pragma_update(None, "query_only", false).unwrap();
+    c.execute("UPDATE corporate_action_event_identity_resolutions SET event_symbol='NEWPEER' WHERE import_id=3", []).unwrap();
+    let after = compare();
+    assert_ne!(before.fingerprint, after.fingerprint);
+    for (before, after) in before.rows.iter().zip(&after.rows) {
+        assert_ne!(before.row_fingerprint, after.row_fingerprint);
+    }
+}
+
 #[test] fn r1a_preflight_accounts_for_missing_and_duplicate_ids(){let c=fixture();seed(&c,1,"UNRESOLVED");let r=run(&c,vec![1,1,999999]);assert_eq!(r.selection.requested_count,3);assert_eq!(r.selection.duplicate_count,1);assert_eq!(r.rows.iter().map(|x|x.import_id).collect::<Vec<_>>(),vec![1,999999]);assert_eq!(r.rows[1].outcome,"MISSING_IMPORT");assert_eq!(r.status,"PARTIAL");}
 #[test] fn r1a_preflight_rejects_invalid_ids_and_limits(){let c=fixture();for ids in [vec![],vec![0],vec![-1],vec![9_007_199_254_740_992],vec![1;501]]{assert_eq!(run(&c,ids).status,"REJECTED");}}
 #[test] fn r1a_preflight_accepts_500_unique_valid_ids(){let c=fixture();let r=run(&c,(1..=500).collect());assert_eq!(r.rows.len(),500);assert_eq!(r.summary.accounted_for,500);}
@@ -202,6 +279,46 @@ fn canonical(c:&Connection,id:i64,factor:f64){c.execute("INSERT INTO corporate_a
 #[test] fn r1a_preflight_scan_missing_stale_and_no_price_distinct(){for (status,factor,code) in [("NONE",2.0,"VALIDATION_MISSING"),("MATCHED",3.0,"VALIDATION_STALE"),("NO_PRICE_DATA",2.0,"PRICE_DATA_MISSING"),("REVIEW",2.0,"PRICE_REVIEW_REQUIRED")]{let c=fixture();seed(&c,1,"PENDING");if status!="NONE"{scan(&c,1,status,0.99,factor);}let r=run(&c,vec![1]);assert!(codes(&r.rows[0]).contains(&code));}}
 #[test] fn r1a_preflight_compound_validation_not_auto_authority(){let c=fixture();seed(&c,1,"PENDING");seed(&c,2,"PENDING");c.execute("UPDATE corporate_action_imports SET action_type='BONUS',purpose_raw='Bonus 1:1',old_face_value=NULL,new_face_value=NULL,ratio_num=1,ratio_den=1 WHERE id=2",[]).unwrap();scan(&c,1,"MATCHED",0.99,2.0);let r=run(&c,vec![1]);assert_eq!(r.rows[0].safe_v1.state,"INELIGIBLE");assert_eq!(r.rows[0].classification.state,"SUPPORTED_COMPOUND_REVIEW");}
 #[test] fn r1a_preflight_legacy_mixed_terms_proposal_only(){let c=fixture();seed(&c,1,"PENDING");c.execute("UPDATE corporate_action_imports SET purpose_raw='Bonus 1:1 and Face Value Split from Rs 10 to Rs 5'",[]).unwrap();let r=run(&c,vec![1]);assert!(codes(&r.rows[0]).contains(&"CLASSIFICATION_CONFLICT"));assert!(r.rows[0].classification.proposal_only);}
+
+#[test]
+fn separate_percentage_dividend_preview_and_writer_agree_on_split_terms() {
+    use super::super::split_bonus_preparation::ensure_components_prepared;
+
+    for (purpose, old_face_value, status, terms_match, ready) in [
+        ("Fv Spl 100 To 10/Div150%", 100.0, "PENDING", true, true),
+        ("Fv Spl 100 To 10/Div150%", 100.0, "PENDING_ISIN_MISMATCH", true, false),
+        ("Fv Spl 100 To 10/Div150%", 50.0, "PENDING", false, false),
+        ("Face Value Split From Rs 100 To Rs 10/Dividend150%", 50.0, "PENDING", false, false),
+        ("Fv Spl 100 To 10/Fv Spl 100 To 20/Div150%", 100.0, "PENDING", false, false),
+        ("Fv Spl 100 To 10/Div150% and Bonus 1:1", 100.0, "PENDING", false, false),
+        ("Fv Spl 100 To 10/Dividend Rs 2 or 150%", 100.0, "PENDING", false, false),
+    ] {
+        let c = fixture();
+        seed(&c, 1, status);
+        c.execute(
+            "UPDATE corporate_action_imports
+             SET purpose_raw=?, old_face_value=?, new_face_value=10, factor=10, price_factor=0.1 WHERE id=1",
+            params![purpose, old_face_value],
+        ).unwrap();
+        scan(&c, 1, "MATCHED", 0.96, 10.0);
+        c.execute("UPDATE corporate_action_scan_results SET ex_open=10, ex_close=10 WHERE id=1", []).unwrap();
+        let row = get_import_row(&c, 1).unwrap();
+        assert_eq!(ensure_components_prepared(&c, &row).is_ok(), terms_match,
+            "{purpose}; stored old face value {old_face_value}; {status}");
+        let result = run(&c, vec![1]);
+        let preview = &result.rows[0];
+        assert_eq!(codes(preview).contains(&"PERCENTAGE_DIVIDEND_SEPARATE_REVIEW"), terms_match, "{purpose}");
+        assert_eq!(preview.ordinary_readiness.state == "READY_FOR_WRITER_RECHECK", ready, "{purpose}");
+        if terms_match {
+            assert_eq!(preview.classification.proposed_share_factor, Some(10.0));
+        } else {
+            assert!(codes(preview).contains(&"CLASSIFICATION_CONFLICT"), "{purpose}");
+        }
+        assert_eq!(result.approval_writes, 0);
+        assert_eq!(result.executed_repairs, 0);
+    }
+}
+
 #[test] fn r1a_preflight_nonordinary_security_not_erased(){let c=fixture();seed(&c,1,"UNRESOLVED");c.execute("UPDATE corporate_action_imports SET action_type='BONUS',purpose_raw='Scheme of Arrangement - Bonus NCRPS 4:1'",[]).unwrap();let r=run(&c,vec![1]);assert_eq!(r.rows[0].classification.state,"OTHER_SECURITY_REVIEW");assert_ne!(r.rows[0].blocks_in_scope_completeness,Some(false));}
 #[test] fn r1a_preflight_outer_fingerprint_stable_and_sensitive(){let c=fixture();seed(&c,1,"PENDING");seed(&c,2,"PENDING");let a=run(&c,vec![1,2]);let mut inp=input(vec![2,1]);inp.request_token="other".into();let b=preflight_with_connection(&c,&inp,"E:/TEST","fixture","fixture-build");assert_eq!(a.fingerprint,b.fingerprint);c.pragma_update(None,"query_only",false).unwrap();c.execute("UPDATE corporate_action_imports SET factor=3 WHERE id=2",[]).unwrap();let d=run(&c,vec![1,2]);assert_ne!(a.fingerprint,d.fingerprint);}
 #[test] fn r1a_preflight_unresolved_cannot_complete_database(){let c=fixture();seed(&c,1,"UNRESOLVED");let r=run(&c,vec![1]);assert!(!r.summary.database_complete);assert_eq!(r.summary.coverage_certification,"NOT_ASSESSED");assert_eq!(r.rows[0].blocks_in_scope_completeness,Some(true));}
@@ -243,10 +360,133 @@ fn r1a_request_token_invalid_and_oversized_rejected() {
 #[test]
 fn r1a_outside_scope_does_not_call_safe_v1() {
     let c=fixture();seed(&c,1,"PENDING");
-    c.execute("UPDATE corporate_action_imports SET exchange='BSE'",[]).unwrap();
+    c.execute("UPDATE corporate_action_imports SET exchange='UNSUPPORTED'",[]).unwrap();
     let r=run(&c,vec![1]);assert_eq!(r.rows[0].outcome,"DEFERRED_SCOPE");
     assert_eq!(r.rows[0].safe_v1.state,"NOT_EVALUATED");
     assert_eq!(r.rows[0].blocks_in_scope_completeness,Some(false));
+}
+
+#[test]
+fn diagnostic_bse_split_bonus_are_evaluated_without_safe_v2_or_writes() {
+    for action in ["SPLIT", "BONUS"] {
+        let c=fixture();seed(&c,1,"PENDING");scan(&c,1,"MATCHED",0.99,2.0);
+        c.execute_batch("UPDATE instruments SET exchange='BSE';
+            UPDATE corporate_action_imports SET exchange='BSE';
+            UPDATE corporate_action_scan_results SET exchange='BSE';").unwrap();
+        if action=="BONUS" {
+            c.execute_batch("UPDATE corporate_action_imports SET action_type='BONUS', purpose_raw='Bonus 1:1',
+                ratio_num=1,ratio_den=1,old_face_value=NULL,new_face_value=NULL;").unwrap();
+        }
+        let before=logical_database_fingerprint(&c).unwrap();
+        let result=run(&c,vec![1]);let row=&result.rows[0];
+        assert_eq!(result.status,"COMPLETE","{:?}",row.blockers);
+        assert!(!codes(row).contains(&"ACTION_OUTSIDE_R1_SCOPE"));
+        assert_eq!(row.price.scan_status.as_deref(),Some("MATCHED"));
+        assert_eq!(row.ordinary_readiness.state,"READY_FOR_WRITER_RECHECK");
+        assert_eq!(row.safe_v1.state,"NOT_EVALUATED");
+        assert_eq!(logical_database_fingerprint(&c).unwrap(),before);
+        assert_eq!((result.executed_repairs,result.approval_writes),(0,0));
+    }
+}
+
+#[test]
+fn diagnostic_bse_numeric_identifiers_are_preserved_and_unmapped_rows_explained() {
+    for matched in [true,false] {
+        let c=fixture();seed(&c,1,"PENDING");
+        c.execute_batch("UPDATE corporate_action_imports SET exchange='BSE',symbol='539552';
+            UPDATE instruments SET exchange='BSE';").unwrap();
+        if matched {c.execute_batch("UPDATE instruments SET symbol='539552'").unwrap();}
+        let result=run(&c,vec![1]);let row=&result.rows[0];
+        assert_eq!(row.identity.raw_symbol.as_deref(),Some("539552"));
+        assert_eq!(codes(row).contains(&"BSE_IDENTITY_REVIEW_REQUIRED"),!matched);
+        assert!(!codes(row).contains(&"IDENTITY_NO_ACTIVE_CANDIDATE"));
+        assert_eq!(row.ordinary_readiness.state,"BLOCKED"); // no validation scan
+    }
+}
+
+#[test]
+fn diagnostic_classification_and_identity_blockers_never_coexist_with_ready() {
+    for change in [
+        "UPDATE corporate_action_imports SET purpose_raw='Fv Spl 100 To 10/Div150%'",
+        "UPDATE corporate_action_imports SET purpose_raw='Bonus 1:1 and Face Value Split from Rs 10 to Rs 5'",
+        "UPDATE instruments SET is_active=0",
+    ] {
+        let c=fixture();seed(&c,1,"PENDING");scan(&c,1,"MATCHED",0.99,2.0);
+        c.execute_batch(change).unwrap();
+        let result=run(&c,vec![1]);let row=&result.rows[0];
+        assert!(row.blockers.iter().any(|blocker|blocker.severity=="BLOCKING"));
+        assert_ne!(row.ordinary_readiness.state,"READY_FOR_WRITER_RECHECK");
+        assert_ne!(row.outcome,"READY_FOR_EXISTING_APPROVAL_RECHECK");
+    }
+}
+
+#[test]
+fn diagnostic_glued_bonus_debentures_use_shared_admission_reason() {
+    let c=fixture();seed(&c,1,"PENDING");
+    c.execute_batch("UPDATE corporate_action_imports SET action_type='BONUS',purpose_raw='Sch Of Agmt- Bonus Deb1:1'").unwrap();
+    let result=run(&c,vec![1]);let row=&result.rows[0];
+    assert_eq!(row.classification.state,"OTHER_SECURITY_REVIEW");
+    assert!(row.blockers.iter().any(|blocker|blocker.message.contains("Debenture terms require a separate policy")));
+    assert_ne!(row.ordinary_readiness.state,"READY_FOR_WRITER_RECHECK");
+}
+
+#[test]
+fn diagnostic_rights_terms_and_stale_factors_are_distinguished_without_writes() {
+    for terms in ["ratio_num=NULL,ratio_den=NULL,cash_amount=NULL", "ratio_num=1,ratio_den=4,cash_amount=80"] {
+        let c=fixture();seed(&c,1,"PENDING");scan(&c,1,"MATCHED",1.0,2.0);
+        c.execute_batch(&format!("UPDATE corporate_action_imports SET action_type='RIGHTS',purpose_raw='Rights issue',{terms}")).unwrap();
+        let before=logical_database_fingerprint(&c).unwrap();
+        let result=run(&c,vec![1]);let row=&result.rows[0];
+        let expected=if terms.contains("NULL"){ "RIGHTS_TERMS_REQUIRED" }else{ "RIGHTS_WORKFLOW_RECHECK_REQUIRED" };
+        assert!(codes(row).contains(&expected),"{:?}",row.blockers);
+        assert!(!codes(row).contains(&"ACTION_OUTSIDE_R1_SCOPE"));
+        assert!(!codes(row).contains(&"VALIDATION_STALE"));
+        assert_eq!(row.price.scan_status.as_deref(),Some("MATCHED"));
+        assert_eq!(row.ordinary_readiness.state,"BLOCKED");
+        assert_eq!(row.safe_v1.state,"NOT_EVALUATED");
+        assert_eq!(logical_database_fingerprint(&c).unwrap(),before);
+    }
+}
+
+#[test]
+fn diagnostic_dividend_requires_cash_and_verified_scope() {
+    let c=fixture();seed(&c,1,"PENDING");
+    c.execute_batch("UPDATE corporate_action_imports SET action_type='DIVIDEND',purpose_raw='Dividend',cash_amount=NULL").unwrap();
+    let result=run(&c,vec![1]);let row=&result.rows[0];
+    for code in ["DIVIDEND_CASH_REQUIRED","DIVIDEND_VERIFIED_SCOPE_REQUIRED","VALIDATION_MISSING"] {
+        assert!(codes(row).contains(&code));
+    }
+    assert_eq!(row.ordinary_readiness.state,"BLOCKED");
+}
+
+#[test]
+fn diagnostic_uncaptured_window_is_not_a_confirmed_price_gap() {
+    for action in ["RIGHTS", "DIVIDEND"] {
+        for (status, code) in [("REVIEW", "PRICE_WINDOW_NOT_CAPTURED"), ("NO_PRICE_DATA", "PRICE_DATA_MISSING")] {
+            let c=fixture();seed(&c,1,"PENDING");scan(&c,1,status,0.0,2.0);
+            c.execute("UPDATE corporate_action_imports SET action_type=?,purpose_raw='Financial event'",[action]).unwrap();
+            c.execute_batch("UPDATE corporate_action_scan_results SET prev_trade_date=NULL,ex_trade_date=NULL,prev_close=NULL,ex_open=NULL,ex_close=NULL").unwrap();
+            let result=run(&c,vec![1]);let row=&result.rows[0];
+            assert!(codes(row).contains(&code));
+            let other=if code=="PRICE_DATA_MISSING"{"PRICE_WINDOW_NOT_CAPTURED"}else{"PRICE_DATA_MISSING"};
+            assert!(!codes(row).contains(&other));
+            assert_eq!(row.price.raw_price_revalidation,"NOT_RUN");
+            assert_eq!(result.approval_writes,0);
+        }
+    }
+}
+
+#[test]
+fn diagnostic_demerger_factor_one_or_price_decline_is_not_financial_authority() {
+    for factor in [None,Some(1.0),Some(1.2)] {
+        let c=fixture();seed(&c,1,"PENDING");
+        c.execute("UPDATE corporate_action_imports SET action_type='DEMERGER',purpose_raw='Spin Off',factor=?",[factor]).unwrap();
+        let result=run(&c,vec![1]);let row=&result.rows[0];
+        let code=if factor==Some(1.2){"DEMERGER_FACTOR_AUTHORITY_REQUIRED"}else{"DEMERGER_TERMS_REQUIRED"};
+        assert!(codes(row).contains(&code));
+        assert!(!codes(row).contains(&"ACTION_OUTSIDE_R1_SCOPE"));
+        assert_eq!(row.ordinary_readiness.state,"BLOCKED");
+    }
 }
 #[test]
 fn r1a_unsafe_database_manifest_name_rejected() {

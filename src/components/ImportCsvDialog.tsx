@@ -10,9 +10,11 @@ import { useChartStore } from '@/store/chartStore';
 import { useUiStore } from '@/store/uiStore';
 import { useWindowStore } from '@/store/windowStore';
 import { FloatingWindow } from '@/components/FloatingWindow';
+import { useActionConfirmation } from '@/components/common/useActionConfirmation';
 import { NiftyHistoryReview } from '@/components/NiftyHistoryReview';
 
 export function ImportCsvDialog() {
+  const confirmation = useActionConfirmation();
   const IMPORT_CSV_WINDOW_ID = 'import-csv';
 
   const importDialog = useUiStore((state) => state.importDialog);
@@ -102,7 +104,7 @@ export function ImportCsvDialog() {
     if (!api || !recovery.undoable || undoBusySessionId || importProgress.running || historicalBusy) {
       return;
     }
-    const confirmed = window.confirm(
+    const confirmed = await confirmation.confirm(
       `Undo Manual Import ${recovery.sessionId}?\n\n` +
         `Exchange: ${recovery.exchange}\n` +
         `Files: ${recovery.fileCount}\n` +
@@ -136,6 +138,7 @@ export function ImportCsvDialog() {
 
   return (
     <FloatingWindow id={IMPORT_CSV_WINDOW_ID} onClose={handleClose}>
+      {confirmation.dialog}
       <div style={dialogBodyStyle}>
         <div style={referenceBoxStyle}>
           <div style={{ color: 'var(--text-dim)', marginBottom: 6 }}>Expected Format</div>
@@ -452,7 +455,7 @@ export function ImportCsvDialog() {
                   return;
                 }
                 if (sourceExchangeMismatch) {
-                  const confirmed = window.confirm(
+                  const confirmed = await confirmation.confirm(
                     sourceExchangeHint === 'MIXED'
                       ? `Exchange mismatch: selected files appear to include both NSE and BSE source folders, ` +
                         `but the target Exchange is ${exchange}.\n\nContinue anyway?`

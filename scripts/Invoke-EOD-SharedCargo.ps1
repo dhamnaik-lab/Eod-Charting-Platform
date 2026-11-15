@@ -48,8 +48,11 @@ foreach ($argument in $CargoArguments) {
 }
 
 # Read-only identification of new nested Cargo build trees; do not inspect file contents.
+# The already-retained PR #102 acceptance archive is evidence. Cargo still writes only to $target.
+$retainedPr102Target = Join-Path $tmp 'fixtures\pr102-native-windows-6ce03be\source\target'
 $secondary = @(Get-ChildItem -LiteralPath $tmp -Directory -Recurse -Force -ErrorAction Stop |
     Where-Object {
+        $_.FullName -ine $retainedPr102Target -and
         ($_.Name -eq 'target' -or $_.Name -eq 'cargo-target' -or $_.Name -eq 'rust-target') -and
         ((Test-Path -LiteralPath (Join-Path $_.FullName 'debug\deps') -PathType Container) -or
          (Test-Path -LiteralPath (Join-Path $_.FullName 'release\deps') -PathType Container))

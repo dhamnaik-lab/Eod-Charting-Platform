@@ -21,8 +21,25 @@ export type CorporateActionApprovalState =
 
 const FACTOR_EPSILON = 1e-9;
 
+export function hasRightsFinancialTerms(
+  row: Partial<Pick<CorporateActionImportRow, 'ratioNum' | 'ratioDen' | 'cashAmount'>>,
+): boolean {
+  return [row.ratioNum, row.ratioDen, row.cashAmount]
+    .every(value => typeof value === 'number' && Number.isFinite(value) && value > 0);
+}
+
 export function isSplitOrBonus(row: Pick<CorporateActionImportRow, 'actionType'>): boolean {
   return row.actionType === 'SPLIT' || row.actionType === 'BONUS';
+}
+
+export function isPriceValidatedAction(
+  row: Pick<CorporateActionImportRow, 'actionType'> &
+    Partial<Pick<CorporateActionImportRow, 'factor' | 'priceFactor' | 'cashAmount'>>,
+): boolean {
+  if (row.actionType === 'SPLIT' || row.actionType === 'BONUS' || row.actionType === 'DEMERGER') {
+    return true;
+  }
+  return false;
 }
 
 export function getPriceMultiplier(shareFactor: number | null | undefined): number | null {
@@ -111,7 +128,7 @@ export function classifyCorporateActionValidation(
   row: CorporateActionImportRow,
   scan: CorporateActionScanResultRow | null | undefined,
 ): CorporateActionPriceValidationLabel {
-  if (!isSplitOrBonus(row) || !isCorporateActionScanCurrent(row, scan)) {
+  if (!isPriceValidatedAction(row) || !isCorporateActionScanCurrent(row, scan)) {
     return 'NOT VALIDATED';
   }
   if (scan?.scanStatus === 'MATCHED') {
@@ -130,6 +147,9 @@ export function getCorporateActionApprovalState(
   if (row.reviewStatus === 'APPROVED' || row.approvedCorporateActionId != null) {
     return 'APPROVED';
   }
+  if (row.actionType === 'RIGHTS' && !hasRightsFinancialTerms(row)) {
+    return 'NOT APPROVABLE';
+  }
   if (row.parseStatus !== 'PARSED' || !row.symbol) {
     return row.reviewStatus === 'UNRESOLVED' ? 'MATCH REQUIRED' : 'NOT APPROVABLE';
   }
@@ -142,7 +162,7 @@ export function getCorporateActionApprovalState(
   if (!['SPLIT', 'BONUS', 'DIVIDEND', 'RIGHTS'].includes(row.actionType)) {
     return 'NOT APPROVABLE';
   }
-  if (!isSplitOrBonus(row)) {
+  if (!isPriceValidatedAction(row)) {
     return 'READY TO APPROVE';
   }
   const validation = classifyCorporateActionValidation(row, scan);
@@ -166,6 +186,21 @@ export function formatCorporateActionDescription(row: CorporateActionImportRow):
   }
   if (row.actionType === 'BONUS' && row.ratioNum != null && row.ratioDen != null) {
     return `${formatRatioNumber(row.ratioNum)} bonus for every ${formatRatioNumber(row.ratioDen)} held`;
+  }
+  if (row.actionType === 'DEMERGER' && row.factor != null && Number.isFinite(row.factor) && row.factor > 1) {
+    return `Demerger (EOD factor ${formatRatioNumber(row.factor)}x)`;
+  }
+  if (
+    row.actionType === 'RIGHTS' &&
+    (row.reviewStatus === 'APPROVED' || row.approvedCorporateActionId != null) &&
+    row.cashAmount == null &&
+    row.factor != null &&
+    Number.isFinite(row.factor) &&
+    row.factor > 1
+  ) {
+    return row.ratioNum != null && row.ratioDen != null
+      ? `Rights ${formatRatioNumber(row.ratioNum)}:${formatRatioNumber(row.ratioDen)} (EOD factor ${formatRatioNumber(row.factor)}x)`
+      : `Rights (EOD factor ${formatRatioNumber(row.factor)}x)`;
   }
   return row.purposeRaw;
 }
@@ -197,7 +232,7 @@ export function getCorporateActionNormalApprovalState(
       scan.exClose == null || !Number.isFinite(scan.exClose) || scan.exClose <= 0) {
     return 'WAITING FOR EOD DATA';
   }
-  if (isSplitOrBonus(row)) return base;
+  if (isPriceValidatedAction(row)) return base;
   // For dividends/rights the observed ex-date price drop need not match the
   // theoretical factor exactly. It establishes data availability, not terms.
   return base;

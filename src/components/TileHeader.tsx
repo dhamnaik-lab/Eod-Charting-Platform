@@ -1,5 +1,6 @@
 import type { ChartTabState } from '@/store/chartStoreTypes';
 import { useChartStore } from '@/store/chartStore';
+import { useChartHover } from '@/features/charts/chartHoverStore';
 
 interface TileHeaderProps {
   tab: ChartTabState;
@@ -8,7 +9,7 @@ interface TileHeaderProps {
 
 export function TileHeader({ tab, isActive = false }: TileHeaderProps) {
   const activateChartTab = useChartStore((state) => state.activateChartTab);
-  const hoverBar = tab.hoverBar ?? null;
+  const hoverBar = useChartHover(tab);
   const latestBar = tab.displayBars[tab.displayBars.length - 1] ?? null;
   const bar = hoverBar ?? latestBar;
   const symbol = tab.instrument?.symbol ?? '---';

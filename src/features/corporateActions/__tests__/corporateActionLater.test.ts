@@ -47,8 +47,8 @@ describe('Later is display/readiness only', () => {
   it('shows factual reasons and preserves recorded evidence blockers', () => {
     expect(deferredCorporateActionReason(row('DIVIDEND'))).toContain('verification deferred');
     expect(deferredCorporateActionReason(row('DIVIDEND'), 'Awaiting official source evidence')).toBe('Awaiting official source evidence');
-    expect(deferredCorporateActionReason(row('RIGHTS'))).toContain('adjustment rules');
-    expect(deferredCorporateActionReason(row('DEMERGER'))).toContain('cost split');
+    expect(deferredCorporateActionReason(row('RIGHTS'))).toContain('verified official ratio and issue price');
+    expect(deferredCorporateActionReason(row('DEMERGER'))).toContain('verified event-specific adjustment basis');
     expect(deferredCorporateActionReason(row('BONUS', '', {instrumentIsActive:false}))).toBe('Delisted or inactive symbol');
     const interest = row('OTHER', 'Interest - Rs 0.60 Per Unit');
     expect(isLaterCorporateAction(interest)).toBe(true);
@@ -56,13 +56,34 @@ describe('Later is display/readiness only', () => {
     expect(isLaterCorporateAction(row('OTHER', 'Interest payment'))).toBe(false);
   });
   it.each(['DIVIDEND', 'RIGHTS', 'DEMERGER'] as const)('defers %s even when a stale ready set contains its ID', actionType => {
-    const input = row(actionType);
+    const input = row(actionType, '', actionType === 'DEMERGER' ? { factor: 1.15 } : {});
     const before = JSON.stringify(input);
     expect(isLaterCorporateAction(input)).toBe(true);
     expect(summarizeCaPendingByType([input, input], new Set([1])).totals).toEqual({ pending: 1, ready: 0, blocked: 0, informational: 0, later: 1 });
     expect(JSON.stringify(input)).toBe(before);
   });
-  it.each(['Capital Reduction', 'Reduction of Capital', 'Reduction of Share Capital', 'Reduction of Equity Capital',
+  it('defers EOD-only Rights and admits complete official Rights terms', () => {
+    const verifiedRights = row('RIGHTS', 'Rights 1:5 @ Premium Rs 40/-', {
+      parseStatus: 'PARSED',
+      factor: 1.15,
+      priceFactor: 1 / 1.15,
+      cashAmount: null,
+    });
+    expect(isLaterCorporateAction(verifiedRights)).toBe(true);
+    expect(immediateCorporateActionValidationRows([verifiedRights])).toEqual([]);
+    expect(summarizeCaPendingByType([verifiedRights], new Set([1])).totals)
+      .toEqual({ pending: 1, ready: 0, blocked: 0, informational: 0, later: 1 });
+    expect(isLaterCorporateAction(row('RIGHTS', 'Rights issue 1:4 at Rs 80 per share', {
+      ratioNum: 1, ratioDen: 4, cashAmount: 80, factor: null, priceFactor: null,
+    }))).toBe(false);
+    const unverifiedRights = row('RIGHTS', 'Rights 1:5 @ Premium Rs 40/-', {
+      parseStatus: 'PARSED',
+      factor: 1.15,
+      cashAmount: 50,
+    });
+    expect(isLaterCorporateAction(unverifiedRights)).toBe(true);
+  });
+  it.each(['Capital Reduction', 'Reduction of Capital', 'Reduction of Share Capital', 'Reduction of Equity Capital', 'Red of Cap',
     'Income Distribution (InvIT)', 'Distribution of Income (REIT)', 'Distribution Rs 5 Per Unit'])('defers the exact unsupported wording %s', purpose => {
     expect(isLaterCorporateAction(row('OTHER', purpose))).toBe(true);
   });

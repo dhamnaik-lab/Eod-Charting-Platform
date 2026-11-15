@@ -11,13 +11,19 @@ use rusqlite::{params, params_from_iter, types::Value as SqlValue, Connection, O
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::{BTreeMap, BTreeSet, VecDeque};
 use std::fs;
 use std::path::{Path, PathBuf};
+use std::rc::Rc;
+#[cfg(test)]
+use std::time::{Duration, Instant};
 use tauri::AppHandle;
 
 const VERSION: &str = "CA_RECONCILIATION_PREFLIGHT_V1";
 const MAX_SAFE_ID: i64 = 9_007_199_254_740_991;
+// Keep the two most recently loaded groups. Typical requests group by ex-date
+// and can interleave NSE and BSE; do not retain every distinct group in a batch.
+const SAME_DATE_CACHE_CAPACITY: usize = 2;
 const OUTCOMES: [&str; 8] = ["ALREADY_LINKED_REVIEW", "READY_FOR_EXISTING_APPROVAL_RECHECK", "REPAIR_CANDIDATE",
     "EVIDENCE_BLOCKED", "DEFERRED_SCOPE", "CLASSIFICATION_REVIEW", "MISSING_IMPORT", "PREPARATION_ERROR"];
 /// Exact outer field inventory, exercised by deterministic/golden tests. Old digests are untouched.
@@ -190,7 +196,92 @@ fn verify_schema(c: &Connection) -> AppResult<()> {
     ] { c.prepare(query).map_err(|e|e.to_string())?; }
     Ok(())
 }
-fn row_dependencies(c: &Connection, raw: &CorporateActionImportRow, symbols: &BTreeSet<String>) -> AppResult<Value> {
+struct SameDateDependencies {
+    imports: Value,
+    event_rows: Value,
+}
+
+struct SameDateCache {
+    limit: usize,
+    groups: VecDeque<(String, String, Rc<SameDateDependencies>)>,
+    #[cfg(test)]
+    timings: Option<DependencyTimings>,
+}
+
+#[cfg(test)]
+#[derive(Default)]
+struct DependencyTimings {
+    hits: usize,
+    loads: usize,
+    peer_time: Duration,
+    dependencies_time: Duration,
+    row_digest_time: Duration,
+}
+
+impl SameDateCache {
+    fn new(limit: usize) -> Self {
+        Self {
+            limit,
+            groups: VecDeque::new(),
+            #[cfg(test)]
+            timings: None,
+        }
+    }
+
+    fn load(&mut self, c: &Connection, raw: &CorporateActionImportRow) -> AppResult<Rc<SameDateDependencies>> {
+        #[cfg(test)]
+        let started = self.timings.as_ref().map(|_| Instant::now());
+        // With a date, the current import is already in this exchange/date
+        // group. For a NULL date the event query can still return this import's
+        // own identity row, so that result is not shared.
+        let cache_date = raw.ex_date.as_deref().filter(|_| self.limit > 0);
+        if let Some(date) = cache_date {
+            if let Some((_, _, group)) = self.groups.iter().find(|(exchange, ex_date, _)| {
+                exchange == &raw.exchange && ex_date.as_str() == date
+            }) {
+                #[cfg(test)]
+                if let Some(timings) = self.timings.as_mut() {
+                    timings.hits += 1;
+                }
+                return Ok(Rc::clone(group));
+            }
+        }
+
+        let group = Rc::new(load_same_date_dependencies(c, raw)?);
+        #[cfg(test)]
+        if let (Some(timings), Some(started)) = (self.timings.as_mut(), started) {
+            timings.loads += 1;
+            timings.peer_time += started.elapsed();
+        }
+        if let Some(date) = cache_date {
+            if self.groups.len() == self.limit {
+                self.groups.pop_front();
+            }
+            self.groups.push_back((raw.exchange.clone(), date.to_owned(), Rc::clone(&group)));
+        }
+        Ok(group)
+    }
+}
+
+fn load_same_date_dependencies(c: &Connection, raw: &CorporateActionImportRow) -> AppResult<SameDateDependencies> {
+    let exchange = SqlValue::Text(raw.exchange.clone());
+    let ex_date = raw.ex_date.clone().map(SqlValue::Text).unwrap_or(SqlValue::Null);
+    let imports = tagged_rows(c,
+        "SELECT * FROM corporate_action_imports WHERE exchange=? AND ex_date=? ORDER BY id",
+        &[exchange.clone(), ex_date.clone()])?;
+    // Existing compound owner can project other same-date peers through persisted event identity.
+    let event_table = c.query_row("SELECT EXISTS(SELECT 1 FROM sqlite_master WHERE type='table' AND name='corporate_action_event_identity_resolutions')",[],|r|r.get::<_,i64>(0)).map_err(|e|e.to_string())? != 0;
+    let event_rows = if event_table {
+        tagged_rows(c,
+            "SELECT * FROM corporate_action_event_identity_resolutions WHERE import_id=? OR import_id IN(SELECT id FROM corporate_action_imports WHERE exchange=? AND ex_date=?) ORDER BY id",
+            &[SqlValue::Integer(raw.id), exchange, ex_date])?
+    } else {
+        json!({"tableAbsent":true})
+    };
+    Ok(SameDateDependencies { imports, event_rows })
+}
+
+fn row_dependencies(c: &Connection, raw: &CorporateActionImportRow, symbols: &BTreeSet<String>, peer_cache: &mut SameDateCache) -> AppResult<Value> {
     let mut identities = vec![];
     for symbol in symbols {
         let args = [SqlValue::Text(raw.exchange.clone()), SqlValue::Text(symbol.clone())];
@@ -200,16 +291,13 @@ fn row_dependencies(c: &Connection, raw: &CorporateActionImportRow, symbols: &BT
             "identityHistory":tagged_rows(c,"SELECT * FROM instrument_identity_history WHERE exchange=? AND (old_symbol=? OR new_symbol=? OR current_symbol=?) ORDER BY id",&[args[0].clone(),args[1].clone(),args[1].clone(),args[1].clone()])?}));
     }
     let id = [SqlValue::Integer(raw.id)];
-    let peers = tagged_rows(c,"SELECT * FROM corporate_action_imports WHERE exchange=? AND ex_date=? ORDER BY id", &[SqlValue::Text(raw.exchange.clone()),raw.ex_date.clone().map(SqlValue::Text).unwrap_or(SqlValue::Null)])?;
-    // Existing compound owner can project other same-date peers through persisted event identity.
-    let event_table = c.query_row("SELECT EXISTS(SELECT 1 FROM sqlite_master WHERE type='table' AND name='corporate_action_event_identity_resolutions')",[],|r|r.get::<_,i64>(0)).map_err(|e|e.to_string())? != 0;
-    let event_rows = if event_table { tagged_rows(c,"SELECT * FROM corporate_action_event_identity_resolutions WHERE import_id=? OR import_id IN(SELECT id FROM corporate_action_imports WHERE exchange=? AND ex_date=?) ORDER BY id",&[SqlValue::Integer(raw.id),SqlValue::Text(raw.exchange.clone()),raw.ex_date.clone().map(SqlValue::Text).unwrap_or(SqlValue::Null)])? } else { json!({"tableAbsent":true}) };
+    let shared = peer_cache.load(c, raw)?;
     Ok(json!({"rawImport":tagged_rows(c,"SELECT * FROM corporate_action_imports WHERE id=?",&id)?,
         "importEvidence":tagged_rows(c,"SELECT * FROM corporate_action_import_evidence WHERE import_id=? ORDER BY id",&id)?,
         "storedScansAndDecisions": {"decisions":tagged_rows(c,"SELECT * FROM corporate_action_import_decisions WHERE import_id=? ORDER BY id",&id)?,
           "scans":tagged_rows(c,"SELECT * FROM corporate_action_scan_results WHERE corporate_action_import_id=? ORDER BY id",&id)?,
           "runs":tagged_rows(c,"SELECT * FROM scan_runs WHERE id IN(SELECT scan_run_id FROM corporate_action_scan_results WHERE corporate_action_import_id=?) ORDER BY id",&id)?},
-        "relatedIdentityEvidence":identities,"effectiveIdentity":event_rows,"canonicalAndCompoundPeers":peers}))
+        "relatedIdentityEvidence":identities,"effectiveIdentity":&shared.event_rows,"canonicalAndCompoundPeers":&shared.imports}))
 }
 fn finite_fields(values: &[Option<f64>]) -> bool { values.iter().all(|v|v.map(|x|x.is_finite()).unwrap_or(true)) }
 fn event_terms_match(raw: &CorporateActionImportRow, canonical: &crate::database::CorporateActionRepairCanonicalValues) -> bool {
@@ -221,7 +309,76 @@ fn event_terms_match(raw: &CorporateActionImportRow, canonical: &crate::database
         && raw.old_face_value == canonical.old_face_value && raw.new_face_value == canonical.new_face_value && raw.cash_amount == canonical.cash_amount
 }
 
-fn evaluate_row(c: &Connection, id: i64) -> AppResult<CorporateActionReconciliationPreflightRow> {
+// Stored terms describe what can be checked, not financial approval authority.
+// These types have dedicated preparation/financial evidence requirements which
+// this read-only snapshot cannot certify by observing a price decline.
+fn diagnose_financial_terms(r: &mut CorporateActionReconciliationPreflightRow, raw: &CorporateActionImportRow) {
+    let positive = |value: Option<f64>| value.is_some_and(|value| value.is_finite() && value > 0.0);
+    r.classification.state = format!("{}_FINANCIAL_REVIEW", raw.action_type);
+    match raw.action_type.as_str() {
+        "RIGHTS" => {
+            let missing: Vec<_> = [("ratio numerator", raw.ratio_num), ("ratio denominator", raw.ratio_den), ("issue price", raw.cash_amount)]
+                .into_iter().filter(|(_, value)| !positive(*value)).map(|(name, _)| name).collect();
+            if !missing.is_empty() {
+                add(r, "RIGHTS_TERMS_REQUIRED", "TERMS",
+                    &format!("Missing or invalid Rights {}. Stored factors and MATCHED price scans cannot substitute for official financial terms.", missing.join(", ")),
+                    "Obtain the official Rights ratio and issue price, then Load & Validate; do not use a price-drop factor");
+            } else {
+                add(r, "RIGHTS_WORKFLOW_RECHECK_REQUIRED", "TERMS",
+                    "Positive Rights ratio and issue price are stored. This snapshot does not certify their official provenance, current EOD window or TERP approval readiness.",
+                    "Review official terms and run Load & Validate; use explicit approval only if the normal workflow is Ready");
+            }
+        }
+        "DIVIDEND" => {
+            if !positive(raw.cash_amount) {
+                add(r, "DIVIDEND_CASH_REQUIRED", "TERMS", "No positive cash dividend per share is stored.",
+                    "Obtain the official cash amount and distinguish equity dividends from unit distributions");
+            }
+            add(r, "DIVIDEND_VERIFIED_SCOPE_REQUIRED", "POLICY",
+                "Dividend approval requires the existing verified prepared scope. This snapshot does not evaluate that scope, and normal Load & Validate currently defers dividend verification.",
+                "Use the existing Dividend verification/preparation workflow and review its eligibility reasons before explicit approval");
+        }
+        "DEMERGER" => {
+            let has_factor = raw.factor.is_some_and(|value| value.is_finite() && value > 1.0);
+            add(r, if has_factor { "DEMERGER_FACTOR_AUTHORITY_REQUIRED" } else { "DEMERGER_TERMS_REQUIRED" }, "TERMS",
+                if has_factor { "A Demerger factor is stored, but this preview cannot certify its financial authority. An observed price decline alone does not prove the event adjustment." }
+                else { "No nontrivial Demerger factor is stored. A generic scheme/spin-off description or factor 1 does not establish an adjustment." },
+                "Review the official scheme and event-specific adjustment basis; a dedicated financial-evidence review remains required");
+        }
+        _ => {}
+    }
+    if raw.parse_status != "PARSED" {
+        add(r, "TERMS_UNPARSED", "TERMS", "The stored action is not parsed into complete supported terms.",
+            "Review the official source terms before revalidation; diagnostics do not change parsing");
+    }
+}
+
+fn diagnose_bse_identity(c: &Connection, r: &mut CorporateActionReconciliationPreflightRow, raw: &CorporateActionImportRow) -> AppResult<bool> {
+    r.identity.proof_owner=Some("find_instrument_record / exact BSE symbol and ISIN".into());
+    r.identity.proof_state="BLOCKED".into();
+    let count: i64=c.query_row("SELECT count(*) FROM instruments WHERE exchange='BSE' AND symbol=?",
+        params![raw.symbol],|row|row.get(0)).map_err(|error|error.to_string())?;
+    if count==1 {
+        if let Some(instrument)=super::find_instrument_record(c,raw.symbol.as_deref().unwrap_or(""),"BSE")? {
+            let exact=raw.isin.as_deref().zip(instrument.isin.as_deref())
+                .is_some_and(|(raw,current)|!raw.trim().is_empty() && raw.trim().eq_ignore_ascii_case(current.trim()));
+            r.identity.candidates.push(R1ACandidate { symbol:instrument.symbol, exchange:instrument.exchange,
+                isin:instrument.isin, is_active:instrument.is_active,
+                evidence:vec![evidence("find_instrument_record","EXACT_BSE_INSTRUMENT",None,None)] });
+            if exact && instrument.is_active {
+                r.identity.proof_state="PASS".into();
+                r.identity.proof_description=Some("Exact current BSE symbol/ISIN match; historical identity and current writer checks remain required.".into());
+                return Ok(!matches!(raw.review_status.as_str(),"UNRESOLVED"|"PENDING_ISIN_MISMATCH"));
+            }
+        }
+    }
+    add(r,"BSE_IDENTITY_REVIEW_REQUIRED","IDENTITY",
+        "No unique active exact BSE symbol/ISIN match was established. NSE identity-chain suggestions are not a BSE mapping mechanism.",
+        "Review the official BSE security-code/symbol/ISIN mapping and dated identity evidence in Identity & History; do not infer a ticker from the company name");
+    Ok(false)
+}
+
+fn evaluate_row(c: &Connection, id: i64, peer_cache: &mut SameDateCache) -> AppResult<CorporateActionReconciliationPreflightRow> {
     let loaded = repair_preview::load_repair_preview_import(c,id)?;
     let Some((source, stored)) = loaded else {
         let mut r=blank_row(id,false);add(&mut r,"IMPORT_MISSING","REQUEST","The requested import ID does not exist in this read snapshot.","Reload explicit IDs");
@@ -232,7 +389,9 @@ fn evaluate_row(c: &Connection, id: i64) -> AppResult<CorporateActionReconciliat
     let mut r=blank_row(id,true);r.exchange=Some(raw.exchange.clone());r.symbol=raw.symbol.clone();r.action_type=Some(raw.action_type.clone());r.ex_date=raw.ex_date.clone();r.record_date=raw.record_date.clone();r.purpose_raw=Some(raw.purpose_raw.clone());
     r.stored_state=R1AStoredState{review_status:Some(raw.review_status.clone()),parse_status:Some(raw.parse_status.clone()),approved_corporate_action_id:raw.approved_corporate_action_id.map(checked_id).transpose()?};
     r.identity.raw_symbol=raw.symbol.clone();r.identity.raw_isin=raw.isin.clone();r.classification.stored_share_factor=raw.factor;
-    let in_scope=raw.exchange=="NSE"&&matches!(raw.action_type.as_str(),"SPLIT"|"BONUS");
+    let split_bonus=matches!(raw.action_type.as_str(),"SPLIT"|"BONUS");
+    let in_scope=matches!(raw.exchange.as_str(),"NSE"|"BSE")
+        && matches!(raw.action_type.as_str(),"SPLIT"|"BONUS"|"RIGHTS"|"DIVIDEND"|"DEMERGER");
     r.blocks_in_scope_completeness=Some(in_scope);
     let mut symbols=BTreeSet::new();if let Some(s)=&raw.symbol{symbols.insert(s.clone());}
     match event_identity_resolution::load_effective_event_identity(c,id) {
@@ -245,22 +404,43 @@ fn evaluate_row(c: &Connection, id: i64) -> AppResult<CorporateActionReconciliat
     let ev_fp=repair_preview::stable_repair_preview_fingerprint(&source,&stored,None,&[],&ev)?;
     r.identity.evidence.push(evidence("repair_preview::grade_repair_preview_evidence",&format!("SOURCE_GRADE_{grade}"),Some(id),Some(ev_fp)));
     if grade!="STRUCTURED_OFFICIAL" {r.blockers.push(blocker("EVIDENCE_SOURCE_REFRESH_REQUIRED","TERMS","WARNING",&format!("Existing source evidence grade: {grade}. Repair proposals may require a separately authorized source refresh."),"Refresh official evidence only under separate acquisition authority"));}
-    let normalized=normalize_text(&raw.purpose_raw);let families=detected_corporate_action_families(&normalized);
+    let normalized=normalize_text(&raw.purpose_raw);
+    let families = if split_bonus {
+        super::split_bonus_preparation::component_families(&raw.purpose_raw)
+    } else {
+        detected_corporate_action_families(&normalized)
+    };
     let compound=families.len()>1;
-    let proposal=if compound{parse_compound_action_components(&raw.purpose_raw,&families)}else{vec![parse_corporate_action_purpose(&raw.purpose_raw)]};
+    let separate_split = super::split_bonus_preparation::split_with_separate_percentage_dividend(&raw);
+    let separate_split_matches = separate_split.is_some();
+    let proposal=if let Some(split)=separate_split{vec![split]}else if compound{parse_compound_action_components(&raw.purpose_raw,&families)}else{vec![parse_corporate_action_purpose(&raw.purpose_raw)]};
     let own=proposal.iter().filter(|p|p.action_type==raw.action_type&&p.parse_status=="PARSED").collect::<Vec<_>>();
     if own.len()==1 { r.classification.proposed_share_factor=own[0].factor;r.classification.proposed_price_factor=own[0].price_factor; }
-    let security_review=["DEBENT","NCRPS","DVR","ENTITLEMENT","PREFERENCE"].iter().any(|s|normalized.contains(s));
+    let admission_blocker=if split_bonus { super::split_bonus_terms::blocker(&raw.purpose_raw) } else { None };
+    let security_review=split_bonus && (admission_blocker.is_some()
+        || ["DEBENT","NCRPS","DVR","ENTITLEMENT","PREFERENCE"].iter().any(|term|normalized.contains(term)));
     let mut terms_conflict=false;
-    if !in_scope {r.classification.state="OUTSIDE_REQUEST_SCOPE".into();add(&mut r,"ACTION_OUTSIDE_R1_SCOPE","SCOPE","This record is outside the ordinary NSE Split/Bonus request scope.","Use the separately supported workflow");}
-    else if security_review {r.classification.state="OTHER_SECURITY_REVIEW".into();r.blocks_in_scope_completeness=None;add(&mut r,"UNSUPPORTED_AUTOMATION_SCOPE","SCOPE","Source text describes a security/arrangement subtype; applicability is not discharged.","Review the existing source classification owner");}
-    else if compound { r.classification.state=if families.iter().all(|f|matches!(f.as_str(),"SPLIT"|"BONUS")){"SUPPORTED_COMPOUND_REVIEW"}else{"CONFLICT"}.into();terms_conflict=true;add(&mut r,"CLASSIFICATION_CONFLICT","TERMS","Mixed-purpose stored row requires separate component review. Proposed terms are not saved or approved.","Review current parser/compound preview proposals"); }
+    if !in_scope {r.classification.state="OUTSIDE_REQUEST_SCOPE".into();add(&mut r,"ACTION_OUTSIDE_R1_SCOPE","SCOPE","This record is outside the supported NSE/BSE financial-action diagnostic types; no financial applicability is inferred.","Review informational, identity-change or unsupported-event classification in its existing workflow");}
+    else if security_review {r.classification.state="OTHER_SECURITY_REVIEW".into();r.blocks_in_scope_completeness=None;add(&mut r,"UNSUPPORTED_AUTOMATION_SCOPE","SCOPE",admission_blocker.map(|(_,reason)|reason).unwrap_or("Source text describes a security/arrangement subtype; applicability is not discharged."),"Review the official security/restructuring terms; do not force an ordinary equity adjustment");}
+    else if !split_bonus { diagnose_financial_terms(&mut r, &raw); }
+    else if compound && !separate_split_matches { r.classification.state=if families.iter().all(|f|matches!(f.as_str(),"SPLIT"|"BONUS")){"SUPPORTED_COMPOUND_REVIEW"}else{"CONFLICT"}.into();terms_conflict=true;add(&mut r,"CLASSIFICATION_CONFLICT","TERMS","Mixed-purpose stored row requires separate component review. Proposed terms are not saved or approved.","Review current parser/compound preview proposals"); }
     else if raw.parse_status!="PARSED"||own.len()!=1 {r.classification.state="UNPARSED".into();terms_conflict=true;add(&mut r,"TERMS_UNPARSED","TERMS","The source purpose cannot currently establish a complete ordinary action proposal.","Inspect structured event terms; no ratio is invented");}
     else {r.classification.state=if raw.action_type=="SPLIT"{"ORDINARY_SPLIT"}else{"ORDINARY_BONUS"}.into();let p=own[0];
         if p.factor!=raw.factor||p.price_factor!=raw.price_factor||p.ratio_num!=raw.ratio_num||p.ratio_den!=raw.ratio_den||p.old_face_value!=raw.old_face_value||p.new_face_value!=raw.new_face_value {terms_conflict=true;r.classification.state="CONFLICT".into();add(&mut r,"CLASSIFICATION_CONFLICT","TERMS","Current parser terms differ from stored terms; proposals remain read-only.","Review source/parsed-term provenance");}
     }
+    if separate_split_matches && !security_review && in_scope {
+        r.blockers.push(blocker("PERCENTAGE_DIVIDEND_SEPARATE_REVIEW","TERMS","INFORMATION",
+            "The explicit Split terms match the stored Split. The percentage Dividend remains a separate review.",
+            "For the Dividend, obtain verified historical face value or explicit cash-per-share evidence"));
+    }
     let mut identity_ready=false;
     if in_scope {
+        if raw.exchange=="BSE" {
+            match diagnose_bse_identity(c,&mut r,&raw) {
+                Ok(ready)=>identity_ready=ready,
+                Err(error)=>owner_error(&mut r,"IDENTITY_PROOF_ERROR","IDENTITY",&error),
+            }
+        } else {
         match list_resolution_suggestions_for_import_row(c,&raw) {
             Ok(suggestions)=>{
                 let active=suggestions.iter().filter(|x|x.is_active).collect::<Vec<_>>();
@@ -281,8 +461,13 @@ fn evaluate_row(c: &Connection, id: i64) -> AppResult<CorporateActionReconciliat
                 identity_ready=!matches!(raw.review_status.as_str(),"UNRESOLVED"|"PENDING_ISIN_MISMATCH")&&raw.symbol.is_some();
             },Err(e)=>{r.identity.proof_state="ERROR".into();owner_error(&mut r,"IDENTITY_PROOF_ERROR","IDENTITY",&e);}
         }
+        }
         if raw.review_status=="UNRESOLVED"{add(&mut r,"IDENTITY_UNRESOLVED","IDENTITY","The stored import is still UNRESOLVED. A candidate or proof description is not an executed resolution.","Inspect date-valid identity evidence");}
         if raw.review_status=="PENDING_ISIN_MISMATCH"{add(&mut r,"ISIN_MISMATCH_BOUNDARY","IDENTITY","PENDING_ISIN_MISMATCH remains blocked from ordinary approval.","Use the established reviewed identity workflow; no automatic exception");}
+        if r.identity.proof_state=="BLOCKED" && !r.blockers.iter().any(|blocker|blocker.stage=="IDENTITY" && blocker.severity=="BLOCKING") {
+            add(&mut r,"IDENTITY_PROOF_REQUIRED","IDENTITY","Stored review status alone does not establish a current identity proof.",
+                "Review the exact instrument and dated identity evidence before revalidation");
+        }
     }
     // Canonical candidate retrieval is independent of price/identity readiness and never links.
     let mut canonical_payload=vec![];let mut canonical_conflict=false;
@@ -327,6 +512,7 @@ fn evaluate_row(c: &Connection, id: i64) -> AppResult<CorporateActionReconciliat
                 if !finite_fields(&[v.confidence,v.expected_factor,v.prev_close,v.ex_open,v.ex_close,v.actual_open_factor,v.actual_close_factor]){owner_error(&mut r,"OWNER_CHECK_FAILED","PRICE","Non-finite stored price evidence; outward numeric fields remain null.");}
                 else {
                     r.price.scan_id=Some(v.id);r.price.scan_run_id=Some(v.scan_run_id);r.price.scanned_at=Some(v.scanned_at.clone());r.price.scan_status=Some(v.scan_status.clone());r.price.confidence=v.confidence;r.price.expected_factor=v.expected_factor;r.price.previous_trade_date=v.prev_trade_date.clone();r.price.ex_trade_date=v.ex_trade_date.clone();r.price.previous_close=v.prev_close;r.price.ex_open=v.ex_open;r.price.ex_close=v.ex_close;
+                    if split_bonus || raw.action_type=="DEMERGER" {
                     match is_split_bonus_validation_current(c,&raw,&v){Ok(current)=>{r.price.row_fingerprint_check=if current{"PASS"}else{"BLOCKED"}.into();if !current{add(&mut r,"VALIDATION_STALE","PRICE","The existing current-row/effective-identity validation check rejects the stored scan.","Run separately authorized targeted validation");}},Err(e)=>{r.price.row_fingerprint_check="ERROR".into();owner_error(&mut r,"OWNER_CHECK_FAILED","PRICE",&e);}}
                     match ensure_compound_scan_fingerprint_current(c,&raw){Ok(())=>r.price.compound_fingerprint_check="PASS".into(),Err(e)=>{r.price.compound_fingerprint_check="BLOCKED".into();add(&mut r,"COMPOUND_COMPONENT_CHANGED","PRICE",&e,"Revalidate the current component set outside this read-only preview");}}
                     if v.scan_status=="NO_PRICE_DATA"{add(&mut r,"PRICE_DATA_MISSING","PRICE","Stored scan has no usable price window. No new scan was run.","Diagnose coverage/provenance before a separately authorized data repair");plan(&mut r,"Recover missing raw-price evidence","existing data import/validation owners","NEEDS_SEPARATE_DATA_REPAIR",&["Correct instrument and event","Authorized source/data repair"]);}
@@ -334,38 +520,87 @@ fn evaluate_row(c: &Connection, id: i64) -> AppResult<CorporateActionReconciliat
                     if r.price.row_fingerprint_check=="PASS"&&r.price.compound_fingerprint_check=="PASS"&&v.scan_status=="MATCHED" {
                         match ensure_split_bonus_price_validation(c,&raw,false){Ok(())=>price_ready=true,Err(e)=>owner_error(&mut r,"OWNER_CHECK_FAILED","PRICE",&e)}
                     }
+                    } else {
+                        // Dividend/Rights scans establish availability, not a
+                        // factor match. Preserve the observed window, and leave
+                        // freshness to their existing workflow/writer checks.
+                        let window_present = raw.ex_date.as_deref().is_some_and(|ex_date| {
+                            v.prev_trade_date.as_deref().is_some_and(|date| date < ex_date)
+                                && v.ex_trade_date.as_deref().is_some_and(|date| date >= ex_date)
+                                && v.prev_close.is_some_and(|value| value > 0.0)
+                                && v.ex_close.is_some_and(|value| value > 0.0)
+                        });
+                        if v.scan_status=="NO_PRICE_DATA" {
+                            add(&mut r,"PRICE_DATA_MISSING","PRICE","The stored scan explicitly reported NO_PRICE_DATA. This preview does not recheck current EOD coverage.",
+                                "Review the reported price-coverage gap for the correct instrument, then rerun validation");
+                        } else if !window_present {
+                            add(&mut r,"PRICE_WINDOW_NOT_CAPTURED","PRICE","No usable price window was captured in the stored scan. Price checking may have stopped at a terms or identity blocker; this does not establish that EOD data is missing.",
+                                "Resolve the reported terms/identity blockers, then rerun validation to establish price availability before considering a data import");
+                        }
+                    }
                 }
             },Ok(None)=>add(&mut r,"VALIDATION_MISSING","PRICE","No completed official-import validation is stored for this import.","Run targeted validation separately; diagnostics do not write scans"),
             Err(e)=>{r.price.row_fingerprint_check="ERROR".into();owner_error(&mut r,"OWNER_CHECK_FAILED","PRICE",&e);}
         }
+        if split_bonus {
         let candidate=ScanCandidate{import_id:id,symbol:r.identity.event_symbol.clone(),exchange:raw.exchange.clone(),ex_date:raw.ex_date.clone(),factor:raw.factor};
         match load_same_date_split_bonus_compound_context(c,&candidate){
             Ok(Some(_))=>{if !compound&&!security_review&&!terms_conflict{r.classification.state="SUPPORTED_COMPOUND_REVIEW".into();}r.blockers.push(blocker("UNSUPPORTED_AUTOMATION_SCOPE","POLICY","WARNING","Existing same-date component validation may be supported; Safe V2 compound auto-approval is not authorized.","Preserve existing manual compound-validation workflow"));},
             Ok(None)=>{},Err(e)=>owner_error(&mut r,"OWNER_CHECK_FAILED","PRICE",&e),
         }
+        }
+        // Safe V2 is a separate NSE Split/Bonus policy, not the coverage
+        // boundary of ordinary read-only diagnostics.
+        if split_bonus && raw.exchange=="NSE" {
         match auto_approval::evaluate_auto_approval_r1(c,id) {
             Ok(auto_approval::AutoApprovalEligibility::Eligible(e))=>{let scan_id=match &e.basis{auto_approval::ActionApprovalBasis::SplitBonusScan{scan_id,..}=>Some(checked_id(*scan_id)?)};r.safe_v1.state="ELIGIBLE_AT_READ_SNAPSHOT".into();r.safe_v1.reason=Some("Existing Safe V2 evaluator is eligible at this read snapshot only; not preparation-scope authority or approval.".into());r.safe_v1.evidence.push(evidence("auto_approval::evaluate_auto_approval_r1",&e.identity_proof,scan_id,None));},
             Ok(auto_approval::AutoApprovalEligibility::Ineligible(reason))=>{r.safe_v1.state="INELIGIBLE".into();r.safe_v1.reason=Some(safe_message(&reason));r.blockers.push(blocker("SAFE_V1_INELIGIBLE","POLICY","INFORMATION",&reason,"Existing Safe V2 policy is read-only in this preview"));},
             Ok(auto_approval::AutoApprovalEligibility::AlreadyApproved)=>r.safe_v1.state="ALREADY_APPROVED".into(),
             Err(e)=>{r.safe_v1.state="ERROR".into();r.safe_v1.reason=Some(safe_message(&e));owner_error(&mut r,"OWNER_CHECK_FAILED","POLICY",&e);}
         }
+        } else {
+            r.safe_v1.reason=Some("The separate Safe V2 policy is not evaluated for this action/exchange; ordinary diagnostic findings are reported independently.".into());
+        }
+    }
+    if in_scope && raw.ex_date.is_none() {
+        add(&mut r,"EX_DATE_REQUIRED","TERMS","No ex-date is stored.","Obtain the official effective date before validation");
     }
     let linked=r.canonical.state=="LINKED_RECORD_PRESENT";
     if linked {r.ordinary_readiness.state="ALREADY_LINKED".into();r.ordinary_readiness.message="The linked record is present; chart adjustment output is not certified by this preview.".into();}
-    else if in_scope&&raw.parse_status=="PARSED"&&identity_ready&&price_ready&&raw.ex_date.is_some()&&raw.factor.map(|x|x>0.0).unwrap_or(false)&&r.outcome!="PREPARATION_ERROR" {
+    else if in_scope&&raw.parse_status=="PARSED"&&identity_ready&&price_ready&&raw.ex_date.is_some()&&raw.factor.map(|x|x>0.0).unwrap_or(false)&&r.outcome!="PREPARATION_ERROR"
+        && !r.blockers.iter().any(|blocker| blocker.severity=="BLOCKING") {
         r.ordinary_readiness.state="READY_FOR_WRITER_RECHECK".into();r.ordinary_readiness.message="Stored ordinary prerequisites pass; existing final writer performs its own instrument/term checks. No approval is executed.".into();
-    } else if in_scope {r.ordinary_readiness.state=if r.outcome=="PREPARATION_ERROR"{"ERROR"}else{"BLOCKED"}.into();}
+    } else if in_scope {r.ordinary_readiness.state=if r.outcome=="PREPARATION_ERROR"{"ERROR"}else{"BLOCKED"}.into();
+        r.ordinary_readiness.message="See the blocking findings and next steps. This stored-evidence preview neither grants nor overrides normal workflow approval readiness.".into();}
     if r.outcome!="PREPARATION_ERROR" {
         r.outcome=if !in_scope{"DEFERRED_SCOPE"}else if terms_conflict||security_review{"CLASSIFICATION_REVIEW"}else if linked&&!canonical_conflict{"ALREADY_LINKED_REVIEW"}else if canonical_conflict{"EVIDENCE_BLOCKED"}else if r.ordinary_readiness.state=="READY_FOR_WRITER_RECHECK"{"READY_FOR_EXISTING_APPROVAL_RECHECK"}else if !r.repair_plan.is_empty(){"REPAIR_CANDIDATE"}else{"EVIDENCE_BLOCKED"}.into();
         if linked&&!canonical_conflict&&!terms_conflict&&!security_review{r.blocks_in_scope_completeness=Some(false);}
     }
-    let dependencies=row_dependencies(c,&raw,&symbols)?;
+    #[cfg(test)]
+    let started = peer_cache.timings.as_ref().map(|_| Instant::now());
+    let dependencies=row_dependencies(c,&raw,&symbols,peer_cache)?;
+    #[cfg(test)]
+    if let (Some(timings), Some(started)) = (peer_cache.timings.as_mut(), started) {
+        timings.dependencies_time += started.elapsed();
+    }
     let proposals=proposal.iter().map(|p|json!({"actionType":p.action_type,"ratioNum":p.ratio_num,"ratioDen":p.ratio_den,"oldFaceValue":p.old_face_value,"newFaceValue":p.new_face_value,"factor":p.factor,"priceFactor":p.price_factor,"parseStatus":p.parse_status})).collect::<Vec<_>>();
+    #[cfg(test)]
+    let started = peer_cache.timings.as_ref().map(|_| Instant::now());
     r.row_fingerprint=digest(&json!({"rulesVersion":VERSION,"dependencies":dependencies,"canonicals":canonical_payload,"classificationProposals":proposals,"diagnostic":&r}))?;
+    #[cfg(test)]
+    if let (Some(timings), Some(started)) = (peer_cache.timings.as_mut(), started) {
+        timings.row_digest_time += started.elapsed();
+    }
     Ok(r)
 }
 
 fn preflight_with_connection(c: &Connection, input: &CorporateActionReconciliationPreflightInput, folder: &str, file_identity: &str, build: &str) -> CorporateActionReconciliationPreflightResult {
+    preflight_with_same_date_cache(c, input, folder, file_identity, build, SameDateCache::new(SAME_DATE_CACHE_CAPACITY))
+}
+
+fn preflight_with_same_date_cache(c: &Connection, input: &CorporateActionReconciliationPreflightInput, folder: &str, file_identity: &str, build: &str, mut peer_cache: SameDateCache) -> CorporateActionReconciliationPreflightResult {
+    #[cfg(test)]
+    let started = peer_cache.timings.as_ref().map(|_| Instant::now());
     let ids=match validate_request(input){Ok(x)=>x,Err(e)=>return rejected(input,"REQUEST_INVALID",&e)};
     let query_only=c.query_row("PRAGMA query_only",[],|r|r.get::<_,i64>(0)).unwrap_or(0);
     if query_only!=1||!c.is_autocommit(){return rejected(input,"OWNER_CHECK_FAILED","A dedicated query-only connection with no caller-owned transaction is required.");}
@@ -377,7 +612,7 @@ fn preflight_with_connection(c: &Connection, input: &CorporateActionReconciliati
         r.selection=R1ASelection{requested_count:input.import_ids.len(),unique_count:ids.len(),duplicate_count:input.import_ids.len()-ids.len(),unique_import_ids:ids.clone(),id_set_fingerprint:Some(digest(&json!(sorted))?)};
         r.database_context=Some(R1ADatabaseContext{canonical_database_path:folder.into(),database_file_identity:file_identity.into(),schema_fingerprint:schema,read_context:"CONSISTENT_READ_TRANSACTION".into(),selection_source:"EXISTING_CACHED_ACTIVE_FOLDER".into(),build_identity:build.into()});
         for id in ids {
-            let row=match evaluate_row(c,id){Ok(row)=>row,Err(e)=>{let mut row=blank_row(id,true);owner_error(&mut row,"OWNER_CHECK_FAILED","REQUEST",&e);row.row_fingerprint=digest(&json!({"importId":id,"error":safe_message(&e)}))?;row}};
+            let row=match evaluate_row(c,id,&mut peer_cache){Ok(row)=>row,Err(e)=>{let mut row=blank_row(id,true);owner_error(&mut row,"OWNER_CHECK_FAILED","REQUEST",&e);row.row_fingerprint=digest(&json!({"importId":id,"error":safe_message(&e)}))?;row}};
             if matches!(row.outcome.as_str(),"MISSING_IMPORT"|"PREPARATION_ERROR"){r.status="PARTIAL".into();}
             *r.summary.outcome_counts.get_mut(&row.outcome).ok_or("Unknown row outcome")?+=1;
             if row.blocks_in_scope_completeness==Some(true){r.summary.in_scope_blocked_rows+=1;}
@@ -388,6 +623,14 @@ fn preflight_with_connection(c: &Connection, input: &CorporateActionReconciliati
         r.summary.accounted_for=r.rows.len();let sorted_rows=r.rows.iter().map(|row|(row.import_id,row.row_fingerprint.clone())).collect::<BTreeMap<_,_>>();
         r.fingerprint=Some(digest(&json!({"rulesVersion":VERSION,"fieldInventory":FINGERPRINT_FIELDS,"context":&r.database_context,"sortedUniqueIds":sorted,"rowFingerprints":sorted_rows}))?);Ok(r)
     })();
+    #[cfg(test)]
+    if let (Some(timings), Some(started)) = (&peer_cache.timings, started) {
+        eprintln!(
+            "Same-date cache capacity {}: {} loads, {} hits; peer load {:?}, row dependencies {:?} (includes peer loads), row hashing {:?}, batch read {:?}",
+            peer_cache.limit, timings.loads, timings.hits, timings.peer_time,
+            timings.dependencies_time, timings.row_digest_time, started.elapsed(),
+        );
+    }
     match result {
         Ok(r)=>{if let Err(e)=c.execute_batch("COMMIT"){let _=c.execute_batch("ROLLBACK");return rejected(input,"OWNER_CHECK_FAILED",&e.to_string());}r},
         Err(e)=>{let _=c.execute_batch("ROLLBACK");rejected(input,"OWNER_CHECK_FAILED",&e)},

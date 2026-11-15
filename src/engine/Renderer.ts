@@ -1,4 +1,5 @@
 import { buildVolumeScaleY, layoutXAxisLabels, niceYTicks, type XAxisTick } from './ScaleManager';
+import { hexToRgb, parseColor } from '@/components/common/colorUtils';
 import {
   calculateDrawingRangeMetrics,
   calculatePriceRangePercent,
@@ -4455,7 +4456,8 @@ export function drawAxisValueTags(
   tags: ResolvedAxisValueTag[],
   width: number,
   axisWidth: number,
-  axisGap = 0,
+  axisGap: number,
+  axisBackground: string,
 ): void {
   if (!tags.length) {
     return;
@@ -4477,10 +4479,26 @@ export function drawAxisValueTags(
     // Draw the tag with an arrow pointer
     drawAxisTag(ctx, left, tag.top, bodyWidth, tag.height, tag.y, tag.color);
     
-    ctx.fillStyle = '#ffffff';
+    ctx.fillStyle = resolveAxisTagText(tag.color, axisBackground);
     ctx.fillText(tag.text, left + bodyWidth / 2, tag.top + tag.height / 2);
   });
   ctx.restore();
+}
+
+export function resolveAxisTagText(color: string, axisBackground: string): '#000000' | '#ffffff' {
+  const { hex, alpha } = parseColor(color);
+  const fill = hexToRgb(hex);
+  const backdrop = hexToRgb(parseColor(axisBackground).hex);
+  const luminance = (channel: number, background: number) => {
+    const srgb = (channel * alpha + background * (1 - alpha)) / 255;
+    return srgb <= 0.04045 ? srgb / 12.92 : ((srgb + 0.055) / 1.055) ** 2.4;
+  };
+  const backgroundLuminance = 0.2126 * luminance(fill.r, backdrop.r)
+    + 0.7152 * luminance(fill.g, backdrop.g)
+    + 0.0722 * luminance(fill.b, backdrop.b);
+  const blackContrast = (backgroundLuminance + 0.05) / 0.05;
+  const whiteContrast = 1.05 / (backgroundLuminance + 0.05);
+  return blackContrast >= whiteContrast ? '#000000' : '#ffffff';
 }
 
 function drawAxisTag(

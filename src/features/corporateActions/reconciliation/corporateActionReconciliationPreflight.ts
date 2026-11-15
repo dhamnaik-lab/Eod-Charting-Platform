@@ -70,6 +70,8 @@ export class ReconciliationSession {
       const counts = Object.fromEntries(OUTCOMES.map((name) => [name, 0])) as Record<typeof OUTCOMES[number], number>;
       for (const row of result.rows) {
         if (!OUTCOMES.includes(row.outcome) || row.repairPlan.some((item) => item.executed !== false)) throw new Error('Invalid diagnostic outcome.');
+        if (row.ordinaryReadiness.state === 'READY_FOR_WRITER_RECHECK' &&
+            row.blockers.some(blocker => blocker.severity === 'BLOCKING')) throw new Error('Conflicting readiness and blockers.');
         counts[row.outcome] += 1;
       }
       if (OUTCOMES.some((name) => counts[name] !== result.summary.outcomeCounts[name])) throw new Error('Outcome counts do not reconcile.');
@@ -80,6 +82,84 @@ export class ReconciliationSession {
     }
   }
   current(): Result | null { return this.accepted; }
+}
+
+export interface ReconciliationReport {
+  requestedIds: number[];
+  batches: Result[];
+  status: 'RUNNING' | 'COMPLETE' | 'PARTIAL' | 'CANCELLED' | 'FAILED';
+  message: string;
+}
+
+/** Each batch retains its own transaction, timestamp and fingerprint. There is
+ * no claim that a multi-batch report is one atomic database snapshot. */
+export class ReconciliationBatchSession {
+  private scope = '';
+  private path: string | null = null;
+  private ids: number[] = [];
+  private epoch = 0;
+  private cancelled = false;
+  private report: ReconciliationReport | null = null;
+
+  changeScope(path: string | null, ids: readonly number[], generation: number): void {
+    const scope = JSON.stringify([path, ids, generation]);
+    if (scope === this.scope) return;
+    this.scope = scope; this.path = path; this.ids = [...ids]; this.invalidate();
+  }
+  invalidate(): void { this.epoch += 1; this.report = null; this.cancelled = false; }
+  close(): void { this.invalidate(); this.scope = ''; this.path = null; this.ids = []; }
+  cancel(): void { this.cancelled = true; }
+  current(): ReconciliationReport | null { return this.report; }
+
+  async run(api: Pick<DesktopApi, 'previewSplitBonusReconciliation'>,
+    onProgress: (captured: number, total: number, batches: number) => void,
+    selectedIds?: readonly number[]): Promise<ReconciliationReport | null> {
+    const ids = [...new Set(selectedIds ?? this.ids)];
+    const scope = new Set(this.ids);
+    if (!this.path || !ids.length || ids.some(id => !Number.isSafeInteger(id) || id <= 0 || !scope.has(id))) {
+      throw new Error('Select valid diagnostic IDs in the current database scope.');
+    }
+    this.invalidate(); const epoch = this.epoch; const path = this.path;
+    this.report = { requestedIds: ids, batches: [], status: 'RUNNING', message: '' };
+    let captured = 0;
+    try {
+      for (let offset = 0; offset < ids.length; offset += 500) {
+        if (this.epoch !== epoch) return null;
+        if (this.cancelled) break;
+        const batch = new ReconciliationSession();
+        batch.changeScope(path, ids.slice(offset, offset + 500), epoch);
+        const request = batch.begin();
+        const result = await api.previewSplitBonusReconciliation(request);
+        if (this.epoch !== epoch) return null;
+        if (this.cancelled) break; // Do not adopt the in-flight response after cancellation.
+        const first = this.report!.batches[0]?.databaseContext;
+        const context = result?.databaseContext;
+        if (context && (pathKey(context.canonicalDatabasePath) !== pathKey(path)
+          || (first && (first.databaseFileIdentity !== context.databaseFileIdentity || first.schemaFingerprint !== context.schemaFingerprint
+          || first.buildIdentity !== context.buildIdentity)))) {
+          this.invalidate(); // Changed database/build/schema cannot leave earlier results exportable.
+          return null;
+        }
+        if (!batch.adopt(request, result)) {
+          const reason=result?.globalBlockers?.map(blocker=>`${blocker.code}: ${blocker.message}`).join(' | ');
+          throw new Error(reason || 'Batch rejected or inconsistent; unreceived IDs remain explicitly not captured.');
+        }
+        const accepted = batch.current()!;
+        this.report = { ...this.report!, batches: [...this.report!.batches, accepted] };
+        captured += accepted.rows.length;
+        onProgress(captured, ids.length, this.report.batches.length);
+      }
+      if (this.epoch !== epoch) return null;
+      const partial = this.report!.batches.some(batch => batch.status === 'PARTIAL');
+      this.report = { ...this.report!, status: this.cancelled ? 'CANCELLED' : partial ? 'PARTIAL' : 'COMPLETE',
+        message: this.cancelled ? 'Cancelled. Remaining IDs were not captured.' : partial ? 'Some captured rows need diagnostic retry.' : 'All requested IDs accounted for.' };
+    } catch (error) {
+      if (this.epoch !== epoch) return null;
+      this.report = { ...this.report!, status: this.cancelled ? 'CANCELLED' : 'FAILED',
+        message: this.cancelled ? 'Cancelled. Remaining IDs were not captured.' : error instanceof Error ? error.message : 'Diagnostic batch failed.' };
+    }
+    return this.report;
+  }
 }
 
 export async function saveReconciliationExport(

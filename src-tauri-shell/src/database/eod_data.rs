@@ -661,10 +661,7 @@ pub(super) fn load_unified_price_rows_with_mode(
         if !same_chart_settlement(&context.exchange, &context.current_symbol, symbol) {
             continue;
         }
-        let bin_path = folder_path
-            .join("eod_data")
-            .join(&context.exchange)
-            .join(format!("{}.eod", symbol));
+        let bin_path = super::storage_paths::eod_path(folder_path, &context.exchange, symbol)?;
         if bin_path.exists() {
             let bin_file = BinaryEodFile::open(&bin_path)?;
             if context.exchange == "BSE" && bse_code_history::is_security_code(symbol)

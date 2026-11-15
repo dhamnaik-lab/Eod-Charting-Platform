@@ -35,6 +35,8 @@ The source-audit rows reflect their stated evidence scope. The dated findings be
 
 ## UI/UX audit findings
 
+The separate November application-design audit has a [bounded UI/performance pass](docs/changes/2026-11-15_2019_IST_AUDIT_BOUNDED_UI_PERFORMANCE.md): source implementation, 80 focused renderer tests, 7 Rust tests and 13 isolated browser checks passed. Rebuilt-portable multi-tile/UI acceptance and post-change native symbol-read timings remain pending; this is not full ISSUE-01–10 closure.
+
 All 15 findings have implementations in main. Native acceptance is tracked separately from implementation and automated validation.
 
 | Findings | Implementation record | Remaining acceptance |

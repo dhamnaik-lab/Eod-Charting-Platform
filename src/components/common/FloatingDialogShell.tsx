@@ -1,4 +1,5 @@
-import React, { useId, type ReactNode } from 'react';
+import React, { useId, useRef, type ReactNode } from 'react';
+import { useDialogFocus } from '@/features/app/useDialogFocus';
 import { useDraggableFloatingWindow } from './useDraggableFloatingWindow';
 import { getFloatingWindowArrowDelta } from './floatingWindowKeyboard';
 
@@ -36,6 +37,8 @@ export function FloatingDialogShell({
   });
 
   const titleId = useId();
+  const dialogRef = useRef<HTMLDivElement>(null);
+  useDialogFocus(dialogRef, onClose, !isModeless);
   const handleHeaderKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
     if (event.target !== event.currentTarget) return;
     const delta = getFloatingWindowArrowDelta(event.key);
@@ -50,7 +53,7 @@ export function FloatingDialogShell({
       {/* If not modeless, render an ultra-light, crystal-clear click-outside catcher (zero blur) */}
       {!isModeless ? (
         <div
-          style={clearBackdropStyle}
+          style={{ ...clearBackdropStyle, zIndex: 900 }}
           onMouseDown={onClose}
           aria-hidden="true"
         />
@@ -58,11 +61,14 @@ export function FloatingDialogShell({
 
       <div
         className="floating-dialog-panel"
+        ref={dialogRef}
+        tabIndex={-1}
         role="dialog"
         aria-modal={!isModeless}
         aria-labelledby={titleId}
         style={{
           ...floatingPanelStyle,
+          zIndex: isModeless ? 800 : 910,
           left: position.x,
           top: position.y,
           width: `min(${width}px, calc(100vw - 20px))`,

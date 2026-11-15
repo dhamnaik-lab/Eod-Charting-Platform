@@ -73,6 +73,14 @@ function scanRow(overrides: Partial<CorporateActionScanResultRow> = {}): Corpora
 }
 
 describe('corporateActionValidation', () => {
+  it('keeps a Demerger with a stored matched factor out of approval', () => {
+    const row = importRow({ actionType: 'DEMERGER' });
+    const scan = scanRow({ confidence: 1 });
+    expect(getCorporateActionApprovalState(row, scan)).toBe('NOT APPROVABLE');
+    expect(getCorporateActionNormalApprovalState(row, scan, '2026-08-15')).toBe('NOT APPROVABLE');
+    expect(getCorporateActionApprovalState({ ...row, approvedCorporateActionId: 42 }, scan)).toBe('APPROVED');
+  });
+
   it('converts a 2x share factor to a 0.5x price multiplier', () => {
     expect(getPriceMultiplier(2)).toBe(0.5);
   });
@@ -139,7 +147,7 @@ describe('normal Corporate Action EOD and ex-date readiness', () => {
   });
   it('requires dividend/rights local EOD evidence but does not require an exact price-drop match', () => {
     for (const actionType of ['DIVIDEND', 'RIGHTS'] as const) {
-      const row = importRow({ actionType, factor: 1.012, cashAmount: actionType === 'DIVIDEND' ? 1 : null });
+      const row = importRow({ actionType, factor: null, cashAmount: actionType === 'DIVIDEND' ? 1 : 80 });
       expect(getCorporateActionNormalApprovalState(row, null, TODAY)).toBe('WAITING FOR EOD DATA');
       expect(getCorporateActionNormalApprovalState(row, scanRow({ scanStatus: 'REVIEW' }), TODAY))
         .toBe('READY TO APPROVE');
@@ -149,6 +157,18 @@ describe('normal Corporate Action EOD and ex-date readiness', () => {
     expect(getCorporateActionNormalApprovalState(importRow({ reviewStatus: 'APPROVED' }), null, TODAY)).toBe('APPROVED');
     expect(getCorporateActionNormalApprovalState(importRow({ reviewStatus: 'UNRESOLVED', exDate: '2026-10-20' }), null, TODAY))
       .toBe('MATCH REQUIRED');
+  });
+  it('blocks stale matched Rights factors without complete positive financial terms', () => {
+    for (const missing of [{ cashAmount: null }, { ratioNum: null }, { ratioDen: null },
+      { cashAmount: 0 }, { ratioNum: -1 }, { ratioDen: Infinity }]) {
+      const row = importRow({ actionType: 'RIGHTS', ratioNum: 1, ratioDen: 4,
+        cashAmount: 80, factor: 1.15, priceFactor: 1 / 1.15, ...missing });
+      const scan = scanRow({ expectedFactor: 1.15, confidence: 1 });
+      expect(getCorporateActionApprovalState(row, scan)).toBe('NOT APPROVABLE');
+      expect(getCorporateActionNormalApprovalState(row, scan, TODAY)).toBe('NOT APPROVABLE');
+      expect(classifyCorporateActionValidation(row, scan)).toBe('NOT VALIDATED');
+      expect(getCorporateActionApprovalState({ ...row, approvedCorporateActionId: 9 }, scan)).toBe('APPROVED');
+    }
   });
 });
 

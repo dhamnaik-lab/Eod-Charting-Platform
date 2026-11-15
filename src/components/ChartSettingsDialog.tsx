@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState, type CSSProperties } from 'react';
+import { useEffect, useMemo, useState, useRef, useId, type CSSProperties } from 'react';
+import { useDialogFocus } from '@/features/app/useDialogFocus';
 import type { InstrumentKey } from '@/platform';
 import type {
   ChartEventVisibility,
@@ -126,11 +127,12 @@ export function ChartSettingsDialog({
     setValueError(null);
   }, [chartType, renkoSettings]);
 
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const titleId = useId();
+  useDialogFocus(dialogRef, onClose);
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        onClose();
-      }
+      if (event.defaultPrevented || !dialogRef.current?.contains(event.target as Node)) return;
       if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) {
         applyDraft();
       }
@@ -213,9 +215,10 @@ export function ChartSettingsDialog({
 
   return (
     <div style={backdropStyle} onMouseDown={onClose}>
-      <div style={dialogStyle} onMouseDown={(event) => event.stopPropagation()}>
+      <div ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby={titleId} tabIndex={-1}
+        style={dialogStyle} onMouseDown={(event) => event.stopPropagation()}>
         <div style={headerStyle}>
-          <div style={titleStyle}>Chart Settings</div>
+          <div id={titleId} style={titleStyle}>Chart Settings</div>
           <button type="button" style={closeButtonStyle} onClick={onClose} aria-label="Close chart settings">
             x
           </button>
@@ -972,7 +975,7 @@ const backdropStyle: CSSProperties = {
   placeItems: 'center',
   padding: 24,
   background: 'rgba(0, 0, 0, 0.42)',
-  zIndex: 60,
+  zIndex: 900,
 };
 
 const dialogStyle: CSSProperties = {

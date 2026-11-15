@@ -96,6 +96,14 @@ fn merge_symbols_internal(
     let source_exchange = normalize_exchange(&input.source_exchange)?;
     let target_symbol = normalize_symbol(&input.target_symbol)?;
     let target_exchange = normalize_exchange(&input.target_exchange)?;
+    let binary_paths = base_path
+        .map(|folder| -> AppResult<_> {
+            Ok((
+                super::storage_paths::eod_path(folder, &source_exchange, &source_symbol)?,
+                super::storage_paths::eod_write_path(folder, &target_exchange, &target_symbol)?,
+            ))
+        })
+        .transpose()?;
     let target_name = normalize_optional_text(input.target_name.as_deref());
     let overwrite_duplicates = input.overwrite_duplicates.unwrap_or(true);
     let delete_source_after_merge = input.delete_source_after_merge.unwrap_or(true);
@@ -357,16 +365,7 @@ fn merge_symbols_internal(
         Ok(())
     })?;
 
-    if let Some(folder_path) = base_path {
-        let source_bin_path = folder_path
-            .join("eod_data")
-            .join(&source_exchange)
-            .join(format!("{}.eod", source_symbol));
-        let target_bin_path = folder_path
-            .join("eod_data")
-            .join(&target_exchange)
-            .join(format!("{}.eod", target_symbol));
-
+    if let Some((source_bin_path, target_bin_path)) = binary_paths {
         if source_bin_path.exists() {
             let mut can_delete = false;
             match BinaryEodFile::open(&source_bin_path) {
@@ -470,7 +469,7 @@ pub(super) fn apply_corporate_action_internal(
     let action_type = normalize_corporate_action_type(&input.action_type)?;
     if matches!(
         action_type.as_str(),
-        "SPLIT" | "BONUS" | "DIVIDEND" | "RIGHTS"
+        "SPLIT" | "BONUS" | "DIVIDEND" | "RIGHTS" | "DEMERGER"
     ) {
         return record_price_adjustment_action(connection, input, &action_type, base_path);
     }
@@ -508,7 +507,7 @@ pub(super) fn apply_official_import_price_adjustment(
         bound.note = Some(format!("{}\n[splitBonusSymbolChainR1={}]",input.note.as_deref().unwrap_or_default(),proof.fingerprint()?));
         return record_price_adjustment_action_with_basis(connection,&bound,&bound.action_type,Some(folder),Some(proof.previous()));
     }
-    if !matches!(input.action_type.as_str(), "DIVIDEND"|"SPLIT"|"BONUS"|"RIGHTS") {
+    if !matches!(input.action_type.as_str(), "DIVIDEND"|"SPLIT"|"BONUS"|"RIGHTS"|"DEMERGER") {
         return apply_corporate_action_internal(connection,input,Some(folder));
     }
     let route = super::corporate_action_imports::event_price_route::resolve(connection,folder,import)?;
@@ -544,7 +543,11 @@ fn record_price_adjustment_action_with_basis(
         if action_type == "DIVIDEND" {
             compute_dividend_adjustment_basis_from_values(previous_date.to_string(),previous_close,
                 require_positive_adjustment_number(input.cash_amount,"Dividend cash amount per share")?)?.computed_factor
-        } else if action_type == "RIGHTS" {
+        } else if action_type == "RIGHTS"
+            && input.ratio_num.is_some()
+            && input.ratio_den.is_some()
+            && input.cash_amount.is_some()
+        {
             compute_rights_adjustment_factor(previous_close,
                 require_positive_adjustment_number(input.ratio_num,"Rights ratio numerator")?,
                 require_positive_adjustment_number(input.ratio_den,"Rights ratio denominator")?,
@@ -616,10 +619,10 @@ fn record_price_adjustment_action_with_basis(
         return Err("This corporate action already exists.".to_string());
     }
 
-    // The same economic Split/Bonus/Dividend/Rights can arrive with different
+    // The same economic Split/Bonus/Dividend/Rights/Demerger can arrive with different
     // raw term columns, but must not create two independent adjustment
     // multipliers for the same event/date.
-    if matches!(action_type, "SPLIT" | "BONUS" | "DIVIDEND" | "RIGHTS") {
+    if matches!(action_type, "SPLIT" | "BONUS" | "DIVIDEND" | "RIGHTS" | "DEMERGER") {
         let mut statement = connection
             .prepare(
                 "SELECT id, factor FROM corporate_actions
@@ -1538,7 +1541,7 @@ fn normalize_optional_number(value: Option<f64>) -> Option<f64> {
 fn normalize_corporate_action_type(value: &str) -> AppResult<String> {
     let normalized = value.trim().to_uppercase();
     match normalized.as_str() {
-        "SPLIT" | "BONUS" | "DIVIDEND" | "RIGHTS" | "NAME_CHANGE" | "SYMBOL_CHANGE" | "BOTH" => {
+        "SPLIT" | "BONUS" | "DIVIDEND" | "RIGHTS" | "DEMERGER" | "NAME_CHANGE" | "SYMBOL_CHANGE" | "BOTH" => {
             Ok(normalized)
         }
         _ => Err(format!("Unsupported action type: {value}")),
@@ -1553,6 +1556,10 @@ fn compute_adjustment_factor(
     action_type: &str,
     input: &CorporateActionInputPayload,
 ) -> AppResult<f64> {
+    if action_type == "DEMERGER" {
+        return Err(super::corporate_action_imports::DEMERGER_AUTHORITY_REQUIRED.to_string());
+    }
+
     if action_type == "DIVIDEND" {
         return Ok(load_dividend_adjustment_basis(
             connection,
@@ -1604,6 +1611,16 @@ fn compute_adjustment_factor(
     let ratio_den = normalize_optional_number(input.ratio_den);
 
     if let Some(factor) = factor_from_face_value {
+        if input.ratio_num.is_some() || input.ratio_den.is_some() {
+            let num = require_positive_adjustment_number(input.ratio_num, "Split ratio numerator")?;
+            let den = require_positive_adjustment_number(input.ratio_den, "Split ratio denominator")?;
+            let ratio_factor = num / den;
+            if !ratio_factor.is_finite() || ratio_factor <= 0.0
+                || (factor - ratio_factor).abs() > 1e-9 * factor.abs().max(ratio_factor.abs())
+            {
+                return Err("Split ratio and face values imply different adjustment factors. Correct the terms or supply only one form.".to_string());
+            }
+        }
         return Ok(factor);
     }
 
@@ -1842,6 +1859,15 @@ mod tests {
             source: Some("MANUAL".to_string()),
             source_ref: None,
         };
+        input.old_face_value = Some(10.0);
+        input.new_face_value = Some(2.0);
+        let error = apply_corporate_action_internal(&connection, &input, None).unwrap_err();
+        assert!(error.contains("Split ratio and face values imply different"));
+        input.action_type = "DEMERGER".to_string();
+        let error = apply_corporate_action_internal(&connection, &input, None).unwrap_err();
+        assert_eq!(error, super::super::corporate_action_imports::DEMERGER_AUTHORITY_REQUIRED);
+        input.action_type = "SPLIT".to_string();
+        input.new_face_value = Some(5.0);
         apply_corporate_action_internal(&connection, &input, None).unwrap();
         input.ratio_num = None;
         input.ratio_den = None;
@@ -2593,6 +2619,22 @@ mod tests {
             Some(("2026-06-11", 100.0)),
         )
         .unwrap();
+
+        // A legacy price-drop factor must never fill in missing Rights terms,
+        // including on the manual adjustment path. Keep the approved TERP row.
+        connection.execute(
+            "INSERT INTO corporate_action_imports
+             (dedupe_key, exchange, source, symbol, purpose_raw, ex_date, action_type,
+              factor, price_factor, parse_status, review_status)
+             VALUES ('rights-safety', 'NSE', 'NSE_API', 'R2TEST', 'Rights issue',
+                     '2026-06-12', 'RIGHTS', 1.15, 1.0/1.15, 'PARSED', 'PENDING')", [],
+        ).unwrap();
+        rights_input.cash_amount = None;
+        let missing_terms = compute_adjustment_factor(
+            &connection, None, &context, "2026-06-12", "RIGHTS", &rights_input,
+        ).unwrap_err();
+        assert!(missing_terms.contains("Rights issue price"), "{missing_terms}");
+        rights_input.cash_amount = Some(80.0);
 
         rights_input.ratio_num = Some(2.0);
         rights_input.ratio_den = Some(8.0);

@@ -1956,7 +1956,7 @@ const clearBackdropStyle: React.CSSProperties = {
   position: 'fixed',
   inset: 0,
   background: 'rgba(0, 0, 0, 0.15)', // Ultra-light tint without blur
-  zIndex: 45,
+  zIndex: 900,
 };
 
 const dialogPanelStyle: React.CSSProperties = {
@@ -1967,7 +1967,7 @@ const dialogPanelStyle: React.CSSProperties = {
   background: 'var(--bg2)',
   boxShadow: '0 20px 35px -5px rgba(0, 0, 0, 0.6), 0 0 0 1px var(--border2)',
   overflow: 'hidden',
-  zIndex: 50,
+  zIndex: 910,
 };
 
 const dialogHeaderStyle: React.CSSProperties = {

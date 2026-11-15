@@ -1,4 +1,5 @@
 import React, { useEffect, useId, useMemo, useRef, useState } from 'react';
+import { topModal } from '@/features/app/useDialogFocus';
 import { createPortal } from 'react-dom';
 import type { CorporateActionImportRow } from '@/platform';
 import { CLASSIC_ACTION_TYPES, CLASSIC_DEFAULT_SORT, classicIdentityLabel, classicVisibleEvents, classicVisibleReadyIds, groupClassicActionRows, type ClassicActionRow, type ClassicStatusFilter, isClassicIssue } from './corporateActionClassicModel';
@@ -33,6 +34,7 @@ export function CorporateActionClassicDialog({ title, onClose, children, classNa
     const previous = document.activeElement as HTMLElement | null;
     ref.current?.focus();
     const keydown = (event: KeyboardEvent) => {
+      if (event.defaultPrevented || topModal() !== ref.current) return;
       if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); closeRef.current(); }
       if (event.key !== 'Tab') return;
       const controls = Array.from(ref.current?.querySelectorAll<HTMLElement>('button:not(:disabled),input:not(:disabled),select:not(:disabled),textarea,[tabindex="0"],summary') ?? [])

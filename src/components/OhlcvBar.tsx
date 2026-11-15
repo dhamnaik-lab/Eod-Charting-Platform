@@ -1,11 +1,12 @@
 import { format } from 'date-fns';
 import { getActiveChartTab, useChartStore } from '@/store/chartStore';
+import { useChartHover } from '@/features/charts/chartHoverStore';
 
 export function OhlcvBar() {
   const chartTabs = useChartStore((state) => state.chartTabs);
   const activeChartTabId = useChartStore((state) => state.activeChartTabId);
   const activeTab = getActiveChartTab(chartTabs, activeChartTabId);
-  const hoverBar = activeTab?.hoverBar ?? null;
+  const hoverBar = useChartHover(activeTab);
   const latestBar = activeTab?.displayBars[activeTab.displayBars.length - 1] ?? null;
   const bar = hoverBar ?? latestBar;
 

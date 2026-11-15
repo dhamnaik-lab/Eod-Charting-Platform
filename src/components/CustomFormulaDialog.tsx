@@ -1,5 +1,6 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from 'react';
 import type { OverlayIndicator } from '@/engine/types';
+import { getModalTabWrapTarget } from '@/features/app/modalFocusNavigation';
 import {
   type CustomFormulaIndicatorInput,
   normalizeCustomFormulaInput,
@@ -24,11 +25,50 @@ export function CustomFormulaDialog({
 }: CustomFormulaDialogProps) {
   const [draft, setDraft] = useState<CustomFormulaIndicatorInput>(() => toDraft(indicator));
   const [submitAttempted, setSubmitAttempted] = useState(false);
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const closeButtonRef = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    const opener = document.activeElement;
+    closeButtonRef.current?.focus();
+    return () => {
+      if (opener instanceof HTMLElement && opener.isConnected) {
+        opener.focus();
+      }
+    };
+  }, []);
 
   useEffect(() => {
     setDraft(toDraft(indicator));
     setSubmitAttempted(false);
   }, [indicator?.id]);
+
+  const handleDialogKeyDown = (event: ReactKeyboardEvent<HTMLDivElement>) => {
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      event.stopPropagation();
+      onClose();
+      return;
+    }
+    if (event.key !== 'Tab' || !dialogRef.current) {
+      return;
+    }
+    const focusable = Array.from(
+      dialogRef.current.querySelectorAll<HTMLElement>(
+        'button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled])',
+      ),
+    );
+    if (focusable.length === 0) {
+      event.preventDefault();
+      dialogRef.current.focus();
+      return;
+    }
+    const next = getModalTabWrapTarget(focusable, document.activeElement as HTMLElement | null, event.shiftKey);
+    if (next) {
+      event.preventDefault();
+      next.focus();
+    }
+  };
 
   const normalizedDraft = useMemo(
     () => normalizeCustomFormulaInput(draft),
@@ -52,17 +92,33 @@ export function CustomFormulaDialog({
 
   return (
     <div style={dialogBackdropStyle} onMouseDown={onClose}>
-      <div style={dialogPanelStyle} onMouseDown={(event) => event.stopPropagation()}>
+      <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="custom-formula-dialog-title"
+        tabIndex={-1}
+        style={dialogPanelStyle}
+        onMouseDown={(event) => event.stopPropagation()}
+        onKeyDown={handleDialogKeyDown}
+      >
         <div style={dialogHeaderStyle}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-            <strong style={{ fontSize: 17, color: 'var(--text)' }}>
+            <strong id="custom-formula-dialog-title" style={{ fontSize: 17, color: 'var(--text)' }}>
               {indicator ? 'Custom Formula Settings' : 'Add Custom Formula'}
             </strong>
             <div style={dialogSubheadStyle}>
               Controlled formula MVP. Numeric assignments plot as lines; boolean assignments are helper logic only in this pass.
             </div>
           </div>
-          <button type="button" style={dialogCloseStyle} onClick={onClose}>
+          <button
+            ref={closeButtonRef}
+            type="button"
+            style={dialogCloseStyle}
+            onClick={onClose}
+            aria-label="Close"
+            title="Close (Escape)"
+          >
             x
           </button>
         </div>
@@ -208,7 +264,7 @@ const dialogBackdropStyle: React.CSSProperties = {
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',
-  zIndex: 44,
+  zIndex: 900,
 };
 
 const dialogPanelStyle: React.CSSProperties = {

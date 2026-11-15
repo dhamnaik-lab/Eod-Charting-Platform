@@ -1,6 +1,7 @@
 import React, { useEffect, useRef } from 'react';
 import { useWindowStore } from '@/store/windowStore';
 import { getFloatingWindowArrowDelta } from '@/components/common/floatingWindowKeyboard';
+import { useDialogFocus } from '@/features/app/useDialogFocus';
 
 interface FloatingWindowProps {
   id: string;
@@ -20,6 +21,14 @@ export function FloatingWindow({
   preserveChildrenWhenMinimized = false,
 }: FloatingWindowProps) {
   const windowState = useWindowStore((state) => state.windows[id]);
+  const dialogRef = useRef<HTMLDivElement>(null);
+  useDialogFocus(dialogRef, () => onClose ? onClose() : useWindowStore.getState().closeWindow(id), false,
+    Boolean(windowState?.isOpen && !windowState.isMinimized));
+  useEffect(() => {
+    const fit = () => useWindowStore.getState().updateWindowBounds(id, {});
+    window.addEventListener('resize', fit);
+    return () => window.removeEventListener('resize', fit);
+  }, [id]);
   const focusWindow = useWindowStore((state) => state.focusWindow);
   const moveWindow = useWindowStore((state) => state.moveWindow);
   const resizeWindow = useWindowStore((state) => state.resizeWindow);
@@ -214,9 +223,12 @@ export function FloatingWindow({
 
   return (
     <div
+      ref={dialogRef}
+      tabIndex={-1}
       style={containerStyle}
       className={className}
       onMouseDown={handleMouseDown}
+      onFocusCapture={() => focusWindow(id)}
       role="dialog"
       aria-labelledby={`${id}-title`}
     >
