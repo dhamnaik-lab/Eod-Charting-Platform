@@ -55,14 +55,14 @@ GitHub returned exact matching destination blob SHA for both revised sources. Th
 | --- | --- | --- |
 | Source authority | **Verified** pinned `main@42ae31ba` | Live GitHub commit search |
 | Changes incorporated | **Verified** exact blob SHA matches for the two test files | GitHub fetch/update outputs |
-| Combined source diff | **Pending final GitHub compare** | GitHub PR comparison |
-| Combined full Vitest | **Not executed yet; pending CI** | `npm test` |
-| Combined typecheck | **Not executed yet; pending CI** | `npm run typecheck:renderer` |
-| Combined renderer build | **Not executed yet; pending CI** | `npm run build:renderer` |
+| Combined source diff | **PASS:** exactly 3 changed files; 0 behind baseline | GitHub compare `main@42ae31ba` to branch |
+| Combined full Vitest | **PASS:** 1,828 passed, 1 skipped, **0 failed**; 265 test files passed, 1 skipped | [Renderer CI #43762466626](https://github.com/dhamnaik-lab/Eod-Charting-Platform/actions/runs/43762466626), `npm test` |
+| Combined typecheck | **PASS**, job step succeeded | [Renderer CI #43762466626](https://github.com/dhamnaik-lab/Eod-Charting-Platform/actions/runs/43762466626), `npm run typecheck:renderer` |
+| Combined renderer build | **PASS**, Vite built in 5.50 seconds | [Renderer CI #43762466626](https://github.com/dhamnaik-lab/Eod-Charting-Platform/actions/runs/43762466626), `npm run build:renderer` |
 | Rust/portable/native | **Not executed**, not needed to establish test-only renderer integration; Windows acceptance remains deferred | No native runner |
 | Manual approval and GitHub merge | **On hold** | User approval required |
 
-Do not claim green integration or completion before GitHub's actual command results. A documentation-only follow-up commit may trigger a second CI run; distinguish the tested source SHA.
+Confirmed actual GitHub command output: the full suite has 1,828 passed, 1 skipped, **zero failures**, including all 17 Corporate Actions adapter tests and all 6 identity-recovery tests. TypeScript typecheck and renderer Vite build passed. The successful run tested source/test commit `f990fc7b216ff4d030227300f8afa1bd614372b4`. Updating this record changes documentation only and may trigger another CI run; do not confuse these commits.
 
 ## Risks, limitations and next step
 
