@@ -43,15 +43,15 @@ The tiled-grid click handler calls `activateChartTab(tab.id, layoutMode)`. The s
 | Check | Command or evidence | Actual result |
 | --- | --- | --- |
 | GitHub source authority | Connected repository metadata and latest commit search | Confirmed `main` source authority at `ca1cd936...` before implementation |
-| Focused Vitest | `npm test -- src/features/charts/__tests__/chartTileActivationLayoutF52.test.ts` | **Not executed** in this GitHub-only session; requires CI/local checkout |
-| Related chart regressions | `npm test -- src/features/charts/__tests__/chartRequestConsistency.test.ts` | **Not executed** |
-| Renderer typecheck | `npm run typecheck:renderer` | **Not executed** |
-| Renderer build | `npm run build:renderer` | **Not executed** |
-| Broader regression | `npm test` | **Not executed** |
+| Focused Vitest | `npm test -- src/features/charts/__tests__/chartTileActivationLayoutF52.test.ts` | **PASS within CI full suite:** 8 F-52 tests passed; focused command not separately executed |
+| Related chart regressions | `npm test -- src/features/charts/__tests__/chartRequestConsistency.test.ts` | **PASS within CI full suite**; no separate focused command executed |
+| Renderer typecheck | `npm run typecheck:renderer` | **PASS**, GitHub Renderer CI run 43739742067 |
+| Renderer build | `npm run build:renderer` | **PASS**, Vite built in 5.41 seconds, CI run 43739742067 |
+| Broader regression | `npm test` | **PASS**, 260 test files passed, 1 skipped; 1,801 tests passed, 1 skipped (CI run 43739742067) |
 | Windows native/portable | `npm run tauri:portable:win` plus manual tile-selection checkpoint | **Not executed**; requires authorized Windows environment |
-| Remote branch/source diff | GitHub compare and direct file reads | To be checked after branch commit |
+| Remote branch/source diff | GitHub compare of baseline to branch | **PASS:** 5 changed files (3 production, 1 test, 1 documentation), ahead by 5 baseline commits, behind 0 when checked |
 
-No test, compile, build, visual checkpoint or release claim is made without command-output evidence.
+GitHub Actions evidence: [Renderer CI run 43739742067](https://github.com/dhamnaik-lab/Eod-Charting-Platform/actions/runs/43739742067), run #108, **completed successfully** for the production/test source at commit `1f656dfb41c5478d20592acc7f8ea4585bd2654f`. The subsequent change-record-only update does not alter application source or test code. No Windows/native/portable build or manual visual acceptance has been performed.
 
 ## Risks / limitations
 
