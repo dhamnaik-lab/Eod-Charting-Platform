@@ -1,6 +1,7 @@
 import { useMemo, useState, type CSSProperties, type MouseEvent, type SyntheticEvent } from "react";
 import { createPortal } from "react-dom";
 import { buildRenderableIndicators } from "@/engine/Indicators";
+import { formatVolume } from "@/engine/Crosshair";
 import { formatPrice, formatSignedValue } from "@/engine/Renderer";
 import type {
   ChartCompareOverlay,
@@ -630,6 +631,14 @@ function buildPriceSummary(
         text: missingIndexReference ? "Change unavailable"
           : `${formatSignedValue(change, 2, 2)} (${formatSignedValue(changePct, 2, 2)}%)`,
         color: closeColor,
+      },
+      { text: "Vol", color: "var(--legend-muted)", muted: true },
+      {
+        text: Number.isFinite(bar.volume) && bar.volume >= 0 ? formatVolume(bar.volume) : "—",
+        color: "var(--legend-text)",
+        tooltip: Number.isFinite(bar.volume) && bar.volume >= 0
+          ? `Volume ${bar.volume.toLocaleString("en-IN")}`
+          : "Volume unavailable",
       },
     ],
   };
