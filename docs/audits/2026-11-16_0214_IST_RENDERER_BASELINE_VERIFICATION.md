@@ -43,7 +43,18 @@ Those tests and their relevant source files were unchanged by PR #104; neverthel
 
 ## Current baseline validation
 
-GitHub CI **pending** at document creation. No local Node, Rust, Tauri, Windows portable, production database, source control, or build commands have been executed.
+**Confirmed — GitHub Renderer CI [run 43759843377](https://github.com/dhamnaik-lab/Eod-Charting-Platform/actions/runs/43759843377)** at documentation-only head `bd28578add1b0c1d493916f2b6dd7f3e0fb3cdc5`:
+
+- Full `npm test`: **FAIL**, 1,826 passed, 2 failed, 1 skipped (263 files passed, 2 failed, 1 skipped; 266 total).
+- `npm run typecheck:renderer`: **PASS**.
+- `npm run build:renderer`: **PASS**, Vite built in 5.32 seconds.
+- Failing test 1: `src/features/corporateActions/__tests__/corporateActionNormalWorkflowAdapter.test.ts:308` — `scans Dividend/Rights for local EOD readiness without requiring imported factors`.
+- Failing test 2: `src/features/identityRecovery/__tests__/identityEr4HistoryVisibility.test.ts:136` — `requires explicit review and operator confirmation before applying a rollback`.
+- GitHub compare baseline-to-branch: **1 changed documentation file only**. All production, test, dependency and build files were identical to the pinned source authority.
+- Consequently both failures are confirmed on the unmodified main source and are **not introduced by F-01 PR #104**. PR #104 reported 1,830 pass / 2 fail / 1 skipped because four new F-01 tests passed.
+- Actual CI source execution evidence is GitHub Actions, not local Windows. No local Node, Rust, Tauri, portable, production-database or manual checks were executed.
+
+**Correction strategy:** Do not weaken Rights term verification or rollback confirmation. Separately verify the test expectations against accepted implementation, then correct the stale contract assertions or fixtures in bounded, reviewable branches. This baseline-verification PR remains draft and must not be merged.
 
 ## Preservation, risks, rollback
 
