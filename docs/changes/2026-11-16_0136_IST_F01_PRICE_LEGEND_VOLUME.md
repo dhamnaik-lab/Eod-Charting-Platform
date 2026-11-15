@@ -48,17 +48,24 @@ Display the selected OHLC bar's share volume in the HTML chart price legend and 
 | --- | --- | --- |
 | GitHub source authority | Compare prior `ca1cd936...` audit commit to `main` | **Verified**: latest `main@42ae31ba...` includes intervening code changes; F-01 still applies |
 | Source review | GitHub file reads | **Verified**: summary did not use `bar.volume`; existing formatter available |
-| Regression suite | `npm test` | **Pending GitHub CI** |
-| Focused suite | `npm test -- src/components/__tests__/ChartPriceLegendOverlay.test.tsx` | **Pending / not separately executed** |
-| Renderer typecheck | `npm run typecheck:renderer` | **Pending GitHub CI** |
-| Renderer build | `npm run build:renderer` | **Pending GitHub CI** |
-| Source diff | GitHub compare `main` vs branch | **Pending final confirmation** |
+| Full regression suite | `npm test` through GitHub Renderer CI | **FAIL** at source commit `8276f723a505099fb793742a0df760d30e1d8027`: 1,830 passed, 2 failed, 1 skipped (266 files: 263 passed, 2 failed, 1 skipped) |
+| F-01 and chart-index focused test files | Included in full `npm test`; no separate focused command | **PASS:** `ChartPriceLegendOverlay.test.tsx` 7/7 and `ChartPriceLegendIndexGap.test.ts` 9/9 |
+| Renderer typecheck | `npm run typecheck:renderer` in GitHub CI | **PASS** |
+| Renderer build | `npm run build:renderer` in GitHub CI | **PASS**, Vite built in 7.35s |
+| Source diff | GitHub compare `main@42ae31ba` vs branch | **PASS:** exactly 3 files; 0 behind base |
+| Initial regression run | GitHub Renderer CI [43756237999](https://github.com/dhamnaik-lab/Eod-Charting-Platform/actions/runs/43756237999) | **FAIL:** 11 tests: 9 existing index-gap tests assumed change segment was last; 2 unrelated tests failed. F-01 tests 7/7 PASS. |
+| Corrected regression run | GitHub Renderer CI [43756539811](https://github.com/dhamnaik-lab/Eod-Charting-Platform/actions/runs/43756539811) | **FAIL overall:** all 9 chart-index tests recovered; 2 unrelated failures remain. TypeScript and build passed. |
 | Windows portable | `npm run tauri:portable:win` | **On hold by user** |
 | Windows manual | Chart legend for hovered/unhovered equity/zero-volume index, screenshot, toggle pane | **On hold by user** |
 
 ## Risks and limitations
 
 - The extra volume label may expand long legend rows; narrow-screen screenshot clipping remains F-10.
+- Existing `ChartPriceLegendIndexGap.test.ts` asserts the price-change segment remains the final summary segment. The first implementation placed volume after it and failed 9 tests. The corrected implementation places volume **before** change, preserving that existing contract; all 9 tests passed on rerun.
+- Full-suite failure remains in two out-of-scope tests after that correction:
+  - `src/features/corporateActions/__tests__/corporateActionNormalWorkflowAdapter.test.ts` — expected readiness values differ from actual (`ready` vs `needsReview`).
+  - `src/features/identityRecovery/__tests__/identityEr4HistoryVisibility.test.ts` — expected explicit reviewed rollback invocation differs from actual.
+  These two fail in both GitHub runs and neither test nor corresponding application source was modified in this PR. Their pre-existing baseline status at `main@42ae31ba` is **not independently established**; record separately for a later bounded investigation. They are not silently fixed here.
 - `formatVolume()` is an existing compact formatter, not a refactor of volume number formatting; exact volume is available in a tooltip.
 - A separate legend visibility setting is intentionally out of scope; the current `showVolume` flag refers to the volume pane.
 - GitHub CI does not replace Windows portable/WebView2 visual acceptance.
@@ -72,4 +79,7 @@ Do not merge the draft pull request if CI or Windows visual acceptance fails. Re
 
 - Base commit: `42ae31bae7937dde944c87a997b94da933ad1a0b`
 - Working branch: `fix/f01-price-legend-volume-20261116`
-- CI evidence and final commit SHA to be recorded after GitHub completes relevant checks.
+- Tested source commit: `8276f723a505099fb793742a0df760d30e1d8027`.
+- [Initial CI run](https://github.com/dhamnaik-lab/Eod-Charting-Platform/actions/runs/43756237999): 11 failures; nine were corrected within the F-01 boundary.
+- [Corrected CI run](https://github.com/dhamnaik-lab/Eod-Charting-Platform/actions/runs/43756539811): F-01 and index regression suites pass, typecheck and renderer build pass; full Vitest fails in 2 unrelated tests.
+- Final change-record-only commit changes documentation, not renderer/test source.
