@@ -284,11 +284,11 @@ describe('F-01 price legend volume', () => {
 
     expect(markup).toContain('1.2K');
     expect(markup).toContain('Volume 1,200');
-    expect(snapshot.segments.slice(-2)).toEqual([
+    expect(snapshot.segments.slice(-3, -1)).toEqual([
       { text: 'Vol', color: 'var(--legend-muted)', muted: true },
       { text: '1.2K', color: 'var(--legend-text)', tooltip: 'Volume 1,200' },
     ]);
-    expect(snapshot.segments.some((segment) => segment.text.includes('+5.50'))).toBe(true);
+    expect(snapshot.segments.at(-1)?.text).toContain('+5.50');
   });
 
   it('tracks the hovered bar instead of retaining the latest-bar volume', () => {
@@ -297,16 +297,16 @@ describe('F-01 price legend volume', () => {
     const snapshot = buildChartPriceLegendSnapshot(props);
 
     expect(markup).toContain('1.0K');
-    expect(snapshot.segments.at(-1)?.text).toBe('1.0K');
-    expect(snapshot.segments.at(-1)?.tooltip).toBe('Volume 1,000');
+    expect(snapshot.segments.at(-2)?.text).toBe('1.0K');
+    expect(snapshot.segments.at(-2)?.tooltip).toBe('Volume 1,000');
   });
 
   it('preserves actual zero-volume bars and handles unavailable volume without fabricating a value', () => {
     const zeroProps = buildProps({ bars: [{ ...bars[0], volume: 0 }], viewport: { startIndex: 0, endIndex: 1 } });
     const invalidProps = buildProps({ bars: [{ ...bars[0], volume: Number.NaN }], viewport: { startIndex: 0, endIndex: 1 } });
 
-    expect(buildChartPriceLegendSnapshot(zeroProps).segments.at(-1)).toMatchObject({ text: '0', tooltip: 'Volume 0' });
-    expect(buildChartPriceLegendSnapshot(invalidProps).segments.at(-1)).toMatchObject({ text: '—', tooltip: 'Volume unavailable' });
+    expect(buildChartPriceLegendSnapshot(zeroProps).segments.at(-2)).toMatchObject({ text: '0', tooltip: 'Volume 0' });
+    expect(buildChartPriceLegendSnapshot(invalidProps).segments.at(-2)).toMatchObject({ text: '—', tooltip: 'Volume unavailable' });
     expect(renderToStaticMarkup(<ChartPriceLegendOverlay {...zeroProps} />)).toContain('Volume 0');
     expect(renderToStaticMarkup(<ChartPriceLegendOverlay {...invalidProps} />)).toContain('Volume unavailable');
   });
