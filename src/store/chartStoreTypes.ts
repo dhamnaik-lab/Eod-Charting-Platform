@@ -160,7 +160,7 @@ export interface ChartStoreState {
   closeDatabase: () => Promise<void>;
   createChartTab: () => void;
   duplicateChartTab: (tabId: string) => void;
-  activateChartTab: (tabId: string) => void;
+  activateChartTab: (tabId: string, tileLayoutMode?: LayoutMode) => void;
   closeChartTab: (tabId: string) => void;
   loadInstrument: (
     key: InstrumentKey,
