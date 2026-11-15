@@ -49,11 +49,11 @@ The existing test now models four imports: a Dividend without an imported factor
 | Gate | Command or evidence | Actual result |
 | --- | --- | --- |
 | Clean-main baseline | GitHub Renderer CI run 43759843377 | **CONFIRMED:** 1,826 passed; 2 failed; 1 skipped; TypeScript and Vite build passed |
-| Focused CA regression | `npm test -- src/features/corporateActions/__tests__/corporateActionNormalWorkflowAdapter.test.ts` | **Pending**, will be covered by GitHub CI full suite |
-| Full renderer suite | `npm test` | **Pending CI** |
-| Typecheck | `npm run typecheck:renderer` | **Pending CI** |
-| Renderer build | `npm run build:renderer` | **Pending CI** |
-| Changed-file scope | Compare branch with `main@42ae31ba` | **Pending final GitHub compare** |
+| Corporate Actions adapter regression | Included in GitHub full `npm test` (no separate focused invocation) | **PASS:** 17/17 tests in adapter suite |
+| Full renderer suite | `npm test` | **FAIL overall:** 1,827 passed, 1 failed, 1 skipped; 264 files passed, 1 failed, 1 skipped. Only failing suite is out-of-scope identity rollback |
+| Typecheck | `npm run typecheck:renderer` | **PASS** in [CI 43760368433](https://github.com/dhamnaik-lab/Eod-Charting-Platform/actions/runs/43760368433) |
+| Renderer build | `npm run build:renderer` | **PASS**, Vite built in 5.59s in CI 43760368433 |
+| Changed-file scope | GitHub comparison with `main@42ae31ba` | **PASS:** 2 files (1 test, 1 change record), 0 behind baseline |
 | Windows portable | `npm run tauri:portable:win` | **Not performed**, user-held |
 | Native/financial manual acceptance | No action is authorized | **Not performed** |
 
@@ -72,4 +72,5 @@ Discard the separate test branch, or revert only the single test-fixture change 
 
 - Baseline source SHA: `42ae31bae7937dde944c87a997b94da933ad1a0b`
 - Initial test-only change commit: `38ffb89ae4e29337a5b0774a860b0c7abeb99212`
-- GitHub Actions result and final commit will be recorded after validation.
+- Verified application/test CI commit: `c2c3019ce7b1b345c115a71278168632d8833613`; [Renderer CI 43760368433](https://github.com/dhamnaik-lab/Eod-Charting-Platform/actions/runs/43760368433) confirms CA adapter 17/17 PASS, full Vitest one unrelated identity failure, typecheck PASS, build PASS.
+- Subsequent change-record-only update does not modify application/test code.
