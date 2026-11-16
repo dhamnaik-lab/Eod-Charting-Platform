@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import type { EodPlugin } from '../types';
 import { PluginHost } from '../pluginHost';
+import { pluginHost } from '../registry';
+import { buildRenderableIndicators } from '@/indicators/registry';
+import { listCoreScannerDefinitions } from '@/plugins/scanner/scannerPlugin';
 
 describe('Plugin host extension registration', () => {
   it('registers and removes chart overlays from an injected plugin instance', async () => {
@@ -43,10 +46,6 @@ describe('Plugin host extension registration', () => {
   });
 
   it('bridges dynamically registered indicators and scanners into host registries and unregisters on stop', async () => {
-    const { pluginHost } = await import('../registry');
-    const { buildRenderableIndicators } = await import('@/indicators/registry');
-    const { listCoreScannerDefinitions } = await import('@/plugins/scanner/scannerPlugin');
-
     const instance: EodPlugin = {
       onload(ctx) {
         ctx.registerIndicator({
