@@ -55,11 +55,11 @@ Chart settings are no longer live-previewed. The dialog explicitly explains that
 | Check | Command or evidence | Actual result |
 | --- | --- | --- |
 | Source authority | GitHub latest commit and pinned source file reads | **Verified** `main@42ae31ba`, unchanged at branch start |
-| Scope | GitHub diff main vs branch | **Pending final compare** |
-| Focused F-14 tests | `npm test -- src/features/charts/__tests__/chartSettingsDraftF14.test.ts` | **Not separately executed**; covered by full GitHub CI run |
-| Full renderer regression | `npm test` | **Pending CI** |
-| TypeScript | `npm run typecheck:renderer` | **Pending CI** |
-| Renderer build | `npm run build:renderer` | **Pending CI** |
+| Scope | GitHub compare against `main@42ae31ba` | **PASS:** 5 changed files, 0 behind baseline, no unrelated changes |
+| F-14 regression suite | Included in full GitHub `npm test`; no separate focused invocation | **PASS:** 7/7 tests in [Renderer CI #43803099301](https://github.com/dhamnaik-lab/Eod-Charting-Platform/actions/runs/43803099301) |
+| Full renderer regression | `npm test` | **FAIL on pinned-main baseline only:** 1,833 passed, 2 failed, 1 skipped, with only previously established CA/identity baseline tests failing. Combined validation with exact corrected tests in [PR #110 CI #43803487748](https://github.com/dhamnaik-lab/Eod-Charting-Platform/actions/runs/43803487748) **PASS:** 1,835 passed, 1 skipped, 0 failed |
+| TypeScript | `npm run typecheck:renderer` | **PASS** in PR #109 [CI #43803099301](https://github.com/dhamnaik-lab/Eod-Charting-Platform/actions/runs/43803099301) and combined [CI #43803487748](https://github.com/dhamnaik-lab/Eod-Charting-Platform/actions/runs/43803487748) |
+| Renderer build | `npm run build:renderer` | **PASS**, 5.58s PR #109 and 5.77s combined PR #110 |
 | Rust/Tauri/Windows portable | `npm run tauri:portable:win` | **Not run**, Windows acceptance intentionally deferred |
 | Manual Windows acceptance | Cancel/X/Escape/backdrop, OK, invalid Renko, Auto-fit/Alerts, switch tiles | **Not run**, user-held |
 
@@ -82,4 +82,6 @@ Do not merge if CI or operator acceptance fails. Discard branch `fix/f14-chart-s
 
 - Baseline commit `42ae31bae7937dde944c87a997b94da933ad1a0b`.
 - Branch `fix/f14-chart-settings-draft-20261116`.
-- CI/commit evidence to be appended after GitHub run completes.
+- F-14 source/test commit `c8e2112b597ae9c8bad35583116d24b7564ceabc`; [PR #109](https://github.com/dhamnaik-lab/Eod-Charting-Platform/pull/109) initial CI #43803099301: 7/7 F-14 PASS; TypeScript/Vite PASS; full suite 2 known baseline failures.
+- [PR #110](https://github.com/dhamnaik-lab/Eod-Charting-Platform/pull/110) validation-only source commit `898146db9da29dcb6b322430ce432c0ec8cfee1e`, [Renderer CI #43803487748](https://github.com/dhamnaik-lab/Eod-Charting-Platform/actions/runs/43803487748): full Vitest **1,835 pass, 1 skip, 0 fail**, TypeScript PASS, Vite PASS. Includes only two exact previously validated test corrections over F-14 source; no F-14 code/test changed.
+- Subsequent documentation-only updates do not change application/test source but may trigger new CI runs.
