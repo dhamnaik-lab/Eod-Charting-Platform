@@ -21,6 +21,7 @@ import {
 } from '@/features/workspace/databaseSettingsService';
 import {
   readPersistedWorkspace,
+  resolveWorkspaceLayoutMode,
   stringifyWorkspaceState,
 } from '@/features/workspace/workspacePersistence';
 import type {
@@ -206,6 +207,8 @@ export function createChartSnapshotHydrationController(
         isSymbolBrowserLoading: false,
         ...setRestoreCompleteState(),
         ...createChartWorkspace(),
+        workspaceLayoutMode: 'single',
+        maximizedChartTabId: null,
       });
       deps.setAutosaveSignature('');
       restoringWorkspace = false;
@@ -259,11 +262,13 @@ export function createChartSnapshotHydrationController(
           adjustedMode: startupAdjustedMode,
           chartTabs: workspace.chartTabs,
           activeChartTabId: workspace.activeChartTabId,
+          workspaceLayoutMode: resolveWorkspaceLayoutMode(persistedWorkspace),
+          maximizedChartTabId: null,
           isDatabaseTransitioning: false,
           databaseTransitionMessage: null,
         });
         deps.resetChartInteractionUi();
-        deps.setAutosaveSignature(stringifyWorkspaceState(workspace));
+        deps.setAutosaveSignature(stringifyWorkspaceState({ ...workspace, workspaceLayoutMode: resolveWorkspaceLayoutMode(persistedWorkspace) }));
 
         const activeTab = getActiveChartTab(workspace.chartTabs, workspace.activeChartTabId);
         if (activeTab?.instrument) {

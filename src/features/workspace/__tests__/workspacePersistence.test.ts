@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { DEFAULT_CHART_VISUAL_SETTINGS } from '@/engine/types';
 import { DEFAULT_RENKO_SETTINGS } from '@/features/charts/chartTypeTransformService';
-import { parsePersistedWorkspace } from '@/features/workspace/workspacePersistence';
+import { parsePersistedWorkspace, resolveWorkspaceLayoutMode, stringifyWorkspaceState } from '@/features/workspace/workspacePersistence';
+import { createBlankChartTab } from '@/features/charts/chartTabWorkspaceService';
 
 function createPersistedWorkspace(chartType: 'candles' | 'renko'): string {
   return JSON.stringify({
@@ -181,5 +182,37 @@ describe('workspacePersistence drawing scopes', () => {
 
     expect(workspace?.version).toBe(1);
     expect(workspace?.chartTabs[0].drawingScopes?.['NSE:TCS'].map((drawing) => drawing.id)).toEqual(['tcs-line']);
+  });
+});
+
+
+describe('workspace-level Auto-Tile migration', () => {
+  it('restores legacy per-tab tile modes without altering stored chart settings', () => {
+    const legacy = JSON.parse(createPersistedWorkspace('candles'));
+    legacy.chartTabs[0].layoutMode = 'tile-grid';
+    const restored = parsePersistedWorkspace(JSON.stringify(legacy));
+    expect(resolveWorkspaceLayoutMode(restored)).toBe('tile');
+    expect(restored?.chartTabs[0].layoutMode).toBe('tile-grid');
+  });
+
+  it('prefers workspace-level mode over conflicting per-tab modes', () => {
+    const legacy = JSON.parse(createPersistedWorkspace('candles'));
+    legacy.chartTabs[0].layoutMode = 'tile-v';
+    legacy.layoutMode = 'single';
+    const restored = parsePersistedWorkspace(JSON.stringify(legacy));
+    expect(resolveWorkspaceLayoutMode(restored)).toBe('single');
+    expect(restored?.chartTabs[0].layoutMode).toBe('tile-v');
+  });
+
+  it('serializes workspace layout without incrementing schema version', () => {
+    const tab = createBlankChartTab(1);
+    const persisted = JSON.parse(stringifyWorkspaceState({
+      chartTabs: [tab],
+      activeChartTabId: tab.id,
+      workspaceLayoutMode: 'tile',
+    }));
+    expect(persisted.version).toBe(1);
+    expect(persisted.layoutMode).toBe('tile');
+    expect(resolveWorkspaceLayoutMode(parsePersistedWorkspace(JSON.stringify(persisted)))).toBe('tile');
   });
 });

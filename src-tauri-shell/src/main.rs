@@ -384,9 +384,6 @@ fn sync_menu_state(app: AppHandle, state: MenuStateSyncInput) -> Result<Operatio
             (MENU_TOGGLE_MAGNET, state.magnet_enabled),
             (MENU_SET_LAYOUT_SINGLE, state.layout_mode == "single"),
             (MENU_SET_LAYOUT_TILE, state.layout_mode == "tile"),
-            (MENU_SET_LAYOUT_TILE_H, state.layout_mode == "tile-h"),
-            (MENU_SET_LAYOUT_TILE_V, state.layout_mode == "tile-v"),
-            (MENU_SET_LAYOUT_TILE_GRID, state.layout_mode == "tile-grid"),
             (MENU_TOGGLE_SIDEBAR, state.sidebar_visible),
             (MENU_TOGGLE_OHLCV, state.ohlcv_bar_visible),
             (MENU_TOGGLE_STATUS_BAR, state.status_bar_visible),
@@ -687,28 +684,12 @@ fn build_menu<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<tauri::menu::Menu
     let layout_single_item = CheckMenuItemBuilder::with_id(MENU_SET_LAYOUT_SINGLE, "Single")
         .checked(true)
         .build(app)?;
-    let layout_tile_item = CheckMenuItemBuilder::with_id(MENU_SET_LAYOUT_TILE, "Tile")
+    let layout_tile_item = CheckMenuItemBuilder::with_id(MENU_SET_LAYOUT_TILE, "Auto-Tile")
         .checked(false)
         .build(app)?;
-    let layout_tile_horizontal_item =
-        CheckMenuItemBuilder::with_id(MENU_SET_LAYOUT_TILE_H, "Tile Horizontal")
-            .checked(false)
-            .build(app)?;
-    let layout_tile_vertical_item =
-        CheckMenuItemBuilder::with_id(MENU_SET_LAYOUT_TILE_V, "Tile Vertical")
-            .checked(false)
-            .build(app)?;
-    let layout_tile_grid_item =
-        CheckMenuItemBuilder::with_id(MENU_SET_LAYOUT_TILE_GRID, "Tile Grid")
-            .checked(false)
-            .build(app)?;
-
     let layout_mode_menu = SubmenuBuilder::new(app, "Layout Mode")
         .item(&layout_single_item)
         .item(&layout_tile_item)
-        .item(&layout_tile_horizontal_item)
-        .item(&layout_tile_vertical_item)
-        .item(&layout_tile_grid_item)
         .build()?;
 
     let sidebar_item = CheckMenuItemBuilder::with_id(MENU_TOGGLE_SIDEBAR, "Sidebar")

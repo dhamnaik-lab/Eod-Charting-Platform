@@ -82,7 +82,7 @@ function buildNativeMenuState(state: ChartStoreState): NativeMenuState {
     adjustedMode: state.adjustedMode,
     includeDividendAdjustments: state.includeDividendAdjustments,
     includeRightsAdjustments: state.includeRightsAdjustments,
-    layoutMode: activeTab?.layoutMode ?? 'single',
+    layoutMode: state.workspaceLayoutMode,
     sidebarVisible: uiState.uiFlags.sidebarVisible,
     ohlcvBarVisible: uiState.uiFlags.ohlcvBarVisible,
     statusBarVisible: uiState.uiFlags.statusBarVisible,
@@ -108,7 +108,7 @@ function didRelevantChartMenuStateChange(
     activeTab?.id !== previousActiveTab?.id ||
     activeTab?.timeframe !== previousActiveTab?.timeframe ||
     activeTab?.chartType !== previousActiveTab?.chartType ||
-    activeTab?.layoutMode !== previousActiveTab?.layoutMode ||
+    state.workspaceLayoutMode !== previousState.workspaceLayoutMode ||
     state.adjustedMode !== previousState.adjustedMode ||
     state.includeDividendAdjustments !== previousState.includeDividendAdjustments ||
     state.includeRightsAdjustments !== previousState.includeRightsAdjustments ||

@@ -118,6 +118,8 @@ export interface ChartStoreState {
   snapshot: AppSnapshot | null;
   chartTabs: ChartTabState[];
   activeChartTabId: string;
+  workspaceLayoutMode: LayoutMode;
+  maximizedChartTabId: string | null;
   isLoadingBars: boolean;
   adjustedMode: boolean;
   chartEventVisibility: ChartEventVisibility;
@@ -160,7 +162,8 @@ export interface ChartStoreState {
   closeDatabase: () => Promise<void>;
   createChartTab: () => void;
   duplicateChartTab: (tabId: string) => void;
-  activateChartTab: (tabId: string, tileLayoutMode?: LayoutMode) => void;
+  activateChartTab: (tabId: string) => void;
+  toggleChartMaximize: (tabId: string) => void;
   closeChartTab: (tabId: string) => void;
   loadInstrument: (
     key: InstrumentKey,
