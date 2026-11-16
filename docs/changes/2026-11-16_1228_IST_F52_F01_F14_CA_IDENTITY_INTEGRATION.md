@@ -51,7 +51,7 @@ Original PR source files/tests/change records were included without modification
 - All four F-52 patch hunks verified to reproduce original PR source when applied to its original base, with exactly one match each on current main: **PASS**.
 - No duplicate target paths among the four selected PRs: **PASS**.
 - Existing individual PR CI is recorded in the source change records, but does **not** establish success for this combined integration.
-- Combined GitHub CI, focused/full Vitest, typecheck, renderer build: **PENDING at branch creation**; inspect subsequent Actions results.
+- Combined GitHub Renderer CI at source commit `5ccd0112ac88a6f94d73f2c6267462e9f8b70e08`: **PASS**, [run #43820628439](https://github.com/dhamnaik-lab/Eod-Charting-Platform/actions/runs/43820628439). `npm test`: **1,847 passed, 1 skipped, 0 failed** (267 test files passed, 1 skipped); `npm run typecheck:renderer`: **PASS**; `npm run build:renderer`: **PASS**, Vite built in **4.31 seconds**. Separate focused tests were not run on this integration; focused tests are included in the full suite. The follow-up commit modifying this record changes documentation only.
 - Windows desktop build and operator smoke acceptance on actual EOD database: **NOT RUN**; user will perform after Codex brings branch into normal Windows workspace and verifies a database backup.
 
 ## Risks / limitations
