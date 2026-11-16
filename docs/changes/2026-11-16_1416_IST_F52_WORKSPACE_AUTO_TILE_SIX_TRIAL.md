@@ -28,7 +28,7 @@ Existing instrument data, chart tab IDs/order, volume legend, chart settings, CA
 
 ## Validation commands and results
 - Exact source baseline verified against GitHub PR #111 before patch generation.
-- Focused Vitest, full Vitest, TypeScript, Vite and Rust/Tauri checks: **NOT YET RUN; verify GitHub CI after commit**. Existing PR #111 CI does not prove this trial.
+- Focused/full Vitest, TypeScript, Vite, and Rust/Tauri checks: **NOT YET RUN; verify GitHub CI after commit**. Existing PR #111 CI does not prove this trial. GitHub renderer workflow runs only for PRs targeting `main`, so draft PR #112 was pointed to `main` for CI. This documentation-only follow-up triggers its first `pull_request.synchronize` CI run; it does not change application source.
 - Native Windows portable build and actual-database visual smoke test: **NOT RUN**. User will perform after Codex fetches trial.
 - No Windows Sandbox, synthetic native test database or production DB access was used.
 
