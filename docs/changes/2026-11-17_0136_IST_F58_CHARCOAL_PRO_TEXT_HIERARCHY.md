@@ -34,6 +34,13 @@ All six other themes, Charcoal Pro muted color, all chart theme colors, candle/v
 - **Pure color-ratio preflight:** `--text` / `--text-dim` / `--text-mute` on `--bg4` = 8.615:1 / 6.355:1 / 4.703:1; adjacent tier separation 1.356:1 and 1.351:1 — **PASS**.
 - **Focused Vitest, full Vitest, renderer typecheck/build, CI, Windows portable and manual visual acceptance:** **NOT RUN at time of initial commit**; PR CI and Windows acceptance remain separate gates. Do not treat a mathematical color check as visual confirmation.
 
+## GitHub CI validation after initial commit (2026-11-17 IST)
+- [Renderer CI #43946492112](https://github.com/dhamnaik-lab/Eod-Charting-Platform/actions/runs/43946492112) on implementation commit `d9757748af5c6d21cd7effe5061bd3666046039a`: **PASS** (all job steps complete and successful).
+- Full `npm test` (standard Vitest configuration): **1,862 passed, 1 skipped, 0 failed**, 268 files passed, 1 skipped; 58.18s.
+- `src/features/app/__tests__/themeSystemAudit.test.ts`: **57 tests PASS** (includes new F-58 regression test).
+- Renderer TypeScript typecheck: **PASS**. Renderer Vite production build: **PASS**, 845 modules transformed, 5.52s.
+- These are GitHub Ubuntu CI results. They do not establish Windows portable or operator visual acceptance; the PR remains draft pending separate approval.
+
 ## Risks / limitations
 The primary/secondary colors become brighter across Charcoal UI surfaces. This may change perceived text density; manual visual review on Charcoal remains necessary. Audit issues F-59–F-65 are deliberately not addressed. Verify any token snapshot consumers and the complete renderer suite before merging.
 
