@@ -168,6 +168,30 @@ describe('theme text contrast across panel backgrounds', () => {
   }
 });
 
+describe('Charcoal Pro text hierarchy (F-58)', () => {
+  it('separates primary, secondary and muted text without losing panel contrast', () => {
+    const tokens = themeTokens('tos-charcoal');
+    const source = paletteData.themes['tos-charcoal'].css;
+    const levels = ['--text', '--text-dim', '--text-mute'] as const;
+
+    for (const token of levels) {
+      expect(tokens[token], `Generated CSS drifted for ${token}`).toBe(source[token]);
+      for (const background of PANEL_BACKGROUNDS) {
+        expect(contrastRatio(tokens[token], tokens[background])).toBeGreaterThanOrEqual(4.5);
+      }
+    }
+
+    expect(luminance(toRgb(tokens['--text']))).toBeGreaterThan(
+      luminance(toRgb(tokens['--text-dim'])),
+    );
+    expect(luminance(toRgb(tokens['--text-dim']))).toBeGreaterThan(
+      luminance(toRgb(tokens['--text-mute'])),
+    );
+    expect(contrastRatio(tokens['--text'], tokens['--text-dim'])).toBeGreaterThanOrEqual(1.25);
+    expect(contrastRatio(tokens['--text-dim'], tokens['--text-mute'])).toBeGreaterThanOrEqual(1.25);
+  });
+});
+
 describe('pre-paint theme bootstrap', () => {
   it('recognises exactly the palette theme ids exposed by the renderer', () => {
     const knownBlock = /var known = \[([\s\S]*?)\];/.exec(BOOT_SCRIPT);
