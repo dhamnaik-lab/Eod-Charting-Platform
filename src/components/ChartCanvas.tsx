@@ -2039,28 +2039,40 @@ export function ChartCanvas({
             futureMarginMode={futureMarginMode}
             chartEventVisibility={chartEventVisibility}
             instrument={instrument}
-            onSave={(nextChartType, nextRenkoSettings) => {
-              const error = runForChart(() => applyChartSettingsDialog(nextChartType, nextRenkoSettings));
-              if (error) {
-                return error;
-              }
+            onSave={(nextChartType, nextRenkoSettings, changes) => {
+              // Commit only the fields edited in this dialog, after chart/Renko
+              // validation succeeds. Keep the target tile active for all writes.
+              const error = runForChart(() => {
+                const chartError = applyChartSettingsDialog(nextChartType, nextRenkoSettings);
+                if (chartError) return chartError;
+
+                if (changes.showVolume !== undefined) setShowVolume(changes.showVolume);
+                if (changes.logScale !== undefined) setLogScale(changes.logScale);
+                if (changes.invertPriceScale !== undefined) setInvertPriceScale(changes.invertPriceScale);
+                if (changes.showLeftAxis !== undefined) setShowLeftAxis(changes.showLeftAxis);
+                if (changes.futureMarginMode !== undefined) setFutureMarginMode(changes.futureMarginMode);
+                if (changes.visualSettings) setChartVisualSettings(changes.visualSettings);
+                if (changes.valueLabelSettings) setValueLabelSettings(changes.valueLabelSettings);
+                for (const eventType of changes.chartEventVisibility ?? []) toggleChartEventVisibility(eventType);
+
+                // Avoid redundant adjusted-price rehydrations when applying a
+                // draft that also changes dividend/rights inclusion flags.
+                if (changes.adjustedMode === false) setAdjustedMode(false);
+                if (changes.includeDividendAdjustments !== undefined) {
+                  setIncludeDividendAdjustments(changes.includeDividendAdjustments);
+                }
+                if (changes.includeRightsAdjustments !== undefined) {
+                  setIncludeRightsAdjustments(changes.includeRightsAdjustments);
+                }
+                if (changes.adjustedMode === true) setAdjustedMode(true);
+                return null;
+              });
+              if (error) return error;
               setChartSettingsDialogOpen(false);
               return null;
             }}
-            onSetShowVolume={(show) => runForChart(() => setShowVolume(show))}
             onAutoFitPriceScale={() => runForChart(() => setPaneScaleOverride('price', null))}
             onFitAllPanes={() => runForChart(fitAllPanes)}
-            onSetAdjustedMode={(adjusted) => runForChart(() => setAdjustedMode(adjusted))}
-            onSetIncludeDividendAdjustments={(enabled) => runForChart(() => setIncludeDividendAdjustments(enabled))}
-            onSetIncludeRightsAdjustments={(enabled) => runForChart(() => setIncludeRightsAdjustments(enabled))}
-            onSetLogScale={(enabled) => runForChart(() => setLogScale(enabled))}
-            onSetInvertPriceScale={(enabled) => runForChart(() => setInvertPriceScale(enabled))}
-            onSetShowValueLabels={(show) => runForChart(() => setShowValueLabels(show))}
-            onSetValueLabelSettings={(settings) => runForChart(() => setValueLabelSettings(settings))}
-            onSetShowLeftAxis={(show) => runForChart(() => setShowLeftAxis(show))}
-            onSetFutureMarginMode={(mode) => runForChart(() => setFutureMarginMode(mode))}
-            onSetChartVisualSettings={(settings) => runForChart(() => setChartVisualSettings(settings))}
-            onToggleChartEventVisibility={(eventType) => runForChart(() => toggleChartEventVisibility(eventType))}
             onClose={() => setChartSettingsDialogOpen(false)}
           />
         ) : null}
