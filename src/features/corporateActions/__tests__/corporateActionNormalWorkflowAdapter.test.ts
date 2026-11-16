@@ -288,24 +288,31 @@ describe('Corporate Action normal Fetch + Load adapter', () => {
     expect(result.counts.needsReview).toBe(1);
   });
 
-  it('scans Dividend/Rights for local EOD readiness without requiring imported factors', async () => {
+  it('scans Dividend/Rights for local EOD readiness while requiring verified Rights terms', async () => {
     const dividend = row(1, { actionType: 'DIVIDEND', factor: null, priceFactor: null });
-    const rights = row(2, { actionType: 'RIGHTS', factor: null, priceFactor: null });
+    const missingRightsTerms = row(2, { actionType: 'RIGHTS', factor: null, priceFactor: null });
     const upcoming = row(3, { actionType: 'DIVIDEND', exDate: '2099-12-31', factor: null });
+    const completeRightsTerms = row(4, {
+      actionType: 'RIGHTS', factor: null, priceFactor: null,
+      ratioNum: 1, ratioDen: 4, cashAmount: 100,
+    });
     const api = apiBase();
-    api.listCorporateActionImports = vi.fn(async () => [dividend, rights, upcoming]);
+    api.listCorporateActionImports = vi.fn(async () =>
+      [dividend, missingRightsTerms, upcoming, completeRightsTerms]);
     api.runCorporateActionScan = vi.fn(async (input) => ({
       scanRun: null,
       results: (input?.importIds ?? []).filter((id: number) => id !== 3).map((id: number) =>
-        scan(id === 1 ? dividend : rights, 'REVIEW')),
+        scan(id === 1 ? dividend : id === 2 ? missingRightsTerms : completeRightsTerms, 'REVIEW')),
     }));
 
     const result = await loadCorporateActionNormalData({ api });
     expect(api.runCorporateActionScan).toHaveBeenCalledWith({
-      scope: 'official_imports', importIds: [1, 2, 3],
+      scope: 'official_imports', importIds: [1, 2, 3, 4],
     });
-    expect(result.validatedImportIds).toEqual([1, 2, 3]);
-    expect(result.counts).toEqual({ loaded: 3, ready: 2, needsReview: 1, conflicts: 0 });
+    expect(result.validatedImportIds).toEqual([1, 2, 3, 4]);
+    // Only Dividend and Rights with complete financial terms may be Ready.
+    // The incomplete Rights and upcoming Dividend must remain non-Ready.
+    expect(result.counts).toEqual({ loaded: 4, ready: 2, needsReview: 2, conflicts: 0 });
   });
 
   it('checks strict ISIN-review recommendations without approving or resolving them', async () => {
