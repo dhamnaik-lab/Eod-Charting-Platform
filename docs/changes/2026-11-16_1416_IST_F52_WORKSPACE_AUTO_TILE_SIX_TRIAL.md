@@ -28,7 +28,8 @@ Existing instrument data, chart tab IDs/order, volume legend, chart settings, CA
 
 ## Validation commands and results
 - Exact source baseline verified against GitHub PR #111 before patch generation.
-- Focused/full Vitest, TypeScript, Vite, and Rust/Tauri checks: **NOT YET RUN; verify GitHub CI after commit**. Existing PR #111 CI does not prove this trial. GitHub renderer workflow runs only for PRs targeting `main`, so draft PR #112 was pointed to `main` for CI. This documentation-only follow-up triggers its first `pull_request.synchronize` CI run; it does not change application source.
+- GitHub Renderer CI: **PASS**, [run #43834341709](https://github.com/dhamnaik-lab/Eod-Charting-Platform/actions/runs/43834341709), at commit `b6644b0f77d3828fc9b5f000d425818437080f42`. `npm test`: **1,861 passed, 1 skipped, 0 failed** (268 test files passed, 1 skipped), including new layout/regression tests. `npm run typecheck:renderer`: **PASS**. `npm run build:renderer`: **PASS**, Vite built in **6.81 s**. Separate focused CLI run not executed; new focused suites participated in full Vitest. Original code/test commit `590e3e2a9b49b3b2a4416108448f0c9c567fbaf1`. This follow-up updates documentation only.
+- Rust/Tauri checks: **NOT RUN** in GitHub renderer-only CI. Real Windows native build remains required.
 - Native Windows portable build and actual-database visual smoke test: **NOT RUN**. User will perform after Codex fetches trial.
 - No Windows Sandbox, synthetic native test database or production DB access was used.
 
