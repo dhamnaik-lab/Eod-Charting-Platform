@@ -87,6 +87,8 @@ export interface PersistedChartWorkspace {
   version: 1;
   activeChartTabId: string;
   chartTabs: PersistedChartTab[];
+  /** Workspace-owned mode; absent in legacy v1 workspaces. */
+  layoutMode?: WorkspaceLayoutMode;
 }
 
 export interface WorkspaceSheetLike {
@@ -129,6 +131,7 @@ export interface WorkspaceChartTabLike {
 export interface WorkspaceStateLike {
   chartTabs: WorkspaceChartTabLike[];
   activeChartTabId: string;
+  workspaceLayoutMode?: WorkspaceLayoutMode;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -261,6 +264,7 @@ export function serializeWorkspaceState(state: WorkspaceStateLike): PersistedCha
     version: 1,
     activeChartTabId,
     chartTabs: state.chartTabs.map(serializePersistedChartTab),
+    layoutMode: state.workspaceLayoutMode ?? state.chartTabs.find((tab) => tab.id === activeChartTabId)?.layoutMode ?? 'single',
   };
 }
 
@@ -582,10 +586,19 @@ export function parsePersistedWorkspace(rawValue: string | null): PersistedChart
       version: 1,
       activeChartTabId,
       chartTabs,
+      layoutMode: typeof parsed.layoutMode === 'string' ? normalizeLayoutMode(parsed.layoutMode) : undefined,
     };
   } catch {
     return null;
   }
+}
+
+/** Legacy v1 active-tab layouts migrate to the workspace's Single / Auto-Tile setting. */
+export function resolveWorkspaceLayoutMode(persisted: PersistedChartWorkspace | null): WorkspaceLayoutMode {
+  if (!persisted) return 'single';
+  const active = persisted.chartTabs.find((tab) => tab.id === persisted.activeChartTabId);
+  const legacy = active?.layoutMode ?? persisted.chartTabs[0]?.layoutMode;
+  return normalizeLayoutMode(persisted.layoutMode ?? legacy) === 'single' ? 'single' : 'tile';
 }
 
 export async function readPersistedWorkspace(): Promise<PersistedChartWorkspace | null> {

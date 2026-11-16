@@ -360,6 +360,8 @@ export const useChartStore = create<ChartStoreState>((set, get, store) => {
   return ({
   snapshot: null,
   ...createChartWorkspace(),
+  workspaceLayoutMode: 'single',
+  maximizedChartTabId: null,
   isLoadingBars: false,
   adjustedMode: false,
   chartEventVisibility: { ...DEFAULT_CHART_EVENT_VISIBILITY },
@@ -476,6 +478,7 @@ export const useChartStore = create<ChartStoreState>((set, get, store) => {
   createChartTab: chartTabSession.createChartTab,
   duplicateChartTab: chartTabSession.duplicateChartTab,
   activateChartTab: chartTabSession.activateChartTab,
+  toggleChartMaximize: chartTabSession.toggleChartMaximize,
   closeChartTab: chartTabSession.closeChartTab,
   loadInstrument: chartInstrumentCompare.loadInstrument,
   navigateSymbol: chartInstrumentCompare.navigateSymbol,
@@ -749,6 +752,7 @@ useChartStore.subscribe((state, previousState) => {
     nextDatabasePath === previousDatabasePath &&
     state.chartTabs === previousState.chartTabs &&
     state.activeChartTabId === previousState.activeChartTabId &&
+    state.workspaceLayoutMode === previousState.workspaceLayoutMode &&
     state.adjustedMode === previousState.adjustedMode &&
     state.includeDividendAdjustments === previousState.includeDividendAdjustments &&
     state.includeRightsAdjustments === previousState.includeRightsAdjustments

@@ -33,7 +33,7 @@ vi.mock('react', async (importOriginal) => {
   };
 });
 
-import { ChartPriceLegendOverlay } from '@/components/ChartPriceLegendOverlay';
+import { buildChartPriceLegendSnapshot, ChartPriceLegendOverlay } from '@/components/ChartPriceLegendOverlay';
 import { CustomFormulaDialog } from '@/components/CustomFormulaDialog';
 import type { ChartLayout } from '@/engine/ChartEngine';
 import type { OHLCBar, OverlayIndicator } from '@/engine/types';
@@ -273,5 +273,46 @@ describe('ChartPriceLegendOverlay CSP-safe hover/focus actions', () => {
     expect(removeEvent.preventDefault).toHaveBeenCalledTimes(1);
     expect(removeEvent.stopPropagation).toHaveBeenCalledTimes(1);
     expect(onRemoveIndicator).toHaveBeenCalledWith(emaOverlay.id);
+  });
+});
+
+describe('F-01 price legend volume', () => {
+  it('shows Indian compact volume for the last visible bar in DOM and screenshot snapshot', () => {
+    const props = buildProps();
+    const markup = renderToStaticMarkup(<ChartPriceLegendOverlay {...props} />);
+    const snapshot = buildChartPriceLegendSnapshot(props);
+
+    expect(markup).toContain('1.2K');
+    expect(markup).toContain('Volume 1,200');
+    expect(snapshot.segments.slice(-3, -1)).toEqual([
+      { text: 'Vol', color: 'var(--legend-muted)', muted: true },
+      { text: '1.2K', color: 'var(--legend-text)', tooltip: 'Volume 1,200' },
+    ]);
+    expect(snapshot.segments.at(-1)?.text).toContain('+5.50');
+  });
+
+  it('tracks the hovered bar instead of retaining the latest-bar volume', () => {
+    const props = buildProps({ hoverBarIndex: 0 });
+    const markup = renderToStaticMarkup(<ChartPriceLegendOverlay {...props} />);
+    const snapshot = buildChartPriceLegendSnapshot(props);
+
+    expect(markup).toContain('1.0K');
+    expect(snapshot.segments.at(-2)?.text).toBe('1.0K');
+    expect(snapshot.segments.at(-2)?.tooltip).toBe('Volume 1,000');
+  });
+
+  it('preserves actual zero-volume bars and handles unavailable volume without fabricating a value', () => {
+    const zeroProps = buildProps({ bars: [{ ...bars[0], volume: 0 }], viewport: { startIndex: 0, endIndex: 1 } });
+    const invalidProps = buildProps({ bars: [{ ...bars[0], volume: Number.NaN }], viewport: { startIndex: 0, endIndex: 1 } });
+
+    expect(buildChartPriceLegendSnapshot(zeroProps).segments.at(-2)).toMatchObject({ text: '0', tooltip: 'Volume 0' });
+    expect(buildChartPriceLegendSnapshot(invalidProps).segments.at(-2)).toMatchObject({ text: '—', tooltip: 'Volume unavailable' });
+    expect(renderToStaticMarkup(<ChartPriceLegendOverlay {...zeroProps} />)).toContain('Volume 0');
+    expect(renderToStaticMarkup(<ChartPriceLegendOverlay {...invalidProps} />)).toContain('Volume unavailable');
+  });
+
+  it('does not invent a volume for an empty chart', () => {
+    const props = buildProps({ bars: [], viewport: { startIndex: 0, endIndex: 0 } });
+    expect(buildChartPriceLegendSnapshot(props).segments).toEqual([]);
   });
 });

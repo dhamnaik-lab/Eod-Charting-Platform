@@ -14,6 +14,7 @@ import {
 } from '@/features/charts/chartTabWorkspaceService';
 import {
   parsePersistedWorkspace,
+  resolveWorkspaceLayoutMode,
 } from '@/features/workspace/workspacePersistence';
 import {
   writeDatabaseDefaultPriceMode,
@@ -40,6 +41,7 @@ export interface ChartTabSessionController {
   createChartTab: () => void;
   duplicateChartTab: (tabId: string) => void;
   activateChartTab: (tabId: string) => void;
+  toggleChartMaximize: (tabId: string) => void;
   closeChartTab: (tabId: string) => void;
   loadWorkspaceFromLayout: (layoutData: string) => void;
 }
@@ -119,10 +121,14 @@ export function createChartTabSessionController(
 
   return {
     setLayoutMode: (mode) => {
+      // Old tile variants map to one workspace-owned Auto-Tile setting.
+      const normalizedMode: LayoutMode = mode === 'single' ? 'single' : 'tile';
       deps.setState((state) => ({
-        ...updateActiveTab(state, (tab) => ({ ...tab, layoutMode: mode })),
+        ...updateActiveTab(state, (tab) => ({ ...tab, layoutMode: normalizedMode })),
+        workspaceLayoutMode: normalizedMode,
+        maximizedChartTabId: null,
       }));
-      if (mode !== 'single') {
+      if (normalizedMode !== 'single') {
         const state = deps.getState();
         const unhydratedTabIds = state.chartTabs
           .filter(
@@ -205,7 +211,7 @@ export function createChartTabSessionController(
       }
     },
     createChartTab: () => {
-      deps.setState((state) => createChartTabWorkspaceState(state.chartTabs));
+      deps.setState((state) => ({ ...createChartTabWorkspaceState(state.chartTabs), maximizedChartTabId: null }));
       deps.resetChartInteractionUi();
     },
     duplicateChartTab: (tabId) => {
@@ -214,16 +220,22 @@ export function createChartTabSessionController(
         return;
       }
 
-      deps.setState(nextState);
+      deps.setState({ ...nextState, maximizedChartTabId: null });
       deps.resetChartInteractionUi();
     },
     activateChartTab: (tabId) => {
-      const nextState = buildActivateChartTabState(deps.getState(), tabId);
+      const currentState = deps.getState();
+      const nextState = buildActivateChartTabState(currentState, tabId);
       if (!nextState) {
         return;
       }
 
-      deps.setState(nextState);
+      // Selecting a tab changes focus, never the workspace layout.
+      deps.setState({
+        ...nextState,
+        maximizedChartTabId: currentState.maximizedChartTabId === tabId
+          ? currentState.maximizedChartTabId : null,
+      });
       deps.resetChartInteractionUi();
 
       const activeState = deps.getState();
@@ -239,8 +251,23 @@ export function createChartTabSessionController(
         void deps.hydrateChartTabData(tabId);
       }
     },
+    toggleChartMaximize: (tabId) => {
+      const state = deps.getState();
+      if (!state.chartTabs.some((tab) => tab.id === tabId)) return;
+      if (state.maximizedChartTabId === tabId) {
+        deps.setState({ maximizedChartTabId: null });
+        return;
+      }
+      deps.setState({ activeChartTabId: tabId, maximizedChartTabId: tabId });
+      deps.resetChartInteractionUi();
+      const nextState = deps.getState();
+      const tab = nextState.chartTabs.find((candidate) => candidate.id === tabId);
+      if (shouldHydrateChartTab(tab, nextState.adjustedMode, nextState.includeDividendAdjustments, nextState.includeRightsAdjustments)) {
+        void deps.hydrateChartTabData(tabId);
+      }
+    },
     closeChartTab: (tabId) => {
-      deps.setState((state) => buildCloseChartTabState(state, tabId));
+      deps.setState((state) => ({ ...buildCloseChartTabState(state, tabId), maximizedChartTabId: null }));
       deps.resetChartInteractionUi();
     },
     loadWorkspaceFromLayout: (layoutData) => {
@@ -254,6 +281,8 @@ export function createChartTabSessionController(
       deps.setState({
         chartTabs: workspace.chartTabs,
         activeChartTabId: workspace.activeChartTabId,
+        workspaceLayoutMode: resolveWorkspaceLayoutMode(persistedWorkspace),
+        maximizedChartTabId: null,
       });
       deps.resetChartInteractionUi();
       // Loading a named layout changes the active workspace but does not yet

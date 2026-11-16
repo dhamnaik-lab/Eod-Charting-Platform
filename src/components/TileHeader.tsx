@@ -5,10 +5,13 @@ import { useChartHover } from '@/features/charts/chartHoverStore';
 interface TileHeaderProps {
   tab: ChartTabState;
   isActive?: boolean;
+  isMaximized?: boolean;
 }
 
-export function TileHeader({ tab, isActive = false }: TileHeaderProps) {
+export function TileHeader({ tab, isActive = false, isMaximized = false }: TileHeaderProps) {
   const activateChartTab = useChartStore((state) => state.activateChartTab);
+  const toggleChartMaximize = useChartStore((state) => state.toggleChartMaximize);
+  const closeChartTab = useChartStore((state) => state.closeChartTab);
   const hoverBar = useChartHover(tab);
   const latestBar = tab.displayBars[tab.displayBars.length - 1] ?? null;
   const bar = hoverBar ?? latestBar;
@@ -37,6 +40,17 @@ export function TileHeader({ tab, isActive = false }: TileHeaderProps) {
           {change === null ? (bar && missingIndexReference ? 'Change unavailable' : '--') : `${formatSigned(change)} (${formatSigned(changePct ?? 0)}%)`}
         </span>
       </div>
+      <button type="button" data-tile-control="maximize" style={tileControlStyle}
+        title={isMaximized ? 'Restore tiled charts' : 'Maximize chart'}
+        aria-label={isMaximized ? `Restore ${symbol} chart` : `Maximize ${symbol} chart`}
+        onClick={(event) => { event.stopPropagation(); toggleChartMaximize(tab.id); }}>
+        {isMaximized ? '❐' : '□'}
+      </button>
+      <button type="button" data-tile-control="close" style={tileControlStyle}
+        title="Close chart tab" aria-label={`Close ${symbol} chart`}
+        onClick={(event) => { event.stopPropagation(); closeChartTab(tab.id); }}>
+        ×
+      </button>
     </div>
   );
 }
@@ -61,6 +75,19 @@ const activeDotStyle: React.CSSProperties = {
   background: 'var(--accent)',
   flexShrink: 0,
   display: 'inline-block',
+};
+
+const tileControlStyle: React.CSSProperties = {
+  flex: '0 0 auto',
+  height: 22,
+  minWidth: 23,
+  border: '1px solid var(--border)',
+  background: 'var(--control-bg)',
+  color: 'var(--text)',
+  borderRadius: 4,
+  cursor: 'pointer',
+  fontSize: 14,
+  lineHeight: 1,
 };
 
 const tileGroupStyle: React.CSSProperties = {

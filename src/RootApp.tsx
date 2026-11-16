@@ -1,9 +1,10 @@
-import { lazy, useEffect, useState } from 'react';
+import { lazy, useEffect, useRef, useState } from 'react';
 import { ChartCanvas } from '@/components/ChartCanvas';
 import { discoverAndLoadExternalPlugins } from '@/plugins/pluginLoader';
 import { pluginHost } from '@/plugins/registry';
 import type { PluginEnabledMap } from '@/plugins/types';
 import { TileHeader } from '@/components/TileHeader';
+import { getAutoTileGeometry, getVisibleTileTabs } from '@/features/charts/chartAutoTileLayout';
 import { ChartToolDock } from '@/components/ChartToolDock';
 import { ChartTabs } from '@/components/ChartTabs';
 import { SheetTabs } from '@/components/SheetTabs';
@@ -126,6 +127,8 @@ export default function RootApp() {
   const chartTabs = useChartStore((state) => state.chartTabs);
   const activeChartTabId = useChartStore((state) => state.activeChartTabId);
   const activateChartTab = useChartStore((state) => state.activateChartTab);
+  const workspaceLayoutMode = useChartStore((state) => state.workspaceLayoutMode);
+  const maximizedChartTabId = useChartStore((state) => state.maximizedChartTabId);
   const isLoadingBars = useChartStore((state) => state.isLoadingBars);
   const sidebarWidth = useWorkspaceStore((state) => state.sidebarWidth);
   const setSidebarWidth = useWorkspaceStore((state) => state.setSidebarWidth);
@@ -137,7 +140,22 @@ export default function RootApp() {
   const [initStatus, setInitStatus] = useState<'starting' | 'ready' | 'error'>('starting');
   const [initError, setInitError] = useState<string | null>(null);
   const activeTab = getActiveChartTab(chartTabs, activeChartTabId);
-  const layoutMode = activeTab?.layoutMode ?? 'single';
+  const tileContainerRef = useRef<HTMLDivElement>(null);
+  const [tileContainerWidth, setTileContainerWidth] = useState(1200);
+  const tileTabs = getVisibleTileTabs(chartTabs, activeChartTabId);
+  const tileGeometry = getAutoTileGeometry(tileTabs.length, tileContainerWidth);
+  const showTiled = workspaceLayoutMode !== 'single' && maximizedChartTabId === null;
+
+  useEffect(() => {
+    const element = tileContainerRef.current;
+    if (!element) return;
+    const update = () => setTileContainerWidth(element.clientWidth);
+    update();
+    if (typeof ResizeObserver === 'undefined') return;
+    const observer = new ResizeObserver(update);
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, []);
   const sidebarOpen = !sidebarCollapsed;
   const databaseToolsDialogOpen =
     quoteEditorOpen ||
@@ -344,19 +362,18 @@ export default function RootApp() {
           </div>
           <div style={chartWorkspaceShellStyle}>
             <div style={chartContentRowStyle}>
-              <div style={chartContentColumnStyle}>
-                {layoutMode !== 'single' ? (
-                  <div style={getTileGridStyle(layoutMode)}>
-                    {chartTabs.map((tab) => {
+              <div ref={tileContainerRef} style={chartContentColumnStyle}>
+                {showTiled ? (
+                  <div style={getTileGridStyle(tileGeometry.columns, tileGeometry.minRowHeight)}>
+                    {tileTabs.map((tab, index) => {
                       const isActive = tab.id === activeChartTabId;
                       return (
                         <div
                           key={tab.id}
-                          style={tileCellStyle(isActive)}
-                          onClickCapture={() => {
-                            if (tab.id !== activeChartTabId) {
-                              activateChartTab(tab.id);
-                            }
+                          style={{ ...tileCellStyle(isActive), gridColumn: `span ${tileGeometry.spans[index] ?? 1}` }}
+                          onClickCapture={(event) => {
+                            if ((event.target as HTMLElement).closest('button[data-tile-control]')) return;
+                            if (tab.id !== activeChartTabId) activateChartTab(tab.id);
                           }}
                         >
                           <TileHeader tab={tab} isActive={isActive} />
@@ -388,6 +405,10 @@ export default function RootApp() {
                     })}
                   </div>
                 ) : (
+                  <>
+                  {maximizedChartTabId && activeTab ? (
+                    <TileHeader tab={activeTab} isActive isMaximized />
+                  ) : null}
                   <ChartCanvas
                     tabId={activeTab?.id ?? null}
                     instrument={activeTab?.instrument ?? null}
@@ -411,6 +432,7 @@ export default function RootApp() {
                     loading={isLoadingBars}
                     bottomBarStartContent={activeTab?.id ? <SheetTabs tabId={activeTab.id} inline /> : null}
                   />
+                  </>
                 )}
               </div>
               <ChartToolDock />
@@ -574,38 +596,18 @@ const chartContentColumnStyle: React.CSSProperties = {
   overflow: 'hidden',
 };
 
-const tileGridStyle: React.CSSProperties = {
-  display: 'grid',
-  gridTemplateColumns: 'repeat(auto-fill, minmax(480px, 1fr))',
-  gridAutoRows: '1fr',
-  gap: 0,
-  flex: 1,
-  minWidth: 0,
-  minHeight: 0,
-  overflow: 'hidden',
-  padding: 0,
-};
-
-function getTileGridStyle(mode: string): React.CSSProperties {
-  const base = {
-    display: 'grid' as const,
+function getTileGridStyle(columns: number, minRowHeight: number): React.CSSProperties {
+  return {
+    display: 'grid',
+    gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))`,
+    gridAutoRows: `minmax(${minRowHeight}px, 1fr)`,
     gap: 0,
     flex: 1,
     minWidth: 0,
     minHeight: 0,
-    overflow: 'hidden',
+    overflow: 'auto',
     padding: 0,
   };
-  switch (mode) {
-    case 'tile-h':
-      return { ...base, gridTemplateColumns: '1fr 1fr', gridAutoRows: '1fr' };
-    case 'tile-v':
-      return { ...base, gridTemplateColumns: '1fr', gridAutoRows: '1fr 1fr' };
-    case 'tile-grid':
-      return { ...base, gridTemplateColumns: '1fr 1fr', gridAutoRows: '1fr 1fr' };
-    default:
-      return { ...base, gridTemplateColumns: 'repeat(auto-fill, minmax(480px, 1fr))', gridAutoRows: '1fr' };
-  }
 }
 
 function tileCellStyle(isActive: boolean): React.CSSProperties {
