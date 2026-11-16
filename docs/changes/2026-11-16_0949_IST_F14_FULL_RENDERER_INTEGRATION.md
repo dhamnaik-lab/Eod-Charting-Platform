@@ -47,9 +47,9 @@ All properties of the F-14 PR #109 and the two test fixes remain as independentl
 | F-14-only typecheck and Vite | **PASS** in CI #43803099301 |
 | F-14-only full Vitest | **FAIL** on two confirmed main baseline tests; 1,833 passed, 2 failed, 1 skipped |
 | Verification-only test blob SHA comparison | **PASS** exact matches from PRs #106/#107 |
-| Combined full `npm test` | **Pending** this branch's GitHub Renderer CI |
-| Combined `npm run typecheck:renderer` | **Pending** |
-| Combined `npm run build:renderer` | **Pending** |
+| Combined full `npm test` | **PASS:** 1,835 passed, 1 skipped, **0 failed**; 266 test files passed, 1 skipped. F-14 7/7, CA 17/17, identity 6/6. [GitHub Renderer CI #43803487748](https://github.com/dhamnaik-lab/Eod-Charting-Platform/actions/runs/43803487748) |
+| Combined `npm run typecheck:renderer` | **PASS** in Renderer CI #43803487748 |
+| Combined `npm run build:renderer` | **PASS**, Vite built in 5.77 seconds, Renderer CI #43803487748 |
 | Windows native/portable | **Not run**; operator explicitly deferred Windows acceptance |
 | Merge | **Not authorized**; draft branches only |
 
@@ -62,4 +62,4 @@ All properties of the F-14 PR #109 and the two test fixes remain as independentl
 
 ## Rollback and next step
 
-Discard this validation-only branch/PR without modifying `main`. Continue to keep PRs #103–#109 on hold until explicit operator merge approval. Append actual command results and commit IDs after CI finishes; preserve original accepted behaviour.
+Discard this validation-only branch/PR without modifying `main`. Continue to keep PRs #103–#109 on hold until explicit operator merge approval. GitHub verified command results recorded above. Original tested source commit: `898146db9da29dcb6b322430ce432c0ec8cfee1e`. This documentation-only update does not change production/test blobs; any subsequent CI on the document head must be distinguished from the already passing source run. Preserve accepted behaviour.
