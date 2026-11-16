@@ -12,6 +12,7 @@ import type { SourceHistoryState } from '../../corporateActions/identity/sourceH
 
 // Render the current React components; do not evaluate extracted JSX with new Function.
 const ui = readFileSync(resolve(process.cwd(), 'src/components/DatabaseToolsDialogs.tsx'), 'utf8');
+const confirmationSource = readFileSync(resolve(process.cwd(), 'src/components/common/useActionConfirmation.tsx'), 'utf8');
 const workspaceCss = readFileSync(resolve(process.cwd(), 'src/features/corporateActions/identity/identityImportWorkspace.css'), 'utf8');
 
 function between(source: string, startMarker: string, endMarker: string): string {
@@ -131,10 +132,19 @@ describe('ER4 FIX3 history reachability and preserved eligibility', () => {
     assert.match(maintenance, /\{officialSourceRollbackReview \? \(/);
     assert.match(maintenance, /onClick=\{\(\) => void applyOfficialSourceRollback\(\)\}/);
     assert.match(apply, /!api \|\| !hasDatabase \|\| !officialSourceRollbackReview/);
-    const confirmIndex = apply.indexOf('window.confirm(');
+    // The native window.confirm was replaced by the explicit themed action dialog.
+    // The async negative guard must still return before the reviewed backend write.
+    assert.match(apply, /if\s*\(\s*!await confirmation\.confirm\(/);
+    const confirmIndex = apply.indexOf('await confirmation.confirm(');
     const applyIndex = apply.indexOf('api.applyOfficialSourceRollbackReviewed(');
     assert.ok(confirmIndex >= 0 && applyIndex > confirmIndex,
       'Only the explicitly confirmed reviewed rollback may invoke the backend');
+    assert.match(ui, /\{confirmation\.dialog\}/, 'The operator confirmation dialog must be mounted');
+    assert.match(confirmationSource, /role="alertdialog" aria-modal="true"/);
+    assert.match(confirmationSource, /onClick=\{\(\) => finish\(false\)\}/,
+      'The operator must be able to cancel before any backend write');
+    assert.match(confirmationSource, /if \(pending\.current\) return Promise\.resolve\(false\)/,
+      'A second confirmation request must fail closed');
   });
 
   it('distinguishes unloaded, empty, failed and loaded saved history without discovery', () => {

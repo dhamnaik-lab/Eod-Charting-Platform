@@ -1,5 +1,12 @@
 import { useEffect, useMemo, useState, useRef, useId, type CSSProperties } from 'react';
 import { useDialogFocus } from '@/features/app/useDialogFocus';
+import { setAllChartValueLabelVisibility } from '@/engine/valueLabelSettings';
+import {
+  createChartSettingsDraft,
+  getChartSettingsChanges,
+  type ChartSettingsChanges,
+  type ChartSettingsDraft,
+} from '@/features/charts/chartSettingsDraftService';
 import type { InstrumentKey } from '@/platform';
 import type {
   ChartEventVisibility,
@@ -30,38 +37,15 @@ import { ColorToolbox } from '@/components/common/ColorToolbox';
 
 type SettingsSection = 'Symbol' | 'Status line' | 'Scales and lines' | 'Canvas' | 'Alerts' | 'Events';
 
-interface ChartSettingsDialogProps {
+interface ChartSettingsDialogProps extends ChartSettingsDraft {
   chartType: ChartType;
   renkoSettings: RenkoSettings;
-  visualSettings: ChartVisualSettings;
-  showVolume: boolean;
   priceAutoFit: boolean;
   allPanesAutoFit: boolean;
-  adjustedMode: boolean;
-  includeDividendAdjustments: boolean;
-  includeRightsAdjustments: boolean;
-  logScale: boolean;
-  invertPriceScale: boolean;
-  valueLabelSettings: ChartValueLabelSettings;
-  showLeftAxis: boolean;
-  futureMarginMode: FutureMarginMode;
-  chartEventVisibility: ChartEventVisibility;
   instrument: InstrumentKey | null;
-  onSave: (chartType: ChartType, renkoSettings: RenkoSettings) => string | null;
-  onSetShowVolume: (show: boolean) => void;
+  onSave: (chartType: ChartType, renkoSettings: RenkoSettings, changes: ChartSettingsChanges) => string | null;
   onAutoFitPriceScale: () => void;
   onFitAllPanes: () => void;
-  onSetAdjustedMode: (adjusted: boolean) => void;
-  onSetIncludeDividendAdjustments: (enabled: boolean) => void;
-  onSetIncludeRightsAdjustments: (enabled: boolean) => void;
-  onSetLogScale: (enabled: boolean) => void;
-  onSetInvertPriceScale: (enabled: boolean) => void;
-  onSetShowValueLabels: (show: boolean) => void;
-  onSetValueLabelSettings: (settings: Partial<ChartValueLabelSettings>) => void;
-  onSetShowLeftAxis: (show: boolean) => void;
-  onSetFutureMarginMode: (mode: FutureMarginMode) => void;
-  onSetChartVisualSettings: (settings: Partial<ChartVisualSettings>) => void;
-  onToggleChartEventVisibility: (eventType: ChartMarkerEventType) => void;
   onClose: () => void;
 }
 
@@ -83,26 +67,30 @@ export function ChartSettingsDialog({
   chartEventVisibility,
   instrument,
   onSave,
-  onSetShowVolume,
   onAutoFitPriceScale,
   onFitAllPanes,
-  onSetAdjustedMode,
-  onSetIncludeDividendAdjustments,
-  onSetIncludeRightsAdjustments,
-  onSetLogScale,
-  onSetInvertPriceScale,
-  onSetShowValueLabels,
-  onSetValueLabelSettings,
-  onSetShowLeftAxis,
-  onSetFutureMarginMode,
-  onSetChartVisualSettings,
-  onToggleChartEventVisibility,
   onClose,
 }: ChartSettingsDialogProps) {
   const normalizedInitialRenkoSettings = useMemo(
     () => normalizeRenkoSettings(renkoSettings ?? DEFAULT_RENKO_SETTINGS),
     [renkoSettings],
   );
+  const [draftSettings, setDraftSettings] = useState(() => createChartSettingsDraft({
+    visualSettings, showVolume, adjustedMode, includeDividendAdjustments,
+    includeRightsAdjustments, logScale, invertPriceScale, valueLabelSettings,
+    showLeftAxis, futureMarginMode, chartEventVisibility,
+  }));
+  const initialSettingsRef = useRef(draftSettings);
+  const editDraft = (patch: Partial<ChartSettingsDraft>) =>
+    setDraftSettings((current) => ({ ...current, ...patch }));
+  const editVisualSettings = (patch: Partial<ChartVisualSettings>) =>
+    setDraftSettings((current) => ({
+      ...current, visualSettings: { ...current.visualSettings, ...patch },
+    }));
+  const editValueLabelSettings = (patch: Partial<ChartValueLabelSettings>) =>
+    setDraftSettings((current) => ({
+      ...current, valueLabelSettings: { ...current.valueLabelSettings, ...patch },
+    }));
   const [activeSection, setActiveSection] = useState<SettingsSection>('Symbol');
   const [draftChartType, setDraftChartType] = useState<ChartType>(chartType);
   const [draftRenkoSettings, setDraftRenkoSettings] = useState<RenkoSettings>(normalizedInitialRenkoSettings);
@@ -110,14 +98,14 @@ export function ChartSettingsDialog({
   const [valueError, setValueError] = useState<string | null>(null);
 
   const allValueLabelsEnabled =
-    valueLabelSettings.showSymbolNameLabel &&
-    valueLabelSettings.showSymbolLastPrice &&
-    valueLabelSettings.showSymbolPreviousClose &&
-    valueLabelSettings.showHighLowPriceLabels &&
-    valueLabelSettings.showIndicatorNameLabels &&
-    valueLabelSettings.showOverlayIndicatorValues &&
-    valueLabelSettings.showCompareValues &&
-    valueLabelSettings.showIndicatorPaneValues;
+    draftSettings.valueLabelSettings.showSymbolNameLabel &&
+    draftSettings.valueLabelSettings.showSymbolLastPrice &&
+    draftSettings.valueLabelSettings.showSymbolPreviousClose &&
+    draftSettings.valueLabelSettings.showHighLowPriceLabels &&
+    draftSettings.valueLabelSettings.showIndicatorNameLabels &&
+    draftSettings.valueLabelSettings.showOverlayIndicatorValues &&
+    draftSettings.valueLabelSettings.showCompareValues &&
+    draftSettings.valueLabelSettings.showIndicatorPaneValues;
 
   useEffect(() => {
     const nextRenkoSettings = normalizeRenkoSettings(renkoSettings ?? DEFAULT_RENKO_SETTINGS);
@@ -186,7 +174,7 @@ export function ChartSettingsDialog({
 
   const applyDraft = () => {
     if (draftChartType !== 'renko') {
-      const error = onSave(draftChartType, normalizeRenkoSettings(draftRenkoSettings));
+      const error = onSave(draftChartType, normalizeRenkoSettings(draftRenkoSettings), getChartSettingsChanges(initialSettingsRef.current, draftSettings));
       if (error) {
         setValueError(error);
       }
@@ -207,7 +195,7 @@ export function ChartSettingsDialog({
       ...draftRenkoSettings,
       ...getRenkoModePatch(draftRenkoSettings, normalizedValue),
     });
-    const error = onSave(draftChartType, nextRenkoSettings);
+    const error = onSave(draftChartType, nextRenkoSettings, getChartSettingsChanges(initialSettingsRef.current, draftSettings));
     if (error) {
       setValueError(error);
     }
@@ -250,46 +238,48 @@ export function ChartSettingsDialog({
                 onSetRenkoMode={setRenkoMode}
                 onSetDraftValue={setDraftValue}
                 onUpdateRenkoSettings={updateRenkoSettings}
-                visualSettings={visualSettings}
-                onSetChartVisualSettings={onSetChartVisualSettings}
+                visualSettings={draftSettings.visualSettings}
+                onSetChartVisualSettings={editVisualSettings}
               />
             ) : null}
             {activeSection === 'Status line' ? (
               <StatusLineSettings
                 allValueLabelsEnabled={allValueLabelsEnabled}
-                valueLabelSettings={valueLabelSettings}
-                onSetShowValueLabels={onSetShowValueLabels}
-                onSetValueLabelSettings={onSetValueLabelSettings}
+                valueLabelSettings={draftSettings.valueLabelSettings}
+                onSetShowValueLabels={(show) => editValueLabelSettings(
+                  setAllChartValueLabelVisibility(show, draftSettings.valueLabelSettings),
+                )}
+                onSetValueLabelSettings={editValueLabelSettings}
               />
             ) : null}
             {activeSection === 'Scales and lines' ? (
               <ScalesAndLinesSettings
                 priceAutoFit={priceAutoFit}
                 allPanesAutoFit={allPanesAutoFit}
-                logScale={logScale}
-                invertPriceScale={invertPriceScale}
-                showLeftAxis={showLeftAxis}
-                futureMarginMode={futureMarginMode}
-                adjustedMode={adjustedMode}
-                includeDividendAdjustments={includeDividendAdjustments}
-                includeRightsAdjustments={includeRightsAdjustments}
+                logScale={draftSettings.logScale}
+                invertPriceScale={draftSettings.invertPriceScale}
+                showLeftAxis={draftSettings.showLeftAxis}
+                futureMarginMode={draftSettings.futureMarginMode}
+                adjustedMode={draftSettings.adjustedMode}
+                includeDividendAdjustments={draftSettings.includeDividendAdjustments}
+                includeRightsAdjustments={draftSettings.includeRightsAdjustments}
                 onAutoFitPriceScale={onAutoFitPriceScale}
                 onFitAllPanes={onFitAllPanes}
-                onSetLogScale={onSetLogScale}
-                onSetInvertPriceScale={onSetInvertPriceScale}
-                onSetShowLeftAxis={onSetShowLeftAxis}
-                onSetFutureMarginMode={onSetFutureMarginMode}
-                onSetAdjustedMode={onSetAdjustedMode}
-                onSetIncludeDividendAdjustments={onSetIncludeDividendAdjustments}
-                onSetIncludeRightsAdjustments={onSetIncludeRightsAdjustments}
+                onSetLogScale={(logScale) => editDraft({ logScale })}
+                onSetInvertPriceScale={(invertPriceScale) => editDraft({ invertPriceScale })}
+                onSetShowLeftAxis={(showLeftAxis) => editDraft({ showLeftAxis })}
+                onSetFutureMarginMode={(futureMarginMode) => editDraft({ futureMarginMode })}
+                onSetAdjustedMode={(adjustedMode) => editDraft({ adjustedMode })}
+                onSetIncludeDividendAdjustments={(includeDividendAdjustments) => editDraft({ includeDividendAdjustments })}
+                onSetIncludeRightsAdjustments={(includeRightsAdjustments) => editDraft({ includeRightsAdjustments })}
               />
             ) : null}
             {activeSection === 'Canvas' ? (
               <CanvasSettings
-                showVolume={showVolume}
-                visualSettings={visualSettings}
-                onSetShowVolume={onSetShowVolume}
-                onSetChartVisualSettings={onSetChartVisualSettings}
+                showVolume={draftSettings.showVolume}
+                visualSettings={draftSettings.visualSettings}
+                onSetShowVolume={(showVolume) => editDraft({ showVolume })}
+                onSetChartVisualSettings={editVisualSettings}
               />
             ) : null}
             {activeSection === 'Alerts' ? (
@@ -297,14 +287,23 @@ export function ChartSettingsDialog({
             ) : null}
             {activeSection === 'Events' ? (
               <EventsSettings
-                chartEventVisibility={chartEventVisibility}
-                onToggleChartEventVisibility={onToggleChartEventVisibility}
+                chartEventVisibility={draftSettings.chartEventVisibility}
+                onToggleChartEventVisibility={(eventType) => setDraftSettings((current) => ({
+                  ...current,
+                  chartEventVisibility: {
+                    ...current.chartEventVisibility,
+                    [eventType]: current.chartEventVisibility[eventType] === false,
+                  },
+                }))}
               />
             ) : null}
           </div>
         </div>
 
         <div style={footerStyle}>
+          <span style={{ color: 'var(--muted)', fontSize: 11, marginRight: 'auto' }}>
+            Chart changes apply on OK. Auto-fit and alert edits apply immediately.
+          </span>
           <button type="button" style={secondaryButtonStyle} onClick={onClose}>
             Cancel
           </button>

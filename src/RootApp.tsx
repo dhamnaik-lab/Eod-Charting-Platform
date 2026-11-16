@@ -355,7 +355,7 @@ export default function RootApp() {
                           style={tileCellStyle(isActive)}
                           onClickCapture={() => {
                             if (tab.id !== activeChartTabId) {
-                              activateChartTab(tab.id);
+                              activateChartTab(tab.id, layoutMode);
                             }
                           }}
                         >
