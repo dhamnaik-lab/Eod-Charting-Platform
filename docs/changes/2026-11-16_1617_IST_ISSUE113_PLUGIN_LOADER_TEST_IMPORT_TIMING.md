@@ -22,7 +22,7 @@ No changes to production plugin loader, plugin host, indicator/scanner registrat
 
 ## Validation commands / results
 - GitHub authority and original blob SHA `c54e58668ba8cdc4fb0b520711079b0290a886ab`: inspected and verified prior to patch.
-- GitHub Renderer CI (`npm test`, `npm run typecheck:renderer`, `npm run build:renderer`): **PENDING** until the PR workflow finishes; report actual results afterward.
+- GitHub Renderer CI [run #43852125332](https://github.com/dhamnaik-lab/Eod-Charting-Platform/actions/runs/43852125332) on trial commit `51ba92532daf9ba9b15eae5c9b0ba6c653151d46`: **PASS**. Full `npm test`: **1,861 passed, 1 skipped, 0 failed** (268 files passed, 1 skipped); `src/plugins/__tests__/pluginLoader.test.ts` **2/2 PASS (5 ms)**. `npm run typecheck:renderer`: **PASS**. `npm run build:renderer`: **PASS** (Vite built in 5.36s). Test used the repository's unchanged standard Vitest config. The documentation-only follow-up commit will receive its own GitHub CI run; a passing earlier code-equivalent commit does not replace that verification.
 - Windows focused and repeated **default** `npm.cmd test`, TypeScript and renderer build: **NOT RUN after this change**; operator/Codex validation required before merge.
 - Rust / portable build: **not required for a test-only import change** and not run.
 - No database access or Windows checkout changes.
