@@ -33,3 +33,9 @@ Required focused: `npm.cmd test -- src/features/marketMovers/__tests__`; full: `
 The Full View filter form is inline instead of a portal, to avoid new outside-click/focus issues. Native click behavior and responsive layout require later Windows visual acceptance. Search, new market universes, corporate-action adjustment modes and scan-cache restructuring are outside F-30. Do not modify F-33, F-34, F-39 or backend data.
 
 Rollback: revert this bounded PR from its feature branch before merge if regression tests fail; the accepted GitHub `main@70b01fa86a1cbef1d1b59588b1462f3bcf16a193` and production database remain unchanged.
+
+## Verified follow-up validation (18 November 2026, 00:20 IST)
+
+The corrected test and untouched application files at source commit `522976ee5c43b2186b12ce18103a9220d797b6a7` passed [GitHub Renderer workflow 44151794409](https://github.com/dhamnaik-lab/Eod-Charting-Platform/actions/runs/44151794409): **273 test files passed, 1 skipped; 1,890 tests passed, 1 skipped; TypeScript typecheck PASS; Vite build PASS (846 modules transformed, 4.75 seconds)**. The former cached-snapshot test failure is resolved. This is GitHub runner evidence, **not** Windows-native browser or production-database acceptance.
+
+The follow-up to this change record is documentation-only. Full renderer CI should also be confirmed at its exact final commit before the PR can be considered CI-validated. The previously accepted Windows portable binaries were not changed.
