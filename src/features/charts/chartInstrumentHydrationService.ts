@@ -287,11 +287,19 @@ export function buildInstrumentLoadStartTab(
         },
         instrument,
       );
+  // A new instrument replaces tab.instrument before the asynchronous data result arrives.
+  // Clear its old manually adjusted price range now; indicator-pane ranges remain intact.
+  let paneScaleOverrides = tab.paneScaleOverrides;
+  if (!isSameInstrument && paneScaleOverrides.price) {
+    const { price: _oldInstrumentPriceRange, ...remainingOverrides } = paneScaleOverrides;
+    paneScaleOverrides = remainingOverrides;
+  }
 
   return {
     ...tab,
     instrument,
     requestedInstrument: instrument,
+    paneScaleOverrides,
     instrumentMeta: meta ?? tab.instrumentMeta,
     title: `${instrument.exchange}:${instrument.symbol}`,
     drawings: drawingScopeState.drawings,
