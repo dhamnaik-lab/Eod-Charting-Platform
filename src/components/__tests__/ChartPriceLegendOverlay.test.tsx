@@ -327,6 +327,26 @@ describe('audit legend readouts', () => {
 });
 
 describe('F-01 price legend volume', () => {
+  it('calculates percentage change from a sub-unit reference close in the active legend', () => {
+    const subUnitBar = {
+      ...bars[0],
+      open: 0.50,
+      high: 0.76,
+      low: 0.49,
+      close: 0.75,
+      prevClose: 0.50,
+    };
+    const props = buildProps({
+      bars: [subUnitBar],
+      viewport: { startIndex: 0, endIndex: 1 },
+      overlays: [],
+    });
+    const change = buildChartPriceLegendSnapshot(props).segments.at(-1)?.text;
+
+    expect(change).toContain('+0.25');
+    expect(change).toContain('(+50.00%)');
+  });
+
   it('shows Indian compact volume for the last visible bar in DOM and screenshot snapshot', () => {
     const props = buildProps();
     const markup = renderToStaticMarkup(<ChartPriceLegendOverlay {...props} />);

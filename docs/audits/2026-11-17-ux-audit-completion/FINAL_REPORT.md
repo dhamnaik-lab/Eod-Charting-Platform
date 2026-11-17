@@ -14,15 +14,18 @@
 
 | Disposition | Count |
 |---|---:|
-| Fixed and validated | 20 |
+| Fixed and validated | 21 |
 | Already fixed and verified | 13 |
 | Not applicable with evidence | 2 |
 | Architecture approval pending | 25 |
-| Deferred with reason | 16 |
+| Deferred with reason | 15 |
 | Blocked with reason | 0 |
 | **Total** | **76** |
 
 The [finding tracker](FINDINGS_TRACKER.csv) records current source locations, the unchanged original finding text, and focused evidence. Five deferred findings have bounded improvements in this candidate. F-27 adds commands, F-29 removes an unused subscription, F-30 adds the Volume Surge view and exchange selection, F-63 adds targeted contrast checks, and F-74 improves names and reduced motion for favorite tools. Each tracker row names its remaining gap. The preclassified gates include proposed contracts and compatibility/rollback notes. FT-01 through FT-26 remain a separate feature inventory.
+
+**Post-merge F-11 update (17 November 2026 IST):** This table is the current tracker status after draft PR #117 retired the orphan `OhlcvBar`. The accepted PR #116 snapshot remains **20 fixed and validated, 16 deferred**; the F-11 follow-up changes the active totals to **21 fixed and validated, 15 deferred**, with all 76 findings reconciled. The active `ChartPriceLegendOverlay` and menu flag are unchanged. The new sub-₹1 reference-close regression was included in [Renderer CI run 44069641820](https://github.com/dhamnaik-lab/Eod-Charting-Platform/actions/runs/44069641820), which passed 1,886 tests, 1 skipped, TypeScript and Vite build. This does not imply an F-11 native build or any change to the accepted PR #116 portable.
+
 
 ## Original candidate validation
 
