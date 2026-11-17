@@ -61,6 +61,8 @@ describe('F-30 Market Movers controls parity', () => {
   it('makes filters available before any manual scan in Full View', () => {
     useMarketMoversStore.setState({ snapshot: null, status: 'idle' });
     const markup = renderToStaticMarkup(<MarketMoversFullView />);
+    expect(markup).toContain('Market exchange');
+    expect(markup).toContain('NSE + BSE');
     expect(markup).toContain('>Filters</button>');
     expect(markup).toContain('Market Movers has not been scanned.');
     expect(markup).toContain('Scan Market');

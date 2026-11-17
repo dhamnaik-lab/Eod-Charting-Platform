@@ -39,3 +39,7 @@ Rollback: revert this bounded PR from its feature branch before merge if regress
 The corrected test and untouched application files at source commit `522976ee5c43b2186b12ce18103a9220d797b6a7` passed [GitHub Renderer workflow 44151794409](https://github.com/dhamnaik-lab/Eod-Charting-Platform/actions/runs/44151794409): **273 test files passed, 1 skipped; 1,890 tests passed, 1 skipped; TypeScript typecheck PASS; Vite build PASS (846 modules transformed, 4.75 seconds)**. The former cached-snapshot test failure is resolved. This is GitHub runner evidence, **not** Windows-native browser or production-database acceptance.
 
 The follow-up to this change record is documentation-only. Full renderer CI should also be confirmed at its exact final commit before the PR can be considered CI-validated. The previously accepted Windows portable binaries were not changed.
+
+## Pre-scan exchange control follow-up (18 November 2026 IST)
+
+Final scope inspection identified that the Full View's existing NSE/BSE selector was accessible only when a snapshot existed. The same selector and setting callback are now reused in the empty/pre-scan toolbar, so a fresh Full View can choose NSE, BSE, or both before a manual scan. The loaded-snapshot toolbar still uses the identical select control. Added focused server-markup assertions for pre-scan exchange options; no fetch, snapshot generation, or store logic changed. **CI for this final source commit must be checked separately.**

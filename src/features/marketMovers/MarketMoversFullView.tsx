@@ -66,6 +66,22 @@ export function MarketMoversFullView() {
     setSettings(normalizeMarketMoversFilterDraft(draftSettings));
     setShowFilters(false);
   };
+  const exchangeControl = (
+    <label>
+      Market exchange{' '}
+      <select
+        value={settings.exchange}
+        onChange={(event) =>
+          setSettings({ exchange: event.target.value as SymbolExchangeFilter })
+        }
+        style={marketMoversStyles.selectInput}
+      >
+        <option value="NSE">NSE</option>
+        <option value="BSE">BSE</option>
+        <option value="all">NSE + BSE</option>
+      </select>
+    </label>
+  );
   const filterTrigger = (
     <button
       type="button"
@@ -101,7 +117,8 @@ export function MarketMoversFullView() {
 
   const renderEmptyWithFilters = (content: React.ReactNode) => (
     <div style={marketMoversStyles.container}>
-      <div style={{ ...marketMoversStyles.subToolbar, justifyContent: 'flex-end' }}>
+      <div style={{ ...marketMoversStyles.subToolbar, justifyContent: 'space-between' }}>
+        {exchangeControl}
         {filterTrigger}
       </div>
       {filterPanel}
@@ -218,18 +235,7 @@ export function MarketMoversFullView() {
       </div>
 
       <div style={marketMoversStyles.subToolbar}>
-        <label>
-          Market exchange{' '}
-          <select
-            value={settings.exchange}
-            onChange={(event) => setSettings({ exchange: event.target.value as SymbolExchangeFilter })}
-            style={marketMoversStyles.selectInput}
-          >
-            <option value="NSE">NSE</option>
-            <option value="BSE">BSE</option>
-            <option value="all">NSE + BSE</option>
-          </select>
-        </label>
+        {exchangeControl}
         <label>
           Results{' '}
           <select
