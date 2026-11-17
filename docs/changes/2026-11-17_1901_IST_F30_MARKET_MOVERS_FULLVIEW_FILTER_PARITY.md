@@ -24,7 +24,9 @@ The compact panel still uses the existing portal and unpinned-sidebar interactio
 
 ## Validation commands and evidence
 
-**At initial source commit:** GitHub Renderer CI (full Vitest, renderer TypeScript and Vite build) pending. Required focused: `npm.cmd test -- src/features/marketMovers/__tests__`; full: `npm.cmd test`, `npm.cmd run typecheck:renderer`, `npm.cmd run build:renderer`. Rust and Windows native build are not invoked from this GitHub-only run. Report their actual status and results, not assumptions. The pre-existing mounted sidebar portal regression must be retained; it cannot be claimed re-executed unless its command runs.
+**First CI attempt (commit `660c6185718c4250828adbcfa41d01f529073d66`):** [Renderer run 44101908492](https://github.com/dhamnaik-lab/Eod-Charting-Platform/actions/runs/44101908492) failed 1 new static-markup test (1,889 passed, 1 skipped; TypeScript and Vite PASS). This was a test-fixture error: Zustand's SSR snapshot is captured at initialization, so setting the store after initialization did not affect React's server-rendered output. The fix mocks only `useDailyMarketMovers` within the test to read current fixture state. No production component or store changes. Final-head CI status must be checked independently after this follow-up.
+
+Required focused: `npm.cmd test -- src/features/marketMovers/__tests__`; full: `npm.cmd test`, `npm.cmd run typecheck:renderer`, `npm.cmd run build:renderer`. Rust and Windows native build are not invoked from this GitHub-only run. Report their actual status and results, not assumptions. The pre-existing mounted sidebar portal regression must be retained; it cannot be claimed re-executed unless its command runs.
 
 ## Risk, limitations and rollback
 

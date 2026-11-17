@@ -5,6 +5,12 @@ import { MarketMoversFullView } from '../MarketMoversFullView';
 import { useMarketMoversStore } from '../marketMoversStore';
 import type { MarketMoversFilterSettings, MarketMoversSnapshot } from '../marketMoversTypes';
 
+// React SSR reads Zustand's server snapshot, which is captured at store creation.
+// For these static-markup branch assertions, read the fixture state explicitly.
+vi.mock('../useDailyMarketMovers', () => ({
+  useDailyMarketMovers: () => useMarketMoversStore.getState(),
+}));
+
 const originalState = useMarketMoversStore.getState();
 afterEach(() => useMarketMoversStore.setState(originalState, true));
 
