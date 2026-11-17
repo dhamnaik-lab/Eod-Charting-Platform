@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom';
 import { useDailyMarketMovers } from './useDailyMarketMovers';
 import { MarketMoverRow } from './MarketMoverRow';
+import { MarketMoversFilterControls, normalizeMarketMoversFilterDraft } from './MarketMoversFilterControls';
 import type {
   MarketMoversFilterSettings,
   MarketMoversTab,
@@ -133,11 +134,7 @@ export function MarketMoversPanel({ onOpenFullView }: MarketMoversPanelProps) {
   };
 
   const applyFilters = () => {
-    setSettings({
-      minPrice: Math.max(0, Number(draftSettings.minPrice) || 0),
-      minVolume: Math.max(0, Math.floor(Number(draftSettings.minVolume) || 0)),
-      excludeCorporateActionWarnings: draftSettings.excludeCorporateActionWarnings,
-    });
+    setSettings(normalizeMarketMoversFilterDraft(draftSettings));
     setShowFilters(false);
   };
 
@@ -350,52 +347,12 @@ export function MarketMoversPanel({ onOpenFullView }: MarketMoversPanelProps) {
               left: popoverPosition.left,
             }}
           >
-            <strong>Market Movers Filters</strong>
-            <label style={marketMoversStyles.filterLabel}>
-              Minimum close price
-              <input
-                type="number"
-                min={0}
-                value={draftSettings.minPrice}
-                onChange={(event) =>
-                  setDraftSettings((current) => ({ ...current, minPrice: Number(event.target.value) }))
-                }
-                style={marketMoversStyles.numberInput}
-              />
-            </label>
-            <label style={marketMoversStyles.filterLabel}>
-              Minimum volume
-              <input
-                type="number"
-                min={0}
-                value={draftSettings.minVolume}
-                onChange={(event) =>
-                  setDraftSettings((current) => ({ ...current, minVolume: Number(event.target.value) }))
-                }
-                style={marketMoversStyles.numberInput}
-              />
-            </label>
-            <label style={{ ...marketMoversStyles.filterLabel, flexDirection: 'row' }}>
-              <input
-                type="checkbox"
-                checked={draftSettings.excludeCorporateActionWarnings}
-                onChange={(event) =>
-                  setDraftSettings((current) => ({
-                    ...current,
-                    excludeCorporateActionWarnings: event.target.checked,
-                  }))
-                }
-              />
-              Exclude warned corporate actions
-            </label>
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 6 }}>
-              <button style={marketMoversStyles.iconButton} onClick={() => setShowFilters(false)}>
-                Cancel
-              </button>
-              <button style={marketMoversStyles.primaryButton} onClick={applyFilters}>
-                Apply
-              </button>
-            </div>
+            <MarketMoversFilterControls
+              draftSettings={draftSettings}
+              onDraftSettingsChange={setDraftSettings}
+              onCancel={() => setShowFilters(false)}
+              onApply={applyFilters}
+            />
           </div>,
           document.body,
         )}

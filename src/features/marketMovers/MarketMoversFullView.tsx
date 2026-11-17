@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useDailyMarketMovers } from './useDailyMarketMovers';
-import type { NormalizedMoverRecord } from './marketMoversTypes';
+import type { MarketMoversFilterSettings, NormalizedMoverRecord } from './marketMoversTypes';
+import { MarketMoversFilterControls, normalizeMarketMoversFilterDraft } from './MarketMoversFilterControls';
 import { marketMoversStyles } from './marketMoversStyles';
 import { useChartStore } from '@/store/chartStore';
 import type { SymbolExchangeFilter } from '@/platform';
@@ -22,6 +23,8 @@ export function MarketMoversFullView() {
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
   const [resultView, setResultView] = useState<'price' | 'volume'>('price');
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
+  const [showFilters, setShowFilters] = useState(false);
+  const [draftSettings, setDraftSettings] = useState<MarketMoversFilterSettings>(settings);
   const clickTimers = useRef(new Map<string, ReturnType<typeof setTimeout>>());
   const activeChartTabId = useChartStore((state) => state.activeChartTabId);
   const duplicateChartTab = useChartStore((state) => state.duplicateChartTab);
@@ -54,6 +57,57 @@ export function MarketMoversFullView() {
   const hasMore = Boolean(snapshot && (resultView === 'volume'
     ? snapshot.volumeSurge.length > visibleCount
     : snapshot.gainers.length > visibleCount || snapshot.losers.length > visibleCount));
+
+  const openFilters = () => {
+    setDraftSettings(settings);
+    setShowFilters(true);
+  };
+  const applyFilters = () => {
+    setSettings(normalizeMarketMoversFilterDraft(draftSettings));
+    setShowFilters(false);
+  };
+  const filterTrigger = (
+    <button
+      type="button"
+      style={marketMoversStyles.iconButton}
+      aria-expanded={showFilters}
+      aria-controls="market-movers-full-filters"
+      onClick={openFilters}
+    >
+      Filters
+    </button>
+  );
+  const filterPanel = showFilters ? (
+    <div
+      id="market-movers-full-filters"
+      role="region"
+      aria-label="Market Movers filters"
+      style={{
+        ...marketMoversStyles.subToolbar,
+        justifyContent: 'flex-start',
+        alignItems: 'flex-end',
+        flexWrap: 'wrap',
+        gap: 12,
+      }}
+    >
+      <MarketMoversFilterControls
+        draftSettings={draftSettings}
+        onDraftSettingsChange={setDraftSettings}
+        onCancel={() => setShowFilters(false)}
+        onApply={applyFilters}
+      />
+    </div>
+  ) : null;
+
+  const renderEmptyWithFilters = (content: React.ReactNode) => (
+    <div style={marketMoversStyles.container}>
+      <div style={{ ...marketMoversStyles.subToolbar, justifyContent: 'flex-end' }}>
+        {filterTrigger}
+      </div>
+      {filterPanel}
+      {content}
+    </div>
+  );
 
   const openActive = (record: NormalizedMoverRecord) => {
     void useChartStore
@@ -89,7 +143,7 @@ export function MarketMoversFullView() {
   };
 
   if (!snapshot && status === 'idle') {
-    return (
+    return renderEmptyWithFilters(
       <div style={marketMoversStyles.emptyState}>
         <strong>Market Movers has not been scanned.</strong>
         <span>Opening this view no longer starts a full-market scan automatically.</span>
@@ -101,7 +155,7 @@ export function MarketMoversFullView() {
   }
 
   if (!snapshot && status === 'loading') {
-    return (
+    return renderEmptyWithFilters(
       <div style={marketMoversStyles.emptyState}>
         <strong>Scanning market in background…</strong>
         <span>
@@ -117,7 +171,7 @@ export function MarketMoversFullView() {
   }
 
   if (!snapshot && status === 'error') {
-    return (
+    return renderEmptyWithFilters(
       <div style={marketMoversStyles.emptyState}>
         <strong>Market Movers could not be loaded.</strong>
         <span>{error}</span>
@@ -129,7 +183,7 @@ export function MarketMoversFullView() {
   }
 
   if (!snapshot) {
-    return null;
+    return renderEmptyWithFilters(null);
   }
 
   const selectedExchangeLabel = settings.exchange === 'all' ? 'NSE + BSE' : settings.exchange;
@@ -190,7 +244,9 @@ export function MarketMoversFullView() {
             <option value="volume">Volume surge</option>
           </select>
         </label>
+        {filterTrigger}
       </div>
+      {filterPanel}
 
       {status === 'loading' && (
         <div style={marketMoversStyles.statusBanner}>
