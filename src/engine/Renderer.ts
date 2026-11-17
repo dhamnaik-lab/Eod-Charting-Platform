@@ -359,6 +359,7 @@ export function drawYAxis(
   occupiedRanges: Array<{ top: number; bottom: number }> = [],
   alignment: 'left' | 'right' = 'right',
   minimumFractionDigits = 0,
+  formatTick = formatPrice,
 ): void {
   const axisX = alignment === 'right' ? width - axisWidth - axisGap : 0;
   const { ticks, step } = niceYTicks(scaleY.min, scaleY.max, height);
@@ -407,7 +408,7 @@ export function drawYAxis(
     }
 
     const textX = alignment === 'right' ? axisX + axisWidth - 7 : axisX + 7;
-    ctx.fillText(formatPrice(tick, precision, precision), textX, yPixel);
+    ctx.fillText(formatTick(tick, precision, precision), textX, yPixel);
     ctx.strokeStyle = theme.gridLineMajor;
     ctx.beginPath();
     ctx.moveTo(axisX, y);

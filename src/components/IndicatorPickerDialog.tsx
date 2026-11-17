@@ -1,4 +1,4 @@
-import { useDeferredValue, useEffect, useMemo, useState, type MouseEvent } from 'react';
+import { useDeferredValue, useEffect, useMemo, useRef, useState, type MouseEvent } from 'react';
 import {
   INDICATOR_CATALOG,
   INDICATOR_SUBCATEGORIES,
@@ -39,6 +39,7 @@ export function IndicatorPickerDialog({ onAdd, onClose }: IndicatorPickerDialogP
   const [selectedId, setSelectedId] = useState<IndicatorCatalogId>(INDICATOR_CATALOG[0].id);
   const [favoriteIds, setFavoriteIds] = useState<string[]>(readFavoriteIndicatorIds);
   const [justAddedId, setJustAddedId] = useState<string | null>(null);
+  const indicatorListRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => subscribeFavoriteIndicatorUpdates(setFavoriteIds), []);
 
@@ -115,6 +116,10 @@ export function IndicatorPickerDialog({ onAdd, onClose }: IndicatorPickerDialogP
     }
   }, [selectedId, selectedItem]);
 
+  useEffect(() => {
+    indicatorListRef.current?.querySelector('[data-selected-indicator]')?.scrollIntoView({ block: 'nearest' });
+  }, [selectedItem?.id]);
+
   // Keyboard navigation (Escape to close)
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -170,12 +175,22 @@ export function IndicatorPickerDialog({ onAdd, onClose }: IndicatorPickerDialogP
               value={query}
               onChange={(event) => setQuery(event.target.value)}
               onKeyDown={(event) => {
+                if (event.nativeEvent.isComposing) return;
+                if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+                  if (!selectedItem) return;
+                  event.preventDefault();
+                  const index = filteredItems.indexOf(selectedItem);
+                  const offset = event.key === 'ArrowDown' ? 1 : -1;
+                  const next = Math.min(filteredItems.length - 1, Math.max(0, index + offset));
+                  setSelectedId(filteredItems[next].id);
+                }
                 if (event.key === 'Enter') {
                   event.preventDefault();
                   handleAddSelected();
                 }
               }}
-              placeholder="Search 118 indicators by name, formula, or type..."
+              aria-label="Search indicators"
+              placeholder="Search indicators by name, formula, or type..."
               style={searchInputStyle}
             />
             {query ? (
@@ -321,7 +336,7 @@ export function IndicatorPickerDialog({ onAdd, onClose }: IndicatorPickerDialogP
           </div>
 
           {/* Center Column: Fast-Add Indicator List */}
-          <div style={indicatorListColStyle}>
+          <div ref={indicatorListRef} style={indicatorListColStyle}>
             {filteredItems.length ? (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
                 {filteredItems.map((item) => {
@@ -335,6 +350,7 @@ export function IndicatorPickerDialog({ onAdd, onClose }: IndicatorPickerDialogP
                   return (
                     <div
                       key={item.id}
+                      data-selected-indicator={active ? '' : undefined}
                       style={indicatorRowShellStyle(active)}
                       onClick={() => setSelectedId(item.id)}
                       onDoubleClick={(e) => handleQuickAdd(item.id, e)}
@@ -471,7 +487,7 @@ function matchesIndicatorQuery(item: IndicatorCatalogItem, query: string): boole
     .join(' ')
     .toLowerCase();
 
-  return haystack.includes(query);
+  return query.split(/\s+/).every((term) => haystack.includes(term));
 }
 
 function describeDefaults(item: IndicatorCatalogItem): string {
@@ -817,7 +833,7 @@ function segmentedTabButtonStyle(active: boolean): React.CSSProperties {
     borderRadius: 4,
     border: 'none',
     background: active ? 'var(--accent)' : 'transparent',
-    color: active ? '#ffffff' : 'var(--text-dim)',
+    color: active ? 'var(--accent-contrast)' : 'var(--text-dim)',
     fontSize: 11.5,
     fontWeight: active ? 700 : 500,
     cursor: 'pointer',

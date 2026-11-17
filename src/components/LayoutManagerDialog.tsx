@@ -264,7 +264,7 @@ const saveButtonStyle: React.CSSProperties = {
   border: '1px solid var(--accent)',
   borderRadius: 4,
   backgroundColor: 'var(--accent)',
-  color: 'var(--text)',
+  color: 'var(--accent-contrast)',
   fontSize: 13,
   cursor: 'pointer',
 };

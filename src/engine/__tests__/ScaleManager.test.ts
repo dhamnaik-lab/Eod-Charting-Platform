@@ -81,6 +81,17 @@ describe('ScaleManager viewport scaling', () => {
     expect(lastVisibleBarCenter).toBeLessThanOrEqual(900);
   });
 
+  it('keeps a wheel zoom pivot under the same pixel away from a boundary', () => {
+    const viewport = { startIndex: 400, endIndex: 500 };
+    const px = 240;
+    const scale = buildScaleX(viewport, 960);
+    const dataIndex = scale.toIndex(px);
+    const next = zoomViewport(viewport, dataIndex, 1.25, 5000, 'normal', 'cursor');
+    expect(next.endIndex - next.startIndex).toBeCloseTo(80);
+    expect(buildScaleX(next, 960).toPixel(dataIndex)).toBeCloseTo(px);
+    expect(zoomViewport(viewport, dataIndex, 1.25, 5000, 'normal').endIndex).toBe(500);
+  });
+
   it('does not grow beyond the allowed full-history span on repeated zoom-out', () => {
     let viewport = { startIndex: 1680, endIndex: 1808 };
 

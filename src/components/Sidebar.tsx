@@ -26,7 +26,7 @@ import { useWindowStore } from '@/store/windowStore';
 import { useUiStore } from '@/store/uiStore';
 import { MarketMoversPanel } from '@/features/marketMovers/MarketMoversPanel';
 
-type SidebarPanel = 'symbols' | 'indicators' | 'watchlist' | 'market-movers';
+import { useWorkspaceStore, type SidebarPanel } from '@/store/workspaceStore';
 
 const SIDEBAR_PANELS: Array<{ id: SidebarPanel; label: string; railLabel: string }> = [
   { id: 'symbols', label: 'Symbols', railLabel: 'SYM' },
@@ -336,7 +336,8 @@ export function Sidebar({ width, collapsed, pinned, onToggleCollapse, onTogglePi
     () => Object.values(windows).filter((w) => w.isOpen && w.isMinimized),
     [windows],
   );
-  const [activePanel, setActivePanel] = useState<SidebarPanel>('symbols');
+  const activePanel = useWorkspaceStore((state) => state.sidebarPanel);
+  const setActivePanel = useWorkspaceStore((state) => state.setSidebarPanel);
   const [recentSymbols, setRecentSymbols] = useState<InstrumentSummary[]>(() => readStoredRecentSymbols());
   const [recentSectionCollapsed, setRecentSectionCollapsed] = useState(false);
   const [favoriteIndicatorIds, setFavoriteIndicatorIds] = useState<string[]>(readFavoriteIndicatorIds);

@@ -1,11 +1,24 @@
-import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react';
 import type { DrawingTool } from '@/engine/types';
 import { useUiStore } from '@/store/uiStore';
 import { getDrawingToolMeta } from './ChartToolDock';
+import { clampCoordinate } from './common/useDraggableFloatingWindow';
 
 interface Position {
   x: number;
   y: number;
+}
+
+export function clampFavoriteToolbarPosition(
+  position: Position,
+  toolbar: { width: number; height: number },
+  viewport: { width: number; height: number },
+): Position {
+  const margin = 8;
+  return {
+    x: clampCoordinate(position.x, margin, Math.max(margin, viewport.width - toolbar.width - margin)),
+    y: clampCoordinate(position.y, margin, Math.max(margin, viewport.height - toolbar.height - margin)),
+  };
 }
 
 const FAVORITE_TOOLBAR_POS_KEY = 'eod-chart.favorite-toolbar.position.v1';
@@ -42,19 +55,45 @@ export function FavoriteToolsToolbar() {
 
   const [position, setPosition] = useState<Position>(readStoredPosition);
   const [isDragging, setIsDragging] = useState(false);
+  const toolbarRef = useRef<HTMLDivElement>(null);
   const dragStartRef = useRef<{ startX: number; startY: number; posX: number; posY: number } | null>(null);
 
   useEffect(() => {
     writeStoredPosition(position);
   }, [position]);
 
-  if (!visible || favoriteTools.length === 0) {
+  const hasTools = favoriteTools.length > 0;
+  useLayoutEffect(() => {
+    const toolbar = toolbarRef.current;
+    if (!toolbar) return;
+
+    const keepVisible = () => {
+      const bounds = toolbar.getBoundingClientRect();
+      const viewport = { width: window.innerWidth, height: window.innerHeight };
+      setPosition((current) => {
+        const next = clampFavoriteToolbarPosition(current, bounds, viewport);
+        return next.x === current.x && next.y === current.y ? current : next;
+      });
+    };
+
+    keepVisible();
+    window.addEventListener('resize', keepVisible);
+    const observer = new ResizeObserver(keepVisible);
+    observer.observe(toolbar);
+    return () => {
+      window.removeEventListener('resize', keepVisible);
+      observer.disconnect();
+    };
+  }, [visible, hasTools]);
+
+  if (!visible || !hasTools) {
     return null;
   }
 
   const handlePointerDown = (e: ReactPointerEvent<HTMLDivElement>) => {
     if ((e.target as HTMLElement).closest('button')) return;
     e.preventDefault();
+    const toolbar = e.currentTarget;
     setIsDragging(true);
     dragStartRef.current = {
       startX: e.clientX,
@@ -67,9 +106,10 @@ export function FavoriteToolsToolbar() {
       if (!dragStartRef.current) return;
       const dx = moveEvent.clientX - dragStartRef.current.startX;
       const dy = moveEvent.clientY - dragStartRef.current.startY;
-      const nextX = Math.max(10, Math.min(window.innerWidth - 100, dragStartRef.current.posX + dx));
-      const nextY = Math.max(40, Math.min(window.innerHeight - 80, dragStartRef.current.posY + dy));
-      setPosition({ x: nextX, y: nextY });
+      const bounds = toolbar.getBoundingClientRect();
+      const viewport = { width: window.innerWidth, height: window.innerHeight };
+      const next = { x: dragStartRef.current.posX + dx, y: dragStartRef.current.posY + dy };
+      setPosition(clampFavoriteToolbarPosition(next, bounds, viewport));
     };
 
     const handlePointerUp = () => {
@@ -87,6 +127,10 @@ export function FavoriteToolsToolbar() {
 
   return (
     <div
+      ref={toolbarRef}
+      className="favorite-tools-toolbar"
+      role="group"
+      aria-label="Favorite drawing tools"
       onPointerDown={handlePointerDown}
       style={{
         position: 'fixed',
@@ -95,6 +139,7 @@ export function FavoriteToolsToolbar() {
         zIndex: 1100,
         display: 'flex',
         flexDirection: isHorizontal ? 'row' : 'column',
+        flexWrap: isHorizontal ? 'wrap' : 'nowrap',
         alignItems: 'center',
         gap: 3,
         padding: '3px 5px',
@@ -102,6 +147,10 @@ export function FavoriteToolsToolbar() {
         border: '1px solid var(--border)',
         borderRadius: 6,
         boxShadow: '0 4px 14px rgba(0, 0, 0, 0.4)',
+        boxSizing: 'border-box',
+        maxWidth: 'calc(100vw - 16px)',
+        maxHeight: 'calc(100vh - 16px)',
+        overflow: 'auto',
         cursor: isDragging ? 'grabbing' : 'grab',
         userSelect: 'none',
         backdropFilter: 'blur(8px)',
@@ -139,6 +188,8 @@ export function FavoriteToolsToolbar() {
             key={toolId}
             type="button"
             onClick={() => setDrawingTool(toolId)}
+            aria-label={meta.title}
+            aria-pressed={isActive}
             title={`${meta.title} — ${meta.hint}`}
             style={{
               width: 28,
@@ -153,7 +204,6 @@ export function FavoriteToolsToolbar() {
               cursor: 'pointer',
               fontSize: 12,
               fontWeight: 600,
-              transition: 'background 0.1s, border-color 0.1s',
             }}
           >
             {meta.icon}
@@ -175,6 +225,7 @@ export function FavoriteToolsToolbar() {
       <button
         type="button"
         onClick={() => setFavoriteToolbarOrientation(isHorizontal ? 'vertical' : 'horizontal')}
+        aria-label={isHorizontal ? 'Switch to Vertical Layout' : 'Switch to Horizontal Layout'}
         title={isHorizontal ? 'Switch to Vertical Layout' : 'Switch to Horizontal Layout'}
         style={{
           width: 22,
@@ -197,6 +248,7 @@ export function FavoriteToolsToolbar() {
       <button
         type="button"
         onClick={() => setFavoriteToolbarVisible(false)}
+        aria-label="Hide Favorites Toolbar"
         title="Hide Favorites Toolbar"
         style={{
           width: 22,

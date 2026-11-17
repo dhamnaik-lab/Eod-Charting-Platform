@@ -1,5 +1,5 @@
 import { buildRenderableIndicators, getIndicatorCacheBucket, type RenderableOverlay, type RenderablePane } from './Indicators';
-import { computeCrosshair, drawCrosshair } from './Crosshair';
+import { computeCrosshair, drawCrosshair, formatVolume } from './Crosshair';
 import { computeVolumeProfile } from './VolumeProfile';
 import { drawHeatmap } from './Heatmap';
 import { precomputeConflation, type ConflationLevel } from './DataConflation';
@@ -153,6 +153,28 @@ const COLLAPSED_INDICATOR_PANE_HEIGHT = 32;
 export const PRICE_LEGEND_HEIGHT = 48;
 export const PRICE_LEGEND_IN_PLOT_CLEARANCE = 34;
 export const INDICATOR_LEGEND_HEIGHT = 28;
+
+const COMPACT_VOLUME_PANES = new Set([
+  'OBV', 'PVT', 'CVD', 'UP_DOWN_VOL', 'NET_VOLUME', 'VOLUME_DELTA', 'ADL',
+]);
+
+function getPaneReadoutHistogram(pane: RenderablePane, index: number): RenderablePane['histogram'] {
+  const histogram = pane.histogram;
+  const duplicateKey = histogram?.readoutDuplicateOf;
+  if (histogram && duplicateKey && pane.lines.some((line) =>
+    line.key === duplicateKey && typeof line.values[index] === 'number'
+    && line.values[index] === histogram.values[index]
+  )) return undefined;
+  return histogram;
+}
+
+function formatPaneValue(pane: RenderablePane, value: number, precision?: number): string {
+  const absolute = Math.abs(value);
+  if (COMPACT_VOLUME_PANES.has(pane.indicator.kind) && absolute >= 1000) {
+    return `${value < 0 ? '-' : ''}${formatVolume(absolute)}`;
+  }
+  return formatPrice(value, precision, precision);
+}
 const INDICATOR_PANE_SCALE_PADDING = 0.12;
 export const SHARED_AXIS_WIDTH = 80;
 export const PRICE_AXIS_HEADER_HEIGHT = 34;
@@ -955,7 +977,7 @@ export class ChartEngine {
           this.futureMarginMode,
         );
       } else {
-        const pivotIndex = (this.viewport.startIndex + this.viewport.endIndex) / 2;
+        const pivotIndex = pointerState.scaleX.toIndex(pointerState.clampedX);
         const stepCount = Math.max(1, Math.min(4, Math.round(Math.abs(event.deltaY) / 120) || 1));
         const zoomStep = 1.12;
         const factor = event.deltaY < 0 ? Math.pow(zoomStep, stepCount) : Math.pow(1 / zoomStep, stepCount);
@@ -965,6 +987,7 @@ export class ChartEngine {
           factor,
           this.bars.length,
           this.futureMarginMode,
+          'cursor',
         );
       }
 
@@ -1564,6 +1587,9 @@ export class ChartEngine {
         false,
         false, // drawBackground = false
         indicatorOccupiedRanges,
+        'right',
+        0,
+        (value, precision) => formatPaneValue(pane, value, precision),
       );
 
       if (this.valueLabelSettings.showIndicatorPaneValues) {
@@ -2006,8 +2032,8 @@ export class ChartEngine {
 
       const isCollapsed = this.collapsedIndicatorPanes[pane.indicator.id] === true;
       const indicatorPaneHeight = layout.paneHeights[paneIndex] ?? layout.paneHeight;
-      const indicatorLegendHeight = isCollapsed ? INDICATOR_LEGEND_HEIGHT : 0;
-      const indicatorPlotHeight = isCollapsed ? indicatorPaneHeight : Math.max(indicatorPaneHeight - indicatorLegendHeight, 1);
+      const indicatorLegendHeight = Math.min(INDICATOR_LEGEND_HEIGHT, Math.max(0, indicatorPaneHeight - 1));
+      const indicatorPlotHeight = Math.max(indicatorPaneHeight - indicatorLegendHeight, 1);
       const paneScaleOverride = this.paneScaleOverrides[pane.indicator.id];
       const paneScaleRange = paneScaleOverride ?? pane.fixedRange;
 
@@ -2746,9 +2772,6 @@ export class ChartEngine {
     }
 
     renderState.indicatorPanes.forEach(({ pane, context }) => {
-      if (context.collapsed) {
-        return;
-      }
       const tokens = this.buildPaneLegendTokens(pane, valueIndex);
       if (!tokens.length) {
         return;
@@ -2757,6 +2780,9 @@ export class ChartEngine {
       ctx.save();
       ctx.translate(0, context.top);
       const legendX = 6 + measurePaneTitleWidth(ctx, pane.title, renderState.layout.chartWidth) + 14;
+      ctx.beginPath();
+      ctx.rect(0, 0, renderState.layout.chartWidth, context.legendHeight);
+      ctx.clip();
       drawLegendTokens(
         ctx,
         tokens,
@@ -2881,7 +2907,7 @@ export class ChartEngine {
           if (typeof value === 'number') {
             tags.push({
               y: renderState.priceScaleY.toPixel(value),
-              text: this.formatIndicatorScaleLabel(line.label, value),
+              text: this.formatIndicatorScaleLabel(line.label, formatPrice(value)),
               color: line.color,
               role: 'overlay',
             });
@@ -2893,7 +2919,7 @@ export class ChartEngine {
           if (typeof value === 'number') {
             tags.push({
               y: renderState.priceScaleY.toPixel(value),
-              text: this.formatIndicatorScaleLabel(overlay.title, value),
+              text: this.formatIndicatorScaleLabel(overlay.title, formatPrice(value)),
               color: overlay.points.color,
               role: 'overlay',
             });
@@ -2958,8 +2984,7 @@ export class ChartEngine {
     return { high, low };
   }
 
-  private formatIndicatorScaleLabel(label: string, value: number): string {
-    const formattedValue = formatPrice(value);
+  private formatIndicatorScaleLabel(label: string, formattedValue: string): string {
     if (!this.valueLabelSettings.showIndicatorNameLabels) {
       return formattedValue;
     }
@@ -3014,18 +3039,19 @@ export class ChartEngine {
         return;
       }
       tokens.push({ text: line.label, color: labelColor, gapAfter: 4 });
-      tokens.push({ text: formatPrice(value), color: line.color, gapAfter: 10 });
+      tokens.push({ text: formatPaneValue(pane, value), color: line.color, gapAfter: 10 });
     });
 
-    if (pane.histogram) {
-      const histogramValue = pane.histogram.values[valueIndex];
+    const histogram = getPaneReadoutHistogram(pane, valueIndex);
+    if (histogram) {
+      const histogramValue = histogram.values[valueIndex];
       if (typeof histogramValue === 'number') {
         const histColor =
-          pane.histogram.colorValues?.[valueIndex] ??
-          (histogramValue >= 0 ? pane.histogram.positiveColor : pane.histogram.negativeColor);
-        tokens.push({ text: pane.histogram.label, color: labelColor, gapAfter: 4 });
+          histogram.colorValues?.[valueIndex] ??
+          (histogramValue >= 0 ? histogram.positiveColor : histogram.negativeColor);
+        tokens.push({ text: histogram.label, color: labelColor, gapAfter: 4 });
         tokens.push({
-          text: formatPrice(histogramValue),
+          text: formatPaneValue(pane, histogramValue),
           color: histColor,
           gapAfter: 10,
         });
@@ -3050,22 +3076,23 @@ export class ChartEngine {
       if (typeof value === 'number') {
         tags.push({
           y: context.scaleY.toPixel(value),
-          text: this.formatIndicatorScaleLabel(line.label, value),
+          text: this.formatIndicatorScaleLabel(line.label, formatPaneValue(pane, value)),
           color: line.color,
           role: 'indicator',
         });
       }
     });
 
-    if (pane.histogram) {
-      const value = pane.histogram.values[valueIndex];
+    const histogram = getPaneReadoutHistogram(pane, valueIndex);
+    if (histogram) {
+      const value = histogram.values[valueIndex];
       if (typeof value === 'number') {
         const histColor =
-          pane.histogram.colorValues?.[valueIndex] ??
-          (value >= 0 ? pane.histogram.positiveColor : pane.histogram.negativeColor);
+          histogram.colorValues?.[valueIndex] ??
+          (value >= 0 ? histogram.positiveColor : histogram.negativeColor);
         tags.push({
           y: context.scaleY.toPixel(value),
-          text: this.formatIndicatorScaleLabel(pane.histogram.label, value),
+          text: this.formatIndicatorScaleLabel(histogram.label, formatPaneValue(pane, value)),
           color: histColor,
           role: 'indicator',
         });
@@ -3089,7 +3116,9 @@ export class ChartEngine {
     }
 
     renderState.indicatorPanes.forEach(({ pane, context }) => {
-      labels.push(...niceYTicks(context.scaleY.min, context.scaleY.max, context.height).ticks.map((tick: number) => formatPrice(tick)));
+      if (context.collapsed) return;
+      const { ticks } = niceYTicks(context.scaleY.min, context.scaleY.max, context.plotHeight);
+      labels.push(...ticks.map((tick) => formatPaneValue(pane, tick)));
       if (this.valueLabelSettings.showIndicatorPaneValues) {
         labels.push(...this.buildIndicatorValueTags(pane, context, renderState.latestVisibleBarIndex).map((tag) => tag.text));
       }
@@ -4688,18 +4717,8 @@ export class ChartEngine {
       lastTime = time;
       
       const dx = this.panVelocity * dt;
-      const layout = computeChartLayout(
-        this.container.clientWidth,
-        this.container.clientHeight,
-        this.axisWidth,
-        this.leftAxisWidth,
-        this.xAxisHeight,
-        this.volumePct,
-        Object.keys(this.paneHeightOverrides),
-        this.paneHeightOverrides,
-        this.collapsedIndicatorPanes
-      );
-      const scaleX = buildScaleX(this.viewport, layout.chartWidth);
+      const { width, height } = this.overlayCanvas.getBoundingClientRect();
+      const { scaleX } = this.getCachedOrFreshRenderState(width, height);
       
       this.viewport = panViewport(
         this.viewport,

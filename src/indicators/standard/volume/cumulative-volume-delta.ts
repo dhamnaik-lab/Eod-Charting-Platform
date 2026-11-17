@@ -45,6 +45,7 @@ export const buildCVD: IndicatorBuilder<Extract<ChartIndicator, { kind: 'CVD' }>
     lines: [buildLineSeries('cvd_line', 'CVD', values, bars.length, '#2962FF', 1.8)],
     histogram: {
       key: 'cvd_hist',
+      readoutDuplicateOf: 'cvd_line',
       label: 'CVD Histogram',
       values,
       positiveColor: posColor,

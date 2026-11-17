@@ -31,6 +31,7 @@ interface ChartPriceLegendOverlayProps {
   paneScaleOverrides?: PaneScaleOverrides;
   layout: ChartLayout;
   hoverBarIndex: number | null;
+  showPriceSummary?: boolean;
   onSaveIndicator: (indicator: OverlayIndicator) => void;
   onRemoveIndicator: (indicatorId: string) => void;
   onToggleIndicatorVisibility: (indicatorId: string, visible: boolean) => void;
@@ -85,6 +86,7 @@ export function buildChartPriceLegendSnapshot({
   compareOverlays,
   overlays,
   hoverBarIndex,
+  showPriceSummary = true,
 }: Pick<
   ChartPriceLegendOverlayProps,
   | 'instrument'
@@ -97,6 +99,7 @@ export function buildChartPriceLegendSnapshot({
   | 'compareOverlays'
   | 'overlays'
   | 'hoverBarIndex'
+  | 'showPriceSummary'
 >): ChartPriceLegendSnapshot {
   const valueIndex = resolveValueIndex(bars, viewport, hoverBarIndex);
   const priceSummary = buildPriceSummary(
@@ -116,14 +119,14 @@ export function buildChartPriceLegendSnapshot({
 
   return {
     title: priceSummary.title,
-    segments: priceSummary.segments,
-    secondaryItems: legendItems.slice(0, MAX_SECONDARY_ITEMS).map((item) => ({
+    segments: showPriceSummary ? priceSummary.segments : [],
+    secondaryItems: legendItems.map((item) => ({
       label: item.label,
       color: item.color,
       hidden: item.kind === 'indicator' && item.hidden,
       segments: item.segments,
     })),
-    hiddenItemCount: Math.max(legendItems.length - MAX_SECONDARY_ITEMS, 0),
+    hiddenItemCount: 0,
   };
 }
 
@@ -140,6 +143,7 @@ export function ChartPriceLegendOverlay({
   paneScaleOverrides,
   layout,
   hoverBarIndex,
+  showPriceSummary = true,
   onSaveIndicator,
   onRemoveIndicator,
   onToggleIndicatorVisibility,
@@ -274,7 +278,7 @@ export function ChartPriceLegendOverlay({
           {priceSummary.title ? (
             <span style={summaryTitleStyle}>{priceSummary.title}</span>
           ) : null}{" "}
-          {priceSummary.segments.map((segment, index) => (
+          {showPriceSummary && priceSummary.segments.map((segment, index) => (
             <span
               key={`${segment.text}-${index}`}
               style={segment.tooltip ? { ...segmentStyle(segment), pointerEvents: "auto" } : segmentStyle(segment)}
@@ -683,6 +687,9 @@ function buildIndicatorLegendItems(
           }
           segments.push({ text: formatPrice(value), color: line.color });
         });
+        if (segments.length === 0 && (indicator.kind === "VWAP" || indicator.kind === "AVWAP" || indicator.kind === "VWMA")) {
+          segments.push({ text: "—", color: "var(--legend-muted)", tooltip: "Volume-weighted value unavailable for this bar" });
+        }
         if (renderable.points) {
           const pointValue = renderable.points.values[valueIndex];
           if (typeof pointValue === "number") {

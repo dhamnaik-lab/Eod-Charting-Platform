@@ -4,28 +4,20 @@ import { countVisibleBars } from '@/engine/ScaleManager';
 
 export function StatusBar() {
   const snapshot = useChartStore((state) => state.snapshot);
-  const chartTabs = useChartStore((state) => state.chartTabs);
-  const activeChartTabId = useChartStore((state) => state.activeChartTabId);
+  const activeTab = useChartStore((state) => getActiveChartTab(state.chartTabs, state.activeChartTabId));
   const isDatabaseTransitioning = useChartStore((state) => state.isDatabaseTransitioning);
   const databaseTransitionMessage = useChartStore((state) => state.databaseTransitionMessage);
   const importProgress = useChartStore((state) => state.importProgress);
   const downloadProgress = useChartStore((state) => state.downloadProgress);
   const workspaceAutosaveError = useChartStore((state) => state.workspaceAutosaveError);
-  const [clock, setClock] = useState(() => new Date());
-  const activeTab = getActiveChartTab(chartTabs, activeChartTabId);
   const visibleBarCount = activeTab ? countVisibleBars(activeTab.viewport, activeTab.displayBars.length) : 0;
-
-  useEffect(() => {
-    const timer = window.setInterval(() => setClock(new Date()), 1000);
-    return () => window.clearInterval(timer);
-  }, []);
 
   const dbName = isDatabaseTransitioning
     ? (databaseTransitionMessage ?? 'Opening DB...')
     : snapshot?.dbStats?.dbName ?? (snapshot?.activeDatabasePath ? 'Loading DB...' : 'No DB');
 
   const dbStatusColor = isDatabaseTransitioning
-    ? '#f59e0b'
+    ? 'var(--yellow-text)'
     : snapshot?.dbStats?.dbName
       ? 'var(--green)'
       : 'var(--text-mute)';
@@ -89,14 +81,26 @@ export function StatusBar() {
           <span style={{ color: 'var(--text-dim)', fontSize: 10 }}>{visibleBarCount === 1 ? 'bar' : 'bars'}</span>
         </span>
 
-        <span style={badgeStyle}>
-          <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--text)' }}>
-            {clock.toLocaleTimeString('en-IN', { hour12: false, timeZone: 'Asia/Kolkata' })}
-          </span>
-          <span style={{ fontSize: 9.5, color: 'var(--text-mute)', fontWeight: 600 }}>IST</span>
-        </span>
+        <IstClock />
       </div>
     </div>
+  );
+}
+
+function IstClock() {
+  const [clock, setClock] = useState(() => new Date());
+  useEffect(() => {
+    const timer = window.setInterval(() => setClock(new Date()), 1000);
+    return () => window.clearInterval(timer);
+  }, []);
+
+  return (
+    <span style={badgeStyle}>
+      <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--text)' }}>
+        {clock.toLocaleTimeString('en-IN', { hour12: false, timeZone: 'Asia/Kolkata' })}
+      </span>
+      <span style={{ fontSize: 9.5, color: 'var(--text-mute)', fontWeight: 600 }}>IST</span>
+    </span>
   );
 }
 

@@ -172,6 +172,7 @@ export function ChartCanvas({
   const currentTheme = useUiStore((state) => state.currentTheme);
   const customChartColors = useUiStore((state) => state.customChartColors);
   const chartScreenshotRequest = useUiStore((state) => state.chartScreenshotRequest);
+  const showPriceSummary = useUiStore((state) => state.uiFlags.ohlcvBarVisible);
   const setDrawingTool = useUiStore((state) => state.setDrawingTool);
   const selectDrawing = useChartStore((state) => state.selectDrawing);
   const drawingPropertiesDrawingId = useUiStore((state) => state.drawingPropertiesDrawingId);
@@ -647,6 +648,7 @@ export function ChartCanvas({
         compareOverlays,
         overlays,
         hoverBarIndex: legendBarIndex,
+        showPriceSummary,
       }),
       secondaryLegendExpanded: priceLegendExpanded,
     });
@@ -1943,6 +1945,7 @@ export function ChartCanvas({
           paneScaleOverrides={paneScaleOverrides}
           layout={layout}
           hoverBarIndex={legendBarIndex}
+          showPriceSummary={showPriceSummary}
           onSaveIndicator={updateIndicator}
           onRemoveIndicator={removeIndicator}
           onToggleIndicatorVisibility={toggleIndicatorVisibility}

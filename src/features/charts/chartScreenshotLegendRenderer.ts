@@ -44,11 +44,14 @@ export function drawScreenshotPriceLegend(
 
   if (secondaryLegendExpanded) {
     context.font = '700 11px "Segoe UI", sans-serif';
-    snapshot.secondaryItems.forEach((item, index) => {
-      const y = 41 + index * 17;
-      if (y > 112) {
-        return;
-      }
+    const firstRowY = 41;
+    const rowHeight = 17;
+    const legendBottom = Math.min(layout.priceHeight, screenshot.height / pixelRatio);
+    const rowCapacity = Math.max(0, Math.floor((legendBottom - firstRowY - 8) / rowHeight) + 1);
+    const needsOverflowRow = snapshot.hiddenItemCount > 0 || snapshot.secondaryItems.length > rowCapacity;
+    const visibleItems = snapshot.secondaryItems.slice(0, Math.max(0, rowCapacity - Number(needsOverflowRow)));
+    visibleItems.forEach((item, index) => {
+      const y = firstRowY + index * rowHeight;
 
       const itemColor = item.hidden ? 'var(--legend-muted)' : item.color;
       context.fillStyle = resolveCanvasColor(itemColor, '#91aac2');
@@ -62,12 +65,13 @@ export function drawScreenshotPriceLegend(
       });
     });
 
-    if (snapshot.hiddenItemCount > 0) {
+    const hiddenItemCount = snapshot.hiddenItemCount + snapshot.secondaryItems.length - visibleItems.length;
+    if (hiddenItemCount > 0 && rowCapacity > 0) {
       drawText(
         context,
-        `+${snapshot.hiddenItemCount} more`,
+        `+${hiddenItemCount} more`,
         left,
-        41 + snapshot.secondaryItems.length * 17,
+        firstRowY + visibleItems.length * rowHeight,
         maxX,
         0,
         'var(--legend-muted)',

@@ -265,8 +265,12 @@ html[data-theme="classic-light-refined"] aside button:focus-visible {
   width: 56px !important;
 }
 
-/* Honor reduced-motion preferences for Sidebar hover fades without changing colors or layout. */
+.favorite-tools-toolbar button {
+  transition: background 0.1s, border-color 0.1s;
+}
+
 @media (prefers-reduced-motion: reduce) {
+  .favorite-tools-toolbar button,
   .sidebar-row-shell,
   .sidebar-indicator-row {
     transition: none;

@@ -46,6 +46,7 @@ export const buildUP_DOWN_VOL: IndicatorBuilder<Extract<ChartIndicator, { kind: 
     lines: [buildLineSeries('delta', 'Delta', delta, bars.length, indicator.deltaColor ?? '#2962FF', 1.8)],
     histogram: {
       key: 'up_down_hist',
+      readoutDuplicateOf: 'delta',
       label: 'Net Volume',
       values: delta,
       positiveColor: upColor,

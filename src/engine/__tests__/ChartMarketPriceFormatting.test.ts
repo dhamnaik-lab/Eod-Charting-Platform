@@ -39,6 +39,6 @@ describe('Chart primary market-price two-decimal formatting', () => {
     expect(renderer).toContain('return [0, 0];');
     expect(engine).toContain('const pricePrecision = Math.max(getPrecisionFromStep(priceTicks.step), 2);');
     expect(engine).toContain('formatPrice(tick, pricePrecision, pricePrecision)');
-    expect(engine).toContain('const formattedValue = formatPrice(value);');
+    expect(engine).toContain('this.formatIndicatorScaleLabel(line.label, formatPrice(value))');
   });
 });

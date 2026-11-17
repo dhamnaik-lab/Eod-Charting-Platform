@@ -3,12 +3,14 @@ import { useDailyMarketMovers } from './useDailyMarketMovers';
 import type { NormalizedMoverRecord } from './marketMoversTypes';
 import { marketMoversStyles } from './marketMoversStyles';
 import { useChartStore } from '@/store/chartStore';
+import type { SymbolExchangeFilter } from '@/platform';
 
 const PAGE_SIZE = 100;
 
 export function MarketMoversFullView() {
   const {
     settings,
+    setSettings,
     snapshot,
     status,
     error,
@@ -18,6 +20,7 @@ export function MarketMoversFullView() {
     cancelScan,
   } = useDailyMarketMovers();
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
+  const [resultView, setResultView] = useState<'price' | 'volume'>('price');
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
   const clickTimers = useRef(new Map<string, ReturnType<typeof setTimeout>>());
   const activeChartTabId = useChartStore((state) => state.activeChartTabId);
@@ -44,9 +47,13 @@ export function MarketMoversFullView() {
     () => snapshot?.losers.slice(0, visibleCount) ?? [],
     [snapshot, visibleCount],
   );
-  const hasMore = Boolean(
-    snapshot && (snapshot.gainers.length > visibleCount || snapshot.losers.length > visibleCount),
+  const volumeSurge = useMemo(
+    () => snapshot?.volumeSurge.slice(0, visibleCount) ?? [],
+    [snapshot, visibleCount],
   );
+  const hasMore = Boolean(snapshot && (resultView === 'volume'
+    ? snapshot.volumeSurge.length > visibleCount
+    : snapshot.gainers.length > visibleCount || snapshot.losers.length > visibleCount));
 
   const openActive = (record: NormalizedMoverRecord) => {
     void useChartStore
@@ -156,6 +163,35 @@ export function MarketMoversFullView() {
         </button>
       </div>
 
+      <div style={marketMoversStyles.subToolbar}>
+        <label>
+          Market exchange{' '}
+          <select
+            value={settings.exchange}
+            onChange={(event) => setSettings({ exchange: event.target.value as SymbolExchangeFilter })}
+            style={marketMoversStyles.selectInput}
+          >
+            <option value="NSE">NSE</option>
+            <option value="BSE">BSE</option>
+            <option value="all">NSE + BSE</option>
+          </select>
+        </label>
+        <label>
+          Results{' '}
+          <select
+            value={resultView}
+            onChange={(event) => {
+              setResultView(event.target.value === 'volume' ? 'volume' : 'price');
+              setVisibleCount(PAGE_SIZE);
+            }}
+            style={marketMoversStyles.selectInput}
+          >
+            <option value="price">Gainers and losers</option>
+            <option value="volume">Volume surge</option>
+          </select>
+        </label>
+      </div>
+
       {status === 'loading' && (
         <div style={marketMoversStyles.statusBanner}>
           <span>
@@ -204,6 +240,14 @@ export function MarketMoversFullView() {
         <div style={marketMoversStyles.emptyState}>
           No qualifying market-mover records for the scanned settings.
         </div>
+      ) : resultView === 'volume' ? (
+        <ResultTable
+          title="VOLUME SURGE"
+          records={volumeSurge}
+          selectedKey={selectedKey}
+          onClickRecord={scheduleOpen}
+          onDoubleClickRecord={openDouble}
+        />
       ) : (
         <div
           style={{

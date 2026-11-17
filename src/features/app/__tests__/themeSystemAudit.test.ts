@@ -192,6 +192,38 @@ describe('Charcoal Pro text hierarchy (F-58)', () => {
   });
 });
 
+describe('Eikon Dark Pro text hierarchy (F-60)', () => {
+  it('keeps muted text below secondary text and makes strong borders visible', () => {
+    const tokens = themeTokens('refinitiv-dark');
+    const levels = ['--text', '--text-dim', '--text-mute'] as const;
+    const [primary, secondary, muted] = levels.map((token) => luminance(toRgb(tokens[token])));
+    expect(primary).toBeGreaterThan(secondary);
+    expect(secondary).toBeGreaterThan(muted);
+    expect(contrastRatio(tokens['--border2'], tokens['--bg2'])).toBeGreaterThanOrEqual(3);
+  });
+});
+
+describe('accent-filled controls (F-61/F-62)', () => {
+  it.each([
+    'AboutDialog.tsx',
+    'BhavcopyDownloadWindow.styles.ts',
+    'FavoriteToolsToolbar.tsx',
+    'FAQDialog.tsx',
+    'IndicatorPickerDialog.tsx',
+    'KeyboardShortcutsDialog.tsx',
+    'LayoutManagerDialog.tsx',
+  ])('pairs accent backgrounds with the contrast token in %s', (file) => {
+    const source = readFileSync(resolve('src/components', file), 'utf8');
+    const pairs = [...source.matchAll(
+      /background(?:Color)?:[^\r\n]*'var\(--accent\)'[^\r\n]*,\s+color:([^\r\n]+)/g,
+    )];
+    expect(pairs.length).toBeGreaterThan(0);
+    for (const [, foreground] of pairs) {
+      expect(foreground.split(' : ')[0]).toContain("'var(--accent-contrast)'");
+    }
+  });
+});
+
 describe('pre-paint theme bootstrap', () => {
   it('recognises exactly the palette theme ids exposed by the renderer', () => {
     const knownBlock = /var known = \[([\s\S]*?)\];/.exec(BOOT_SCRIPT);

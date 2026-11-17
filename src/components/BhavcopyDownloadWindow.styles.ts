@@ -515,7 +515,7 @@ export const primaryButtonStyle: CSSProperties = {
   border: '1px solid var(--accent)',
   borderRadius: 4,
   backgroundColor: 'var(--accent)',
-  color: '#ffffff',
+  color: 'var(--accent-contrast)',
   fontSize: 13,
   fontWeight: 500,
   cursor: 'pointer',

@@ -21,6 +21,8 @@ export interface RenderableHistogramSeries {
   values: Array<number | null>;
   positiveColor: string;
   negativeColor: string;
+  /** A line with the same values that takes precedence for pane readouts. */
+  readoutDuplicateOf?: string;
   /** Per-bar fill colors. When present, overrides positiveColor/negativeColor per bar. */
   colorValues?: Array<string | null>;
 }
