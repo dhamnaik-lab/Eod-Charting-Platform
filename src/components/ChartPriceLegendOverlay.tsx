@@ -206,8 +206,8 @@ export function ChartPriceLegendOverlay({
       viewport,
     ],
   );
-  const visibleLegendItems = legendItems;
-  const hiddenItemCount = 0;
+  const visibleLegendItems = legendItems.slice(0, MAX_SECONDARY_ITEMS);
+  const hiddenItemCount = legendItems.length - visibleLegendItems.length;
   const hasSecondaryLegend = visibleLegendItems.length > 0;
   if (
     !instrument &&

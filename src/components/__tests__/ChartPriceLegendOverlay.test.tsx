@@ -277,6 +277,30 @@ describe('ChartPriceLegendOverlay CSP-safe hover/focus actions', () => {
 });
 
 describe('audit legend readouts', () => {
+  it('limits the visible legend and its actions to five studies while exporting all eight', () => {
+    const overlays: OverlayIndicator[] = Array.from({ length: 8 }, (_, index) => ({
+      ...emaOverlay,
+      id: `ema-legend-${index}`,
+      period: index + 1,
+      visible: index !== 4,
+    }));
+    const props = buildProps({ overlays });
+    const markup = renderToStaticMarkup(<ChartPriceLegendOverlay {...props} />);
+    const snapshot = buildChartPriceLegendSnapshot(props);
+
+    expect(markup.match(/class="price-legend-item"/g)).toHaveLength(5);
+    expect(markup).toContain('+3 more');
+    expect(markup).toContain('aria-label="EMA(1) settings"');
+    expect(markup).toContain('aria-label="Hide EMA(1)"');
+    expect(markup).toContain('aria-label="Show EMA(5)"');
+    expect(markup).toContain('aria-label="Remove EMA(5)"');
+    expect(markup).not.toContain('EMA(6)');
+    expect(snapshot.secondaryItems.map(({ label }) => label)).toEqual(
+      overlays.map((_, index) => `EMA(${index + 1})`),
+    );
+    expect(snapshot.hiddenItemCount).toBe(0);
+  });
+
   it('marks VWAP unavailable for a zero-volume series without changing the OHLCV readout', () => {
     const props = buildProps({
       bars: [{ ...bars[0], volume: 0 }],
