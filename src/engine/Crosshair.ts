@@ -1,5 +1,5 @@
 import { formatCrosshairLogicalDate } from './ScaleManager';
-import { formatPrice, resolveHighContrastText } from './Renderer';
+import { formatPrice, resolveAxisTagText, resolveHighContrastText } from './Renderer';
 import type { ChartTheme, ChartTimeframe, CrosshairState, OHLCBar, ScaleX, Viewport } from './types';
 
 export function computeCrosshair(
@@ -110,7 +110,7 @@ export function drawCrosshair(
   ctx.beginPath();
   ctx.arc(x, y, 2.5, 0, Math.PI * 2);
   ctx.fill();
-  ctx.fillStyle = '#ffffff';
+  ctx.fillStyle = resolveAxisTagText(theme.crosshair, theme.background);
   ctx.beginPath();
   ctx.arc(x, y, 1, 0, Math.PI * 2);
   ctx.fill();
@@ -134,22 +134,20 @@ export function drawCrosshair(
     }
   }
 
-  ctx.fillStyle = 'rgba(9, 18, 29, 0.96)';
+  const priceLabelBackground = theme.axisLabelBackground;
+  const priceLabelText = resolveAxisTagText(priceLabelBackground, theme.axisBackground);
+  ctx.fillStyle = priceLabelBackground;
   ctx.fillRect(width - axisWidth, priceLabelTop, axisWidth, 20);
-  ctx.strokeStyle = theme.axisLabelBackground;
-  ctx.strokeRect(width - axisWidth, priceLabelTop, axisWidth, 20);
-  ctx.fillStyle = '#ffffff';
+  ctx.fillStyle = priceLabelText;
   ctx.font = '600 11px "Segoe UI", sans-serif';
   ctx.textAlign = 'right';
   ctx.textBaseline = 'middle';
   ctx.fillText(formatPrice(price), width - 6, priceLabelTop + 10);
 
   if (leftAxisWidth > 0) {
-    ctx.fillStyle = 'rgba(9, 18, 29, 0.96)';
+    ctx.fillStyle = priceLabelBackground;
     ctx.fillRect(-leftAxisWidth, priceLabelTop, leftAxisWidth, 20);
-    ctx.strokeStyle = theme.axisLabelBackground;
-    ctx.strokeRect(-leftAxisWidth, priceLabelTop, leftAxisWidth, 20);
-    ctx.fillStyle = '#ffffff';
+    ctx.fillStyle = priceLabelText;
     ctx.textAlign = 'left';
     ctx.fillText(formatPrice(price), -leftAxisWidth + 6, priceLabelTop + 10);
   }

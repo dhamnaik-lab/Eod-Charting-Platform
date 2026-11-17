@@ -3,6 +3,9 @@ import { create } from 'zustand';
 const SIDEBAR_WIDTH_KEY = 'eod-chart.sidebar.width.v1';
 const SIDEBAR_COLLAPSED_KEY = 'eod-chart.sidebar.collapsed.v1';
 const SIDEBAR_PINNED_KEY = 'eod-chart.sidebar.pinned.v1';
+const SIDEBAR_PANEL_KEY = 'eod-chart.sidebar.panel.v1';
+
+export type SidebarPanel = 'symbols' | 'indicators' | 'watchlist' | 'market-movers';
 const MIN_SIDEBAR_WIDTH = 200;
 const MAX_SIDEBAR_WIDTH = 320;
 
@@ -10,6 +13,8 @@ interface WorkspaceStoreState {
   sidebarWidth: number;
   sidebarCollapsed: boolean;
   sidebarPinned: boolean;
+  sidebarPanel: SidebarPanel;
+  setSidebarPanel: (panel: SidebarPanel) => void;
   setSidebarWidth: (width: number) => void;
   setSidebarCollapsed: (collapsed: boolean) => void;
   toggleSidebarCollapsed: () => void;
@@ -55,10 +60,22 @@ function readStoredSidebarPinned(): boolean {
   return stored === null ? true : stored === '1';
 }
 
+function readStoredSidebarPanel(): SidebarPanel {
+  if (typeof window === 'undefined') return 'symbols';
+  const panel = window.localStorage.getItem(SIDEBAR_PANEL_KEY);
+  if (panel === 'indicators' || panel === 'watchlist' || panel === 'market-movers') return panel;
+  return 'symbols';
+}
+
 export const useWorkspaceStore = create<WorkspaceStoreState>((set, get) => ({
   sidebarWidth: readStoredSidebarWidth(),
   sidebarCollapsed: readStoredSidebarCollapsed(),
   sidebarPinned: readStoredSidebarPinned(),
+  sidebarPanel: readStoredSidebarPanel(),
+  setSidebarPanel: (sidebarPanel) => {
+    writeStorageValue(SIDEBAR_PANEL_KEY, sidebarPanel);
+    set({ sidebarPanel });
+  },
   setSidebarWidth: (width) => {
     const nextWidth = clampSidebarWidth(width);
     writeStorageValue(SIDEBAR_WIDTH_KEY, String(nextWidth));

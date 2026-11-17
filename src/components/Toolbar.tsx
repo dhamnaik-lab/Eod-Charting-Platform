@@ -25,7 +25,6 @@ export function Toolbar() {
   const removeIndicator = useChartStore((state) => state.removeIndicator);
   const setShowVolume = useChartStore((state) => state.setShowVolume);
   const setChartType = useChartStore((state) => state.setChartType);
-  const setLayoutMode = useChartStore((state) => state.setLayoutMode);
   const adjustedMode = useChartStore((state) => state.adjustedMode);
   const setAdjustedMode = useChartStore((state) => state.setAdjustedMode);
   const addToast = useChartStore((state) => state.addToast);
@@ -44,6 +43,7 @@ export function Toolbar() {
   const openAlertManager = useUiStore((state) => state.openAlertManager);
   const openSignalSettingsDialog = useUiStore((state) => state.openSignalSettingsDialog);
   const openIndicatorPicker = useUiStore((state) => state.openIndicatorPicker);
+  const setCommandPaletteOpen = useUiStore((state) => state.setCommandPaletteOpen);
   const signalRules = useUiStore((state) => state.signalRules);
   const signalSettingsDialogOpen = useUiStore((state) => state.signalSettingsDialogOpen);
   const [screenshotMenuOpen, setScreenshotMenuOpen] = useState(false);
@@ -371,6 +371,14 @@ export function Toolbar() {
           }}
         />
       ) : null}
+      <button
+        type="button"
+        style={actionButtonStyle}
+        onClick={() => setCommandPaletteOpen(true)}
+        title="Open command palette (Ctrl+K)"
+      >
+        Commands
+      </button>
       <div style={screenshotControlStyle} onMouseDown={(event) => event.stopPropagation()}>
         <button
           type="button"

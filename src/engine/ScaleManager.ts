@@ -234,21 +234,23 @@ export function clampViewport(
 
 export function zoomViewport(
   viewport: Viewport,
-  _pivotIndex: number,
+  pivotIndex: number,
   factor: number,
   totalBars: number,
   futureMarginMode: FutureMarginMode = 'normal',
+  anchor: 'right' | 'cursor' = 'right',
 ): Viewport {
   const span = viewport.endIndex - viewport.startIndex;
   const minFutureBars = getAllowedFutureBars(5, futureMarginMode);
   const minSpan = totalBars > 0 ? Math.min(totalBars + minFutureBars, 5 + minFutureBars) : 5 + minFutureBars;
   const maxSpan = totalBars > 0 ? totalBars + getAllowedFutureBars(span, futureMarginMode) : minSpan;
   const nextSpan = Math.max(minSpan, Math.min(span / factor, maxSpan));
-  // Keep the current right edge fixed while zooming so zoom-out reveals more history to the left
-  // without introducing horizontal chart drift.
-  const rightEdge = viewport.endIndex;
-  const nextStart = rightEdge - nextSpan;
-  return clampViewport({ startIndex: nextStart, endIndex: rightEdge }, totalBars, 5, futureMarginMode);
+  // ScaleX.toIndex refers to bar centres. Restore the half-slot offset before anchoring.
+  const pivotRatio = anchor === 'cursor' && span > 0
+    ? Math.max(0, Math.min(1, (pivotIndex + 0.5 - viewport.startIndex) / span))
+    : 1;
+  const nextStart = viewport.startIndex + (span - nextSpan) * pivotRatio;
+  return clampViewport({ startIndex: nextStart, endIndex: nextStart + nextSpan }, totalBars, 5, futureMarginMode);
 }
 
 export function panViewport(

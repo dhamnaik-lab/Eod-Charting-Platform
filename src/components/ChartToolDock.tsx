@@ -598,6 +598,8 @@ function FlyoutToolButton({
           e.stopPropagation();
           onToggleFavorite();
         }}
+        aria-label={isFavorite ? `Remove ${title} from Favorites` : `Add ${title} to Favorites`}
+        aria-pressed={isFavorite}
         title={isFavorite ? 'Remove from Favorites' : 'Add to Favorites'}
         style={{
           position: 'absolute',

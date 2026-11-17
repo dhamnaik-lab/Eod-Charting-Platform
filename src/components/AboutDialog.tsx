@@ -444,7 +444,7 @@ const footerStyle: React.CSSProperties = {
 const footerButtonStyle: React.CSSProperties = {
   padding: '8px 24px',
   backgroundColor: 'var(--accent)',
-  color: 'var(--text)',
+  color: 'var(--accent-contrast)',
   border: 'none',
   borderRadius: 4,
   fontWeight: 600,

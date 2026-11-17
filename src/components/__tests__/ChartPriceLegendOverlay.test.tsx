@@ -276,6 +276,56 @@ describe('ChartPriceLegendOverlay CSP-safe hover/focus actions', () => {
   });
 });
 
+describe('audit legend readouts', () => {
+  it('limits the visible legend and its actions to five studies while exporting all eight', () => {
+    const overlays: OverlayIndicator[] = Array.from({ length: 8 }, (_, index) => ({
+      ...emaOverlay,
+      id: `ema-legend-${index}`,
+      period: index + 1,
+      visible: index !== 4,
+    }));
+    const props = buildProps({ overlays });
+    const markup = renderToStaticMarkup(<ChartPriceLegendOverlay {...props} />);
+    const snapshot = buildChartPriceLegendSnapshot(props);
+
+    expect(markup.match(/class="price-legend-item"/g)).toHaveLength(5);
+    expect(markup).toContain('+3 more');
+    expect(markup).toContain('aria-label="EMA(1) settings"');
+    expect(markup).toContain('aria-label="Hide EMA(1)"');
+    expect(markup).toContain('aria-label="Show EMA(5)"');
+    expect(markup).toContain('aria-label="Remove EMA(5)"');
+    expect(markup).not.toContain('EMA(6)');
+    expect(snapshot.secondaryItems.map(({ label }) => label)).toEqual(
+      overlays.map((_, index) => `EMA(${index + 1})`),
+    );
+    expect(snapshot.hiddenItemCount).toBe(0);
+  });
+
+  it('marks VWAP unavailable for a zero-volume series without changing the OHLCV readout', () => {
+    const props = buildProps({
+      bars: [{ ...bars[0], volume: 0 }],
+      viewport: { startIndex: 0, endIndex: 1 },
+      overlays: [{ id: 'vwap-test', kind: 'VWAP', placement: 'overlay', color: '#ffffff' }],
+    });
+    const snapshot = buildChartPriceLegendSnapshot(props);
+    expect(snapshot.secondaryItems[0].segments).toContainEqual(expect.objectContaining({
+      text: '—', tooltip: 'Volume-weighted value unavailable for this bar',
+    }));
+    expect(snapshot.segments.at(-2)?.text).toBe('0');
+  });
+
+  it('hides the price summary while keeping instrument and study information', () => {
+    const props = buildProps({ showPriceSummary: false });
+    const snapshot = buildChartPriceLegendSnapshot(props);
+    expect(snapshot.title).toContain('VEDL');
+    expect(snapshot.segments).toEqual([]);
+    expect(snapshot.secondaryItems.length).toBeGreaterThan(0);
+    const markup = renderToStaticMarkup(<ChartPriceLegendOverlay {...props} />);
+    expect(markup).toContain('VEDL');
+    expect(markup).not.toContain('Volume 1,200');
+  });
+});
+
 describe('F-01 price legend volume', () => {
   it('shows Indian compact volume for the last visible bar in DOM and screenshot snapshot', () => {
     const props = buildProps();

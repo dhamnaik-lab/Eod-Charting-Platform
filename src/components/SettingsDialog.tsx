@@ -11,6 +11,7 @@ import {
 import {
   APP_THEME_SELECT_OPTIONS,
   applyAppTheme,
+  getChartTheme,
   normalizeAppThemeSelection,
   resolveAppTheme,
   type AppThemeSelectionId,
@@ -830,6 +831,23 @@ export function SettingsDialog() {
         {activeSection === 'chart-colors' && (
         <div style={sectionStyle}>
           <div style={sectionTitleStyle}>Chart Colors</div>
+          <button
+            type="button"
+            style={{ ...secondaryButtonStyle, alignSelf: 'flex-start' }}
+            onClick={() => {
+              const theme = getChartTheme(resolveAppTheme(settings.theme));
+              setSettings({
+                ...settings,
+                candleUpColor: theme.candleUp,
+                candleDownColor: theme.candleDown,
+                gridColor: theme.gridLine,
+                crosshairColor: theme.crosshair,
+                chartColorsCustomized: false,
+              });
+            }}
+          >
+            Reset to Theme
+          </button>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12, maxWidth: 440 }}>
             <ColorToolboxRow
               label="Candle Up"

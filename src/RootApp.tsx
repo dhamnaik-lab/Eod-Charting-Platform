@@ -350,7 +350,9 @@ export default function RootApp() {
         ) : null}
         <main
           style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}
-          onMouseDownCapture={() => {
+          onMouseDownCapture={(event) => {
+            const target = event.target;
+            if (!(target instanceof Node) || !event.currentTarget.contains(target)) return;
             if (!sidebarPinned && sidebarOpen) {
               setSidebarCollapsed(true);
             }

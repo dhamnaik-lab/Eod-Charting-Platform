@@ -1,5 +1,16 @@
 # EOD Charting Platform — phase tracker for the next thread
 
+## PR #116 independent-audit follow-up — Windows acceptance pending
+
+- **Candidate scope:** IA-02 corrected the on-screen legend cap. IA-03 mounted browser coverage verified unpinned-sidebar behavior with filters and the context menu. IA-01 now records partial resolution and the axis-width architecture gate. IA-04 remains a native profiling follow-up.
+- **Next:** use the new portable and the [operator checklist](docs/audits/2026-11-17-ux-audit-completion/FINAL_REPORT.md). PR #116 remains draft.
+
+## Original coordinated 76-finding UX audit — prior candidate
+
+- **Completed candidate scope (17 November 2026, IST).** Reconciled 76 findings at verified main `3950985f7c47bc60ff87728a60245a3cc62bf55d`. The candidate has 21 validated fixes, 13 previously fixed findings and two findings whose old defect is inapplicable.
+- **Open.** 24 findings require design approval and 16 are deferred with reasons. The scanner remains core-owned and the database workflow is unchanged. See the [report and operator checklist](docs/audits/2026-11-17-ux-audit-completion/FINAL_REPORT.md).
+- **Next.** Review the portable on Windows and log acceptance evidence for its exact hash. Source review and approval are required before a merge.
+
 ## Application design audit bounded pass — source complete, native acceptance next
 
 - **Completed (15 November 2026):** transient tile hover; shared modal lifecycle and chart-tab keyboard semantics; bounded window stacking and themed confirmations; demand-driven chart frames and indicator-bundle reuse; blocking-worker dispatch for symbol reads. Renderer typecheck, 80 focused Vitest tests, 7 Rust tests and 13 isolated browser checks passed.

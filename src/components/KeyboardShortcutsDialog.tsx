@@ -100,6 +100,15 @@ const CHART_SHORTCUTS: ShortcutItem[] = [
   },
 ];
 
+const FOCUSED_CONTROL_SHORTCUTS: ShortcutItem[] = [
+  { keys: 'Arrow Left / Right', action: 'Select the previous / next chart tab', note: 'Focus a chart tab first.' },
+  { keys: 'Home / End', action: 'Select the first / last chart tab', note: 'Focus a chart tab first.' },
+  { keys: 'Arrow keys', action: 'Move a floating window', note: 'Focus its title bar first.' },
+  { keys: 'Arrow keys', action: 'Resize a floating window', note: 'Focus its resize handle first.' },
+  { keys: 'Arrow Up / Down', action: 'Resize an indicator pane', note: 'Focus the pane separator first.' },
+  { keys: 'Arrow Up / Down / Enter', action: 'Select / add a study', note: 'Focus indicator search first.' },
+];
+
 const COMMAND_PALETTE_SHORTCUTS: ShortcutItem[] = [
   {
     keys: 'Arrow Up / Down',
@@ -162,6 +171,7 @@ export function KeyboardShortcutsDialog() {
         </div>
         <ShortcutSection title="Workspace" items={WORKSPACE_SHORTCUTS} />
         <ShortcutSection title="Chart" items={CHART_SHORTCUTS} />
+        <ShortcutSection title="Focused Controls" items={FOCUSED_CONTROL_SHORTCUTS} />
         <ShortcutSection title="Command Palette" items={COMMAND_PALETTE_SHORTCUTS} />
       </div>
       <div style={footerStyle}>

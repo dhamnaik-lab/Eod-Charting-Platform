@@ -35,7 +35,7 @@ import {
 import { readAppSettings, writeAppSettings, type AppSettings } from '@/features/app/appSettingsService';
 import { ColorToolbox } from '@/components/common/ColorToolbox';
 
-type SettingsSection = 'Symbol' | 'Status line' | 'Scales and lines' | 'Canvas' | 'Alerts' | 'Events';
+type SettingsSection = 'Symbol' | 'Axis value labels' | 'Scales and lines' | 'Canvas' | 'Alerts' | 'Events';
 
 interface ChartSettingsDialogProps extends ChartSettingsDraft {
   chartType: ChartType;
@@ -242,8 +242,8 @@ export function ChartSettingsDialog({
                 onSetChartVisualSettings={editVisualSettings}
               />
             ) : null}
-            {activeSection === 'Status line' ? (
-              <StatusLineSettings
+            {activeSection === 'Axis value labels' ? (
+              <AxisValueLabelSettings
                 allValueLabelsEnabled={allValueLabelsEnabled}
                 valueLabelSettings={draftSettings.valueLabelSettings}
                 onSetShowValueLabels={(show) => editValueLabelSettings(
@@ -479,7 +479,7 @@ function SymbolSettings({
   );
 }
 
-function StatusLineSettings({
+function AxisValueLabelSettings({
   allValueLabelsEnabled,
   valueLabelSettings,
   onSetShowValueLabels,
@@ -492,8 +492,8 @@ function StatusLineSettings({
 }) {
   return (
     <>
-      <div style={sectionEyebrowStyle}>Status line values</div>
-      <ToggleRow label="All status values" checked={allValueLabelsEnabled} onChange={onSetShowValueLabels} />
+      <div style={sectionEyebrowStyle}>Axis value labels</div>
+      <ToggleRow label="Show all axis value labels" checked={allValueLabelsEnabled} onChange={onSetShowValueLabels} />
       <ToggleRow
         label="Symbol name"
         checked={valueLabelSettings.showSymbolNameLabel}
@@ -908,7 +908,7 @@ function getSectionGlyph(section: SettingsSection): string {
   switch (section) {
     case 'Symbol':
       return '|';
-    case 'Status line':
+    case 'Axis value labels':
       return '-';
     case 'Scales and lines':
       return '+';
@@ -953,7 +953,7 @@ function isRuleForInstrument(rule: EodAlertRule, instrument: InstrumentKey | nul
   );
 }
 
-const SETTINGS_SECTIONS: SettingsSection[] = ['Symbol', 'Status line', 'Scales and lines', 'Canvas', 'Alerts', 'Events'];
+const SETTINGS_SECTIONS: SettingsSection[] = ['Symbol', 'Axis value labels', 'Scales and lines', 'Canvas', 'Alerts', 'Events'];
 const CHART_EVENT_OPTIONS: ChartMarkerEventType[] = ['BONUS', 'SPLIT', 'DIVIDEND', 'RIGHTS', 'NAME_CHANGE', 'SYMBOL_CHANGE'];
 
 const CHART_TYPE_OPTIONS: Array<{ value: ChartType; label: string }> = [
