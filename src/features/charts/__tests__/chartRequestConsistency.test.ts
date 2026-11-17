@@ -131,6 +131,52 @@ describe('adjustment-mode reloads', () => {
 });
 
 describe('chart request ownership', () => {
+  it('resets the previous price-axis range when Market Movers replaces the active instrument', async () => {
+    const h = harness();
+    const oldPriceRange = { min: 72000, max: 88000 };
+    const paneRange = { min: -50, max: 50 };
+    h.setState({
+      chartTabs: h.getState().chartTabs.map((tab) => tab.id === 'one'
+        ? { ...tab, paneScaleOverrides: { price: oldPriceRange, obv: paneRange } }
+        : tab),
+    });
+    const nextInstrument = { exchange: 'NSE' as const, symbol: 'CHEMPLASTS' };
+    h.read.mockResolvedValue({
+      ...result('CHEMPLASTS', 238),
+      requestedExchange: 'NSE',
+      instrument: nextInstrument,
+    });
+
+    await h.controller.loadInstrument(nextInstrument);
+
+    const loaded = h.getState().chartTabs[0];
+    expect(loaded.instrument).toEqual(nextInstrument);
+    expect(loaded.rawBars[0].close).toBe(238);
+    expect(loaded.paneScaleOverrides).toEqual({ obv: paneRange });
+    expect(h.getState().chartTabs[1].instrument).toEqual(h.instrument);
+    expect(h.toast).not.toHaveBeenCalled();
+  });
+
+  it('keeps manual price-axis and indicator ranges when reloading the same instrument', async () => {
+    const h = harness();
+    const priceRange = { min: 72000, max: 88000 };
+    const paneRange = { min: -50, max: 50 };
+    h.setState({
+      chartTabs: h.getState().chartTabs.map((tab) => tab.id === 'one'
+        ? { ...tab, paneScaleOverrides: { price: priceRange, obv: paneRange } }
+        : tab),
+    });
+    h.read.mockResolvedValue(result());
+
+    await h.controller.loadInstrument(h.instrument);
+
+    expect(h.getState().chartTabs[0].paneScaleOverrides).toEqual({
+      price: priceRange,
+      obv: paneRange,
+    });
+    expect(h.toast).not.toHaveBeenCalled();
+  });
+
   it('retries a still-current canceled hydration without a false failure toast', async () => {
     const h = harness();
     h.read.mockRejectedValueOnce(new ChartDataRequestSupersededError()).mockResolvedValueOnce(result());
