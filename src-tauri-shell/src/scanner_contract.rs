@@ -442,11 +442,17 @@ pub(crate) mod parity_harness {
             (Value::String(a), Value::String(b)) if a == b => None,
             (Value::Number(a), Value::Number(b)) => {
                 if let (Some(a), Some(b)) = (a.as_i64(), b.as_i64()) {
-                    if a == b { return None; }
+                    if a == b {
+                        return None;
+                    }
                 } else if let (Some(a), Some(b)) = (a.as_u64(), b.as_u64()) {
-                    if a == b { return None; }
+                    if a == b {
+                        return None;
+                    }
                 } else if let (Some(a), Some(b)) = (a.as_f64(), b.as_f64()) {
-                    if (a - b).abs() <= FLOAT_TOLERANCE { return None; }
+                    if (a - b).abs() <= FLOAT_TOLERANCE {
+                        return None;
+                    }
                 }
                 Some(format!("numeric mismatch at {path}: expected {a}, got {b}"))
             }
@@ -454,13 +460,16 @@ pub(crate) mod parity_harness {
                 if a.len() != b.len() {
                     return Some(format!(
                         "array length mismatch at {path}: expected {}, got {}",
-                        a.len(), b.len()
+                        a.len(),
+                        b.len()
                     ));
                 }
                 for (index, (e, actual_item)) in a.iter().zip(b).enumerate() {
-                    if let Some(error) = semantic_json_mismatch(
-                        e, actual_item, &format!("{path}[{index}]")
-                    ) { return Some(error); }
+                    if let Some(error) =
+                        semantic_json_mismatch(e, actual_item, &format!("{path}[{index}]"))
+                    {
+                        return Some(error);
+                    }
                 }
                 None
             }
@@ -470,17 +479,23 @@ pub(crate) mod parity_harness {
                 keys_a.sort_unstable();
                 keys_b.sort_unstable();
                 if keys_a != keys_b {
-                    return Some(format!("object keys mismatch at {path}: expected {keys_a:?}, got {keys_b:?}"));
+                    return Some(format!(
+                        "object keys mismatch at {path}: expected {keys_a:?}, got {keys_b:?}"
+                    ));
                 }
                 for key in keys_a {
-                    if let Some(error) = semantic_json_mismatch(
-                        &a[key], &b[key], &format!("{path}.{key}")
-                    ) { return Some(error); }
+                    if let Some(error) =
+                        semantic_json_mismatch(&a[key], &b[key], &format!("{path}.{key}"))
+                    {
+                        return Some(error);
+                    }
                 }
                 None
             }
             _ if expected == actual => None,
-            _ => Some(format!("value or type mismatch at {path}: expected {expected:?}, got {actual:?}")),
+            _ => Some(format!(
+                "value or type mismatch at {path}: expected {expected:?}, got {actual:?}"
+            )),
         }
     }
 
@@ -495,7 +510,9 @@ pub(crate) mod parity_harness {
         scanner_id: &str,
         expected_count: usize,
         expected_categories: &[&str],
-        evaluate: impl Fn(&RustScannerEvaluationRequestV1) -> Result<RustScannerEvaluationResponseV1, String>,
+        evaluate: impl Fn(
+            &RustScannerEvaluationRequestV1,
+        ) -> Result<RustScannerEvaluationResponseV1, String>,
         typed_assert: impl Fn(&RustScannerEvaluationResponseV1, &RustScannerEvaluationResponseV1, &str),
     ) {
         let bundle: ScannerParityBundleV1 =
@@ -510,21 +527,39 @@ pub(crate) mod parity_harness {
         let mut categories = HashSet::new();
         for (index, scenario) in bundle.scenarios.iter().enumerate() {
             assert!(!scenario.id.trim().is_empty(), "empty scenario ID");
-            assert!(ids.insert(scenario.id.as_str()), "duplicate scenario ID: {}", scenario.id);
-            assert!(!scenario.description.trim().is_empty(), "empty description: {}", scenario.id);
+            assert!(
+                ids.insert(scenario.id.as_str()),
+                "duplicate scenario ID: {}",
+                scenario.id
+            );
+            assert!(
+                !scenario.description.trim().is_empty(),
+                "empty description: {}",
+                scenario.id
+            );
             categories.insert(scenario.category.as_str());
-            assert_eq!(scenario.request.contract_version, RUST_SCANNER_CONTRACT_VERSION);
-            assert_eq!(scenario.response.contract_version, RUST_SCANNER_CONTRACT_VERSION);
+            assert_eq!(
+                scenario.request.contract_version,
+                RUST_SCANNER_CONTRACT_VERSION
+            );
+            assert_eq!(
+                scenario.response.contract_version,
+                RUST_SCANNER_CONTRACT_VERSION
+            );
             assert_eq!(scenario.response.request_id, scenario.request.request_id);
             assert_eq!(scenario.response.target, scenario.request.target);
             assert_eq!(scenario.response.scanned_bars, scenario.request.bars.len());
             assert!(
-                scenario.request.scanner_ids.iter().all(|id| id.as_str() == scanner_id),
+                scenario
+                    .request
+                    .scanner_ids
+                    .iter()
+                    .all(|id| id.as_str() == scanner_id),
                 "unrelated detector in scenario {}", scenario.id
             );
-            let actual = evaluate(&scenario.request).unwrap_or_else(
-                |error| panic!("scenario {} evaluation failed: {error}", scenario.id)
-            );
+            let actual = evaluate(&scenario.request).unwrap_or_else(|error| {
+                panic!("scenario {} evaluation failed: {error}", scenario.id)
+            });
             typed_assert(&scenario.response, &actual, &scenario.id);
             let actual_json = serde_json::to_value(&actual).expect("response serializes");
             assert_json_semantically_equal(
@@ -544,24 +579,32 @@ pub(crate) mod parity_harness {
 
         #[test]
         fn rsc_03_comparator_preserves_structure_and_numeric_tolerance() {
-            let expected = json!({"item": [{"score": 2.5, "active": true, "label": "gap"}], "optional": null});
+            let expected =
+                json!({"item": [{"score": 2.5, "active": true, "label": "gap"}], "optional": null});
             let reordered = json!({"optional": null, "item": [{"label": "gap", "active": true, "score": 2.5 + 1e-13}]});
             assert_json_semantically_equal(&expected, &reordered, "$");
-            let changed = json!({"item": [{"score": 2.6, "active": true, "label": "gap"}], "optional": null});
-            assert!(semantic_json_mismatch(&expected, &changed, "$").unwrap().contains("$.item[0].score"));
+            let changed =
+                json!({"item": [{"score": 2.6, "active": true, "label": "gap"}], "optional": null});
+            assert!(semantic_json_mismatch(&expected, &changed, "$")
+                .unwrap()
+                .contains("$.item[0].score"));
             let missing = json!({"item": [{"score": 2.5, "active": true, "label": "gap"}]});
-            assert!(semantic_json_mismatch(&expected, &missing, "$").unwrap().contains("object keys mismatch at $"));
+            assert!(semantic_json_mismatch(&expected, &missing, "$")
+                .unwrap()
+                .contains("object keys mismatch at $"));
             let a = json!({"item": [1, 2]});
             let b = json!({"item": [2, 1]});
-            assert!(semantic_json_mismatch(&a, &b, "$").unwrap().contains("$.item[0]"));
+            assert!(semantic_json_mismatch(&a, &b, "$")
+                .unwrap()
+                .contains("$.item[0]"));
         }
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use super::parity_harness::assert_json_semantically_equal;
+    use super::*;
 
     const FIXTURE_JSON: &str =
         include_str!("../../src/features/scanner/fixtures/rustScannerContractFixtures.v1.json");
@@ -656,12 +699,18 @@ mod tests {
             .values
             .as_ref()
             .expect("envelope result must include scalar values");
-        assert_eq!(values.get("flag_active"), Some(&Some(ScannerScalarValueV1::Bool(true))));
+        assert_eq!(
+            values.get("flag_active"),
+            Some(&Some(ScannerScalarValueV1::Bool(true)))
+        );
         assert_eq!(
             values.get("gap_direction"),
             Some(&Some(ScannerScalarValueV1::Text("up".to_string())))
         );
-        assert_eq!(values.get("touch_count"), Some(&Some(ScannerScalarValueV1::Integer(4))));
+        assert_eq!(
+            values.get("touch_count"),
+            Some(&Some(ScannerScalarValueV1::Integer(4)))
+        );
         assert_eq!(
             values.get("slope_ratio"),
             Some(&Some(ScannerScalarValueV1::Float(-0.375)))

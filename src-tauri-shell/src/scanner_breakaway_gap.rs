@@ -413,12 +413,12 @@ pub fn evaluate_chart_breakaway_gap_request_v1(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::scanner_contract::parity_harness::{
+        assert_json_semantically_equal, assert_parity_fixture_bundle,
+    };
     use crate::scanner_contract::{
         ChartPatternGeometryTrendLineV1, ChartPatternTargetProjectionV1,
         RustScannerContractFixtureBundleV1,
-    };
-    use crate::scanner_contract::parity_harness::{
-        assert_json_semantically_equal, assert_parity_fixture_bundle,
     };
 
     const FLOAT_TOLERANCE: f64 = 1e-12;

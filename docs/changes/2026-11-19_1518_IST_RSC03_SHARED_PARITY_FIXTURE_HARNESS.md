@@ -3,7 +3,7 @@
 **Timestamp:** 2026-11-19 15:18 IST (UTC+05:30)  
 **Workstream:** EOD Charting Platform — `E:\TA Projects\EOD Charting Platform`  
 **Branch:** `feature/native-rust-scanner-20261119` based on `bfb644bf218e43adeec18f3eb69d5bfe5002dc6c`  
-**Status:** Candidate; no merge or runtime activation.
+**Status:** Candidate. Operator Windows rustfmt check failed before tests. Formatting correction pending Windows recheck; no merge or runtime activation.
 
 ## Objective and limitation
 
@@ -26,9 +26,9 @@ All 54 chart patterns, RSC-01 and RSC-02 committed fixtures, native Rust detecto
 
 ## Validation
 
-- Candidate preparation: TypeScript syntax transpilation of edited and new TS test files passed; the committed RSC-02 fixture was inspected as 24 scenarios in four categories including the empty-scanner-ID negative case. Neither implies Vitest or Rust compilation.
-- GitHub renderer CI: pending at commit.
-- Windows Rust: `rustfmt --check`, `scanner_` focused tests and shared Cargo `check` pending.
+- GitHub Actions Renderer CI passed Vitest, TypeScript typecheck, and Vite build for commit `f64d835`. RSC-02 fixture inspection found 24 scenarios across four categories, including the empty-scanner-ID negative case. This does not establish Rust compilation.
+- Windows preflight: exact branch checkout and seven-file SHA-256 backup passed. Initial `rustfmt --check`: FAIL (two Rust files). Rust tests, Cargo check, and Windows Vitest did not execute. See [formatting follow-up](2026-11-19_1559_IST_RSC03_RUSTFMT_CORRECTION.md).
+- Corrected `rustfmt --check`, focused `scanner_` Rust tests, and shared Cargo `check`: pending a new Windows run.
 - Final portable acceptance: pending, subject to scope.
 
 ## Risks, rollback, next
