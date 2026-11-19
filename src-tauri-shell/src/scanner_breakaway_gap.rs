@@ -67,7 +67,7 @@ pub(crate) fn scalar_number_v1(value: f64) -> ScannerScalarValueV1 {
     }
 }
 
-fn format_js_number(value: f64) -> String {
+pub(crate) fn format_js_number(value: f64) -> String {
     if value.is_nan() {
         return "NaN".to_string();
     }
