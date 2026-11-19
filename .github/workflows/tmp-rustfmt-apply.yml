@@ -1,4 +1,4 @@
-name: TMP rustfmt apply (temporary, delete before review)
+name: TMP rustfmt patch export (temporary, deleted before review)
 on:
   pull_request:
     branches: [main]
@@ -7,8 +7,9 @@ on:
       - '.github/workflows/tmp-rustfmt-apply.yml'
 permissions:
   contents: read
+  pull-requests: write
 jobs:
-  apply:
+  export:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -16,15 +17,25 @@ jobs:
         with:
           persist-credentials: false
       - run: rustup component add rustfmt --toolchain stable
-      - name: Format and emit exact patch
+      - name: Format and post the exact patch as PR comments
         shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR: ${{ github.event.pull_request.number }}
         run: |
           set -euo pipefail
           shopt -s nullglob globstar
           files=(src-tauri-shell/src/native_scanner/**/*.rs)
           rustup run stable rustfmt --edition 2021 "${files[@]}"
-          echo "=====STAT====="
-          git diff --stat
-          echo "=====PATCH-BASE64====="
-          git diff | base64 -w 120
-          echo "=====END====="
+          git diff --stat > /tmp/stat.txt
+          git diff | base64 -w 0 > /tmp/patch.b64
+          total=$(wc -c < /tmp/patch.b64)
+          parts=$(( (total + 39000 - 1) / 39000 ))
+          echo "patch bytes=$total parts=$parts"
+          i=1
+          while [ "$i" -le "$parts" ]; do
+            start=$(( (i - 1) * 39000 + 1 ))
+            { echo "RUSTFMT-PATCH part=$i/$parts"; echo '```'; tail -c +"$start" /tmp/patch.b64 | head -c 39000; echo; echo '```'; } > /tmp/part.txt
+            gh pr comment "$PR" --body-file /tmp/part.txt
+            i=$(( i + 1 ))
+          done
