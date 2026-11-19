@@ -29,13 +29,21 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          shopt -s nullglob
+          shopt -s nullglob globstar
           # NS-01..NS-04 live under src-tauri-shell/src/native_scanner/; the accepted
-          # scanner_*.rs modules stay covered exactly as before.
+          # scanner_*.rs modules stay covered exactly as before. globstar is required:
+          # without it `**/*.rs` needs an extra directory level and would silently
+          # expand to nothing, turning this gate into a false pass.
           native_files=(src-tauri-shell/src/native_scanner/**/*.rs)
           scanner_files=(src-tauri-shell/src/scanner_*.rs "${native_files[@]}")
           if (( ${#scanner_files[@]} == 0 )); then
             echo 'No scanner Rust modules found; expected scanner sources are missing.' >&2
+            exit 1
+          fi
+          # The nested native module must always be enrolled, not just the
+          # root-level scanner_*.rs files.
+          if (( ${#native_files[@]} == 0 )); then
+            echo 'No native_scanner Rust modules found; the nested module glob did not match.' >&2
             exit 1
           fi
           printf 'Checking %d scanner Rust module(s):\n' "${#scanner_files[@]}"
