@@ -1,0 +1,26 @@
+name: TMP rustfmt apply (temporary, delete before review)
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - run: rustup component add rustfmt --toolchain stable
+      - name: Format and emit exact patch
+        shell: bash
+        run: |
+          set -euo pipefail
+          shopt -s nullglob globstar
+          files=(src-tauri-shell/src/native_scanner/**/*.rs)
+          rustup run stable rustfmt --edition 2021 "${files[@]}"
+          echo "=====STAT====="
+          git diff --stat
+          echo "=====PATCH-BASE64====="
+          git diff | base64 -w 120
+          echo "=====END====="
