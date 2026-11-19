@@ -1,6 +1,10 @@
 name: TMP rustfmt apply (temporary, delete before review)
 on:
-  workflow_dispatch:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'src-tauri-shell/src/native_scanner/**/*.rs'
+      - '.github/workflows/tmp-rustfmt-apply.yml'
 permissions:
   contents: read
 jobs:
