@@ -1,8 +1,7 @@
 //! RSC-05: isolated Runaway Gap parity detector; no Tauri IPC or live dispatch.
 use crate::scanner_breakaway_gap::{
     average_volume_excluding_current, format_js_number, gap_up_pct, normalize_zero, round_js,
-    scalar_number_v1, CHART_GAP_CATEGORY_ID, CHART_GAP_CATEGORY_NAME,
-    CHART_PATTERN_SCANNER_SOURCE,
+    scalar_number_v1, CHART_GAP_CATEGORY_ID, CHART_GAP_CATEGORY_NAME, CHART_PATTERN_SCANNER_SOURCE,
 };
 use crate::scanner_contract::{
     sort_scanner_results_v1, ChartPatternFamilyV1, ChartPatternGeometryFamilyV1,
@@ -59,9 +58,7 @@ pub fn detect_chart_runaway_gap(
     }
     let trend_bars = &bars[len - MIN_RUNAWAY_BARS..len - 2];
     let trend_move_pct = move_pct(trend_bars);
-    if !trend_move_pct.is_finite()
-        || trend_bars[0].close <= 0.0
-        || trend_move_pct < MIN_UPTREND_PCT
+    if !trend_move_pct.is_finite() || trend_bars[0].close <= 0.0 || trend_move_pct < MIN_UPTREND_PCT
     {
         return None;
     }

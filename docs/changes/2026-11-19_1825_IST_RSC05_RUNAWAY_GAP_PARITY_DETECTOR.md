@@ -3,7 +3,7 @@
 **IST timestamp:** 2026-11-19 18:25 IST (UTC+05:30)  
 **Active workstream:** EOD Charting Platform — `E:\TA Projects\EOD Charting Platform`  
 **Source authority:** `feature/native-rust-scanner-20261119` at parent `f48e41abdaf32d35d708e90e8bc92c4f868c5a1a`, based on accepted main `bfb644bf`.  
-**Status:** GitHub-only candidate pending actual Windows Rust checks; draft PR #122 unmerged.
+**Status:** Candidate. Windows checkout and 7/7 SHA-256 preservation passed at `49565b5`; first Windows Rustfmt check FAILED with two formatting-only differences. Corrected formatting is pending Windows rerun. Draft PR #122 remains unmerged.
 
 ## Objective and previous limitation
 
@@ -32,8 +32,8 @@ All 54 live TypeScript chart patterns, workers, RSC-01/02/03/04 tests and fixtur
 
 - Preparation: the actual TypeScript evaluator was executed against 25 deterministic cases on a Git-blob-verified source snapshot. Its outputs matched a separately implemented numerical/result builder in **25/25 cases**, including boundaries and long histories. Eleven representative fixed fixtures were regenerated with stable integer baseline bars and their staged Git blob matches the locally TypeScript-verified fixture exactly (`4bbcfa3c...`).
 - New TypeScript test source syntax transpilation in preparation: **PASS**. This does not imply Vitest/typecheck or production build.
-- Rust compiler and Rustfmt unavailable in preparation environment; `rustfmt --check`, focused Rust scanner tests, BUILD-01 shared Cargo check, Windows Vitest and renderer build: **NOT EXECUTED; Windows operator output required**.
-- GitHub Renderer CI: pending publication. No native runtime activation or real NSE/BSE `.eod` corpus parity claimed.
+- Rust toolchain unavailable in the GitHub editing environment. Operator Windows guarded checkout and preservation backup on `49565b5`: **PASS, 7/7**. First Windows `rustfmt --check` on `scanner_runaway_gap.rs` and `scanner_breakaway_gap.rs`: **FAIL**, exactly two formatting differences in the Runaway Gap module. The serial test sequence correctly stopped; Rust tests, Cargo check, Windows Vitest, typecheck/build and documentation checks **NOT RUN**. See [RSC-05 formatting correction](2026-11-19_1935_IST_RSC05_RUSTFMT_CORRECTION_AND_PREPUBLICATION_GATE.md) for the exact correction and the new prevention rule. Fresh Windows validation remains required.
+- GitHub Renderer CI at `49565b5`: **SUCCESS**; this does not validate Rust formatting or compilation. No native runtime activation or real NSE/BSE `.eod` corpus parity claimed.
 
 ## Risks and rollback
 

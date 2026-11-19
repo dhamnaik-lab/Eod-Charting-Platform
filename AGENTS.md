@@ -62,6 +62,7 @@ Project root: `E:\TA Projects\EOD Charting Platform`
 
 ## Validation
 
+- **Mandatory Rustfmt pre-publication gate:** For any changed Rust source, run the canonical `rustfmt --edition 2021 --check <changed-rust-files>` with a real Rust toolchain **before publishing the source commit**. A visually reviewed or hand-formatted file is not a passing formatter check. If the editing environment lacks `rustfmt`, do not publish the source as formatter-verified or ready for Windows acceptance; obtain a formatter check from an authorized Rust-enabled environment before source publication. Record the actual command and result. If a user-provided Windows `rustfmt --check` fails, apply the exact reported diff and revalidate before any other tests. The separate GitHub Renderer CI does not certify Rustfmt.
 - Use `scripts/validate-change.ps1 -Profile <docs|renderer|tauri|corporate-actions>` when applicable.
 - Run checks serially; do not start parallel validation during Rust/Tauri compile/link.
 - Report each command as PASS, FAIL, or incomplete. Never infer success from a timeout.
