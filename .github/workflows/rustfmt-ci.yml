@@ -1,0 +1,39 @@
+name: Rust Scanner Rustfmt CI
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'src-tauri-shell/src/scanner_*.rs'
+      - '.github/workflows/rustfmt-ci.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  scanner-rustfmt:
+    name: Rustfmt (scanner modules)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Ensure stable Rustfmt is available
+        run: rustup component add rustfmt --toolchain stable
+
+      - name: Check every scanner Rust module without modifying sources
+        shell: bash
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          scanner_files=(src-tauri-shell/src/scanner_*.rs)
+          if (( ${#scanner_files[@]} == 0 )); then
+            echo 'No scanner_*.rs modules found; expected scanner sources are missing.' >&2
+            exit 1
+          fi
+          printf 'Checking %d scanner Rust module(s):\n' "${#scanner_files[@]}"
+          printf '  %s\n' "${scanner_files[@]}"
+          rustup run stable rustfmt --edition 2021 --check "${scanner_files[@]}"

@@ -1,0 +1,6440 @@
+{
+  "contractVersion": "eod-scanner-contract-v1",
+  "scannerId": "chart_runaway_gap",
+  "fixedGeneratedAt": "2026-11-19T10:30:00.000Z",
+  "scenarios": [
+    {
+      "id": "positive_75_min_22",
+      "category": "positive",
+      "description": "22 bars, trend above 8 percent, 1.3x volume, score 75",
+      "request": {
+        "contractVersion": "eod-scanner-contract-v1",
+        "requestId": "req-rsc05-positive_75_min_22",
+        "target": {
+          "symbol": "TCS",
+          "exchange": "NSE",
+          "name": "Tata Consultancy Services"
+        },
+        "bars": [
+          {
+            "symbol": "TCS",
+            "date": "2025-01-01",
+            "open": 98,
+            "high": 101,
+            "low": 97,
+            "close": 100,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-01-02",
+            "open": 99,
+            "high": 102,
+            "low": 98,
+            "close": 101,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-01-03",
+            "open": 100,
+            "high": 103,
+            "low": 99,
+            "close": 102,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-01-04",
+            "open": 101,
+            "high": 104,
+            "low": 100,
+            "close": 103,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-01-05",
+            "open": 102,
+            "high": 105,
+            "low": 101,
+            "close": 104,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-01-06",
+            "open": 103,
+            "high": 106,
+            "low": 102,
+            "close": 105,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-01-07",
+            "open": 104,
+            "high": 107,
+            "low": 103,
+            "close": 106,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-01-08",
+            "open": 105,
+            "high": 108,
+            "low": 104,
+            "close": 107,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-01-09",
+            "open": 106,
+            "high": 109,
+            "low": 105,
+            "close": 108,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-01-10",
+            "open": 107,
+            "high": 110,
+            "low": 106,
+            "close": 109,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-01-11",
+            "open": 108,
+            "high": 111,
+            "low": 107,
+            "close": 110,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-01-12",
+            "open": 109,
+            "high": 112,
+            "low": 108,
+            "close": 111,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-01-13",
+            "open": 110,
+            "high": 113,
+            "low": 109,
+            "close": 112,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-01-14",
+            "open": 111,
+            "high": 114,
+            "low": 110,
+            "close": 113,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-01-15",
+            "open": 112,
+            "high": 115,
+            "low": 111,
+            "close": 114,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-01-16",
+            "open": 113,
+            "high": 116,
+            "low": 112,
+            "close": 115,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-01-17",
+            "open": 114,
+            "high": 117,
+            "low": 113,
+            "close": 116,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-01-18",
+            "open": 115,
+            "high": 118,
+            "low": 114,
+            "close": 117,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-01-19",
+            "open": 116,
+            "high": 119,
+            "low": 115,
+            "close": 118,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-01-20",
+            "open": 117,
+            "high": 120,
+            "low": 116,
+            "close": 119,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-01-21",
+            "open": 118,
+            "high": 121,
+            "low": 117,
+            "close": 120,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-01-22",
+            "open": 122.452,
+            "high": 123.31038851999999,
+            "low": 121.12099999999998,
+            "close": 123.06425999999999,
+            "volume": 1300
+          }
+        ],
+        "scannerIds": [
+          "chart_runaway_gap"
+        ],
+        "lookbackBars": null,
+        "evaluateHistory": false,
+        "executionMode": "fast",
+        "generatedAt": "2026-11-19T10:30:00.000Z"
+      },
+      "response": {
+        "contractVersion": "eod-scanner-contract-v1",
+        "requestId": "req-rsc05-positive_75_min_22",
+        "target": {
+          "symbol": "TCS",
+          "exchange": "NSE",
+          "name": "Tata Consultancy Services"
+        },
+        "latestResults": [
+          {
+            "symbol": "TCS",
+            "exchange": "NSE",
+            "scannerId": "chart_runaway_gap",
+            "scannerName": "Runaway Gap",
+            "categoryId": "chart_patterns_gap",
+            "categoryName": "Chart Patterns - Gaps",
+            "date": "2025-01-22",
+            "matched": true,
+            "direction": "bullish",
+            "score": 75,
+            "reasons": [
+              "Gap held above yesterday high (121) after a 19% prior uptrend"
+            ],
+            "values": {
+              "gap_pct": 1.2,
+              "trend_move_pct": 19,
+              "avg_volume_20": 1000,
+              "volume_ratio": 1.3
+            },
+            "chartPattern": {
+              "family": "gap",
+              "confidence": 75,
+              "patternEndDate": "2025-01-22",
+              "breakoutLevel": 121,
+              "patternStartDate": "2025-01-01",
+              "geometry": {
+                "family": "gap-zone",
+                "zones": [
+                  {
+                    "id": "gap",
+                    "label": "Gap",
+                    "role": "gap",
+                    "startDate": "2025-01-21",
+                    "endDate": "2025-01-22",
+                    "low": 121,
+                    "high": 121.12099999999998
+                  }
+                ],
+                "labels": [
+                  {
+                    "id": "pattern",
+                    "text": "Runaway Gap",
+                    "point": {
+                      "date": "2025-01-22",
+                      "price": 123.06425999999999
+                    }
+                  }
+                ]
+              }
+            },
+            "warnings": [],
+            "source": "EODChartPatternScanner_v1",
+            "generatedAt": "2026-11-19T10:30:00.000Z"
+          }
+        ],
+        "historicalResults": [],
+        "results": [
+          {
+            "symbol": "TCS",
+            "exchange": "NSE",
+            "scannerId": "chart_runaway_gap",
+            "scannerName": "Runaway Gap",
+            "categoryId": "chart_patterns_gap",
+            "categoryName": "Chart Patterns - Gaps",
+            "date": "2025-01-22",
+            "matched": true,
+            "direction": "bullish",
+            "score": 75,
+            "reasons": [
+              "Gap held above yesterday high (121) after a 19% prior uptrend"
+            ],
+            "values": {
+              "gap_pct": 1.2,
+              "trend_move_pct": 19,
+              "avg_volume_20": 1000,
+              "volume_ratio": 1.3
+            },
+            "chartPattern": {
+              "family": "gap",
+              "confidence": 75,
+              "patternEndDate": "2025-01-22",
+              "breakoutLevel": 121,
+              "patternStartDate": "2025-01-01",
+              "geometry": {
+                "family": "gap-zone",
+                "zones": [
+                  {
+                    "id": "gap",
+                    "label": "Gap",
+                    "role": "gap",
+                    "startDate": "2025-01-21",
+                    "endDate": "2025-01-22",
+                    "low": 121,
+                    "high": 121.12099999999998
+                  }
+                ],
+                "labels": [
+                  {
+                    "id": "pattern",
+                    "text": "Runaway Gap",
+                    "point": {
+                      "date": "2025-01-22",
+                      "price": 123.06425999999999
+                    }
+                  }
+                ]
+              }
+            },
+            "warnings": [],
+            "source": "EODChartPatternScanner_v1",
+            "generatedAt": "2026-11-19T10:30:00.000Z"
+          }
+        ],
+        "scannedBars": 22,
+        "cancelled": false,
+        "errors": []
+      }
+    },
+    {
+      "id": "positive_68_low_volume",
+      "category": "positive",
+      "description": "22 bars, trend above 8 percent, low volume, score 68",
+      "request": {
+        "contractVersion": "eod-scanner-contract-v1",
+        "requestId": "req-rsc05-positive_68_low_volume",
+        "target": {
+          "symbol": "TCS",
+          "exchange": "NSE",
+          "name": "Tata Consultancy Services"
+        },
+        "bars": [
+          {
+            "symbol": "TCS",
+            "date": "2025-01-01",
+            "open": 98,
+            "high": 101,
+            "low": 97,
+            "close": 100,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-01-02",
+            "open": 99,
+            "high": 102,
+            "low": 98,
+            "close": 101,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-01-03",
+            "open": 100,
+            "high": 103,
+            "low": 99,
+            "close": 102,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-01-04",
+            "open": 101,
+            "high": 104,
+            "low": 100,
+            "close": 103,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-01-05",
+            "open": 102,
+            "high": 105,
+            "low": 101,
+            "close": 104,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-01-06",
+            "open": 103,
+            "high": 106,
+            "low": 102,
+            "close": 105,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-01-07",
+            "open": 104,
+            "high": 107,
+            "low": 103,
+            "close": 106,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-01-08",
+            "open": 105,
+            "high": 108,
+            "low": 104,
+            "close": 107,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-01-09",
+            "open": 106,
+            "high": 109,
+            "low": 105,
+            "close": 108,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-01-10",
+            "open": 107,
+            "high": 110,
+            "low": 106,
+            "close": 109,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-01-11",
+            "open": 108,
+            "high": 111,
+            "low": 107,
+            "close": 110,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-01-12",
+            "open": 109,
+            "high": 112,
+            "low": 108,
+            "close": 111,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-01-13",
+            "open": 110,
+            "high": 113,
+            "low": 109,
+            "close": 112,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-01-14",
+            "open": 111,
+            "high": 114,
+            "low": 110,
+            "close": 113,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-01-15",
+            "open": 112,
+            "high": 115,
+            "low": 111,
+            "close": 114,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-01-16",
+            "open": 113,
+            "high": 116,
+            "low": 112,
+            "close": 115,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-01-17",
+            "open": 114,
+            "high": 117,
+            "low": 113,
+            "close": 116,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-01-18",
+            "open": 115,
+            "high": 118,
+            "low": 114,
+            "close": 117,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-01-19",
+            "open": 116,
+            "high": 119,
+            "low": 115,
+            "close": 118,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-01-20",
+            "open": 117,
+            "high": 120,
+            "low": 116,
+            "close": 119,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-01-21",
+            "open": 118,
+            "high": 121,
+            "low": 117,
+            "close": 120,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-01-22",
+            "open": 122.452,
+            "high": 123.31038851999999,
+            "low": 121.12099999999998,
+            "close": 123.06425999999999,
+            "volume": 1100
+          }
+        ],
+        "scannerIds": [
+          "chart_runaway_gap"
+        ],
+        "lookbackBars": null,
+        "evaluateHistory": false,
+        "executionMode": "fast",
+        "generatedAt": "2026-11-19T10:30:00.000Z"
+      },
+      "response": {
+        "contractVersion": "eod-scanner-contract-v1",
+        "requestId": "req-rsc05-positive_68_low_volume",
+        "target": {
+          "symbol": "TCS",
+          "exchange": "NSE",
+          "name": "Tata Consultancy Services"
+        },
+        "latestResults": [
+          {
+            "symbol": "TCS",
+            "exchange": "NSE",
+            "scannerId": "chart_runaway_gap",
+            "scannerName": "Runaway Gap",
+            "categoryId": "chart_patterns_gap",
+            "categoryName": "Chart Patterns - Gaps",
+            "date": "2025-01-22",
+            "matched": true,
+            "direction": "bullish",
+            "score": 68,
+            "reasons": [
+              "Gap held above yesterday high (121) after a 19% prior uptrend"
+            ],
+            "values": {
+              "gap_pct": 1.2,
+              "trend_move_pct": 19,
+              "avg_volume_20": 1000,
+              "volume_ratio": 1.1
+            },
+            "chartPattern": {
+              "family": "gap",
+              "confidence": 68,
+              "patternEndDate": "2025-01-22",
+              "breakoutLevel": 121,
+              "patternStartDate": "2025-01-01",
+              "geometry": {
+                "family": "gap-zone",
+                "zones": [
+                  {
+                    "id": "gap",
+                    "label": "Gap",
+                    "role": "gap",
+                    "startDate": "2025-01-21",
+                    "endDate": "2025-01-22",
+                    "low": 121,
+                    "high": 121.12099999999998
+                  }
+                ],
+                "labels": [
+                  {
+                    "id": "pattern",
+                    "text": "Runaway Gap",
+                    "point": {
+                      "date": "2025-01-22",
+                      "price": 123.06425999999999
+                    }
+                  }
+                ]
+              }
+            },
+            "warnings": [],
+            "source": "EODChartPatternScanner_v1",
+            "generatedAt": "2026-11-19T10:30:00.000Z"
+          }
+        ],
+        "historicalResults": [],
+        "results": [
+          {
+            "symbol": "TCS",
+            "exchange": "NSE",
+            "scannerId": "chart_runaway_gap",
+            "scannerName": "Runaway Gap",
+            "categoryId": "chart_patterns_gap",
+            "categoryName": "Chart Patterns - Gaps",
+            "date": "2025-01-22",
+            "matched": true,
+            "direction": "bullish",
+            "score": 68,
+            "reasons": [
+              "Gap held above yesterday high (121) after a 19% prior uptrend"
+            ],
+            "values": {
+              "gap_pct": 1.2,
+              "trend_move_pct": 19,
+              "avg_volume_20": 1000,
+              "volume_ratio": 1.1
+            },
+            "chartPattern": {
+              "family": "gap",
+              "confidence": 68,
+              "patternEndDate": "2025-01-22",
+              "breakoutLevel": 121,
+              "patternStartDate": "2025-01-01",
+              "geometry": {
+                "family": "gap-zone",
+                "zones": [
+                  {
+                    "id": "gap",
+                    "label": "Gap",
+                    "role": "gap",
+                    "startDate": "2025-01-21",
+                    "endDate": "2025-01-22",
+                    "low": 121,
+                    "high": 121.12099999999998
+                  }
+                ],
+                "labels": [
+                  {
+                    "id": "pattern",
+                    "text": "Runaway Gap",
+                    "point": {
+                      "date": "2025-01-22",
+                      "price": 123.06425999999999
+                    }
+                  }
+                ]
+              }
+            },
+            "warnings": [],
+            "source": "EODChartPatternScanner_v1",
+            "generatedAt": "2026-11-19T10:30:00.000Z"
+          }
+        ],
+        "scannedBars": 22,
+        "cancelled": false,
+        "errors": []
+      }
+    },
+    {
+      "id": "boundary_volume_equals_1_2",
+      "category": "boundary",
+      "description": "Score 75 for >=1.2 times previous-volume average",
+      "request": {
+        "contractVersion": "eod-scanner-contract-v1",
+        "requestId": "req-rsc05-boundary_volume_equals_1_2",
+        "target": {
+          "symbol": "TCS",
+          "exchange": "NSE",
+          "name": "Tata Consultancy Services"
+        },
+        "bars": [
+          {
+            "symbol": "TCS",
+            "date": "2025-01-01",
+            "open": 98,
+            "high": 101,
+            "low": 97,
+            "close": 100,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-01-02",
+            "open": 99,
+            "high": 102,
+            "low": 98,
+            "close": 101,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-01-03",
+            "open": 100,
+            "high": 103,
+            "low": 99,
+            "close": 102,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-01-04",
+            "open": 101,
+            "high": 104,
+            "low": 100,
+            "close": 103,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-01-05",
+            "open": 102,
+            "high": 105,
+            "low": 101,
+            "close": 104,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-01-06",
+            "open": 103,
+            "high": 106,
+            "low": 102,
+            "close": 105,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-01-07",
+            "open": 104,
+            "high": 107,
+            "low": 103,
+            "close": 106,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-01-08",
+            "open": 105,
+            "high": 108,
+            "low": 104,
+            "close": 107,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-01-09",
+            "open": 106,
+            "high": 109,
+            "low": 105,
+            "close": 108,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-01-10",
+            "open": 107,
+            "high": 110,
+            "low": 106,
+            "close": 109,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-01-11",
+            "open": 108,
+            "high": 111,
+            "low": 107,
+            "close": 110,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-01-12",
+            "open": 109,
+            "high": 112,
+            "low": 108,
+            "close": 111,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-01-13",
+            "open": 110,
+            "high": 113,
+            "low": 109,
+            "close": 112,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-01-14",
+            "open": 111,
+            "high": 114,
+            "low": 110,
+            "close": 113,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-01-15",
+            "open": 112,
+            "high": 115,
+            "low": 111,
+            "close": 114,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-01-16",
+            "open": 113,
+            "high": 116,
+            "low": 112,
+            "close": 115,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-01-17",
+            "open": 114,
+            "high": 117,
+            "low": 113,
+            "close": 116,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-01-18",
+            "open": 115,
+            "high": 118,
+            "low": 114,
+            "close": 117,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-01-19",
+            "open": 116,
+            "high": 119,
+            "low": 115,
+            "close": 118,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-01-20",
+            "open": 117,
+            "high": 120,
+            "low": 116,
+            "close": 119,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-01-21",
+            "open": 118,
+            "high": 121,
+            "low": 117,
+            "close": 120,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-01-22",
+            "open": 122.452,
+            "high": 123.31038851999999,
+            "low": 121.12099999999998,
+            "close": 123.06425999999999,
+            "volume": 1200
+          }
+        ],
+        "scannerIds": [
+          "chart_runaway_gap"
+        ],
+        "lookbackBars": null,
+        "evaluateHistory": false,
+        "executionMode": "fast",
+        "generatedAt": "2026-11-19T10:30:00.000Z"
+      },
+      "response": {
+        "contractVersion": "eod-scanner-contract-v1",
+        "requestId": "req-rsc05-boundary_volume_equals_1_2",
+        "target": {
+          "symbol": "TCS",
+          "exchange": "NSE",
+          "name": "Tata Consultancy Services"
+        },
+        "latestResults": [
+          {
+            "symbol": "TCS",
+            "exchange": "NSE",
+            "scannerId": "chart_runaway_gap",
+            "scannerName": "Runaway Gap",
+            "categoryId": "chart_patterns_gap",
+            "categoryName": "Chart Patterns - Gaps",
+            "date": "2025-01-22",
+            "matched": true,
+            "direction": "bullish",
+            "score": 75,
+            "reasons": [
+              "Gap held above yesterday high (121) after a 19% prior uptrend"
+            ],
+            "values": {
+              "gap_pct": 1.2,
+              "trend_move_pct": 19,
+              "avg_volume_20": 1000,
+              "volume_ratio": 1.2
+            },
+            "chartPattern": {
+              "family": "gap",
+              "confidence": 75,
+              "patternEndDate": "2025-01-22",
+              "breakoutLevel": 121,
+              "patternStartDate": "2025-01-01",
+              "geometry": {
+                "family": "gap-zone",
+                "zones": [
+                  {
+                    "id": "gap",
+                    "label": "Gap",
+                    "role": "gap",
+                    "startDate": "2025-01-21",
+                    "endDate": "2025-01-22",
+                    "low": 121,
+                    "high": 121.12099999999998
+                  }
+                ],
+                "labels": [
+                  {
+                    "id": "pattern",
+                    "text": "Runaway Gap",
+                    "point": {
+                      "date": "2025-01-22",
+                      "price": 123.06425999999999
+                    }
+                  }
+                ]
+              }
+            },
+            "warnings": [],
+            "source": "EODChartPatternScanner_v1",
+            "generatedAt": "2026-11-19T10:30:00.000Z"
+          }
+        ],
+        "historicalResults": [],
+        "results": [
+          {
+            "symbol": "TCS",
+            "exchange": "NSE",
+            "scannerId": "chart_runaway_gap",
+            "scannerName": "Runaway Gap",
+            "categoryId": "chart_patterns_gap",
+            "categoryName": "Chart Patterns - Gaps",
+            "date": "2025-01-22",
+            "matched": true,
+            "direction": "bullish",
+            "score": 75,
+            "reasons": [
+              "Gap held above yesterday high (121) after a 19% prior uptrend"
+            ],
+            "values": {
+              "gap_pct": 1.2,
+              "trend_move_pct": 19,
+              "avg_volume_20": 1000,
+              "volume_ratio": 1.2
+            },
+            "chartPattern": {
+              "family": "gap",
+              "confidence": 75,
+              "patternEndDate": "2025-01-22",
+              "breakoutLevel": 121,
+              "patternStartDate": "2025-01-01",
+              "geometry": {
+                "family": "gap-zone",
+                "zones": [
+                  {
+                    "id": "gap",
+                    "label": "Gap",
+                    "role": "gap",
+                    "startDate": "2025-01-21",
+                    "endDate": "2025-01-22",
+                    "low": 121,
+                    "high": 121.12099999999998
+                  }
+                ],
+                "labels": [
+                  {
+                    "id": "pattern",
+                    "text": "Runaway Gap",
+                    "point": {
+                      "date": "2025-01-22",
+                      "price": 123.06425999999999
+                    }
+                  }
+                ]
+              }
+            },
+            "warnings": [],
+            "source": "EODChartPatternScanner_v1",
+            "generatedAt": "2026-11-19T10:30:00.000Z"
+          }
+        ],
+        "scannedBars": 22,
+        "cancelled": false,
+        "errors": []
+      }
+    },
+    {
+      "id": "boundary_zero_average",
+      "category": "boundary",
+      "description": "Zero 20-bar average volume makes optional numeric values null and score 68",
+      "request": {
+        "contractVersion": "eod-scanner-contract-v1",
+        "requestId": "req-rsc05-boundary_zero_average",
+        "target": {
+          "symbol": "TCS",
+          "exchange": "NSE",
+          "name": "Tata Consultancy Services"
+        },
+        "bars": [
+          {
+            "symbol": "TCS",
+            "date": "2025-01-01",
+            "open": 98,
+            "high": 101,
+            "low": 97,
+            "close": 100,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-01-02",
+            "open": 99,
+            "high": 102,
+            "low": 98,
+            "close": 101,
+            "volume": 0
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-01-03",
+            "open": 100,
+            "high": 103,
+            "low": 99,
+            "close": 102,
+            "volume": 0
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-01-04",
+            "open": 101,
+            "high": 104,
+            "low": 100,
+            "close": 103,
+            "volume": 0
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-01-05",
+            "open": 102,
+            "high": 105,
+            "low": 101,
+            "close": 104,
+            "volume": 0
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-01-06",
+            "open": 103,
+            "high": 106,
+            "low": 102,
+            "close": 105,
+            "volume": 0
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-01-07",
+            "open": 104,
+            "high": 107,
+            "low": 103,
+            "close": 106,
+            "volume": 0
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-01-08",
+            "open": 105,
+            "high": 108,
+            "low": 104,
+            "close": 107,
+            "volume": 0
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-01-09",
+            "open": 106,
+            "high": 109,
+            "low": 105,
+            "close": 108,
+            "volume": 0
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-01-10",
+            "open": 107,
+            "high": 110,
+            "low": 106,
+            "close": 109,
+            "volume": 0
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-01-11",
+            "open": 108,
+            "high": 111,
+            "low": 107,
+            "close": 110,
+            "volume": 0
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-01-12",
+            "open": 109,
+            "high": 112,
+            "low": 108,
+            "close": 111,
+            "volume": 0
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-01-13",
+            "open": 110,
+            "high": 113,
+            "low": 109,
+            "close": 112,
+            "volume": 0
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-01-14",
+            "open": 111,
+            "high": 114,
+            "low": 110,
+            "close": 113,
+            "volume": 0
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-01-15",
+            "open": 112,
+            "high": 115,
+            "low": 111,
+            "close": 114,
+            "volume": 0
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-01-16",
+            "open": 113,
+            "high": 116,
+            "low": 112,
+            "close": 115,
+            "volume": 0
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-01-17",
+            "open": 114,
+            "high": 117,
+            "low": 113,
+            "close": 116,
+            "volume": 0
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-01-18",
+            "open": 115,
+            "high": 118,
+            "low": 114,
+            "close": 117,
+            "volume": 0
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-01-19",
+            "open": 116,
+            "high": 119,
+            "low": 115,
+            "close": 118,
+            "volume": 0
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-01-20",
+            "open": 117,
+            "high": 120,
+            "low": 116,
+            "close": 119,
+            "volume": 0
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-01-21",
+            "open": 118,
+            "high": 121,
+            "low": 117,
+            "close": 120,
+            "volume": 0
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-01-22",
+            "open": 122.452,
+            "high": 123.31038851999999,
+            "low": 121.12099999999998,
+            "close": 123.06425999999999,
+            "volume": 0
+          }
+        ],
+        "scannerIds": [
+          "chart_runaway_gap"
+        ],
+        "lookbackBars": null,
+        "evaluateHistory": false,
+        "executionMode": "fast",
+        "generatedAt": "2026-11-19T10:30:00.000Z"
+      },
+      "response": {
+        "contractVersion": "eod-scanner-contract-v1",
+        "requestId": "req-rsc05-boundary_zero_average",
+        "target": {
+          "symbol": "TCS",
+          "exchange": "NSE",
+          "name": "Tata Consultancy Services"
+        },
+        "latestResults": [
+          {
+            "symbol": "TCS",
+            "exchange": "NSE",
+            "scannerId": "chart_runaway_gap",
+            "scannerName": "Runaway Gap",
+            "categoryId": "chart_patterns_gap",
+            "categoryName": "Chart Patterns - Gaps",
+            "date": "2025-01-22",
+            "matched": true,
+            "direction": "bullish",
+            "score": 68,
+            "reasons": [
+              "Gap held above yesterday high (121) after a 19% prior uptrend"
+            ],
+            "values": {
+              "gap_pct": 1.2,
+              "trend_move_pct": 19,
+              "avg_volume_20": null,
+              "volume_ratio": null
+            },
+            "chartPattern": {
+              "family": "gap",
+              "confidence": 68,
+              "patternEndDate": "2025-01-22",
+              "breakoutLevel": 121,
+              "patternStartDate": "2025-01-01",
+              "geometry": {
+                "family": "gap-zone",
+                "zones": [
+                  {
+                    "id": "gap",
+                    "label": "Gap",
+                    "role": "gap",
+                    "startDate": "2025-01-21",
+                    "endDate": "2025-01-22",
+                    "low": 121,
+                    "high": 121.12099999999998
+                  }
+                ],
+                "labels": [
+                  {
+                    "id": "pattern",
+                    "text": "Runaway Gap",
+                    "point": {
+                      "date": "2025-01-22",
+                      "price": 123.06425999999999
+                    }
+                  }
+                ]
+              }
+            },
+            "warnings": [],
+            "source": "EODChartPatternScanner_v1",
+            "generatedAt": "2026-11-19T10:30:00.000Z"
+          }
+        ],
+        "historicalResults": [],
+        "results": [
+          {
+            "symbol": "TCS",
+            "exchange": "NSE",
+            "scannerId": "chart_runaway_gap",
+            "scannerName": "Runaway Gap",
+            "categoryId": "chart_patterns_gap",
+            "categoryName": "Chart Patterns - Gaps",
+            "date": "2025-01-22",
+            "matched": true,
+            "direction": "bullish",
+            "score": 68,
+            "reasons": [
+              "Gap held above yesterday high (121) after a 19% prior uptrend"
+            ],
+            "values": {
+              "gap_pct": 1.2,
+              "trend_move_pct": 19,
+              "avg_volume_20": null,
+              "volume_ratio": null
+            },
+            "chartPattern": {
+              "family": "gap",
+              "confidence": 68,
+              "patternEndDate": "2025-01-22",
+              "breakoutLevel": 121,
+              "patternStartDate": "2025-01-01",
+              "geometry": {
+                "family": "gap-zone",
+                "zones": [
+                  {
+                    "id": "gap",
+                    "label": "Gap",
+                    "role": "gap",
+                    "startDate": "2025-01-21",
+                    "endDate": "2025-01-22",
+                    "low": 121,
+                    "high": 121.12099999999998
+                  }
+                ],
+                "labels": [
+                  {
+                    "id": "pattern",
+                    "text": "Runaway Gap",
+                    "point": {
+                      "date": "2025-01-22",
+                      "price": 123.06425999999999
+                    }
+                  }
+                ]
+              }
+            },
+            "warnings": [],
+            "source": "EODChartPatternScanner_v1",
+            "generatedAt": "2026-11-19T10:30:00.000Z"
+          }
+        ],
+        "scannedBars": 22,
+        "cancelled": false,
+        "errors": []
+      }
+    },
+    {
+      "id": "boundary_gap_rounds_to_minimum",
+      "category": "boundary",
+      "description": "0.246 percent raw opening gap rounds to 0.25 percent",
+      "request": {
+        "contractVersion": "eod-scanner-contract-v1",
+        "requestId": "req-rsc05-boundary_gap_rounds_to_minimum",
+        "target": {
+          "symbol": "TCS",
+          "exchange": "NSE",
+          "name": "Tata Consultancy Services"
+        },
+        "bars": [
+          {
+            "symbol": "TCS",
+            "date": "2025-01-01",
+            "open": 98,
+            "high": 101,
+            "low": 97,
+            "close": 100,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-01-02",
+            "open": 99,
+            "high": 102,
+            "low": 98,
+            "close": 101,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-01-03",
+            "open": 100,
+            "high": 103,
+            "low": 99,
+            "close": 102,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-01-04",
+            "open": 101,
+            "high": 104,
+            "low": 100,
+            "close": 103,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-01-05",
+            "open": 102,
+            "high": 105,
+            "low": 101,
+            "close": 104,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-01-06",
+            "open": 103,
+            "high": 106,
+            "low": 102,
+            "close": 105,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-01-07",
+            "open": 104,
+            "high": 107,
+            "low": 103,
+            "close": 106,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-01-08",
+            "open": 105,
+            "high": 108,
+            "low": 104,
+            "close": 107,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-01-09",
+            "open": 106,
+            "high": 109,
+            "low": 105,
+            "close": 108,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-01-10",
+            "open": 107,
+            "high": 110,
+            "low": 106,
+            "close": 109,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-01-11",
+            "open": 108,
+            "high": 111,
+            "low": 107,
+            "close": 110,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-01-12",
+            "open": 109,
+            "high": 112,
+            "low": 108,
+            "close": 111,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-01-13",
+            "open": 110,
+            "high": 113,
+            "low": 109,
+            "close": 112,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-01-14",
+            "open": 111,
+            "high": 114,
+            "low": 110,
+            "close": 113,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-01-15",
+            "open": 112,
+            "high": 115,
+            "low": 111,
+            "close": 114,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-01-16",
+            "open": 113,
+            "high": 116,
+            "low": 112,
+            "close": 115,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-01-17",
+            "open": 114,
+            "high": 117,
+            "low": 113,
+            "close": 116,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-01-18",
+            "open": 115,
+            "high": 118,
+            "low": 114,
+            "close": 117,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-01-19",
+            "open": 116,
+            "high": 119,
+            "low": 115,
+            "close": 118,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-01-20",
+            "open": 117,
+            "high": 120,
+            "low": 116,
+            "close": 119,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-01-21",
+            "open": 118,
+            "high": 121,
+            "low": 117,
+            "close": 120,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-01-22",
+            "open": 121.29766,
+            "high": 121.90487608595998,
+            "low": 121.0121,
+            "close": 121.66155297999998,
+            "volume": 1300
+          }
+        ],
+        "scannerIds": [
+          "chart_runaway_gap"
+        ],
+        "lookbackBars": null,
+        "evaluateHistory": false,
+        "executionMode": "fast",
+        "generatedAt": "2026-11-19T10:30:00.000Z"
+      },
+      "response": {
+        "contractVersion": "eod-scanner-contract-v1",
+        "requestId": "req-rsc05-boundary_gap_rounds_to_minimum",
+        "target": {
+          "symbol": "TCS",
+          "exchange": "NSE",
+          "name": "Tata Consultancy Services"
+        },
+        "latestResults": [
+          {
+            "symbol": "TCS",
+            "exchange": "NSE",
+            "scannerId": "chart_runaway_gap",
+            "scannerName": "Runaway Gap",
+            "categoryId": "chart_patterns_gap",
+            "categoryName": "Chart Patterns - Gaps",
+            "date": "2025-01-22",
+            "matched": true,
+            "direction": "bullish",
+            "score": 75,
+            "reasons": [
+              "Gap held above yesterday high (121) after a 19% prior uptrend"
+            ],
+            "values": {
+              "gap_pct": 0.25,
+              "trend_move_pct": 19,
+              "avg_volume_20": 1000,
+              "volume_ratio": 1.3
+            },
+            "chartPattern": {
+              "family": "gap",
+              "confidence": 75,
+              "patternEndDate": "2025-01-22",
+              "breakoutLevel": 121,
+              "patternStartDate": "2025-01-01",
+              "geometry": {
+                "family": "gap-zone",
+                "zones": [
+                  {
+                    "id": "gap",
+                    "label": "Gap",
+                    "role": "gap",
+                    "startDate": "2025-01-21",
+                    "endDate": "2025-01-22",
+                    "low": 121,
+                    "high": 121.0121
+                  }
+                ],
+                "labels": [
+                  {
+                    "id": "pattern",
+                    "text": "Runaway Gap",
+                    "point": {
+                      "date": "2025-01-22",
+                      "price": 121.66155297999998
+                    }
+                  }
+                ]
+              }
+            },
+            "warnings": [],
+            "source": "EODChartPatternScanner_v1",
+            "generatedAt": "2026-11-19T10:30:00.000Z"
+          }
+        ],
+        "historicalResults": [],
+        "results": [
+          {
+            "symbol": "TCS",
+            "exchange": "NSE",
+            "scannerId": "chart_runaway_gap",
+            "scannerName": "Runaway Gap",
+            "categoryId": "chart_patterns_gap",
+            "categoryName": "Chart Patterns - Gaps",
+            "date": "2025-01-22",
+            "matched": true,
+            "direction": "bullish",
+            "score": 75,
+            "reasons": [
+              "Gap held above yesterday high (121) after a 19% prior uptrend"
+            ],
+            "values": {
+              "gap_pct": 0.25,
+              "trend_move_pct": 19,
+              "avg_volume_20": 1000,
+              "volume_ratio": 1.3
+            },
+            "chartPattern": {
+              "family": "gap",
+              "confidence": 75,
+              "patternEndDate": "2025-01-22",
+              "breakoutLevel": 121,
+              "patternStartDate": "2025-01-01",
+              "geometry": {
+                "family": "gap-zone",
+                "zones": [
+                  {
+                    "id": "gap",
+                    "label": "Gap",
+                    "role": "gap",
+                    "startDate": "2025-01-21",
+                    "endDate": "2025-01-22",
+                    "low": 121,
+                    "high": 121.0121
+                  }
+                ],
+                "labels": [
+                  {
+                    "id": "pattern",
+                    "text": "Runaway Gap",
+                    "point": {
+                      "date": "2025-01-22",
+                      "price": 121.66155297999998
+                    }
+                  }
+                ]
+              }
+            },
+            "warnings": [],
+            "source": "EODChartPatternScanner_v1",
+            "generatedAt": "2026-11-19T10:30:00.000Z"
+          }
+        ],
+        "scannedBars": 22,
+        "cancelled": false,
+        "errors": []
+      }
+    },
+    {
+      "id": "boundary_trend_below_8pct",
+      "category": "boundary",
+      "description": "Prior trend just below 8 percent rejected",
+      "request": {
+        "contractVersion": "eod-scanner-contract-v1",
+        "requestId": "req-rsc05-boundary_trend_below_8pct",
+        "target": {
+          "symbol": "TCS",
+          "exchange": "NSE",
+          "name": "Tata Consultancy Services"
+        },
+        "bars": [
+          {
+            "symbol": "TCS",
+            "date": "2025-01-01",
+            "open": 98,
+            "high": 101,
+            "low": 97,
+            "close": 100,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-01-02",
+            "open": 99,
+            "high": 102,
+            "low": 98,
+            "close": 101,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-01-03",
+            "open": 100,
+            "high": 103,
+            "low": 99,
+            "close": 102,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-01-04",
+            "open": 101,
+            "high": 104,
+            "low": 100,
+            "close": 103,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-01-05",
+            "open": 102,
+            "high": 105,
+            "low": 101,
+            "close": 104,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-01-06",
+            "open": 103,
+            "high": 106,
+            "low": 102,
+            "close": 105,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-01-07",
+            "open": 104,
+            "high": 107,
+            "low": 103,
+            "close": 106,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-01-08",
+            "open": 105,
+            "high": 108,
+            "low": 104,
+            "close": 107,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-01-09",
+            "open": 106,
+            "high": 109,
+            "low": 105,
+            "close": 108,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-01-10",
+            "open": 107,
+            "high": 110,
+            "low": 106,
+            "close": 109,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-01-11",
+            "open": 108,
+            "high": 111,
+            "low": 107,
+            "close": 110,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-01-12",
+            "open": 109,
+            "high": 112,
+            "low": 108,
+            "close": 111,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-01-13",
+            "open": 110,
+            "high": 113,
+            "low": 109,
+            "close": 112,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-01-14",
+            "open": 111,
+            "high": 114,
+            "low": 110,
+            "close": 113,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-01-15",
+            "open": 112,
+            "high": 115,
+            "low": 111,
+            "close": 114,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-01-16",
+            "open": 113,
+            "high": 116,
+            "low": 112,
+            "close": 115,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-01-17",
+            "open": 114,
+            "high": 117,
+            "low": 113,
+            "close": 116,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-01-18",
+            "open": 115,
+            "high": 118,
+            "low": 114,
+            "close": 117,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-01-19",
+            "open": 116,
+            "high": 119,
+            "low": 115,
+            "close": 118,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-01-20",
+            "open": 117,
+            "high": 120,
+            "low": 116,
+            "close": 107.99000000000001,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-01-21",
+            "open": 118,
+            "high": 121,
+            "low": 117,
+            "close": 120,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-01-22",
+            "open": 122.452,
+            "high": 123.31038851999999,
+            "low": 121.12099999999998,
+            "close": 123.06425999999999,
+            "volume": 1300
+          }
+        ],
+        "scannerIds": [
+          "chart_runaway_gap"
+        ],
+        "lookbackBars": null,
+        "evaluateHistory": false,
+        "executionMode": "fast",
+        "generatedAt": "2026-11-19T10:30:00.000Z"
+      },
+      "response": {
+        "contractVersion": "eod-scanner-contract-v1",
+        "requestId": "req-rsc05-boundary_trend_below_8pct",
+        "target": {
+          "symbol": "TCS",
+          "exchange": "NSE",
+          "name": "Tata Consultancy Services"
+        },
+        "latestResults": [],
+        "historicalResults": [],
+        "results": [],
+        "scannedBars": 22,
+        "cancelled": false,
+        "errors": []
+      }
+    },
+    {
+      "id": "boundary_low_equal_prev_high",
+      "category": "boundary",
+      "description": "Today low equals previous high, no gap fill, accepted",
+      "request": {
+        "contractVersion": "eod-scanner-contract-v1",
+        "requestId": "req-rsc05-boundary_low_equal_prev_high",
+        "target": {
+          "symbol": "TCS",
+          "exchange": "NSE",
+          "name": "Tata Consultancy Services"
+        },
+        "bars": [
+          {
+            "symbol": "TCS",
+            "date": "2025-01-01",
+            "open": 98,
+            "high": 101,
+            "low": 97,
+            "close": 100,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-01-02",
+            "open": 99,
+            "high": 102,
+            "low": 98,
+            "close": 101,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-01-03",
+            "open": 100,
+            "high": 103,
+            "low": 99,
+            "close": 102,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-01-04",
+            "open": 101,
+            "high": 104,
+            "low": 100,
+            "close": 103,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-01-05",
+            "open": 102,
+            "high": 105,
+            "low": 101,
+            "close": 104,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-01-06",
+            "open": 103,
+            "high": 106,
+            "low": 102,
+            "close": 105,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-01-07",
+            "open": 104,
+            "high": 107,
+            "low": 103,
+            "close": 106,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-01-08",
+            "open": 105,
+            "high": 108,
+            "low": 104,
+            "close": 107,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-01-09",
+            "open": 106,
+            "high": 109,
+            "low": 105,
+            "close": 108,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-01-10",
+            "open": 107,
+            "high": 110,
+            "low": 106,
+            "close": 109,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-01-11",
+            "open": 108,
+            "high": 111,
+            "low": 107,
+            "close": 110,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-01-12",
+            "open": 109,
+            "high": 112,
+            "low": 108,
+            "close": 111,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-01-13",
+            "open": 110,
+            "high": 113,
+            "low": 109,
+            "close": 112,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-01-14",
+            "open": 111,
+            "high": 114,
+            "low": 110,
+            "close": 113,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-01-15",
+            "open": 112,
+            "high": 115,
+            "low": 111,
+            "close": 114,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-01-16",
+            "open": 113,
+            "high": 116,
+            "low": 112,
+            "close": 115,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-01-17",
+            "open": 114,
+            "high": 117,
+            "low": 113,
+            "close": 116,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-01-18",
+            "open": 115,
+            "high": 118,
+            "low": 114,
+            "close": 117,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-01-19",
+            "open": 116,
+            "high": 119,
+            "low": 115,
+            "close": 118,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-01-20",
+            "open": 117,
+            "high": 120,
+            "low": 116,
+            "close": 119,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-01-21",
+            "open": 118,
+            "high": 121,
+            "low": 117,
+            "close": 120,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-01-22",
+            "open": 122.452,
+            "high": 123.31038851999999,
+            "low": 121,
+            "close": 123.06425999999999,
+            "volume": 1300
+          }
+        ],
+        "scannerIds": [
+          "chart_runaway_gap"
+        ],
+        "lookbackBars": null,
+        "evaluateHistory": false,
+        "executionMode": "fast",
+        "generatedAt": "2026-11-19T10:30:00.000Z"
+      },
+      "response": {
+        "contractVersion": "eod-scanner-contract-v1",
+        "requestId": "req-rsc05-boundary_low_equal_prev_high",
+        "target": {
+          "symbol": "TCS",
+          "exchange": "NSE",
+          "name": "Tata Consultancy Services"
+        },
+        "latestResults": [
+          {
+            "symbol": "TCS",
+            "exchange": "NSE",
+            "scannerId": "chart_runaway_gap",
+            "scannerName": "Runaway Gap",
+            "categoryId": "chart_patterns_gap",
+            "categoryName": "Chart Patterns - Gaps",
+            "date": "2025-01-22",
+            "matched": true,
+            "direction": "bullish",
+            "score": 75,
+            "reasons": [
+              "Gap held above yesterday high (121) after a 19% prior uptrend"
+            ],
+            "values": {
+              "gap_pct": 1.2,
+              "trend_move_pct": 19,
+              "avg_volume_20": 1000,
+              "volume_ratio": 1.3
+            },
+            "chartPattern": {
+              "family": "gap",
+              "confidence": 75,
+              "patternEndDate": "2025-01-22",
+              "breakoutLevel": 121,
+              "patternStartDate": "2025-01-01",
+              "geometry": {
+                "family": "gap-zone",
+                "zones": [
+                  {
+                    "id": "gap",
+                    "label": "Gap",
+                    "role": "gap",
+                    "startDate": "2025-01-21",
+                    "endDate": "2025-01-22",
+                    "low": 121,
+                    "high": 121
+                  }
+                ],
+                "labels": [
+                  {
+                    "id": "pattern",
+                    "text": "Runaway Gap",
+                    "point": {
+                      "date": "2025-01-22",
+                      "price": 123.06425999999999
+                    }
+                  }
+                ]
+              }
+            },
+            "warnings": [],
+            "source": "EODChartPatternScanner_v1",
+            "generatedAt": "2026-11-19T10:30:00.000Z"
+          }
+        ],
+        "historicalResults": [],
+        "results": [
+          {
+            "symbol": "TCS",
+            "exchange": "NSE",
+            "scannerId": "chart_runaway_gap",
+            "scannerName": "Runaway Gap",
+            "categoryId": "chart_patterns_gap",
+            "categoryName": "Chart Patterns - Gaps",
+            "date": "2025-01-22",
+            "matched": true,
+            "direction": "bullish",
+            "score": 75,
+            "reasons": [
+              "Gap held above yesterday high (121) after a 19% prior uptrend"
+            ],
+            "values": {
+              "gap_pct": 1.2,
+              "trend_move_pct": 19,
+              "avg_volume_20": 1000,
+              "volume_ratio": 1.3
+            },
+            "chartPattern": {
+              "family": "gap",
+              "confidence": 75,
+              "patternEndDate": "2025-01-22",
+              "breakoutLevel": 121,
+              "patternStartDate": "2025-01-01",
+              "geometry": {
+                "family": "gap-zone",
+                "zones": [
+                  {
+                    "id": "gap",
+                    "label": "Gap",
+                    "role": "gap",
+                    "startDate": "2025-01-21",
+                    "endDate": "2025-01-22",
+                    "low": 121,
+                    "high": 121
+                  }
+                ],
+                "labels": [
+                  {
+                    "id": "pattern",
+                    "text": "Runaway Gap",
+                    "point": {
+                      "date": "2025-01-22",
+                      "price": 123.06425999999999
+                    }
+                  }
+                ]
+              }
+            },
+            "warnings": [],
+            "source": "EODChartPatternScanner_v1",
+            "generatedAt": "2026-11-19T10:30:00.000Z"
+          }
+        ],
+        "scannedBars": 22,
+        "cancelled": false,
+        "errors": []
+      }
+    },
+    {
+      "id": "negative_21_bars",
+      "category": "negative",
+      "description": "Minimum 22 bars unmet",
+      "request": {
+        "contractVersion": "eod-scanner-contract-v1",
+        "requestId": "req-rsc05-negative_21_bars",
+        "target": {
+          "symbol": "TCS",
+          "exchange": "NSE",
+          "name": "Tata Consultancy Services"
+        },
+        "bars": [
+          {
+            "symbol": "TCS",
+            "date": "2025-01-01",
+            "open": 98,
+            "high": 101,
+            "low": 97,
+            "close": 100,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-01-02",
+            "open": 99,
+            "high": 102,
+            "low": 98,
+            "close": 101,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-01-03",
+            "open": 100,
+            "high": 103,
+            "low": 99,
+            "close": 102,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-01-04",
+            "open": 101,
+            "high": 104,
+            "low": 100,
+            "close": 103,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-01-05",
+            "open": 102,
+            "high": 105,
+            "low": 101,
+            "close": 104,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-01-06",
+            "open": 103,
+            "high": 106,
+            "low": 102,
+            "close": 105,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-01-07",
+            "open": 104,
+            "high": 107,
+            "low": 103,
+            "close": 106,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-01-08",
+            "open": 105,
+            "high": 108,
+            "low": 104,
+            "close": 107,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-01-09",
+            "open": 106,
+            "high": 109,
+            "low": 105,
+            "close": 108,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-01-10",
+            "open": 107,
+            "high": 110,
+            "low": 106,
+            "close": 109,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-01-11",
+            "open": 108,
+            "high": 111,
+            "low": 107,
+            "close": 110,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-01-12",
+            "open": 109,
+            "high": 112,
+            "low": 108,
+            "close": 111,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-01-13",
+            "open": 110,
+            "high": 113,
+            "low": 109,
+            "close": 112,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-01-14",
+            "open": 111,
+            "high": 114,
+            "low": 110,
+            "close": 113,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-01-15",
+            "open": 112,
+            "high": 115,
+            "low": 111,
+            "close": 114,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-01-16",
+            "open": 113,
+            "high": 116,
+            "low": 112,
+            "close": 115,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-01-17",
+            "open": 114,
+            "high": 117,
+            "low": 113,
+            "close": 116,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-01-18",
+            "open": 115,
+            "high": 118,
+            "low": 114,
+            "close": 117,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-01-19",
+            "open": 116,
+            "high": 119,
+            "low": 115,
+            "close": 118,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-01-20",
+            "open": 117,
+            "high": 120,
+            "low": 116,
+            "close": 119,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-01-21",
+            "open": 121.44,
+            "high": 122.29129439999998,
+            "low": 120.11999999999999,
+            "close": 122.04719999999999,
+            "volume": 1300
+          }
+        ],
+        "scannerIds": [
+          "chart_runaway_gap"
+        ],
+        "lookbackBars": null,
+        "evaluateHistory": false,
+        "executionMode": "fast",
+        "generatedAt": "2026-11-19T10:30:00.000Z"
+      },
+      "response": {
+        "contractVersion": "eod-scanner-contract-v1",
+        "requestId": "req-rsc05-negative_21_bars",
+        "target": {
+          "symbol": "TCS",
+          "exchange": "NSE",
+          "name": "Tata Consultancy Services"
+        },
+        "latestResults": [],
+        "historicalResults": [],
+        "results": [],
+        "scannedBars": 21,
+        "cancelled": false,
+        "errors": []
+      }
+    },
+    {
+      "id": "negative_no_selected_ids",
+      "category": "negative",
+      "description": "Empty scanner IDs returns empty response",
+      "request": {
+        "contractVersion": "eod-scanner-contract-v1",
+        "requestId": "req-rsc05-negative_no_selected_ids",
+        "target": {
+          "symbol": "TCS",
+          "exchange": "NSE",
+          "name": "Tata Consultancy Services"
+        },
+        "bars": [
+          {
+            "symbol": "TCS",
+            "date": "2025-01-01",
+            "open": 98,
+            "high": 101,
+            "low": 97,
+            "close": 100,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-01-02",
+            "open": 99,
+            "high": 102,
+            "low": 98,
+            "close": 101,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-01-03",
+            "open": 100,
+            "high": 103,
+            "low": 99,
+            "close": 102,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-01-04",
+            "open": 101,
+            "high": 104,
+            "low": 100,
+            "close": 103,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-01-05",
+            "open": 102,
+            "high": 105,
+            "low": 101,
+            "close": 104,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-01-06",
+            "open": 103,
+            "high": 106,
+            "low": 102,
+            "close": 105,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-01-07",
+            "open": 104,
+            "high": 107,
+            "low": 103,
+            "close": 106,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-01-08",
+            "open": 105,
+            "high": 108,
+            "low": 104,
+            "close": 107,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-01-09",
+            "open": 106,
+            "high": 109,
+            "low": 105,
+            "close": 108,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-01-10",
+            "open": 107,
+            "high": 110,
+            "low": 106,
+            "close": 109,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-01-11",
+            "open": 108,
+            "high": 111,
+            "low": 107,
+            "close": 110,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-01-12",
+            "open": 109,
+            "high": 112,
+            "low": 108,
+            "close": 111,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-01-13",
+            "open": 110,
+            "high": 113,
+            "low": 109,
+            "close": 112,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-01-14",
+            "open": 111,
+            "high": 114,
+            "low": 110,
+            "close": 113,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-01-15",
+            "open": 112,
+            "high": 115,
+            "low": 111,
+            "close": 114,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-01-16",
+            "open": 113,
+            "high": 116,
+            "low": 112,
+            "close": 115,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-01-17",
+            "open": 114,
+            "high": 117,
+            "low": 113,
+            "close": 116,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-01-18",
+            "open": 115,
+            "high": 118,
+            "low": 114,
+            "close": 117,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-01-19",
+            "open": 116,
+            "high": 119,
+            "low": 115,
+            "close": 118,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-01-20",
+            "open": 117,
+            "high": 120,
+            "low": 116,
+            "close": 119,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-01-21",
+            "open": 118,
+            "high": 121,
+            "low": 117,
+            "close": 120,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-01-22",
+            "open": 122.452,
+            "high": 123.31038851999999,
+            "low": 121.12099999999998,
+            "close": 123.06425999999999,
+            "volume": 1300
+          }
+        ],
+        "scannerIds": [],
+        "lookbackBars": null,
+        "evaluateHistory": false,
+        "executionMode": "fast",
+        "generatedAt": "2026-11-19T10:30:00.000Z"
+      },
+      "response": {
+        "contractVersion": "eod-scanner-contract-v1",
+        "requestId": "req-rsc05-negative_no_selected_ids",
+        "target": {
+          "symbol": "TCS",
+          "exchange": "NSE",
+          "name": "Tata Consultancy Services"
+        },
+        "latestResults": [],
+        "historicalResults": [],
+        "results": [],
+        "scannedBars": 22,
+        "cancelled": false,
+        "errors": []
+      }
+    },
+    {
+      "id": "historical_adjacent_episode",
+      "category": "historical",
+      "description": "Consecutive 2-day gap signals grouped as one episode",
+      "request": {
+        "contractVersion": "eod-scanner-contract-v1",
+        "requestId": "req-rsc05-historical_adjacent_episode",
+        "target": {
+          "symbol": "TCS",
+          "exchange": "NSE",
+          "name": "Tata Consultancy Services"
+        },
+        "bars": [
+          {
+            "symbol": "TCS",
+            "date": "2025-01-01",
+            "open": 98,
+            "high": 101,
+            "low": 97,
+            "close": 100,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-01-02",
+            "open": 99,
+            "high": 102,
+            "low": 98,
+            "close": 101,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-01-03",
+            "open": 100,
+            "high": 103,
+            "low": 99,
+            "close": 102,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-01-04",
+            "open": 101,
+            "high": 104,
+            "low": 100,
+            "close": 103,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-01-05",
+            "open": 102,
+            "high": 105,
+            "low": 101,
+            "close": 104,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-01-06",
+            "open": 103,
+            "high": 106,
+            "low": 102,
+            "close": 105,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-01-07",
+            "open": 104,
+            "high": 107,
+            "low": 103,
+            "close": 106,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-01-08",
+            "open": 105,
+            "high": 108,
+            "low": 104,
+            "close": 107,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-01-09",
+            "open": 106,
+            "high": 109,
+            "low": 105,
+            "close": 108,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-01-10",
+            "open": 107,
+            "high": 110,
+            "low": 106,
+            "close": 109,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-01-11",
+            "open": 108,
+            "high": 111,
+            "low": 107,
+            "close": 110,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-01-12",
+            "open": 109,
+            "high": 112,
+            "low": 108,
+            "close": 111,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-01-13",
+            "open": 110,
+            "high": 113,
+            "low": 109,
+            "close": 112,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-01-14",
+            "open": 111,
+            "high": 114,
+            "low": 110,
+            "close": 113,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-01-15",
+            "open": 112,
+            "high": 115,
+            "low": 111,
+            "close": 114,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-01-16",
+            "open": 113,
+            "high": 116,
+            "low": 112,
+            "close": 115,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-01-17",
+            "open": 114,
+            "high": 117,
+            "low": 113,
+            "close": 116,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-01-18",
+            "open": 115,
+            "high": 118,
+            "low": 114,
+            "close": 117,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-01-19",
+            "open": 116,
+            "high": 119,
+            "low": 115,
+            "close": 118,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-01-20",
+            "open": 117,
+            "high": 120,
+            "low": 116,
+            "close": 119,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-01-21",
+            "open": 118,
+            "high": 121,
+            "low": 117,
+            "close": 120,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-01-22",
+            "open": 119,
+            "high": 122,
+            "low": 118,
+            "close": 121,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-01-23",
+            "open": 120,
+            "high": 123,
+            "low": 119,
+            "close": 122,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-01-24",
+            "open": 121,
+            "high": 124,
+            "low": 120,
+            "close": 123,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-01-25",
+            "open": 122,
+            "high": 125,
+            "low": 121,
+            "close": 124,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-01-26",
+            "open": 123,
+            "high": 126,
+            "low": 122,
+            "close": 125,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-01-27",
+            "open": 124,
+            "high": 127,
+            "low": 123,
+            "close": 126,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-01-28",
+            "open": 125,
+            "high": 128,
+            "low": 124,
+            "close": 127,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-01-29",
+            "open": 126,
+            "high": 129,
+            "low": 125,
+            "close": 128,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-01-30",
+            "open": 127,
+            "high": 130,
+            "low": 126,
+            "close": 129,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-01-31",
+            "open": 128,
+            "high": 131,
+            "low": 127,
+            "close": 130,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-02-01",
+            "open": 129,
+            "high": 132,
+            "low": 128,
+            "close": 131,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-02-02",
+            "open": 130,
+            "high": 133,
+            "low": 129,
+            "close": 132,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-02-03",
+            "open": 131,
+            "high": 134,
+            "low": 130,
+            "close": 133,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-02-04",
+            "open": 132,
+            "high": 135,
+            "low": 131,
+            "close": 134,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-02-05",
+            "open": 133,
+            "high": 136,
+            "low": 132,
+            "close": 135,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-02-06",
+            "open": 134,
+            "high": 137,
+            "low": 133,
+            "close": 136,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-02-07",
+            "open": 135,
+            "high": 138,
+            "low": 134,
+            "close": 137,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-02-08",
+            "open": 136,
+            "high": 139,
+            "low": 135,
+            "close": 138,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-02-09",
+            "open": 137,
+            "high": 140,
+            "low": 136,
+            "close": 139,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-02-10",
+            "open": 138,
+            "high": 141,
+            "low": 137,
+            "close": 140,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-02-11",
+            "open": 139,
+            "high": 142,
+            "low": 138,
+            "close": 141,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-02-12",
+            "open": 140,
+            "high": 143,
+            "low": 139,
+            "close": 142,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-02-13",
+            "open": 141,
+            "high": 144,
+            "low": 140,
+            "close": 143,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-02-14",
+            "open": 142,
+            "high": 145,
+            "low": 141,
+            "close": 144,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-02-15",
+            "open": 143,
+            "high": 146,
+            "low": 142,
+            "close": 145,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-02-16",
+            "open": 144,
+            "high": 147,
+            "low": 143,
+            "close": 146,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-02-17",
+            "open": 145,
+            "high": 148,
+            "low": 144,
+            "close": 147,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-02-18",
+            "open": 146,
+            "high": 149,
+            "low": 145,
+            "close": 148,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-02-19",
+            "open": 147,
+            "high": 150,
+            "low": 146,
+            "close": 149,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-02-20",
+            "open": 148,
+            "high": 151,
+            "low": 147,
+            "close": 150,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-02-21",
+            "open": 149,
+            "high": 152,
+            "low": 148,
+            "close": 151,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-02-22",
+            "open": 150,
+            "high": 153,
+            "low": 149,
+            "close": 152,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-02-23",
+            "open": 151,
+            "high": 154,
+            "low": 150,
+            "close": 153,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-02-24",
+            "open": 152,
+            "high": 155,
+            "low": 151,
+            "close": 154,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-02-25",
+            "open": 153,
+            "high": 156,
+            "low": 152,
+            "close": 155,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-02-26",
+            "open": 154,
+            "high": 157,
+            "low": 153,
+            "close": 156,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-02-27",
+            "open": 155,
+            "high": 158,
+            "low": 154,
+            "close": 157,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-02-28",
+            "open": 159.89600000000002,
+            "high": 161.01687096,
+            "low": 158.158,
+            "close": 160.69548,
+            "volume": 1250
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-03-01",
+            "open": 162.94907341152,
+            "high": 164.09134641613474,
+            "low": 161.17788783095997,
+            "close": 163.7638187785776,
+            "volume": 1300
+          }
+        ],
+        "scannerIds": [
+          "chart_runaway_gap"
+        ],
+        "lookbackBars": null,
+        "evaluateHistory": true,
+        "executionMode": "fast",
+        "generatedAt": "2026-11-19T10:30:00.000Z"
+      },
+      "response": {
+        "contractVersion": "eod-scanner-contract-v1",
+        "requestId": "req-rsc05-historical_adjacent_episode",
+        "target": {
+          "symbol": "TCS",
+          "exchange": "NSE",
+          "name": "Tata Consultancy Services"
+        },
+        "latestResults": [
+          {
+            "symbol": "TCS",
+            "exchange": "NSE",
+            "scannerId": "chart_runaway_gap",
+            "scannerName": "Runaway Gap",
+            "categoryId": "chart_patterns_gap",
+            "categoryName": "Chart Patterns - Gaps",
+            "date": "2025-03-01",
+            "matched": true,
+            "direction": "bullish",
+            "score": 75,
+            "reasons": [
+              "Gap held above yesterday high (161.01687096) after a 13.77% prior uptrend"
+            ],
+            "values": {
+              "gap_pct": 1.2,
+              "trend_move_pct": 13.77,
+              "avg_volume_20": 1013,
+              "volume_ratio": 1.28
+            },
+            "chartPattern": {
+              "family": "gap",
+              "confidence": 75,
+              "patternEndDate": "2025-03-01",
+              "breakoutLevel": 161.01687096,
+              "patternStartDate": "2025-02-08",
+              "geometry": {
+                "family": "gap-zone",
+                "zones": [
+                  {
+                    "id": "gap",
+                    "label": "Gap",
+                    "role": "gap",
+                    "startDate": "2025-02-28",
+                    "endDate": "2025-03-01",
+                    "low": 161.01687096,
+                    "high": 161.17788783095997
+                  }
+                ],
+                "labels": [
+                  {
+                    "id": "pattern",
+                    "text": "Runaway Gap",
+                    "point": {
+                      "date": "2025-03-01",
+                      "price": 163.7638187785776
+                    }
+                  }
+                ]
+              }
+            },
+            "warnings": [],
+            "source": "EODChartPatternScanner_v1",
+            "generatedAt": "2026-11-19T10:30:00.000Z"
+          }
+        ],
+        "historicalResults": [
+          {
+            "symbol": "TCS",
+            "exchange": "NSE",
+            "scannerId": "chart_runaway_gap",
+            "scannerName": "Runaway Gap",
+            "categoryId": "chart_patterns_gap",
+            "categoryName": "Chart Patterns - Gaps",
+            "date": "2025-02-28",
+            "matched": true,
+            "direction": "bullish",
+            "score": 75,
+            "reasons": [
+              "Gap held above yesterday high (158) after a 13.87% prior uptrend"
+            ],
+            "values": {
+              "gap_pct": 1.2,
+              "trend_move_pct": 13.87,
+              "avg_volume_20": 1000,
+              "volume_ratio": 1.25
+            },
+            "chartPattern": {
+              "family": "gap",
+              "confidence": 75,
+              "patternEndDate": "2025-02-28",
+              "breakoutLevel": 158,
+              "patternStartDate": "2025-02-07",
+              "geometry": {
+                "family": "gap-zone",
+                "zones": [
+                  {
+                    "id": "gap",
+                    "label": "Gap",
+                    "role": "gap",
+                    "startDate": "2025-02-27",
+                    "endDate": "2025-02-28",
+                    "low": 158,
+                    "high": 158.158
+                  }
+                ],
+                "labels": [
+                  {
+                    "id": "pattern",
+                    "text": "Runaway Gap",
+                    "point": {
+                      "date": "2025-02-28",
+                      "price": 160.69548
+                    }
+                  }
+                ]
+              }
+            },
+            "warnings": [],
+            "source": "EODChartPatternScanner_v1",
+            "generatedAt": "2026-11-19T10:30:00.000Z",
+            "history": {
+              "firstMatchedDate": "2025-02-28",
+              "lastMatchedDate": "2025-03-01",
+              "matchCount": 2
+            }
+          }
+        ],
+        "results": [
+          {
+            "symbol": "TCS",
+            "exchange": "NSE",
+            "scannerId": "chart_runaway_gap",
+            "scannerName": "Runaway Gap",
+            "categoryId": "chart_patterns_gap",
+            "categoryName": "Chart Patterns - Gaps",
+            "date": "2025-02-28",
+            "matched": true,
+            "direction": "bullish",
+            "score": 75,
+            "reasons": [
+              "Gap held above yesterday high (158) after a 13.87% prior uptrend"
+            ],
+            "values": {
+              "gap_pct": 1.2,
+              "trend_move_pct": 13.87,
+              "avg_volume_20": 1000,
+              "volume_ratio": 1.25
+            },
+            "chartPattern": {
+              "family": "gap",
+              "confidence": 75,
+              "patternEndDate": "2025-02-28",
+              "breakoutLevel": 158,
+              "patternStartDate": "2025-02-07",
+              "geometry": {
+                "family": "gap-zone",
+                "zones": [
+                  {
+                    "id": "gap",
+                    "label": "Gap",
+                    "role": "gap",
+                    "startDate": "2025-02-27",
+                    "endDate": "2025-02-28",
+                    "low": 158,
+                    "high": 158.158
+                  }
+                ],
+                "labels": [
+                  {
+                    "id": "pattern",
+                    "text": "Runaway Gap",
+                    "point": {
+                      "date": "2025-02-28",
+                      "price": 160.69548
+                    }
+                  }
+                ]
+              }
+            },
+            "warnings": [],
+            "source": "EODChartPatternScanner_v1",
+            "generatedAt": "2026-11-19T10:30:00.000Z",
+            "history": {
+              "firstMatchedDate": "2025-02-28",
+              "lastMatchedDate": "2025-03-01",
+              "matchCount": 2
+            }
+          }
+        ],
+        "scannedBars": 60,
+        "cancelled": false,
+        "errors": [],
+        "progressEvents": [
+          {
+            "contractVersion": "eod-scanner-contract-v1",
+            "requestId": "req-rsc05-historical_adjacent_episode",
+            "completed": 1,
+            "total": 1,
+            "symbol": "TCS",
+            "exchange": "NSE",
+            "historyCompleted": 41,
+            "historyTotal": 41,
+            "resultCount": 1
+          }
+        ]
+      }
+    },
+    {
+      "id": "historical_260_window",
+      "category": "historical",
+      "description": "275-bar history exercises max 260-bar endpoint window and 50-bar progress",
+      "request": {
+        "contractVersion": "eod-scanner-contract-v1",
+        "requestId": "req-rsc05-historical_260_window",
+        "target": {
+          "symbol": "TCS",
+          "exchange": "NSE",
+          "name": "Tata Consultancy Services"
+        },
+        "bars": [
+          {
+            "symbol": "TCS",
+            "date": "2025-01-01",
+            "open": 98,
+            "high": 101,
+            "low": 97,
+            "close": 100,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-01-02",
+            "open": 99,
+            "high": 102,
+            "low": 98,
+            "close": 101,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-01-03",
+            "open": 100,
+            "high": 103,
+            "low": 99,
+            "close": 102,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-01-04",
+            "open": 101,
+            "high": 104,
+            "low": 100,
+            "close": 103,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-01-05",
+            "open": 102,
+            "high": 105,
+            "low": 101,
+            "close": 104,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-01-06",
+            "open": 103,
+            "high": 106,
+            "low": 102,
+            "close": 105,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-01-07",
+            "open": 104,
+            "high": 107,
+            "low": 103,
+            "close": 106,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-01-08",
+            "open": 105,
+            "high": 108,
+            "low": 104,
+            "close": 107,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-01-09",
+            "open": 106,
+            "high": 109,
+            "low": 105,
+            "close": 108,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-01-10",
+            "open": 107,
+            "high": 110,
+            "low": 106,
+            "close": 109,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-01-11",
+            "open": 108,
+            "high": 111,
+            "low": 107,
+            "close": 110,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-01-12",
+            "open": 109,
+            "high": 112,
+            "low": 108,
+            "close": 111,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-01-13",
+            "open": 110,
+            "high": 113,
+            "low": 109,
+            "close": 112,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-01-14",
+            "open": 111,
+            "high": 114,
+            "low": 110,
+            "close": 113,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-01-15",
+            "open": 112,
+            "high": 115,
+            "low": 111,
+            "close": 114,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-01-16",
+            "open": 113,
+            "high": 116,
+            "low": 112,
+            "close": 115,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-01-17",
+            "open": 114,
+            "high": 117,
+            "low": 113,
+            "close": 116,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-01-18",
+            "open": 115,
+            "high": 118,
+            "low": 114,
+            "close": 117,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-01-19",
+            "open": 116,
+            "high": 119,
+            "low": 115,
+            "close": 118,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-01-20",
+            "open": 117,
+            "high": 120,
+            "low": 116,
+            "close": 119,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-01-21",
+            "open": 118,
+            "high": 121,
+            "low": 117,
+            "close": 120,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-01-22",
+            "open": 119,
+            "high": 122,
+            "low": 118,
+            "close": 121,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-01-23",
+            "open": 120,
+            "high": 123,
+            "low": 119,
+            "close": 122,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-01-24",
+            "open": 121,
+            "high": 124,
+            "low": 120,
+            "close": 123,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-01-25",
+            "open": 122,
+            "high": 125,
+            "low": 121,
+            "close": 124,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-01-26",
+            "open": 123,
+            "high": 126,
+            "low": 122,
+            "close": 125,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-01-27",
+            "open": 124,
+            "high": 127,
+            "low": 123,
+            "close": 126,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-01-28",
+            "open": 125,
+            "high": 128,
+            "low": 124,
+            "close": 127,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-01-29",
+            "open": 126,
+            "high": 129,
+            "low": 125,
+            "close": 128,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-01-30",
+            "open": 127,
+            "high": 130,
+            "low": 126,
+            "close": 129,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-01-31",
+            "open": 128,
+            "high": 131,
+            "low": 127,
+            "close": 130,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-02-01",
+            "open": 129,
+            "high": 132,
+            "low": 128,
+            "close": 131,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-02-02",
+            "open": 130,
+            "high": 133,
+            "low": 129,
+            "close": 132,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-02-03",
+            "open": 131,
+            "high": 134,
+            "low": 130,
+            "close": 133,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-02-04",
+            "open": 132,
+            "high": 135,
+            "low": 131,
+            "close": 134,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-02-05",
+            "open": 133,
+            "high": 136,
+            "low": 132,
+            "close": 135,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-02-06",
+            "open": 134,
+            "high": 137,
+            "low": 133,
+            "close": 136,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-02-07",
+            "open": 135,
+            "high": 138,
+            "low": 134,
+            "close": 137,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-02-08",
+            "open": 136,
+            "high": 139,
+            "low": 135,
+            "close": 138,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-02-09",
+            "open": 137,
+            "high": 140,
+            "low": 136,
+            "close": 139,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-02-10",
+            "open": 138,
+            "high": 141,
+            "low": 137,
+            "close": 140,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-02-11",
+            "open": 139,
+            "high": 142,
+            "low": 138,
+            "close": 141,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-02-12",
+            "open": 140,
+            "high": 143,
+            "low": 139,
+            "close": 142,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-02-13",
+            "open": 141,
+            "high": 144,
+            "low": 140,
+            "close": 143,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-02-14",
+            "open": 142,
+            "high": 145,
+            "low": 141,
+            "close": 144,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-02-15",
+            "open": 143,
+            "high": 146,
+            "low": 142,
+            "close": 145,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-02-16",
+            "open": 144,
+            "high": 147,
+            "low": 143,
+            "close": 146,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-02-17",
+            "open": 145,
+            "high": 148,
+            "low": 144,
+            "close": 147,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-02-18",
+            "open": 146,
+            "high": 149,
+            "low": 145,
+            "close": 148,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-02-19",
+            "open": 147,
+            "high": 150,
+            "low": 146,
+            "close": 149,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-02-20",
+            "open": 148,
+            "high": 151,
+            "low": 147,
+            "close": 150,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-02-21",
+            "open": 149,
+            "high": 152,
+            "low": 148,
+            "close": 151,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-02-22",
+            "open": 150,
+            "high": 153,
+            "low": 149,
+            "close": 152,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-02-23",
+            "open": 151,
+            "high": 154,
+            "low": 150,
+            "close": 153,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-02-24",
+            "open": 152,
+            "high": 155,
+            "low": 151,
+            "close": 154,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-02-25",
+            "open": 153,
+            "high": 156,
+            "low": 152,
+            "close": 155,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-02-26",
+            "open": 154,
+            "high": 157,
+            "low": 153,
+            "close": 156,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-02-27",
+            "open": 155,
+            "high": 158,
+            "low": 154,
+            "close": 157,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-02-28",
+            "open": 156,
+            "high": 159,
+            "low": 155,
+            "close": 158,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-03-01",
+            "open": 157,
+            "high": 160,
+            "low": 156,
+            "close": 159,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-03-02",
+            "open": 158,
+            "high": 161,
+            "low": 157,
+            "close": 160,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-03-03",
+            "open": 159,
+            "high": 162,
+            "low": 158,
+            "close": 161,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-03-04",
+            "open": 160,
+            "high": 163,
+            "low": 159,
+            "close": 162,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-03-05",
+            "open": 161,
+            "high": 164,
+            "low": 160,
+            "close": 163,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-03-06",
+            "open": 162,
+            "high": 165,
+            "low": 161,
+            "close": 164,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-03-07",
+            "open": 163,
+            "high": 166,
+            "low": 162,
+            "close": 165,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-03-08",
+            "open": 164,
+            "high": 167,
+            "low": 163,
+            "close": 166,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-03-09",
+            "open": 165,
+            "high": 168,
+            "low": 164,
+            "close": 167,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-03-10",
+            "open": 166,
+            "high": 169,
+            "low": 165,
+            "close": 168,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-03-11",
+            "open": 167,
+            "high": 170,
+            "low": 166,
+            "close": 169,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-03-12",
+            "open": 168,
+            "high": 171,
+            "low": 167,
+            "close": 170,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-03-13",
+            "open": 169,
+            "high": 172,
+            "low": 168,
+            "close": 171,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-03-14",
+            "open": 170,
+            "high": 173,
+            "low": 169,
+            "close": 172,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-03-15",
+            "open": 171,
+            "high": 174,
+            "low": 170,
+            "close": 173,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-03-16",
+            "open": 172,
+            "high": 175,
+            "low": 171,
+            "close": 174,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-03-17",
+            "open": 173,
+            "high": 176,
+            "low": 172,
+            "close": 175,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-03-18",
+            "open": 174,
+            "high": 177,
+            "low": 173,
+            "close": 176,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-03-19",
+            "open": 175,
+            "high": 178,
+            "low": 174,
+            "close": 177,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-03-20",
+            "open": 176,
+            "high": 179,
+            "low": 175,
+            "close": 178,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-03-21",
+            "open": 177,
+            "high": 180,
+            "low": 176,
+            "close": 179,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-03-22",
+            "open": 178,
+            "high": 181,
+            "low": 177,
+            "close": 180,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-03-23",
+            "open": 179,
+            "high": 182,
+            "low": 178,
+            "close": 181,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-03-24",
+            "open": 180,
+            "high": 183,
+            "low": 179,
+            "close": 182,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-03-25",
+            "open": 181,
+            "high": 184,
+            "low": 180,
+            "close": 183,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-03-26",
+            "open": 182,
+            "high": 185,
+            "low": 181,
+            "close": 184,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-03-27",
+            "open": 183,
+            "high": 186,
+            "low": 182,
+            "close": 185,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-03-28",
+            "open": 184,
+            "high": 187,
+            "low": 183,
+            "close": 186,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-03-29",
+            "open": 185,
+            "high": 188,
+            "low": 184,
+            "close": 187,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-03-30",
+            "open": 186,
+            "high": 189,
+            "low": 185,
+            "close": 188,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-03-31",
+            "open": 187,
+            "high": 190,
+            "low": 186,
+            "close": 189,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-04-01",
+            "open": 188,
+            "high": 191,
+            "low": 187,
+            "close": 190,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-04-02",
+            "open": 189,
+            "high": 192,
+            "low": 188,
+            "close": 191,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-04-03",
+            "open": 190,
+            "high": 193,
+            "low": 189,
+            "close": 192,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-04-04",
+            "open": 191,
+            "high": 194,
+            "low": 190,
+            "close": 193,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-04-05",
+            "open": 192,
+            "high": 195,
+            "low": 191,
+            "close": 194,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-04-06",
+            "open": 193,
+            "high": 196,
+            "low": 192,
+            "close": 195,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-04-07",
+            "open": 194,
+            "high": 197,
+            "low": 193,
+            "close": 196,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-04-08",
+            "open": 195,
+            "high": 198,
+            "low": 194,
+            "close": 197,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-04-09",
+            "open": 196,
+            "high": 199,
+            "low": 195,
+            "close": 198,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-04-10",
+            "open": 197,
+            "high": 200,
+            "low": 196,
+            "close": 199,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-04-11",
+            "open": 98,
+            "high": 101,
+            "low": 97,
+            "close": 100,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-04-12",
+            "open": 99,
+            "high": 102,
+            "low": 98,
+            "close": 101,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-04-13",
+            "open": 100,
+            "high": 103,
+            "low": 99,
+            "close": 102,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-04-14",
+            "open": 101,
+            "high": 104,
+            "low": 100,
+            "close": 103,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-04-15",
+            "open": 102,
+            "high": 105,
+            "low": 101,
+            "close": 104,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-04-16",
+            "open": 103,
+            "high": 106,
+            "low": 102,
+            "close": 105,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-04-17",
+            "open": 104,
+            "high": 107,
+            "low": 103,
+            "close": 106,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-04-18",
+            "open": 105,
+            "high": 108,
+            "low": 104,
+            "close": 107,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-04-19",
+            "open": 106,
+            "high": 109,
+            "low": 105,
+            "close": 108,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-04-20",
+            "open": 107,
+            "high": 110,
+            "low": 106,
+            "close": 109,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-04-21",
+            "open": 108,
+            "high": 111,
+            "low": 107,
+            "close": 110,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-04-22",
+            "open": 109,
+            "high": 112,
+            "low": 108,
+            "close": 111,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-04-23",
+            "open": 110,
+            "high": 113,
+            "low": 109,
+            "close": 112,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-04-24",
+            "open": 111,
+            "high": 114,
+            "low": 110,
+            "close": 113,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-04-25",
+            "open": 112,
+            "high": 115,
+            "low": 111,
+            "close": 114,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-04-26",
+            "open": 113,
+            "high": 116,
+            "low": 112,
+            "close": 115,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-04-27",
+            "open": 114,
+            "high": 117,
+            "low": 113,
+            "close": 116,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-04-28",
+            "open": 115,
+            "high": 118,
+            "low": 114,
+            "close": 117,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-04-29",
+            "open": 116,
+            "high": 119,
+            "low": 115,
+            "close": 118,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-04-30",
+            "open": 117,
+            "high": 120,
+            "low": 116,
+            "close": 119,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-05-01",
+            "open": 118,
+            "high": 121,
+            "low": 117,
+            "close": 120,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-05-02",
+            "open": 119,
+            "high": 122,
+            "low": 118,
+            "close": 121,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-05-03",
+            "open": 120,
+            "high": 123,
+            "low": 119,
+            "close": 122,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-05-04",
+            "open": 121,
+            "high": 124,
+            "low": 120,
+            "close": 123,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-05-05",
+            "open": 122,
+            "high": 125,
+            "low": 121,
+            "close": 124,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-05-06",
+            "open": 123,
+            "high": 126,
+            "low": 122,
+            "close": 125,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-05-07",
+            "open": 124,
+            "high": 127,
+            "low": 123,
+            "close": 126,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-05-08",
+            "open": 125,
+            "high": 128,
+            "low": 124,
+            "close": 127,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-05-09",
+            "open": 126,
+            "high": 129,
+            "low": 125,
+            "close": 128,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-05-10",
+            "open": 127,
+            "high": 130,
+            "low": 126,
+            "close": 129,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-05-11",
+            "open": 128,
+            "high": 131,
+            "low": 127,
+            "close": 130,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-05-12",
+            "open": 129,
+            "high": 132,
+            "low": 128,
+            "close": 131,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-05-13",
+            "open": 130,
+            "high": 133,
+            "low": 129,
+            "close": 132,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-05-14",
+            "open": 131,
+            "high": 134,
+            "low": 130,
+            "close": 133,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-05-15",
+            "open": 132,
+            "high": 135,
+            "low": 131,
+            "close": 134,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-05-16",
+            "open": 133,
+            "high": 136,
+            "low": 132,
+            "close": 135,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-05-17",
+            "open": 134,
+            "high": 137,
+            "low": 133,
+            "close": 136,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-05-18",
+            "open": 135,
+            "high": 138,
+            "low": 134,
+            "close": 137,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-05-19",
+            "open": 136,
+            "high": 139,
+            "low": 135,
+            "close": 138,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-05-20",
+            "open": 137,
+            "high": 140,
+            "low": 136,
+            "close": 139,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-05-21",
+            "open": 138,
+            "high": 141,
+            "low": 137,
+            "close": 140,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-05-22",
+            "open": 139,
+            "high": 142,
+            "low": 138,
+            "close": 141,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-05-23",
+            "open": 140,
+            "high": 143,
+            "low": 139,
+            "close": 142,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-05-24",
+            "open": 141,
+            "high": 144,
+            "low": 140,
+            "close": 143,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-05-25",
+            "open": 142,
+            "high": 145,
+            "low": 141,
+            "close": 144,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-05-26",
+            "open": 143,
+            "high": 146,
+            "low": 142,
+            "close": 145,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-05-27",
+            "open": 144,
+            "high": 147,
+            "low": 143,
+            "close": 146,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-05-28",
+            "open": 145,
+            "high": 148,
+            "low": 144,
+            "close": 147,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-05-29",
+            "open": 146,
+            "high": 149,
+            "low": 145,
+            "close": 148,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-05-30",
+            "open": 147,
+            "high": 150,
+            "low": 146,
+            "close": 149,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-05-31",
+            "open": 148,
+            "high": 151,
+            "low": 147,
+            "close": 150,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-06-01",
+            "open": 149,
+            "high": 152,
+            "low": 148,
+            "close": 151,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-06-02",
+            "open": 150,
+            "high": 153,
+            "low": 149,
+            "close": 152,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-06-03",
+            "open": 151,
+            "high": 154,
+            "low": 150,
+            "close": 153,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-06-04",
+            "open": 152,
+            "high": 155,
+            "low": 151,
+            "close": 154,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-06-05",
+            "open": 153,
+            "high": 156,
+            "low": 152,
+            "close": 155,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-06-06",
+            "open": 154,
+            "high": 157,
+            "low": 153,
+            "close": 156,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-06-07",
+            "open": 155,
+            "high": 158,
+            "low": 154,
+            "close": 157,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-06-08",
+            "open": 156,
+            "high": 159,
+            "low": 155,
+            "close": 158,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-06-09",
+            "open": 157,
+            "high": 160,
+            "low": 156,
+            "close": 159,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-06-10",
+            "open": 158,
+            "high": 161,
+            "low": 157,
+            "close": 160,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-06-11",
+            "open": 159,
+            "high": 162,
+            "low": 158,
+            "close": 161,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-06-12",
+            "open": 160,
+            "high": 163,
+            "low": 159,
+            "close": 162,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-06-13",
+            "open": 161,
+            "high": 164,
+            "low": 160,
+            "close": 163,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-06-14",
+            "open": 162,
+            "high": 165,
+            "low": 161,
+            "close": 164,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-06-15",
+            "open": 163,
+            "high": 166,
+            "low": 162,
+            "close": 165,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-06-16",
+            "open": 164,
+            "high": 167,
+            "low": 163,
+            "close": 166,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-06-17",
+            "open": 165,
+            "high": 168,
+            "low": 164,
+            "close": 167,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-06-18",
+            "open": 166,
+            "high": 169,
+            "low": 165,
+            "close": 168,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-06-19",
+            "open": 167,
+            "high": 170,
+            "low": 166,
+            "close": 169,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-06-20",
+            "open": 168,
+            "high": 171,
+            "low": 167,
+            "close": 170,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-06-21",
+            "open": 169,
+            "high": 172,
+            "low": 168,
+            "close": 171,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-06-22",
+            "open": 170,
+            "high": 173,
+            "low": 169,
+            "close": 172,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-06-23",
+            "open": 171,
+            "high": 174,
+            "low": 170,
+            "close": 173,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-06-24",
+            "open": 172,
+            "high": 175,
+            "low": 171,
+            "close": 174,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-06-25",
+            "open": 173,
+            "high": 176,
+            "low": 172,
+            "close": 175,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-06-26",
+            "open": 174,
+            "high": 177,
+            "low": 173,
+            "close": 176,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-06-27",
+            "open": 175,
+            "high": 178,
+            "low": 174,
+            "close": 177,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-06-28",
+            "open": 176,
+            "high": 179,
+            "low": 175,
+            "close": 178,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-06-29",
+            "open": 177,
+            "high": 180,
+            "low": 176,
+            "close": 179,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-06-30",
+            "open": 178,
+            "high": 181,
+            "low": 177,
+            "close": 180,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-07-01",
+            "open": 179,
+            "high": 182,
+            "low": 178,
+            "close": 181,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-07-02",
+            "open": 180,
+            "high": 183,
+            "low": 179,
+            "close": 182,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-07-03",
+            "open": 181,
+            "high": 184,
+            "low": 180,
+            "close": 183,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-07-04",
+            "open": 182,
+            "high": 185,
+            "low": 181,
+            "close": 184,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-07-05",
+            "open": 183,
+            "high": 186,
+            "low": 182,
+            "close": 185,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-07-06",
+            "open": 184,
+            "high": 187,
+            "low": 183,
+            "close": 186,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-07-07",
+            "open": 185,
+            "high": 188,
+            "low": 184,
+            "close": 187,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-07-08",
+            "open": 186,
+            "high": 189,
+            "low": 185,
+            "close": 188,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-07-09",
+            "open": 187,
+            "high": 190,
+            "low": 186,
+            "close": 189,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-07-10",
+            "open": 188,
+            "high": 191,
+            "low": 187,
+            "close": 190,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-07-11",
+            "open": 189,
+            "high": 192,
+            "low": 188,
+            "close": 191,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-07-12",
+            "open": 190,
+            "high": 193,
+            "low": 189,
+            "close": 192,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-07-13",
+            "open": 191,
+            "high": 194,
+            "low": 190,
+            "close": 193,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-07-14",
+            "open": 192,
+            "high": 195,
+            "low": 191,
+            "close": 194,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-07-15",
+            "open": 193,
+            "high": 196,
+            "low": 192,
+            "close": 195,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-07-16",
+            "open": 194,
+            "high": 197,
+            "low": 193,
+            "close": 196,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-07-17",
+            "open": 195,
+            "high": 198,
+            "low": 194,
+            "close": 197,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-07-18",
+            "open": 196,
+            "high": 199,
+            "low": 195,
+            "close": 198,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-07-19",
+            "open": 197,
+            "high": 200,
+            "low": 196,
+            "close": 199,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-07-20",
+            "open": 98,
+            "high": 101,
+            "low": 97,
+            "close": 100,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-07-21",
+            "open": 99,
+            "high": 102,
+            "low": 98,
+            "close": 101,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-07-22",
+            "open": 100,
+            "high": 103,
+            "low": 99,
+            "close": 102,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-07-23",
+            "open": 101,
+            "high": 104,
+            "low": 100,
+            "close": 103,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-07-24",
+            "open": 102,
+            "high": 105,
+            "low": 101,
+            "close": 104,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-07-25",
+            "open": 103,
+            "high": 106,
+            "low": 102,
+            "close": 105,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-07-26",
+            "open": 104,
+            "high": 107,
+            "low": 103,
+            "close": 106,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-07-27",
+            "open": 105,
+            "high": 108,
+            "low": 104,
+            "close": 107,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-07-28",
+            "open": 106,
+            "high": 109,
+            "low": 105,
+            "close": 108,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-07-29",
+            "open": 107,
+            "high": 110,
+            "low": 106,
+            "close": 109,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-07-30",
+            "open": 108,
+            "high": 111,
+            "low": 107,
+            "close": 110,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-07-31",
+            "open": 109,
+            "high": 112,
+            "low": 108,
+            "close": 111,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-08-01",
+            "open": 110,
+            "high": 113,
+            "low": 109,
+            "close": 112,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-08-02",
+            "open": 111,
+            "high": 114,
+            "low": 110,
+            "close": 113,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-08-03",
+            "open": 112,
+            "high": 115,
+            "low": 111,
+            "close": 114,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-08-04",
+            "open": 113,
+            "high": 116,
+            "low": 112,
+            "close": 115,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-08-05",
+            "open": 114,
+            "high": 117,
+            "low": 113,
+            "close": 116,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-08-06",
+            "open": 115,
+            "high": 118,
+            "low": 114,
+            "close": 117,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-08-07",
+            "open": 116,
+            "high": 119,
+            "low": 115,
+            "close": 118,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-08-08",
+            "open": 117,
+            "high": 120,
+            "low": 116,
+            "close": 119,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-08-09",
+            "open": 118,
+            "high": 121,
+            "low": 117,
+            "close": 120,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-08-10",
+            "open": 119,
+            "high": 122,
+            "low": 118,
+            "close": 121,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-08-11",
+            "open": 120,
+            "high": 123,
+            "low": 119,
+            "close": 122,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-08-12",
+            "open": 121,
+            "high": 124,
+            "low": 120,
+            "close": 123,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-08-13",
+            "open": 122,
+            "high": 125,
+            "low": 121,
+            "close": 124,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-08-14",
+            "open": 123,
+            "high": 126,
+            "low": 122,
+            "close": 125,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-08-15",
+            "open": 124,
+            "high": 127,
+            "low": 123,
+            "close": 126,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-08-16",
+            "open": 125,
+            "high": 128,
+            "low": 124,
+            "close": 127,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-08-17",
+            "open": 126,
+            "high": 129,
+            "low": 125,
+            "close": 128,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-08-18",
+            "open": 127,
+            "high": 130,
+            "low": 126,
+            "close": 129,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-08-19",
+            "open": 128,
+            "high": 131,
+            "low": 127,
+            "close": 130,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-08-20",
+            "open": 129,
+            "high": 132,
+            "low": 128,
+            "close": 131,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-08-21",
+            "open": 130,
+            "high": 133,
+            "low": 129,
+            "close": 132,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-08-22",
+            "open": 131,
+            "high": 134,
+            "low": 130,
+            "close": 133,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-08-23",
+            "open": 132,
+            "high": 135,
+            "low": 131,
+            "close": 134,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-08-24",
+            "open": 133,
+            "high": 136,
+            "low": 132,
+            "close": 135,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-08-25",
+            "open": 134,
+            "high": 137,
+            "low": 133,
+            "close": 136,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-08-26",
+            "open": 135,
+            "high": 138,
+            "low": 134,
+            "close": 137,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-08-27",
+            "open": 136,
+            "high": 139,
+            "low": 135,
+            "close": 138,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-08-28",
+            "open": 137,
+            "high": 140,
+            "low": 136,
+            "close": 139,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-08-29",
+            "open": 138,
+            "high": 141,
+            "low": 137,
+            "close": 140,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-08-30",
+            "open": 139,
+            "high": 142,
+            "low": 138,
+            "close": 141,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-08-31",
+            "open": 140,
+            "high": 143,
+            "low": 139,
+            "close": 142,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-09-01",
+            "open": 141,
+            "high": 144,
+            "low": 140,
+            "close": 143,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-09-02",
+            "open": 142,
+            "high": 145,
+            "low": 141,
+            "close": 144,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-09-03",
+            "open": 143,
+            "high": 146,
+            "low": 142,
+            "close": 145,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-09-04",
+            "open": 144,
+            "high": 147,
+            "low": 143,
+            "close": 146,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-09-05",
+            "open": 145,
+            "high": 148,
+            "low": 144,
+            "close": 147,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-09-06",
+            "open": 146,
+            "high": 149,
+            "low": 145,
+            "close": 148,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-09-07",
+            "open": 147,
+            "high": 150,
+            "low": 146,
+            "close": 149,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-09-08",
+            "open": 148,
+            "high": 151,
+            "low": 147,
+            "close": 150,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-09-09",
+            "open": 149,
+            "high": 152,
+            "low": 148,
+            "close": 151,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-09-10",
+            "open": 150,
+            "high": 153,
+            "low": 149,
+            "close": 152,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-09-11",
+            "open": 151,
+            "high": 154,
+            "low": 150,
+            "close": 153,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-09-12",
+            "open": 152,
+            "high": 155,
+            "low": 151,
+            "close": 154,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-09-13",
+            "open": 153,
+            "high": 156,
+            "low": 152,
+            "close": 155,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-09-14",
+            "open": 154,
+            "high": 157,
+            "low": 153,
+            "close": 156,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-09-15",
+            "open": 155,
+            "high": 158,
+            "low": 154,
+            "close": 157,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-09-16",
+            "open": 156,
+            "high": 159,
+            "low": 155,
+            "close": 158,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-09-17",
+            "open": 157,
+            "high": 160,
+            "low": 156,
+            "close": 159,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-09-18",
+            "open": 158,
+            "high": 161,
+            "low": 157,
+            "close": 160,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-09-19",
+            "open": 159,
+            "high": 162,
+            "low": 158,
+            "close": 161,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-09-20",
+            "open": 160,
+            "high": 163,
+            "low": 159,
+            "close": 162,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-09-21",
+            "open": 161,
+            "high": 164,
+            "low": 160,
+            "close": 163,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-09-22",
+            "open": 162,
+            "high": 165,
+            "low": 161,
+            "close": 164,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-09-23",
+            "open": 163,
+            "high": 166,
+            "low": 162,
+            "close": 165,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-09-24",
+            "open": 164,
+            "high": 167,
+            "low": 163,
+            "close": 166,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-09-25",
+            "open": 165,
+            "high": 168,
+            "low": 164,
+            "close": 167,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-09-26",
+            "open": 170.016,
+            "high": 171.20781215999997,
+            "low": 168.16799999999998,
+            "close": 170.86607999999998,
+            "volume": 1250
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-09-27",
+            "open": 167,
+            "high": 170,
+            "low": 166,
+            "close": 169,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-09-28",
+            "open": 168,
+            "high": 171,
+            "low": 167,
+            "close": 170,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-09-29",
+            "open": 169,
+            "high": 172,
+            "low": 168,
+            "close": 171,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-09-30",
+            "open": 170,
+            "high": 173,
+            "low": 169,
+            "close": 172,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-10-01",
+            "open": 171,
+            "high": 174,
+            "low": 170,
+            "close": 173,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2025-10-02",
+            "open": 176.088,
+            "high": 177.32237687999998,
+            "low": 174.17399999999998,
+            "close": 176.96844,
+            "volume": 1200
+          }
+        ],
+        "scannerIds": [
+          "chart_runaway_gap"
+        ],
+        "lookbackBars": null,
+        "evaluateHistory": true,
+        "executionMode": "fast",
+        "generatedAt": "2026-11-19T10:30:00.000Z"
+      },
+      "response": {
+        "contractVersion": "eod-scanner-contract-v1",
+        "requestId": "req-rsc05-historical_260_window",
+        "target": {
+          "symbol": "TCS",
+          "exchange": "NSE",
+          "name": "Tata Consultancy Services"
+        },
+        "latestResults": [
+          {
+            "symbol": "TCS",
+            "exchange": "NSE",
+            "scannerId": "chart_runaway_gap",
+            "scannerName": "Runaway Gap",
+            "categoryId": "chart_patterns_gap",
+            "categoryName": "Chart Patterns - Gaps",
+            "date": "2025-10-02",
+            "matched": true,
+            "direction": "bullish",
+            "score": 68,
+            "reasons": [
+              "Gap held above yesterday high (174) after a 12.42% prior uptrend"
+            ],
+            "values": {
+              "gap_pct": 1.2,
+              "trend_move_pct": 12.42,
+              "avg_volume_20": 1013,
+              "volume_ratio": 1.19
+            },
+            "chartPattern": {
+              "family": "gap",
+              "confidence": 68,
+              "patternEndDate": "2025-10-02",
+              "breakoutLevel": 174,
+              "patternStartDate": "2025-09-11",
+              "geometry": {
+                "family": "gap-zone",
+                "zones": [
+                  {
+                    "id": "gap",
+                    "label": "Gap",
+                    "role": "gap",
+                    "startDate": "2025-10-01",
+                    "endDate": "2025-10-02",
+                    "low": 174,
+                    "high": 174.17399999999998
+                  }
+                ],
+                "labels": [
+                  {
+                    "id": "pattern",
+                    "text": "Runaway Gap",
+                    "point": {
+                      "date": "2025-10-02",
+                      "price": 176.96844
+                    }
+                  }
+                ]
+              }
+            },
+            "warnings": [],
+            "source": "EODChartPatternScanner_v1",
+            "generatedAt": "2026-11-19T10:30:00.000Z"
+          }
+        ],
+        "historicalResults": [
+          {
+            "symbol": "TCS",
+            "exchange": "NSE",
+            "scannerId": "chart_runaway_gap",
+            "scannerName": "Runaway Gap",
+            "categoryId": "chart_patterns_gap",
+            "categoryName": "Chart Patterns - Gaps",
+            "date": "2025-09-26",
+            "matched": true,
+            "direction": "bullish",
+            "score": 75,
+            "reasons": [
+              "Gap held above yesterday high (168) after a 12.93% prior uptrend"
+            ],
+            "values": {
+              "gap_pct": 1.2,
+              "trend_move_pct": 12.93,
+              "avg_volume_20": 1000,
+              "volume_ratio": 1.25
+            },
+            "chartPattern": {
+              "family": "gap",
+              "confidence": 75,
+              "patternEndDate": "2025-09-26",
+              "breakoutLevel": 168,
+              "patternStartDate": "2025-09-05",
+              "geometry": {
+                "family": "gap-zone",
+                "zones": [
+                  {
+                    "id": "gap",
+                    "label": "Gap",
+                    "role": "gap",
+                    "startDate": "2025-09-25",
+                    "endDate": "2025-09-26",
+                    "low": 168,
+                    "high": 168.16799999999998
+                  }
+                ],
+                "labels": [
+                  {
+                    "id": "pattern",
+                    "text": "Runaway Gap",
+                    "point": {
+                      "date": "2025-09-26",
+                      "price": 170.86607999999998
+                    }
+                  }
+                ]
+              }
+            },
+            "warnings": [],
+            "source": "EODChartPatternScanner_v1",
+            "generatedAt": "2026-11-19T10:30:00.000Z",
+            "history": {
+              "firstMatchedDate": "2025-09-26",
+              "lastMatchedDate": "2025-09-26",
+              "matchCount": 1
+            }
+          },
+          {
+            "symbol": "TCS",
+            "exchange": "NSE",
+            "scannerId": "chart_runaway_gap",
+            "scannerName": "Runaway Gap",
+            "categoryId": "chart_patterns_gap",
+            "categoryName": "Chart Patterns - Gaps",
+            "date": "2025-10-02",
+            "matched": true,
+            "direction": "bullish",
+            "score": 68,
+            "reasons": [
+              "Gap held above yesterday high (174) after a 12.42% prior uptrend"
+            ],
+            "values": {
+              "gap_pct": 1.2,
+              "trend_move_pct": 12.42,
+              "avg_volume_20": 1013,
+              "volume_ratio": 1.19
+            },
+            "chartPattern": {
+              "family": "gap",
+              "confidence": 68,
+              "patternEndDate": "2025-10-02",
+              "breakoutLevel": 174,
+              "patternStartDate": "2025-09-11",
+              "geometry": {
+                "family": "gap-zone",
+                "zones": [
+                  {
+                    "id": "gap",
+                    "label": "Gap",
+                    "role": "gap",
+                    "startDate": "2025-10-01",
+                    "endDate": "2025-10-02",
+                    "low": 174,
+                    "high": 174.17399999999998
+                  }
+                ],
+                "labels": [
+                  {
+                    "id": "pattern",
+                    "text": "Runaway Gap",
+                    "point": {
+                      "date": "2025-10-02",
+                      "price": 176.96844
+                    }
+                  }
+                ]
+              }
+            },
+            "warnings": [],
+            "source": "EODChartPatternScanner_v1",
+            "generatedAt": "2026-11-19T10:30:00.000Z",
+            "history": {
+              "firstMatchedDate": "2025-10-02",
+              "lastMatchedDate": "2025-10-02",
+              "matchCount": 1
+            }
+          }
+        ],
+        "results": [
+          {
+            "symbol": "TCS",
+            "exchange": "NSE",
+            "scannerId": "chart_runaway_gap",
+            "scannerName": "Runaway Gap",
+            "categoryId": "chart_patterns_gap",
+            "categoryName": "Chart Patterns - Gaps",
+            "date": "2025-10-02",
+            "matched": true,
+            "direction": "bullish",
+            "score": 68,
+            "reasons": [
+              "Gap held above yesterday high (174) after a 12.42% prior uptrend"
+            ],
+            "values": {
+              "gap_pct": 1.2,
+              "trend_move_pct": 12.42,
+              "avg_volume_20": 1013,
+              "volume_ratio": 1.19
+            },
+            "chartPattern": {
+              "family": "gap",
+              "confidence": 68,
+              "patternEndDate": "2025-10-02",
+              "breakoutLevel": 174,
+              "patternStartDate": "2025-09-11",
+              "geometry": {
+                "family": "gap-zone",
+                "zones": [
+                  {
+                    "id": "gap",
+                    "label": "Gap",
+                    "role": "gap",
+                    "startDate": "2025-10-01",
+                    "endDate": "2025-10-02",
+                    "low": 174,
+                    "high": 174.17399999999998
+                  }
+                ],
+                "labels": [
+                  {
+                    "id": "pattern",
+                    "text": "Runaway Gap",
+                    "point": {
+                      "date": "2025-10-02",
+                      "price": 176.96844
+                    }
+                  }
+                ]
+              }
+            },
+            "warnings": [],
+            "source": "EODChartPatternScanner_v1",
+            "generatedAt": "2026-11-19T10:30:00.000Z",
+            "history": {
+              "firstMatchedDate": "2025-10-02",
+              "lastMatchedDate": "2025-10-02",
+              "matchCount": 1
+            }
+          },
+          {
+            "symbol": "TCS",
+            "exchange": "NSE",
+            "scannerId": "chart_runaway_gap",
+            "scannerName": "Runaway Gap",
+            "categoryId": "chart_patterns_gap",
+            "categoryName": "Chart Patterns - Gaps",
+            "date": "2025-09-26",
+            "matched": true,
+            "direction": "bullish",
+            "score": 75,
+            "reasons": [
+              "Gap held above yesterday high (168) after a 12.93% prior uptrend"
+            ],
+            "values": {
+              "gap_pct": 1.2,
+              "trend_move_pct": 12.93,
+              "avg_volume_20": 1000,
+              "volume_ratio": 1.25
+            },
+            "chartPattern": {
+              "family": "gap",
+              "confidence": 75,
+              "patternEndDate": "2025-09-26",
+              "breakoutLevel": 168,
+              "patternStartDate": "2025-09-05",
+              "geometry": {
+                "family": "gap-zone",
+                "zones": [
+                  {
+                    "id": "gap",
+                    "label": "Gap",
+                    "role": "gap",
+                    "startDate": "2025-09-25",
+                    "endDate": "2025-09-26",
+                    "low": 168,
+                    "high": 168.16799999999998
+                  }
+                ],
+                "labels": [
+                  {
+                    "id": "pattern",
+                    "text": "Runaway Gap",
+                    "point": {
+                      "date": "2025-09-26",
+                      "price": 170.86607999999998
+                    }
+                  }
+                ]
+              }
+            },
+            "warnings": [],
+            "source": "EODChartPatternScanner_v1",
+            "generatedAt": "2026-11-19T10:30:00.000Z",
+            "history": {
+              "firstMatchedDate": "2025-09-26",
+              "lastMatchedDate": "2025-09-26",
+              "matchCount": 1
+            }
+          }
+        ],
+        "scannedBars": 275,
+        "cancelled": false,
+        "errors": [],
+        "progressEvents": [
+          {
+            "contractVersion": "eod-scanner-contract-v1",
+            "requestId": "req-rsc05-historical_260_window",
+            "completed": 1,
+            "total": 1,
+            "symbol": "TCS",
+            "exchange": "NSE",
+            "historyCompleted": 50,
+            "historyTotal": 256,
+            "resultCount": 0
+          },
+          {
+            "contractVersion": "eod-scanner-contract-v1",
+            "requestId": "req-rsc05-historical_260_window",
+            "completed": 1,
+            "total": 1,
+            "symbol": "TCS",
+            "exchange": "NSE",
+            "historyCompleted": 100,
+            "historyTotal": 256,
+            "resultCount": 0
+          },
+          {
+            "contractVersion": "eod-scanner-contract-v1",
+            "requestId": "req-rsc05-historical_260_window",
+            "completed": 1,
+            "total": 1,
+            "symbol": "TCS",
+            "exchange": "NSE",
+            "historyCompleted": 150,
+            "historyTotal": 256,
+            "resultCount": 0
+          },
+          {
+            "contractVersion": "eod-scanner-contract-v1",
+            "requestId": "req-rsc05-historical_260_window",
+            "completed": 1,
+            "total": 1,
+            "symbol": "TCS",
+            "exchange": "NSE",
+            "historyCompleted": 200,
+            "historyTotal": 256,
+            "resultCount": 0
+          },
+          {
+            "contractVersion": "eod-scanner-contract-v1",
+            "requestId": "req-rsc05-historical_260_window",
+            "completed": 1,
+            "total": 1,
+            "symbol": "TCS",
+            "exchange": "NSE",
+            "historyCompleted": 250,
+            "historyTotal": 256,
+            "resultCount": 1
+          },
+          {
+            "contractVersion": "eod-scanner-contract-v1",
+            "requestId": "req-rsc05-historical_260_window",
+            "completed": 1,
+            "total": 1,
+            "symbol": "TCS",
+            "exchange": "NSE",
+            "historyCompleted": 256,
+            "historyTotal": 256,
+            "resultCount": 2
+          }
+        ]
+      }
+    }
+  ]
+}

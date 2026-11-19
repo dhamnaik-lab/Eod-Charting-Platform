@@ -401,64 +401,214 @@ pub fn sort_scanner_results_v1(results: &mut [ScannerResultV1]) {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
+pub(crate) mod parity_harness {
+    use super::{
+        RustScannerEvaluationRequestV1, RustScannerEvaluationResponseV1,
+        RUST_SCANNER_CONTRACT_VERSION,
+    };
+    use serde::Deserialize;
+    use serde_json::Value;
+    use std::collections::HashSet;
 
-    const FIXTURE_JSON: &str =
-        include_str!("../../src/features/scanner/fixtures/rustScannerContractFixtures.v1.json");
+    const FLOAT_TOLERANCE: f64 = 1e-12;
 
-    fn assert_json_semantically_equal(
-        expected: &serde_json::Value,
-        actual: &serde_json::Value,
+    #[derive(Debug, Deserialize)]
+    #[serde(rename_all = "camelCase", deny_unknown_fields)]
+    struct ScannerParityScenarioV1 {
+        id: String,
+        category: String,
+        description: String,
+        request: RustScannerEvaluationRequestV1,
+        response: RustScannerEvaluationResponseV1,
+    }
+
+    #[derive(Debug, Deserialize)]
+    #[serde(rename_all = "camelCase", deny_unknown_fields)]
+    struct ScannerParityBundleV1 {
+        contract_version: String,
+        scanner_id: String,
+        fixed_generated_at: String,
+        scenarios: Vec<ScannerParityScenarioV1>,
+    }
+
+    pub(crate) fn semantic_json_mismatch(
+        expected: &Value,
+        actual: &Value,
         path: &str,
-    ) {
+    ) -> Option<String> {
         match (expected, actual) {
-            (serde_json::Value::Null, serde_json::Value::Null) => {}
-            (serde_json::Value::Bool(a), serde_json::Value::Bool(b)) => {
-                assert_eq!(a, b, "boolean mismatch at {path}");
-            }
-            (serde_json::Value::String(a), serde_json::Value::String(b)) => {
-                assert_eq!(a, b, "string mismatch at {path}");
-            }
-            (serde_json::Value::Number(a), serde_json::Value::Number(b)) => {
-                if let (Some(ai), Some(bi)) = (a.as_i64(), b.as_i64()) {
-                    assert_eq!(ai, bi, "integer mismatch at {path}");
-                } else if let (Some(au), Some(bu)) = (a.as_u64(), b.as_u64()) {
-                    assert_eq!(au, bu, "unsigned integer mismatch at {path}");
-                } else {
-                    let af = a.as_f64().expect("expected number should convert to f64");
-                    let bf = b.as_f64().expect("actual number should convert to f64");
-                    assert!(
-                        (af - bf).abs() <= 1e-12,
-                        "float mismatch at {path}: expected {af}, got {bf}"
-                    );
+            (Value::Null, Value::Null) => None,
+            (Value::Bool(a), Value::Bool(b)) if a == b => None,
+            (Value::String(a), Value::String(b)) if a == b => None,
+            (Value::Number(a), Value::Number(b)) => {
+                if let (Some(a), Some(b)) = (a.as_i64(), b.as_i64()) {
+                    if a == b {
+                        return None;
+                    }
+                } else if let (Some(a), Some(b)) = (a.as_u64(), b.as_u64()) {
+                    if a == b {
+                        return None;
+                    }
+                } else if let (Some(a), Some(b)) = (a.as_f64(), b.as_f64()) {
+                    if (a - b).abs() <= FLOAT_TOLERANCE {
+                        return None;
+                    }
                 }
+                Some(format!("numeric mismatch at {path}: expected {a}, got {b}"))
             }
-            (serde_json::Value::Array(a), serde_json::Value::Array(b)) => {
-                assert_eq!(
-                    a.len(),
-                    b.len(),
-                    "array length mismatch at {path}: expected {}, got {}",
-                    a.len(),
-                    b.len()
-                );
-                for (idx, (ea, eb)) in a.iter().zip(b.iter()).enumerate() {
-                    assert_json_semantically_equal(ea, eb, &format!("{path}[{idx}]"));
+            (Value::Array(a), Value::Array(b)) => {
+                if a.len() != b.len() {
+                    return Some(format!(
+                        "array length mismatch at {path}: expected {}, got {}",
+                        a.len(),
+                        b.len()
+                    ));
                 }
+                for (index, (e, actual_item)) in a.iter().zip(b).enumerate() {
+                    if let Some(error) =
+                        semantic_json_mismatch(e, actual_item, &format!("{path}[{index}]"))
+                    {
+                        return Some(error);
+                    }
+                }
+                None
             }
-            (serde_json::Value::Object(a), serde_json::Value::Object(b)) => {
+            (Value::Object(a), Value::Object(b)) => {
                 let mut keys_a: Vec<&str> = a.keys().map(String::as_str).collect();
                 let mut keys_b: Vec<&str> = b.keys().map(String::as_str).collect();
                 keys_a.sort_unstable();
                 keys_b.sort_unstable();
-                assert_eq!(keys_a, keys_b, "object keys mismatch at {path}");
-                for key in keys_a {
-                    assert_json_semantically_equal(&a[key], &b[key], &format!("{path}.{key}"));
+                if keys_a != keys_b {
+                    return Some(format!(
+                        "object keys mismatch at {path}: expected {keys_a:?}, got {keys_b:?}"
+                    ));
                 }
+                for key in keys_a {
+                    if let Some(error) =
+                        semantic_json_mismatch(&a[key], &b[key], &format!("{path}.{key}"))
+                    {
+                        return Some(error);
+                    }
+                }
+                None
             }
-            _ => panic!("type mismatch at {path}: expected {expected:?}, got {actual:?}"),
+            _ if expected == actual => None,
+            _ => Some(format!(
+                "value or type mismatch at {path}: expected {expected:?}, got {actual:?}"
+            )),
         }
     }
+
+    pub(crate) fn assert_json_semantically_equal(expected: &Value, actual: &Value, path: &str) {
+        if let Some(message) = semantic_json_mismatch(expected, actual, path) {
+            panic!("{message}");
+        }
+    }
+
+    pub(crate) fn assert_parity_fixture_bundle(
+        fixture_json: &str,
+        scanner_id: &str,
+        expected_count: usize,
+        expected_categories: &[&str],
+        evaluate: impl Fn(
+            &RustScannerEvaluationRequestV1,
+        ) -> Result<RustScannerEvaluationResponseV1, String>,
+        typed_assert: impl Fn(&RustScannerEvaluationResponseV1, &RustScannerEvaluationResponseV1, &str),
+    ) {
+        let bundle: ScannerParityBundleV1 =
+            serde_json::from_str(fixture_json).expect("parity fixture bundle must deserialize");
+        let raw_bundle: Value =
+            serde_json::from_str(fixture_json).expect("raw parity fixture must deserialize");
+        assert_eq!(bundle.contract_version, RUST_SCANNER_CONTRACT_VERSION);
+        assert_eq!(bundle.scanner_id, scanner_id);
+        assert!(!bundle.fixed_generated_at.trim().is_empty());
+        assert_eq!(bundle.scenarios.len(), expected_count);
+        let mut ids = HashSet::new();
+        let mut categories = HashSet::new();
+        for (index, scenario) in bundle.scenarios.iter().enumerate() {
+            assert!(!scenario.id.trim().is_empty(), "empty scenario ID");
+            assert!(
+                ids.insert(scenario.id.as_str()),
+                "duplicate scenario ID: {}",
+                scenario.id
+            );
+            assert!(
+                !scenario.description.trim().is_empty(),
+                "empty description: {}",
+                scenario.id
+            );
+            categories.insert(scenario.category.as_str());
+            assert_eq!(
+                scenario.request.contract_version,
+                RUST_SCANNER_CONTRACT_VERSION
+            );
+            assert_eq!(
+                scenario.response.contract_version,
+                RUST_SCANNER_CONTRACT_VERSION
+            );
+            assert_eq!(scenario.response.request_id, scenario.request.request_id);
+            assert_eq!(scenario.response.target, scenario.request.target);
+            assert_eq!(scenario.response.scanned_bars, scenario.request.bars.len());
+            assert!(
+                scenario
+                    .request
+                    .scanner_ids
+                    .iter()
+                    .all(|id| id.as_str() == scanner_id),
+                "unrelated detector in scenario {}",
+                scenario.id
+            );
+            let actual = evaluate(&scenario.request).unwrap_or_else(|error| {
+                panic!("scenario {} evaluation failed: {error}", scenario.id)
+            });
+            typed_assert(&scenario.response, &actual, &scenario.id);
+            let actual_json = serde_json::to_value(&actual).expect("response serializes");
+            assert_json_semantically_equal(
+                &raw_bundle["scenarios"][index]["response"],
+                &actual_json,
+                &format!("$.scenarios[{}].response", scenario.id),
+            );
+        }
+        let expected: HashSet<&str> = expected_categories.iter().copied().collect();
+        assert_eq!(categories, expected, "fixture category coverage mismatch");
+    }
+
+    #[cfg(test)]
+    mod tests {
+        use super::*;
+        use serde_json::json;
+
+        #[test]
+        fn rsc_03_comparator_preserves_structure_and_numeric_tolerance() {
+            let expected =
+                json!({"item": [{"score": 2.5, "active": true, "label": "gap"}], "optional": null});
+            let reordered = json!({"optional": null, "item": [{"label": "gap", "active": true, "score": 2.5 + 1e-13}]});
+            assert_json_semantically_equal(&expected, &reordered, "$");
+            let changed =
+                json!({"item": [{"score": 2.6, "active": true, "label": "gap"}], "optional": null});
+            assert!(semantic_json_mismatch(&expected, &changed, "$")
+                .unwrap()
+                .contains("$.item[0].score"));
+            let missing = json!({"item": [{"score": 2.5, "active": true, "label": "gap"}]});
+            assert!(semantic_json_mismatch(&expected, &missing, "$")
+                .unwrap()
+                .contains("object keys mismatch at $"));
+            let a = json!({"item": [1, 2]});
+            let b = json!({"item": [2, 1]});
+            assert!(semantic_json_mismatch(&a, &b, "$")
+                .unwrap()
+                .contains("$.item[0]"));
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::parity_harness::assert_json_semantically_equal;
+    use super::*;
+
+    const FIXTURE_JSON: &str =
+        include_str!("../../src/features/scanner/fixtures/rustScannerContractFixtures.v1.json");
 
     #[test]
     fn rsc_01_scanner_contract_deserializes_typescript_fixture_bundle_and_round_trips() {
@@ -550,12 +700,18 @@ mod tests {
             .values
             .as_ref()
             .expect("envelope result must include scalar values");
-        assert_eq!(values.get("flag_active"), Some(&Some(ScannerScalarValueV1::Bool(true))));
+        assert_eq!(
+            values.get("flag_active"),
+            Some(&Some(ScannerScalarValueV1::Bool(true)))
+        );
         assert_eq!(
             values.get("gap_direction"),
             Some(&Some(ScannerScalarValueV1::Text("up".to_string())))
         );
-        assert_eq!(values.get("touch_count"), Some(&Some(ScannerScalarValueV1::Integer(4))));
+        assert_eq!(
+            values.get("touch_count"),
+            Some(&Some(ScannerScalarValueV1::Integer(4)))
+        );
         assert_eq!(
             values.get("slope_ratio"),
             Some(&Some(ScannerScalarValueV1::Float(-0.375)))

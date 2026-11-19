@@ -13,6 +13,10 @@ mod runtime;
 mod scanner_contract;
 #[allow(dead_code)]
 mod scanner_breakaway_gap;
+#[allow(dead_code)]
+mod scanner_common_gap;
+#[allow(dead_code)]
+mod scanner_runaway_gap;
 
 use app_profile::*;
 use bhavcopy::*;
