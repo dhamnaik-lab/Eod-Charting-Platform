@@ -555,7 +555,8 @@ pub(crate) mod parity_harness {
                     .scanner_ids
                     .iter()
                     .all(|id| id.as_str() == scanner_id),
-                "unrelated detector in scenario {}", scenario.id
+                "unrelated detector in scenario {}",
+                scenario.id
             );
             let actual = evaluate(&scenario.request).unwrap_or_else(|error| {
                 panic!("scenario {} evaluation failed: {error}", scenario.id)
