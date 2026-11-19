@@ -4,7 +4,7 @@
 **Workstream/root:** EOD Charting Platform — `E:\TA Projects\EOD Charting Platform`  
 **Feature branch:** `feature/native-rust-scanner-20261119`  
 **Previous commit:** `15217e9491f1765c3ece939e767ccb3323370a7d`  
-**Status:** GitHub-only formatting candidate, pending Windows verification; draft PR #122 unmerged.
+**Status:** Formatting fix subsequently validated PASS on Windows at `73f6eef2`; focused scanner tests, Cargo check, Vitest, renderer typecheck/build and documentation check also passed. Draft PR #122 remains unmerged.
 
 ## Objective and previous defect
 
@@ -28,8 +28,8 @@ Only whitespace/line wrapping changed in the Common Gap source, without changing
 - User Windows `rustfmt --edition 2021 --check src-tauri-shell/src/scanner_common_gap.rs src-tauri-shell/src/scanner_breakaway_gap.rs` at `15217e9`: **FAIL** with exactly two formatting diff hunks; remaining tests did not execute.
 - GitHub Renderer CI for `15217e9`: **SUCCESS**. This does not validate Rust compilation.
 - Corrected Rust file: matching two exact, single-occurrence text replacements applied from the user's rustfmt diff; branch source pinned and staged changed-file inventory to be verified before publishing.
-- New commit's Rustfmt, focused Rust `scanner_` tests, shared Cargo `check`, Windows parity Vitest, renderer typecheck/build, and docs check: **NOT RUN**, pending operator validation.
+- Subsequent operator Windows output at `73f6eef2`: **Rustfmt PASS**, BUILD-01 `scanner_` Rust tests **12/12 PASS**, Cargo check **PASS**, 7-file preservation **PASS**, focused scanner Vitest **54/54 PASS** (7 files), renderer typecheck **PASS**, renderer build **PASS** (846 modules), doc-reference check **PASS**. GitHub Renderer CI also **SUCCESS**. The earlier failure remains documented as historical evidence.
 
 ## Risks, rollback, next steps
 
-Remaining risk is undiscovered Rust compilation/parity defects. Revert only this formatting follow-up commit if needed; do not reset/clean the user's checkout or touch its preserved files. Re-run Rustfmt after a guarded local fast-forward to the correction commit; if PASS, continue the already prepared serial validation. Keep PR #122 in draft and do not start another detector migration or merge before RSC-04 acceptance.
+Rust compilation and focused parity are now verified by operator command output. Untested areas include a full Rust suite, extreme inputs beyond existing fixtures, real `.eod` corpus parity and portable-native execution. Revert only this formatting follow-up commit if needed; never reset or clean preserved local work. PR #122 remains draft; no merge or further detector migration has been authorized.
