@@ -3,7 +3,7 @@
 **IST timestamp:** 2026-11-19 17:24 IST (UTC+05:30)  
 **Workstream:** EOD Charting Platform, `E:\TA Projects\EOD Charting Platform`  
 **GitHub branch source:** `feature/native-rust-scanner-20261119` parent `c5b405b2c5c1acc1360fc312d57d57b7c7faa651`  
-**Status:** Candidate, pending Windows Rust tests, no merge.
+**Status:** Candidate; operator Windows checkout and seven-file preservation PASS, initial Rustfmt FAIL (2 formatting-only differences); corrected formatting awaiting Windows rerun. No merge.
 
 ## Objective and previous limitation
 
@@ -32,7 +32,7 @@ All 54 live TypeScript patterns, scanner Worker and UI, the RSC-01/02/03 test su
 
 - In isolated preparation, executed the verified current TypeScript evaluator with 23 deterministic Common Gap scenarios (positive, threshold/volume boundaries, negative and historical); separately constructed expected responses matched all **23/23** exactly. Eight representative scenarios were committed and verified by exact Git blob `f53f9338047ff36e81ec8a291238c50f76490552`.
 - TypeScript test module syntax transpilation in isolated preparation: **PASS**. This is not a Vitest, typecheck or renderer-build result.
-- Rust toolchain absent in preparation environment: Rustfmt, Rust compilation, scanner regressions and Cargo check **NOT RUN**. Windows commands and GitHub Renderer CI remain pending. No portable or real `.eod` corpus parity is claimed.
+- GitHub Renderer CI for commit `15217e9`: **PASS**. Windows source checkout to `15217e9` and SHA-256 preservation of seven local files: **PASS** (operator output). First Windows `rustfmt --check` of `scanner_common_gap.rs` and `scanner_breakaway_gap.rs`: **FAIL**, two source-formatting differences in the Common Gap module only. Because the serial runner stopped, Rust scanner tests, Cargo check, Windows Vitest, typecheck, renderer build and doc checks were **NOT RUN**. The two formatting corrections are recorded in [RSC-04 Rustfmt follow-up](2026-11-19_1735_IST_RSC04_COMMON_GAP_RUSTFMT_FIX.md), and revalidation is pending. No portable or real `.eod` corpus parity is claimed.
 
 ## Risks and rollback
 

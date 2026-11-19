@@ -71,7 +71,9 @@ pub fn detect_chart_common_gap(
     let len = bars.len();
     let today = &bars[len - 1];
     let previous = &bars[len - 2];
-    if !today.high.is_finite() || !today.low.is_finite() || !today.close.is_finite()
+    if !today.high.is_finite()
+        || !today.low.is_finite()
+        || !today.close.is_finite()
         || !today.volume.is_finite()
     {
         return None;
@@ -326,7 +328,11 @@ mod tests {
             evaluate_chart_common_gap_request_v1,
             |expected, actual, scenario| {
                 assert_eq!(expected.request_id, actual.request_id, "{scenario}");
-                assert_eq!(expected.latest_results.len(), actual.latest_results.len(), "{scenario}");
+                assert_eq!(
+                    expected.latest_results.len(),
+                    actual.latest_results.len(),
+                    "{scenario}"
+                );
                 assert_eq!(
                     expected.historical_results.len(),
                     actual.historical_results.len(),
