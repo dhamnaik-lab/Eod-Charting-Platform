@@ -93,6 +93,7 @@ pub(crate) use self::corporate_action_imports::{
 pub use self::daily_market_snapshot::{cancel_daily_market_snapshot, get_daily_market_snapshot};
 pub use self::dnn_research_export::export_dnn_research_dataset;
 pub use self::eod_data::{get_eod_data, get_eod_data_binary};
+pub use self::eod_data::{read_scan_bars_for_folder, ScanPriceBar};
 use self::eod_data::{find_instrument_record, resolve_instrument_context};
 pub use self::instrument_mutations::{apply_corporate_action, merge_symbols};
 pub use self::nse_identity_imports::{

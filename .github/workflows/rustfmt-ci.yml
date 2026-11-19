@@ -5,6 +5,7 @@ on:
     branches: [main]
     paths:
       - 'src-tauri-shell/src/scanner_*.rs'
+      - 'src-tauri-shell/src/native_scanner/**/*.rs'
       - '.github/workflows/rustfmt-ci.yml'
 
 permissions:
@@ -12,7 +13,7 @@ permissions:
 
 jobs:
   scanner-rustfmt:
-    name: Rustfmt (scanner modules)
+    name: Rustfmt (scanner and native scanner modules)
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -29,9 +30,12 @@ jobs:
         run: |
           set -euo pipefail
           shopt -s nullglob
-          scanner_files=(src-tauri-shell/src/scanner_*.rs)
+          # NS-01..NS-04 live under src-tauri-shell/src/native_scanner/; the accepted
+          # scanner_*.rs modules stay covered exactly as before.
+          native_files=(src-tauri-shell/src/native_scanner/**/*.rs)
+          scanner_files=(src-tauri-shell/src/scanner_*.rs "${native_files[@]}")
           if (( ${#scanner_files[@]} == 0 )); then
-            echo 'No scanner_*.rs modules found; expected scanner sources are missing.' >&2
+            echo 'No scanner Rust modules found; expected scanner sources are missing.' >&2
             exit 1
           fi
           printf 'Checking %d scanner Rust module(s):\n' "${#scanner_files[@]}"

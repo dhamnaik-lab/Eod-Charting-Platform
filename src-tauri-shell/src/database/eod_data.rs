@@ -203,6 +203,121 @@ pub async fn get_eod_data(app: AppHandle, input: EodDataInputPayload) -> AppResu
     .map_err(|error| error.to_string())?
 }
 
+/// One completed bar returned by the native-scanner read gateway, in real price units.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct ScanPriceBar {
+    pub date: u32,
+    pub open: f64,
+    pub high: f64,
+    pub low: f64,
+    pub close: f64,
+    pub prev_close: Option<f64>,
+    pub volume: f64,
+    pub open_interest: f64,
+}
+
+/// Native-scanner read gateway (NS-01/NS-02).
+///
+/// Returns a bounded, date-ascending window of completed bars for one target with the
+/// *same* canonical resolution, unified binary/Hybrid read and approved adjustment
+/// projection that `get_eod_data` uses. Read-only by construction: it never writes, never
+/// mutates corporate actions and never touches `.eod` files.
+///
+/// `window` is clamped to the native reader bound. `as_of_date` is inclusive.
+#[allow(clippy::too_many_arguments)]
+pub fn read_scan_bars_for_folder(
+    folder_path: &Path,
+    connection: &Connection,
+    requested_symbol: &str,
+    requested_exchange: &str,
+    as_of_date: Option<&str>,
+    window: usize,
+    adjusted: bool,
+    include_dividend_adjustments: bool,
+    include_rights_adjustments: bool,
+) -> Result<Vec<ScanPriceBar>, String> {
+    let symbol = normalize_symbol(requested_symbol)?;
+    let exchange = normalize_exchange(requested_exchange)?;
+    let Some(context) = resolve_instrument_context(connection, &symbol, &exchange)? else {
+        return Err(format!(
+            "Target {exchange}:{symbol} has no resolvable instrument identity."
+        ));
+    };
+    let from = "1900-01-01";
+    let to = match as_of_date {
+        Some(value) => normalize_optional_trade_date(Some(value))?.ok_or_else(|| {
+            format!("Invalid as-of date for {exchange}:{symbol}.")
+        })?,
+        None => "2100-12-31".to_string(),
+    };
+
+    let rows = load_unified_price_rows(folder_path, connection, &context, from, &to)?;
+    let rows = if adjusted {
+        apply_corporate_adjustments(
+            rows,
+            &context.corporate_actions,
+            include_dividend_adjustments,
+            include_rights_adjustments,
+        )?
+    } else {
+        rows
+    };
+    let rows = if exchange == "NSE_INDEX" {
+        guard_index_previous_close(rows)
+    } else {
+        rows
+    };
+
+    let bounded = window
+        .min(crate::native_scanner::reader::MAX_WINDOW_BARS)
+        .max(1);
+    let start = rows.len().saturating_sub(bounded);
+    rows[start..].iter().map(scan_price_bar_from_row).collect()
+}
+
+fn scan_price_bar_from_row(row: &PriceRow) -> AppResult<ScanPriceBar> {
+    let date = date_to_u32(&row.date);
+    if date == 0 {
+        return Err(format!(
+            "Invalid price row date for {}.",
+            row.symbol
+        ));
+    }
+    let finite = |value: f64, label: &str| -> AppResult<f64> {
+        if !value.is_finite() {
+            return Err(format!(
+                "Non-finite {label} on {} for {}.",
+                row.date, row.symbol
+            ));
+        }
+        Ok(value)
+    };
+    let open = finite(row.open, "open")?;
+    let high = finite(row.high, "high")?;
+    let low = finite(row.low, "low")?;
+    let close = finite(row.close, "close")?;
+    if high < low {
+        return Err(format!(
+            "Price row on {} for {} has high < low.",
+            row.date, row.symbol
+        ));
+    }
+    let prev_close = match row.prev_close {
+        Some(value) => Some(finite(value, "prev_close")?),
+        None => None,
+    };
+    Ok(ScanPriceBar {
+        date,
+        open,
+        high,
+        low,
+        close,
+        prev_close,
+        volume: row.volume.max(0) as f64,
+        open_interest: row.open_interest.max(0) as f64,
+    })
+}
+
 fn resolve_exact_instrument_context(
     connection: &Connection,
     requested_symbol: &str,
