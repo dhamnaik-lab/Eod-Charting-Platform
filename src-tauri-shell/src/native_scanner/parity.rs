@@ -65,7 +65,10 @@ fn load_bundle() -> FixtureBundle {
 }
 
 fn pack_date(value: &str) -> u32 {
-    value.replace('-', "").parse().expect("fixture date YYYY-MM-DD")
+    value
+        .replace('-', "")
+        .parse()
+        .expect("fixture date YYYY-MM-DD")
 }
 
 fn to_eval_bars(bars: &[FixtureBar]) -> Vec<EvalBar> {
@@ -100,8 +103,14 @@ fn ns01_fixture_bundle_is_the_expected_version() {
     let bundle = load_bundle();
     assert_eq!(bundle.contract_version, "eod-native-scan-contract-v1");
     assert_eq!(bundle.schema_version, 1);
-    assert!(bundle.numeric_cases.len() >= 12, "numeric coverage too small");
-    assert!(bundle.contract_cases.len() >= 10, "contract coverage too small");
+    assert!(
+        bundle.numeric_cases.len() >= 12,
+        "numeric coverage too small"
+    );
+    assert!(
+        bundle.contract_cases.len() >= 10,
+        "contract coverage too small"
+    );
     assert_eq!(bundle.bar_sets.len(), 3);
     for case in &bundle.numeric_cases {
         assert!(!case.id.trim().is_empty());
@@ -145,9 +154,7 @@ fn ns01_numeric_cases_match_recorded_typescript_values() {
         for (index, expected) in case.expected_values.iter().enumerate() {
             let outcome = evaluate_rule_latest(&expression, &bars[..=index])
                 .unwrap_or_else(|error| panic!("{}@{index}: {error}", case.id));
-            let expected_matched = expected
-                .map(|value| value != 0.0)
-                .unwrap_or(false);
+            let expected_matched = expected.map(|value| value != 0.0).unwrap_or(false);
             assert_eq!(
                 outcome.matched, expected_matched,
                 "{}@{index}: endpoint match mismatch (expected value {expected:?})",

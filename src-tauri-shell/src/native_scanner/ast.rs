@@ -218,7 +218,11 @@ fn as_object<'a>(
     }
 }
 
-fn as_identifier(value: Option<&Value>, path: &str, issues: &mut Vec<ValidationIssue>) -> Option<String> {
+fn as_identifier(
+    value: Option<&Value>,
+    path: &str,
+    issues: &mut Vec<ValidationIssue>,
+) -> Option<String> {
     let Some(value) = value else {
         issues.push(ValidationIssue::new(
             path,
@@ -294,7 +298,11 @@ fn as_bounded_integer(
     Some(number)
 }
 
-fn as_iso_date(value: Option<&Value>, path: &str, issues: &mut Vec<ValidationIssue>) -> Option<String> {
+fn as_iso_date(
+    value: Option<&Value>,
+    path: &str,
+    issues: &mut Vec<ValidationIssue>,
+) -> Option<String> {
     let Some(text) = value.and_then(Value::as_str) else {
         issues.push(ValidationIssue::new(
             path,
@@ -332,7 +340,11 @@ fn as_iso_date(value: Option<&Value>, path: &str, issues: &mut Vec<ValidationIss
     Some(text.to_string())
 }
 
-fn parse_field(value: Option<&Value>, path: &str, issues: &mut Vec<ValidationIssue>) -> Option<OhlcvFieldV1> {
+fn parse_field(
+    value: Option<&Value>,
+    path: &str,
+    issues: &mut Vec<ValidationIssue>,
+) -> Option<OhlcvFieldV1> {
     match value.and_then(Value::as_str) {
         Some("open") => Some(OhlcvFieldV1::Open),
         Some("high") => Some(OhlcvFieldV1::High),
@@ -350,7 +362,11 @@ fn parse_field(value: Option<&Value>, path: &str, issues: &mut Vec<ValidationIss
     }
 }
 
-fn parse_binary_op(value: Option<&Value>, path: &str, issues: &mut Vec<ValidationIssue>) -> Option<BinaryOpV1> {
+fn parse_binary_op(
+    value: Option<&Value>,
+    path: &str,
+    issues: &mut Vec<ValidationIssue>,
+) -> Option<BinaryOpV1> {
     let op = match value.and_then(Value::as_str) {
         Some("add") => BinaryOpV1::Add,
         Some("sub") => BinaryOpV1::Sub,
@@ -454,8 +470,17 @@ fn parse_expr(
             Some(ExprV1::Number { value: number })
         }
         "field" => {
-            reject_unknown_keys(object, &["kind", "field", "lookback"], path, &mut state.issues);
-            let field = parse_field(object.get("field"), &format!("{path}.field"), &mut state.issues)?;
+            reject_unknown_keys(
+                object,
+                &["kind", "field", "lookback"],
+                path,
+                &mut state.issues,
+            );
+            let field = parse_field(
+                object.get("field"),
+                &format!("{path}.field"),
+                &mut state.issues,
+            )?;
             let lookback = as_bounded_integer(
                 object.get("lookback"),
                 &format!("{path}.lookback"),
@@ -531,9 +556,18 @@ fn parse_expr(
         }
         "crossover" | "crossunder" => {
             reject_unknown_keys(object, &["kind", "left", "right"], path, &mut state.issues);
-            let left = parse_expr(object.get("left")?, &format!("{path}.left"), depth + 1, state)?;
-            let right =
-                parse_expr(object.get("right")?, &format!("{path}.right"), depth + 1, state)?;
+            let left = parse_expr(
+                object.get("left")?,
+                &format!("{path}.left"),
+                depth + 1,
+                state,
+            )?;
+            let right = parse_expr(
+                object.get("right")?,
+                &format!("{path}.right"),
+                depth + 1,
+                state,
+            )?;
             Some(ExprV1::Cross {
                 kind: if kind == "crossover" {
                     CrossKindV1::Over
@@ -578,14 +612,22 @@ fn parse_expr(
 }
 
 /// Validates and parses an untrusted JSON payload into `NativeScanRequestV1`.
-pub fn parse_native_scan_request_v1(value: &Value) -> Result<NativeScanRequestV1, Vec<ValidationIssue>> {
+pub fn parse_native_scan_request_v1(
+    value: &Value,
+) -> Result<NativeScanRequestV1, Vec<ValidationIssue>> {
     let mut issues: Vec<ValidationIssue> = Vec::new();
     let Some(root) = as_object(value, "request", &mut issues) else {
         return Err(issues);
     };
     reject_unknown_keys(
         root,
-        &["schemaVersion", "requestedRunId", "universe", "evaluation", "rules"],
+        &[
+            "schemaVersion",
+            "requestedRunId",
+            "universe",
+            "evaluation",
+            "rules",
+        ],
         "request",
         &mut issues,
     );
@@ -783,54 +825,57 @@ pub fn parse_native_scan_request_v1(value: &Value) -> Result<NativeScanRequestV1
         });
 
     // -- rules --------------------------------------------------------------
-    let rules = root.get("rules").and_then(Value::as_array).and_then(|rules| {
-        if rules.is_empty() || rules.len() > MAX_RULES {
-            issues.push(ValidationIssue::new(
-                "request.rules",
-                "missing-rules",
-                format!("request.rules must contain 1 to {MAX_RULES} entries."),
-            ));
-            return None;
-        }
-        let mut state = ValidationState {
-            nodes: 0,
-            issues: Vec::new(),
-        };
-        let mut seen = std::collections::BTreeSet::new();
-        let mut parsed = Vec::with_capacity(rules.len());
-        for (index, rule) in rules.iter().enumerate() {
-            let path = format!("request.rules[{index}]");
-            let Some(object) = as_object(rule, &path, &mut state.issues) else {
-                continue;
-            };
-            reject_unknown_keys(object, &["id", "expression"], &path, &mut state.issues);
-            let Some(id) = as_identifier(object.get("id"), &format!("{path}.id"), &mut state.issues)
-            else {
-                continue;
-            };
-            if !seen.insert(id.clone()) {
-                state.issues.push(ValidationIssue::new(
-                    format!("{path}.id"),
-                    "duplicate-rule",
-                    format!("{path}.id \"{id}\" is duplicated."),
+    let rules = root
+        .get("rules")
+        .and_then(Value::as_array)
+        .and_then(|rules| {
+            if rules.is_empty() || rules.len() > MAX_RULES {
+                issues.push(ValidationIssue::new(
+                    "request.rules",
+                    "missing-rules",
+                    format!("request.rules must contain 1 to {MAX_RULES} entries."),
                 ));
-                continue;
+                return None;
             }
-            let Some(expression) = object
-                .get("expression")
-                .and_then(|value| parse_expr(value, &format!("{path}.expression"), 1, &mut state))
-            else {
-                continue;
+            let mut state = ValidationState {
+                nodes: 0,
+                issues: Vec::new(),
             };
-            parsed.push(RuleV1 { id, expression });
-        }
-        let failed = parsed.len() != rules.len();
-        issues.extend(state.issues);
-        if failed {
-            return None;
-        }
-        Some(parsed)
-    });
+            let mut seen = std::collections::BTreeSet::new();
+            let mut parsed = Vec::with_capacity(rules.len());
+            for (index, rule) in rules.iter().enumerate() {
+                let path = format!("request.rules[{index}]");
+                let Some(object) = as_object(rule, &path, &mut state.issues) else {
+                    continue;
+                };
+                reject_unknown_keys(object, &["id", "expression"], &path, &mut state.issues);
+                let Some(id) =
+                    as_identifier(object.get("id"), &format!("{path}.id"), &mut state.issues)
+                else {
+                    continue;
+                };
+                if !seen.insert(id.clone()) {
+                    state.issues.push(ValidationIssue::new(
+                        format!("{path}.id"),
+                        "duplicate-rule",
+                        format!("{path}.id \"{id}\" is duplicated."),
+                    ));
+                    continue;
+                }
+                let Some(expression) = object.get("expression").and_then(|value| {
+                    parse_expr(value, &format!("{path}.expression"), 1, &mut state)
+                }) else {
+                    continue;
+                };
+                parsed.push(RuleV1 { id, expression });
+            }
+            let failed = parsed.len() != rules.len();
+            issues.extend(state.issues);
+            if failed {
+                return None;
+            }
+            Some(parsed)
+        });
 
     if !issues.is_empty() {
         return Err(issues);
@@ -1066,10 +1111,12 @@ fn numeric_zip(
 ) -> Series {
     left.iter()
         .zip(right.iter())
-        .map(|(left_value, right_value)| match (left_value, right_value) {
-            (Some(left), Some(right)) => combine(*left, *right),
-            _ => None,
-        })
+        .map(
+            |(left_value, right_value)| match (left_value, right_value) {
+                (Some(left), Some(right)) => combine(*left, *right),
+                _ => None,
+            },
+        )
         .collect()
 }
 
@@ -1080,15 +1127,21 @@ fn boolean_zip(
 ) -> Vec<Option<bool>> {
     left.iter()
         .zip(right.iter())
-        .map(|(left_value, right_value)| match (left_value, right_value) {
-            (Some(left), Some(right)) => Some(if logical_or { *left || *right } else { *left && *right }),
-            // A definite result on one side short-circuits the undefined side.
-            (Some(false), None) if !logical_or => Some(false),
-            (None, Some(false)) if !logical_or => Some(false),
-            (Some(true), None) if logical_or => Some(true),
-            (None, Some(true)) if logical_or => Some(true),
-            _ => None,
-        })
+        .map(
+            |(left_value, right_value)| match (left_value, right_value) {
+                (Some(left), Some(right)) => Some(if logical_or {
+                    *left || *right
+                } else {
+                    *left && *right
+                }),
+                // A definite result on one side short-circuits the undefined side.
+                (Some(false), None) if !logical_or => Some(false),
+                (None, Some(false)) if !logical_or => Some(false),
+                (Some(true), None) if logical_or => Some(true),
+                (None, Some(true)) if logical_or => Some(true),
+                _ => None,
+            },
+        )
         .collect()
 }
 
@@ -1317,7 +1370,10 @@ mod tests {
         .expect("valid request");
         assert_eq!(request.schema_version, 1);
         assert_eq!(request.requested_run_id, "run-1");
-        assert_eq!(request.universe.targets, vec![("NSE".to_string(), "INFY".to_string())]);
+        assert_eq!(
+            request.universe.targets,
+            vec![("NSE".to_string(), "INFY".to_string())]
+        );
         assert_eq!(request.evaluation.price_basis, PriceBasisV1::Raw);
         assert_eq!(request.rules.len(), 1);
     }
@@ -1341,8 +1397,10 @@ mod tests {
         for _ in 0..MAX_AST_DEPTH + 2 {
             deep = json!({ "kind": "binary", "op": "add", "left": deep, "right": { "kind": "number", "value": 1.0 } });
         }
-        let issues = parse_native_scan_request_v1(&request_value(json!([{ "id": "r1", "expression": deep }])))
-            .expect_err("too deep");
+        let issues = parse_native_scan_request_v1(&request_value(
+            json!([{ "id": "r1", "expression": deep }]),
+        ))
+        .expect_err("too deep");
         assert!(issues.iter().any(|issue| issue.code == "max-depth"));
     }
 
@@ -1358,7 +1416,9 @@ mod tests {
             { "id": "r1", "expression": { "kind": "pattern", "id": "chart_head_shoulders" } }
         ])))
         .expect_err("unsupported pattern");
-        assert!(issues.iter().any(|issue| issue.code == "unsupported-pattern"));
+        assert!(issues
+            .iter()
+            .any(|issue| issue.code == "unsupported-pattern"));
 
         let issues = parse_native_scan_request_v1(&request_value(json!([
             { "id": "r1", "expression": { "kind": "number", "value": 1.0 } },
@@ -1379,7 +1439,9 @@ mod tests {
             "includeDividendAdjustments": true
         });
         let issues = parse_native_scan_request_v1(&payload).expect_err("basis conflict");
-        assert!(issues.iter().any(|issue| issue.code == "basis-flag-conflict"));
+        assert!(issues
+            .iter()
+            .any(|issue| issue.code == "basis-flag-conflict"));
 
         let mut payload = request_value(json!([
             { "id": "r1", "expression": { "kind": "number", "value": 1.0 } }
@@ -1398,7 +1460,17 @@ mod tests {
         let bars = bars_from_closes(&[10.0, 11.0, 12.0, 13.0, 12.0, 11.0]);
         let closes: Series = bars.iter().map(|bar| Some(bar.close)).collect();
 
-        assert_eq!(sma(&closes, 3), vec![None, None, Some(11.0), Some(12.0), Some(37.0 / 3.0), Some(12.0)]);
+        assert_eq!(
+            sma(&closes, 3),
+            vec![
+                None,
+                None,
+                Some(11.0),
+                Some(12.0),
+                Some(37.0 / 3.0),
+                Some(12.0)
+            ]
+        );
         assert_eq!(sma(&closes, 10), vec![None; 6]);
 
         let ema_values = ema(&closes, 3);
@@ -1477,7 +1549,9 @@ mod tests {
         let value = atr(&bars, 2);
         assert_eq!(value[0], None);
         let first_range = 2.0;
-        let second_range = (3.0f64).max((12.0 - 10.0f64).abs()).max((10.0 - 10.0f64).abs());
+        let second_range = (3.0f64)
+            .max((12.0 - 10.0f64).abs())
+            .max((10.0 - 10.0f64).abs());
         assert!((value[1].unwrap() - (first_range + second_range) / 2.0).abs() < 1e-12);
         assert!(value[2].is_some());
     }

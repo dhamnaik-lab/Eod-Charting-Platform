@@ -659,7 +659,10 @@ pub fn resolve_targets(
     universe: &UniverseV1,
 ) -> Result<Vec<ScanTarget>, JobRejection> {
     let reserved = enumerate_targets(connection, universe).map_err(|error| {
-        JobRejection::new(codes::SOURCE_FAILED, format!("Unable to enumerate targets: {error}"))
+        JobRejection::new(
+            codes::SOURCE_FAILED,
+            format!("Unable to enumerate targets: {error}"),
+        )
     })?;
     Ok(reserved
         .into_iter()
@@ -805,7 +808,12 @@ mod tests {
         assert_eq!(complete.counts.matched, 1);
         assert_eq!(complete.counts.no_match, 1);
         assert_eq!(registry.active_run_count(), 0, "run must be unregistered");
-        assert!(sink.matches.lock().unwrap().iter().any(|batch| !batch.matches.is_empty()));
+        assert!(sink
+            .matches
+            .lock()
+            .unwrap()
+            .iter()
+            .any(|batch| !batch.matches.is_empty()));
     }
 
     #[test]
@@ -831,7 +839,9 @@ mod tests {
 
         registry.unregister("run-a");
         assert_eq!(registry.active_run_count(), 0);
-        registry.register("run-b", "db#1").expect("id reusable after finish");
+        registry
+            .register("run-b", "db#1")
+            .expect("id reusable after finish");
     }
 
     #[test]
@@ -880,7 +890,10 @@ mod tests {
         let complete = sink.complete.lock().unwrap();
         assert_eq!(complete.len(), 1, "exactly one terminal event");
         assert!(complete[0].cancelled, "the run must report cancellation");
-        assert_eq!(complete[0].counts.matched, 0, "no partial target is emitted");
+        assert_eq!(
+            complete[0].counts.matched, 0,
+            "no partial target is emitted"
+        );
         assert_eq!(registry.active_run_count(), 0);
     }
 
@@ -938,7 +951,10 @@ mod tests {
         sequences.sort_unstable();
         let unique: std::collections::BTreeSet<u64> = sequences.iter().copied().collect();
         assert_eq!(unique.len(), sequences.len(), "sequences must be unique");
-        assert_eq!(*sequences.last().unwrap(), sink.complete.lock().unwrap()[0].sequence);
+        assert_eq!(
+            *sequences.last().unwrap(),
+            sink.complete.lock().unwrap()[0].sequence
+        );
 
         for batch in sink.matches.lock().unwrap().iter() {
             assert_eq!(batch.run_id, "run-seq");
@@ -978,7 +994,11 @@ mod tests {
         let (cancel, _) = registry.register("run-x", "db#1").expect("register");
         assert_eq!(registry.cancel_all(), 1);
         assert!(cancel.is_cancelled());
-        assert_eq!(registry.active_run_count(), 1, "cancel_all keeps the record until finalize");
+        assert_eq!(
+            registry.active_run_count(),
+            1,
+            "cancel_all keeps the record until finalize"
+        );
         registry.unregister("run-x");
         assert_eq!(registry.active_run_count(), 0);
     }

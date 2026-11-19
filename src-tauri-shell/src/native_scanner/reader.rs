@@ -303,12 +303,16 @@ pub fn parse_scan_date(value: &str) -> Result<u32, String> {
             .enumerate()
             .all(|(index, byte)| index == 4 || index == 7 || byte.is_ascii_digit());
     if !well_formed {
-        return Err(format!("Invalid scan date \"{value}\"; expected YYYY-MM-DD."));
+        return Err(format!(
+            "Invalid scan date \"{value}\"; expected YYYY-MM-DD."
+        ));
     }
     let month = value[5..7].parse::<u32>().unwrap_or(0);
     let day = value[8..10].parse::<u32>().unwrap_or(0);
     if !(1..=12).contains(&month) || !(1..=31).contains(&day) {
-        return Err(format!("Invalid scan date \"{value}\"; month/day out of range."));
+        return Err(format!(
+            "Invalid scan date \"{value}\"; month/day out of range."
+        ));
     }
     let packed = date_to_u32(value);
     if packed == 0 {
@@ -378,7 +382,9 @@ mod tests {
     #[test]
     fn ns01_reader_reads_validated_trailing_window_and_scales_prices() {
         let temp = TempEod::new("valid");
-        let records: Vec<EodRecord> = (1..=10).map(|day| record(20240100 + day, 1000 + day as i64 * 100)).collect();
+        let records: Vec<EodRecord> = (1..=10)
+            .map(|day| record(20240100 + day, 1000 + day as i64 * 100))
+            .collect();
         write_file(&temp, "INFY", "NSE", &records, 10000);
 
         let validated = open_validated(&temp.path).expect("validate");
@@ -416,7 +422,10 @@ mod tests {
         fs::write(&temp.path, &bytes[..bytes.len() - 8]).expect("truncate fixture");
 
         let error = open_validated(&temp.path).expect_err("must reject truncated file");
-        assert!(error.contains("does not match its header"), "unexpected: {error}");
+        assert!(
+            error.contains("does not match its header"),
+            "unexpected: {error}"
+        );
     }
 
     #[test]
@@ -471,7 +480,10 @@ mod tests {
         let records = vec![record(20240101, 1000), record(20240101, 1000)];
         write_file(&temp, "INFY", "NSE", &records, 10000);
         let error = read_trailing_bars(&temp.path, 10, None).expect_err("must reject duplicates");
-        assert!(error.contains("strictly date-ascending"), "unexpected: {error}");
+        assert!(
+            error.contains("strictly date-ascending"),
+            "unexpected: {error}"
+        );
     }
 
     #[test]
@@ -490,14 +502,21 @@ mod tests {
         let temp = TempEod::new("clamp");
         let records: Vec<EodRecord> = (1..=40).map(|day| record(20240100 + day, 1000)).collect();
         write_file(&temp, "INFY", "NSE", &records, 10000);
-        let bars = read_trailing_bars(&temp.path, MAX_WINDOW_BARS + 500, None).expect("clamped read");
+        let bars =
+            read_trailing_bars(&temp.path, MAX_WINDOW_BARS + 500, None).expect("clamped read");
         assert_eq!(bars.len(), records.len());
     }
 
     #[test]
     fn ns01_reader_parses_scan_dates_strictly() {
         assert_eq!(parse_scan_date("2024-03-08").unwrap(), 20240308);
-        for invalid in ["2024-13-01", "2024-00-10", "20240308", "2024-3-8", "abcd-ef-gh"] {
+        for invalid in [
+            "2024-13-01",
+            "2024-00-10",
+            "20240308",
+            "2024-3-8",
+            "abcd-ef-gh",
+        ] {
             assert!(parse_scan_date(invalid).is_err(), "must reject {invalid}");
         }
     }

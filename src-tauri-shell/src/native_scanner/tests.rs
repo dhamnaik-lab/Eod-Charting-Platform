@@ -4,11 +4,12 @@
 //! by the test itself under the OS temp directory. No production database is opened and
 //! no source `.eod` file is mutated.
 
-use super::ast::{BinaryOpV1, EvaluationV1, ExprV1, OhlcvFieldV1, PriceBasisV1, RuleV1, UniverseSourceV1, UniverseV1};
-use super::reader::NativeBar;
-use super::scan::{
-    execute_scan, ScanCounts, ScanDataSource, ScanExecutionOptions, ScanTarget,
+use super::ast::{
+    BinaryOpV1, EvaluationV1, ExprV1, OhlcvFieldV1, PriceBasisV1, RuleV1, UniverseSourceV1,
+    UniverseV1,
 };
+use super::reader::NativeBar;
+use super::scan::{execute_scan, ScanCounts, ScanDataSource, ScanExecutionOptions, ScanTarget};
 use crate::database::binary_eod::{BinaryEodFile, EodRecord};
 use rusqlite::Connection;
 use std::path::{Path, PathBuf};
@@ -278,7 +279,10 @@ fn ns01_database_gateway_reports_unresolvable_identity_instead_of_an_empty_serie
         false,
     )
     .expect_err("missing identity must be an explicit error");
-    assert!(error.contains("no resolvable instrument identity"), "unexpected: {error}");
+    assert!(
+        error.contains("no resolvable instrument identity"),
+        "unexpected: {error}"
+    );
 }
 
 #[test]
@@ -324,8 +328,14 @@ fn ns01_database_gateway_adjusted_mode_reuses_the_approved_projection() {
     )
     .expect("adjusted read");
 
-    assert!((raw[0].close - 1000.0).abs() < 1e-9, "raw mode must stay raw");
-    assert!((adjusted[0].close - 500.0).abs() < 1e-9, "pre-ex-date rows are divided by the factor");
+    assert!(
+        (raw[0].close - 1000.0).abs() < 1e-9,
+        "raw mode must stay raw"
+    );
+    assert!(
+        (adjusted[0].close - 500.0).abs() < 1e-9,
+        "pre-ex-date rows are divided by the factor"
+    );
     assert!((adjusted[2].close - 500.0).abs() < 1e-9);
     // Volume is multiplied when the approved action says so.
     assert!((adjusted[0].volume - 200.0).abs() < 1e-9);

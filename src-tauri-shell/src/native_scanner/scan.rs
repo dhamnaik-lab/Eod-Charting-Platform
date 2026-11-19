@@ -19,7 +19,7 @@ use super::ast::{
     contains_pattern, evaluate_rule_latest, minimum_bars_for_expression, NativeScanRequestV1,
     PriceBasisV1, RuleV1,
 };
-use super::reader::{MAX_WINDOW_BARS, NativeBar};
+use super::reader::{NativeBar, MAX_WINDOW_BARS};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Instant;
 
@@ -487,9 +487,7 @@ fn scan_target<D: ScanDataSource>(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::native_scanner::ast::{
-        BinaryOpV1, ExprV1, IndicatorNameV1, OhlcvFieldV1,
-    };
+    use crate::native_scanner::ast::{BinaryOpV1, ExprV1, IndicatorNameV1, OhlcvFieldV1};
     use std::collections::HashMap;
 
     struct FixtureSource {
@@ -618,7 +616,12 @@ mod tests {
             .errors
             .insert("NSE:BROKEN".to_string(), "corrupt .eod header".to_string());
 
-        let targets = vec![target("MATCH"), target("NOMATCH"), target("EMPTY"), target("BROKEN")];
+        let targets = vec![
+            target("MATCH"),
+            target("NOMATCH"),
+            target("EMPTY"),
+            target("BROKEN"),
+        ];
         let report = execute_scan(
             &source,
             &request(vec![close_above(5.0)], false),
@@ -720,7 +723,10 @@ mod tests {
             |_| {},
         );
         assert_eq!(report.counts.matched, 1);
-        assert!(report.matches.len() <= 8, "history endpoints must be bounded");
+        assert!(
+            report.matches.len() <= 8,
+            "history endpoints must be bounded"
+        );
         let outcome = &report.outcomes[0];
         assert!(outcome.evaluated_history_endpoints <= 8);
         // Sorting is strictly descending by date in the final report.
@@ -781,10 +787,7 @@ mod tests {
     #[test]
     fn ns01_scan_passes_the_as_of_date_and_price_basis_to_the_source() {
         let mut bars = HashMap::new();
-        bars.insert(
-            "NSE:A".to_string(),
-            series(&[10.0, 20.0, 30.0, 40.0]),
-        );
+        bars.insert("NSE:A".to_string(), series(&[10.0, 20.0, 30.0, 40.0]));
         let source = FixtureSource::new(bars);
         let mut request = request(vec![close_above(25.0)], false);
         request.evaluation.as_of_date = Some("2024-01-02".to_string());

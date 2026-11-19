@@ -22,14 +22,12 @@ use super::database_source::ReadOnlyDatabaseSource;
 use super::job::{
     clamp_worker_count, codes, events, resolve_targets, EventEmitter, EventSink, JobRejection,
     NativeScanJobRegistry, ScanCancelAckV1, ScanCompleteEventV1, ScanCountsV1, ScanDiagnosticV1,
-    ScanErrorEventV1, ScanMatchBatchEventV1, ScanProgressEventV1, ScanStartAckV1,
-    ScanTargetRefV1, DEFAULT_EVENT_BATCH_SIZE, DEFAULT_PROGRESS_INTERVAL_MS,
+    ScanErrorEventV1, ScanMatchBatchEventV1, ScanProgressEventV1, ScanStartAckV1, ScanTargetRefV1,
+    DEFAULT_EVENT_BATCH_SIZE, DEFAULT_PROGRESS_INTERVAL_MS,
 };
 use super::scan::ScanExecutionOptions;
 use crate::database::database_use::acquire_use;
-use crate::database::{
-    open_read_only_connection_for_folder, resolve_active_database_folder,
-};
+use crate::database::{open_read_only_connection_for_folder, resolve_active_database_folder};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::sync::Mutex;
@@ -89,7 +87,9 @@ impl From<JobRejection> for NativeScanCommandError {
     }
 }
 
-fn validate_request(value: &Value) -> Result<super::ast::NativeScanRequestV1, NativeScanCommandError> {
+fn validate_request(
+    value: &Value,
+) -> Result<super::ast::NativeScanRequestV1, NativeScanCommandError> {
     parse_native_scan_request_v1(value).map_err(|issues| NativeScanCommandError {
         code: codes::INVALID_REQUEST.to_string(),
         message: format!(
@@ -359,7 +359,13 @@ pub async fn start_native_eod_scan(
     let app_for_setup = app.clone();
     let setup = tauri::async_runtime::spawn_blocking(move || {
         let state = app_for_setup.state::<NativeScanState>();
-        let prepared = prepare_job(&app_for_setup, &state, request, batch_size, progress_interval_ms)?;
+        let prepared = prepare_job(
+            &app_for_setup,
+            &state,
+            request,
+            batch_size,
+            progress_interval_ms,
+        )?;
         let ack = ScanStartAckV1 {
             accepted: true,
             run_id: prepared.run_id.clone(),

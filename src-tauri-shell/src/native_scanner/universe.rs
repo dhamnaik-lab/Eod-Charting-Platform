@@ -41,9 +41,7 @@ pub fn enumerate_targets(
                 symbol: symbol.clone(),
             })
             .collect()),
-        UniverseSourceV1::ActiveNseEq => {
-            enumerate_active(connection, "NSE", Some("EQ"))
-        }
+        UniverseSourceV1::ActiveNseEq => enumerate_active(connection, "NSE", Some("EQ")),
         UniverseSourceV1::ActiveBse => enumerate_active(connection, "BSE", None),
     }
 }
@@ -78,7 +76,9 @@ fn enumerate_active(
     let mut targets = Vec::new();
     let rows = if let Some(series) = exact_series {
         statement
-            .query_map(rusqlite::params![exchange, series], |row| row.get::<_, String>(0))
+            .query_map(rusqlite::params![exchange, series], |row| {
+                row.get::<_, String>(0)
+            })
             .map_err(|error| format!("Unable to enumerate {exchange} instruments: {error}"))?
     } else {
         statement
@@ -154,7 +154,10 @@ mod tests {
         let connection = fixture_database();
         let targets = enumerate_targets(&connection, &universe(UniverseSourceV1::ActiveNseEq))
             .expect("enumerate");
-        let symbols: Vec<&str> = targets.iter().map(|target| target.symbol.as_str()).collect();
+        let symbols: Vec<&str> = targets
+            .iter()
+            .map(|target| target.symbol.as_str())
+            .collect();
         assert_eq!(symbols, vec!["INFY", "TCS"]);
         assert!(targets.iter().all(|target| target.exchange == "NSE"));
     }
@@ -185,7 +188,10 @@ mod tests {
         let connection = fixture_database();
         let targets =
             enumerate_targets(&connection, &universe(UniverseSourceV1::ActiveBse)).expect("bse");
-        let symbols: Vec<&str> = targets.iter().map(|target| target.symbol.as_str()).collect();
+        let symbols: Vec<&str> = targets
+            .iter()
+            .map(|target| target.symbol.as_str())
+            .collect();
         assert_eq!(symbols, vec!["500180", "BSEONLY"]);
     }
 

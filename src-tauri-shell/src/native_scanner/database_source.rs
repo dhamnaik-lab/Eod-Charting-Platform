@@ -40,8 +40,7 @@ impl ReadOnlyDatabaseSource {
                 .map(|duration| duration.as_nanos())
                 .unwrap_or(0)
         );
-        let connection =
-            crate::database::open_read_only_connection_for_folder(&folder)?;
+        let connection = crate::database::open_read_only_connection_for_folder(&folder)?;
         Ok(Self {
             folder,
             identity,
