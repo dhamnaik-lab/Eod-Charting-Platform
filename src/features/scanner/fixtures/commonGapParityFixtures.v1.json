@@ -1,0 +1,2307 @@
+{
+  "contractVersion": "eod-scanner-contract-v1",
+  "scannerId": "chart_common_gap",
+  "fixedGeneratedAt": "2026-11-19T10:30:00.000Z",
+  "scenarios": [
+    {
+      "id": "positive_up_minimum_12",
+      "category": "positive",
+      "description": "12 bars, neutral gap up within 10-bar range and 1.1x volume",
+      "request": {
+        "contractVersion": "eod-scanner-contract-v1",
+        "requestId": "req-rsc04-positive_up_minimum_12",
+        "target": {
+          "symbol": "TCS",
+          "exchange": "NSE",
+          "name": "Tata Consultancy Services"
+        },
+        "bars": [
+          {
+            "symbol": "TCS",
+            "date": "2026-01-01",
+            "open": 100,
+            "high": 102,
+            "low": 98,
+            "close": 100,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2026-01-02",
+            "open": 100,
+            "high": 102,
+            "low": 98,
+            "close": 100,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2026-01-03",
+            "open": 100,
+            "high": 102,
+            "low": 98,
+            "close": 100,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2026-01-04",
+            "open": 100,
+            "high": 102,
+            "low": 98,
+            "close": 100,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2026-01-05",
+            "open": 100,
+            "high": 102,
+            "low": 98,
+            "close": 100,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2026-01-06",
+            "open": 100,
+            "high": 102,
+            "low": 98,
+            "close": 100,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2026-01-07",
+            "open": 100,
+            "high": 102,
+            "low": 98,
+            "close": 100,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2026-01-08",
+            "open": 100,
+            "high": 102,
+            "low": 98,
+            "close": 100,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2026-01-09",
+            "open": 100,
+            "high": 102,
+            "low": 98,
+            "close": 100,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2026-01-10",
+            "open": 100,
+            "high": 102,
+            "low": 98,
+            "close": 100,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2026-01-11",
+            "open": 100,
+            "high": 101,
+            "low": 99,
+            "close": 100,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2026-01-12",
+            "open": 104,
+            "high": 105,
+            "low": 103,
+            "close": 104.5,
+            "volume": 1100
+          }
+        ],
+        "scannerIds": [
+          "chart_common_gap"
+        ],
+        "lookbackBars": null,
+        "evaluateHistory": false,
+        "executionMode": "fast",
+        "generatedAt": "2026-11-19T10:30:00.000Z"
+      },
+      "response": {
+        "contractVersion": "eod-scanner-contract-v1",
+        "requestId": "req-rsc04-positive_up_minimum_12",
+        "target": {
+          "symbol": "TCS",
+          "exchange": "NSE",
+          "name": "Tata Consultancy Services"
+        },
+        "latestResults": [
+          {
+            "symbol": "TCS",
+            "exchange": "NSE",
+            "scannerId": "chart_common_gap",
+            "scannerName": "Common Gap",
+            "categoryId": "chart_patterns_gap",
+            "categoryName": "Chart Patterns - Gaps",
+            "date": "2026-01-12",
+            "matched": true,
+            "direction": "neutral",
+            "score": 45,
+            "reasons": [
+              "Gap up occurred inside a range-bound 10-bar context"
+            ],
+            "values": {
+              "gap_direction": "up",
+              "gap_pct": 2.97,
+              "avg_volume_10": 1000,
+              "volume_ratio": 1.1
+            },
+            "chartPattern": {
+              "family": "gap",
+              "confidence": 45,
+              "patternEndDate": "2026-01-12",
+              "patternStartDate": "2026-01-01",
+              "geometry": {
+                "family": "gap-zone",
+                "zones": [
+                  {
+                    "id": "gap",
+                    "label": "Gap",
+                    "role": "gap",
+                    "startDate": "2026-01-11",
+                    "endDate": "2026-01-12",
+                    "low": 101,
+                    "high": 103
+                  }
+                ],
+                "labels": [
+                  {
+                    "id": "pattern",
+                    "text": "Common Gap",
+                    "point": {
+                      "date": "2026-01-12",
+                      "price": 104.5
+                    }
+                  }
+                ]
+              }
+            },
+            "warnings": [],
+            "source": "EODChartPatternScanner_v1",
+            "generatedAt": "2026-11-19T10:30:00.000Z"
+          }
+        ],
+        "historicalResults": [],
+        "results": [
+          {
+            "symbol": "TCS",
+            "exchange": "NSE",
+            "scannerId": "chart_common_gap",
+            "scannerName": "Common Gap",
+            "categoryId": "chart_patterns_gap",
+            "categoryName": "Chart Patterns - Gaps",
+            "date": "2026-01-12",
+            "matched": true,
+            "direction": "neutral",
+            "score": 45,
+            "reasons": [
+              "Gap up occurred inside a range-bound 10-bar context"
+            ],
+            "values": {
+              "gap_direction": "up",
+              "gap_pct": 2.97,
+              "avg_volume_10": 1000,
+              "volume_ratio": 1.1
+            },
+            "chartPattern": {
+              "family": "gap",
+              "confidence": 45,
+              "patternEndDate": "2026-01-12",
+              "patternStartDate": "2026-01-01",
+              "geometry": {
+                "family": "gap-zone",
+                "zones": [
+                  {
+                    "id": "gap",
+                    "label": "Gap",
+                    "role": "gap",
+                    "startDate": "2026-01-11",
+                    "endDate": "2026-01-12",
+                    "low": 101,
+                    "high": 103
+                  }
+                ],
+                "labels": [
+                  {
+                    "id": "pattern",
+                    "text": "Common Gap",
+                    "point": {
+                      "date": "2026-01-12",
+                      "price": 104.5
+                    }
+                  }
+                ]
+              }
+            },
+            "warnings": [],
+            "source": "EODChartPatternScanner_v1",
+            "generatedAt": "2026-11-19T10:30:00.000Z"
+          }
+        ],
+        "scannedBars": 12,
+        "cancelled": false,
+        "errors": []
+      }
+    },
+    {
+      "id": "positive_down_minimum_12",
+      "category": "positive",
+      "description": "12 bars, neutral gap down within 10-bar range and 1.1x volume",
+      "request": {
+        "contractVersion": "eod-scanner-contract-v1",
+        "requestId": "req-rsc04-positive_down_minimum_12",
+        "target": {
+          "symbol": "TCS",
+          "exchange": "NSE",
+          "name": "Tata Consultancy Services"
+        },
+        "bars": [
+          {
+            "symbol": "TCS",
+            "date": "2026-01-01",
+            "open": 100,
+            "high": 102,
+            "low": 98,
+            "close": 100,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2026-01-02",
+            "open": 100,
+            "high": 102,
+            "low": 98,
+            "close": 100,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2026-01-03",
+            "open": 100,
+            "high": 102,
+            "low": 98,
+            "close": 100,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2026-01-04",
+            "open": 100,
+            "high": 102,
+            "low": 98,
+            "close": 100,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2026-01-05",
+            "open": 100,
+            "high": 102,
+            "low": 98,
+            "close": 100,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2026-01-06",
+            "open": 100,
+            "high": 102,
+            "low": 98,
+            "close": 100,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2026-01-07",
+            "open": 100,
+            "high": 102,
+            "low": 98,
+            "close": 100,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2026-01-08",
+            "open": 100,
+            "high": 102,
+            "low": 98,
+            "close": 100,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2026-01-09",
+            "open": 100,
+            "high": 102,
+            "low": 98,
+            "close": 100,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2026-01-10",
+            "open": 100,
+            "high": 102,
+            "low": 98,
+            "close": 100,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2026-01-11",
+            "open": 100,
+            "high": 101,
+            "low": 99,
+            "close": 100,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2026-01-12",
+            "open": 96,
+            "high": 97,
+            "low": 95,
+            "close": 96,
+            "volume": 1100
+          }
+        ],
+        "scannerIds": [
+          "chart_common_gap"
+        ],
+        "lookbackBars": null,
+        "evaluateHistory": false,
+        "executionMode": "fast",
+        "generatedAt": "2026-11-19T10:30:00.000Z"
+      },
+      "response": {
+        "contractVersion": "eod-scanner-contract-v1",
+        "requestId": "req-rsc04-positive_down_minimum_12",
+        "target": {
+          "symbol": "TCS",
+          "exchange": "NSE",
+          "name": "Tata Consultancy Services"
+        },
+        "latestResults": [
+          {
+            "symbol": "TCS",
+            "exchange": "NSE",
+            "scannerId": "chart_common_gap",
+            "scannerName": "Common Gap",
+            "categoryId": "chart_patterns_gap",
+            "categoryName": "Chart Patterns - Gaps",
+            "date": "2026-01-12",
+            "matched": true,
+            "direction": "neutral",
+            "score": 45,
+            "reasons": [
+              "Gap down occurred inside a range-bound 10-bar context"
+            ],
+            "values": {
+              "gap_direction": "down",
+              "gap_pct": 3.03,
+              "avg_volume_10": 1000,
+              "volume_ratio": 1.1
+            },
+            "chartPattern": {
+              "family": "gap",
+              "confidence": 45,
+              "patternEndDate": "2026-01-12",
+              "patternStartDate": "2026-01-01",
+              "geometry": {
+                "family": "gap-zone",
+                "zones": [
+                  {
+                    "id": "gap",
+                    "label": "Gap",
+                    "role": "gap",
+                    "startDate": "2026-01-11",
+                    "endDate": "2026-01-12",
+                    "low": 97,
+                    "high": 99
+                  }
+                ],
+                "labels": [
+                  {
+                    "id": "pattern",
+                    "text": "Common Gap",
+                    "point": {
+                      "date": "2026-01-12",
+                      "price": 96
+                    }
+                  }
+                ]
+              }
+            },
+            "warnings": [],
+            "source": "EODChartPatternScanner_v1",
+            "generatedAt": "2026-11-19T10:30:00.000Z"
+          }
+        ],
+        "historicalResults": [],
+        "results": [
+          {
+            "symbol": "TCS",
+            "exchange": "NSE",
+            "scannerId": "chart_common_gap",
+            "scannerName": "Common Gap",
+            "categoryId": "chart_patterns_gap",
+            "categoryName": "Chart Patterns - Gaps",
+            "date": "2026-01-12",
+            "matched": true,
+            "direction": "neutral",
+            "score": 45,
+            "reasons": [
+              "Gap down occurred inside a range-bound 10-bar context"
+            ],
+            "values": {
+              "gap_direction": "down",
+              "gap_pct": 3.03,
+              "avg_volume_10": 1000,
+              "volume_ratio": 1.1
+            },
+            "chartPattern": {
+              "family": "gap",
+              "confidence": 45,
+              "patternEndDate": "2026-01-12",
+              "patternStartDate": "2026-01-01",
+              "geometry": {
+                "family": "gap-zone",
+                "zones": [
+                  {
+                    "id": "gap",
+                    "label": "Gap",
+                    "role": "gap",
+                    "startDate": "2026-01-11",
+                    "endDate": "2026-01-12",
+                    "low": 97,
+                    "high": 99
+                  }
+                ],
+                "labels": [
+                  {
+                    "id": "pattern",
+                    "text": "Common Gap",
+                    "point": {
+                      "date": "2026-01-12",
+                      "price": 96
+                    }
+                  }
+                ]
+              }
+            },
+            "warnings": [],
+            "source": "EODChartPatternScanner_v1",
+            "generatedAt": "2026-11-19T10:30:00.000Z"
+          }
+        ],
+        "scannedBars": 12,
+        "cancelled": false,
+        "errors": []
+      }
+    },
+    {
+      "id": "boundary_volume_equal_1_2",
+      "category": "boundary",
+      "description": "At 1.2x average volume exact equality is accepted",
+      "request": {
+        "contractVersion": "eod-scanner-contract-v1",
+        "requestId": "req-rsc04-boundary_volume_equal_1_2",
+        "target": {
+          "symbol": "TCS",
+          "exchange": "NSE",
+          "name": "Tata Consultancy Services"
+        },
+        "bars": [
+          {
+            "symbol": "TCS",
+            "date": "2026-01-01",
+            "open": 100,
+            "high": 102,
+            "low": 98,
+            "close": 100,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2026-01-02",
+            "open": 100,
+            "high": 102,
+            "low": 98,
+            "close": 100,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2026-01-03",
+            "open": 100,
+            "high": 102,
+            "low": 98,
+            "close": 100,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2026-01-04",
+            "open": 100,
+            "high": 102,
+            "low": 98,
+            "close": 100,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2026-01-05",
+            "open": 100,
+            "high": 102,
+            "low": 98,
+            "close": 100,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2026-01-06",
+            "open": 100,
+            "high": 102,
+            "low": 98,
+            "close": 100,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2026-01-07",
+            "open": 100,
+            "high": 102,
+            "low": 98,
+            "close": 100,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2026-01-08",
+            "open": 100,
+            "high": 102,
+            "low": 98,
+            "close": 100,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2026-01-09",
+            "open": 100,
+            "high": 102,
+            "low": 98,
+            "close": 100,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2026-01-10",
+            "open": 100,
+            "high": 102,
+            "low": 98,
+            "close": 100,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2026-01-11",
+            "open": 100,
+            "high": 101,
+            "low": 99,
+            "close": 100,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2026-01-12",
+            "open": 104,
+            "high": 105,
+            "low": 103,
+            "close": 104.5,
+            "volume": 1200
+          }
+        ],
+        "scannerIds": [
+          "chart_common_gap"
+        ],
+        "lookbackBars": null,
+        "evaluateHistory": false,
+        "executionMode": "fast",
+        "generatedAt": "2026-11-19T10:30:00.000Z"
+      },
+      "response": {
+        "contractVersion": "eod-scanner-contract-v1",
+        "requestId": "req-rsc04-boundary_volume_equal_1_2",
+        "target": {
+          "symbol": "TCS",
+          "exchange": "NSE",
+          "name": "Tata Consultancy Services"
+        },
+        "latestResults": [
+          {
+            "symbol": "TCS",
+            "exchange": "NSE",
+            "scannerId": "chart_common_gap",
+            "scannerName": "Common Gap",
+            "categoryId": "chart_patterns_gap",
+            "categoryName": "Chart Patterns - Gaps",
+            "date": "2026-01-12",
+            "matched": true,
+            "direction": "neutral",
+            "score": 45,
+            "reasons": [
+              "Gap up occurred inside a range-bound 10-bar context"
+            ],
+            "values": {
+              "gap_direction": "up",
+              "gap_pct": 2.97,
+              "avg_volume_10": 1000,
+              "volume_ratio": 1.2
+            },
+            "chartPattern": {
+              "family": "gap",
+              "confidence": 45,
+              "patternEndDate": "2026-01-12",
+              "patternStartDate": "2026-01-01",
+              "geometry": {
+                "family": "gap-zone",
+                "zones": [
+                  {
+                    "id": "gap",
+                    "label": "Gap",
+                    "role": "gap",
+                    "startDate": "2026-01-11",
+                    "endDate": "2026-01-12",
+                    "low": 101,
+                    "high": 103
+                  }
+                ],
+                "labels": [
+                  {
+                    "id": "pattern",
+                    "text": "Common Gap",
+                    "point": {
+                      "date": "2026-01-12",
+                      "price": 104.5
+                    }
+                  }
+                ]
+              }
+            },
+            "warnings": [],
+            "source": "EODChartPatternScanner_v1",
+            "generatedAt": "2026-11-19T10:30:00.000Z"
+          }
+        ],
+        "historicalResults": [],
+        "results": [
+          {
+            "symbol": "TCS",
+            "exchange": "NSE",
+            "scannerId": "chart_common_gap",
+            "scannerName": "Common Gap",
+            "categoryId": "chart_patterns_gap",
+            "categoryName": "Chart Patterns - Gaps",
+            "date": "2026-01-12",
+            "matched": true,
+            "direction": "neutral",
+            "score": 45,
+            "reasons": [
+              "Gap up occurred inside a range-bound 10-bar context"
+            ],
+            "values": {
+              "gap_direction": "up",
+              "gap_pct": 2.97,
+              "avg_volume_10": 1000,
+              "volume_ratio": 1.2
+            },
+            "chartPattern": {
+              "family": "gap",
+              "confidence": 45,
+              "patternEndDate": "2026-01-12",
+              "patternStartDate": "2026-01-01",
+              "geometry": {
+                "family": "gap-zone",
+                "zones": [
+                  {
+                    "id": "gap",
+                    "label": "Gap",
+                    "role": "gap",
+                    "startDate": "2026-01-11",
+                    "endDate": "2026-01-12",
+                    "low": 101,
+                    "high": 103
+                  }
+                ],
+                "labels": [
+                  {
+                    "id": "pattern",
+                    "text": "Common Gap",
+                    "point": {
+                      "date": "2026-01-12",
+                      "price": 104.5
+                    }
+                  }
+                ]
+              }
+            },
+            "warnings": [],
+            "source": "EODChartPatternScanner_v1",
+            "generatedAt": "2026-11-19T10:30:00.000Z"
+          }
+        ],
+        "scannedBars": 12,
+        "cancelled": false,
+        "errors": []
+      }
+    },
+    {
+      "id": "boundary_gap_rounds_to_threshold",
+      "category": "boundary",
+      "description": "Raw gap just below 0.25 rounds to 0.25 and matches",
+      "request": {
+        "contractVersion": "eod-scanner-contract-v1",
+        "requestId": "req-rsc04-boundary_gap_rounds_to_threshold",
+        "target": {
+          "symbol": "TCS",
+          "exchange": "NSE",
+          "name": "Tata Consultancy Services"
+        },
+        "bars": [
+          {
+            "symbol": "TCS",
+            "date": "2026-01-01",
+            "open": 100,
+            "high": 102,
+            "low": 98,
+            "close": 100,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2026-01-02",
+            "open": 100,
+            "high": 102,
+            "low": 98,
+            "close": 100,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2026-01-03",
+            "open": 100,
+            "high": 102,
+            "low": 98,
+            "close": 100,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2026-01-04",
+            "open": 100,
+            "high": 102,
+            "low": 98,
+            "close": 100,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2026-01-05",
+            "open": 100,
+            "high": 102,
+            "low": 98,
+            "close": 100,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2026-01-06",
+            "open": 100,
+            "high": 102,
+            "low": 98,
+            "close": 100,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2026-01-07",
+            "open": 100,
+            "high": 102,
+            "low": 98,
+            "close": 100,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2026-01-08",
+            "open": 100,
+            "high": 102,
+            "low": 98,
+            "close": 100,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2026-01-09",
+            "open": 100,
+            "high": 102,
+            "low": 98,
+            "close": 100,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2026-01-10",
+            "open": 100,
+            "high": 102,
+            "low": 98,
+            "close": 100,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2026-01-11",
+            "open": 100,
+            "high": 101,
+            "low": 99,
+            "close": 100,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2026-01-12",
+            "open": 101.24846,
+            "high": 102,
+            "low": 101.1,
+            "close": 101.5,
+            "volume": 1100
+          }
+        ],
+        "scannerIds": [
+          "chart_common_gap"
+        ],
+        "lookbackBars": null,
+        "evaluateHistory": false,
+        "executionMode": "fast",
+        "generatedAt": "2026-11-19T10:30:00.000Z"
+      },
+      "response": {
+        "contractVersion": "eod-scanner-contract-v1",
+        "requestId": "req-rsc04-boundary_gap_rounds_to_threshold",
+        "target": {
+          "symbol": "TCS",
+          "exchange": "NSE",
+          "name": "Tata Consultancy Services"
+        },
+        "latestResults": [
+          {
+            "symbol": "TCS",
+            "exchange": "NSE",
+            "scannerId": "chart_common_gap",
+            "scannerName": "Common Gap",
+            "categoryId": "chart_patterns_gap",
+            "categoryName": "Chart Patterns - Gaps",
+            "date": "2026-01-12",
+            "matched": true,
+            "direction": "neutral",
+            "score": 45,
+            "reasons": [
+              "Gap up occurred inside a range-bound 10-bar context"
+            ],
+            "values": {
+              "gap_direction": "up",
+              "gap_pct": 0.25,
+              "avg_volume_10": 1000,
+              "volume_ratio": 1.1
+            },
+            "chartPattern": {
+              "family": "gap",
+              "confidence": 45,
+              "patternEndDate": "2026-01-12",
+              "patternStartDate": "2026-01-01",
+              "geometry": {
+                "family": "gap-zone",
+                "zones": [
+                  {
+                    "id": "gap",
+                    "label": "Gap",
+                    "role": "gap",
+                    "startDate": "2026-01-11",
+                    "endDate": "2026-01-12",
+                    "low": 101,
+                    "high": 101.1
+                  }
+                ],
+                "labels": [
+                  {
+                    "id": "pattern",
+                    "text": "Common Gap",
+                    "point": {
+                      "date": "2026-01-12",
+                      "price": 101.5
+                    }
+                  }
+                ]
+              }
+            },
+            "warnings": [],
+            "source": "EODChartPatternScanner_v1",
+            "generatedAt": "2026-11-19T10:30:00.000Z"
+          }
+        ],
+        "historicalResults": [],
+        "results": [
+          {
+            "symbol": "TCS",
+            "exchange": "NSE",
+            "scannerId": "chart_common_gap",
+            "scannerName": "Common Gap",
+            "categoryId": "chart_patterns_gap",
+            "categoryName": "Chart Patterns - Gaps",
+            "date": "2026-01-12",
+            "matched": true,
+            "direction": "neutral",
+            "score": 45,
+            "reasons": [
+              "Gap up occurred inside a range-bound 10-bar context"
+            ],
+            "values": {
+              "gap_direction": "up",
+              "gap_pct": 0.25,
+              "avg_volume_10": 1000,
+              "volume_ratio": 1.1
+            },
+            "chartPattern": {
+              "family": "gap",
+              "confidence": 45,
+              "patternEndDate": "2026-01-12",
+              "patternStartDate": "2026-01-01",
+              "geometry": {
+                "family": "gap-zone",
+                "zones": [
+                  {
+                    "id": "gap",
+                    "label": "Gap",
+                    "role": "gap",
+                    "startDate": "2026-01-11",
+                    "endDate": "2026-01-12",
+                    "low": 101,
+                    "high": 101.1
+                  }
+                ],
+                "labels": [
+                  {
+                    "id": "pattern",
+                    "text": "Common Gap",
+                    "point": {
+                      "date": "2026-01-12",
+                      "price": 101.5
+                    }
+                  }
+                ]
+              }
+            },
+            "warnings": [],
+            "source": "EODChartPatternScanner_v1",
+            "generatedAt": "2026-11-19T10:30:00.000Z"
+          }
+        ],
+        "scannedBars": 12,
+        "cancelled": false,
+        "errors": []
+      }
+    },
+    {
+      "id": "boundary_null_zero_average",
+      "category": "boundary",
+      "description": "Zero previous volume and zero current volume give null optional scalars",
+      "request": {
+        "contractVersion": "eod-scanner-contract-v1",
+        "requestId": "req-rsc04-boundary_null_zero_average",
+        "target": {
+          "symbol": "TCS",
+          "exchange": "NSE",
+          "name": "Tata Consultancy Services"
+        },
+        "bars": [
+          {
+            "symbol": "TCS",
+            "date": "2026-01-01",
+            "open": 100,
+            "high": 102,
+            "low": 98,
+            "close": 100,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2026-01-02",
+            "open": 100,
+            "high": 102,
+            "low": 98,
+            "close": 100,
+            "volume": 0
+          },
+          {
+            "symbol": "TCS",
+            "date": "2026-01-03",
+            "open": 100,
+            "high": 102,
+            "low": 98,
+            "close": 100,
+            "volume": 0
+          },
+          {
+            "symbol": "TCS",
+            "date": "2026-01-04",
+            "open": 100,
+            "high": 102,
+            "low": 98,
+            "close": 100,
+            "volume": 0
+          },
+          {
+            "symbol": "TCS",
+            "date": "2026-01-05",
+            "open": 100,
+            "high": 102,
+            "low": 98,
+            "close": 100,
+            "volume": 0
+          },
+          {
+            "symbol": "TCS",
+            "date": "2026-01-06",
+            "open": 100,
+            "high": 102,
+            "low": 98,
+            "close": 100,
+            "volume": 0
+          },
+          {
+            "symbol": "TCS",
+            "date": "2026-01-07",
+            "open": 100,
+            "high": 102,
+            "low": 98,
+            "close": 100,
+            "volume": 0
+          },
+          {
+            "symbol": "TCS",
+            "date": "2026-01-08",
+            "open": 100,
+            "high": 102,
+            "low": 98,
+            "close": 100,
+            "volume": 0
+          },
+          {
+            "symbol": "TCS",
+            "date": "2026-01-09",
+            "open": 100,
+            "high": 102,
+            "low": 98,
+            "close": 100,
+            "volume": 0
+          },
+          {
+            "symbol": "TCS",
+            "date": "2026-01-10",
+            "open": 100,
+            "high": 102,
+            "low": 98,
+            "close": 100,
+            "volume": 0
+          },
+          {
+            "symbol": "TCS",
+            "date": "2026-01-11",
+            "open": 100,
+            "high": 101,
+            "low": 99,
+            "close": 100,
+            "volume": 0
+          },
+          {
+            "symbol": "TCS",
+            "date": "2026-01-12",
+            "open": 104,
+            "high": 105,
+            "low": 103,
+            "close": 104.5,
+            "volume": 0
+          }
+        ],
+        "scannerIds": [
+          "chart_common_gap"
+        ],
+        "lookbackBars": null,
+        "evaluateHistory": false,
+        "executionMode": "fast",
+        "generatedAt": "2026-11-19T10:30:00.000Z"
+      },
+      "response": {
+        "contractVersion": "eod-scanner-contract-v1",
+        "requestId": "req-rsc04-boundary_null_zero_average",
+        "target": {
+          "symbol": "TCS",
+          "exchange": "NSE",
+          "name": "Tata Consultancy Services"
+        },
+        "latestResults": [
+          {
+            "symbol": "TCS",
+            "exchange": "NSE",
+            "scannerId": "chart_common_gap",
+            "scannerName": "Common Gap",
+            "categoryId": "chart_patterns_gap",
+            "categoryName": "Chart Patterns - Gaps",
+            "date": "2026-01-12",
+            "matched": true,
+            "direction": "neutral",
+            "score": 45,
+            "reasons": [
+              "Gap up occurred inside a range-bound 10-bar context"
+            ],
+            "values": {
+              "gap_direction": "up",
+              "gap_pct": 2.97,
+              "avg_volume_10": null,
+              "volume_ratio": null
+            },
+            "chartPattern": {
+              "family": "gap",
+              "confidence": 45,
+              "patternEndDate": "2026-01-12",
+              "patternStartDate": "2026-01-01",
+              "geometry": {
+                "family": "gap-zone",
+                "zones": [
+                  {
+                    "id": "gap",
+                    "label": "Gap",
+                    "role": "gap",
+                    "startDate": "2026-01-11",
+                    "endDate": "2026-01-12",
+                    "low": 101,
+                    "high": 103
+                  }
+                ],
+                "labels": [
+                  {
+                    "id": "pattern",
+                    "text": "Common Gap",
+                    "point": {
+                      "date": "2026-01-12",
+                      "price": 104.5
+                    }
+                  }
+                ]
+              }
+            },
+            "warnings": [],
+            "source": "EODChartPatternScanner_v1",
+            "generatedAt": "2026-11-19T10:30:00.000Z"
+          }
+        ],
+        "historicalResults": [],
+        "results": [
+          {
+            "symbol": "TCS",
+            "exchange": "NSE",
+            "scannerId": "chart_common_gap",
+            "scannerName": "Common Gap",
+            "categoryId": "chart_patterns_gap",
+            "categoryName": "Chart Patterns - Gaps",
+            "date": "2026-01-12",
+            "matched": true,
+            "direction": "neutral",
+            "score": 45,
+            "reasons": [
+              "Gap up occurred inside a range-bound 10-bar context"
+            ],
+            "values": {
+              "gap_direction": "up",
+              "gap_pct": 2.97,
+              "avg_volume_10": null,
+              "volume_ratio": null
+            },
+            "chartPattern": {
+              "family": "gap",
+              "confidence": 45,
+              "patternEndDate": "2026-01-12",
+              "patternStartDate": "2026-01-01",
+              "geometry": {
+                "family": "gap-zone",
+                "zones": [
+                  {
+                    "id": "gap",
+                    "label": "Gap",
+                    "role": "gap",
+                    "startDate": "2026-01-11",
+                    "endDate": "2026-01-12",
+                    "low": 101,
+                    "high": 103
+                  }
+                ],
+                "labels": [
+                  {
+                    "id": "pattern",
+                    "text": "Common Gap",
+                    "point": {
+                      "date": "2026-01-12",
+                      "price": 104.5
+                    }
+                  }
+                ]
+              }
+            },
+            "warnings": [],
+            "source": "EODChartPatternScanner_v1",
+            "generatedAt": "2026-11-19T10:30:00.000Z"
+          }
+        ],
+        "scannedBars": 12,
+        "cancelled": false,
+        "errors": []
+      }
+    },
+    {
+      "id": "negative_up_gap_high_volume",
+      "category": "negative",
+      "description": "Elevated current volume rejects",
+      "request": {
+        "contractVersion": "eod-scanner-contract-v1",
+        "requestId": "req-rsc04-negative_up_gap_high_volume",
+        "target": {
+          "symbol": "TCS",
+          "exchange": "NSE",
+          "name": "Tata Consultancy Services"
+        },
+        "bars": [
+          {
+            "symbol": "TCS",
+            "date": "2026-01-01",
+            "open": 100,
+            "high": 102,
+            "low": 98,
+            "close": 100,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2026-01-02",
+            "open": 100,
+            "high": 102,
+            "low": 98,
+            "close": 100,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2026-01-03",
+            "open": 100,
+            "high": 102,
+            "low": 98,
+            "close": 100,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2026-01-04",
+            "open": 100,
+            "high": 102,
+            "low": 98,
+            "close": 100,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2026-01-05",
+            "open": 100,
+            "high": 102,
+            "low": 98,
+            "close": 100,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2026-01-06",
+            "open": 100,
+            "high": 102,
+            "low": 98,
+            "close": 100,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2026-01-07",
+            "open": 100,
+            "high": 102,
+            "low": 98,
+            "close": 100,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2026-01-08",
+            "open": 100,
+            "high": 102,
+            "low": 98,
+            "close": 100,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2026-01-09",
+            "open": 100,
+            "high": 102,
+            "low": 98,
+            "close": 100,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2026-01-10",
+            "open": 100,
+            "high": 102,
+            "low": 98,
+            "close": 100,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2026-01-11",
+            "open": 100,
+            "high": 101,
+            "low": 99,
+            "close": 100,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2026-01-12",
+            "open": 104,
+            "high": 105,
+            "low": 103,
+            "close": 104.5,
+            "volume": 3000
+          }
+        ],
+        "scannerIds": [
+          "chart_common_gap"
+        ],
+        "lookbackBars": null,
+        "evaluateHistory": false,
+        "executionMode": "fast",
+        "generatedAt": "2026-11-19T10:30:00.000Z"
+      },
+      "response": {
+        "contractVersion": "eod-scanner-contract-v1",
+        "requestId": "req-rsc04-negative_up_gap_high_volume",
+        "target": {
+          "symbol": "TCS",
+          "exchange": "NSE",
+          "name": "Tata Consultancy Services"
+        },
+        "latestResults": [],
+        "historicalResults": [],
+        "results": [],
+        "scannedBars": 12,
+        "cancelled": false,
+        "errors": []
+      }
+    },
+    {
+      "id": "negative_no_selected_scanner",
+      "category": "negative",
+      "description": "Empty scanner IDs returns no results",
+      "request": {
+        "contractVersion": "eod-scanner-contract-v1",
+        "requestId": "req-rsc04-negative_no_selected_scanner",
+        "target": {
+          "symbol": "TCS",
+          "exchange": "NSE",
+          "name": "Tata Consultancy Services"
+        },
+        "bars": [
+          {
+            "symbol": "TCS",
+            "date": "2026-01-01",
+            "open": 100,
+            "high": 102,
+            "low": 98,
+            "close": 100,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2026-01-02",
+            "open": 100,
+            "high": 102,
+            "low": 98,
+            "close": 100,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2026-01-03",
+            "open": 100,
+            "high": 102,
+            "low": 98,
+            "close": 100,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2026-01-04",
+            "open": 100,
+            "high": 102,
+            "low": 98,
+            "close": 100,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2026-01-05",
+            "open": 100,
+            "high": 102,
+            "low": 98,
+            "close": 100,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2026-01-06",
+            "open": 100,
+            "high": 102,
+            "low": 98,
+            "close": 100,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2026-01-07",
+            "open": 100,
+            "high": 102,
+            "low": 98,
+            "close": 100,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2026-01-08",
+            "open": 100,
+            "high": 102,
+            "low": 98,
+            "close": 100,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2026-01-09",
+            "open": 100,
+            "high": 102,
+            "low": 98,
+            "close": 100,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2026-01-10",
+            "open": 100,
+            "high": 102,
+            "low": 98,
+            "close": 100,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2026-01-11",
+            "open": 100,
+            "high": 101,
+            "low": 99,
+            "close": 100,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2026-01-12",
+            "open": 104,
+            "high": 105,
+            "low": 103,
+            "close": 104.5,
+            "volume": 1100
+          }
+        ],
+        "scannerIds": [],
+        "lookbackBars": null,
+        "evaluateHistory": false,
+        "executionMode": "fast",
+        "generatedAt": "2026-11-19T10:30:00.000Z"
+      },
+      "response": {
+        "contractVersion": "eod-scanner-contract-v1",
+        "requestId": "req-rsc04-negative_no_selected_scanner",
+        "target": {
+          "symbol": "TCS",
+          "exchange": "NSE",
+          "name": "Tata Consultancy Services"
+        },
+        "latestResults": [],
+        "historicalResults": [],
+        "results": [],
+        "scannedBars": 12,
+        "cancelled": false,
+        "errors": []
+      }
+    },
+    {
+      "id": "historical_up_down_adjacent",
+      "category": "historical",
+      "description": "Two adjacent up/down Common Gap results coalesce into one episode",
+      "request": {
+        "contractVersion": "eod-scanner-contract-v1",
+        "requestId": "req-rsc04-historical_up_down_adjacent",
+        "target": {
+          "symbol": "TCS",
+          "exchange": "NSE",
+          "name": "Tata Consultancy Services"
+        },
+        "bars": [
+          {
+            "symbol": "TCS",
+            "date": "2026-01-01",
+            "open": 100,
+            "high": 102,
+            "low": 98,
+            "close": 100,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2026-01-02",
+            "open": 100,
+            "high": 102,
+            "low": 98,
+            "close": 100,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2026-01-03",
+            "open": 100,
+            "high": 102,
+            "low": 98,
+            "close": 100,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2026-01-04",
+            "open": 100,
+            "high": 102,
+            "low": 98,
+            "close": 100,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2026-01-05",
+            "open": 100,
+            "high": 102,
+            "low": 98,
+            "close": 100,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2026-01-06",
+            "open": 100,
+            "high": 102,
+            "low": 98,
+            "close": 100,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2026-01-07",
+            "open": 100,
+            "high": 102,
+            "low": 98,
+            "close": 100,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2026-01-08",
+            "open": 100,
+            "high": 102,
+            "low": 98,
+            "close": 100,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2026-01-09",
+            "open": 100,
+            "high": 102,
+            "low": 98,
+            "close": 100,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2026-01-10",
+            "open": 100,
+            "high": 102,
+            "low": 98,
+            "close": 100,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2026-01-11",
+            "open": 100,
+            "high": 102,
+            "low": 98,
+            "close": 100,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2026-01-12",
+            "open": 100,
+            "high": 102,
+            "low": 98,
+            "close": 100,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2026-01-13",
+            "open": 100,
+            "high": 102,
+            "low": 98,
+            "close": 100,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2026-01-14",
+            "open": 100,
+            "high": 102,
+            "low": 98,
+            "close": 100,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2026-01-15",
+            "open": 100,
+            "high": 102,
+            "low": 98,
+            "close": 100,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2026-01-16",
+            "open": 100,
+            "high": 102,
+            "low": 98,
+            "close": 100,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2026-01-17",
+            "open": 100,
+            "high": 102,
+            "low": 98,
+            "close": 100,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2026-01-18",
+            "open": 100,
+            "high": 102,
+            "low": 98,
+            "close": 100,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2026-01-19",
+            "open": 100,
+            "high": 102,
+            "low": 98,
+            "close": 100,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2026-01-20",
+            "open": 100,
+            "high": 102,
+            "low": 98,
+            "close": 100,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2026-01-21",
+            "open": 100,
+            "high": 102,
+            "low": 98,
+            "close": 100,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2026-01-22",
+            "open": 100,
+            "high": 102,
+            "low": 98,
+            "close": 100,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2026-01-23",
+            "open": 100,
+            "high": 102,
+            "low": 98,
+            "close": 100,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2026-01-24",
+            "open": 100,
+            "high": 102,
+            "low": 98,
+            "close": 100,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2026-01-25",
+            "open": 100,
+            "high": 102,
+            "low": 98,
+            "close": 100,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2026-01-26",
+            "open": 100,
+            "high": 102,
+            "low": 98,
+            "close": 100,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2026-01-27",
+            "open": 100,
+            "high": 102,
+            "low": 98,
+            "close": 100,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2026-01-28",
+            "open": 100,
+            "high": 102,
+            "low": 98,
+            "close": 100,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2026-01-29",
+            "open": 100,
+            "high": 102,
+            "low": 98,
+            "close": 100,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2026-01-30",
+            "open": 100,
+            "high": 102,
+            "low": 98,
+            "close": 100,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2026-01-31",
+            "open": 100,
+            "high": 102,
+            "low": 98,
+            "close": 100,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2026-02-01",
+            "open": 100,
+            "high": 102,
+            "low": 98,
+            "close": 100,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2026-02-02",
+            "open": 100,
+            "high": 102,
+            "low": 98,
+            "close": 100,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2026-02-03",
+            "open": 100,
+            "high": 102,
+            "low": 98,
+            "close": 100,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2026-02-04",
+            "open": 100,
+            "high": 102,
+            "low": 98,
+            "close": 100,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2026-02-05",
+            "open": 100,
+            "high": 102,
+            "low": 98,
+            "close": 100,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2026-02-06",
+            "open": 100,
+            "high": 102,
+            "low": 98,
+            "close": 100,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2026-02-07",
+            "open": 100,
+            "high": 102,
+            "low": 98,
+            "close": 100,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2026-02-08",
+            "open": 100,
+            "high": 102,
+            "low": 98,
+            "close": 100,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2026-02-09",
+            "open": 100,
+            "high": 102,
+            "low": 98,
+            "close": 100,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2026-02-10",
+            "open": 100,
+            "high": 102,
+            "low": 98,
+            "close": 100,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2026-02-11",
+            "open": 100,
+            "high": 102,
+            "low": 98,
+            "close": 100,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2026-02-12",
+            "open": 100,
+            "high": 102,
+            "low": 98,
+            "close": 100,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2026-02-13",
+            "open": 100,
+            "high": 102,
+            "low": 98,
+            "close": 100,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2026-02-14",
+            "open": 100,
+            "high": 102,
+            "low": 98,
+            "close": 100,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2026-02-15",
+            "open": 100,
+            "high": 102,
+            "low": 98,
+            "close": 100,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2026-02-16",
+            "open": 100,
+            "high": 102,
+            "low": 98,
+            "close": 100,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2026-02-17",
+            "open": 100,
+            "high": 102,
+            "low": 98,
+            "close": 100,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2026-02-18",
+            "open": 100,
+            "high": 102,
+            "low": 98,
+            "close": 100,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2026-02-19",
+            "open": 100,
+            "high": 102,
+            "low": 98,
+            "close": 100,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2026-02-20",
+            "open": 100,
+            "high": 102,
+            "low": 98,
+            "close": 100,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2026-02-21",
+            "open": 100,
+            "high": 102,
+            "low": 98,
+            "close": 100,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2026-02-22",
+            "open": 100,
+            "high": 102,
+            "low": 98,
+            "close": 100,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2026-02-23",
+            "open": 100,
+            "high": 101,
+            "low": 99,
+            "close": 100,
+            "volume": 1000
+          },
+          {
+            "symbol": "TCS",
+            "date": "2026-02-24",
+            "open": 104,
+            "high": 105,
+            "low": 103,
+            "close": 104.5,
+            "volume": 1100
+          },
+          {
+            "symbol": "TCS",
+            "date": "2026-02-25",
+            "open": 96,
+            "high": 97,
+            "low": 95,
+            "close": 96,
+            "volume": 1100
+          }
+        ],
+        "scannerIds": [
+          "chart_common_gap"
+        ],
+        "lookbackBars": null,
+        "evaluateHistory": true,
+        "executionMode": "fast",
+        "generatedAt": "2026-11-19T10:30:00.000Z"
+      },
+      "response": {
+        "contractVersion": "eod-scanner-contract-v1",
+        "requestId": "req-rsc04-historical_up_down_adjacent",
+        "target": {
+          "symbol": "TCS",
+          "exchange": "NSE",
+          "name": "Tata Consultancy Services"
+        },
+        "latestResults": [
+          {
+            "symbol": "TCS",
+            "exchange": "NSE",
+            "scannerId": "chart_common_gap",
+            "scannerName": "Common Gap",
+            "categoryId": "chart_patterns_gap",
+            "categoryName": "Chart Patterns - Gaps",
+            "date": "2026-02-25",
+            "matched": true,
+            "direction": "neutral",
+            "score": 45,
+            "reasons": [
+              "Gap down occurred inside a range-bound 10-bar context"
+            ],
+            "values": {
+              "gap_direction": "down",
+              "gap_pct": 6.8,
+              "avg_volume_10": 1010,
+              "volume_ratio": 1.09
+            },
+            "chartPattern": {
+              "family": "gap",
+              "confidence": 45,
+              "patternEndDate": "2026-02-25",
+              "patternStartDate": "2026-02-14",
+              "geometry": {
+                "family": "gap-zone",
+                "zones": [
+                  {
+                    "id": "gap",
+                    "label": "Gap",
+                    "role": "gap",
+                    "startDate": "2026-02-24",
+                    "endDate": "2026-02-25",
+                    "low": 97,
+                    "high": 103
+                  }
+                ],
+                "labels": [
+                  {
+                    "id": "pattern",
+                    "text": "Common Gap",
+                    "point": {
+                      "date": "2026-02-25",
+                      "price": 96
+                    }
+                  }
+                ]
+              }
+            },
+            "warnings": [],
+            "source": "EODChartPatternScanner_v1",
+            "generatedAt": "2026-11-19T10:30:00.000Z"
+          }
+        ],
+        "historicalResults": [
+          {
+            "symbol": "TCS",
+            "exchange": "NSE",
+            "scannerId": "chart_common_gap",
+            "scannerName": "Common Gap",
+            "categoryId": "chart_patterns_gap",
+            "categoryName": "Chart Patterns - Gaps",
+            "date": "2026-02-24",
+            "matched": true,
+            "direction": "neutral",
+            "score": 45,
+            "reasons": [
+              "Gap up occurred inside a range-bound 10-bar context"
+            ],
+            "values": {
+              "gap_direction": "up",
+              "gap_pct": 2.97,
+              "avg_volume_10": 1000,
+              "volume_ratio": 1.1
+            },
+            "chartPattern": {
+              "family": "gap",
+              "confidence": 45,
+              "patternEndDate": "2026-02-24",
+              "patternStartDate": "2026-02-13",
+              "geometry": {
+                "family": "gap-zone",
+                "zones": [
+                  {
+                    "id": "gap",
+                    "label": "Gap",
+                    "role": "gap",
+                    "startDate": "2026-02-23",
+                    "endDate": "2026-02-24",
+                    "low": 101,
+                    "high": 103
+                  }
+                ],
+                "labels": [
+                  {
+                    "id": "pattern",
+                    "text": "Common Gap",
+                    "point": {
+                      "date": "2026-02-24",
+                      "price": 104.5
+                    }
+                  }
+                ]
+              }
+            },
+            "warnings": [],
+            "source": "EODChartPatternScanner_v1",
+            "generatedAt": "2026-11-19T10:30:00.000Z",
+            "history": {
+              "firstMatchedDate": "2026-02-24",
+              "lastMatchedDate": "2026-02-25",
+              "matchCount": 2
+            }
+          }
+        ],
+        "results": [
+          {
+            "symbol": "TCS",
+            "exchange": "NSE",
+            "scannerId": "chart_common_gap",
+            "scannerName": "Common Gap",
+            "categoryId": "chart_patterns_gap",
+            "categoryName": "Chart Patterns - Gaps",
+            "date": "2026-02-24",
+            "matched": true,
+            "direction": "neutral",
+            "score": 45,
+            "reasons": [
+              "Gap up occurred inside a range-bound 10-bar context"
+            ],
+            "values": {
+              "gap_direction": "up",
+              "gap_pct": 2.97,
+              "avg_volume_10": 1000,
+              "volume_ratio": 1.1
+            },
+            "chartPattern": {
+              "family": "gap",
+              "confidence": 45,
+              "patternEndDate": "2026-02-24",
+              "patternStartDate": "2026-02-13",
+              "geometry": {
+                "family": "gap-zone",
+                "zones": [
+                  {
+                    "id": "gap",
+                    "label": "Gap",
+                    "role": "gap",
+                    "startDate": "2026-02-23",
+                    "endDate": "2026-02-24",
+                    "low": 101,
+                    "high": 103
+                  }
+                ],
+                "labels": [
+                  {
+                    "id": "pattern",
+                    "text": "Common Gap",
+                    "point": {
+                      "date": "2026-02-24",
+                      "price": 104.5
+                    }
+                  }
+                ]
+              }
+            },
+            "warnings": [],
+            "source": "EODChartPatternScanner_v1",
+            "generatedAt": "2026-11-19T10:30:00.000Z",
+            "history": {
+              "firstMatchedDate": "2026-02-24",
+              "lastMatchedDate": "2026-02-25",
+              "matchCount": 2
+            }
+          }
+        ],
+        "scannedBars": 56,
+        "cancelled": false,
+        "errors": [],
+        "progressEvents": [
+          {
+            "contractVersion": "eod-scanner-contract-v1",
+            "requestId": "req-rsc04-historical_up_down_adjacent",
+            "completed": 1,
+            "total": 1,
+            "symbol": "TCS",
+            "exchange": "NSE",
+            "historyCompleted": 37,
+            "historyTotal": 37,
+            "resultCount": 1
+          }
+        ]
+      }
+    }
+  ]
+}

@@ -25,7 +25,7 @@ const HISTORY_PROGRESS_STEP: usize = 50;
 const I64_MIN_F64: f64 = -9_223_372_036_854_775_808.0;
 const I64_MAX_EXCLUSIVE_F64: f64 = 9_223_372_036_854_775_808.0;
 
-fn normalize_zero(value: f64) -> f64 {
+pub(crate) fn normalize_zero(value: f64) -> f64 {
     if value == 0.0 {
         0.0
     } else {
@@ -50,12 +50,12 @@ fn js_math_round(value: f64) -> f64 {
     normalize_zero(rounded)
 }
 
-fn round_js(value: f64, digits: i32) -> f64 {
+pub(crate) fn round_js(value: f64, digits: i32) -> f64 {
     let factor = 10f64.powi(digits);
     normalize_zero(js_math_round(value * factor) / factor)
 }
 
-fn scalar_number_v1(value: f64) -> ScannerScalarValueV1 {
+pub(crate) fn scalar_number_v1(value: f64) -> ScannerScalarValueV1 {
     let normalized = normalize_zero(value);
     if normalized.is_finite()
         && normalized.fract() == 0.0
@@ -101,7 +101,7 @@ fn format_js_number(value: f64) -> String {
     }
 }
 
-fn gap_up_pct(today: &EodBarV1, previous: &EodBarV1) -> Option<f64> {
+pub(crate) fn gap_up_pct(today: &EodBarV1, previous: &EodBarV1) -> Option<f64> {
     if !previous.high.is_finite() || !today.open.is_finite() {
         return None;
     }
@@ -132,7 +132,7 @@ fn highest_high(bars: &[EodBarV1]) -> Option<f64> {
     Some(normalize_zero(max_high))
 }
 
-fn average_volume_excluding_current(bars: &[EodBarV1], period: usize) -> Option<f64> {
+pub(crate) fn average_volume_excluding_current(bars: &[EodBarV1], period: usize) -> Option<f64> {
     if period == 0 || bars.len() <= period {
         return None;
     }
