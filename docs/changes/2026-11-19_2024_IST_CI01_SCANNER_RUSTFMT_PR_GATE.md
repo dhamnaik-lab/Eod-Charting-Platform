@@ -3,7 +3,7 @@
 **IST timestamp:** 2026-11-19 20:24 IST (UTC+05:30)  
 **Active workstream:** EOD Charting Platform — `E:\TA Projects\EOD Charting Platform`  
 **GitHub source authority:** `feature/native-rust-scanner-20261119` at parent `0b6262c1a96eaec16de6800dbe20ac296bef5a98`; PR #122 (draft/unmerged).  
-**Status:** GitHub-only candidate; actual GitHub Actions execution pending source publication.
+**Status:** **Automated GitHub Actions Rustfmt PASS** on CI-01 implementation commit `f5adde1cbc2e7846c71a441d312ca73854506b9f` (19 November 2026, 20:26 IST); PR #122 remains draft and unmerged.
 
 ## Objective and previous defect
 
@@ -36,7 +36,7 @@ The existing Renderer CI and Windows PowerShell-parser workflows are unchanged. 
 - Extracted Bash `run` script through YAML parser; `bash -n`: **PASS**.
 - Three-case mocked runtime simulation, invoking the **actual YAML-extracted Bash script**: scanner file included and unrelated Rust excluded **PASS**; a nonzero mocked Rustfmt exits nonzero **PASS**; an empty scanner set rejects **PASS**.
 - Preparation SHA-256 of the exact workflow file: `99EB6E8C1C5919DAF2235652C5631BC5B00D5A5C4D8978BBF7E6314756646DA8`; matching Git blob expected: `c72d8aa2f9bb0460992500de646d9e8dcb6771f2`.
-- Real GitHub Actions workflow run, hosted `rustup`, and real `rustfmt --check`: **NOT RUN before publication**. GitHub check conclusion will be recorded independently after it executes. Do not claim CI pass from static checks alone.
+- GitHub Actions **Rust Scanner Rustfmt CI** at commit `f5adde1cbc2e7846c71a441d312ca73854506b9f`, workflow run **44549012402**, job **135647321818**: **COMPLETED SUCCESS**. Individually observed steps **Check out source**, **Ensure stable Rustfmt is available**, and **Check every scanner Rust module without modifying sources** all completed **SUCCESS**. This is real hosted Rustfmt execution, independently verified through GitHub's workflow-jobs API; not inferred from the static mocks. [Actions run](https://github.com/dhamnaik-lab/Eod-Charting-Platform/actions/runs/44549012402).
 - No Windows Rust/Cargo tests, Vitest, typecheck, renderer build or portable build performed for this CI-only change; those were previously verified on RSC-05 at source commit `e158f086`.
 
 ## Risks, limitations, rollback, next step
