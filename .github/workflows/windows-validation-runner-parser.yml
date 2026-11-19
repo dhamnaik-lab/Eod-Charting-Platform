@@ -1,0 +1,38 @@
+name: Windows Validation Runner Parser
+
+on:
+  pull_request:
+    paths:
+      - scripts/Invoke-EOD-WindowsValidation.ps1
+      - .github/workflows/windows-validation-runner-parser.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  parser:
+    name: PowerShell syntax (no execution)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Parse validation runner without executing it
+        shell: pwsh
+        run: |
+          $tokens = $null
+          $errors = $null
+          [System.Management.Automation.Language.Parser]::ParseFile(
+            'scripts/Invoke-EOD-WindowsValidation.ps1',
+            [ref]$tokens,
+            [ref]$errors
+          ) | Out-Null
+          if ($errors.Count -gt 0) {
+            $errors | Format-List | Out-String | Write-Host
+            throw 'PowerShell parser validation failed'
+          }
+          Write-Host 'PASS: PowerShell parser only; runner not executed'

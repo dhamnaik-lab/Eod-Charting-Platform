@@ -1,11 +1,16 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { ChartType } from '@/engine/types';
 import type { LayoutMode } from '@/store/chartStoreTypes';
 import { getDesktopApi } from '@/platform';
 import { getActiveChartTab, useChartStore } from '@/store/chartStore';
 import { useUiStore } from '@/store/uiStore';
 import { chartPatternScannerDefinitions, runChartPatternScanner } from '@/features/chartPatterns';
+import { resolveToolbarChartPatternSelection } from '@/features/chartPatterns/evaluation';
 import { loadCompleteChartHistory, scannerHistoryMatchesChart } from '@/features/chartPatterns/scanService';
+import {
+  createChartPatternEvaluationExecutor,
+  type ChartPatternEvaluationExecutor,
+} from '@/features/chartPatterns/workerClient';
 import { getLoadedScannerPriceBasis, sameScannerPriceBasis } from '@/plugins/scanner/scannerChartPriceBasis';
 import { buildScannerTimeframeBars } from '@/plugins/scanner/scannerChartTimeframe';
 import { buildScannerPatternMapEntries } from '@/plugins/scanner/scannerPatternMap';
@@ -56,10 +61,14 @@ export function Toolbar() {
     writeStoredToolbarChartPatternIds(isDefault ? null : nextIds);
   };
   const activeTab = getActiveChartTab(chartTabs, activeChartTabId);
+  const activeDatabasePath = useChartStore((state) => state.snapshot?.activeDatabasePath ?? null);
+  const isDatabaseTransitioning = useChartStore((state) => Boolean(state.isDatabaseTransitioning));
   const layoutMode = activeTab?.layoutMode ?? 'single';
   const showVolume = activeTab?.showVolume ?? true;
   const activeChartType = activeTab?.chartType ?? 'candles';
   const candlestickPatternIndicator = activeTab?.indicators.find((indicator) => indicator.kind === 'PATTERN') ?? null;
+  const chartPatternExecutorRef = useRef<ChartPatternEvaluationExecutor | null>(null);
+  const chartPatternScanRequestIdRef = useRef(0);
 
   const scannerChartOverlay = useUiStore((state) => state.scannerChartOverlay);
   const scannerPatternMap = useUiStore((state) => state.scannerPatternMap);
@@ -77,10 +86,48 @@ export function Toolbar() {
           )))
   );
 
+  const activeTabId = activeTab?.id ?? null;
+  const activeInstrumentExchange = activeTab?.instrument?.exchange ?? null;
+  const activeInstrumentSymbol = activeTab?.instrument?.symbol ?? null;
+  const activeRequestedExchange = activeTab?.requestedInstrument?.exchange ?? null;
+  const activeRequestedSymbol = activeTab?.requestedInstrument?.symbol ?? null;
+  const activeTimeframe = activeTab?.timeframe ?? null;
+  const activeRawBars = activeTab?.rawBars ?? null;
+  const activeLoadedAdjusted = activeTab?.loadedAdjusted ?? null;
+  const activeLoadedDividendAdjusted = activeTab?.loadedDividendAdjusted ?? null;
+  const activeLoadedRightsAdjusted = activeTab?.loadedRightsAdjusted ?? null;
+
   useEffect(() => {
     closeCustomFormulaDialog();
     setScreenshotMenuOpen(false);
   }, [activeChartTabId, closeCustomFormulaDialog]);
+
+  useEffect(() => {
+    chartPatternScanRequestIdRef.current += 1;
+    chartPatternExecutorRef.current?.cancel();
+    setChartPatternScanRunning((running) => (running ? false : running));
+  }, [
+    activeTabId,
+    activeInstrumentExchange,
+    activeInstrumentSymbol,
+    activeRequestedExchange,
+    activeRequestedSymbol,
+    activeTimeframe,
+    activeRawBars,
+    activeLoadedAdjusted,
+    activeLoadedDividendAdjusted,
+    activeLoadedRightsAdjusted,
+    activeDatabasePath,
+    isDatabaseTransitioning,
+  ]);
+
+  useEffect(() => {
+    return () => {
+      chartPatternScanRequestIdRef.current += 1;
+      chartPatternExecutorRef.current?.dispose();
+      chartPatternExecutorRef.current = null;
+    };
+  }, []);
 
   useEffect(() => {
     if (!screenshotMenuOpen) {
@@ -96,15 +143,19 @@ export function Toolbar() {
     };
   }, [screenshotMenuOpen]);
 
-  const handleRunChartPatternScan = async () => {
+  const handleRunChartPatternScan = async (options?: { forceRescan?: boolean }) => {
+    const forceRescan = options?.forceRescan === true;
     const instrument = activeTab?.instrument ?? activeTab?.requestedInstrument ?? null;
     if (!activeTab || !instrument) {
       addToast('Open a chart before running chart-pattern scan.', 'warning', 'Scanner');
       return;
     }
 
-    // Toggle OFF if already active on this instrument
-    if (isChartPatternActive) {
+    // Toggle OFF if already active on this instrument (unless explicitly rescanning from settings)
+    if (!forceRescan && isChartPatternActive) {
+      chartPatternScanRequestIdRef.current += 1;
+      chartPatternExecutorRef.current?.cancel();
+      setChartPatternScanRunning(false);
       clearScannerChartOverlay();
       clearScannerPatternMap();
       addToast('Chart patterns removed from chart.', 'info', 'Scanner');
@@ -117,20 +168,37 @@ export function Toolbar() {
       return;
     }
 
+    const priceBasis = getLoadedScannerPriceBasis(activeTab);
+    if (!priceBasis || activeTab.rawBars.length === 0 || useChartStore.getState().isDatabaseTransitioning) {
+      chartPatternScanRequestIdRef.current += 1;
+      chartPatternExecutorRef.current?.cancel();
+      setChartPatternScanRunning(false);
+      addToast('Wait for the chart data to finish loading before scanning.', 'warning', 'Scanner');
+      return;
+    }
+
+    const scanRequestId = ++chartPatternScanRequestIdRef.current;
+    chartPatternExecutorRef.current?.cancel();
+    if (forceRescan) {
+      clearScannerChartOverlay();
+      clearScannerPatternMap();
+    }
     setChartPatternScanRunning(true);
     try {
-      const priceBasis = getLoadedScannerPriceBasis(activeTab);
-      if (!priceBasis || activeTab.rawBars.length === 0 || useChartStore.getState().isDatabaseTransitioning) {
-        addToast('Wait for the chart data to finish loading before scanning.', 'warning', 'Scanner');
-        return;
-      }
       const databasePath = useChartStore.getState().snapshot?.activeDatabasePath ?? null;
       const historyBars = await loadCompleteChartHistory(api, instrument, { ...priceBasis, databasePath });
+      if (scanRequestId !== chartPatternScanRequestIdRef.current) {
+        return;
+      }
       const currentState = useChartStore.getState();
       const currentTab = getActiveChartTab(currentState.chartTabs, currentState.activeChartTabId);
       const currentPriceBasis = currentTab ? getLoadedScannerPriceBasis(currentTab) : null;
       if (currentState.isDatabaseTransitioning || currentState.activeChartTabId !== activeTab.id ||
         currentTab?.id !== activeTab.id || !currentPriceBasis || !sameScannerPriceBasis(priceBasis, currentPriceBasis) ||
+        (currentTab.instrument?.exchange ?? null) !== (activeTab.instrument?.exchange ?? null) ||
+        (currentTab.instrument?.symbol ?? null) !== (activeTab.instrument?.symbol ?? null) ||
+        (currentTab.requestedInstrument?.exchange ?? null) !== (activeTab.requestedInstrument?.exchange ?? null) ||
+        (currentTab.requestedInstrument?.symbol ?? null) !== (activeTab.requestedInstrument?.symbol ?? null) ||
         currentTab.rawBars !== activeTab.rawBars || currentTab.timeframe !== activeTab.timeframe ||
         (currentState.snapshot?.activeDatabasePath ?? null) !== databasePath) {
         addToast('The chart changed while loading scan data. Run Chart Patterns again.', 'warning', 'Scanner');
@@ -145,7 +213,36 @@ export function Toolbar() {
         addToast(`Chart-pattern scan needs at least 20 ${activeTab.timeframe} bars.`, 'warning', 'Scanner');
         return;
       }
-      const results = runActiveChartPatternScan(instrument, bars);
+
+      const { scannerIds, minScore } = resolveToolbarChartPatternSelection();
+      const executor =
+        chartPatternExecutorRef.current ??
+        (chartPatternExecutorRef.current = createChartPatternEvaluationExecutor());
+      const evaluation = await executor.evaluateToolbar({
+        target: { exchange: instrument.exchange, symbol: instrument.symbol },
+        bars,
+        scannerIds,
+        minScore,
+        executionMode: typeof Worker === 'undefined' ? 'responsive' : 'fast',
+      });
+      if (evaluation.cancelled || scanRequestId !== chartPatternScanRequestIdRef.current) {
+        return;
+      }
+      const postEvalState = useChartStore.getState();
+      const postEvalTab = getActiveChartTab(postEvalState.chartTabs, postEvalState.activeChartTabId);
+      const postEvalPriceBasis = postEvalTab ? getLoadedScannerPriceBasis(postEvalTab) : null;
+      if (postEvalState.isDatabaseTransitioning || postEvalState.activeChartTabId !== activeTab.id ||
+        postEvalTab?.id !== activeTab.id || !postEvalPriceBasis || !sameScannerPriceBasis(priceBasis, postEvalPriceBasis) ||
+        (postEvalTab.instrument?.exchange ?? null) !== (activeTab.instrument?.exchange ?? null) ||
+        (postEvalTab.instrument?.symbol ?? null) !== (activeTab.instrument?.symbol ?? null) ||
+        (postEvalTab.requestedInstrument?.exchange ?? null) !== (activeTab.requestedInstrument?.exchange ?? null) ||
+        (postEvalTab.requestedInstrument?.symbol ?? null) !== (activeTab.requestedInstrument?.symbol ?? null) ||
+        postEvalTab.rawBars !== activeTab.rawBars || postEvalTab.timeframe !== activeTab.timeframe ||
+        (postEvalState.snapshot?.activeDatabasePath ?? null) !== databasePath) {
+        addToast('The chart changed while scanning. Run Chart Patterns again.', 'warning', 'Scanner');
+        return;
+      }
+      const results = evaluation.results;
 
       const definitionsMap = new Map(chartPatternScannerDefinitions.map((def) => [def.id, def]));
       const instrumentEntries = buildScannerPatternMapEntries(
@@ -200,13 +297,18 @@ export function Toolbar() {
         );
       }
     } catch (error) {
+      if (scanRequestId !== chartPatternScanRequestIdRef.current) {
+        return;
+      }
       addToast(
         `Failed to run chart-pattern scan: ${error instanceof Error ? error.message : String(error)}`,
         'error',
         'Scanner',
       );
     } finally {
-      setChartPatternScanRunning(false);
+      if (scanRequestId === chartPatternScanRequestIdRef.current) {
+        setChartPatternScanRunning(false);
+      }
     }
   };
 
@@ -326,7 +428,9 @@ export function Toolbar() {
         <div style={toolbarClusterStyle}>
           <button
             type="button"
-            onClick={handleRunChartPatternScan}
+            onClick={() => {
+              void handleRunChartPatternScan();
+            }}
             aria-pressed={isChartPatternActive}
             disabled={chartPatternScanRunning}
             style={{ ...(isChartPatternActive ? activeActionButtonStyle : actionButtonStyle), minWidth: 104, opacity: chartPatternScanRunning ? 0.65 : 1 }}
@@ -363,11 +467,7 @@ export function Toolbar() {
           onClose={() => setChartPatternSettingsOpen(false)}
           onScanNow={() => {
             setChartPatternSettingsOpen(false);
-            if (isChartPatternActive) {
-              clearScannerChartOverlay();
-              clearScannerPatternMap();
-            }
-            void handleRunChartPatternScan();
+            void handleRunChartPatternScan({ forceRescan: true });
           }}
         />
       ) : null}
@@ -847,10 +947,11 @@ function selectBestChartPatternResult(results: ScannerResult[], bars?: EodBar[])
   const candidates = results.filter(isDrawableBoundaryPattern);
   if (candidates.length === 0) return null;
 
+  const recentDates = bars && bars.length > 0 ? new Set(bars.slice(-30).map((bar) => bar.date)) : null;
+
   return candidates.sort((a, b) => {
     // 1. Recency bonus: active patterns on recent bars (within last 30 bars of data) should ALWAYS win over patterns from months ago
-    if (bars && bars.length > 0) {
-      const recentDates = new Set(bars.slice(-30).map((bar) => bar.date));
+    if (recentDates) {
       const aIsRecent = recentDates.has(a.date);
       const bIsRecent = recentDates.has(b.date);
       if (bIsRecent && !aIsRecent) return 1;

@@ -265,6 +265,16 @@ interface PointerState {
   price: number;
 }
 
+interface DrawingHitTestCandidateIndex {
+  readonly drawingsRef: readonly ChartDrawing[];
+  readonly drawingsLength: number;
+  readonly firstDrawing: ChartDrawing | undefined;
+  readonly lastDrawing: ChartDrawing | undefined;
+  readonly timeframe: ChartTimeframe;
+  readonly vlines: readonly ChartDrawing[];
+  readonly byPane: ReadonlyMap<ChartPaneId, readonly ChartDrawing[]>;
+}
+
 export class ChartEngine {
   private readonly container: HTMLDivElement;
   private readonly baseCanvas: HTMLCanvasElement;
@@ -282,6 +292,7 @@ export class ChartEngine {
   private overlays: OverlayIndicator[] = [];
   private chartEvents: ChartMarkerEvent[] = [];
   private drawings: ChartDrawing[] = [];
+  private drawingHitTestCandidateIndex: DrawingHitTestCandidateIndex | null = null;
   private scannerLabelBoxes = new Map<string, TextBoxBounds | null>();
   private selectedDrawingId: string | null = null;
   private drawingTool: DrawingTool = 'cursor';
@@ -450,6 +461,7 @@ export class ChartEngine {
   unmount(): void {
     this.renderLoopActive = false;
     this.indicatorBundles = new WeakMap();
+    this.invalidateDrawingHitTestCandidateIndex();
     this.cleanupFns.splice(0).forEach((cleanup) => cleanup());
     if (this.rafId !== null) {
       cancelAnimationFrame(this.rafId);
@@ -484,6 +496,7 @@ export class ChartEngine {
   loadBars(bars: OHLCBar[]): void {
     this.indicatorBundles = new WeakMap();
     this.bars = bars;
+    this.invalidateDrawingHitTestCandidateIndex();
     this.conflationLevels = this.dataConflationEnabled ? precomputeConflation(bars, [2, 4, 8]) : [];
     if (this.bars.length === 0) {
       this.viewport = { startIndex: 0, endIndex: 0 };
@@ -548,6 +561,7 @@ export class ChartEngine {
     this.drawings = this.chartType === 'renko'
       ? normalizedDrawings.map((drawing) => this.withMissingRenkoAnchors(drawing))
       : normalizedDrawings;
+    this.invalidateDrawingHitTestCandidateIndex();
     if (this.selectedDrawingId && !drawings.some((drawing) => drawing.id === this.selectedDrawingId)) {
       this.selectedDrawingId = null;
     }
@@ -639,6 +653,7 @@ export class ChartEngine {
 
   setTimeframe(timeframe: ChartTimeframe): void {
     this.timeframe = timeframe;
+    this.invalidateDrawingHitTestCandidateIndex();
     this.markDirty();
   }
 
@@ -647,6 +662,7 @@ export class ChartEngine {
     if (chartType === 'renko') {
       this.drawings = this.drawings.map((drawing) => this.withMissingRenkoAnchors(drawing));
     }
+    this.invalidateDrawingHitTestCandidateIndex();
     this.markDirty();
   }
 
@@ -1123,6 +1139,7 @@ export class ChartEngine {
   private renderBase(): void {
     this.baseRenderCount += 1;
     this.scannerLabelBoxes.clear();
+    this.invalidateDrawingHitTestCandidateIndex();
     const rect = this.container.getBoundingClientRect();
     const width = rect.width;
     const height = rect.height;
@@ -3159,21 +3176,79 @@ export class ChartEngine {
     );
   }
 
+  private invalidateDrawingHitTestCandidateIndex(): void {
+    this.drawingHitTestCandidateIndex = null;
+  }
+
+  private getOrBuildDrawingHitTestCandidateIndex(): DrawingHitTestCandidateIndex {
+    const drawings = this.drawings;
+    const drawingsLength = drawings.length;
+    const firstDrawing = drawings[0];
+    const lastDrawing = drawingsLength > 0 ? drawings[drawingsLength - 1] : undefined;
+    const timeframe = this.timeframe;
+    const cached = this.drawingHitTestCandidateIndex;
+    if (
+      cached &&
+      cached.drawingsRef === drawings &&
+      cached.drawingsLength === drawingsLength &&
+      cached.firstDrawing === firstDrawing &&
+      cached.lastDrawing === lastDrawing &&
+      cached.timeframe === timeframe
+    ) {
+      return cached;
+    }
+
+    const vlines: ChartDrawing[] = [];
+    const byPane = new Map<ChartPaneId, ChartDrawing[]>();
+
+    for (let index = drawingsLength - 1; index >= 0; index -= 1) {
+      const drawing = drawings[index];
+      if (!isDrawingVisibleOnTimeframe(drawing, timeframe)) {
+        continue;
+      }
+      if (drawing.kind === 'vline') {
+        vlines.push(drawing);
+        byPane.forEach((paneCandidates) => {
+          paneCandidates.push(drawing);
+        });
+        continue;
+      }
+      const paneId = this.getDrawingPaneId(drawing);
+      let paneCandidates = byPane.get(paneId);
+      if (!paneCandidates) {
+        paneCandidates = vlines.slice();
+        byPane.set(paneId, paneCandidates);
+      }
+      paneCandidates.push(drawing);
+    }
+
+    const nextIndex: DrawingHitTestCandidateIndex = {
+      drawingsRef: drawings,
+      drawingsLength,
+      firstDrawing,
+      lastDrawing,
+      timeframe,
+      vlines,
+      byPane,
+    };
+    this.drawingHitTestCandidateIndex = nextIndex;
+    return nextIndex;
+  }
+
+  private getHitTestDrawingCandidates(pointerState: PointerState): readonly ChartDrawing[] {
+    const index = this.getOrBuildDrawingHitTestCandidateIndex();
+    if (pointerState.pane.collapsed) {
+      return index.vlines;
+    }
+    return index.byPane.get(pointerState.pane.id) ?? index.vlines;
+  }
+
   private hitTestDrawing(pointerState: PointerState): DrawingHitTarget | null {
     const tolerance = 8;
-    for (let index = this.drawings.length - 1; index >= 0; index -= 1) {
-      const drawing = this.drawings[index];
+    const candidates = this.getHitTestDrawingCandidates(pointerState);
+    for (let index = 0; index < candidates.length; index += 1) {
+      const drawing = candidates[index];
       if (this.scannerLabelBoxes.get(drawing.id) === null) continue;
-      if (!isDrawingVisibleOnTimeframe(drawing, this.timeframe)) {
-        continue;
-      }
-      const drawingPaneId = this.getDrawingPaneId(drawing);
-      if (pointerState.pane.collapsed && drawing.kind !== 'vline') {
-        continue;
-      }
-      if (drawing.kind !== 'vline' && drawingPaneId !== pointerState.pane.id) {
-        continue;
-      }
       const renderDrawing = this.resolveDrawingForCurrentChart(drawing);
 
       if (drawing.kind === 'hline') {

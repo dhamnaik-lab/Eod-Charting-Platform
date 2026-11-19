@@ -1,0 +1,1239 @@
+{
+  "contractVersion": "eod-scanner-contract-v1",
+  "fixedGeneratedAt": "2026-11-18T12:30:00.000Z",
+  "scenarios": [
+    {
+      "id": "gap_breakaway_match",
+      "description": "Gap family: Breakaway Gap matches on bar 22 while Common Gap does not match.",
+      "familyCoverage": "gap",
+      "engineDerived": true,
+      "request": {
+        "contractVersion": "eod-scanner-contract-v1",
+        "requestId": "req-gap-breakaway-001",
+        "target": {
+          "symbol": "RELIANCE",
+          "exchange": "NSE",
+          "name": "Reliance Industries Limited"
+        },
+        "bars": [
+          { "symbol": "RELIANCE", "date": "2026-01-01", "open": 100, "high": 110, "low": 95, "close": 104, "volume": 100000 },
+          { "symbol": "RELIANCE", "date": "2026-01-02", "open": 100, "high": 110, "low": 95, "close": 104, "volume": 100000 },
+          { "symbol": "RELIANCE", "date": "2026-01-03", "open": 100, "high": 110, "low": 95, "close": 104, "volume": 100000 },
+          { "symbol": "RELIANCE", "date": "2026-01-04", "open": 100, "high": 110, "low": 95, "close": 104, "volume": 100000 },
+          { "symbol": "RELIANCE", "date": "2026-01-05", "open": 100, "high": 110, "low": 95, "close": 104, "volume": 100000 },
+          { "symbol": "RELIANCE", "date": "2026-01-06", "open": 100, "high": 110, "low": 95, "close": 104, "volume": 100000 },
+          { "symbol": "RELIANCE", "date": "2026-01-07", "open": 100, "high": 110, "low": 95, "close": 104, "volume": 100000 },
+          { "symbol": "RELIANCE", "date": "2026-01-08", "open": 100, "high": 110, "low": 95, "close": 104, "volume": 100000 },
+          { "symbol": "RELIANCE", "date": "2026-01-09", "open": 100, "high": 110, "low": 95, "close": 104, "volume": 100000 },
+          { "symbol": "RELIANCE", "date": "2026-01-10", "open": 100, "high": 110, "low": 95, "close": 104, "volume": 100000 },
+          { "symbol": "RELIANCE", "date": "2026-01-11", "open": 100, "high": 110, "low": 95, "close": 104, "volume": 100000 },
+          { "symbol": "RELIANCE", "date": "2026-01-12", "open": 100, "high": 110, "low": 95, "close": 104, "volume": 100000 },
+          { "symbol": "RELIANCE", "date": "2026-01-13", "open": 100, "high": 110, "low": 95, "close": 104, "volume": 100000 },
+          { "symbol": "RELIANCE", "date": "2026-01-14", "open": 100, "high": 110, "low": 95, "close": 104, "volume": 100000 },
+          { "symbol": "RELIANCE", "date": "2026-01-15", "open": 100, "high": 110, "low": 95, "close": 104, "volume": 100000 },
+          { "symbol": "RELIANCE", "date": "2026-01-16", "open": 100, "high": 110, "low": 95, "close": 104, "volume": 100000 },
+          { "symbol": "RELIANCE", "date": "2026-01-17", "open": 100, "high": 110, "low": 95, "close": 104, "volume": 100000 },
+          { "symbol": "RELIANCE", "date": "2026-01-18", "open": 100, "high": 110, "low": 95, "close": 104, "volume": 100000 },
+          { "symbol": "RELIANCE", "date": "2026-01-19", "open": 100, "high": 110, "low": 95, "close": 104, "volume": 100000 },
+          { "symbol": "RELIANCE", "date": "2026-01-20", "open": 100, "high": 110, "low": 95, "close": 104, "volume": 100000 },
+          { "symbol": "RELIANCE", "date": "2026-01-21", "open": 103, "high": 110, "low": 99, "close": 105, "volume": 100000 },
+          { "symbol": "RELIANCE", "date": "2026-01-22", "open": 116, "high": 121, "low": 115, "close": 120, "volume": 180000 }
+        ],
+        "scannerIds": ["chart_breakaway_gap", "chart_common_gap"],
+        "lookbackBars": 800,
+        "evaluateHistory": false,
+        "executionMode": "fast",
+        "toDate": "2026-01-22",
+        "generatedAt": "2026-11-18T12:30:00.000Z"
+      },
+      "response": {
+        "contractVersion": "eod-scanner-contract-v1",
+        "requestId": "req-gap-breakaway-001",
+        "target": {
+          "symbol": "RELIANCE",
+          "exchange": "NSE",
+          "name": "Reliance Industries Limited"
+        },
+        "latestResults": [
+          {
+            "symbol": "RELIANCE",
+            "exchange": "NSE",
+            "scannerId": "chart_breakaway_gap",
+            "scannerName": "Breakaway Gap",
+            "categoryId": "chart_patterns_gap",
+            "categoryName": "Chart Patterns - Gaps",
+            "date": "2026-01-22",
+            "matched": true,
+            "direction": "bullish",
+            "score": 80,
+            "reasons": [
+              "Gap opened above 20-bar resistance (110) with volume expansion"
+            ],
+            "values": {
+              "gap_pct": 5.45,
+              "resistance": 110,
+              "avg_volume_20": 100000,
+              "volume_ratio": 1.8
+            },
+            "chartPattern": {
+              "family": "gap",
+              "confidence": 80,
+              "patternEndDate": "2026-01-22",
+              "breakoutLevel": 110,
+              "resistanceLevel": 110,
+              "patternStartDate": "2026-01-01",
+              "geometry": {
+                "family": "gap-zone",
+                "zones": [
+                  {
+                    "id": "gap",
+                    "label": "Gap",
+                    "role": "gap",
+                    "startDate": "2026-01-21",
+                    "endDate": "2026-01-22",
+                    "low": 110,
+                    "high": 115
+                  }
+                ],
+                "labels": [
+                  {
+                    "id": "pattern",
+                    "text": "Breakaway Gap",
+                    "point": {
+                      "date": "2026-01-22",
+                      "price": 120
+                    }
+                  }
+                ]
+              }
+            },
+            "warnings": [],
+            "source": "EODChartPatternScanner_v1",
+            "generatedAt": "2026-11-18T12:30:00.000Z"
+          }
+        ],
+        "historicalResults": [],
+        "results": [
+          {
+            "symbol": "RELIANCE",
+            "exchange": "NSE",
+            "scannerId": "chart_breakaway_gap",
+            "scannerName": "Breakaway Gap",
+            "categoryId": "chart_patterns_gap",
+            "categoryName": "Chart Patterns - Gaps",
+            "date": "2026-01-22",
+            "matched": true,
+            "direction": "bullish",
+            "score": 80,
+            "reasons": [
+              "Gap opened above 20-bar resistance (110) with volume expansion"
+            ],
+            "values": {
+              "gap_pct": 5.45,
+              "resistance": 110,
+              "avg_volume_20": 100000,
+              "volume_ratio": 1.8
+            },
+            "chartPattern": {
+              "family": "gap",
+              "confidence": 80,
+              "patternEndDate": "2026-01-22",
+              "breakoutLevel": 110,
+              "resistanceLevel": 110,
+              "patternStartDate": "2026-01-01",
+              "geometry": {
+                "family": "gap-zone",
+                "zones": [
+                  {
+                    "id": "gap",
+                    "label": "Gap",
+                    "role": "gap",
+                    "startDate": "2026-01-21",
+                    "endDate": "2026-01-22",
+                    "low": 110,
+                    "high": 115
+                  }
+                ],
+                "labels": [
+                  {
+                    "id": "pattern",
+                    "text": "Breakaway Gap",
+                    "point": {
+                      "date": "2026-01-22",
+                      "price": 120
+                    }
+                  }
+                ]
+              }
+            },
+            "warnings": [],
+            "source": "EODChartPatternScanner_v1",
+            "generatedAt": "2026-11-18T12:30:00.000Z"
+          }
+        ],
+        "scannedBars": 22,
+        "cancelled": false,
+        "errors": []
+      }
+    },
+    {
+      "id": "reversal_double_bottom_match",
+      "description": "Reversal family: Double Bottom (W) matches with pivots and geometry while Double Top (M) does not match.",
+      "familyCoverage": "reversal",
+      "engineDerived": true,
+      "request": {
+        "contractVersion": "eod-scanner-contract-v1",
+        "requestId": "req-reversal-double-bottom-002",
+        "target": {
+          "symbol": "TCS",
+          "exchange": "NSE"
+        },
+        "bars": [
+          { "symbol": "TCS", "date": "2026-06-01", "open": 122, "high": 124, "low": 118, "close": 120, "volume": 100000 },
+          { "symbol": "TCS", "date": "2026-06-02", "open": 118, "high": 120, "low": 112, "close": 114, "volume": 100000 },
+          { "symbol": "TCS", "date": "2026-06-03", "open": 114, "high": 116, "low": 108, "close": 110, "volume": 100000 },
+          { "symbol": "TCS", "date": "2026-06-04", "open": 110, "high": 112, "low": 96, "close": 100, "volume": 100000 },
+          { "symbol": "TCS", "date": "2026-06-05", "open": 100, "high": 102, "low": 92, "close": 96, "volume": 100000 },
+          { "symbol": "TCS", "date": "2026-06-06", "open": 95, "high": 98, "low": 90, "close": 93, "volume": 100000 },
+          { "symbol": "TCS", "date": "2026-06-07", "open": 94, "high": 101, "low": 92, "close": 100, "volume": 100000 },
+          { "symbol": "TCS", "date": "2026-06-08", "open": 100, "high": 106, "low": 98, "close": 104, "volume": 100000 },
+          { "symbol": "TCS", "date": "2026-06-09", "open": 104, "high": 108, "low": 101, "close": 106, "volume": 100000 },
+          { "symbol": "TCS", "date": "2026-06-10", "open": 105, "high": 107, "low": 98, "close": 100, "volume": 100000 },
+          { "symbol": "TCS", "date": "2026-06-11", "open": 100, "high": 103, "low": 94, "close": 96, "volume": 100000 },
+          { "symbol": "TCS", "date": "2026-06-12", "open": 96, "high": 99, "low": 91, "close": 94, "volume": 100000 },
+          { "symbol": "TCS", "date": "2026-06-13", "open": 95, "high": 101, "low": 93, "close": 100, "volume": 100000 },
+          { "symbol": "TCS", "date": "2026-06-14", "open": 100, "high": 105, "low": 98, "close": 103, "volume": 100000 },
+          { "symbol": "TCS", "date": "2026-06-15", "open": 103, "high": 107, "low": 101, "close": 106, "volume": 100000 },
+          { "symbol": "TCS", "date": "2026-06-16", "open": 107, "high": 111, "low": 106, "close": 110, "volume": 100000 }
+        ],
+        "scannerIds": ["chart_double_bottom", "chart_double_top"],
+        "lookbackBars": 800,
+        "evaluateHistory": false,
+        "executionMode": "responsive",
+        "generatedAt": "2026-11-18T12:30:00.000Z"
+      },
+      "response": {
+        "contractVersion": "eod-scanner-contract-v1",
+        "requestId": "req-reversal-double-bottom-002",
+        "target": {
+          "symbol": "TCS",
+          "exchange": "NSE"
+        },
+        "latestResults": [
+          {
+            "symbol": "TCS",
+            "exchange": "NSE",
+            "scannerId": "chart_double_bottom",
+            "scannerName": "Double Bottom (W)",
+            "categoryId": "chart_patterns_reversal",
+            "categoryName": "Chart Patterns - Reversals",
+            "date": "2026-06-16",
+            "matched": true,
+            "direction": "bullish",
+            "score": 76,
+            "reasons": [
+              "Two comparable lows broke above neckline resistance (108)"
+            ],
+            "values": {
+              "first_low": 90,
+              "second_low": 91,
+              "neckline": 108
+            },
+            "chartPattern": {
+              "family": "reversal",
+              "confidence": 76,
+              "patternEndDate": "2026-06-16",
+              "breakoutLevel": 108,
+              "necklineLevel": 108,
+              "supportLevel": 90.5,
+              "patternStartDate": "2026-06-06",
+              "pivots": [
+                { "index": 5, "date": "2026-06-06", "price": 90, "kind": "low" },
+                { "index": 11, "date": "2026-06-12", "price": 91, "kind": "low" }
+              ],
+              "geometry": {
+                "family": "double-top-bottom",
+                "zones": [
+                  {
+                    "id": "reversal-base",
+                    "role": "base",
+                    "startDate": "2026-06-06",
+                    "endDate": "2026-06-12",
+                    "low": 90,
+                    "high": 108,
+                    "fillOpacity": 0.08
+                  }
+                ],
+                "pivotMarkers": [
+                  { "id": "pivot-1", "label": "L1", "kind": "low", "index": 5, "date": "2026-06-06", "price": 90 },
+                  { "id": "pivot-2", "label": "L2", "kind": "low", "index": 11, "date": "2026-06-12", "price": 91 }
+                ],
+                "trendLines": [
+                  {
+                    "id": "confirmation-level",
+                    "label": "Neckline",
+                    "role": "neckline",
+                    "start": { "index": 5, "date": "2026-06-06", "price": 108 },
+                    "end": { "index": 15, "date": "2026-06-16", "price": 108 },
+                    "extendRight": true
+                  }
+                ],
+                "labels": [
+                  {
+                    "id": "pattern",
+                    "text": "Double Bottom (W)",
+                    "point": { "index": 15, "date": "2026-06-16", "price": 108 }
+                  }
+                ]
+              }
+            },
+            "warnings": [],
+            "source": "EODChartPatternScanner_v1",
+            "generatedAt": "2026-11-18T12:30:00.000Z"
+          }
+        ],
+        "historicalResults": [],
+        "results": [
+          {
+            "symbol": "TCS",
+            "exchange": "NSE",
+            "scannerId": "chart_double_bottom",
+            "scannerName": "Double Bottom (W)",
+            "categoryId": "chart_patterns_reversal",
+            "categoryName": "Chart Patterns - Reversals",
+            "date": "2026-06-16",
+            "matched": true,
+            "direction": "bullish",
+            "score": 76,
+            "reasons": [
+              "Two comparable lows broke above neckline resistance (108)"
+            ],
+            "values": {
+              "first_low": 90,
+              "second_low": 91,
+              "neckline": 108
+            },
+            "chartPattern": {
+              "family": "reversal",
+              "confidence": 76,
+              "patternEndDate": "2026-06-16",
+              "breakoutLevel": 108,
+              "necklineLevel": 108,
+              "supportLevel": 90.5,
+              "patternStartDate": "2026-06-06",
+              "pivots": [
+                { "index": 5, "date": "2026-06-06", "price": 90, "kind": "low" },
+                { "index": 11, "date": "2026-06-12", "price": 91, "kind": "low" }
+              ],
+              "geometry": {
+                "family": "double-top-bottom",
+                "zones": [
+                  {
+                    "id": "reversal-base",
+                    "role": "base",
+                    "startDate": "2026-06-06",
+                    "endDate": "2026-06-12",
+                    "low": 90,
+                    "high": 108,
+                    "fillOpacity": 0.08
+                  }
+                ],
+                "pivotMarkers": [
+                  { "id": "pivot-1", "label": "L1", "kind": "low", "index": 5, "date": "2026-06-06", "price": 90 },
+                  { "id": "pivot-2", "label": "L2", "kind": "low", "index": 11, "date": "2026-06-12", "price": 91 }
+                ],
+                "trendLines": [
+                  {
+                    "id": "confirmation-level",
+                    "label": "Neckline",
+                    "role": "neckline",
+                    "start": { "index": 5, "date": "2026-06-06", "price": 108 },
+                    "end": { "index": 15, "date": "2026-06-16", "price": 108 },
+                    "extendRight": true
+                  }
+                ],
+                "labels": [
+                  {
+                    "id": "pattern",
+                    "text": "Double Bottom (W)",
+                    "point": { "index": 15, "date": "2026-06-16", "price": 108 }
+                  }
+                ]
+              }
+            },
+            "warnings": [],
+            "source": "EODChartPatternScanner_v1",
+            "generatedAt": "2026-11-18T12:30:00.000Z"
+          }
+        ],
+        "scannedBars": 16,
+        "cancelled": false,
+        "errors": []
+      }
+    },
+    {
+      "id": "continuation_bull_flag_match",
+      "description": "Continuation family: Bull Flag matches on breakout bar 13 while Bear Flag does not match.",
+      "familyCoverage": "continuation",
+      "engineDerived": true,
+      "request": {
+        "contractVersion": "eod-scanner-contract-v1",
+        "requestId": "req-continuation-bull-flag-003",
+        "target": {
+          "symbol": "INFY",
+          "exchange": "NSE"
+        },
+        "bars": [
+          { "symbol": "INFY", "date": "2027-06-01", "open": 100, "high": 103, "low": 99, "close": 101, "volume": 100000 },
+          { "symbol": "INFY", "date": "2027-06-02", "open": 102, "high": 106, "low": 101, "close": 105, "volume": 100000 },
+          { "symbol": "INFY", "date": "2027-06-03", "open": 106, "high": 110, "low": 105, "close": 109, "volume": 100000 },
+          { "symbol": "INFY", "date": "2027-06-04", "open": 110, "high": 114, "low": 109, "close": 113, "volume": 100000 },
+          { "symbol": "INFY", "date": "2027-06-05", "open": 114, "high": 118, "low": 113, "close": 117, "volume": 100000 },
+          { "symbol": "INFY", "date": "2027-06-06", "open": 118, "high": 122, "low": 117, "close": 121, "volume": 100000 },
+          { "symbol": "INFY", "date": "2027-06-07", "open": 121, "high": 124, "low": 120, "close": 123, "volume": 100000 },
+          { "symbol": "INFY", "date": "2027-06-08", "open": 120, "high": 122, "low": 116, "close": 118, "volume": 100000 },
+          { "symbol": "INFY", "date": "2027-06-09", "open": 118, "high": 120, "low": 115, "close": 117, "volume": 100000 },
+          { "symbol": "INFY", "date": "2027-06-10", "open": 117, "high": 119, "low": 114, "close": 116, "volume": 100000 },
+          { "symbol": "INFY", "date": "2027-06-11", "open": 116, "high": 118, "low": 113, "close": 115, "volume": 100000 },
+          { "symbol": "INFY", "date": "2027-06-12", "open": 115, "high": 117, "low": 112, "close": 114, "volume": 100000 },
+          { "symbol": "INFY", "date": "2027-06-13", "open": 123, "high": 126, "low": 122, "close": 125, "volume": 100000 }
+        ],
+        "scannerIds": ["chart_bull_flag", "chart_bear_flag"],
+        "lookbackBars": 800,
+        "evaluateHistory": false,
+        "executionMode": "fast",
+        "generatedAt": "2026-11-18T12:30:00.000Z"
+      },
+      "response": {
+        "contractVersion": "eod-scanner-contract-v1",
+        "requestId": "req-continuation-bull-flag-003",
+        "target": {
+          "symbol": "INFY",
+          "exchange": "NSE"
+        },
+        "latestResults": [
+          {
+            "symbol": "INFY",
+            "exchange": "NSE",
+            "scannerId": "chart_bull_flag",
+            "scannerName": "Bull Flag",
+            "categoryId": "chart_patterns_structure",
+            "categoryName": "Chart Patterns - Structures",
+            "date": "2027-06-13",
+            "matched": true,
+            "direction": "bullish",
+            "score": 74,
+            "reasons": [
+              "Bullish pole advanced 21.78% before a shallow flag breakout above 122"
+            ],
+            "values": {
+              "pole_move_pct": 21.78,
+              "breakout_level": 122,
+              "consolidation_slope": -1
+            },
+            "chartPattern": {
+              "family": "continuation",
+              "confidence": 74,
+              "patternEndDate": "2027-06-13",
+              "breakoutLevel": 122,
+              "resistanceLevel": 122,
+              "patternStartDate": "2027-06-01",
+              "geometry": {
+                "family": "flag",
+                "zones": [
+                  {
+                    "id": "consolidation-zone",
+                    "label": "Flag consolidation",
+                    "role": "base",
+                    "startDate": "2027-06-08",
+                    "endDate": "2027-06-12",
+                    "low": 112,
+                    "high": 122
+                  }
+                ],
+                "trendLines": [
+                  {
+                    "id": "pole",
+                    "label": "Pole",
+                    "role": "pole",
+                    "start": { "date": "2027-06-01", "price": 100 },
+                    "end": { "date": "2027-06-07", "price": 123 }
+                  },
+                  {
+                    "id": "upper-boundary",
+                    "label": "Flag resistance",
+                    "role": "upper",
+                    "start": { "date": "2027-06-08", "price": 122 },
+                    "end": { "date": "2027-06-12", "price": 117 },
+                    "extendRight": true
+                  },
+                  {
+                    "id": "lower-boundary",
+                    "label": "Flag support",
+                    "role": "lower",
+                    "start": { "date": "2027-06-08", "price": 116 },
+                    "end": { "date": "2027-06-12", "price": 112 },
+                    "extendRight": true
+                  }
+                ],
+                "labels": [
+                  {
+                    "id": "pattern",
+                    "text": "Bull Flag",
+                    "point": { "date": "2027-06-13", "price": 122 }
+                  }
+                ]
+              }
+            },
+            "warnings": [],
+            "source": "EODChartPatternScanner_v1",
+            "generatedAt": "2026-11-18T12:30:00.000Z"
+          }
+        ],
+        "historicalResults": [],
+        "results": [
+          {
+            "symbol": "INFY",
+            "exchange": "NSE",
+            "scannerId": "chart_bull_flag",
+            "scannerName": "Bull Flag",
+            "categoryId": "chart_patterns_structure",
+            "categoryName": "Chart Patterns - Structures",
+            "date": "2027-06-13",
+            "matched": true,
+            "direction": "bullish",
+            "score": 74,
+            "reasons": [
+              "Bullish pole advanced 21.78% before a shallow flag breakout above 122"
+            ],
+            "values": {
+              "pole_move_pct": 21.78,
+              "breakout_level": 122,
+              "consolidation_slope": -1
+            },
+            "chartPattern": {
+              "family": "continuation",
+              "confidence": 74,
+              "patternEndDate": "2027-06-13",
+              "breakoutLevel": 122,
+              "resistanceLevel": 122,
+              "patternStartDate": "2027-06-01",
+              "geometry": {
+                "family": "flag",
+                "zones": [
+                  {
+                    "id": "consolidation-zone",
+                    "label": "Flag consolidation",
+                    "role": "base",
+                    "startDate": "2027-06-08",
+                    "endDate": "2027-06-12",
+                    "low": 112,
+                    "high": 122
+                  }
+                ],
+                "trendLines": [
+                  {
+                    "id": "pole",
+                    "label": "Pole",
+                    "role": "pole",
+                    "start": { "date": "2027-06-01", "price": 100 },
+                    "end": { "date": "2027-06-07", "price": 123 }
+                  },
+                  {
+                    "id": "upper-boundary",
+                    "label": "Flag resistance",
+                    "role": "upper",
+                    "start": { "date": "2027-06-08", "price": 122 },
+                    "end": { "date": "2027-06-12", "price": 117 },
+                    "extendRight": true
+                  },
+                  {
+                    "id": "lower-boundary",
+                    "label": "Flag support",
+                    "role": "lower",
+                    "start": { "date": "2027-06-08", "price": 116 },
+                    "end": { "date": "2027-06-12", "price": 112 },
+                    "extendRight": true
+                  }
+                ],
+                "labels": [
+                  {
+                    "id": "pattern",
+                    "text": "Bull Flag",
+                    "point": { "date": "2027-06-13", "price": 122 }
+                  }
+                ]
+              }
+            },
+            "warnings": [],
+            "source": "EODChartPatternScanner_v1",
+            "generatedAt": "2026-11-18T12:30:00.000Z"
+          }
+        ],
+        "scannedBars": 13,
+        "cancelled": false,
+        "errors": []
+      }
+    },
+    {
+      "id": "neutral_bilateral_range_history_match",
+      "description": "Neutral-bilateral family with historical episode grouping and progress event.",
+      "familyCoverage": "neutral-bilateral",
+      "engineDerived": true,
+      "request": {
+        "contractVersion": "eod-scanner-contract-v1",
+        "requestId": "req-neutral-range-history-004",
+        "target": {
+          "symbol": "SBIN",
+          "exchange": "BSE"
+        },
+        "bars": [
+          { "symbol": "SBIN", "date": "2027-02-01", "open": 104, "high": 110, "low": 100, "close": 105, "volume": 1000 },
+          { "symbol": "SBIN", "date": "2027-02-02", "open": 104, "high": 106, "low": 103, "close": 105, "volume": 1000 },
+          { "symbol": "SBIN", "date": "2027-02-03", "open": 104, "high": 106, "low": 103, "close": 105, "volume": 1000 },
+          { "symbol": "SBIN", "date": "2027-02-04", "open": 104, "high": 106, "low": 103, "close": 105, "volume": 1000 },
+          { "symbol": "SBIN", "date": "2027-02-05", "open": 104, "high": 106, "low": 103, "close": 105, "volume": 1000 },
+          { "symbol": "SBIN", "date": "2027-02-06", "open": 104, "high": 110, "low": 100, "close": 105, "volume": 1000 },
+          { "symbol": "SBIN", "date": "2027-02-07", "open": 104, "high": 106, "low": 103, "close": 105, "volume": 1000 },
+          { "symbol": "SBIN", "date": "2027-02-08", "open": 104, "high": 106, "low": 103, "close": 105, "volume": 1000 },
+          { "symbol": "SBIN", "date": "2027-02-09", "open": 104, "high": 106, "low": 103, "close": 105, "volume": 1000 },
+          { "symbol": "SBIN", "date": "2027-02-10", "open": 104, "high": 106, "low": 103, "close": 105, "volume": 1000 },
+          { "symbol": "SBIN", "date": "2027-02-11", "open": 104, "high": 110, "low": 100, "close": 105, "volume": 1000 },
+          { "symbol": "SBIN", "date": "2027-02-12", "open": 104, "high": 106, "low": 103, "close": 105, "volume": 1000 },
+          { "symbol": "SBIN", "date": "2027-02-13", "open": 104, "high": 106, "low": 103, "close": 105, "volume": 1000 },
+          { "symbol": "SBIN", "date": "2027-02-14", "open": 104, "high": 106, "low": 103, "close": 105, "volume": 1000 },
+          { "symbol": "SBIN", "date": "2027-02-15", "open": 104, "high": 106, "low": 103, "close": 105, "volume": 1000 },
+          { "symbol": "SBIN", "date": "2027-02-16", "open": 104, "high": 110, "low": 100, "close": 105, "volume": 1000 },
+          { "symbol": "SBIN", "date": "2027-02-17", "open": 104, "high": 106, "low": 103, "close": 105, "volume": 1000 },
+          { "symbol": "SBIN", "date": "2027-02-18", "open": 104, "high": 106, "low": 103, "close": 105, "volume": 1000 },
+          { "symbol": "SBIN", "date": "2027-02-19", "open": 104, "high": 106, "low": 103, "close": 105, "volume": 1000 },
+          { "symbol": "SBIN", "date": "2027-02-20", "open": 104, "high": 106, "low": 103, "close": 105, "volume": 1000 },
+          { "symbol": "SBIN", "date": "2027-02-21", "open": 104, "high": 110, "low": 100, "close": 105, "volume": 1000 },
+          { "symbol": "SBIN", "date": "2027-02-22", "open": 104, "high": 106, "low": 103, "close": 105, "volume": 1000 },
+          { "symbol": "SBIN", "date": "2027-02-23", "open": 104, "high": 106, "low": 103, "close": 105, "volume": 1000 }
+        ],
+        "scannerIds": ["chart_rectangle_range", "chart_symmetrical_triangle"],
+        "lookbackBars": null,
+        "evaluateHistory": true,
+        "executionMode": "fast",
+        "generatedAt": "2026-11-18T12:30:00.000Z"
+      },
+      "response": {
+        "contractVersion": "eod-scanner-contract-v1",
+        "requestId": "req-neutral-range-history-004",
+        "target": {
+          "symbol": "SBIN",
+          "exchange": "BSE"
+        },
+        "latestResults": [
+          {
+            "symbol": "SBIN",
+            "exchange": "BSE",
+            "scannerId": "chart_rectangle_range",
+            "scannerName": "Rectangle / Range",
+            "categoryId": "chart_patterns_structure",
+            "categoryName": "Chart Patterns - Structures",
+            "date": "2027-02-23",
+            "matched": true,
+            "direction": "neutral",
+            "score": 62,
+            "reasons": [
+              "Price is range-bound between support (100) and resistance (110)"
+            ],
+            "values": {
+              "support": 100,
+              "resistance": 110,
+              "range_width_pct": 9.52,
+              "support_touches": 4,
+              "resistance_touches": 4
+            },
+            "chartPattern": {
+              "family": "neutral-bilateral",
+              "confidence": 62,
+              "patternEndDate": "2027-02-23",
+              "supportLevel": 100,
+              "resistanceLevel": 110,
+              "patternStartDate": "2027-02-03",
+              "geometry": {
+                "family": "range",
+                "trendLines": [
+                  {
+                    "id": "support",
+                    "label": "Range support",
+                    "role": "support",
+                    "start": { "date": "2027-02-03", "price": 100 },
+                    "end": { "date": "2027-02-23", "price": 100 },
+                    "extendRight": true
+                  },
+                  {
+                    "id": "resistance",
+                    "label": "Range resistance",
+                    "role": "resistance",
+                    "start": { "date": "2027-02-03", "price": 110 },
+                    "end": { "date": "2027-02-23", "price": 110 },
+                    "extendRight": true
+                  }
+                ],
+                "zones": [
+                  {
+                    "id": "range-base",
+                    "label": "Range base",
+                    "role": "base",
+                    "startDate": "2027-02-03",
+                    "endDate": "2027-02-22",
+                    "low": 100,
+                    "high": 110
+                  }
+                ],
+                "labels": [
+                  {
+                    "id": "pattern",
+                    "text": "Rectangle / Range",
+                    "point": { "date": "2027-02-23", "price": 105 }
+                  }
+                ]
+              }
+            },
+            "warnings": [],
+            "source": "EODChartPatternScanner_v1",
+            "generatedAt": "2026-11-18T12:30:00.000Z"
+          }
+        ],
+        "historicalResults": [
+          {
+            "symbol": "SBIN",
+            "exchange": "BSE",
+            "scannerId": "chart_rectangle_range",
+            "scannerName": "Rectangle / Range",
+            "categoryId": "chart_patterns_structure",
+            "categoryName": "Chart Patterns - Structures",
+            "date": "2027-02-21",
+            "matched": true,
+            "direction": "neutral",
+            "score": 62,
+            "reasons": [
+              "Price is range-bound between support (100) and resistance (110)"
+            ],
+            "values": {
+              "support": 100,
+              "resistance": 110,
+              "range_width_pct": 9.52,
+              "support_touches": 4,
+              "resistance_touches": 4
+            },
+            "chartPattern": {
+              "family": "neutral-bilateral",
+              "confidence": 62,
+              "patternEndDate": "2027-02-21",
+              "supportLevel": 100,
+              "resistanceLevel": 110,
+              "patternStartDate": "2027-02-01",
+              "geometry": {
+                "family": "range",
+                "trendLines": [
+                  {
+                    "id": "support",
+                    "label": "Range support",
+                    "role": "support",
+                    "start": { "date": "2027-02-01", "price": 100 },
+                    "end": { "date": "2027-02-21", "price": 100 },
+                    "extendRight": true
+                  },
+                  {
+                    "id": "resistance",
+                    "label": "Range resistance",
+                    "role": "resistance",
+                    "start": { "date": "2027-02-01", "price": 110 },
+                    "end": { "date": "2027-02-21", "price": 110 },
+                    "extendRight": true
+                  }
+                ],
+                "zones": [
+                  {
+                    "id": "range-base",
+                    "label": "Range base",
+                    "role": "base",
+                    "startDate": "2027-02-01",
+                    "endDate": "2027-02-20",
+                    "low": 100,
+                    "high": 110
+                  }
+                ],
+                "labels": [
+                  {
+                    "id": "pattern",
+                    "text": "Rectangle / Range",
+                    "point": { "date": "2027-02-21", "price": 105 }
+                  }
+                ]
+              }
+            },
+            "warnings": [],
+            "source": "EODChartPatternScanner_v1",
+            "history": {
+              "firstMatchedDate": "2027-02-21",
+              "lastMatchedDate": "2027-02-23",
+              "matchCount": 3
+            },
+            "generatedAt": "2026-11-18T12:30:00.000Z"
+          }
+        ],
+        "results": [
+          {
+            "symbol": "SBIN",
+            "exchange": "BSE",
+            "scannerId": "chart_rectangle_range",
+            "scannerName": "Rectangle / Range",
+            "categoryId": "chart_patterns_structure",
+            "categoryName": "Chart Patterns - Structures",
+            "date": "2027-02-21",
+            "matched": true,
+            "direction": "neutral",
+            "score": 62,
+            "reasons": [
+              "Price is range-bound between support (100) and resistance (110)"
+            ],
+            "values": {
+              "support": 100,
+              "resistance": 110,
+              "range_width_pct": 9.52,
+              "support_touches": 4,
+              "resistance_touches": 4
+            },
+            "chartPattern": {
+              "family": "neutral-bilateral",
+              "confidence": 62,
+              "patternEndDate": "2027-02-21",
+              "supportLevel": 100,
+              "resistanceLevel": 110,
+              "patternStartDate": "2027-02-01",
+              "geometry": {
+                "family": "range",
+                "trendLines": [
+                  {
+                    "id": "support",
+                    "label": "Range support",
+                    "role": "support",
+                    "start": { "date": "2027-02-01", "price": 100 },
+                    "end": { "date": "2027-02-21", "price": 100 },
+                    "extendRight": true
+                  },
+                  {
+                    "id": "resistance",
+                    "label": "Range resistance",
+                    "role": "resistance",
+                    "start": { "date": "2027-02-01", "price": 110 },
+                    "end": { "date": "2027-02-21", "price": 110 },
+                    "extendRight": true
+                  }
+                ],
+                "zones": [
+                  {
+                    "id": "range-base",
+                    "label": "Range base",
+                    "role": "base",
+                    "startDate": "2027-02-01",
+                    "endDate": "2027-02-20",
+                    "low": 100,
+                    "high": 110
+                  }
+                ],
+                "labels": [
+                  {
+                    "id": "pattern",
+                    "text": "Rectangle / Range",
+                    "point": { "date": "2027-02-21", "price": 105 }
+                  }
+                ]
+              }
+            },
+            "warnings": [],
+            "source": "EODChartPatternScanner_v1",
+            "history": {
+              "firstMatchedDate": "2027-02-21",
+              "lastMatchedDate": "2027-02-23",
+              "matchCount": 3
+            },
+            "generatedAt": "2026-11-18T12:30:00.000Z"
+          }
+        ],
+        "scannedBars": 23,
+        "cancelled": false,
+        "errors": [],
+        "progressEvents": [
+          {
+            "contractVersion": "eod-scanner-contract-v1",
+            "requestId": "req-neutral-range-history-004",
+            "completed": 1,
+            "total": 1,
+            "symbol": "SBIN",
+            "exchange": "BSE",
+            "historyCompleted": 4,
+            "historyTotal": 4,
+            "resultCount": 1
+          }
+        ]
+      }
+    },
+    {
+      "id": "nonmatch_and_cancelled_optional_envelope",
+      "description": "Explicit contract envelope exercising cancelled=true, cancelRequest, matched=false, scalar value variants, warnings, targetProjection, and optional marker roles.",
+      "familyCoverage": "mixed",
+      "engineDerived": false,
+      "request": {
+        "contractVersion": "eod-scanner-contract-v1",
+        "requestId": "req-optional-envelope-005",
+        "target": {
+          "symbol": "HDFCBANK",
+          "exchange": "NSE",
+          "name": "HDFC Bank Limited"
+        },
+        "bars": [
+          { "symbol": "HDFCBANK", "date": "2026-11-16", "open": 1490.5, "high": 1508.25, "low": 1485.0, "close": 1500.0, "volume": 2450000 },
+          { "symbol": "HDFCBANK", "date": "2026-11-17", "open": 1501.0, "high": 1512.0, "low": 1495.0, "close": 1502.5, "volume": 2100000 },
+          { "symbol": "HDFCBANK", "date": "2026-11-18", "open": 1504.0, "high": 1520.25, "low": 1499.75, "close": 1515.5, "volume": 3250000 }
+        ],
+        "scannerIds": ["chart_breakaway_gap"],
+        "lookbackBars": 200,
+        "evaluateHistory": true,
+        "executionMode": "responsive",
+        "generatedAt": "2026-11-18T12:30:00.000Z"
+      },
+      "cancelRequest": {
+        "contractVersion": "eod-scanner-contract-v1",
+        "requestId": "req-optional-envelope-005",
+        "reason": "User cancelled scan batch"
+      },
+      "response": {
+        "contractVersion": "eod-scanner-contract-v1",
+        "requestId": "req-optional-envelope-005",
+        "target": {
+          "symbol": "HDFCBANK",
+          "exchange": "NSE",
+          "name": "HDFC Bank Limited"
+        },
+        "latestResults": [],
+        "historicalResults": [
+          {
+            "symbol": "HDFCBANK",
+            "exchange": "NSE",
+            "scannerId": "chart_symmetrical_triangle",
+            "scannerName": "Symmetrical Triangle",
+            "categoryId": "chart_patterns_structure",
+            "categoryName": "Chart Patterns - Structures",
+            "date": "2026-11-18",
+            "matched": false,
+            "direction": "neutral",
+            "score": 52.5,
+            "reasons": [
+              "Synthetic optional-field contract envelope"
+            ],
+            "values": {
+              "flag_active": true,
+              "gap_direction": "up",
+              "touch_count": 4,
+              "slope_ratio": -0.375,
+              "optional_metric": null
+            },
+            "chartPattern": {
+              "family": "neutral-bilateral",
+              "confidence": 52.5,
+              "patternStartDate": "2026-11-16",
+              "patternEndDate": "2026-11-18",
+              "breakoutLevel": 1520.25,
+              "supportLevel": 1485.0,
+              "resistanceLevel": 1520.25,
+              "necklineLevel": 1502.5,
+              "targetPrice": 1565.5,
+              "stopLossPrice": 1479.75,
+              "potentialGainPct": 2.98,
+              "riskRewardRatio": 1.12,
+              "pivots": [
+                { "index": 1, "date": "2026-11-17", "price": 1502.5, "kind": "high" }
+              ],
+              "geometry": {
+                "family": "generic",
+                "pivotMarkers": [
+                  {
+                    "id": "breakout-marker",
+                    "label": "BO",
+                    "kind": "neutral",
+                    "role": "breakout",
+                    "index": 2,
+                    "date": "2026-11-18",
+                    "price": 1520.25
+                  }
+                ],
+                "trendLines": [
+                  {
+                    "id": "midline-ref",
+                    "label": "Midline",
+                    "role": "midline",
+                    "start": { "index": 0, "date": "2026-11-16", "price": 1500.0 },
+                    "end": { "index": 2, "date": "2026-11-18", "price": 1502.5 },
+                    "extendRight": false
+                  }
+                ],
+                "zones": [
+                  {
+                    "id": "breakout-zone",
+                    "label": "Breakout",
+                    "role": "breakout",
+                    "startDate": "2026-11-17",
+                    "endDate": "2026-11-18",
+                    "low": 1495.0,
+                    "high": 1520.25,
+                    "fillOpacity": 0.12
+                  }
+                ],
+                "labels": [
+                  {
+                    "id": "envelope-label",
+                    "text": "Contract Envelope",
+                    "point": { "index": 2, "date": "2026-11-18", "price": 1520.25 }
+                  }
+                ],
+                "targetProjection": {
+                  "breakoutPrice": 1520.25,
+                  "targetPrice": 1565.5,
+                  "stopLossPrice": 1479.75,
+                  "patternHeight": 45.25,
+                  "potentialGainPct": 2.98,
+                  "riskRewardRatio": 1.12,
+                  "projectionLine": {
+                    "id": "target-proj",
+                    "label": "Target",
+                    "role": "generic",
+                    "start": { "index": 2, "date": "2026-11-18", "price": 1520.25 },
+                    "end": { "index": 2, "date": "2026-11-18", "price": 1565.5 },
+                    "extendRight": true
+                  }
+                }
+              }
+            },
+            "warnings": [
+              "Partial scan completed before cancellation"
+            ],
+            "source": "EODChartPatternScanner_v1",
+            "history": {
+              "firstMatchedDate": "2026-11-16",
+              "lastMatchedDate": "2026-11-18",
+              "matchCount": 2
+            },
+            "generatedAt": "2026-11-18T12:30:00.000Z"
+          }
+        ],
+        "results": [
+          {
+            "symbol": "HDFCBANK",
+            "exchange": "NSE",
+            "scannerId": "chart_symmetrical_triangle",
+            "scannerName": "Symmetrical Triangle",
+            "categoryId": "chart_patterns_structure",
+            "categoryName": "Chart Patterns - Structures",
+            "date": "2026-11-18",
+            "matched": false,
+            "direction": "neutral",
+            "score": 52.5,
+            "reasons": [
+              "Synthetic optional-field contract envelope"
+            ],
+            "values": {
+              "flag_active": true,
+              "gap_direction": "up",
+              "touch_count": 4,
+              "slope_ratio": -0.375,
+              "optional_metric": null
+            },
+            "chartPattern": {
+              "family": "neutral-bilateral",
+              "confidence": 52.5,
+              "patternStartDate": "2026-11-16",
+              "patternEndDate": "2026-11-18",
+              "breakoutLevel": 1520.25,
+              "supportLevel": 1485.0,
+              "resistanceLevel": 1520.25,
+              "necklineLevel": 1502.5,
+              "targetPrice": 1565.5,
+              "stopLossPrice": 1479.75,
+              "potentialGainPct": 2.98,
+              "riskRewardRatio": 1.12,
+              "pivots": [
+                { "index": 1, "date": "2026-11-17", "price": 1502.5, "kind": "high" }
+              ],
+              "geometry": {
+                "family": "generic",
+                "pivotMarkers": [
+                  {
+                    "id": "breakout-marker",
+                    "label": "BO",
+                    "kind": "neutral",
+                    "role": "breakout",
+                    "index": 2,
+                    "date": "2026-11-18",
+                    "price": 1520.25
+                  }
+                ],
+                "trendLines": [
+                  {
+                    "id": "midline-ref",
+                    "label": "Midline",
+                    "role": "midline",
+                    "start": { "index": 0, "date": "2026-11-16", "price": 1500.0 },
+                    "end": { "index": 2, "date": "2026-11-18", "price": 1502.5 },
+                    "extendRight": false
+                  }
+                ],
+                "zones": [
+                  {
+                    "id": "breakout-zone",
+                    "label": "Breakout",
+                    "role": "breakout",
+                    "startDate": "2026-11-17",
+                    "endDate": "2026-11-18",
+                    "low": 1495.0,
+                    "high": 1520.25,
+                    "fillOpacity": 0.12
+                  }
+                ],
+                "labels": [
+                  {
+                    "id": "envelope-label",
+                    "text": "Contract Envelope",
+                    "point": { "index": 2, "date": "2026-11-18", "price": 1520.25 }
+                  }
+                ],
+                "targetProjection": {
+                  "breakoutPrice": 1520.25,
+                  "targetPrice": 1565.5,
+                  "stopLossPrice": 1479.75,
+                  "patternHeight": 45.25,
+                  "potentialGainPct": 2.98,
+                  "riskRewardRatio": 1.12,
+                  "projectionLine": {
+                    "id": "target-proj",
+                    "label": "Target",
+                    "role": "generic",
+                    "start": { "index": 2, "date": "2026-11-18", "price": 1520.25 },
+                    "end": { "index": 2, "date": "2026-11-18", "price": 1565.5 },
+                    "extendRight": true
+                  }
+                }
+              }
+            },
+            "warnings": [
+              "Partial scan completed before cancellation"
+            ],
+            "source": "EODChartPatternScanner_v1",
+            "history": {
+              "firstMatchedDate": "2026-11-16",
+              "lastMatchedDate": "2026-11-18",
+              "matchCount": 2
+            },
+            "generatedAt": "2026-11-18T12:30:00.000Z"
+          }
+        ],
+        "scannedBars": 3,
+        "cancelled": true,
+        "errors": [
+          "Scan cancelled by caller"
+        ],
+        "progressEvents": [
+          {
+            "contractVersion": "eod-scanner-contract-v1",
+            "requestId": "req-optional-envelope-005",
+            "completed": 1,
+            "total": 1,
+            "symbol": "HDFCBANK",
+            "exchange": "NSE",
+            "historyCompleted": 1,
+            "historyTotal": 1,
+            "resultCount": 1
+          }
+        ]
+      }
+    }
+  ],
+  "orderedResultsSample": [
+    {
+      "symbol": "INFY",
+      "exchange": "NSE",
+      "scannerId": "chart_bull_flag",
+      "scannerName": "Bull Flag",
+      "categoryId": "chart_patterns_structure",
+      "categoryName": "Chart Patterns - Structures",
+      "date": "2027-06-13",
+      "matched": true,
+      "direction": "bullish",
+      "score": 74,
+      "warnings": [],
+      "source": "EODChartPatternScanner_v1",
+      "generatedAt": "2026-11-18T12:30:00.000Z"
+    },
+    {
+      "symbol": "SBIN",
+      "exchange": "BSE",
+      "scannerId": "chart_rectangle_range",
+      "scannerName": "Rectangle / Range",
+      "categoryId": "chart_patterns_structure",
+      "categoryName": "Chart Patterns - Structures",
+      "date": "2027-02-21",
+      "matched": true,
+      "direction": "neutral",
+      "score": 62,
+      "warnings": [],
+      "source": "EODChartPatternScanner_v1",
+      "history": {
+        "firstMatchedDate": "2027-02-21",
+        "lastMatchedDate": "2027-02-23",
+        "matchCount": 3
+      },
+      "generatedAt": "2026-11-18T12:30:00.000Z"
+    },
+    {
+      "symbol": "RELIANCE",
+      "exchange": "NSE",
+      "scannerId": "chart_breakaway_gap",
+      "scannerName": "Breakaway Gap",
+      "categoryId": "chart_patterns_gap",
+      "categoryName": "Chart Patterns - Gaps",
+      "date": "2026-06-16",
+      "matched": true,
+      "direction": "bullish",
+      "score": 80,
+      "warnings": [],
+      "source": "EODChartPatternScanner_v1",
+      "generatedAt": "2026-11-18T12:30:00.000Z"
+    },
+    {
+      "symbol": "TCS",
+      "exchange": "NSE",
+      "scannerId": "chart_double_bottom",
+      "scannerName": "Double Bottom (W)",
+      "categoryId": "chart_patterns_reversal",
+      "categoryName": "Chart Patterns - Reversals",
+      "date": "2026-06-16",
+      "matched": true,
+      "direction": "bullish",
+      "score": 76,
+      "warnings": [],
+      "source": "EODChartPatternScanner_v1",
+      "generatedAt": "2026-11-18T12:30:00.000Z"
+    },
+    {
+      "symbol": "RELIANCE",
+      "exchange": "NSE",
+      "scannerId": "chart_breakaway_gap",
+      "scannerName": "Breakaway Gap",
+      "categoryId": "chart_patterns_gap",
+      "categoryName": "Chart Patterns - Gaps",
+      "date": "2026-01-22",
+      "matched": true,
+      "direction": "bullish",
+      "score": 80,
+      "warnings": [],
+      "source": "EODChartPatternScanner_v1",
+      "generatedAt": "2026-11-18T12:30:00.000Z"
+    }
+  ]
+}

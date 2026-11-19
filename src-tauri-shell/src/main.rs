@@ -9,6 +9,10 @@ mod manual_import_recovery;
 mod nifty_history;
 mod plugin_data;
 mod runtime;
+#[allow(dead_code)]
+mod scanner_contract;
+#[allow(dead_code)]
+mod scanner_breakaway_gap;
 
 use app_profile::*;
 use bhavcopy::*;

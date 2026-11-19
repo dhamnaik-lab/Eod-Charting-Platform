@@ -1,12 +1,16 @@
 import { describe, expect, it, vi } from 'vitest';
 import { loadNestedSourceFunction, loadSourceFunctions } from './scannerDrawingTestHarness';
+import {
+  evaluateToolbarChartPatterns,
+  resolveToolbarChartPatternSelection,
+  type ToolbarChartPatternEvaluationInput,
+} from '@/features/chartPatterns/evaluation';
 import { chartPatternScannerDefinitions, runChartPatternScanner } from '@/plugins/scanner/chartPatternScanners';
 import { loadCompleteChartHistory, scannerHistoryMatchesChart } from '@/plugins/scanner/chartPatternScanService';
 import { getLoadedScannerPriceBasis, resolveScannerOverlayPriceBasis, sameScannerPriceBasis } from '@/plugins/scanner/scannerChartPriceBasis';
 import { buildScannerPatternMapEntries } from '@/plugins/scanner/scannerPatternMap';
 import { buildScannerTimeframeBars } from '@/plugins/scanner/scannerChartTimeframe';
 import type { WorkspaceTimeframe } from '@/features/workspace/workspacePersistence';
-import type { EodBar } from '@/plugins/scanner/types';
 
 const instrument = { exchange:'NSE', symbol:'ABC' };
 const ranges = [
@@ -34,17 +38,22 @@ function setup(afterRead?: (state: any) => void, timeframe: WorkspaceTimeframe =
     afterRead?.(state);
     return { instrument, bars:sourceBars, adjusted:true, includeDividendAdjustments:true, includeRightsAdjustments:true, events:[] };
   });
-  const runActiveChartPatternScan = vi.fn((target: typeof instrument, bars: EodBar[]) => toolbar.runActiveChartPatternScan(target, bars));
+  const evaluateToolbar = vi.fn((input: ToolbarChartPatternEvaluationInput) => evaluateToolbarChartPatterns(input));
+  const chartPatternExecutorRef = {
+    current: { evaluate: vi.fn(), evaluateToolbar, cancel: vi.fn(), dispose: vi.fn() },
+  };
+  const chartPatternScanRequestIdRef = { current: 0 };
   const handler = loadNestedSourceFunction('src/components/Toolbar.tsx', 'handleRunChartPatternScan', {
     activeTab, isChartPatternActive:false, getDesktopApi:() => ({ getEodData }),
     useChartStore:{ getState:() => state }, getActiveChartTab:store.getActiveChartTab,
     loadCompleteChartHistory, scannerHistoryMatchesChart, getLoadedScannerPriceBasis, sameScannerPriceBasis, buildScannerTimeframeBars,
-    runActiveChartPatternScan, selectBestChartPatternResult:toolbar.selectBestChartPatternResult,
+    resolveToolbarChartPatternSelection, chartPatternExecutorRef, createChartPatternEvaluationExecutor: () => chartPatternExecutorRef.current,
+    chartPatternScanRequestIdRef, selectBestChartPatternResult:toolbar.selectBestChartPatternResult,
     chartPatternScannerDefinitions, buildScannerPatternMapEntries, getScannerChartLevels:toolbar.getScannerChartLevels,
     ACTIVE_CHART_PATTERN_CONTEXT_BARS:220, showScannerChartOverlay, addToast,
     clearScannerChartOverlay:vi.fn(), clearScannerPatternMap:vi.fn(), setChartPatternScanRunning:vi.fn(),
   });
-  return { handler, getEodData, showScannerChartOverlay, addToast, state, runActiveChartPatternScan };
+  return { handler, getEodData, showScannerChartOverlay, addToast, state, evaluateToolbar };
 }
 
 describe('one-click chart-pattern source routing', () => {
@@ -57,8 +66,8 @@ describe('one-click chart-pattern source routing', () => {
     }));
     const test = setup(undefined, timeframe, source);
     await test.handler();
-    expect(test.runActiveChartPatternScan).toHaveBeenCalledOnce();
-    const input = test.runActiveChartPatternScan.mock.calls[0][1];
+    expect(test.evaluateToolbar).toHaveBeenCalledOnce();
+    const input = test.evaluateToolbar.mock.calls[0][0].bars;
     expect(input).toHaveLength(20); expect(source).toHaveLength(40);
     expect(input[0].volume).toBe(200000);
     expect(test.showScannerChartOverlay).toHaveBeenCalledOnce();

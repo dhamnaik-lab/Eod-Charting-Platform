@@ -940,6 +940,50 @@ export function drawArea(
   ctx.stroke();
 }
 
+function drawVisibleHLCSeriesLine(
+  ctx: CanvasRenderingContext2D,
+  bars: readonly OHLCBar[],
+  start: number,
+  end: number,
+  scaleX: ScaleX,
+  scaleY: ScaleY,
+  field: 'high' | 'low' | 'close',
+  color: string,
+  lineWidth: number,
+): void {
+  ctx.save();
+  ctx.strokeStyle = color;
+  ctx.fillStyle = color;
+  ctx.lineWidth = lineWidth;
+  ctx.setLineDash([]);
+  ctx.beginPath();
+  let hasPoint = false;
+  for (let index = start; index <= end; index += 1) {
+    const value: number | null = bars[index][field];
+    if (value === null) {
+      if (hasPoint) ctx.stroke();
+      ctx.beginPath();
+      hasPoint = false;
+      continue;
+    }
+    const x = scaleX.toPixel(index);
+    const y = scaleY.toPixel(value);
+    if (!hasPoint) {
+      ctx.moveTo(x, y);
+      hasPoint = true;
+      continue;
+    }
+    ctx.strokeStyle = color;
+    ctx.lineTo(x, y);
+    hasPoint = true;
+  }
+  if (hasPoint) {
+    ctx.strokeStyle = color;
+    ctx.stroke();
+  }
+  ctx.restore();
+}
+
 export function drawHLCArea(
   ctx: CanvasRenderingContext2D,
   bars: OHLCBar[],
@@ -973,13 +1017,13 @@ export function drawHLCArea(
   ctx.fill();
 
   // 2. High line (subtle)
-  drawLine(ctx, bars.map((b) => b.high), viewport, scaleX, scaleY, 'rgba(79, 167, 255, 0.3)', 1);
+  drawVisibleHLCSeriesLine(ctx, bars, start, end, scaleX, scaleY, 'high', 'rgba(79, 167, 255, 0.3)', 1);
 
   // 3. Low line (subtle)
-  drawLine(ctx, bars.map((b) => b.low), viewport, scaleX, scaleY, 'rgba(79, 167, 255, 0.3)', 1);
+  drawVisibleHLCSeriesLine(ctx, bars, start, end, scaleX, scaleY, 'low', 'rgba(79, 167, 255, 0.3)', 1);
 
   // 4. Close line (prominent)
-  drawLine(ctx, bars.map((b) => b.close), viewport, scaleX, scaleY, '#5dafff', 1.8);
+  drawVisibleHLCSeriesLine(ctx, bars, start, end, scaleX, scaleY, 'close', '#5dafff', 1.8);
 }
 
 export function drawBaseline(
