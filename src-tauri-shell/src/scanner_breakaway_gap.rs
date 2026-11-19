@@ -417,7 +417,9 @@ mod tests {
         ChartPatternGeometryTrendLineV1, ChartPatternTargetProjectionV1,
         RustScannerContractFixtureBundleV1,
     };
-    use serde::Deserialize;
+    use crate::scanner_contract::parity_harness::{
+        assert_json_semantically_equal, assert_parity_fixture_bundle,
+    };
 
     const FLOAT_TOLERANCE: f64 = 1e-12;
 
@@ -425,27 +427,6 @@ mod tests {
         include_str!("../../src/features/scanner/fixtures/rustScannerContractFixtures.v1.json");
     const RSC_02_FIXTURE_JSON: &str =
         include_str!("../../src/features/scanner/fixtures/breakawayGapParityFixtures.v1.json");
-
-    #[derive(Debug, Deserialize)]
-    #[serde(rename_all = "camelCase", deny_unknown_fields)]
-    struct BreakawayGapParityFixtureScenarioV1 {
-        id: String,
-        category: String,
-        #[allow(dead_code)]
-        description: String,
-        request: RustScannerEvaluationRequestV1,
-        response: RustScannerEvaluationResponseV1,
-    }
-
-    #[derive(Debug, Deserialize)]
-    #[serde(rename_all = "camelCase", deny_unknown_fields)]
-    struct BreakawayGapParityFixtureBundleV1 {
-        contract_version: String,
-        scanner_id: String,
-        #[allow(dead_code)]
-        fixed_generated_at: String,
-        scenarios: Vec<BreakawayGapParityFixtureScenarioV1>,
-    }
 
     fn assert_f64_close(expected: f64, actual: f64, path: &str) {
         assert!(
@@ -858,50 +839,6 @@ mod tests {
         }
     }
 
-    fn assert_json_semantically_equal(
-        expected: &serde_json::Value,
-        actual: &serde_json::Value,
-        path: &str,
-    ) {
-        match (expected, actual) {
-            (serde_json::Value::Null, serde_json::Value::Null) => {}
-            (serde_json::Value::Bool(a), serde_json::Value::Bool(b)) => {
-                assert_eq!(a, b, "boolean mismatch at {path}");
-            }
-            (serde_json::Value::String(a), serde_json::Value::String(b)) => {
-                assert_eq!(a, b, "string mismatch at {path}");
-            }
-            (serde_json::Value::Number(a), serde_json::Value::Number(b)) => {
-                if let (Some(ai), Some(bi)) = (a.as_i64(), b.as_i64()) {
-                    assert_eq!(ai, bi, "integer mismatch at {path}");
-                } else if let (Some(au), Some(bu)) = (a.as_u64(), b.as_u64()) {
-                    assert_eq!(au, bu, "unsigned integer mismatch at {path}");
-                } else {
-                    let af = a.as_f64().expect("expected number should convert to f64");
-                    let bf = b.as_f64().expect("actual number should convert to f64");
-                    assert_f64_close(af, bf, path);
-                }
-            }
-            (serde_json::Value::Array(a), serde_json::Value::Array(b)) => {
-                assert_eq!(a.len(), b.len(), "array length mismatch at {path}");
-                for (idx, (ea, eb)) in a.iter().zip(b.iter()).enumerate() {
-                    assert_json_semantically_equal(ea, eb, &format!("{path}[{idx}]"));
-                }
-            }
-            (serde_json::Value::Object(a), serde_json::Value::Object(b)) => {
-                let mut keys_a: Vec<&str> = a.keys().map(String::as_str).collect();
-                let mut keys_b: Vec<&str> = b.keys().map(String::as_str).collect();
-                keys_a.sort_unstable();
-                keys_b.sort_unstable();
-                assert_eq!(keys_a, keys_b, "object keys mismatch at {path}");
-                for key in keys_a {
-                    assert_json_semantically_equal(&a[key], &b[key], &format!("{path}.{key}"));
-                }
-            }
-            _ => panic!("type mismatch at {path}: expected {expected:?}, got {actual:?}"),
-        }
-    }
-
     #[test]
     fn rsc_02_matches_rsc_01_gap_breakaway_match_fixture() {
         let bundle: RustScannerContractFixtureBundleV1 = serde_json::from_str(RSC_01_FIXTURE_JSON)
@@ -945,39 +882,14 @@ mod tests {
 
     #[test]
     fn rsc_02_parity_across_all_breakaway_gap_fixtures() {
-        let bundle: BreakawayGapParityFixtureBundleV1 = serde_json::from_str(RSC_02_FIXTURE_JSON)
-            .expect("RSC-02 fixture JSON must deserialize");
-        let raw_bundle: serde_json::Value =
-            serde_json::from_str(RSC_02_FIXTURE_JSON).expect("raw RSC-02 JSON must parse");
-        assert_eq!(bundle.contract_version, RUST_SCANNER_CONTRACT_VERSION);
-        assert_eq!(bundle.scanner_id, CHART_BREAKAWAY_GAP_SCANNER_ID);
-        assert_eq!(bundle.scenarios.len(), 24);
-
-        let mut categories: Vec<&str> = bundle
-            .scenarios
-            .iter()
-            .map(|scenario| scenario.category.as_str())
-            .collect();
-        categories.sort_unstable();
-        categories.dedup();
-        assert_eq!(
-            categories,
-            vec!["boundary", "historical", "negative", "positive"]
+        assert_parity_fixture_bundle(
+            RSC_02_FIXTURE_JSON,
+            CHART_BREAKAWAY_GAP_SCANNER_ID,
+            24,
+            &["positive", "boundary", "negative", "historical"],
+            evaluate_chart_breakaway_gap_request_v1,
+            assert_response_parity,
         );
-
-        for (idx, scenario) in bundle.scenarios.iter().enumerate() {
-            let actual = evaluate_chart_breakaway_gap_request_v1(&scenario.request)
-                .unwrap_or_else(|err| panic!("scenario {} failed: {err}", scenario.id));
-            assert_response_parity(&scenario.response, &actual, &scenario.id);
-
-            let actual_json =
-                serde_json::to_value(&actual).expect("actual response must serialize to JSON");
-            assert_json_semantically_equal(
-                &raw_bundle["scenarios"][idx]["response"],
-                &actual_json,
-                &format!("$.scenarios[{}].response", scenario.id),
-            );
-        }
     }
 
     #[test]

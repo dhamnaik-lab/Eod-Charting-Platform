@@ -1,3 +1,5 @@
+**RSC-03 candidate (19 Nov 2026):** GitHub branch `feature/native-rust-scanner-20261119` based on main `bfb644bf`; test-only shared parity harness for RSC-01 and RSC-02. No Rust runtime activation. GitHub CI, Windows Rust tests and final acceptance pending. Do not start RSC-04 yet. See [RSC-03](docs/changes/2026-11-19_1518_IST_RSC03_SHARED_PARITY_FIXTURE_HARNESS.md).
+
 # EOD Charting Platform — phase tracker for the next thread
 
 ## CHIP-01 Toolbar Chart Pattern off-thread worker evaluation & Scan Now fix — automated checks PASS; user portable acceptance PASS
