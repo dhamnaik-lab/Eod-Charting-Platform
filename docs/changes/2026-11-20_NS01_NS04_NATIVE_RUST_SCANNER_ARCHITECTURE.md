@@ -4,7 +4,7 @@
 - **Active workstream:** EOD Charting Platform (repository `dhamnaik-lab/Eod-Charting-Platform`)
 - **Branch:** `arena/1a89772f-eod-charting-platform`
 - **Base (verified accepted `main`):** `717eb6f00af96d8f717929eab2fc2d57cd7e5b6f` — "Merge pull request #123 from dhamnaik-lab/feature/rsc06-exhaustion-gap-20261120"
-- **Gate status:** **NS-01, NS-02, NS-03 and NS-04 implemented. TypeScript gates PASS. All Rust gates (cargo check/test, rustfmt), Windows Tauri/portable and live UI acceptance are BLOCKED/UNTESTED in the implementing environment (no Rust toolchain, no crates.io/rust-lang.org access) — see §7.**
+- **Gate status:** **NS-01, NS-02, NS-03 and NS-04 implemented. TypeScript gates PASS. `rustfmt --edition 2021 --check` PASS on all 10 native modules via hosted CI. `cargo check`/`cargo test`, Windows Tauri/portable and live UI acceptance are still BLOCKED/UNTESTED — see §7.**
 - **Native default:** **OFF.** No production behaviour changes for a user who never opts in.
 
 ## 1. Objective
@@ -93,11 +93,25 @@ Complete the approved 18 November 2026 Native Rust Scanner architecture (NS-01 n
 | 7 | Doc-reference mirror of `scripts/check-doc-references.ps1` (Python re-implementation: same required targets, stale-root and backticked-path rules) | **PASS** — no missing references (three pre-existing non-portable `tmp/` and audit-plan references in `HANDOFF.md` were removed in this change) |
 | 8 | `git status` / `git diff --check` | **PASS** — no whitespace errors; changed-file list reviewed against §3 |
 
+### Hosted CI evidence (executed, PR #124)
+
+| Check | Run | Result |
+| --- | --- | --- |
+| Rustfmt (scanner and native scanner modules) | [run 44621737716](https://github.com/dhamnaik-lab/Eod-Charting-Platform/actions/runs/44621737716) | **PASS** — 8s, hosted `ubuntu-latest`, `rustup stable rustfmt --edition 2021 --check` over the root `scanner_*.rs` modules **and all 10 `native_scanner/**/*.rs` files** |
+| Renderer tests, typecheck, build | [run 44621737653](https://github.com/dhamnaik-lab/Eod-Charting-Platform/actions/runs/44621737653) | **PASS** — 1m46s |
+
+Two findings came out of this, both fixed on the branch:
+
+1. **The CI-01 rustfmt gate was a false pass for nested modules.** `shopt -s nullglob` without `globstar` makes `src-tauri-shell/src/native_scanner/**/*.rs` expand to **zero** files, so the gate reported success while checking only the root-level `scanner_*.rs` modules. Fixed by adding `globstar` plus an explicit "nested module glob must not be empty" guard that fails the job. Verified locally: 0 files without `globstar`, 10 files with it.
+2. **All 10 native modules were format-dirty.** rustfmt **parsed every file successfully** (it emitted formatting hunks, not syntax errors), which is the first evidence that the Rust sources are at least syntactically valid and macro-balanced. The exact patch was produced by stable rustfmt on the hosted runner and applied verbatim in commit "NS-01..NS-04: apply stable rustfmt to the native scanner modules" — formatting only (9 files, +271/−127, no logic, signature or behaviour change).
+
+What this still does **not** prove: type checking, borrow checking, trait resolution, or that the tests pass. `rustfmt` does not compile code. Those remain in §7.
+
 ### Not executed here (and why)
 
 | Command | Status |
 | --- | --- |
-| `rustfmt --edition 2021 --check src-tauri-shell/src/native_scanner/*.rs` | **BLOCKED** — no Rust toolchain in the sandbox (`cargo`/`rustc`/`rustfmt` absent; `static.rust-lang.org` and `sh.rustup.rs` unreachable). |
+| `rustfmt --edition 2021 --check src-tauri-shell/src/native_scanner/*.rs` | **PASS via hosted CI** ([run 44621737716](https://github.com/dhamnaik-lab/Eod-Charting-Platform/actions/runs/44621737716)); not runnable inside this sandbox (no toolchain, `static.rust-lang.org`/`sh.rustup.rs` unreachable), so the authoritative result is the CI job. |
 | `Invoke-EOD-SharedCargo.ps1 -Mode Preview/-Mode Run -CargoAction check` / `test -- native_scanner` | **BLOCKED** — requires the Windows root `E:\TA Projects\EOD Charting Platform`, a Rust toolchain, the msrv-locked offline registry and the shared root `target`. |
 | Full Rust regression (`cargo test`) | **BLOCKED** — same reason. |
 | `npm run tauri:check`, portable Windows build, live UI acceptance, disposable-DB validation | **BLOCKED/UNTESTED** — needs approved Windows hardware. **No agent-run smoke is claimed.** |
