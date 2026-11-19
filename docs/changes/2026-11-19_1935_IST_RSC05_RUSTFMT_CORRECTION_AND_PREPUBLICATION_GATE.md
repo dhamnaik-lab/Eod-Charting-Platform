@@ -3,7 +3,7 @@
 **IST timestamp:** 2026-11-19 19:35 IST (UTC+05:30)  
 **Workstream:** EOD Charting Platform — `E:\TA Projects\EOD Charting Platform`  
 **Feature branch:** `feature/native-rust-scanner-20261119`; parent `49565b5cc1360539e1367620d37f5501f2a55872`  
-**Status:** GitHub candidate; corrected Windows Rustfmt and full focused tests pending. Draft PR #122 unmerged.
+**Status:** Corrected Windows Rustfmt **PASS**, focused RSC-05 Windows validation **PASS** at `e158f086` (19 November 2026, 19:48 IST). Draft PR #122 unmerged.
 
 ## Objective and previous limitation
 
@@ -29,9 +29,10 @@ No detector logic, math, historical grouping, fixture JSON, TS scanner/Worker, n
 - Original `rustfmt --edition 2021 --check src-tauri-shell/src/scanner_runaway_gap.rs src-tauri-shell/src/scanner_breakaway_gap.rs`: **FAIL** with exactly two formatting differences.
 - GitHub Renderer CI on parent `49565b5`: **SUCCESS**, does not certify Rust compilation or formatting.
 - New formatting patch: exact one-occurrence substitutions matching the Windows formatter's proposed changes; GitHub staged changed-file scope and blob hashes verified before publication.
-- Corrected `rustfmt --check`: **NOT RUN** in editing environment; operator Windows validation required.
-- Focused Rust `scanner_` tests, shared Cargo check, RSC-01–05 TypeScript parity Vitest, typecheck, renderer build, documentation check and native real `.eod` parity: **NOT RUN** after correction.
+- At correction publication, Rustfmt and focused tests were **NOT RUN** in the GitHub editing environment; this historical limitation remains important to the pre-publication prevention rule.
+- Subsequent operator Windows command-output at `e158f086`: corrected `rustfmt --check` **PASS**; shared Cargo `test scanner_` **14/14 PASS** (11 scanner-module tests plus three corporate-action tests, 1328 filtered); shared Cargo `check` **PASS**; Vitest **56/56 PASS across eight files**; TypeScript typecheck **PASS**; renderer build **PASS** (846 modules, 5.75 s); documentation references **PASS**; protected local files **7/7 SHA-256 PASS**.
+- GitHub Renderer CI at `e158f086`: **SUCCESS**, independently checked. Real `.eod` corpus and portable-native execution are **NOT TESTED**.
 
 ## Risks, rollback and next steps
 
-Residual risk: a further Rustfmt difference or Rust/parity compile defect may surface on Windows. The new `AGENTS.md` rule is process guidance, **not an implemented CI Rustfmt gate**; an automatic CI pre-publication check remains a separately scoped improvement requiring approval. Revert only this isolated correction commit on the feature branch if necessary; never reset or clean the user's preserved local files or backup. Obtain actual Windows Rustfmt PASS first, then run the previously issued serial Rust/Cargo/Vitest/build checks; keep PR #122 draft and do not migrate another detector before RSC-05 acceptance.
+Corrected Rustfmt and focused Rust/TS parity are now verified on Windows. Full Rust-suite and real `.eod` parity remain untested. The new `AGENTS.md` rule is process guidance, **not an implemented automated GitHub Rustfmt gate**; adding CI enforcement is a separate bounded improvement. Revert only this isolated correction commit if needed; never reset or clean preserved local work. Keep PR #122 draft and do not merge or migrate another detector without explicit approval.
