@@ -975,6 +975,7 @@ mod tests {
             ScanExecutionOptions {
                 max_window_bars: MAX_WINDOW_BARS,
                 max_history_endpoints: 8,
+                worker_count: 1,
             },
             |_| {},
         );

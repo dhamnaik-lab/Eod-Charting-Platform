@@ -19,7 +19,7 @@
 
 use super::ast::{ExprV1, RuleV1};
 use super::reader::NativeBar;
-use super::scan::{ScanMatchRecord, ScanPatternDetails};
+use super::scan::ScanMatchRecord;
 use crate::database::binary_eod::u32_to_date;
 use crate::scanner_breakaway_gap::{detect_chart_breakaway_gap, CHART_BREAKAWAY_GAP_SCANNER_ID};
 use crate::scanner_common_gap::{detect_chart_common_gap, CHART_COMMON_GAP_SCANNER_ID};
