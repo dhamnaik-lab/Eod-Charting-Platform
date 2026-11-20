@@ -6,8 +6,9 @@
 //! (read-only database-backed source).
 //!
 //! Guarantees:
-//! - One bounded bar window per target (`MAX_WINDOW_BARS`); the whole market is never
-//!   materialised, and per-target buffers are dropped before the next target.
+//! - One bounded bar window per target (`MAX_WINDOW_BARS`); All History gap-pattern
+//!   scans page backward with overlap rather than materialising the whole history.
+//!   Per-target buffers are dropped before the next target.
 //! - Every target produces exactly one outcome: match, no-match, skipped or error.
 //!   Unreadable data is never converted into a false "no match".
 //! - Cancellation is checked between targets and between history endpoints; a cancelled
@@ -181,6 +182,42 @@ impl HistoricalGroups {
                 self.active.insert(key, self.ordered.len());
                 self.ordered.push(grouped);
             }
+        }
+    }
+
+
+    /// Fold an endpoint while traversing history newest-to-oldest. Retain the
+    /// earliest match's metadata, exactly as the forward TypeScript grouping does,
+    /// while preserving the latest matched date from the first endpoint encountered.
+    fn absorb_reverse(
+        &mut self,
+        endpoint: &mut std::collections::BTreeSet<String>,
+        record: ScanMatchRecord,
+    ) {
+        let key = format!("{}:{}", record.rule_id, record.direction_as_key());
+        endpoint.insert(key.clone());
+        if let Some(position) = self.active.get(&key).copied() {
+            let existing = &self.ordered[position];
+            if let Some(history) = existing.history.as_ref() {
+                let last_matched_date = history.last_matched_date.clone();
+                let match_count = history.match_count + 1;
+                let mut earliest = record;
+                earliest.history = Some(ScanMatchHistory {
+                    first_matched_date: earliest.date.clone(),
+                    last_matched_date,
+                    match_count,
+                });
+                self.ordered[position] = earliest;
+            }
+        } else {
+            let mut grouped = record;
+            grouped.history = Some(ScanMatchHistory {
+                first_matched_date: grouped.date.clone(),
+                last_matched_date: grouped.date.clone(),
+                match_count: 1,
+            });
+            self.active.insert(key, self.ordered.len());
+            self.ordered.push(grouped);
         }
     }
 
@@ -591,6 +628,214 @@ fn emit_progress(
     });
 }
 
+
+/// All-history chart-pattern execution. Each read stays within MAX_WINDOW_BARS;
+/// pages are traversed newest-first and evaluated in reverse endpoint order.
+/// The oldest PATTERN_MAX_WINDOW_BARS records of a nonterminal page are context
+/// only; its preceding page evaluates those endpoints. This yields complete
+/// coverage without materializing a symbol's whole price history.
+///
+/// A shared grouping accumulator is carried across pages, so runs spanning a
+/// page boundary are represented by exactly one earliest-endpoint result.
+#[allow(clippy::too_many_arguments)]
+fn scan_full_pattern_history<D: ScanDataSource>(
+    source: &D,
+    request: &NativeScanRequestV1,
+    target: &ScanTarget,
+    window: usize,
+    pattern_rules: &[&RuleV1],
+    cancel: &AtomicBool,
+) -> TargetOutcome {
+    use std::collections::BTreeSet;
+
+    let fail = |message: String| TargetOutcome {
+        target: target.clone(),
+        status: TargetStatus::Error,
+        matches: Vec::new(),
+        matched_rule_ids: Vec::new(),
+        bars: 0,
+        evaluated_history_endpoints: 0,
+        message: Some(format!("{}: {message}", target.key())),
+    };
+
+    let overlap = super::patterns::PATTERN_MAX_WINDOW_BARS;
+    if window <= overlap {
+        return fail(format!(
+            "Complete historical pattern scanning requires a window larger than {overlap} bars."
+        ));
+    }
+
+    let mut as_of = request.evaluation.as_of_date.clone();
+    let mut expected_overlap: Option<Vec<NativeBar>> = None;
+    let mut is_first_page = true;
+    let mut latest_date = String::new();
+    let mut total_unique_bars = 0usize;
+    let mut evaluated_history_endpoints = 0usize;
+    let mut rules_evaluated = 0usize;
+    let mut matched_rule_ids: Vec<String> = Vec::new();
+    let mut groups = HistoricalGroups::default();
+
+    loop {
+        if cancel.load(Ordering::SeqCst) {
+            return cancelled_outcome(target);
+        }
+        let bars = match source.load_bars(
+            target,
+            as_of.as_deref(),
+            window,
+            request.evaluation.price_basis,
+            request.evaluation.include_dividend_adjustments,
+            request.evaluation.include_rights_adjustments,
+        ) {
+            Ok(bars) => bars,
+            Err(message) => return fail(message),
+        };
+        if cancel.load(Ordering::SeqCst) {
+            return cancelled_outcome(target);
+        }
+        if bars.len() > window {
+            return fail("The scan source exceeded the bounded page size.".to_string());
+        }
+        if bars.windows(2).any(|pair| pair[0].date >= pair[1].date) {
+            return fail("A historical page contains unsorted or duplicate dates.".to_string());
+        }
+        if let Some(bound) = as_of.as_deref() {
+            let upper = match super::reader::parse_scan_date(bound) {
+                Ok(value) => value,
+                Err(message) => return fail(message),
+            };
+            if bars.last().is_some_and(|bar| bar.date > upper) {
+                return fail("The scan source returned bars after its requested date.".to_string());
+            }
+        }
+        if let Some(expected) = expected_overlap.take() {
+            if bars.len() < expected.len()
+                || bars[bars.len() - expected.len()..] != expected[..]
+            {
+                return fail(
+                    "Historical page overlap changed during scanning; refusing incomplete results."
+                        .to_string(),
+                );
+            }
+        }
+        if bars.is_empty() {
+            if !is_first_page {
+                return fail("A historical page disappeared during scanning.".to_string());
+            }
+            return TargetOutcome {
+                target: target.clone(),
+                status: TargetStatus::Skipped,
+                matches: Vec::new(),
+                matched_rule_ids: Vec::new(),
+                bars: 0,
+                evaluated_history_endpoints: 0,
+                message: Some(format!(
+                    "{} has no completed bars at or before the requested date.",
+                    target.key()
+                )),
+            };
+        }
+
+        if is_first_page {
+            latest_date = format_date(bars[bars.len() - 1].date);
+            total_unique_bars = bars.len();
+        } else {
+            total_unique_bars += bars.len() - overlap;
+        }
+
+        let is_oldest_page = bars.len() < window;
+        let first_endpoint = if is_oldest_page { 0 } else { overlap };
+
+        for index in (first_endpoint..bars.len()).rev() {
+            if cancel.load(Ordering::SeqCst) {
+                return cancelled_outcome(target);
+            }
+            let mut endpoint_keys = BTreeSet::new();
+            for rule in pattern_rules {
+                let required = super::patterns::minimum_bars_for_pattern_rule(rule).unwrap_or(0);
+                let first_valid = super::patterns::PATTERN_HISTORY_ENDPOINT_START.max(required);
+                if required == 0 {
+                    return fail(format!("Unsupported native pattern rule: {}.", rule.id));
+                }
+                if index + 1 < first_valid {
+                    continue;
+                }
+
+                rules_evaluated += 1;
+                evaluated_history_endpoints += 1;
+                let from = (index + 1).saturating_sub(overlap);
+                match super::patterns::evaluate_pattern_rule(
+                    rule,
+                    &target.exchange,
+                    &target.symbol,
+                    &bars[from..=index],
+                    &latest_date,
+                ) {
+                    super::patterns::PatternEvaluation::Evaluated(Some(result)) => {
+                        let record = super::patterns::pattern_match_record(
+                            &target.exchange,
+                            &target.symbol,
+                            &rule.id,
+                            result,
+                        );
+                        groups.absorb_reverse(&mut endpoint_keys, record);
+                        if !matched_rule_ids.contains(&rule.id) {
+                            matched_rule_ids.push(rule.id.clone());
+                        }
+                    }
+                    super::patterns::PatternEvaluation::Evaluated(None) => {}
+                    super::patterns::PatternEvaluation::Unsupported => {
+                        return fail(format!("Unsupported native pattern rule: {}.", rule.id));
+                    }
+                }
+            }
+            groups.end_endpoint(&endpoint_keys);
+        }
+
+        if is_oldest_page {
+            break;
+        }
+        // The next read ends on the final overlapping bar and provides older
+        // context; all endpoints in this page's first overlap were deferred.
+        expected_overlap = Some(bars[..overlap].to_vec());
+        as_of = Some(format_date(bars[overlap - 1].date));
+        is_first_page = false;
+    }
+
+    if rules_evaluated == 0 {
+        return TargetOutcome {
+            target: target.clone(),
+            status: TargetStatus::Skipped,
+            matches: Vec::new(),
+            matched_rule_ids: Vec::new(),
+            bars: total_unique_bars,
+            evaluated_history_endpoints,
+            message: Some(format!(
+                "{} has {total_unique_bars} completed bar(s); no selected rule has enough warm-up data.",
+                target.key()
+            )),
+        };
+    }
+
+    let mut matches = groups.into_matches();
+    matches.sort_by(|left, right| {
+        right.date.cmp(&left.date).then_with(|| left.rule_id.cmp(&right.rule_id))
+    });
+    TargetOutcome {
+        target: target.clone(),
+        status: if matches.is_empty() {
+            TargetStatus::NoMatch
+        } else {
+            TargetStatus::Match
+        },
+        matches,
+        matched_rule_ids,
+        bars: total_unique_bars,
+        evaluated_history_endpoints,
+        message: None,
+    }
+}
+
 #[allow(clippy::too_many_arguments)]
 fn scan_target<D: ScanDataSource>(
     source: &D,
@@ -602,6 +847,11 @@ fn scan_target<D: ScanDataSource>(
     options: ScanExecutionOptions,
     cancel: &AtomicBool,
 ) -> TargetOutcome {
+    // The four native gap patterns need full history; existing capped numeric AST
+    // history and latest-only requests retain their previous bounded semantics.
+    if request.evaluation.evaluate_history && numeric_rules.is_empty() && !pattern_rules.is_empty() {
+        return scan_full_pattern_history(source, request, target, window, pattern_rules, cancel);
+    }
     let as_of = request.evaluation.as_of_date.as_deref();
     let bars = match source.load_bars(
         target,
@@ -1591,6 +1841,196 @@ mod tests {
             .as_ref()
             .expect("grouped history must be attached");
         assert_eq!(history.last_matched_date, "2024-01-25");
+    }
+
+
+    /// Builds valid ascending market dates rather than synthetic day-of-month overflow.
+    fn dated_quiet_bars(count: usize) -> Vec<NativeBar> {
+        let start = chrono::NaiveDate::from_ymd_opt(1990, 1, 1).unwrap();
+        (0..count)
+            .map(|index| {
+                let date = start + chrono::Duration::days(index as i64);
+                let packed = date.format("%Y%m%d").to_string().parse::<u32>().unwrap();
+                NativeBar {
+                    date: packed,
+                    open: 100.0,
+                    high: 101.0,
+                    low: 99.0,
+                    close: 100.0,
+                    prev_close: Some(100.0),
+                    volume: 1_000.0,
+                    open_interest: 0.0,
+                }
+            })
+            .collect()
+    }
+
+    fn plant_breakaway(bars: &mut [NativeBar], start: usize) {
+        for (offset, template) in gap_bars().into_iter().enumerate() {
+            let date = bars[start + offset].date;
+            bars[start + offset] = NativeBar { date, ..template };
+        }
+    }
+
+    #[test]
+    fn ns04_complete_gap_history_includes_episodes_older_than_five_thousand_bars() {
+        let mut history = dated_quiet_bars(10_050);
+        plant_breakaway(&mut history, 100);
+        plant_breakaway(&mut history, 9_500);
+        let early_date = format_date(history[124].date);
+        let recent_date = format_date(history[9_524].date);
+        let mut data = HashMap::new();
+        data.insert("NSE:GAP".to_string(), history);
+        let source = FixtureSource::new(data);
+
+        let report = execute_scan(
+            &source,
+            &request(vec![pattern_rule("chart_breakaway_gap")], true),
+            &[target("GAP")],
+            &AtomicBool::new(false),
+            ScanExecutionOptions::default(),
+            |_| {},
+        );
+        assert_eq!(report.counts.failed, 0, "{:?}", report.diagnostics);
+        assert_eq!(report.outcomes[0].bars, 10_050);
+        let dates: Vec<&str> = report.matches.iter().map(|row| row.date.as_str()).collect();
+        assert!(dates.contains(&early_date.as_str()), "missing old episode: {dates:?}");
+        assert!(dates.contains(&recent_date.as_str()), "missing recent episode: {dates:?}");
+        let loads = source.loads.lock().unwrap();
+        assert!(loads.len() >= 3, "complete history must use multiple bounded pages");
+        assert!(loads.iter().all(|(_, size, _, _)| *size <= MAX_WINDOW_BARS));
+    }
+
+    #[test]
+    fn ns04_reverse_history_grouping_preserves_earliest_metadata_across_pages() {
+        let mut groups = HistoricalGroups::default();
+        let mut newest = grouped_record("2024-01-05", Some("bullish"));
+        newest.value = Some(50.0);
+        let mut oldest = grouped_record("2024-01-03", Some("bullish"));
+        oldest.value = Some(30.0);
+
+        // Simulate a page boundary between two consecutive endpoints.
+        for record in [newest, grouped_record("2024-01-04", Some("bullish"))] {
+            let mut keys = std::collections::BTreeSet::new();
+            groups.absorb_reverse(&mut keys, record);
+            groups.end_endpoint(&keys);
+        }
+        let mut keys = std::collections::BTreeSet::new();
+        groups.absorb_reverse(&mut keys, oldest);
+        groups.end_endpoint(&keys);
+        groups.end_endpoint(&std::collections::BTreeSet::new());
+
+        let mut earlier = std::collections::BTreeSet::new();
+        groups.absorb_reverse(
+            &mut earlier,
+            grouped_record("2024-01-01", Some("bullish")),
+        );
+        groups.absorb_reverse(
+            &mut earlier,
+            grouped_record("2024-01-01", Some("bearish")),
+        );
+        groups.end_endpoint(&earlier);
+
+        let result = groups.into_matches();
+        assert_eq!(result.len(), 3);
+        let spanning = result.iter().find(|row| row.date == "2024-01-03").unwrap();
+        assert_eq!(spanning.value, Some(30.0));
+        let history = spanning.history.as_ref().unwrap();
+        assert_eq!(history.first_matched_date, "2024-01-03");
+        assert_eq!(history.last_matched_date, "2024-01-05");
+        assert_eq!(history.match_count, 3);
+    }
+
+    #[test]
+    fn ns04_bounded_history_exact_window_and_as_of_do_not_drop_endpoints() {
+        for size in [5_000usize, 5_001, 5_025] {
+            let history = dated_quiet_bars(size);
+            let mut data = HashMap::new();
+            data.insert("NSE:QUIET".to_string(), history.clone());
+            let source = FixtureSource::new(data);
+            let mut request = request(vec![pattern_rule("chart_common_gap")], true);
+            if size == 5_025 {
+                request.evaluation.as_of_date = Some(format_date(history[5_000].date));
+            }
+            let expected = if size == 5_025 { 5_001 } else { size };
+            let report = execute_scan(
+                &source,
+                &request,
+                &[target("QUIET")],
+                &AtomicBool::new(false),
+                ScanExecutionOptions::default(),
+                |_| {},
+            );
+            assert_eq!(report.counts.failed, 0, "{:?}", report.diagnostics);
+            assert_eq!(report.outcomes[0].bars, expected);
+            assert_eq!(
+                report.outcomes[0].evaluated_history_endpoints,
+                expected - 19,
+                "all endpoints from the shared 20-bar start must be evaluated once"
+            );
+            assert!(report.matches.is_empty());
+        }
+    }
+
+    struct InterruptedHistorySource {
+        inner: FixtureSource,
+        cancel: std::sync::Arc<AtomicBool>,
+        fail_second_page: bool,
+    }
+
+    impl ScanDataSource for InterruptedHistorySource {
+        fn database_identity(&self) -> &str {
+            self.inner.database_identity()
+        }
+
+        fn load_bars(
+            &self,
+            target: &ScanTarget,
+            as_of_date: Option<&str>,
+            window: usize,
+            price_basis: PriceBasisV1,
+            dividends: bool,
+            rights: bool,
+        ) -> Result<Vec<NativeBar>, String> {
+            if as_of_date.is_some() {
+                if self.fail_second_page {
+                    return Err("injected second-page I/O failure".to_string());
+                }
+                self.cancel.store(true, Ordering::SeqCst);
+            }
+            self.inner.load_bars(target, as_of_date, window, price_basis, dividends, rights)
+        }
+    }
+
+    #[test]
+    fn ns04_page_failure_discards_partial_matches_and_cancellation_discards_groups() {
+        let mut history = dated_quiet_bars(5_200);
+        plant_breakaway(&mut history, 5_000);
+        let mut data = HashMap::new();
+        data.insert("NSE:GAP".to_string(), history);
+        for fail_second_page in [true, false] {
+            let cancel = std::sync::Arc::new(AtomicBool::new(false));
+            let source = InterruptedHistorySource {
+                inner: FixtureSource::new(data.clone()),
+                cancel: std::sync::Arc::clone(&cancel),
+                fail_second_page,
+            };
+            let report = execute_scan(
+                &source,
+                &request(vec![pattern_rule("chart_breakaway_gap")], true),
+                &[target("GAP")],
+                &cancel,
+                ScanExecutionOptions::default(),
+                |_| {},
+            );
+            assert!(report.matches.is_empty(), "never expose partial episodes");
+            if fail_second_page {
+                assert_eq!(report.counts.failed, 1, "{:?}", report.diagnostics);
+                assert!(report.diagnostics[0].message.contains("second-page"));
+            } else {
+                assert!(report.cancelled);
+            }
+        }
     }
 
     /// P1-08: a deterministic series of `count` targets, each with a distinct close so the
