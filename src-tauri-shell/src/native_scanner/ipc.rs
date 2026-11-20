@@ -527,7 +527,8 @@ mod tests {
             "evaluation": { "evaluateHistory": false, "priceBasis": "adjusted" },
             "rules": [{ "id": "r", "expression": { "kind": "number", "value": 1 } }]
         });
-        let error = validate_request(&payload).expect_err("CA-01 adjusted request must be rejected");
+        let error =
+            validate_request(&payload).expect_err("CA-01 adjusted request must be rejected");
         assert_eq!(error.code, codes::INVALID_REQUEST);
         assert!(error.message.contains("CA-01 HOLD"));
         assert_eq!(error.issues.len(), 1);
@@ -535,7 +536,10 @@ mod tests {
         assert_eq!(error.issues[0].code, "ca01-adjusted-native-disabled");
 
         payload["evaluation"]["priceBasis"] = serde_json::json!("raw");
-        assert!(validate_request(&payload).is_ok(), "raw native requests remain accepted");
+        assert!(
+            validate_request(&payload).is_ok(),
+            "raw native requests remain accepted"
+        );
     }
 
     #[test]

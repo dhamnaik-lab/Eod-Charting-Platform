@@ -38,3 +38,7 @@ Revert this scoped safety-gate commit on the PR branch if necessary (with explic
 ## Next step
 
 Verify the PR branch's new commit and its GitHub CI results. Independently validate the Windows shared Cargo and disposable BSE/T+0 fixture behavior before considering merge. Keep PR #124 open.
+
+## Post-publication formatting follow-up
+
+Initial GitHub Rustfmt workflow run `44708768666` **FAILED** exclusively on two line-wrap differences in the newly added `native_scanner/ipc.rs` test (no semantic findings). This follow-up commit applies the exact stable rustfmt diff. Original handoff headings were also corrected from literal escaped newline characters to actual Markdown paragraph breaks. New CI validation remains pending until the workflow reports its real result.

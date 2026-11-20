@@ -1,4 +1,6 @@
-**NS-04 CA-01 raw-only gate (20 November 2026, 14:40 IST; PR #124, independent correction):** Direct GitHub source correction to native IPC and database source rejects all adjusted native runs until CA-01 issuer-event/BSE T+0 action ownership is approved, while raw scans and existing chart adjustments are preserved. New synthetic duplicate/conflicting Split/Bonus BSE tests and [change record](docs/changes/2026-11-20_1440_IST_NS04_CA01_RAW_ONLY_GATE.md); Rustfmt/Cargo/Windows validation pending new PR-head CI. Canonical DB revision identity remains a separate HOLD; native stays OFF by default.\n\n# Handoff — immediate resume point
+**NS-04 CA-01 raw-only gate (20 November 2026, 14:40 IST; PR #124, independent correction):** Direct GitHub source correction to native IPC and database source rejects all adjusted native runs until CA-01 issuer-event/BSE T+0 action ownership is approved, while raw scans and existing chart adjustments are preserved. New synthetic duplicate/conflicting Split/Bonus BSE tests and [change record](docs/changes/2026-11-20_1440_IST_NS04_CA01_RAW_ONLY_GATE.md); Rustfmt/Cargo/Windows validation pending new PR-head CI. Canonical DB revision identity remains a separate HOLD; native stays OFF by default.
+
+# Handoff — immediate resume point
 
 ## Where we are (read this first)
 
