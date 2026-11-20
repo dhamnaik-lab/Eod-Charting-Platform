@@ -78,7 +78,12 @@ impl TargetStatus {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+/// One accepted match.
+///
+/// `value` stays for numeric rules. The remaining fields are the accepted chart-pattern
+/// metadata (P0-02) and are populated by the pattern bridge, so a native match carries the
+/// same identity, score, direction, reasons, levels and geometry as the TypeScript result.
+#[derive(Debug, Clone, PartialEq, Default)]
 pub struct ScanMatchRecord {
     pub exchange: String,
     pub symbol: String,
@@ -86,6 +91,49 @@ pub struct ScanMatchRecord {
     pub date: String,
     /// Latest rule value when the rule produced one (patterns report their own values).
     pub value: Option<f64>,
+    pub scanner_name: Option<String>,
+    pub category_id: Option<String>,
+    pub category_name: Option<String>,
+    pub direction: Option<String>,
+    pub score: Option<f64>,
+    pub reasons: Option<Vec<String>>,
+    pub values: Option<std::collections::BTreeMap<String, crate::scanner_contract::ScannerScalarValueV1>>,
+    pub source: Option<String>,
+    pub pattern: Option<ScanPatternDetails>,
+}
+
+/// Accepted chart-pattern details carried through to the renderer.
+#[derive(Debug, Clone, PartialEq)]
+pub struct ScanPatternDetails {
+    pub family: String,
+    pub confidence: f64,
+    pub pattern_start_date: Option<String>,
+    pub pattern_end_date: String,
+    pub breakout_level: Option<f64>,
+    pub support_level: Option<f64>,
+    pub resistance_level: Option<f64>,
+    pub neckline_level: Option<f64>,
+    pub target_price: Option<f64>,
+    pub stop_loss_price: Option<f64>,
+    pub potential_gain_pct: Option<f64>,
+    pub risk_reward_ratio: Option<f64>,
+    pub pivots: Option<Vec<ScanPatternPivot>>,
+    pub geometry: Option<ScanPatternGeometry>,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct ScanPatternPivot {
+    pub index: usize,
+    pub date: String,
+    pub price: f64,
+    pub kind: String,
+}
+
+/// Geometry is kept as opaque JSON so no accepted overlay field can be dropped in
+/// translation. The renderer already consumes exactly this shape.
+#[derive(Debug, Clone, PartialEq)]
+pub struct ScanPatternGeometry {
+    pub json: serde_json::Value,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -361,22 +409,6 @@ fn scan_target<D: ScanDataSource>(
         };
     }
 
-    // A pattern rule needs the detector that this module deliberately does not own.
-    // Report it as unsupported rather than pretending it did not match.
-    if !pattern_rules.is_empty() {
-        return TargetOutcome {
-            target: target.clone(),
-            status: TargetStatus::Skipped,
-            matches: Vec::new(),
-            matched_rule_ids: Vec::new(),
-            bars: bars.len(),
-            evaluated_history_endpoints: 0,
-            message: Some(format!(
-                "{}: chart-pattern rules are routed to their dedicated detectors and are not evaluated by the numeric native executor.",
-                target.key()
-            )),
-        };
-    }
 
     let eval_bars: Vec<super::ast::EvalBar> = bars
         .iter()
@@ -409,6 +441,7 @@ fn scan_target<D: ScanDataSource>(
                             rule_id: rule.id.clone(),
                             date: format_date(bars[bars.len() - 1].date),
                             value: outcome.value,
+                            ..ScanMatchRecord::default()
                         });
                         matched_rule_ids.push(rule.id.clone());
                     }
@@ -442,6 +475,7 @@ fn scan_target<D: ScanDataSource>(
                             rule_id: rule.id.clone(),
                             date: format_date(bars[index].date),
                             value: outcome.value,
+                            ..ScanMatchRecord::default()
                         });
                         if !matched_rule_ids.contains(&rule.id) {
                             matched_rule_ids.push(rule.id.clone());
@@ -457,6 +491,85 @@ fn scan_target<D: ScanDataSource>(
                 break;
             }
             index = (index + stride).min(last_index);
+        }
+    }
+
+    // P0-01: pattern rules are dispatched to the accepted detectors instead of being
+    // skipped. Each rule is evaluated over its own bounded window, latest-only or at every
+    // historical endpoint, mirroring the detector's own endpoint ordering.
+    let generated_at = format_date(bars[bars.len() - 1].date);
+    for rule in pattern_rules {
+        if cancel.load(Ordering::SeqCst) {
+            break;
+        }
+        let required = super::patterns::minimum_bars_for_pattern_rule(rule).unwrap_or(0);
+        if required == 0 || bars.len() < required {
+            // Warm-up is "not evaluated", never a false non-match.
+            continue;
+        }
+        if !request.evaluation.evaluate_history {
+            let from = bars.len().saturating_sub(super::patterns::PATTERN_MAX_WINDOW_BARS);
+            evaluated_history_endpoints += 1;
+            match super::patterns::evaluate_pattern_rule(
+                rule,
+                &target.exchange,
+                &target.symbol,
+                &bars[from..],
+                &generated_at,
+            ) {
+                super::patterns::PatternEvaluation::Evaluated(Some(result)) => {
+                    matches.push(super::patterns::pattern_match_record(
+                        &target.exchange,
+                        &target.symbol,
+                        &rule.id,
+                        result,
+                    ));
+                    matched_rule_ids.push(rule.id.clone());
+                }
+                super::patterns::PatternEvaluation::Evaluated(None) => {}
+                super::patterns::PatternEvaluation::Unsupported => had_error = true,
+            }
+            continue;
+        }
+
+        // Complete historical coverage: every endpoint from the detector's own warm-up,
+        // never a stride sample. Endpoint i sees the trailing bounded window only.
+        let start = super::patterns::PATTERN_HISTORY_ENDPOINT_START.max(required);
+        if bars.len() < start {
+            continue;
+        }
+        let mut index = start - 1;
+        while index < bars.len() {
+            if cancel.load(Ordering::SeqCst) {
+                break;
+            }
+            let from = (index + 1).saturating_sub(super::patterns::PATTERN_MAX_WINDOW_BARS);
+            evaluated_history_endpoints += 1;
+            match super::patterns::evaluate_pattern_rule(
+                rule,
+                &target.exchange,
+                &target.symbol,
+                &bars[from..=index],
+                &generated_at,
+            ) {
+                super::patterns::PatternEvaluation::Evaluated(Some(result)) => {
+                    matches.push(super::patterns::pattern_match_record(
+                        &target.exchange,
+                        &target.symbol,
+                        &rule.id,
+                        result,
+                    ));
+                    if !matched_rule_ids.contains(&rule.id) {
+                        matched_rule_ids.push(rule.id.clone());
+                    }
+                }
+                super::patterns::PatternEvaluation::Evaluated(None) => {}
+                super::patterns::PatternEvaluation::Unsupported => {
+                    had_error = true;
+                    break;
+                }
+            }
+            index += 1;
         }
     }
 
@@ -761,27 +874,138 @@ mod tests {
     }
 
     #[test]
-    fn ns01_pattern_rules_are_skipped_not_evaluated_numerically() {
+    /// Flat base followed by a genuine gap up on heavy volume (a real Breakaway Gap).
+    fn gap_bars() -> Vec<NativeBar> {
+        let mut bars: Vec<NativeBar> = (1..=24)
+            .map(|day| NativeBar {
+                date: 20240100 + day,
+                open: 100.0,
+                high: 101.0,
+                low: 99.0,
+                close: 100.0,
+                prev_close: None,
+                volume: 1_000.0,
+                open_interest: 0.0,
+            })
+            .collect();
+        bars.push(NativeBar {
+            date: 20240125,
+            open: 110.0,
+            high: 113.0,
+            low: 109.0,
+            close: 112.0,
+            prev_close: Some(100.0),
+            volume: 4_000.0,
+            open_interest: 0.0,
+        });
+        bars
+    }
+
+    fn pattern_rule(id: &str) -> RuleV1 {
+        RuleV1 {
+            id: id.to_string(),
+            expression: ExprV1::Pattern { id: id.to_string() },
+        }
+    }
+
+    #[test]
+    fn p0_01_native_scan_actually_executes_a_gap_pattern_and_keeps_metadata() {
         let mut bars = HashMap::new();
-        bars.insert("NSE:A".to_string(), series(&[10.0, 11.0, 12.0]));
+        bars.insert("NSE:GAP".to_string(), gap_bars());
         let source = FixtureSource::new(bars);
-        let rule = RuleV1 {
-            id: "gap".to_string(),
-            expression: ExprV1::Pattern {
-                id: "chart_common_gap".to_string(),
-            },
-        };
         let report = execute_scan(
             &source,
-            &request(vec![rule], false),
-            &[target("A")],
+            &request(vec![pattern_rule("chart_breakaway_gap")], false),
+            &[target("GAP")],
             &AtomicBool::new(false),
             ScanExecutionOptions::default(),
             |_| {},
         );
-        assert_eq!(report.counts.skipped, 1);
-        assert_eq!(report.counts.matched, 0);
+
+        assert_eq!(report.counts.matched, 1, "the detector must actually run");
+        assert_eq!(report.counts.skipped, 0, "a pattern target must not be skipped");
+        assert_eq!(report.matches.len(), 1);
+        let matched = &report.matches[0];
+        assert_eq!(matched.rule_id, "chart_breakaway_gap");
+        assert_eq!(matched.date, "2024-01-25");
+        assert_eq!(matched.scanner_name.as_deref(), Some("Breakaway Gap"));
+        assert_eq!(matched.category_id.as_deref(), Some("chart_patterns_gap"));
+        assert!(matched.direction.is_some(), "direction must be preserved");
+        assert!(matched.score.is_some(), "score must be preserved");
+        assert!(matched.reasons.as_ref().is_some_and(|r| !r.is_empty()));
+        assert!(matched.values.as_ref().is_some_and(|v| !v.is_empty()));
+        let details = matched.pattern.as_ref().expect("geometry must be preserved");
+        assert!(details.geometry.is_some());
+        assert!(details.confidence > 0.0);
+    }
+
+    #[test]
+    fn p0_01_pattern_negative_case_is_no_match_not_skipped() {
+        let quiet: Vec<NativeBar> = (1..=25)
+            .map(|day| NativeBar {
+                date: 20240100 + day,
+                open: 100.0,
+                high: 101.0,
+                low: 99.0,
+                close: 100.0,
+                prev_close: None,
+                volume: 1_000.0,
+                open_interest: 0.0,
+            })
+            .collect();
+        let mut bars = HashMap::new();
+        bars.insert("NSE:QUIET".to_string(), quiet);
+        let source = FixtureSource::new(bars);
+        let report = execute_scan(
+            &source,
+            &request(vec![pattern_rule("chart_breakaway_gap")], false),
+            &[target("QUIET")],
+            &AtomicBool::new(false),
+            ScanExecutionOptions::default(),
+            |_| {},
+        );
+        assert_eq!(report.counts.no_match, 1);
+        assert_eq!(report.counts.skipped, 0);
         assert!(report.matches.is_empty());
+    }
+
+    #[test]
+    fn p0_01_pattern_warmup_is_a_skip_not_a_false_verdict() {
+        let mut bars = HashMap::new();
+        bars.insert("NSE:TINY".to_string(), gap_bars()[..5].to_vec());
+        let source = FixtureSource::new(bars);
+        let report = execute_scan(
+            &source,
+            &request(vec![pattern_rule("chart_breakaway_gap")], false),
+            &[target("TINY")],
+            &AtomicBool::new(false),
+            ScanExecutionOptions::default(),
+            |_| {},
+        );
+        // Too few bars: the rule cannot be evaluated, and that is never reported as a
+        // confident "no match".
+        assert_eq!(report.counts.matched, 0);
+        assert_eq!(report.matches.len(), 0);
+    }
+
+    #[test]
+    fn p0_01_pattern_history_covers_every_endpoint() {
+        let mut bars = HashMap::new();
+        bars.insert("NSE:GAP".to_string(), gap_bars());
+        let source = FixtureSource::new(bars);
+        let report = execute_scan(
+            &source,
+            &request(vec![pattern_rule("chart_breakaway_gap")], true),
+            &[target("GAP")],
+            &AtomicBool::new(false),
+            ScanExecutionOptions::default(),
+            |_| {},
+        );
+        let outcome = &report.outcomes[0];
+        // 25 bars, detector warm-up start 20 -> endpoints 19..=24 inclusive.
+        assert_eq!(outcome.evaluated_history_endpoints, 6);
+        assert!(!report.matches.is_empty(), "the gap endpoint must be detected");
+        assert_eq!(report.matches[0].date, "2024-01-25");
     }
 
     #[test]
