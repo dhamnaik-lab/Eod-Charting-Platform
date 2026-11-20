@@ -44,6 +44,21 @@ jobs:
       - name: Ensure stable Rust toolchain is available
         run: rustup component add rustfmt clippy --toolchain stable
 
+      - name: Set up Node.js 24
+        uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+          package-manager-cache: false
+
+      # `tauri::generate_context!()` reads `frontendDist: "../dist"` at compile time and
+      # panics if the directory is absent. Building the renderer first mirrors the real
+      # `beforeBuildCommand` and keeps tauri.conf.json untouched.
+      - name: Build renderer assets required by the Tauri build script
+        run: |
+          set -euo pipefail
+          npm ci
+          npm run build:renderer
+
       - name: Install Tauri Linux build dependencies
         run: |
           set -euo pipefail

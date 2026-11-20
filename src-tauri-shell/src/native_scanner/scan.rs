@@ -533,7 +533,7 @@ mod tests {
             }
             let mut bars = self.bars.get(&target.key()).cloned().unwrap_or_default();
             if let Some(as_of) = as_of_date {
-                let limit = super::reader::parse_scan_date(as_of)?;
+                let limit = crate::native_scanner::reader::parse_scan_date(as_of)?;
                 bars.retain(|bar| bar.date <= limit);
             }
             if bars.len() > window {

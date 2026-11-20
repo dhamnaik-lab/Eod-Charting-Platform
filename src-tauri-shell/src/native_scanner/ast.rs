@@ -1217,19 +1217,24 @@ pub fn evaluate_expression(expression: &ExprV1, bars: &[EvalBar]) -> Result<Eval
             let right_series = right_value.numeric();
             if op.is_comparison() {
                 let comparison = *op;
+                // `numeric_zip` yields numeric series, so a comparison is combined as
+                // 1.0/0.0 and mapped back to a boolean here. Undefined operands stay
+                // `None` (never a false match).
                 let values = numeric_zip(&left_series, &right_series, |left, right| {
-                    Some(match comparison {
-                        BinaryOpV1::Gt => left > right,
-                        BinaryOpV1::Gte => left >= right,
-                        BinaryOpV1::Lt => left < right,
-                        BinaryOpV1::Lte => left <= right,
-                        BinaryOpV1::Eq => left == right,
-                        BinaryOpV1::Neq => left != right,
-                        _ => unreachable!("non-comparison operator"),
-                    })
+                    Some(
+                        match comparison {
+                            BinaryOpV1::Gt => left > right,
+                            BinaryOpV1::Gte => left >= right,
+                            BinaryOpV1::Lt => left < right,
+                            BinaryOpV1::Lte => left <= right,
+                            BinaryOpV1::Eq => left == right,
+                            BinaryOpV1::Neq => left != right,
+                            _ => unreachable!("non-comparison operator"),
+                        } as u8 as f64,
+                    )
                 });
                 return Ok(EvalValue::Boolean(
-                    values.into_iter().map(|value| value.map(|flag| flag)).collect(),
+                    values.into_iter().map(|value| value.map(|flag| flag != 0.0)).collect(),
                 ));
             }
             let arithmetic = *op;

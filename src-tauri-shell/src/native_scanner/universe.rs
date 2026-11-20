@@ -74,16 +74,20 @@ fn enumerate_active(
 
     let mut seen = std::collections::BTreeSet::new();
     let mut targets = Vec::new();
-    let rows = if let Some(series) = exact_series {
+    // Two `query_map` closures are distinct types, so each branch is fully collected
+    // before the shared handling below instead of trying to unify the iterators.
+    let rows: Vec<Result<String, rusqlite::Error>> = if let Some(series) = exact_series {
         statement
             .query_map(rusqlite::params![exchange, series], |row| {
                 row.get::<_, String>(0)
             })
             .map_err(|error| format!("Unable to enumerate {exchange} instruments: {error}"))?
+            .collect()
     } else {
         statement
             .query_map(rusqlite::params![exchange], |row| row.get::<_, String>(0))
             .map_err(|error| format!("Unable to enumerate {exchange} instruments: {error}"))?
+            .collect()
     };
     for row in rows {
         let symbol = row.map_err(|error| format!("Unable to read instrument row: {error}"))?;

@@ -175,9 +175,10 @@ pub fn open_validated(path: &Path) -> Result<ValidatedEodFile, String> {
     if header.symbol.trim().is_empty() || header.exchange.trim().is_empty() {
         return Err("EOD header is missing its stored symbol/exchange identity.".to_string());
     }
+    let record_count = header.record_count;
     Ok(ValidatedEodFile {
         header,
-        record_count: header.record_count,
+        record_count,
     })
 }
 

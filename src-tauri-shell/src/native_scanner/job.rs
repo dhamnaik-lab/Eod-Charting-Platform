@@ -349,7 +349,7 @@ impl NativeScanJobRegistry {
 
     /// Cancels and removes every run; used on window close and app shutdown.
     pub fn cancel_all(&self) -> usize {
-        let mut runs = self.runs.lock().unwrap();
+        let runs = self.runs.lock().unwrap();
         let count = runs.len();
         for run in runs.values() {
             run.cancel.request();
