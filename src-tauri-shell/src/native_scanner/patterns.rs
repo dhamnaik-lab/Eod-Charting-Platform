@@ -267,9 +267,7 @@ mod tests {
     fn rule(id: &str) -> RuleV1 {
         RuleV1 {
             id: format!("{id}_rule"),
-            expression: ExprV1::Pattern {
-                id: id.to_string(),
-            },
+            expression: ExprV1::Pattern { id: id.to_string() },
         }
     }
 
@@ -353,7 +351,10 @@ mod tests {
                 assert!(result.direction.is_some(), "direction must survive");
                 assert_eq!(result.category_id, "chart_patterns_gap");
             }
-            other => panic!("expected a Breakaway Gap match, got {:?}", matches!(other, _)),
+            other => panic!(
+                "expected a Breakaway Gap match, got {:?}",
+                matches!(other, _)
+            ),
         }
 
         // A quiet series with no gap must not match.
@@ -404,7 +405,10 @@ mod tests {
         assert_eq!(record.symbol, "GAP");
         assert_eq!(record.rule_id, CHART_BREAKAWAY_GAP_SCANNER_ID);
         assert_eq!(record.scanner_name.as_deref(), Some("Breakaway Gap"));
-        assert_eq!(record.category_name.as_deref(), Some("Chart Patterns - Gaps"));
+        assert_eq!(
+            record.category_name.as_deref(),
+            Some("Chart Patterns - Gaps")
+        );
         assert!(record.score.is_some(), "score/confidence must survive");
         assert_eq!(record.score, expected_score);
         assert!(record.direction.is_some(), "direction must survive");

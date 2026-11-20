@@ -213,6 +213,19 @@ export interface NativeScanMatchV1 {
   values?: Record<string, number | string | boolean | null>;
   source?: string;
   pattern?: NativeScanPatternDetailsV1;
+  /**
+   * Grouped historical summary for consecutive pattern matches, matching `history` on the
+   * accepted `ScannerResult`. Native historical runs group exactly like the TypeScript
+   * evaluation, so counts and history annotations cannot diverge when the backend is
+   * switched.
+   */
+  history?: NativeScanMatchHistoryV1;
+}
+
+export interface NativeScanMatchHistoryV1 {
+  firstMatchedDate: string;
+  lastMatchedDate: string;
+  matchCount: number;
 }
 
 export interface NativeScanProgressEventV1 {

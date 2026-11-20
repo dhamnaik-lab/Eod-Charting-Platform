@@ -404,6 +404,11 @@ describe('NS-04 native run with TypeScript preservation', () => {
                 reasons: ['Gap of 8.9% above resistance'],
                 values: { gap_pct: 8.9, resistance: 101 },
                 source: 'EODChartPatternScanner_v1',
+                history: {
+                  firstMatchedDate: '2026-01-02',
+                  lastMatchedDate: '2026-01-03',
+                  matchCount: 4,
+                },
                 pattern: {
                   family: 'gap',
                   confidence: 88,
@@ -467,6 +472,13 @@ describe('NS-04 native run with TypeScript preservation', () => {
     expect(details?.pivots).toEqual([{ index: 3, date: '2026-01-02', price: 101, kind: 'high' }]);
     // Overlay geometry must survive untouched so Show on Chart can render it.
     expect(details?.geometry).toEqual(geometry);
+    // Grouped historical summary is transported, so ScannerWindow history annotations are
+    // identical on the native and TypeScript backends.
+    expect(result.history).toEqual({
+      firstMatchedDate: '2026-01-02',
+      lastMatchedDate: '2026-01-03',
+      matchCount: 4,
+    });
   });
 
   it('cancels and falls back when the native scanner reports an error', async () => {

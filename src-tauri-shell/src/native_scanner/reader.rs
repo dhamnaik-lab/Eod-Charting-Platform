@@ -308,9 +308,20 @@ pub fn parse_scan_date(value: &str) -> Result<u32, String> {
             "Invalid scan date \"{value}\"; expected YYYY-MM-DD."
         ));
     }
+    let year = value[0..4].parse::<u32>().unwrap_or(0);
     let month = value[5..7].parse::<u32>().unwrap_or(0);
     let day = value[8..10].parse::<u32>().unwrap_or(0);
-    if !(1..=12).contains(&month) || !(1..=31).contains(&day) {
+    // A range check alone accepts impossible calendar dates such as 2024-02-31, which
+    // would then be compared as if they were real trading days. Reject them instead.
+    let leap = (year % 4 == 0 && year % 100 != 0) || year % 400 == 0;
+    let max_day = match month {
+        1 | 3 | 5 | 7 | 8 | 10 | 12 => 31,
+        4 | 6 | 9 | 11 => 30,
+        2 if leap => 29,
+        2 => 28,
+        _ => 0,
+    };
+    if year == 0 || !(1..=12).contains(&month) || day == 0 || day > max_day {
         return Err(format!(
             "Invalid scan date \"{value}\"; month/day out of range."
         ));
@@ -383,10 +394,13 @@ mod tests {
     #[test]
     fn ns01_reader_reads_validated_trailing_window_and_scales_prices() {
         let temp = TempEod::new("valid");
+        // Stored prices are integers in the header's own scale. With scale 100 and a raw
+        // close of 1000 + day*100 the decoded closes are 11.0 .. 20.0, so the scaling
+        // assertion below is meaningful instead of tautological.
         let records: Vec<EodRecord> = (1..=10)
             .map(|day| record(20240100 + day, 1000 + day as i64 * 100))
             .collect();
-        write_file(&temp, "INFY", "NSE", &records, 10000);
+        write_file(&temp, "INFY", "NSE", &records, 100);
 
         let validated = open_validated(&temp.path).expect("validate");
         assert_eq!(validated.record_count, 10);
@@ -396,7 +410,13 @@ mod tests {
         assert_eq!(bars.len(), 3);
         assert_eq!(bars[0].date, 20240108);
         assert_eq!(bars[2].date, 20240110);
-        assert!((bars[2].close - 11.0).abs() < 1e-9);
+        // The reader must divide by the header's own scale (100 here), never a hardcoded
+        // one: day 10 stores a raw close of 2000 and must decode to 20.0.
+        assert!(
+            (bars[2].close - 20.0).abs() < 1e-9,
+            "unexpected close {}",
+            bars[2].close
+        );
         assert_eq!(count_duplicate_dates(&bars), 0);
     }
 
@@ -429,25 +449,36 @@ mod tests {
         );
     }
 
-    #[test]
-    fn ns01_reader_rejects_bad_magic_version_and_scale() {
-        let temp = TempEod::new("magic");
+    /// Rewrites a *clean* fixture and applies exactly one corruption to it.
+    ///
+    /// The original version of this test mutated one file twice. After the magic was
+    /// corrupted the reader rejected on magic first, so the version assertion never
+    /// observed a version error and failed with "unexpected: Invalid magic bytes in EOD
+    /// file". Each corruption now starts from a fresh, valid file so it is checked
+    /// against its own expected error.
+    fn corrupt_fixture(name: &str, corrupt: impl FnOnce(&mut [u8])) -> (TempEod, String) {
+        let temp = TempEod::new(name);
         let records = vec![record(20240101, 1000)];
         write_file(&temp, "INFY", "NSE", &records, 10000);
-
         let mut bytes = fs::read(&temp.path).expect("read fixture");
-        bytes[0] = b'X';
-        fs::write(&temp.path, &bytes).expect("corrupt magic");
-        let error = open_validated(&temp.path).expect_err("must reject magic");
-        assert!(error.contains("magic"), "unexpected: {error}");
+        corrupt(&mut bytes);
+        fs::write(&temp.path, &bytes).expect("corrupt fixture");
+        let error = open_validated(&temp.path).expect_err("corrupt fixture must be rejected");
+        (temp, error)
+    }
 
-        let mut bytes = fs::read(&temp.path).expect("read fixture");
-        bytes[4] = 9;
-        fs::write(&temp.path, &bytes).expect("corrupt version");
-        let error = open_validated(&temp.path).expect_err("must reject version");
+    #[test]
+    fn ns01_reader_rejects_bad_magic_version_and_scale() {
+        let (_temp, error) = corrupt_fixture("magic", |bytes| bytes[0] = b'X');
+        assert!(
+            error.to_ascii_lowercase().contains("magic"),
+            "magic corruption reported the wrong error: {error}"
+        );
+
+        let (_temp, error) = corrupt_fixture("version", |bytes| bytes[4] = 9);
         assert!(
             error.contains("version") || error.contains("record size") || error.contains("scale"),
-            "unexpected: {error}"
+            "version corruption reported the wrong error: {error}"
         );
     }
 
@@ -517,8 +548,17 @@ mod tests {
             "20240308",
             "2024-3-8",
             "abcd-ef-gh",
+            // Impossible calendar days: the range check alone used to accept these.
+            "2024-02-31",
+            "2023-02-29",
+            "2024-04-31",
+            "0000-01-01",
+            "2024-01-00",
         ] {
             assert!(parse_scan_date(invalid).is_err(), "must reject {invalid}");
         }
+        // Leap-day handling must be exact, not "day <= 29 in February".
+        assert_eq!(parse_scan_date("2024-02-29").unwrap(), 20240229);
+        assert_eq!(parse_scan_date("2000-02-29").unwrap(), 20000229);
     }
 }

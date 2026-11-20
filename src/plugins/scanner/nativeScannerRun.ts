@@ -244,6 +244,18 @@ function toScannerResult(match: NativeScanMatchV1, generatedAt: string): Scanner
         })()
       : {}),
     ...(match.source ? { source: match.source } : {}),
+    // Grouped historical annotation for consecutive pattern matches. The native executor
+    // groups exactly like the TypeScript evaluation, so ScannerWindow can render the same
+    // history counts on either backend.
+    ...(match.history
+      ? {
+          history: {
+            firstMatchedDate: match.history.firstMatchedDate,
+            lastMatchedDate: match.history.lastMatchedDate,
+            matchCount: match.history.matchCount,
+          },
+        }
+      : {}),
     generatedAt,
   };
 }

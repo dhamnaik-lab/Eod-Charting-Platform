@@ -121,6 +121,19 @@ pub struct ScanMatchV1 {
     pub source: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub pattern: Option<ScanPatternDetailsV1>,
+    /// Grouped historical summary for consecutive pattern matches. Absent for
+    /// latest-only runs and for numeric rules.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub history: Option<ScanMatchHistoryV1>,
+}
+
+/// Grouped historical summary as it crosses IPC.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct ScanMatchHistoryV1 {
+    pub first_matched_date: String,
+    pub last_matched_date: String,
+    pub match_count: u64,
 }
 
 /// Accepted chart-pattern details as they cross IPC.
@@ -624,6 +637,11 @@ impl<'a, S: EventSink + ?Sized> EventEmitter<'a, S> {
                     }),
                     geometry: details.geometry.map(|geometry| geometry.json),
                 }),
+                history: record.history.map(|history| ScanMatchHistoryV1 {
+                    first_matched_date: history.first_matched_date,
+                    last_matched_date: history.last_matched_date,
+                    match_count: history.match_count,
+                }),
             })
             .collect();
         self.push_matches(produced);
@@ -918,8 +936,11 @@ mod tests {
 
     fn fixture_source() -> FixtureSource {
         let mut bars = HashMap::new();
+        // A satisfies the fixture rule (close > 0) at the latest endpoint; B does not.
+        // B must be non-positive: with 0.5/0.25 it *matched* too, which is why the run
+        // reported 2 matches and 0 non-matches instead of 1 and 1.
         bars.insert("NSE:A".to_string(), vec![bar(1, 10.0), bar(2, 11.0)]);
-        bars.insert("NSE:B".to_string(), vec![bar(1, 0.5), bar(2, 0.25)]);
+        bars.insert("NSE:B".to_string(), vec![bar(1, 0.25), bar(2, 0.0)]);
         FixtureSource::new("db#1", bars)
     }
 

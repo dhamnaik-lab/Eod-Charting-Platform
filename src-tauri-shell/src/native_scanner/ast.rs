@@ -329,7 +329,18 @@ fn as_iso_date(
     }
     let month = text[5..7].parse::<u32>().unwrap_or(0);
     let day = text[8..10].parse::<u32>().unwrap_or(0);
-    if !(1..=12).contains(&month) || !(1..=31).contains(&day) {
+    let year = text[0..4].parse::<u32>().unwrap_or(0);
+    // Month/day ranges alone accept impossible dates such as 2024-02-31, which would then
+    // be silently compared as a string. Validate against the real calendar instead.
+    let leap = (year % 4 == 0 && year % 100 != 0) || year % 400 == 0;
+    let max_day = match month {
+        1 | 3 | 5 | 7 | 8 | 10 | 12 => 31,
+        4 | 6 | 9 | 11 => 30,
+        2 if leap => 29,
+        2 => 28,
+        _ => 0,
+    };
+    if year == 0 || !(1..=12).contains(&month) || day == 0 || day > max_day {
         issues.push(ValidationIssue::new(
             path,
             "invalid-date",
@@ -1415,7 +1426,14 @@ mod tests {
             { "id": "r1", "expression": { "kind": "field", "field": "close", "lookback": -1 } }
         ])))
         .expect_err("negative lookback");
-        assert!(issues.iter().any(|issue| issue.code == "not-an-integer"));
+        // A negative lookback is a valid integer that is outside the permitted range, so
+        // the validator reports `out-of-range` (never `not-an-integer`). The original
+        // assertion expected the wrong code and had never executed.
+        assert!(
+            issues.iter().any(|issue| issue.code == "out-of-range"
+                && issue.path == "request.rules[0].expression.lookback"),
+            "unexpected issues: {issues:?}"
+        );
 
         let issues = parse_native_scan_request_v1(&request_value(json!([
             { "id": "r1", "expression": { "kind": "pattern", "id": "chart_head_shoulders" } }
@@ -1523,14 +1541,61 @@ mod tests {
             field: OhlcvFieldV1::Close,
             lookback: 1,
         };
+        // `crossover(close, close[1])` can never fire: a series never crosses its own
+        // previous value upward by a full bar. The original expectation was therefore
+        // wrong. Compare against a real level so this test exercises the accepted
+        // engine semantics instead (`previous <= level && current > level`, ties
+        // included), exactly like `calculateCross` in the TypeScript formula engine.
+        let level = ExprV1::Number { value: 10.5 };
         let over = ExprV1::Cross {
             kind: CrossKindV1::Over,
             left: Box::new(close.clone()),
-            right: Box::new(previous),
+            right: Box::new(level.clone()),
         };
         assert_eq!(
             evaluate_expression(&over, &bars).unwrap().boolean(),
-            vec![None, Some(true), Some(true), Some(true)]
+            vec![None, Some(false), Some(true), Some(false)],
+            "close 9,10,11,12 crossing up through 10.5"
+        );
+
+        // A tie followed by a higher value counts as a cross-over.
+        let level = ExprV1::Number { value: 10.0 };
+        let over = ExprV1::Cross {
+            kind: CrossKindV1::Over,
+            left: Box::new(close.clone()),
+            right: Box::new(level.clone()),
+        };
+        assert_eq!(
+            evaluate_expression(&over, &bars).unwrap().boolean(),
+            vec![None, Some(false), Some(true), Some(false)],
+            "10 ties the level and 11 clears it, so the cross fires at index 2"
+        );
+
+        let under = ExprV1::Cross {
+            kind: CrossKindV1::Under,
+            left: Box::new(close),
+            right: Box::new(level),
+        };
+        assert_eq!(
+            evaluate_expression(&under, &bars).unwrap().boolean(),
+            vec![None, Some(false), Some(false), Some(false)],
+            "a rising series never crosses under the level"
+        );
+
+        // A series can never cross its own one-bar-lagged copy upward: the lagged copy is
+        // always <= the current value, so the strict `current > right` half never holds.
+        // Index 1 is null because the lagged side has no value there yet.
+        let shifted = ExprV1::Cross {
+            kind: CrossKindV1::Over,
+            left: Box::new(ExprV1::Field {
+                field: OhlcvFieldV1::Close,
+                lookback: 0,
+            }),
+            right: Box::new(previous),
+        };
+        assert_eq!(
+            evaluate_expression(&shifted, &bars).unwrap().boolean(),
+            vec![None, None, Some(false), Some(false)]
         );
     }
 

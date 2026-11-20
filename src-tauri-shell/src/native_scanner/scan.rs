@@ -98,9 +98,34 @@ pub struct ScanMatchRecord {
     pub direction: Option<String>,
     pub score: Option<f64>,
     pub reasons: Option<Vec<String>>,
-    pub values: Option<std::collections::BTreeMap<String, crate::scanner_contract::ScannerScalarValueV1>>,
+    pub values:
+        Option<std::collections::BTreeMap<String, crate::scanner_contract::ScannerScalarValueV1>>,
     pub source: Option<String>,
     pub pattern: Option<ScanPatternDetails>,
+    /// Historical grouping summary, mirroring `history` on the accepted contract result.
+    pub history: Option<ScanMatchHistory>,
+}
+
+/// One grouped historical run of consecutive pattern matches.
+///
+/// The accepted TypeScript path (`src/features/chartPatterns/evaluation.ts`) groups
+/// consecutive matches per `scannerId:direction`, keeps the *first* result of the run and
+/// annotates it with the first/last matched date and the number of matches. Historical
+/// native pattern matches use the same rule so opting in cannot change result counts.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ScanMatchHistory {
+    pub first_matched_date: String,
+    pub last_matched_date: String,
+    pub match_count: u64,
+}
+
+impl ScanMatchRecord {
+    /// Direction component of the historical grouping key. Matches
+    /// `historicalMatchKey` in the TypeScript evaluation (`scannerId:direction`), where an
+    /// absent direction is the empty string rather than a distinct value.
+    pub fn direction_as_key(&self) -> &str {
+        self.direction.as_deref().unwrap_or("")
+    }
 }
 
 /// Accepted chart-pattern details carried through to the renderer.
@@ -245,19 +270,41 @@ pub fn effective_worker_count(requested: usize, target_count: usize) -> usize {
     requested.clamp(1, MAX_WORKERS).min(target_count)
 }
 
-/// Bars required before any selected rule can be evaluated.
+/// Bars one rule needs before it can produce a non-`None` result.
 ///
-/// Pattern rules use their detector's warm-up (not the generic AST estimate), so the
-/// early "too few bars" guard stays honest for the native pattern path.
+/// Pattern rules use their detector's own warm-up (never the generic AST estimate), so
+/// warm-up accounting stays honest for the native pattern path. This is evaluated **per
+/// rule**: a 200-bar SMA must not suppress a `close > 0` rule that can already be
+/// evaluated against 20 bars.
+pub fn required_bars_for_rule(rule: &RuleV1) -> usize {
+    match super::patterns::minimum_bars_for_pattern_rule(rule) {
+        Some(required) => required,
+        None => minimum_bars_for_expression(&rule.expression),
+    }
+}
+
+/// Bars required before any selected rule can be evaluated (the window floor).
 fn required_bars(rules: &[RuleV1]) -> usize {
-    rules
-        .iter()
-        .map(|rule| match super::patterns::minimum_bars_for_pattern_rule(rule) {
-            Some(required) => required,
-            None => minimum_bars_for_expression(&rule.expression),
-        })
-        .max()
-        .unwrap_or(0)
+    rules.iter().map(required_bars_for_rule).max().unwrap_or(0)
+}
+
+/// Bars to load for one target.
+///
+/// `evaluation.lookbackBars` is the caller's authoritative context limit (the TypeScript
+/// runner truncates to it), so it caps the window instead of being silently replaced by
+/// the execution maximum. The window is still widened to the warm-up the selected rules
+/// actually need, otherwise every request below that warm-up would report "no rule has
+/// enough warm-up data" instead of the rule's real verdict -- and it is still bounded by
+/// `MAX_WINDOW_BARS`. A lookback wider than the executor maximum is clamped, never
+/// allowed to bypass the bound.
+pub fn evaluation_window(request: &NativeScanRequestV1, options: ScanExecutionOptions) -> usize {
+    let cap = options.max_window_bars.max(1).min(MAX_WINDOW_BARS);
+    let warmup = required_bars(&request.rules).max(1).min(MAX_WINDOW_BARS);
+    let requested = match request.evaluation.lookback_bars {
+        Some(lookback) => lookback.min(cap),
+        None => cap,
+    };
+    requested.max(warmup).min(MAX_WINDOW_BARS)
 }
 
 fn format_date(date: u32) -> String {
@@ -303,11 +350,7 @@ pub fn execute_scan<D: ScanDataSource>(
         .iter()
         .filter(|rule| !contains_pattern(&rule.expression))
         .collect();
-    let bars_needed = required_bars(&request.rules);
-    let window = options
-        .max_window_bars
-        .max(bars_needed.max(2))
-        .min(MAX_WINDOW_BARS);
+    let window = evaluation_window(request, options);
 
     // One slot per target keeps merge order deterministic regardless of completion order.
     let mut slots: Vec<Option<TargetOutcome>> = (0..targets.len()).map(|_| None).collect();
@@ -326,7 +369,6 @@ pub fn execute_scan<D: ScanDataSource>(
                 request,
                 target,
                 window,
-                bars_needed,
                 &numeric_rules,
                 &pattern_rules,
                 options,
@@ -358,7 +400,6 @@ pub fn execute_scan<D: ScanDataSource>(
                         request,
                         &targets[index],
                         window,
-                        bars_needed,
                         numeric_rules,
                         pattern_rules,
                         options,
@@ -484,14 +525,12 @@ fn emit_progress(
     });
 }
 
-
 #[allow(clippy::too_many_arguments)]
 fn scan_target<D: ScanDataSource>(
     source: &D,
     request: &NativeScanRequestV1,
     target: &ScanTarget,
     window: usize,
-    bars_needed: usize,
     numeric_rules: &[&RuleV1],
     pattern_rules: &[&RuleV1],
     options: ScanExecutionOptions,
@@ -535,8 +574,24 @@ fn scan_target<D: ScanDataSource>(
         };
     }
 
-    // Too few bars for the requested rules is "not evaluated", never a false no-match.
-    if bars.len() < bars_needed.max(1) {
+    // Warm-up is decided per rule, never per target. A single long-period rule must not
+    // discard the matches a shorter rule can legitimately produce from the same bars;
+    // each rule below is skipped individually when it lacks warm-up data, so the target
+    // is only reported as skipped when *no* rule could be evaluated at all.
+    let shortest_rule = request
+        .rules
+        .iter()
+        .map(required_bars_for_rule)
+        .min()
+        .unwrap_or(0);
+    if request.rules.is_empty() || bars.len() < shortest_rule.max(1) {
+        let needed = request
+            .rules
+            .iter()
+            .map(required_bars_for_rule)
+            .min()
+            .unwrap_or(0)
+            .max(1);
         return TargetOutcome {
             target: target.clone(),
             status: TargetStatus::Skipped,
@@ -545,13 +600,12 @@ fn scan_target<D: ScanDataSource>(
             bars: bars.len(),
             evaluated_history_endpoints: 0,
             message: Some(format!(
-                "{} has {} completed bar(s); the selected rules need {bars_needed}.",
+                "{} has {} completed bar(s); no selected rule can be evaluated yet (shortest needs {needed}).",
                 target.key(),
                 bars.len()
             )),
         };
     }
-
 
     let eval_bars: Vec<super::ast::EvalBar> = bars
         .iter()
@@ -570,10 +624,25 @@ fn scan_target<D: ScanDataSource>(
     let mut evaluated_history_endpoints = 0usize;
     let mut had_error = false;
 
+    let mut rules_evaluated = 0usize;
+
+    // Track consecutive historical pattern runs per `rule:direction` so they can be
+    // grouped exactly like the accepted TypeScript historical evaluation.
+    let mut active_groups: std::collections::BTreeMap<String, usize> =
+        std::collections::BTreeMap::new();
+    let mut grouped_matches: Vec<ScanMatchRecord> = Vec::new();
+
     for rule in numeric_rules {
         if cancel.load(Ordering::SeqCst) {
             break;
         }
+        // Per-rule warm-up (audit P2): a rule whose own minimum exceeds the loaded bars is
+        // "not evaluated" for that rule only, while other rules on the same target still
+        // run and can still match.
+        if bars.len() < required_bars_for_rule(rule).max(1) {
+            continue;
+        }
+        rules_evaluated += 1;
         if !request.evaluation.evaluate_history {
             match evaluate_rule_latest(&rule.expression, &eval_bars) {
                 Ok(outcome) => {
@@ -599,10 +668,15 @@ fn scan_target<D: ScanDataSource>(
         if bars.len() < start {
             continue;
         }
+        // P1-06: every endpoint from the rule's warm-up onward is evaluated. The old
+        // stride sampler silently skipped interior endpoints, so a match that occurred
+        // between two samples was never reported. The bound is now a *contiguous*
+        // trailing cap: when the available span exceeds `max_history_endpoints` the most
+        // recent N endpoints are evaluated and nothing inside that span is skipped.
         let last_index = bars.len() - 1;
-        let first_index = start.saturating_sub(1);
-        let span = last_index - first_index + 1;
-        let stride = (span / options.max_history_endpoints).max(1);
+        let warmup_index = start.saturating_sub(1);
+        let cap = options.max_history_endpoints.max(1);
+        let first_index = warmup_index.max((last_index + 1).saturating_sub(cap));
         let mut index = first_index;
         while index <= last_index {
             if cancel.load(Ordering::SeqCst) {
@@ -630,10 +704,7 @@ fn scan_target<D: ScanDataSource>(
                     break;
                 }
             }
-            if index == last_index {
-                break;
-            }
-            index = (index + stride).min(last_index);
+            index += 1;
         }
     }
 
@@ -647,11 +718,14 @@ fn scan_target<D: ScanDataSource>(
         }
         let required = super::patterns::minimum_bars_for_pattern_rule(rule).unwrap_or(0);
         if required == 0 || bars.len() < required {
-            // Warm-up is "not evaluated", never a false non-match.
+            // Warm-up is "not evaluated" for this rule only, never a false non-match.
             continue;
         }
+        rules_evaluated += 1;
         if !request.evaluation.evaluate_history {
-            let from = bars.len().saturating_sub(super::patterns::PATTERN_MAX_WINDOW_BARS);
+            let from = bars
+                .len()
+                .saturating_sub(super::patterns::PATTERN_MAX_WINDOW_BARS);
             evaluated_history_endpoints += 1;
             match super::patterns::evaluate_pattern_rule(
                 rule,
@@ -688,6 +762,9 @@ fn scan_target<D: ScanDataSource>(
             }
             let from = (index + 1).saturating_sub(super::patterns::PATTERN_MAX_WINDOW_BARS);
             evaluated_history_endpoints += 1;
+            // Keys matching at *this* endpoint; anything absent here ends its run.
+            let mut active_keys: std::collections::BTreeSet<String> =
+                std::collections::BTreeSet::new();
             match super::patterns::evaluate_pattern_rule(
                 rule,
                 &target.exchange,
@@ -696,12 +773,39 @@ fn scan_target<D: ScanDataSource>(
                 &generated_at,
             ) {
                 super::patterns::PatternEvaluation::Evaluated(Some(result)) => {
-                    matches.push(super::patterns::pattern_match_record(
+                    let record = super::patterns::pattern_match_record(
                         &target.exchange,
                         &target.symbol,
                         &rule.id,
                         result,
-                    ));
+                    );
+                    // Historical grouping, mirroring `historicalMatchKey` in the accepted
+                    // TypeScript evaluation: consecutive matches for the same
+                    // `rule:direction` extend one group instead of publishing a row per
+                    // endpoint. The first result of a run is retained and annotated with
+                    // its history summary, so native result counts match TypeScript.
+                    let key = format!("{}:{}", record.rule_id, record.direction_as_key());
+                    active_keys.insert(key.clone());
+                    match active_groups.get(&key).copied() {
+                        Some(position) => {
+                            let group = &mut grouped_matches[position];
+                            let count = group.history.as_ref().map_or(0, |h| h.match_count);
+                            if let Some(history) = group.history.as_mut() {
+                                history.last_matched_date = record.date.clone();
+                                history.match_count = count + 1;
+                            }
+                        }
+                        None => {
+                            let mut grouped = record;
+                            grouped.history = Some(ScanMatchHistory {
+                                first_matched_date: grouped.date.clone(),
+                                last_matched_date: grouped.date.clone(),
+                                match_count: 1,
+                            });
+                            active_groups.insert(key, grouped_matches.len());
+                            grouped_matches.push(grouped);
+                        }
+                    }
                     if !matched_rule_ids.contains(&rule.id) {
                         matched_rule_ids.push(rule.id.clone());
                     }
@@ -712,8 +816,32 @@ fn scan_target<D: ScanDataSource>(
                     break;
                 }
             }
+            // A key that stopped matching at this endpoint ends its run: the group is
+            // complete and must not be extended by a later, non-consecutive match.
+            active_groups.retain(|key, _| active_keys.contains(key));
             index += 1;
         }
+    }
+
+    // Grouped historical rows replace the per-endpoint rows they summarize.
+    matches.extend(grouped_matches);
+
+    if !had_error && rules_evaluated == 0 {
+        // Every rule needed more bars than the target has; that is unevaluable, not a
+        // non-match, and it must not silently read as a clean negative.
+        return TargetOutcome {
+            target: target.clone(),
+            status: TargetStatus::Skipped,
+            matches: Vec::new(),
+            matched_rule_ids: Vec::new(),
+            bars: bars.len(),
+            evaluated_history_endpoints,
+            message: Some(format!(
+                "{} has {} completed bar(s); no selected rule has enough warm-up data.",
+                target.key(),
+                bars.len()
+            )),
+        };
     }
 
     let status = if had_error {
@@ -980,12 +1108,25 @@ mod tests {
             |_| {},
         );
         assert_eq!(report.counts.matched, 1);
-        assert!(
-            report.matches.len() <= 8,
-            "history endpoints must be bounded"
-        );
         let outcome = &report.outcomes[0];
-        assert!(outcome.evaluated_history_endpoints <= 8);
+        // P1-06: the sampler is gone. 40 bars with a close>10 warm-up from bar 11 gives
+        // 30 candidate endpoints (10..=39), and the configured cap is a *contiguous*
+        // trailing cap, so exactly 8 recent endpoints are evaluated and none of them is
+        // a stride-skipped interior point.
+        assert_eq!(outcome.evaluated_history_endpoints, 8);
+        assert_eq!(
+            report.matches.len(),
+            8,
+            "no endpoint inside the capped span may be skipped"
+        );
+        // The newest endpoint is always evaluated and the retained span is contiguous:
+        // the fixture's endpoint dates are 20240101 + index, so an unbroken run of 8
+        // matches must be exactly 20240133..=20240140.
+        let mut endpoint_dates: Vec<&str> =
+            report.matches.iter().map(|m| m.date.as_str()).collect();
+        endpoint_dates.sort_unstable();
+        assert_eq!(endpoint_dates.first().copied(), Some("2024-01-33"));
+        assert_eq!(endpoint_dates.last().copied(), Some("2024-01-40"));
         // Sorting is strictly descending by date in the final report.
         let mut dates: Vec<&str> = report.matches.iter().map(|m| m.date.as_str()).collect();
         let sorted = {
@@ -994,8 +1135,213 @@ mod tests {
             copy
         };
         assert_eq!(dates, sorted);
-        dates.dedup();
-        assert_eq!(dates.len(), report.matches.len(), "no duplicate match rows");
+        let mut unique = dates.clone();
+        unique.dedup();
+        assert_eq!(
+            unique.len(),
+            report.matches.len(),
+            "no duplicate match rows"
+        );
+    }
+
+    /// Audit fix: consecutive historical pattern matches must be grouped exactly like
+    /// `src/features/chartPatterns/evaluation.ts` (one row per consecutive run, counting
+    /// its endpoints), instead of emitting a row per endpoint.
+    #[test]
+    fn p1_historical_pattern_matches_are_grouped_not_duplicated() {
+        let mut bars = HashMap::new();
+        bars.insert("NSE:GAP".to_string(), gap_bars());
+        let source = FixtureSource::new(bars);
+        let report = execute_scan(
+            &source,
+            &request(vec![pattern_rule("chart_breakaway_gap")], true),
+            &[target("GAP")],
+            &AtomicBool::new(false),
+            ScanExecutionOptions::default(),
+            |_| {},
+        );
+
+        // Four or more endpoints were evaluated, but the consecutive run collapses to one
+        // published result carrying the full history summary.
+        assert!(
+            report.outcomes[0].evaluated_history_endpoints > 1,
+            "the fixture must exercise several endpoints"
+        );
+        assert_eq!(
+            report.matches.len(),
+            1,
+            "consecutive matches must collapse into one grouped result"
+        );
+        let history = report.matches[0]
+            .history
+            .as_ref()
+            .expect("a grouped historical row must carry its history summary");
+        assert_eq!(history.first_matched_date, report.matches[0].date);
+        assert_eq!(history.last_matched_date, "2024-01-25");
+        assert_eq!(
+            history.match_count as usize, report.outcomes[0].evaluated_history_endpoints,
+            "every evaluated endpoint in the run is counted exactly once"
+        );
+    }
+
+    /// Audit fix: `evaluation.lookbackBars` must actually bound the evaluated window
+    /// instead of being parsed and ignored in favour of the executor maximum.
+    #[test]
+    fn p1_scan_honours_the_requested_lookback_window() {
+        let mut bars = HashMap::new();
+        bars.insert(
+            "NSE:LOOK".to_string(),
+            series(&(1..=100).map(|value| value as f64).collect::<Vec<_>>()),
+        );
+        let source = FixtureSource::new(bars);
+
+        let mut data = request(vec![close_above(50.0)], false);
+        data.evaluation.lookback_bars = Some(10);
+        let report = execute_scan(
+            &source,
+            &data,
+            &[target("LOOK")],
+            &AtomicBool::new(false),
+            ScanExecutionOptions::default(),
+            |_| {},
+        );
+
+        // The window handed to the data source is the requested lookback, not 5000.
+        let loads = source.loads.lock().unwrap();
+        assert_eq!(loads.len(), 1);
+        assert_eq!(loads[0].1, 10, "lookbackBars must cap the evaluated window");
+        drop(loads);
+
+        // The last 10 closes are 91..=100, all above 50, so the latest endpoint matches
+        // and the evaluated bar count proves only the truncated window was considered.
+        assert_eq!(report.outcomes[0].bars, 10);
+        assert_eq!(report.counts.matched, 1);
+    }
+
+    /// A lookback below a rule's warm-up may not silently turn the rule into a
+    /// non-match: the window is widened to the warm-up the rule actually needs.
+    #[test]
+    fn p1_scan_lookback_is_widened_to_the_rule_warmup() {
+        let mut bars = HashMap::new();
+        bars.insert(
+            "NSE:WARM".to_string(),
+            series(&(1..=60).map(|value| value as f64).collect::<Vec<_>>()),
+        );
+        let source = FixtureSource::new(bars);
+        let rule = RuleV1 {
+            id: "sma_50".to_string(),
+            expression: ExprV1::Binary {
+                op: BinaryOpV1::Gt,
+                left: Box::new(ExprV1::Indicator {
+                    name: IndicatorNameV1::Sma,
+                    period: 50,
+                    input: Some(Box::new(ExprV1::Field {
+                        field: OhlcvFieldV1::Close,
+                        lookback: 0,
+                    })),
+                }),
+                right: Box::new(ExprV1::Number { value: 0.0 }),
+            },
+        };
+        let mut data = request(vec![rule], false);
+        data.evaluation.lookback_bars = Some(5);
+
+        let report = execute_scan(
+            &source,
+            &data,
+            &[target("WARM")],
+            &AtomicBool::new(false),
+            ScanExecutionOptions::default(),
+            |_| {},
+        );
+        let loads = source.loads.lock().unwrap();
+        assert_eq!(
+            loads[0].1, 50,
+            "the window must cover the rule's warm-up, not the tiny lookback"
+        );
+        drop(loads);
+        assert_eq!(report.counts.matched, 1);
+        assert_eq!(report.outcomes[0].status, TargetStatus::Match);
+    }
+
+    /// Audit fix: a single long-period rule must not suppress a shorter rule that can
+    /// already be evaluated on the same target.
+    #[test]
+    fn p1_rule_warmup_is_evaluated_per_rule_not_per_target() {
+        let mut bars = HashMap::new();
+        bars.insert(
+            "NSE:MIXED".to_string(),
+            series(&(1..=20).map(|value| value as f64).collect::<Vec<_>>()),
+        );
+        let source = FixtureSource::new(bars);
+        let long_rule = RuleV1 {
+            id: "sma_200".to_string(),
+            expression: ExprV1::Binary {
+                op: BinaryOpV1::Gt,
+                left: Box::new(ExprV1::Indicator {
+                    name: IndicatorNameV1::Sma,
+                    period: 200,
+                    input: Some(Box::new(ExprV1::Field {
+                        field: OhlcvFieldV1::Close,
+                        lookback: 0,
+                    })),
+                }),
+                right: Box::new(ExprV1::Number { value: 0.0 }),
+            },
+        };
+        let report = execute_scan(
+            &source,
+            &request(vec![close_above(0.0), long_rule], false),
+            &[target("MIXED")],
+            &AtomicBool::new(false),
+            ScanExecutionOptions::default(),
+            |_| {},
+        );
+
+        assert_eq!(
+            report.outcomes[0].status,
+            TargetStatus::Match,
+            "the evaluable rule must still produce its match"
+        );
+        assert_eq!(report.counts.matched, 1);
+        assert_eq!(report.counts.skipped, 0);
+        assert_eq!(report.matches.len(), 1);
+        assert_eq!(report.matches[0].rule_id, "close_above");
+    }
+
+    /// When *no* rule has enough warm-up data the target is skipped, never reported as a
+    /// clean non-match.
+    #[test]
+    fn p1_target_with_no_evaluable_rule_is_skipped_not_no_match() {
+        let mut bars = HashMap::new();
+        bars.insert("NSE:SHORT".to_string(), series(&[10.0, 11.0, 12.0]));
+        let source = FixtureSource::new(bars);
+        let rule = RuleV1 {
+            id: "sma_50".to_string(),
+            expression: ExprV1::Binary {
+                op: BinaryOpV1::Gt,
+                left: Box::new(ExprV1::Indicator {
+                    name: IndicatorNameV1::Sma,
+                    period: 50,
+                    input: Some(Box::new(ExprV1::Field {
+                        field: OhlcvFieldV1::Close,
+                        lookback: 0,
+                    })),
+                }),
+                right: Box::new(ExprV1::Number { value: 0.0 }),
+            },
+        };
+        let report = execute_scan(
+            &source,
+            &request(vec![rule], false),
+            &[target("SHORT")],
+            &AtomicBool::new(false),
+            ScanExecutionOptions::default(),
+            |_| {},
+        );
+        assert_eq!(report.outcomes[0].status, TargetStatus::Skipped);
+        assert_eq!(report.counts.no_match, 0, "unevaluable is not a non-match");
+        assert_eq!(report.counts.skipped, 1);
     }
 
     #[test]
@@ -1066,7 +1412,10 @@ mod tests {
         );
 
         assert_eq!(report.counts.matched, 1, "the detector must actually run");
-        assert_eq!(report.counts.skipped, 0, "a pattern target must not be skipped");
+        assert_eq!(
+            report.counts.skipped, 0,
+            "a pattern target must not be skipped"
+        );
         assert_eq!(report.matches.len(), 1);
         let matched = &report.matches[0];
         assert_eq!(matched.rule_id, "chart_breakaway_gap");
@@ -1077,7 +1426,10 @@ mod tests {
         assert!(matched.score.is_some(), "score must be preserved");
         assert!(matched.reasons.as_ref().is_some_and(|r| !r.is_empty()));
         assert!(matched.values.as_ref().is_some_and(|v| !v.is_empty()));
-        let details = matched.pattern.as_ref().expect("geometry must be preserved");
+        let details = matched
+            .pattern
+            .as_ref()
+            .expect("geometry must be preserved");
         assert!(details.geometry.is_some());
         assert!(details.confidence > 0.0);
     }
@@ -1145,10 +1497,18 @@ mod tests {
             |_| {},
         );
         let outcome = &report.outcomes[0];
-        // 25 bars, detector warm-up start 20 -> endpoints 19..=24 inclusive.
-        assert_eq!(outcome.evaluated_history_endpoints, 6);
-        assert!(!report.matches.is_empty(), "the gap endpoint must be detected");
+        // 25 bars. Breakaway Gap needs 22 bars itself, so the first evaluable endpoint is
+        // index 21 -> endpoints 21..=24 inclusive (4 endpoints). Endpoints below the
+        // detector's own minimum are never asked for a verdict, and the four consecutive
+        // matches are published as one grouped result (TypeScript parity), not four rows.
+        assert_eq!(outcome.evaluated_history_endpoints, 4);
+        assert_eq!(report.matches.len(), 1, "consecutive endpoints are grouped");
         assert_eq!(report.matches[0].date, "2024-01-25");
+        let history = report.matches[0]
+            .history
+            .as_ref()
+            .expect("grouped history must be attached");
+        assert_eq!(history.last_matched_date, "2024-01-25");
     }
 
     /// P1-08: a deterministic series of `count` targets, each with a distinct close so the
@@ -1187,7 +1547,11 @@ mod tests {
             2,
             "must not claim more workers than targets"
         );
-        assert_eq!(effective_worker_count(4, 0), 0, "no targets means no workers");
+        assert_eq!(
+            effective_worker_count(4, 0),
+            0,
+            "no targets means no workers"
+        );
 
         let (source, targets) = parallel_fixture(2);
         let report = execute_scan(
@@ -1234,7 +1598,11 @@ mod tests {
                 .iter()
                 .map(|d| d.message.clone())
                 .collect();
-            let other_messages: Vec<_> = report.diagnostics.iter().map(|d| d.message.clone()).collect();
+            let other_messages: Vec<_> = report
+                .diagnostics
+                .iter()
+                .map(|d| d.message.clone())
+                .collect();
             assert_eq!(other_messages, single_messages);
         }
         assert_eq!(double.workers_used, 2);
@@ -1286,7 +1654,11 @@ mod tests {
         let mut unique = scanned.clone();
         unique.sort();
         unique.dedup();
-        assert_eq!(unique.len(), scanned.len(), "no target may be scanned twice");
+        assert_eq!(
+            unique.len(),
+            scanned.len(),
+            "no target may be scanned twice"
+        );
         assert_eq!(scanned.len(), 24, "no target may be dropped");
         assert_eq!(report.counts.targets, 24);
         // Target order is preserved because slots are merged in index order.

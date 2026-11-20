@@ -227,7 +227,8 @@ fn prepare_job(
             format!("Unable to open the database read-only: {error}"),
         )
     })?;
-    let targets = resolve_targets(&connection, &request.universe).map_err(NativeScanCommandError::from)?;
+    let targets =
+        resolve_targets(&connection, &request.universe).map_err(NativeScanCommandError::from)?;
     // Enumerating targets is the only work done on this connection. It is dropped before
     // the scan so no rusqlite handle is shared across worker boundaries.
     drop(connection);
@@ -239,11 +240,7 @@ fn prepare_job(
     // Atomic admission + permit ownership.
     if state
         .registry
-        .register_with_permit(
-            &request.requested_run_id,
-            &database_identity,
-            Some(permit),
-        )
+        .register_with_permit(&request.requested_run_id, &database_identity, Some(permit))
         .is_err()
     {
         return Err(NativeScanCommandError::new(
@@ -376,10 +373,8 @@ pub async fn start_native_eod_scan(
             progress_interval_ms,
         )?;
         // P1-08: report the worker count this run will really use, not the request.
-        let effective_workers = super::scan::effective_worker_count(
-            worker_count,
-            prepared.targets.len(),
-        );
+        let effective_workers =
+            super::scan::effective_worker_count(worker_count, prepared.targets.len());
         let ack = ScanStartAckV1 {
             accepted: true,
             run_id: prepared.run_id.clone(),

@@ -71,6 +71,8 @@ fn seed_database(folder: &Path, storage_mode: &str) -> Connection {
                isin TEXT,
                name TEXT,
                series TEXT,
+               sector TEXT,
+               industry TEXT,
                is_active INTEGER NOT NULL DEFAULT 1,
                lifecycle_status TEXT NOT NULL DEFAULT 'CURRENT',
                PRIMARY KEY (symbol, exchange)
@@ -341,6 +343,98 @@ fn ns01_database_gateway_adjusted_mode_reuses_the_approved_projection() {
     assert!((adjusted[0].volume - 200.0).abs() < 1e-9);
     // Previous close is recomputed rather than left on the pre-adjustment basis.
     assert!((adjusted[1].prev_close.unwrap() - 500.0).abs() < 1e-9);
+}
+
+/// CA-01 HOLD, fail-closed: the native gateway must surface the accepted projection's
+/// ambiguity as an explicit error for that target, never an adjusted parity claim and
+/// never a silently unadjusted series.
+#[test]
+fn ca01_adjusted_gateway_fails_closed_on_ambiguous_corporate_actions() {
+    let temp = TempDir::new("gateway_ca01_ambiguous");
+    let connection = seed_database(temp.path(), "hybrid");
+    connection
+        .execute_batch(
+            "INSERT INTO instruments (symbol, exchange, series) VALUES ('AMBIG', 'NSE', 'EQ');
+             INSERT INTO eod_prices (symbol, exchange, date, open, high, low, close, prev_close, volume)
+             VALUES
+               ('AMBIG','NSE','2024-01-01', 1000, 1000, 1000, 1000, 1000, 100),
+               ('AMBIG','NSE','2024-01-02', 1000, 1000, 1000, 1000, 1000, 100);
+             -- An approved dividend with no cash amount per share cannot be projected.
+             INSERT INTO corporate_actions
+               (id, symbol, exchange, effective_date, action_type, factor, adjust_volume, source)
+             VALUES (1, 'AMBIG', 'NSE', '2024-01-03', 'DIVIDEND', 1.0, 0, 'TEST');",
+        )
+        .expect("ambiguous fixture");
+
+    let error = crate::database::read_scan_bars_for_folder(
+        temp.path(),
+        &connection,
+        "AMBIG",
+        "NSE",
+        None,
+        10,
+        true,
+        true,
+        false,
+    )
+    .expect_err("an unprojectable dividend must fail closed");
+    assert!(
+        error.contains("cash amount"),
+        "the error must name the ambiguity: {error}"
+    );
+
+    // Raw reads stay available and untouched: HOLD only blocks the adjusted claim.
+    let raw = crate::database::read_scan_bars_for_folder(
+        temp.path(),
+        &connection,
+        "AMBIG",
+        "NSE",
+        None,
+        10,
+        false,
+        false,
+        false,
+    )
+    .expect("raw read must still work");
+    assert_eq!(raw.len(), 2);
+    assert!((raw[0].close - 1000.0).abs() < 1e-9);
+}
+
+/// CA-01 HOLD: a LEGACY_MUTATED action is never applied, so a database holding one cannot
+/// silently produce a different adjusted series than an approved database.
+#[test]
+fn ca01_legacy_mutated_actions_are_never_applied() {
+    let temp = TempDir::new("gateway_ca01_legacy");
+    let connection = seed_database(temp.path(), "hybrid");
+    connection
+        .execute_batch(
+            "INSERT INTO instruments (symbol, exchange, series) VALUES ('LEGACY', 'NSE', 'EQ');
+             INSERT INTO eod_prices (symbol, exchange, date, open, high, low, close, prev_close, volume)
+             VALUES
+               ('LEGACY','NSE','2024-01-01', 1000, 1000, 1000, 1000, 1000, 100),
+               ('LEGACY','NSE','2024-01-02', 500, 500, 500, 500, 1000, 100);
+             INSERT INTO corporate_actions
+               (id, symbol, exchange, effective_date, action_type, factor, adjust_volume, source)
+             VALUES (1, 'LEGACY', 'NSE', '2024-01-02', 'SPLIT', 2.0, 1, 'LEGACY_MUTATED');",
+        )
+        .expect("legacy fixture");
+
+    let adjusted = crate::database::read_scan_bars_for_folder(
+        temp.path(),
+        &connection,
+        "LEGACY",
+        "NSE",
+        None,
+        10,
+        true,
+        false,
+        false,
+    )
+    .expect("legacy read");
+    assert!(
+        (adjusted[0].close - 1000.0).abs() < 1e-9,
+        "LEGACY_MUTATED rows must never be applied"
+    );
 }
 
 #[test]
