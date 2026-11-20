@@ -27,7 +27,9 @@ use super::job::{
 };
 use super::scan::ScanExecutionOptions;
 use crate::database::database_use::acquire_use;
-use crate::database::{open_read_only_connection_for_folder, read_native_scan_selection, NativeScanSelection};
+use crate::database::{
+    open_read_only_connection_for_folder, read_native_scan_selection, NativeScanSelection,
+};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use tauri::{AppHandle, Emitter, Manager, State};

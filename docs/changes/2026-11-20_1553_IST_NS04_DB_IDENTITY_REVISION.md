@@ -38,3 +38,12 @@ Revert only this scoped PR change by an explicitly approved Git revert or immuta
 
 ## Next step
 Check the new PR-head Rustfmt, Cargo native/full, renderer CI and documentation checks. Then perform Windows disposable-database A → B → A, database replacement/junction, cancellation and close stress tests; only consider merging after explicit acceptance.
+
+
+## Hosted validation evidence (code commit `2f5ddf96`)
+
+- Rust Compile and Test CI run `44718967375` **PASS**: `cargo check --tests --locked` successful; native scanner **101 passed / 0 failed**; RSC scanner regressions **18 passed / 0 failed**; full Rust suite **1,392 passed / 0 failed / 26 ignored / 1 filtered**. Full suite runs the two new registered-selection Rust tests.
+- Renderer CI run `44718967423` **PASS**: renderer Vitest, TypeScript typecheck and Vite production build passed.
+- Rustfmt CI run `44718968031` **FAIL** on exactly one import-layout diff in `native_scanner/ipc.rs`; no semantic change was needed. This follow-up commit applies the exact hosted Rustfmt correction.
+- The revised follow-up commit requires its **own** CI verification; no check may be reported as passed on the follow-up without its own real workflow output.
+- Windows physical identity, portable native UI, disposable database A → B → A switch, and the Linux-filtered Windows-only path test remain untested.
