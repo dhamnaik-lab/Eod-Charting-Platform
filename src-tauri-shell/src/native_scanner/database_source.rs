@@ -41,6 +41,8 @@ pub struct ReadOnlyDatabaseSource {
     folder: PathBuf,
     identity: String,
     connections: Mutex<HashMap<ThreadId, Arc<Mutex<Connection>>>>,
+    #[cfg(test)]
+    pub(crate) test_probe: test_probe::Probe,
 }
 
 /// Test-only instrumentation proving the registry lock is not held across a read.
@@ -53,33 +55,38 @@ pub struct ReadOnlyDatabaseSource {
 pub(crate) mod test_probe {
     use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
 
-    pub(crate) static ACTIVE_READS: AtomicUsize = AtomicUsize::new(0);
-    pub(crate) static MAX_ACTIVE_READS: AtomicUsize = AtomicUsize::new(0);
-    /// Milliseconds each read section stalls, so overlap is observable rather than
-    /// depending on how fast a tiny fixture happens to be.
-    pub(crate) static READ_SECTION_DELAY_MS: AtomicU64 = AtomicU64::new(0);
-
-    pub(crate) fn reset(delay_ms: u64) {
-        ACTIVE_READS.store(0, Ordering::SeqCst);
-        MAX_ACTIVE_READS.store(0, Ordering::SeqCst);
-        READ_SECTION_DELAY_MS.store(delay_ms, Ordering::SeqCst);
+    /// Per-source counters prevent parallel test fixtures from resetting each other.
+    /// Completely absent from non-test binaries.
+    #[derive(Default)]
+    pub(crate) struct Probe {
+        active_reads: AtomicUsize,
+        max_active_reads: AtomicUsize,
+        read_section_delay_ms: AtomicU64,
     }
 
-    pub(crate) fn peak() -> usize {
-        MAX_ACTIVE_READS.load(Ordering::SeqCst)
-    }
-
-    pub(crate) fn enter() {
-        let current = ACTIVE_READS.fetch_add(1, Ordering::SeqCst) + 1;
-        MAX_ACTIVE_READS.fetch_max(current, Ordering::SeqCst);
-        let delay = READ_SECTION_DELAY_MS.load(Ordering::SeqCst);
-        if delay > 0 {
-            std::thread::sleep(std::time::Duration::from_millis(delay));
+    impl Probe {
+        pub(crate) fn reset(&self, delay_ms: u64) {
+            self.active_reads.store(0, Ordering::SeqCst);
+            self.max_active_reads.store(0, Ordering::SeqCst);
+            self.read_section_delay_ms.store(delay_ms, Ordering::SeqCst);
         }
-    }
 
-    pub(crate) fn leave() {
-        ACTIVE_READS.fetch_sub(1, Ordering::SeqCst);
+        pub(crate) fn peak(&self) -> usize {
+            self.max_active_reads.load(Ordering::SeqCst)
+        }
+
+        pub(crate) fn enter(&self) {
+            let current = self.active_reads.fetch_add(1, Ordering::SeqCst) + 1;
+            self.max_active_reads.fetch_max(current, Ordering::SeqCst);
+            let delay = self.read_section_delay_ms.load(Ordering::SeqCst);
+            if delay > 0 {
+                std::thread::sleep(std::time::Duration::from_millis(delay));
+            }
+        }
+
+        pub(crate) fn leave(&self) {
+            self.active_reads.fetch_sub(1, Ordering::SeqCst);
+        }
     }
 }
 
@@ -109,6 +116,8 @@ impl ReadOnlyDatabaseSource {
             folder,
             identity,
             connections: Mutex::new(connections),
+            #[cfg(test)]
+            test_probe: test_probe::Probe::default(),
         })
     }
 
@@ -135,10 +144,10 @@ impl ReadOnlyDatabaseSource {
             .lock()
             .map_err(|_| "The scan connection is poisoned.".to_string())?;
         #[cfg(test)]
-        test_probe::enter();
+        self.test_probe.enter();
         let result = f(&guard);
         #[cfg(test)]
-        test_probe::leave();
+        self.test_probe.leave();
         result
     }
 

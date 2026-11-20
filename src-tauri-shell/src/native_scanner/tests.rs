@@ -541,9 +541,9 @@ fn p1_08_workers_read_concurrently_without_a_global_connection_lock() {
 
     // 40ms per read section: overlaps are then observed deterministically instead of
     // depending on how fast a one-row fixture happens to be.
-    super::database_source::test_probe::reset(40);
     let source =
         Arc::new(ReadOnlyDatabaseSource::open(temp.path().to_path_buf()).expect("open source"));
+    source.test_probe.reset(40);
     let barrier = Arc::new(Barrier::new(4));
 
     let mut handles = Vec::new();
@@ -569,12 +569,35 @@ fn p1_08_workers_read_concurrently_without_a_global_connection_lock() {
         assert!((bars[0].close - 101.0).abs() < 1e-9);
     }
 
-    let peak = super::database_source::test_probe::peak();
-    super::database_source::test_probe::reset(0);
+    let peak = source.test_probe.peak();
     assert!(
         peak > 1,
         "workers were serialized behind the connection registry; peak concurrent reads = {peak}"
     );
+}
+
+/// Reconfiguring one source's probe must not alter another source's counters.
+#[test]
+fn p1_08_test_probe_counters_are_isolated_per_source() {
+    use super::database_source::test_probe::Probe;
+
+    let first = Probe::default();
+    let second = Probe::default();
+    first.reset(0);
+    second.reset(0);
+    first.enter();
+    assert_eq!(first.peak(), 1);
+    assert_eq!(second.peak(), 0);
+    second.enter();
+    first.leave();
+    first.reset(0);
+    assert_eq!(first.peak(), 0);
+    assert_eq!(
+        second.peak(),
+        1,
+        "resetting another probe must not erase this peak"
+    );
+    second.leave();
 }
 
 /// Each thread must get its own connection handle, never a shared one.
