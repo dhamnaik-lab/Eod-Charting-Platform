@@ -129,7 +129,7 @@ fn to_match_record(
     rule_id: &str,
     result: ScannerResultV1,
 ) -> ScanMatchRecord {
-    let details: Option<ScannerPatternDetails> = result.chart_pattern.map(|pattern| {
+    let details: Option<super::scan::ScanPatternDetails> = result.chart_pattern.map(|pattern| {
         let ChartPatternResultDetailsV1 {
             family,
             confidence,
@@ -146,7 +146,7 @@ fn to_match_record(
             pivots,
             geometry,
         } = pattern;
-        ScanPatternDetails {
+        super::scan::ScanPatternDetails {
             family: format!("{family:?}").to_ascii_lowercase(),
             confidence,
             pattern_start_date,

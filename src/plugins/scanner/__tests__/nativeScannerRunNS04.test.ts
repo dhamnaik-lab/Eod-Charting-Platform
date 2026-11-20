@@ -8,7 +8,10 @@ import {
   formatNativeScannerStatus,
   runNativeOrTypeScriptScannerBatch,
 } from '@/plugins/scanner/nativeScannerRun';
-import type { NativeScanProgressEventV1 } from '@/features/scanner/nativeScanContract';
+import type {
+  NativeScanMatchBatchEventV1,
+  NativeScanProgressEventV1,
+} from '@/features/scanner/nativeScanContract';
 import {
   NATIVE_SUPPORTED_PATTERN_IDS,
   splitNativeSupportedScannerIds,
@@ -236,8 +239,234 @@ describe('NS-04 native run with TypeScript preservation', () => {
     expect(outcome.results.map((result) => result.symbol)).toEqual(['INFY', 'TCS']);
     expect(outcome.alertTriggers).toEqual([]);
     expect(outcome.cancelled).toBe(false);
-    expect(chunked.flat()).toHaveLength(3);
-    expect(outcome.nativeCounts?.targets).toBe(2);
+    // P1-09: matches are buffered until completion, then published exactly once with the
+    // de-duplicated accepted set - never as provisional pre-terminal chunks.
+    expect(chunked).toHaveLength(1);
+    expect(chunked.flat()).toHaveLength(2);
+    // P1-05: counts come from the backend terminal event, not zero-filled placeholders.
+    expect(outcome.nativeCounts).toEqual({
+      targets: 2,
+      matched: 2,
+      noMatch: 0,
+      skipped: 0,
+      failed: 0,
+    });
+  });
+
+  it('P1-09 publishes nothing when native fails after several match batches arrived', async () => {
+    const runTypeScript = vi.fn(async () => tsOutput({ results: [] }));
+    const chunked: ScannerResult[][] = [];
+
+    const outcome = await runNativeOrTypeScriptScannerBatch(
+      baseOptions({ onResultChunk: (chunk: ScannerResult[]) => chunked.push(chunk) }),
+      {
+        runTypeScript,
+        newRunId: () => 'native-run',
+        subscribe: async (runId, handlers) => {
+          setTimeout(() => {
+            // Two full match batches arrive first...
+            for (const sequence of [1, 2]) {
+              handlers.onMatches?.({
+                eventVersion: 1,
+                runId,
+                sequence,
+                databaseIdentity: 'db#1',
+                matches: [
+                  {
+                    exchange: 'NSE',
+                    symbol: `PRE${sequence}`,
+                    ruleId: 'chart_breakaway_gap',
+                    date: '2026-01-02',
+                  },
+                ],
+              } satisfies NativeScanMatchBatchEventV1);
+            }
+            // ...and only then does the run fail.
+            handlers.onError?.({
+              eventVersion: 1,
+              runId,
+              sequence: 3,
+              databaseIdentity: 'db#1',
+              code: 'native-scan-failed',
+              message: 'worker died',
+              counts: { targets: 2, matched: 2, noMatch: 0, skipped: 0, failed: 0 },
+              diagnostics: [],
+            });
+          }, 0);
+          return (() => undefined) satisfies () => void;
+        },
+        cancel: async () => ({ runId: 'x', cancelRequested: false, alreadyFinished: true }),
+        start: async () => ({
+          accepted: true,
+          runId: 'native-run',
+          schemaVersion: 1 as const,
+          databaseIdentity: 'db#1',
+          workerCount: 2,
+          totalTargets: 2,
+        }),
+      },
+    );
+
+    // Whole run falls back; the provisional native rows must never reach the UI.
+    expect(outcome.backend).toBe('typescript-fallback');
+    expect(runTypeScript).toHaveBeenCalledTimes(1);
+    expect(chunked).toEqual([]);
+    expect(outcome.fallbackReason).toContain('worker died');
+  });
+
+  it('P1-05 reports skipped and failed targets instead of a clean success', async () => {
+    const outcome = await runNativeOrTypeScriptScannerBatch(baseOptions(), {
+      runTypeScript: vi.fn(async () => tsOutput()),
+      newRunId: () => 'native-run',
+      subscribe: async (runId, handlers) => {
+        setTimeout(() => {
+          handlers.onComplete?.({
+            eventVersion: 1,
+            runId,
+            sequence: 2,
+            databaseIdentity: 'db#1',
+            cancelled: false,
+            durationMs: 5,
+            counts: { targets: 3, matched: 0, noMatch: 1, skipped: 1, failed: 1 },
+            diagnostics: [
+              {
+                code: 'target-skipped',
+                message: 'NSE:EMPTY has no completed bars.',
+                target: { exchange: 'NSE', symbol: 'EMPTY' },
+              },
+              {
+                code: 'target-error',
+                message: 'NSE:BROKEN could not be read.',
+                target: { exchange: 'NSE', symbol: 'BROKEN' },
+              },
+            ],
+          });
+        }, 0);
+        return (() => undefined) satisfies () => void;
+      },
+      cancel: async () => ({ runId: 'x', cancelRequested: false, alreadyFinished: true }),
+      start: async () => ({
+        accepted: true,
+        runId: 'native-run',
+        schemaVersion: 1 as const,
+        databaseIdentity: 'db#1',
+        workerCount: 2,
+        totalTargets: 3,
+      }),
+    });
+
+    expect(outcome.nativeCounts).toEqual({
+      targets: 3,
+      matched: 0,
+      noMatch: 1,
+      skipped: 1,
+      failed: 1,
+    });
+    expect(outcome.errors).toEqual([
+      'NSE:EMPTY has no completed bars.',
+      'NSE:BROKEN could not be read.',
+    ]);
+    const status = formatNativeScannerStatus(outcome, 3);
+    expect(status).toContain('incomplete');
+    expect(status).toContain('1 skipped');
+    expect(status).toContain('1 failed');
+  });
+
+  it('P0-02 preserves accepted chart-pattern metadata end to end', async () => {
+    const geometry = {
+      family: 'gap-zone',
+      zones: [
+        { id: 'gap', role: 'gap', startDate: '2026-01-02', endDate: '2026-01-03', low: 100, high: 110 },
+      ],
+    };
+    const outcome = await runNativeOrTypeScriptScannerBatch(baseOptions(), {
+      runTypeScript: vi.fn(async () => tsOutput()),
+      newRunId: () => 'native-run',
+      subscribe: async (runId, handlers) => {
+        setTimeout(() => {
+          handlers.onMatches?.({
+            eventVersion: 1,
+            runId,
+            sequence: 1,
+            databaseIdentity: 'db#1',
+            matches: [
+              {
+                exchange: 'NSE',
+                symbol: 'GAP',
+                ruleId: 'chart_breakaway_gap',
+                date: '2026-01-03',
+                value: 88,
+                scannerName: 'Breakaway Gap',
+                categoryId: 'chart_patterns_gap',
+                categoryName: 'Chart Patterns - Gaps',
+                direction: 'bullish',
+                score: 88,
+                reasons: ['Gap of 8.9% above resistance'],
+                values: { gap_pct: 8.9, resistance: 101 },
+                source: 'EODChartPatternScanner_v1',
+                pattern: {
+                  family: 'gap',
+                  confidence: 88,
+                  patternStartDate: '2026-01-02',
+                  patternEndDate: '2026-01-03',
+                  breakoutLevel: 101,
+                  supportLevel: 99,
+                  resistanceLevel: 104,
+                  targetPrice: 118,
+                  stopLossPrice: 98,
+                  potentialGainPct: 6.4,
+                  riskRewardRatio: 2.1,
+                  pivots: [{ index: 3, date: '2026-01-02', price: 101, kind: 'high' }],
+                  geometry,
+                },
+              },
+            ],
+          });
+          handlers.onComplete?.({
+            eventVersion: 1,
+            runId,
+            sequence: 2,
+            databaseIdentity: 'db#1',
+            cancelled: false,
+            durationMs: 3,
+            counts: { targets: 1, matched: 1, noMatch: 0, skipped: 0, failed: 0 },
+            workersUsed: 1,
+            diagnostics: [],
+          });
+        }, 0);
+        return (() => undefined) satisfies () => void;
+      },
+      cancel: async () => ({ runId: 'x', cancelRequested: false, alreadyFinished: true }),
+      start: async () => ({
+        accepted: true,
+        runId: 'native-run',
+        schemaVersion: 1 as const,
+        databaseIdentity: 'db#1',
+        workerCount: 1,
+        totalTargets: 1,
+      }),
+    });
+
+    const [result] = outcome.results;
+    expect(result.scannerName).toBe('Breakaway Gap');
+    expect(result.categoryId).toBe('chart_patterns_gap');
+    expect(result.direction).toBe('bullish');
+    expect(result.score).toBe(88);
+    expect(result.reasons).toEqual(['Gap of 8.9% above resistance']);
+    expect(result.values).toEqual({ gap_pct: 8.9, resistance: 101 });
+    expect(result.source).toBe('EODChartPatternScanner_v1');
+    const details = result.chartPattern;
+    expect(details).toBeDefined();
+    expect(details?.family).toBe('gap');
+    expect(details?.confidence).toBe(88);
+    expect(details?.patternStartDate).toBe('2026-01-02');
+    expect(details?.breakoutLevel).toBe(101);
+    expect(details?.resistanceLevel).toBe(104);
+    expect(details?.targetPrice).toBe(118);
+    expect(details?.riskRewardRatio).toBe(2.1);
+    expect(details?.pivots).toEqual([{ index: 3, date: '2026-01-02', price: 101, kind: 'high' }]);
+    // Overlay geometry must survive untouched so Show on Chart can render it.
+    expect(details?.geometry).toEqual(geometry);
   });
 
   it('cancels and falls back when the native scanner reports an error', async () => {

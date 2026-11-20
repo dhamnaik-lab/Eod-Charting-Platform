@@ -30,7 +30,6 @@ use crate::database::database_use::acquire_use;
 use crate::database::{open_read_only_connection_for_folder, resolve_active_database_folder};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use std::sync::Mutex;
 use tauri::{AppHandle, Emitter, Manager, State};
 
 /// Raw IPC payload: the request arrives as untrusted JSON and is validated in Rust even

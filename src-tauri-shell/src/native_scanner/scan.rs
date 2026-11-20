@@ -750,7 +750,7 @@ mod tests {
         identity: String,
         bars: HashMap<String, Vec<NativeBar>>,
         errors: HashMap<String, String>,
-        loads: std::cell::RefCell<Vec<(String, usize, Option<String>, PriceBasisV1)>>,
+        loads: std::sync::Mutex<Vec<(String, usize, Option<String>, PriceBasisV1)>>,
     }
 
     impl FixtureSource {
@@ -759,7 +759,7 @@ mod tests {
                 identity: "fixture-db@revision-1".to_string(),
                 bars,
                 errors: HashMap::new(),
-                loads: std::cell::RefCell::new(Vec::new()),
+                loads: std::sync::Mutex::new(Vec::new()),
             }
         }
     }
@@ -778,7 +778,7 @@ mod tests {
             _include_dividend_adjustments: bool,
             _include_rights_adjustments: bool,
         ) -> Result<Vec<NativeBar>, String> {
-            self.loads.borrow_mut().push((
+            self.loads.lock().unwrap().push((
                 target.key(),
                 window,
                 as_of_date.map(ToOwned::to_owned),
@@ -934,7 +934,7 @@ mod tests {
             |_| {},
         );
         assert_eq!(report.counts.matched, 1);
-        let loads = source.loads.borrow();
+        let loads = source.loads.lock().unwrap();
         assert_eq!(loads.len(), 1);
         assert!(loads[0].1 >= 20, "window must cover indicator warm-up");
         assert!(loads[0].1 <= MAX_WINDOW_BARS);
@@ -1016,7 +1016,6 @@ mod tests {
         assert_eq!(report.outcomes.len(), 2);
     }
 
-    #[test]
     /// Flat base followed by a genuine gap up on heavy volume (a real Breakaway Gap).
     fn gap_bars() -> Vec<NativeBar> {
         let mut bars: Vec<NativeBar> = (1..=24)
@@ -1151,6 +1150,151 @@ mod tests {
         assert_eq!(report.matches[0].date, "2024-01-25");
     }
 
+    /// P1-08: a deterministic series of `count` targets, each with a distinct close so the
+    /// outcome per target is predictable.
+    fn parallel_fixture(count: usize) -> (FixtureSource, Vec<ScanTarget>) {
+        let mut bars = HashMap::new();
+        let mut targets = Vec::new();
+        for index in 0..count {
+            let symbol = format!("S{index:02}");
+            let base = 10.0 + index as f64;
+            bars.insert(
+                format!("NSE:{symbol}"),
+                series(&[base, base, base, base, base]),
+            );
+            targets.push(ScanTarget {
+                exchange: "NSE".to_string(),
+                symbol,
+            });
+        }
+        (FixtureSource::new(bars), targets)
+    }
+
+    #[test]
+    fn p1_08_worker_count_is_clamped_and_truthfully_reported() {
+        assert_eq!(effective_worker_count(0, 10), 1, "never zero workers");
+        assert_eq!(effective_worker_count(1, 10), 1);
+        assert_eq!(effective_worker_count(2, 10), 2);
+        assert_eq!(effective_worker_count(4, 10), 4);
+        assert_eq!(
+            effective_worker_count(64, 10),
+            MAX_WORKERS,
+            "must not exceed the approved ceiling"
+        );
+        assert_eq!(
+            effective_worker_count(4, 2),
+            2,
+            "must not claim more workers than targets"
+        );
+        assert_eq!(effective_worker_count(4, 0), 0, "no targets means no workers");
+
+        let (source, targets) = parallel_fixture(2);
+        let report = execute_scan(
+            &source,
+            &request(vec![close_above(5.0)], false),
+            &targets,
+            &AtomicBool::new(false),
+            ScanExecutionOptions::default().with_worker_count(4),
+            |_| {},
+        );
+        assert_eq!(report.workers_used, 2, "report actual, not requested");
+    }
+
+    /// P1-08 + approval requirement 3: output must be identical for 1, 2 and 4 workers.
+    #[test]
+    fn p1_08_output_is_identical_for_1_2_and_4_workers() {
+        let (source, targets) = parallel_fixture(12);
+        let request_data = request(vec![close_above(14.0)], true);
+
+        let run = |workers: usize| {
+            execute_scan(
+                &source,
+                &request_data,
+                &targets,
+                &AtomicBool::new(false),
+                ScanExecutionOptions::default().with_worker_count(workers),
+                |_| {},
+            )
+        };
+        let single = run(1);
+        let double = run(2);
+        let quad = run(4);
+
+        for report in [&double, &quad] {
+            assert_eq!(
+                report.matches, single.matches,
+                "match ordering must not depend on worker count"
+            );
+            assert_eq!(report.outcomes.len(), single.outcomes.len());
+            assert_eq!(report.counts, single.counts);
+            // Diagnostics are emitted per completed slot in target order.
+            let single_messages: Vec<_> = single
+                .diagnostics
+                .iter()
+                .map(|d| d.message.clone())
+                .collect();
+            let other_messages: Vec<_> = report.diagnostics.iter().map(|d| d.message.clone()).collect();
+            assert_eq!(other_messages, single_messages);
+        }
+        assert_eq!(double.workers_used, 2);
+        assert_eq!(quad.workers_used, 4);
+    }
+
+    /// P1-08 + approval requirement 5: cancellation stops new work.
+    #[test]
+    fn p1_08_cancellation_stops_new_work_with_multiple_workers() {
+        let (source, targets) = parallel_fixture(16);
+        let cancel = AtomicBool::new(true);
+        let report = execute_scan(
+            &source,
+            &request(vec![close_above(5.0)], false),
+            &targets,
+            &cancel,
+            ScanExecutionOptions::default().with_worker_count(4),
+            |_| {},
+        );
+
+        assert!(report.cancelled, "the run must report cancellation");
+        // Every target still has an outcome; none is silently dropped.
+        assert_eq!(report.outcomes.len(), 16);
+        assert!(report
+            .diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.code == "target-skipped"));
+    }
+
+    /// Approval requirement 1/2: distinct targets are handled exactly once even when
+    /// several workers claim indices concurrently.
+    #[test]
+    fn p1_08_concurrent_claims_do_not_duplicate_or_drop_targets() {
+        let (source, targets) = parallel_fixture(24);
+        let report = execute_scan(
+            &source,
+            &request(vec![close_above(5.0)], false),
+            &targets,
+            &AtomicBool::new(false),
+            ScanExecutionOptions::default().with_worker_count(4),
+            |_| {},
+        );
+
+        let scanned: Vec<String> = report
+            .outcomes
+            .iter()
+            .map(|outcome| outcome.target.symbol.clone())
+            .collect();
+        let mut unique = scanned.clone();
+        unique.sort();
+        unique.dedup();
+        assert_eq!(unique.len(), scanned.len(), "no target may be scanned twice");
+        assert_eq!(scanned.len(), 24, "no target may be dropped");
+        assert_eq!(report.counts.targets, 24);
+        // Target order is preserved because slots are merged in index order.
+        assert_eq!(
+            scanned,
+            (0..24).map(|i| format!("S{i:02}")).collect::<Vec<_>>()
+        );
+    }
+
     #[test]
     fn ns01_scan_passes_the_as_of_date_and_price_basis_to_the_source() {
         let mut bars = HashMap::new();
@@ -1167,7 +1311,7 @@ mod tests {
             |_| {},
         );
         assert_eq!(report.counts.no_match, 1);
-        let loads = source.loads.borrow();
+        let loads = source.loads.lock().unwrap();
         assert_eq!(loads[0].2.as_deref(), Some("2024-01-02"));
         assert_eq!(loads[0].3, PriceBasisV1::Raw);
     }

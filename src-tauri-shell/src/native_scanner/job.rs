@@ -101,6 +101,66 @@ pub struct ScanMatchV1 {
     pub date: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub value: Option<f64>,
+    /// P0-02: accepted chart-pattern metadata. Omitted (never zero-filled) when a rule
+    /// does not produce it, so the renderer can tell "absent" from "neutral".
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub scanner_name: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub category_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub category_name: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub direction: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub score: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub reasons: Option<Vec<String>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub values: Option<BTreeMap<String, crate::scanner_contract::ScannerScalarValueV1>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub source: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub pattern: Option<ScanPatternDetailsV1>,
+}
+
+/// Accepted chart-pattern details as they cross IPC.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct ScanPatternDetailsV1 {
+    pub family: String,
+    pub confidence: f64,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub pattern_start_date: Option<String>,
+    pub pattern_end_date: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub breakout_level: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub support_level: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub resistance_level: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub neckline_level: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub target_price: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub stop_loss_price: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub potential_gain_pct: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub risk_reward_ratio: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub pivots: Option<Vec<ScanPatternPivotV1>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub geometry: Option<serde_json::Value>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct ScanPatternPivotV1 {
+    pub index: usize,
+    pub date: String,
+    pub price: f64,
+    pub kind: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -530,6 +590,40 @@ impl<'a, S: EventSink + ?Sized> EventEmitter<'a, S> {
                 rule_id: record.rule_id,
                 date: record.date,
                 value: record.value,
+                scanner_name: record.scanner_name,
+                category_id: record.category_id,
+                category_name: record.category_name,
+                direction: record.direction,
+                score: record.score,
+                reasons: record.reasons,
+                values: record.values,
+                source: record.source,
+                pattern: record.pattern.map(|details| ScanPatternDetailsV1 {
+                    family: details.family,
+                    confidence: details.confidence,
+                    pattern_start_date: details.pattern_start_date,
+                    pattern_end_date: details.pattern_end_date,
+                    breakout_level: details.breakout_level,
+                    support_level: details.support_level,
+                    resistance_level: details.resistance_level,
+                    neckline_level: details.neckline_level,
+                    target_price: details.target_price,
+                    stop_loss_price: details.stop_loss_price,
+                    potential_gain_pct: details.potential_gain_pct,
+                    risk_reward_ratio: details.risk_reward_ratio,
+                    pivots: details.pivots.map(|pivots| {
+                        pivots
+                            .into_iter()
+                            .map(|pivot| ScanPatternPivotV1 {
+                                index: pivot.index,
+                                date: pivot.date,
+                                price: pivot.price,
+                                kind: pivot.kind,
+                            })
+                            .collect()
+                    }),
+                    geometry: details.geometry.map(|geometry| geometry.json),
+                }),
             })
             .collect();
         self.push_matches(produced);
@@ -1103,5 +1197,92 @@ mod tests {
             .diagnostics
             .iter()
             .any(|diagnostic| diagnostic.message.contains("corrupt .eod header")));
+    }
+
+    // ---- P0-03: database-use permit ownership ----
+
+    /// A stand-in for the OS-backed shared-use permit.
+    fn fake_permit() -> std::fs::File {
+        tempfile::tempfile().expect("temp permit file")
+    }
+
+    #[test]
+    fn p0_03_registration_takes_permit_ownership_atomically() {
+        let registry = NativeScanJobRegistry::new();
+        assert_eq!(registry.held_permit_count(), 0);
+
+        registry
+            .register_with_permit("run-a", "db#1", Some(fake_permit()))
+            .expect("register");
+        assert!(registry.owns_permit("run-a"));
+        assert_eq!(registry.held_permit_count(), 1);
+
+        registry.unregister("run-a");
+        assert_eq!(
+            registry.held_permit_count(),
+            0,
+            "releasing ownership happens only on unregister"
+        );
+        assert!(!registry.owns_permit("run-a"));
+    }
+
+    #[test]
+    fn p0_03_rejected_run_cannot_take_or_release_another_runs_permit() {
+        let registry = NativeScanJobRegistry::new();
+        registry
+            .register_with_permit("run-a", "db#1", Some(fake_permit()))
+            .expect("first run");
+
+        // A concurrent start is rejected and keeps *its own* handle (dropped by the
+        // caller), so the active run still owns exactly one permit.
+        let second = registry.register_with_permit("run-b", "db#1", Some(fake_permit()));
+        assert!(second.is_err(), "only one active run is allowed");
+        assert_eq!(
+            registry.held_permit_count(),
+            1,
+            "the active run's permit must be untouched by a rejected start"
+        );
+        assert!(registry.owns_permit("run-a"));
+
+        // A reused run id is likewise rejected without disturbing ownership.
+        registry.unregister("run-a");
+        registry
+            .register_with_permit("run-a", "db#1", Some(fake_permit()))
+            .expect("re-register");
+        assert_eq!(registry.held_permit_count(), 1);
+    }
+
+    #[test]
+    fn p0_03_cancel_all_does_not_release_the_permit_while_work_may_be_running() {
+        let registry = NativeScanJobRegistry::new();
+        registry
+            .register_with_permit("run-a", "db#1", Some(fake_permit()))
+            .expect("register");
+
+        let cancelled = registry.cancel_all();
+        assert_eq!(cancelled, 1);
+        // The permit is still held: a database switch or deletion must not be able to take
+        // exclusive access while the worker may still be reading.
+        assert_eq!(
+            registry.held_permit_count(),
+            1,
+            "cancel_all must not release a permit out from under a running worker"
+        );
+        assert!(registry.owns_permit("run-a"));
+
+        // Ownership ends with the run, which is the only correct release point.
+        registry.unregister("run-a");
+        assert_eq!(registry.held_permit_count(), 0);
+    }
+
+    #[test]
+    fn p0_03_registration_without_a_permit_still_works_for_unit_use() {
+        let registry = NativeScanJobRegistry::new();
+        registry
+            .register("run-a", "db#1")
+            .expect("register without permit");
+        assert!(!registry.owns_permit("run-a"));
+        assert_eq!(registry.held_permit_count(), 0);
+        registry.unregister("run-a");
     }
 }

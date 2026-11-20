@@ -18,10 +18,19 @@ import {
   NATIVE_SUPPORTED_PATTERN_IDS,
   NATIVE_SUPPORTED_PATTERN_NAMES,
   splitNativeSupportedScannerIds,
+  type NativeScanCountsV1,
+  type NativeScanDiagnosticV1,
+  type NativeScanMatchV1,
+  type NativeScanPatternDetailsV1,
   type NativeScanRequestV1,
   type NativeScanRuleV1,
   type NativeSupportedPatternId,
 } from '@/features/scanner/nativeScanContract';
+import type {
+  ChartPatternFamily,
+  ChartPatternGeometry,
+  ChartPatternResultDetails,
+} from '@/features/chartPatterns/types';
 import type { ScannerDefinition, ScannerResult, ScannerRunOutput, ScannerRunTarget } from '@/plugins/scanner/types';
 import {
   cancelNativeEodScan,
@@ -141,27 +150,100 @@ function parseIsoDate(value: string | null | undefined): string | null {
   return /^\d{4}-\d{2}-\d{2}$/.test(value) ? value : null;
 }
 
-/** Converts a native match into the existing `ScannerResult` shape. */
-function toScannerResult(
-  match: { exchange: string; symbol: string; ruleId: string; date: string; value?: number },
-  generatedAt: string,
-): ScannerResult {
+/**
+ * P0-02: converts native pattern details into the accepted `ChartPatternResultDetails`.
+ *
+ * The native side transports `family`/`pivot.kind` as strings because Rust enums are
+ * lowered generically. Rather than casting blindly, the value is validated against the
+ * accepted union: a recognised member is preserved, and anything unrecognised is dropped
+ * with the rest of that detail group instead of being forced into a wrong category.
+ */
+const CHART_PATTERN_FAMILIES = new Set(['gap', 'reversal', 'continuation', 'neutral-bilateral']);
+const PIVOT_KINDS = new Set(['high', 'low']);
+
+function toChartPatternDetails(
+  details: NativeScanPatternDetailsV1,
+): ChartPatternResultDetails | undefined {
+  if (!CHART_PATTERN_FAMILIES.has(details.family)) return undefined;
+  const family = details.family as ChartPatternFamily;
+  const pivots = details.pivots?.flatMap((pivot) =>
+    PIVOT_KINDS.has(pivot.kind)
+      ? [{ index: pivot.index, date: pivot.date, price: pivot.price, kind: pivot.kind as 'high' | 'low' }]
+      : [],
+  );
+  const geometry =
+    details.geometry && typeof details.geometry === 'object'
+      ? (details.geometry as ChartPatternGeometry)
+      : undefined;
+  return {
+    family,
+    confidence: details.confidence,
+    ...(details.patternStartDate ? { patternStartDate: details.patternStartDate } : {}),
+    patternEndDate: details.patternEndDate,
+    ...(details.breakoutLevel !== null && details.breakoutLevel !== undefined
+      ? { breakoutLevel: details.breakoutLevel }
+      : {}),
+    ...(details.supportLevel !== null && details.supportLevel !== undefined
+      ? { supportLevel: details.supportLevel }
+      : {}),
+    ...(details.resistanceLevel !== null && details.resistanceLevel !== undefined
+      ? { resistanceLevel: details.resistanceLevel }
+      : {}),
+    ...(details.necklineLevel !== null && details.necklineLevel !== undefined
+      ? { necklineLevel: details.necklineLevel }
+      : {}),
+    ...(details.targetPrice !== null && details.targetPrice !== undefined
+      ? { targetPrice: details.targetPrice }
+      : {}),
+    ...(details.stopLossPrice !== null && details.stopLossPrice !== undefined
+      ? { stopLossPrice: details.stopLossPrice }
+      : {}),
+    ...(details.potentialGainPct !== null && details.potentialGainPct !== undefined
+      ? { potentialGainPct: details.potentialGainPct }
+      : {}),
+    ...(details.riskRewardRatio !== null && details.riskRewardRatio !== undefined
+      ? { riskRewardRatio: details.riskRewardRatio }
+      : {}),
+    ...(pivots && pivots.length > 0 ? { pivots } : {}),
+    ...(geometry ? { geometry } : {}),
+  };
+}
+
+/**
+ * Converts a native match into the existing `ScannerResult` shape.
+ *
+ * P0-02: the accepted metadata is propagated rather than replaced with neutral
+ * placeholders — scanner identity/name, category, direction, score, reasons, scalar
+ * values and the full chart-pattern details (levels, pivots, geometry) all survive.
+ * Only genuinely absent fields fall back, so the renderer can still distinguish
+ * "pattern did not report a level" from "level is zero".
+ */
+function toScannerResult(match: NativeScanMatchV1, generatedAt: string): ScannerResult {
   const scannerId = match.ruleId;
   const supported = (NATIVE_SUPPORTED_PATTERN_IDS as readonly string[]).includes(scannerId);
+  const direction = match.direction ?? (match.pattern ? 'neutral' : undefined);
   return {
     symbol: match.symbol,
     exchange: match.exchange,
     scannerId,
-    scannerName: supported
-      ? NATIVE_SUPPORTED_PATTERN_NAMES[scannerId as NativeSupportedPatternId]
-      : scannerId,
-    categoryId: 'chart_patterns_gap',
-    categoryName: 'Chart Patterns - Gaps',
+    scannerName:
+      match.scannerName ??
+      (supported ? NATIVE_SUPPORTED_PATTERN_NAMES[scannerId as NativeSupportedPatternId] : scannerId),
+    categoryId: match.categoryId ?? 'chart_patterns_gap',
+    categoryName: match.categoryName ?? 'Chart Patterns - Gaps',
     date: match.date,
     matched: true,
-    direction: 'neutral',
-    ...(match.value !== undefined ? { values: { ruleValue: match.value } } : {}),
-    source: 'EODNativeScanner_v1',
+    ...(direction ? { direction } : {}),
+    ...(match.score !== undefined ? { score: match.score } : {}),
+    ...(match.reasons && match.reasons.length > 0 ? { reasons: match.reasons } : {}),
+    ...(match.values ? { values: match.values } : {}),
+    ...(match.pattern
+      ? (() => {
+          const details = toChartPatternDetails(match.pattern);
+          return details ? { chartPattern: details } : {};
+        })()
+      : {}),
+    ...(match.source ? { source: match.source } : {}),
     generatedAt,
   };
 }
@@ -238,6 +320,10 @@ export async function runNativeOrTypeScriptScannerBatch(
   const cancel = deps.cancel ?? cancelNativeEodScan;
   const subscribe = deps.subscribe ?? subscribeToNativeScanEvents;
 
+  // P1-09: matches are buffered until the run is accepted as complete. If native fails or
+  // is cancelled after several batches have already arrived, none of those provisional
+  // results are ever published, so a TypeScript fallback cannot produce duplicates or
+  // stale rows. `onResultChunk` therefore fires once, with the final accepted set.
   const matches: ScannerResult[] = [];
   const generatedAt = new Date().toISOString();
   let completed = 0;
@@ -246,7 +332,15 @@ export async function runNativeOrTypeScriptScannerBatch(
     kind: 'complete' | 'error' | null;
     cancelled: boolean;
     error: NativeScanCommandErrorV1 | null;
-  } = { kind: null, cancelled: false, error: null };
+    counts: NativeScanCountsV1 | null;
+    diagnostics: NativeScanDiagnosticV1[];
+  } = {
+    kind: null,
+    cancelled: false,
+    error: null,
+    counts: null,
+    diagnostics: [],
+  };
   let resolveTerminal: (() => void) | null = null;
   const terminalPromise = new Promise<void>((resolve) => {
     resolveTerminal = resolve;
@@ -254,6 +348,8 @@ export async function runNativeOrTypeScriptScannerBatch(
 
   const unsubscribe = await subscribe(runId, {
     onProgress: (event) => {
+      // P1-10: a stale or superseded run can never move this run's progress.
+      if (terminalState.kind !== null) return;
       completed = event.completed;
       total = event.total;
       options.onProgress?.({
@@ -267,17 +363,24 @@ export async function runNativeOrTypeScriptScannerBatch(
     onMatches: (event) => {
       const chunk = event.matches.map((match) => toScannerResult(match, generatedAt));
       if (chunk.length === 0) return;
+      // Buffered only; published after the terminal event is accepted.
       matches.push(...chunk);
-      options.onResultChunk?.(chunk);
     },
     onComplete: (event) => {
+      // P1-10: only the first terminal event for this run counts; duplicates are ignored.
+      if (terminalState.kind !== null) return;
       terminalState.kind = 'complete';
       terminalState.cancelled = event.cancelled;
+      terminalState.counts = event.counts;
+      terminalState.diagnostics = event.diagnostics;
       resolveTerminal?.();
     },
     onError: (event) => {
+      if (terminalState.kind !== null) return;
       terminalState.kind = 'error';
       terminalState.error = { code: event.code, message: event.message };
+      terminalState.counts = event.counts;
+      terminalState.diagnostics = event.diagnostics;
       resolveTerminal?.();
     },
   });
@@ -335,20 +438,30 @@ export async function runNativeOrTypeScriptScannerBatch(
       second.date.localeCompare(first.date) || first.scannerName.localeCompare(second.scannerName),
   );
 
-  const alertTriggers: EodAlertTrigger[] = [];
+  // P0-02/P1-05: a cancelled run publishes nothing partial, and the reported counts come
+  // from the backend's own terminal event rather than zero-filled placeholders.
+  const counts = terminalState.counts;
+  const published = terminalState.cancelled ? [] : results;
+  if (published.length > 0) {
+    options.onResultChunk?.(published);
+  }
+
   return {
-    results,
-    alertTriggers,
-    errors: [],
-    scannedSymbols: completed > 0 ? completed : total,
+    results: published,
+    alertTriggers: [] as EodAlertTrigger[],
+    // Skipped/failed targets are surfaced to the user, not hidden behind a success line.
+    errors: terminalState.diagnostics
+      .filter((diagnostic) => diagnostic.code !== 'target-notice')
+      .map((diagnostic) => diagnostic.message),
+    scannedSymbols: counts ? counts.targets : completed > 0 ? completed : total,
     cancelled: terminalState.cancelled,
     backend: 'native',
     nativeCounts: {
-      targets: total,
-      matched: unique.size,
-      noMatch: 0,
-      skipped: 0,
-      failed: 0,
+      targets: counts?.targets ?? total,
+      matched: counts?.matched ?? 0,
+      noMatch: counts?.noMatch ?? 0,
+      skipped: counts?.skipped ?? 0,
+      failed: counts?.failed ?? 0,
     },
   };
 }
@@ -363,11 +476,18 @@ export function formatNativeScannerStatus(
     return `Used the TypeScript scanner backend.${reason}`;
   }
   const counts = outcome.nativeCounts;
-  return `Native scan: ${symbolCount} symbol${symbolCount === 1 ? '' : 's'}; ${
-    outcome.results.length
-  } match${outcome.results.length === 1 ? '' : 'es'}${
-    counts ? `; ${counts.skipped} skipped, ${counts.failed} failed` : ''
-  }.`;
+  const parts = [`${symbolCount} symbol${symbolCount === 1 ? '' : 's'}`];
+  parts.push(`${outcome.results.length} match${outcome.results.length === 1 ? '' : 'es'}`);
+  if (counts) {
+    if (counts.noMatch > 0) parts.push(`${counts.noMatch} no match`);
+    if (counts.skipped > 0) parts.push(`${counts.skipped} skipped`);
+    if (counts.failed > 0) parts.push(`${counts.failed} failed`);
+  }
+  if (outcome.errors.length > 0) {
+    parts.push(`${outcome.errors.length} diagnostic${outcome.errors.length === 1 ? '' : 's'}`);
+  }
+  const prefix = counts && (counts.skipped > 0 || counts.failed > 0) ? 'Native scan (incomplete)' : 'Native scan';
+  return `${prefix}: ${parts.join('; ')}.`;
 }
 
 /** Exposed for the UI to render an accurate, non-flattering capability note. */

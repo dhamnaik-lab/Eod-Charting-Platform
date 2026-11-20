@@ -172,13 +172,47 @@ export interface NativeScanCountsV1 {
   failed: number;
 }
 
+/**
+ * Accepted chart-pattern details carried by a native match (P0-02).
+ *
+ * Field names and semantics mirror `ChartPatternResultDetailsV1` in
+ * `src-tauri-shell/src/scanner_contract.rs`, so a native result can be converted into the
+ * existing `ScannerResult` without dropping identity, levels or geometry.
+ */
+export interface NativeScanPatternDetailsV1 {
+  family: string;
+  confidence: number;
+  patternStartDate?: string | null;
+  patternEndDate: string;
+  breakoutLevel?: number | null;
+  supportLevel?: number | null;
+  resistanceLevel?: number | null;
+  necklineLevel?: number | null;
+  targetPrice?: number | null;
+  stopLossPrice?: number | null;
+  potentialGainPct?: number | null;
+  riskRewardRatio?: number | null;
+  pivots?: Array<{ index: number; date: string; price: number; kind: string }> | null;
+  /** Accepted overlay geometry, passed through untouched. */
+  geometry?: unknown;
+}
+
 export interface NativeScanMatchV1 {
   exchange: string;
   symbol: string;
   ruleId: string;
   date: string;
-  values?: Record<string, number | string | boolean | null>;
+  value?: number;
+  /** Optional accepted metadata; absent means "not produced", never "neutral". */
+  scannerName?: string;
+  categoryId?: string;
+  categoryName?: string;
+  direction?: 'bullish' | 'bearish' | 'neutral';
+  score?: number;
   reasons?: string[];
+  values?: Record<string, number | string | boolean | null>;
+  source?: string;
+  pattern?: NativeScanPatternDetailsV1;
 }
 
 export interface NativeScanProgressEventV1 {
@@ -209,6 +243,8 @@ export interface NativeScanCompleteEventV1 {
   cancelled: boolean;
   durationMs: number;
   counts: NativeScanCountsV1;
+  /** Workers the run actually used, not the requested count (P1-08). */
+  workersUsed?: number;
   diagnostics: NativeScanDiagnosticV1[];
 }
 
