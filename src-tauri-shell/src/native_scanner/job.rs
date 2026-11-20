@@ -148,6 +148,8 @@ pub struct ScanCompleteEventV1 {
     pub cancelled: bool,
     pub duration_ms: u64,
     pub counts: ScanCountsV1,
+    /// P1-08: workers the run actually used, not the requested count.
+    pub workers_used: usize,
     pub diagnostics: Vec<ScanDiagnosticV1>,
 }
 
@@ -256,6 +258,11 @@ struct ActiveRun {
     cancel: Arc<RunCancelState>,
     database_identity: String,
     sequence: Arc<AtomicU64>,
+    /// P0-03: the shared database-use permit is owned by the run record itself. It is
+    /// therefore acquired under the same lock that admits the run, and it is released
+    /// exactly when that run is removed - never by a different run's finalization and
+    /// never before the worker has stopped.
+    permit: Option<std::fs::File>,
 }
 
 /// Reasons the registry refuses to start or cannot find a run.
@@ -300,8 +307,24 @@ impl NativeScanJobRegistry {
         run_id: &str,
         database_identity: &str,
     ) -> Result<(Arc<RunCancelState>, Arc<AtomicU64>), JobRejection> {
+        self.register_with_permit(run_id, database_identity, None)
+    }
+
+    /// Admits a run **and** takes ownership of its database-use permit atomically.
+    ///
+    /// The admission check and the permit hand-off happen under the same lock, so two
+    /// concurrent starts cannot both pass the "no active run" test, and a rejected run can
+    /// never end up holding or releasing another run's permit.
+    pub fn register_with_permit(
+        &self,
+        run_id: &str,
+        database_identity: &str,
+        permit: Option<std::fs::File>,
+    ) -> Result<(Arc<RunCancelState>, Arc<AtomicU64>), JobRejection> {
         let mut runs = self.runs.lock().unwrap();
         if !runs.is_empty() {
+            // The caller keeps ownership of `permit`; dropping it returns it to the OS only
+            // after the rejected start has fully unwound.
             return Err(JobRejection::new(
                 codes::RUN_ALREADY_ACTIVE,
                 "Another native scan run is already active; cancel it before starting a new one.",
@@ -321,10 +344,30 @@ impl NativeScanJobRegistry {
                 cancel: Arc::clone(&cancel),
                 database_identity: database_identity.to_string(),
                 sequence: Arc::clone(&sequence),
+                permit,
             },
         );
         *self.active_run_id.lock().unwrap() = Some(run_id.to_string());
         Ok((cancel, sequence))
+    }
+
+    /// True when the named run currently owns a database-use permit.
+    pub fn owns_permit(&self, run_id: &str) -> bool {
+        self.runs
+            .lock()
+            .unwrap()
+            .get(run_id)
+            .is_some_and(|run| run.permit.is_some())
+    }
+
+    /// Number of permits currently held by registered runs (0 or 1).
+    pub fn held_permit_count(&self) -> usize {
+        self.runs
+            .lock()
+            .unwrap()
+            .values()
+            .filter(|run| run.permit.is_some())
+            .count()
     }
 
     /// Idempotently requests cancellation. Unknown/finished runs are a no-op.
@@ -348,13 +391,17 @@ impl NativeScanJobRegistry {
     }
 
     /// Cancels and removes every run; used on window close and app shutdown.
+    /// Requests cancellation of every run but keeps each run registered.
+    ///
+    /// The run's own worker remains responsible for `unregister`, so the database-use
+    /// permit is not released here: releasing it while the worker is still reading would
+    /// let a database switch/delete take exclusive access mid-scan (P0-03).
     pub fn cancel_all(&self) -> usize {
         let runs = self.runs.lock().unwrap();
         let count = runs.len();
         for run in runs.values() {
             run.cancel.request();
         }
-        *self.active_run_id.lock().unwrap() = None;
         count
     }
 
@@ -511,6 +558,7 @@ impl<'a, S: EventSink + ?Sized> EventEmitter<'a, S> {
         cancelled: bool,
         duration_ms: u128,
         counts: ScanCounts,
+        workers_used: usize,
         diagnostics: Vec<ScanDiagnosticV1>,
     ) {
         self.flush_matches();
@@ -522,6 +570,7 @@ impl<'a, S: EventSink + ?Sized> EventEmitter<'a, S> {
             cancelled,
             duration_ms: duration_ms as u64,
             counts: counts.into(),
+            workers_used,
             diagnostics,
         };
         self.sink.emit_complete(&event);
@@ -647,6 +696,7 @@ where
         report.cancelled,
         started.elapsed().as_millis(),
         report.counts,
+        report.workers_used,
         diagnostics,
     );
     registry.unregister(&request.requested_run_id);

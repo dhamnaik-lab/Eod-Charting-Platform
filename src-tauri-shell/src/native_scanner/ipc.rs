@@ -142,17 +142,20 @@ impl EventSink for TauriEventSink {
     }
 }
 
-/// Managed state: the job registry plus the shared-use permit held by the active run.
+/// Managed state: only the job registry.
+///
+/// P0-03: there is deliberately **no** application-wide permit slot. The database-use
+/// permit is owned by the run's own registry entry, so it cannot be captured by a
+/// concurrent start, released by another run's finalization, or dropped while a worker is
+/// still reading.
 pub struct NativeScanState {
     registry: NativeScanJobRegistry,
-    permit: Mutex<Option<std::fs::File>>,
 }
 
 impl Default for NativeScanState {
     fn default() -> Self {
         Self {
             registry: NativeScanJobRegistry::new(),
-            permit: Mutex::new(None),
         }
     }
 }
@@ -162,17 +165,8 @@ impl NativeScanState {
         &self.registry
     }
 
-    fn store_permit(&self, permit: std::fs::File) {
-        *self.permit.lock().unwrap() = Some(permit);
-    }
-
-    fn release_permit(&self) {
-        // Dropping the handle releases the OS-backed shared-use lock.
-        *self.permit.lock().unwrap() = None;
-    }
-
     fn has_permit(&self) -> bool {
-        self.permit.lock().unwrap().is_some()
+        self.registry.held_permit_count() > 0
     }
 }
 
@@ -183,6 +177,7 @@ struct PreparedJob {
     request: super::ast::NativeScanRequestV1,
     targets: Vec<super::scan::ScanTarget>,
     source: ReadOnlyDatabaseSource,
+    worker_count: usize,
     batch_size: usize,
     progress_interval_ms: u64,
 }
@@ -191,6 +186,7 @@ fn prepare_job(
     app: &AppHandle,
     state: &NativeScanState,
     request: super::ast::NativeScanRequestV1,
+    worker_count: usize,
     batch_size: usize,
     progress_interval_ms: u64,
 ) -> Result<PreparedJob, NativeScanCommandError> {
@@ -216,51 +212,41 @@ fn prepare_job(
         })?;
     let folder_path = folder.to_path_buf();
 
-    // Retain a strong shared-use permit for the whole scan lifetime.
+    // P0-03 ordering: the permit is acquired *before* admission and then handed to the
+    // registry inside the admission lock. Every failure below simply drops the local
+    // `permit`, so no path can leak it and no path can release someone else's.
     let permit = acquire_use().map_err(|error| {
         NativeScanCommandError::new(
             codes::DATABASE_UNAVAILABLE,
             format!("Unable to retain database use for the scan: {error}"),
         )
     })?;
-    state.store_permit(permit);
 
-    let connection = match open_read_only_connection_for_folder(&folder_path) {
-        Ok(connection) => connection,
-        Err(error) => {
-            state.release_permit();
-            return Err(NativeScanCommandError::new(
-                codes::DATABASE_UNAVAILABLE,
-                format!("Unable to open the database read-only: {error}"),
-            ));
-        }
-    };
-    let targets = match resolve_targets(&connection, &request.universe) {
-        Ok(targets) => targets,
-        Err(rejection) => {
-            state.release_permit();
-            return Err(rejection.into());
-        }
-    };
+    let connection = open_read_only_connection_for_folder(&folder_path).map_err(|error| {
+        NativeScanCommandError::new(
+            codes::DATABASE_UNAVAILABLE,
+            format!("Unable to open the database read-only: {error}"),
+        )
+    })?;
+    let targets = resolve_targets(&connection, &request.universe).map_err(NativeScanCommandError::from)?;
     // Enumerating targets is the only work done on this connection. It is dropped before
-    // the scan so no rusqlite handle is shared or held across worker boundaries.
+    // the scan so no rusqlite handle is shared across worker boundaries.
     drop(connection);
 
-    let source = match ReadOnlyDatabaseSource::open(folder_path) {
-        Ok(source) => source,
-        Err(error) => {
-            state.release_permit();
-            return Err(NativeScanCommandError::new(codes::SOURCE_FAILED, error));
-        }
-    };
+    let source = ReadOnlyDatabaseSource::open(folder_path)
+        .map_err(|error| NativeScanCommandError::new(codes::SOURCE_FAILED, error))?;
     let database_identity = source.identity().to_string();
 
+    // Atomic admission + permit ownership.
     if state
         .registry
-        .register(&request.requested_run_id, &database_identity)
+        .register_with_permit(
+            &request.requested_run_id,
+            &database_identity,
+            Some(permit),
+        )
         .is_err()
     {
-        state.release_permit();
         return Err(NativeScanCommandError::new(
             codes::RUN_ID_IN_USE,
             "The requested run id is already registered.",
@@ -273,6 +259,7 @@ fn prepare_job(
         request,
         targets,
         source,
+        worker_count,
         batch_size,
         progress_interval_ms,
     })
@@ -285,17 +272,18 @@ fn run_prepared_job(app: AppHandle, job: PreparedJob) {
         request,
         targets,
         source,
+        worker_count,
         batch_size,
         progress_interval_ms,
     } = job;
     let state = app.state::<NativeScanState>();
-    let Some(sequence) = state.registry.sequence_for(&run_id) else {
-        // The run was cancelled and cleared between registration and start.
-        state.release_permit();
-        return;
-    };
-    let Some(cancel) = state.registry.cancel_handle(&run_id) else {
-        state.release_permit();
+
+    // If the run record is already gone, its permit is already released with it. Nothing
+    // is left to finalize and nothing can be released twice.
+    let (Some(sequence), Some(cancel)) = (
+        state.registry.sequence_for(&run_id),
+        state.registry.cancel_handle(&run_id),
+    ) else {
         return;
     };
 
@@ -304,39 +292,60 @@ fn run_prepared_job(app: AppHandle, job: PreparedJob) {
         .with_batch_size(batch_size)
         .with_progress_interval(progress_interval_ms);
 
-    let report = super::scan::execute_scan(
-        &source,
-        &request,
-        &targets,
-        cancel.flag(),
-        ScanExecutionOptions::default(),
-        |progress| emitter.on_progress(progress, false),
-    );
+    // P0-03: finalize on *every* exit path, including a panic inside the scan, so the
+    // permit cannot outlive the worker. A panic still propagates after finalizing.
+    let outcome = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        super::scan::execute_scan(
+            &source,
+            &request,
+            &targets,
+            cancel.flag(),
+            ScanExecutionOptions::default().with_worker_count(worker_count),
+            |progress| emitter.on_progress(progress, false),
+        )
+    }));
 
-    let diagnostics: Vec<ScanDiagnosticV1> = report
-        .diagnostics
-        .iter()
-        .map(|diagnostic| ScanDiagnosticV1 {
-            code: diagnostic.code.clone(),
-            message: diagnostic.message.clone(),
-            target: diagnostic.target.as_ref().map(|target| ScanTargetRefV1 {
-                exchange: target.exchange.clone(),
-                symbol: target.symbol.clone(),
-            }),
-            rule_id: diagnostic.rule_id.clone(),
-        })
-        .collect();
+    match outcome {
+        Ok(report) => {
+            let diagnostics: Vec<ScanDiagnosticV1> = report
+                .diagnostics
+                .iter()
+                .map(|diagnostic| ScanDiagnosticV1 {
+                    code: diagnostic.code.clone(),
+                    message: diagnostic.message.clone(),
+                    target: diagnostic.target.as_ref().map(|target| ScanTargetRefV1 {
+                        exchange: target.exchange.clone(),
+                        symbol: target.symbol.clone(),
+                    }),
+                    rule_id: diagnostic.rule_id.clone(),
+                })
+                .collect();
 
-    // Exactly one terminal event, whether the run completed, failed or was cancelled.
-    emitter.finalize_complete(
-        report.cancelled,
-        report.duration_ms,
-        report.counts,
-        diagnostics,
-    );
+            // Exactly one terminal event, whether the run completed, failed or was
+            // cancelled. P1-05: the real counts are reported, never zero-filled.
+            emitter.finalize_complete(
+                report.cancelled,
+                report.duration_ms,
+                report.counts,
+                report.workers_used,
+                diagnostics,
+            );
+        }
+        Err(_) => {
+            // The worker panicked: report a terminal error rather than leaving the UI
+            // waiting, then release ownership in `unregister` below.
+            emitter.finalize_error(
+                codes::RUN_FAILED,
+                "The native scan worker stopped unexpectedly.",
+                Default::default(),
+                Vec::new(),
+            );
+        }
+    }
 
+    // Releasing ownership happens here, after the worker has finished, and only for this
+    // run's own record.
     state.registry.unregister(&run_id);
-    state.release_permit();
 }
 
 /// Starts a native scan and returns once the run is registered and targets are resolved.
@@ -363,15 +372,21 @@ pub async fn start_native_eod_scan(
             &app_for_setup,
             &state,
             request,
+            worker_count,
             batch_size,
             progress_interval_ms,
         )?;
+        // P1-08: report the worker count this run will really use, not the request.
+        let effective_workers = super::scan::effective_worker_count(
+            worker_count,
+            prepared.targets.len(),
+        );
         let ack = ScanStartAckV1 {
             accepted: true,
             run_id: prepared.run_id.clone(),
             schema_version: prepared.request.schema_version,
             database_identity: prepared.database_identity.clone(),
-            worker_count,
+            worker_count: effective_workers,
             total_targets: prepared.targets.len(),
         };
         Ok::<_, NativeScanCommandError>((prepared, ack))
@@ -408,13 +423,13 @@ pub fn cancel_native_eod_scan(
     Ok(state.registry.cancel(&payload.run_id))
 }
 
-/// Window close / app shutdown hook: cancel every run and release the permit.
+/// Window close / app shutdown hook: request cancellation of every run.
+///
+/// The permit is deliberately **not** released here. Each run's own worker releases its
+/// permit when it stops, so a database switch or deletion can never take exclusive access
+/// while a scan is still reading (P0-03).
 pub fn finalize_all_runs(state: &NativeScanState) -> usize {
-    let cancelled = state.registry.cancel_all();
-    // The job thread normally releases the permit; this is the shutdown safety net for the
-    // case where that thread has already been torn down.
-    state.release_permit();
-    cancelled
+    state.registry.cancel_all()
 }
 
 /// Capability descriptor so the UI can negotiate before offering the native backend.

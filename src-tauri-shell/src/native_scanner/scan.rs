@@ -20,7 +20,8 @@ use super::ast::{
     PriceBasisV1, RuleV1,
 };
 use super::reader::{NativeBar, MAX_WINDOW_BARS};
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
+use std::sync::Mutex;
 use std::time::Instant;
 
 /// Upper bound on historical endpoints evaluated per target.
@@ -40,7 +41,7 @@ impl ScanTarget {
 
 /// Data access the executor needs. Implemented by the read-only database source in
 /// production and by fixtures in tests.
-pub trait ScanDataSource {
+pub trait ScanDataSource: Sync {
     /// Stable identity of the database being read; events are scoped to it.
     fn database_identity(&self) -> &str;
 
@@ -186,6 +187,8 @@ pub struct ScanReport {
     pub matches: Vec<ScanMatchRecord>,
     pub diagnostics: Vec<ScanDiagnostic>,
     pub duration_ms: u128,
+    /// P1-08: workers actually used (never merely requested).
+    pub workers_used: usize,
 }
 
 /// Progress notification pushed after each completed target.
@@ -198,11 +201,20 @@ pub struct ScanProgress {
     pub matches: Vec<ScanMatchRecord>,
 }
 
+/// Upper bound on concurrent target workers.
+///
+/// Approved range is 1..=4. Each worker needs its own read-only SQLite connection, so the
+/// ceiling is a resource decision as much as a performance one.
+pub const MAX_WORKERS: usize = 4;
+pub const DEFAULT_WORKERS: usize = 2;
+
 /// Bounded execution options derived from the request (kept explicit for NS-03).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct ScanExecutionOptions {
     pub max_window_bars: usize,
     pub max_history_endpoints: usize,
+    /// Requested worker count; clamped to `1..=MAX_WORKERS` by `effective_worker_count`.
+    pub worker_count: usize,
 }
 
 impl Default for ScanExecutionOptions {
@@ -210,14 +222,40 @@ impl Default for ScanExecutionOptions {
         Self {
             max_window_bars: MAX_WINDOW_BARS,
             max_history_endpoints: MAX_HISTORY_ENDPOINTS,
+            worker_count: DEFAULT_WORKERS,
         }
     }
 }
 
+impl ScanExecutionOptions {
+    pub fn with_worker_count(mut self, worker_count: usize) -> Self {
+        self.worker_count = worker_count;
+        self
+    }
+}
+
+/// The number of workers a run will *actually* use.
+///
+/// P1-08: this is what gets reported back, so a request for 8 workers against 2 targets
+/// reports 2, and a request for 4 reports 4 only when there is work for 4.
+pub fn effective_worker_count(requested: usize, target_count: usize) -> usize {
+    if target_count == 0 {
+        return 0;
+    }
+    requested.clamp(1, MAX_WORKERS).min(target_count)
+}
+
+/// Bars required before any selected rule can be evaluated.
+///
+/// Pattern rules use their detector's warm-up (not the generic AST estimate), so the
+/// early "too few bars" guard stays honest for the native pattern path.
 fn required_bars(rules: &[RuleV1]) -> usize {
     rules
         .iter()
-        .map(|rule| minimum_bars_for_expression(&rule.expression))
+        .map(|rule| match super::patterns::minimum_bars_for_pattern_rule(rule) {
+            Some(required) => required,
+            None => minimum_bars_for_expression(&rule.expression),
+        })
         .max()
         .unwrap_or(0)
 }
@@ -225,11 +263,21 @@ fn required_bars(rules: &[RuleV1]) -> usize {
 fn format_date(date: u32) -> String {
     crate::database::binary_eod::u32_to_date(date)
 }
-
 /// Runs the scan for the supplied targets.
 ///
-/// `progress` is called after every target with the matches produced by that target, so
-/// NS-03 can batch events without the executor depending on Tauri.
+/// Execution model (P1-08):
+/// - Target-level parallelism with `std::thread::scope`; no new dependency, and no
+///   SQLite connection is shared across threads because each worker opens its own
+///   read-only connection inside `ScanDataSource`.
+/// - Results are merged back **in target order**, so output is byte-identical for any
+///   worker count: worker completion order can never reorder matches or diagnostics.
+/// - Cancellation stops new targets from being claimed while workers already running
+///   finish their current target safely.
+/// - `progress` is invoked from the coordinating thread only, so callers do not need to
+///   make their callback `Sync`.
+///
+/// `progress` is called after every completed target with the matches produced by that
+/// target, so NS-03 can batch events without the executor depending on Tauri.
 pub fn execute_scan<D: ScanDataSource>(
     source: &D,
     request: &NativeScanRequestV1,
@@ -243,10 +291,7 @@ pub fn execute_scan<D: ScanDataSource>(
         targets: targets.len(),
         ..ScanCounts::default()
     };
-    let mut outcomes: Vec<TargetOutcome> = Vec::with_capacity(targets.len());
-    let mut matches: Vec<ScanMatchRecord> = Vec::new();
-    let mut diagnostics: Vec<ScanDiagnostic> = Vec::new();
-    let mut cancelled = false;
+    let workers = effective_worker_count(options.worker_count, targets.len());
 
     let pattern_rules: Vec<&RuleV1> = request
         .rules
@@ -264,29 +309,90 @@ pub fn execute_scan<D: ScanDataSource>(
         .max(bars_needed.max(2))
         .min(MAX_WINDOW_BARS);
 
-    for target in targets {
+    // One slot per target keeps merge order deterministic regardless of completion order.
+    let mut slots: Vec<Option<TargetOutcome>> = (0..targets.len()).map(|_| None).collect();
+    let next_target = AtomicUsize::new(0);
+    let mut cancelled = false;
+
+    if workers <= 1 {
+        for (index, target) in targets.iter().enumerate() {
+            if cancel.load(Ordering::SeqCst) {
+                cancelled = true;
+                slots[index] = Some(cancelled_outcome(target));
+                continue;
+            }
+            slots[index] = Some(scan_target(
+                source,
+                request,
+                target,
+                window,
+                bars_needed,
+                &numeric_rules,
+                &pattern_rules,
+                options,
+                cancel,
+            ));
+            if cancel.load(Ordering::SeqCst) {
+                cancelled = true;
+            }
+            emit_progress(&mut progress, &slots, index, targets);
+        }
+    } else {
+        let slots_cell: Mutex<&mut Vec<Option<TargetOutcome>>> = Mutex::new(&mut slots);
+        std::thread::scope(|scope| {
+            for _ in 0..workers {
+                let next_target = &next_target;
+                let slots_cell = &slots_cell;
+                let numeric_rules = &numeric_rules;
+                let pattern_rules = &pattern_rules;
+                scope.spawn(move || loop {
+                    if cancel.load(Ordering::SeqCst) {
+                        break;
+                    }
+                    let index = next_target.fetch_add(1, Ordering::SeqCst);
+                    if index >= targets.len() {
+                        break;
+                    }
+                    let outcome = scan_target(
+                        source,
+                        request,
+                        &targets[index],
+                        window,
+                        bars_needed,
+                        numeric_rules,
+                        pattern_rules,
+                        options,
+                        cancel,
+                    );
+                    if let Ok(mut guard) = slots_cell.lock() {
+                        if let Some(slot) = guard.get_mut(index) {
+                            *slot = Some(outcome);
+                        }
+                    }
+                });
+            }
+        });
+
+        // Merge strictly in target order; any target not claimed (because cancellation
+        // stopped the workers) is reported as cancelled, never silently dropped.
+        for (index, target) in targets.iter().enumerate() {
+            if slots[index].is_none() {
+                cancelled = true;
+                slots[index] = Some(cancelled_outcome(target));
+            }
+        }
         if cancel.load(Ordering::SeqCst) {
             cancelled = true;
-            diagnostics.push(ScanDiagnostic::target_err(
-                target,
-                "run-cancelled",
-                "Run cancelled before this target was scanned.",
-            ));
-            continue;
         }
+        for index in 0..targets.len() {
+            emit_progress(&mut progress, &slots, index, targets);
+        }
+    }
 
-        let outcome = scan_target(
-            source,
-            request,
-            target,
-            window,
-            bars_needed,
-            &numeric_rules,
-            &pattern_rules,
-            options,
-            cancel,
-        );
-
+    let mut outcomes: Vec<TargetOutcome> = Vec::with_capacity(targets.len());
+    let mut matches: Vec<ScanMatchRecord> = Vec::new();
+    let mut diagnostics: Vec<ScanDiagnostic> = Vec::new();
+    for outcome in slots.into_iter().flatten() {
         match &outcome.status {
             TargetStatus::Match => counts.matched += 1,
             TargetStatus::NoMatch => counts.no_match += 1,
@@ -295,7 +401,7 @@ pub fn execute_scan<D: ScanDataSource>(
         }
         if let Some(message) = &outcome.message {
             diagnostics.push(ScanDiagnostic::target_err(
-                target,
+                &outcome.target,
                 if outcome.status == TargetStatus::Skipped {
                     "target-skipped"
                 } else if outcome.status == TargetStatus::Error {
@@ -306,20 +412,8 @@ pub fn execute_scan<D: ScanDataSource>(
                 message.clone(),
             ));
         }
-
-        matches.extend(outcome.matches.clone());
-        let produced = outcome.matches.clone();
+        matches.extend(outcome.matches.iter().cloned());
         outcomes.push(outcome);
-        progress(ScanProgress {
-            completed: outcomes.len(),
-            total: targets.len(),
-            current: Some(target.clone()),
-            counts,
-            matches: produced,
-        });
-        if cancel.load(Ordering::SeqCst) {
-            cancelled = true;
-        }
     }
 
     matches.sort_by(|left, right| {
@@ -339,8 +433,57 @@ pub fn execute_scan<D: ScanDataSource>(
         matches,
         diagnostics,
         duration_ms: started.elapsed().as_millis(),
+        workers_used: workers,
     }
 }
+
+/// Outcome for a target that was never claimed because the run was cancelled.
+fn cancelled_outcome(target: &ScanTarget) -> TargetOutcome {
+    TargetOutcome {
+        target: target.clone(),
+        status: TargetStatus::Skipped,
+        matches: Vec::new(),
+        matched_rule_ids: Vec::new(),
+        bars: 0,
+        evaluated_history_endpoints: 0,
+        message: Some(format!(
+            "{}: run cancelled before this target was scanned.",
+            target.key()
+        )),
+    }
+}
+
+/// Emits progress for one completed slot in target order.
+fn emit_progress(
+    progress: &mut impl FnMut(ScanProgress),
+    slots: &[Option<TargetOutcome>],
+    index: usize,
+    targets: &[ScanTarget],
+) {
+    let Some(Some(outcome)) = slots.get(index) else {
+        return;
+    };
+    let mut counts = ScanCounts {
+        targets: targets.len(),
+        ..ScanCounts::default()
+    };
+    for slot in slots.iter().take(index + 1).flatten() {
+        match slot.status {
+            TargetStatus::Match => counts.matched += 1,
+            TargetStatus::NoMatch => counts.no_match += 1,
+            TargetStatus::Skipped => counts.skipped += 1,
+            TargetStatus::Error => counts.failed += 1,
+        }
+    }
+    progress(ScanProgress {
+        completed: index + 1,
+        total: targets.len(),
+        current: Some(outcome.target.clone()),
+        counts,
+        matches: outcome.matches.clone(),
+    });
+}
+
 
 #[allow(clippy::too_many_arguments)]
 fn scan_target<D: ScanDataSource>(
