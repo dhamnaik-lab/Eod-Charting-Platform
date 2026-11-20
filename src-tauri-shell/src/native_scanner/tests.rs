@@ -519,7 +519,6 @@ fn ns01_executor_and_reader_agree_on_window_and_counts() {
 
 use super::database_source::ReadOnlyDatabaseSource;
 use std::sync::{Arc, Barrier};
-use std::time::{Duration, Instant};
 
 /// A worker must be able to read while another worker is inside its read.
 ///
@@ -723,11 +722,12 @@ fn p3_bounded_read_preserves_adjusted_semantics() {
         .execute_batch(
             "INSERT INTO corporate_actions
                (id, symbol, exchange, effective_date, action_type, factor, adjust_volume, source)
-             VALUES (1, 'LONG', 'NSE', '2023-10-01', 'SPLIT', 2.0, 1, 'TEST');",
+             VALUES (1, 'LONG', 'NSE', '2023-12-01', 'SPLIT', 2.0, 1, 'TEST');",
         )
         .expect("split action");
 
-    // The split is after every row, so the adjusted series is genuinely rescaled by 2.0.
+    // 2023-12-01 is strictly after the last generated row (2023-10-28 for a 280-day
+    // 28-day-month walk), so every window row is genuinely rescaled by 2.0.
     // This is what makes the comparison meaningful: a bounded read that lost the
     // adjustment dependency would return the unscaled prices and fail here.
     let bounded = crate::database::read_scan_bars_for_folder(
