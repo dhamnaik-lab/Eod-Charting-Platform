@@ -27,7 +27,7 @@ use super::job::{
 };
 use super::scan::ScanExecutionOptions;
 use crate::database::database_use::acquire_use;
-use crate::database::{open_read_only_connection_for_folder, resolve_active_database_folder};
+use crate::database::{open_read_only_connection_for_folder, read_native_scan_selection, NativeScanSelection};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use tauri::{AppHandle, Emitter, Manager, State};
@@ -190,6 +190,7 @@ impl NativeScanState {
 struct PreparedJob {
     run_id: String,
     database_identity: String,
+    selection: NativeScanSelection,
     request: super::ast::NativeScanRequestV1,
     targets: Vec<super::scan::ScanTarget>,
     source: ReadOnlyDatabaseSource,
@@ -213,20 +214,20 @@ fn prepare_job(
         ));
     }
 
-    let folder = resolve_active_database_folder(app)
+    let selection = read_native_scan_selection(app)
         .map_err(|error| {
             NativeScanCommandError::new(
                 codes::DATABASE_UNAVAILABLE,
-                format!("Unable to resolve the active database: {error}"),
+                format!("Unable to verify the active database selection: {error}"),
             )
         })?
         .ok_or_else(|| {
             NativeScanCommandError::new(
                 codes::DATABASE_UNAVAILABLE,
-                "No active database is selected.",
+                "No registered active database is selected.",
             )
         })?;
-    let folder_path = folder.to_path_buf();
+    let folder_path = selection.folder.clone();
 
     // P0-03 ordering: the permit is acquired *before* admission and then handed to the
     // registry inside the admission lock. Every failure below simply drops the local
@@ -250,8 +251,16 @@ fn prepare_job(
     // the scan so no rusqlite handle is shared across worker boundaries.
     drop(connection);
 
-    let source = ReadOnlyDatabaseSource::open(folder_path)
+    let mut source = ReadOnlyDatabaseSource::open(folder_path)
         .map_err(|error| NativeScanCommandError::new(codes::SOURCE_FAILED, error))?;
+    // The selection can change while universe resolution or source opening is underway.
+    if !selection_still_current(app, &selection) {
+        return Err(NativeScanCommandError::new(
+            codes::DATABASE_CHANGED,
+            "The registered database selection changed during native scan setup.",
+        ));
+    }
+    source.bind_selection_identity(selection.database_identity.clone());
     let database_identity = source.identity().to_string();
 
     // Atomic admission + permit ownership.
@@ -269,6 +278,7 @@ fn prepare_job(
     Ok(PreparedJob {
         run_id: request.requested_run_id.clone(),
         database_identity,
+        selection,
         request,
         targets,
         source,
@@ -278,10 +288,15 @@ fn prepare_job(
     })
 }
 
+fn selection_still_current(app: &AppHandle, expected: &NativeScanSelection) -> bool {
+    matches!(read_native_scan_selection(app), Ok(Some(current)) if current == *expected)
+}
+
 fn run_prepared_job(app: AppHandle, job: PreparedJob) {
     let PreparedJob {
         run_id,
         database_identity,
+        selection,
         request,
         targets,
         source,
@@ -305,6 +320,12 @@ fn run_prepared_job(app: AppHandle, job: PreparedJob) {
         .with_batch_size(batch_size)
         .with_progress_interval(progress_interval_ms);
 
+    // Check both the durable A -> B -> A revision and the physical database file.
+    let mut selection_invalidated = !selection_still_current(&app, &selection);
+    if selection_invalidated {
+        cancel.request();
+    }
+
     // P0-03: finalize on *every* exit path, including a panic inside the scan, so the
     // permit cannot outlive the worker. A panic still propagates after finalizing.
     let outcome = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
@@ -314,9 +335,29 @@ fn run_prepared_job(app: AppHandle, job: PreparedJob) {
             &targets,
             cancel.flag(),
             ScanExecutionOptions::default().with_worker_count(worker_count),
-            |progress| emitter.on_progress(progress, false),
+            |progress| {
+                if !selection_still_current(&app, &selection) {
+                    selection_invalidated = true;
+                    cancel.request();
+                }
+                if !selection_invalidated {
+                    emitter.on_progress(progress, false);
+                }
+            },
         )
     }));
+
+    // A switch after the last progress callback must still reject terminal success.
+    if selection_invalidated || !selection_still_current(&app, &selection) {
+        emitter.finalize_error(
+            codes::DATABASE_CHANGED,
+            "Native scan stopped because its database selection or file identity changed.",
+            Default::default(),
+            Vec::new(),
+        );
+        state.registry.unregister(&run_id);
+        return;
+    }
 
     match outcome {
         Ok(report) => {

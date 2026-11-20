@@ -116,6 +116,11 @@ impl ReadOnlyDatabaseSource {
         &self.identity
     }
 
+    /// Bind production event identity to the verified active registry selection.
+    pub(crate) fn bind_selection_identity(&mut self, identity: String) {
+        self.identity = identity;
+    }
+
     /// Runs `f` against the calling thread's own connection, opening one on first use.
     ///
     /// The registry lock is released before `f` runs. Previously the guard was held for

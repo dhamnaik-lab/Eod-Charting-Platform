@@ -42,6 +42,7 @@ pub mod codes {
     pub const DATABASE_UNAVAILABLE: &str = "native-scan-database-unavailable";
     pub const SOURCE_FAILED: &str = "native-scan-source-failed";
     pub const RUN_CANCELLED: &str = "native-scan-cancelled";
+    pub const DATABASE_CHANGED: &str = "native-scan-database-changed";
     pub const RUN_FAILED: &str = "native-scan-failed";
     pub const SHUTDOWN: &str = "native-scan-shutdown";
 }

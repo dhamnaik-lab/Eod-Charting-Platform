@@ -1,6 +1,6 @@
 #[allow(unused_imports)]
 pub use self::corporate_action_imports::{preview_split_bonus_reconciliation, CorporateActionReconciliationPreflightInput, CorporateActionReconciliationPreflightResult, CorporateActionReconciliationPreflightRow, CorporateActionReconciliationBlocker};
-pub(crate) use self::connection_registry::peek_active_database_folder_read_only;
+pub(crate) use self::connection_registry::{peek_active_database_folder_read_only, read_native_scan_selection, NativeScanSelection};
 pub mod binary_eod;
 pub(crate) mod storage_paths;
 mod bootstrap;

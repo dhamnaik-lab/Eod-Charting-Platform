@@ -518,6 +518,42 @@ describe('NS-04 native run with TypeScript preservation', () => {
     expect(cancel).not.toHaveBeenCalledWith(expect.stringContaining('nothing'));
   });
 
+
+  it('does not run TypeScript fallback after the backend detects an A-B-A selection change', async () => {
+    const runTypeScript = vi.fn(async () => tsOutput({ results: [] }));
+    const outcome = await runNativeOrTypeScriptScannerBatch(
+      baseOptions({
+        expectedDatabasePath: 'E:\\Data\\Active',
+        getActiveDatabasePath: () => 'E:\\Data\\Active',
+      }),
+      {
+        runTypeScript,
+        newRunId: () => 'native-run',
+        subscribe: async (runId, handlers) => {
+          setTimeout(() => {
+            handlers.onError?.({
+              eventVersion: 1, runId, sequence: 2,
+              databaseIdentity: 'E:\\Data\\Active#7',
+              code: 'native-scan-database-changed',
+              message: 'Native scanner detected an obsolete database revision.',
+              counts: { targets: 2, matched: 0, noMatch: 0, skipped: 0, failed: 0 },
+              diagnostics: [],
+            });
+          }, 0);
+          return () => undefined;
+        },
+        start: async () => ({
+          accepted: true, runId: 'native-run', schemaVersion: 1,
+          databaseIdentity: 'E:\\Data\\Active#7', workerCount: 2, totalTargets: 2,
+        }),
+      },
+    );
+    expect(outcome.backend).toBe('native');
+    expect(outcome.cancelled).toBe(true);
+    expect(outcome.results).toEqual([]);
+    expect(runTypeScript).not.toHaveBeenCalled();
+  });
+
   it('falls back when no targets were resolved instead of scanning an empty universe', async () => {
     const runTypeScript = vi.fn(async () => tsOutput({ scannedSymbols: 0 }));
     const start = vi.fn();

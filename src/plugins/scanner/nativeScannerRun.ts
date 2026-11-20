@@ -525,6 +525,11 @@ export async function runNativeOrTypeScriptScannerBatch(
     return fallback('Native scan did not report completion in time.');
   }
   if (terminalState.kind === 'error') {
+    // Backend detects registry revisions that a renderer path-only guard cannot see.
+    // Never re-run TypeScript against an A -> B -> A reselected database.
+    if (terminalState.error?.code === 'native-scan-database-changed') {
+      return cancelledForDatabaseChange();
+    }
     return fallback(
       `Native scan failed: ${terminalState.error?.message ?? 'unknown native scanner error'}`,
     );
