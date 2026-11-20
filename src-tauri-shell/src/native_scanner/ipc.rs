@@ -89,7 +89,7 @@ impl From<JobRejection> for NativeScanCommandError {
 fn validate_request(
     value: &Value,
 ) -> Result<super::ast::NativeScanRequestV1, NativeScanCommandError> {
-    parse_native_scan_request_v1(value).map_err(|issues| NativeScanCommandError {
+    let request = parse_native_scan_request_v1(value).map_err(|issues| NativeScanCommandError {
         code: codes::INVALID_REQUEST.to_string(),
         message: format!(
             "The native scan request was rejected with {} validation issue(s).",
@@ -103,7 +103,24 @@ fn validate_request(
                 message: issue.message,
             })
             .collect(),
-    })
+    })?;
+    // CA-01 HOLD: a complete adjusted projection cannot be verified while two
+    // Split/Bonus rows can claim one issuer event across normal/T+0 identities.
+    // Reject at the untrusted IPC boundary before opening a database or starting
+    // a job. No TypeScript/chart adjustment policy is changed here.
+    if request.evaluation.price_basis == super::ast::PriceBasisV1::Adjusted {
+        return Err(NativeScanCommandError {
+            code: codes::INVALID_REQUEST.to_string(),
+            message: "CA-01 HOLD: adjusted native scanning is disabled until Split/Bonus event ownership and BSE T+0 applicability have an approved, verified rule. Use raw native scanning; existing chart adjustment behavior is unchanged.".to_string(),
+            issues: vec![NativeScanIssueV1 {
+                path: "request.evaluation.priceBasis".to_string(),
+                code: "ca01-adjusted-native-disabled".to_string(),
+                message: "Native adjusted pricing is unavailable while CA-01 is on HOLD."
+                    .to_string(),
+            }],
+        });
+    }
+    Ok(request)
 }
 
 /// Tauri-backed event sink. Events are app-wide and carry `runId`, so a listener for a
@@ -499,6 +516,26 @@ mod tests {
         }))
         .expect("valid request");
         assert_eq!(request.requested_run_id, "run-1");
+    }
+
+    #[test]
+    fn ca01_native_ipc_rejects_adjusted_requests_before_any_database_access() {
+        let mut payload = serde_json::json!({
+            "schemaVersion": 1,
+            "requestedRunId": "ca01-raw-only",
+            "universe": { "source": "activeNseEq" },
+            "evaluation": { "evaluateHistory": false, "priceBasis": "adjusted" },
+            "rules": [{ "id": "r", "expression": { "kind": "number", "value": 1 } }]
+        });
+        let error = validate_request(&payload).expect_err("CA-01 adjusted request must be rejected");
+        assert_eq!(error.code, codes::INVALID_REQUEST);
+        assert!(error.message.contains("CA-01 HOLD"));
+        assert_eq!(error.issues.len(), 1);
+        assert_eq!(error.issues[0].path, "request.evaluation.priceBasis");
+        assert_eq!(error.issues[0].code, "ca01-adjusted-native-disabled");
+
+        payload["evaluation"]["priceBasis"] = serde_json::json!("raw");
+        assert!(validate_request(&payload).is_ok(), "raw native requests remain accepted");
     }
 
     #[test]

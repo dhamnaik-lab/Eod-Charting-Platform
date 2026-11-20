@@ -170,6 +170,11 @@ impl ScanDataSource for ReadOnlyDatabaseSource {
         include_dividend_adjustments: bool,
         include_rights_adjustments: bool,
     ) -> Result<Vec<NativeBar>, String> {
+        // Defense in depth: a direct executor caller must not bypass the IPC gate.
+        // Chart projections remain unchanged; only native adjusted scans are blocked.
+        if price_basis == PriceBasisV1::Adjusted {
+            return Err("CA-01 HOLD: adjusted native scanning is disabled until Split/Bonus event ownership and BSE T+0 applicability have an approved, verified rule. Use raw native scanning; existing chart adjustment behavior is unchanged.".to_string());
+        }
         let bars = self.with_connection(|connection| {
             read_scan_bars_for_folder(
                 &self.folder,

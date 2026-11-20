@@ -1205,3 +1205,60 @@ fn p4_raw_read_stays_available_when_adjusted_is_blocked() {
     .expect("raw read must survive a blocked adjusted claim");
     assert_eq!(raw.len(), 2);
 }
+
+#[test]
+fn ca01_native_source_rejects_duplicate_and_conflicting_bse_settlement_actions() {
+    use super::database_source::ReadOnlyDatabaseSource;
+
+    // One issuer/ISIN can have both normal and T+0 action rows. The current
+    // chart projection cannot prove which records describe the same event;
+    // native adjusted reads must not multiply either duplicate or conflicting
+    // factors while the CA-01 ownership policy remains on HOLD.
+    for (case, second_type, second_factor) in [
+        ("duplicate_split", "SPLIT", 2.0),
+        ("conflicting_split", "SPLIT", 3.0),
+        ("split_bonus", "BONUS", 2.0),
+    ] {
+        let temp = TempDir::new(case);
+        let connection = seed_database(temp.path(), "hybrid");
+        connection
+            .execute_batch(
+                "INSERT INTO instruments (symbol, exchange, isin, series)
+                 VALUES ('TCS','BSE','SHARED-ISIN','EQ'),
+                        ('TCS#','BSE','SHARED-ISIN','EQ');
+                 INSERT INTO eod_prices
+                    (symbol, exchange, date, open, high, low, close, prev_close, volume)
+                 VALUES ('TCS#','BSE','2024-01-01',120,121,119,120,120,50),
+                        ('TCS#','BSE','2024-01-02',120,121,119,120,120,50);
+                 INSERT INTO corporate_actions
+                    (id, symbol, exchange, isin, effective_date, action_type, factor, adjust_volume, source)
+                 VALUES (1,'TCS','BSE','SHARED-ISIN','2024-01-03','SPLIT',2.0,1,'TEST');",
+            )
+            .expect("synthetic BSE settlement fixture");
+        connection
+            .execute(
+                "INSERT INTO corporate_actions
+                    (id, symbol, exchange, isin, effective_date, action_type, factor, adjust_volume, source)
+                 VALUES (2,'TCS#','BSE','SHARED-ISIN','2024-01-03',?1,?2,1,'TEST')",
+                rusqlite::params![second_type, second_factor],
+            )
+            .expect("second issuer action");
+        drop(connection);
+
+        let source =
+            ReadOnlyDatabaseSource::open(temp.path().to_path_buf()).expect("read-only source");
+        let target = ScanTarget {
+            exchange: "BSE".to_string(),
+            symbol: "TCS#".to_string(),
+        };
+        let raw = source
+            .load_bars(&target, None, 10, PriceBasisV1::Raw, false, false)
+            .expect("raw native prices must remain available");
+        assert_eq!(raw.len(), 2, "{case}");
+
+        let error = source
+            .load_bars(&target, None, 10, PriceBasisV1::Adjusted, false, false)
+            .expect_err("unverified native adjusted prices must fail closed");
+        assert!(error.contains("CA-01 HOLD"), "{case}: {error}");
+    }
+}
