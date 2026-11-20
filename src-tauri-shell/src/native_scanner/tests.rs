@@ -203,8 +203,12 @@ fn ns01_database_gateway_reads_binary_rows_with_accepted_semantics() {
     let mut records: Vec<EodRecord> = (1..=5)
         .map(|day| record(20240100 + day, 1_500_000 + day as i64 * 10_000))
         .collect();
+    // The canonical storage layout is `<root>/eod_data/<exchange>/<symbol>.eod`
+    // (storage_paths::eod_path), not `<root>/<exchange>/...`. The old fixture wrote to the
+    // latter, so the gateway never found the file and the test could only ever fail -- it
+    // was previously masked by the missing `sector` column error.
     BinaryEodFile::write_all(
-        temp.path().join("NSE").join("INFY.eod"),
+        temp.path().join("eod_data").join("NSE").join("INFY.eod"),
         "INFY",
         "NSE",
         10000,
