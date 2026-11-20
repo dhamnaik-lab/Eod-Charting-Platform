@@ -150,6 +150,21 @@ function parseIsoDate(value: string | null | undefined): string | null {
   return /^\d{4}-\d{2}-\d{2}$/.test(value) ? value : null;
 }
 
+/** The registry supplies a Windows folder; folder mtime is not a revision authority. */
+function normalizeDatabasePath(path: string | null | undefined): string {
+  return (path ?? '').replace(/\\/g, '/').replace(/\/+$/, '').toLowerCase();
+}
+
+/** Recognize today's native identity as registered folder plus optional mtime suffix. */
+function nativeIdentityMatchesPath(identity: string, selectedFolder: string): boolean {
+  const suffixStart = identity.lastIndexOf('#');
+  const folder =
+    suffixStart >= 0 && /^\d+$/.test(identity.slice(suffixStart + 1))
+      ? identity.slice(0, suffixStart)
+      : identity;
+  return normalizeDatabasePath(folder) === normalizeDatabasePath(selectedFolder);
+}
+
 /**
  * P0-02: converts native pattern details into the accepted `ChartPatternResultDetails`.
  *
@@ -273,6 +288,10 @@ export async function runNativeOrTypeScriptScannerBatch(
     evaluateHistory: boolean;
     alertRules: EodAlertRule[];
     shouldCancel?: () => boolean;
+    /** The registered database selection at the start of UI preparation. */
+    expectedDatabasePath?: string | null;
+    /** Read the live database selection instead of a stale React closure. */
+    getActiveDatabasePath?: () => string | null;
     onProgress?: (progress: {
       completed: number;
       total: number;
@@ -284,14 +303,35 @@ export async function runNativeOrTypeScriptScannerBatch(
   },
   deps: NativeScannerRunDeps,
 ): Promise<NativeScannerRunOutcome> {
+  const databaseSelectionChanged = (): boolean =>
+    options.getActiveDatabasePath !== undefined &&
+    normalizeDatabasePath(options.getActiveDatabasePath()) !==
+      normalizeDatabasePath(options.expectedDatabasePath);
+
+  const cancelledForDatabaseChange = (
+    reason = 'Native scan cancelled because the active database changed.',
+  ): NativeScannerRunOutcome => ({
+    backend: 'native',
+    results: [],
+    alertTriggers: [],
+    errors: [reason],
+    scannedSymbols: 0,
+    cancelled: true,
+  });
+
   const fallback = async (reason?: string): Promise<NativeScannerRunOutcome> => {
+    // Never retry a scan of database A against the newly selected database B.
+    if (databaseSelectionChanged()) return cancelledForDatabaseChange();
     const output = await deps.runTypeScript();
+    if (databaseSelectionChanged()) return cancelledForDatabaseChange();
     return {
       ...output,
       backend: 'typescript-fallback',
       ...(reason ? { fallbackReason: reason } : {}),
     };
   };
+
+  if (databaseSelectionChanged()) return cancelledForDatabaseChange();
 
   // Hard preconditions: an unsupported or mixed rule set never starts natively.
   if (!canRunNatively(options.scannerIds)) {
@@ -357,11 +397,29 @@ export async function runNativeOrTypeScriptScannerBatch(
   const terminalPromise = new Promise<void>((resolve) => {
     resolveTerminal = resolve;
   });
+  // Event delivery may precede the start acknowledgement; pin every event identity
+  // and compare against the authoritative acknowledgement before publishing.
+  let acknowledgedIdentity: string | null = null;
+  const observedIdentities = new Set<string>();
+  let identityMismatch = false;
+  const recordEventIdentity = (identity: string): boolean => {
+    if (!identity) {
+      identityMismatch = true;
+    } else {
+      observedIdentities.add(identity);
+      if (acknowledgedIdentity !== null && identity !== acknowledgedIdentity) {
+        identityMismatch = true;
+      }
+    }
+    if (identityMismatch) resolveTerminal?.();
+    return !identityMismatch;
+  };
 
   const unsubscribe = await subscribe(runId, {
     onProgress: (event) => {
       // P1-10: a stale or superseded run can never move this run's progress.
-      if (terminalState.kind !== null) return;
+      if (terminalState.kind !== null || !recordEventIdentity(event.databaseIdentity) ||
+          databaseSelectionChanged()) return;
       completed = event.completed;
       total = event.total;
       options.onProgress?.({
@@ -373,6 +431,7 @@ export async function runNativeOrTypeScriptScannerBatch(
       });
     },
     onMatches: (event) => {
+      if (!recordEventIdentity(event.databaseIdentity) || databaseSelectionChanged()) return;
       const chunk = event.matches.map((match) => toScannerResult(match, generatedAt));
       if (chunk.length === 0) return;
       // Buffered only; published after the terminal event is accepted.
@@ -380,7 +439,7 @@ export async function runNativeOrTypeScriptScannerBatch(
     },
     onComplete: (event) => {
       // P1-10: only the first terminal event for this run counts; duplicates are ignored.
-      if (terminalState.kind !== null) return;
+      if (terminalState.kind !== null || !recordEventIdentity(event.databaseIdentity)) return;
       terminalState.kind = 'complete';
       terminalState.cancelled = event.cancelled;
       terminalState.counts = event.counts;
@@ -388,7 +447,10 @@ export async function runNativeOrTypeScriptScannerBatch(
       resolveTerminal?.();
     },
     onError: (event) => {
-      if (terminalState.kind !== null) return;
+      // The bridge may emit a synthetic subscription failure without DB identity.
+      if (terminalState.kind !== null ||
+          (event.code !== 'native-scan-events-unavailable' &&
+            !recordEventIdentity(event.databaseIdentity))) return;
       terminalState.kind = 'error';
       terminalState.error = { code: event.code, message: event.message };
       terminalState.counts = event.counts;
@@ -398,20 +460,41 @@ export async function runNativeOrTypeScriptScannerBatch(
   });
 
   const cancellationTimer = setInterval(() => {
-    if (options.shouldCancel?.() && terminalState.kind === null) {
+    if ((options.shouldCancel?.() || databaseSelectionChanged() || identityMismatch) &&
+        terminalState.kind === null) {
       void cancel(runId).catch(() => {
         /* Cancellation failures are retried by the terminal timeout path. */
       });
     }
   }, 100);
 
+  let acknowledgement: Awaited<ReturnType<typeof start>>;
   try {
-    await start(request);
+    acknowledgement = await start(request);
   } catch (error) {
     clearInterval(cancellationTimer);
     unsubscribe();
     const commandError = error as NativeScanCommandErrorV1;
     return fallback(`Native scan could not start: ${commandError.message ?? String(error)}`);
+  }
+  acknowledgedIdentity = acknowledgement.databaseIdentity;
+  const invalidAcknowledgement =
+    !acknowledgement.accepted ||
+    acknowledgement.runId !== runId ||
+    !acknowledgedIdentity ||
+    [...observedIdentities].some((identity) => identity !== acknowledgedIdentity) ||
+    (options.expectedDatabasePath !== undefined &&
+      (options.expectedDatabasePath === null ||
+        !nativeIdentityMatchesPath(acknowledgedIdentity, options.expectedDatabasePath)));
+  if (invalidAcknowledgement || identityMismatch || databaseSelectionChanged()) {
+    await cancel(runId).catch(() => undefined);
+    clearInterval(cancellationTimer);
+    unsubscribe();
+    return cancelledForDatabaseChange(
+      invalidAcknowledgement || identityMismatch
+        ? 'Native scan rejected a mismatched run or database identity.'
+        : undefined,
+    );
   }
 
   if (options.shouldCancel?.()) {
@@ -428,6 +511,14 @@ export async function runNativeOrTypeScriptScannerBatch(
   if (timeoutHandle) clearTimeout(timeoutHandle);
   clearInterval(cancellationTimer);
   unsubscribe();
+
+  // Never publish a completed result into an obsolete database-selection context.
+  if (identityMismatch || databaseSelectionChanged()) {
+    await cancel(runId).catch(() => undefined);
+    return cancelledForDatabaseChange(
+      identityMismatch ? 'Native scan rejected an event from another database.' : undefined,
+    );
+  }
 
   if (outcome === 'timeout' || terminalState.kind === null) {
     await cancel(runId).catch(() => undefined);
@@ -453,7 +544,7 @@ export async function runNativeOrTypeScriptScannerBatch(
   // P0-02/P1-05: a cancelled run publishes nothing partial, and the reported counts come
   // from the backend's own terminal event rather than zero-filled placeholders.
   const counts = terminalState.counts;
-  const published = terminalState.cancelled ? [] : results;
+  const published = terminalState.cancelled || databaseSelectionChanged() ? [] : results;
   if (published.length > 0) {
     options.onResultChunk?.(published);
   }
@@ -466,7 +557,7 @@ export async function runNativeOrTypeScriptScannerBatch(
       .filter((diagnostic) => diagnostic.code !== 'target-notice')
       .map((diagnostic) => diagnostic.message),
     scannedSymbols: counts ? counts.targets : completed > 0 ? completed : total,
-    cancelled: terminalState.cancelled,
+    cancelled: terminalState.cancelled || databaseSelectionChanged(),
     backend: 'native',
     nativeCounts: {
       targets: counts?.targets ?? total,

@@ -529,6 +529,101 @@ describe('NS-04 native run with TypeScript preservation', () => {
     expect(outcome.fallbackReason).toContain('No targets');
   });
 
+  it('blocks a native acknowledgement for a different registered database', async () => {
+    const runTypeScript = vi.fn(async () => tsOutput());
+    const cancel = vi.fn(async () => ({ runId: 'native-run', cancelRequested: true, alreadyFinished: false }));
+    const outcome = await runNativeOrTypeScriptScannerBatch(
+      baseOptions({
+        expectedDatabasePath: 'E:\\Data\\Active',
+        getActiveDatabasePath: () => 'E:\\Data\\Active',
+      }),
+      {
+        runTypeScript, newRunId: () => 'native-run',
+        subscribe: async () => () => undefined, cancel,
+        start: async () => ({
+          accepted: true, runId: 'native-run', schemaVersion: 1,
+          databaseIdentity: 'E:\\Data\\Other#123', workerCount: 1, totalTargets: 2,
+        }),
+      },
+    );
+    expect(outcome.cancelled).toBe(true);
+    expect(outcome.results).toEqual([]);
+    expect(outcome.errors.join(' ')).toContain('mismatched');
+    expect(cancel).toHaveBeenCalledWith('native-run');
+    expect(runTypeScript).not.toHaveBeenCalled();
+  });
+
+  it('never publishes native results or falls back after a midrun database switch', async () => {
+    let activeDatabase = 'E:\\Data\\Active';
+    const runTypeScript = vi.fn(async () => tsOutput());
+    const published: ScannerResult[][] = [];
+    const cancel = vi.fn(async () => ({ runId: 'native-run', cancelRequested: true, alreadyFinished: false }));
+    const outcome = await runNativeOrTypeScriptScannerBatch(
+      baseOptions({
+        expectedDatabasePath: activeDatabase,
+        getActiveDatabasePath: () => activeDatabase,
+        onResultChunk: (chunk: ScannerResult[]) => published.push(chunk),
+      }),
+      {
+        runTypeScript, newRunId: () => 'native-run',
+        subscribe: async (runId, handlers) => {
+          setTimeout(() => {
+            handlers.onMatches?.({
+              eventVersion: 1, runId, sequence: 1,
+              databaseIdentity: 'E:\\Data\\Active#123',
+              matches: [
+                { exchange: 'NSE', symbol: 'INFY', ruleId: 'chart_breakaway_gap', date: '2026-01-02' },
+              ],
+            });
+            activeDatabase = 'E:\\Data\\Other';
+            handlers.onComplete?.({
+              eventVersion: 1, runId, sequence: 2,
+              databaseIdentity: 'E:\\Data\\Active#123', cancelled: false, durationMs: 5,
+              counts: { targets: 2, matched: 1, noMatch: 1, skipped: 0, failed: 0 },
+              diagnostics: [],
+            });
+          }, 0);
+          return () => undefined;
+        },
+        cancel,
+        start: async () => ({
+          accepted: true, runId: 'native-run', schemaVersion: 1,
+          databaseIdentity: 'E:\\Data\\Active#123', workerCount: 2, totalTargets: 2,
+        }),
+      },
+    );
+    expect(outcome.cancelled).toBe(true);
+    expect(outcome.results).toEqual([]);
+    expect(published).toEqual([]);
+    expect(runTypeScript).not.toHaveBeenCalled();
+    expect(cancel).toHaveBeenCalledWith('native-run');
+  });
+
+  it('rejects an early event with a different identity from the start acknowledgement', async () => {
+    const runTypeScript = vi.fn(async () => tsOutput());
+    const outcome = await runNativeOrTypeScriptScannerBatch(baseOptions(), {
+      runTypeScript, newRunId: () => 'native-run',
+      subscribe: async (runId, handlers) => {
+        handlers.onMatches?.({
+          eventVersion: 1, runId, sequence: 1,
+          databaseIdentity: 'other-database#123',
+          matches: [
+            { exchange: 'NSE', symbol: 'INFY', ruleId: 'chart_breakaway_gap', date: '2026-01-02' },
+          ],
+        });
+        return () => undefined;
+      },
+      cancel: async () => ({ runId: 'native-run', cancelRequested: true, alreadyFinished: false }),
+      start: async () => ({
+        accepted: true, runId: 'native-run', schemaVersion: 1,
+        databaseIdentity: 'expected-database#123', workerCount: 1, totalTargets: 2,
+      }),
+    });
+    expect(outcome.cancelled).toBe(true);
+    expect(outcome.results).toEqual([]);
+    expect(runTypeScript).not.toHaveBeenCalled();
+  });
+
   it('formats honest status text for both backends', () => {
     const native = formatNativeScannerStatus(
       {

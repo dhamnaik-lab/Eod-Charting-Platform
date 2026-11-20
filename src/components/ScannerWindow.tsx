@@ -151,6 +151,7 @@ export function ScannerWindow() {
   const [workspaceHydrated, setWorkspaceHydrated] = useState(false);
   const [workspaceName, setWorkspaceName] = useState('');
   const cancelRequestedRef = useRef(false);
+  const activeNativeRunDatabaseRef = useRef<string | null>(null);
   const workspaceProfileRef = useRef<ScannerWorkspaceProfile | null>(null);
   const workspaceSaveGenerationRef = useRef(0);
 
@@ -428,6 +429,16 @@ export function ScannerWindow() {
     workspaceProfileRef.current = workspaceProfile;
   }, [workspaceProfile]);
 
+  // A native scan is bound to one registered database selection. The default
+  // TypeScript scanner is not changed by this opt-in cancellation guard.
+  useEffect(() => {
+    const original = activeNativeRunDatabaseRef.current;
+    if (original !== null &&
+        (!isOpen || snapshot?.activeDatabasePath !== original)) {
+      cancelRequestedRef.current = true;
+    }
+  }, [isOpen, snapshot?.activeDatabasePath]);
+
   useEffect(() => {
     if (!isOpen) {
       setWorkspaceHydrated(false);
@@ -640,6 +651,7 @@ export function ScannerWindow() {
     }
 
     cancelRequestedRef.current = false;
+    const scanDatabasePath = snapshot.activeDatabasePath;
     setRunning(true);
     setStatus(lookbackBars === null ? 'Preparing complete historical scanner inputs...' : 'Preparing scanner inputs...');
     setErrors([]);
@@ -691,6 +703,7 @@ export function ScannerWindow() {
         shouldCancel,
       };
       const useNativeBackend = nativeScannerEnabled && canRunNatively(selectedScannerIds);
+      if (useNativeBackend) activeNativeRunDatabaseRef.current = scanDatabasePath;
       if (nativeScannerEnabled && !useNativeBackend) {
         // Visible, unobtrusive fallback notice: unsupported/mixed rules stay TypeScript.
         setErrors((current) => [
@@ -703,6 +716,9 @@ export function ScannerWindow() {
         ? await runNativeOrTypeScriptScannerBatch(
             {
               ...scannerRequest,
+              expectedDatabasePath: scanDatabasePath,
+              getActiveDatabasePath: () =>
+                useChartStore.getState().snapshot?.activeDatabasePath ?? null,
               onProgress: ({ completed, total, symbol, exchange: targetExchange, resultCount }) => {
                 setStatus(
                   formatScannerProgress({
@@ -716,7 +732,10 @@ export function ScannerWindow() {
                 );
               },
               onResultChunk: (chunk) => {
-                setResults((current) => [...current, ...chunk]);
+                if (!cancelRequestedRef.current &&
+                    useChartStore.getState().snapshot?.activeDatabasePath === scanDatabasePath) {
+                  setResults((current) => [...current, ...chunk]);
+                }
               },
             },
             {
@@ -760,6 +779,12 @@ export function ScannerWindow() {
         },
       });
 
+      if (useNativeBackend &&
+          useChartStore.getState().snapshot?.activeDatabasePath !== scanDatabasePath) {
+        cancelRequestedRef.current = true;
+        setStatus('Native scan cancelled because the active database changed.');
+        return;
+      }
       setResults(output.results);
       setAlertTriggers(output.alertTriggers);
       setActiveAlertReviewTab('latest');
@@ -795,6 +820,7 @@ export function ScannerWindow() {
     } catch (error) {
       setStatus(error instanceof Error ? error.message : 'Scanner run failed.');
     } finally {
+      activeNativeRunDatabaseRef.current = null;
       setRunning(false);
     }
   };
