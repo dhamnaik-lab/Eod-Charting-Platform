@@ -185,7 +185,6 @@ impl HistoricalGroups {
         }
     }
 
-
     /// Fold an endpoint while traversing history newest-to-oldest. Retain the
     /// earliest match's metadata, exactly as the forward TypeScript grouping does,
     /// while preserving the latest matched date from the first endpoint encountered.
@@ -628,7 +627,6 @@ fn emit_progress(
     });
 }
 
-
 /// All-history chart-pattern execution. Each read stays within MAX_WINDOW_BARS;
 /// pages are traversed newest-first and evaluated in reverse endpoint order.
 /// The oldest PATTERN_MAX_WINDOW_BARS records of a nonterminal page are context
@@ -709,9 +707,7 @@ fn scan_full_pattern_history<D: ScanDataSource>(
             }
         }
         if let Some(expected) = expected_overlap.take() {
-            if bars.len() < expected.len()
-                || bars[bars.len() - expected.len()..] != expected[..]
-            {
+            if bars.len() < expected.len() || bars[bars.len() - expected.len()..] != expected[..] {
                 return fail(
                     "Historical page overlap changed during scanning; refusing incomplete results."
                         .to_string(),
@@ -819,7 +815,10 @@ fn scan_full_pattern_history<D: ScanDataSource>(
 
     let mut matches = groups.into_matches();
     matches.sort_by(|left, right| {
-        right.date.cmp(&left.date).then_with(|| left.rule_id.cmp(&right.rule_id))
+        right
+            .date
+            .cmp(&left.date)
+            .then_with(|| left.rule_id.cmp(&right.rule_id))
     });
     TargetOutcome {
         target: target.clone(),
@@ -849,7 +848,11 @@ fn scan_target<D: ScanDataSource>(
 ) -> TargetOutcome {
     // The four native gap patterns need full history; existing capped numeric AST
     // history and latest-only requests retain their previous bounded semantics.
-    if request.evaluation.evaluate_history && numeric_rules.is_empty() && !pattern_rules.is_empty() {
+    if request.evaluation.evaluate_history
+        && request.evaluation.lookback_bars.is_none()
+        && numeric_rules.is_empty()
+        && !pattern_rules.is_empty()
+    {
         return scan_full_pattern_history(source, request, target, window, pattern_rules, cancel);
     }
     let as_of = request.evaluation.as_of_date.as_deref();
@@ -1843,7 +1846,6 @@ mod tests {
         assert_eq!(history.last_matched_date, "2024-01-25");
     }
 
-
     /// Builds valid ascending market dates rather than synthetic day-of-month overflow.
     fn dated_quiet_bars(count: usize) -> Vec<NativeBar> {
         let start = chrono::NaiveDate::from_ymd_opt(1990, 1, 1).unwrap();
@@ -1894,10 +1896,19 @@ mod tests {
         assert_eq!(report.counts.failed, 0, "{:?}", report.diagnostics);
         assert_eq!(report.outcomes[0].bars, 10_050);
         let dates: Vec<&str> = report.matches.iter().map(|row| row.date.as_str()).collect();
-        assert!(dates.contains(&early_date.as_str()), "missing old episode: {dates:?}");
-        assert!(dates.contains(&recent_date.as_str()), "missing recent episode: {dates:?}");
+        assert!(
+            dates.contains(&early_date.as_str()),
+            "missing old episode: {dates:?}"
+        );
+        assert!(
+            dates.contains(&recent_date.as_str()),
+            "missing recent episode: {dates:?}"
+        );
         let loads = source.loads.lock().unwrap();
-        assert!(loads.len() >= 3, "complete history must use multiple bounded pages");
+        assert!(
+            loads.len() >= 3,
+            "complete history must use multiple bounded pages"
+        );
         assert!(loads.iter().all(|(_, size, _, _)| *size <= MAX_WINDOW_BARS));
     }
 
@@ -1921,14 +1932,8 @@ mod tests {
         groups.end_endpoint(&std::collections::BTreeSet::new());
 
         let mut earlier = std::collections::BTreeSet::new();
-        groups.absorb_reverse(
-            &mut earlier,
-            grouped_record("2024-01-01", Some("bullish")),
-        );
-        groups.absorb_reverse(
-            &mut earlier,
-            grouped_record("2024-01-01", Some("bearish")),
-        );
+        groups.absorb_reverse(&mut earlier, grouped_record("2024-01-01", Some("bullish")));
+        groups.absorb_reverse(&mut earlier, grouped_record("2024-01-01", Some("bearish")));
         groups.end_endpoint(&earlier);
 
         let result = groups.into_matches();
@@ -1939,6 +1944,27 @@ mod tests {
         assert_eq!(history.first_matched_date, "2024-01-03");
         assert_eq!(history.last_matched_date, "2024-01-05");
         assert_eq!(history.match_count, 3);
+    }
+
+    #[test]
+    fn ns04_specified_bar_history_keeps_the_existing_bounded_semantics() {
+        let mut input = HashMap::new();
+        input.insert("NSE:GAP".to_string(), gap_bars());
+        let source = FixtureSource::new(input);
+        let mut req = request(vec![pattern_rule("chart_breakaway_gap")], true);
+        req.evaluation.lookback_bars = Some(23);
+        let report = execute_scan(
+            &source,
+            &req,
+            &[target("GAP")],
+            &AtomicBool::new(false),
+            ScanExecutionOptions::default(),
+            |_| {},
+        );
+        assert_eq!(report.counts.failed, 0);
+        let loads = source.loads.lock().unwrap();
+        assert_eq!(loads.len(), 1, "specified history must not page beyond its limit");
+        assert_eq!(loads[0].1, 23);
     }
 
     #[test]
@@ -1998,7 +2024,8 @@ mod tests {
                 }
                 self.cancel.store(true, Ordering::SeqCst);
             }
-            self.inner.load_bars(target, as_of_date, window, price_basis, dividends, rights)
+            self.inner
+                .load_bars(target, as_of_date, window, price_basis, dividends, rights)
         }
     }
 
