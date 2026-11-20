@@ -1963,7 +1963,11 @@ mod tests {
         );
         assert_eq!(report.counts.failed, 0);
         let loads = source.loads.lock().unwrap();
-        assert_eq!(loads.len(), 1, "specified history must not page beyond its limit");
+        assert_eq!(
+            loads.len(),
+            1,
+            "specified history must not page beyond its limit"
+        );
         assert_eq!(loads[0].1, 23);
     }
 
