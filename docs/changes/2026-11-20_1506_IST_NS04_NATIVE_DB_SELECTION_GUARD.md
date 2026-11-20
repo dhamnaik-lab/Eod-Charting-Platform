@@ -27,3 +27,15 @@ Revert only this scoped commit with approval, keep native execution OFF and pres
 
 ## Next step
 Check new-commit Renderer CI, then obtain a Rust toolchain and close the authoritative backend identity/cancellation issue before merging PR #124.
+
+## Hosted CI on implementation commit `cc29bae0d7592b0ad2e73fa4241eccf0478c16f3`
+
+The code-bearing commit passed all three independently inspected GitHub Actions workflows:
+
+| Workflow | Actual result | Run ID |
+|---|---|---|
+| Renderer CI | PASS — 285 files passed / 1 skipped; 2,012 tests passed / 1 skipped; renderer typecheck PASS; Vite production build PASS (849 modules) | `44712912386` |
+| Rust Scanner Rustfmt CI | PASS — all 16 scanner/native Rust modules enumerated | `44712912330` |
+| Rust Compile and Test CI | PASS — Cargo check; native scanner 101 passed; RSC 18 passed; full crate 1,390 passed, 26 ignored, 1 filtered, 0 failed | `44712912402` |
+
+The filtered Linux test is `database::nse_identity_imports::tests::resolves_standard_archive_paths`, retained for Windows acceptance. These results validate **the implementation commit**; this documentation-only follow-up does not alter source. They do not establish a canonical backend DB revision token, native registry-switch cancellation, Windows runtime or portable acceptance.
