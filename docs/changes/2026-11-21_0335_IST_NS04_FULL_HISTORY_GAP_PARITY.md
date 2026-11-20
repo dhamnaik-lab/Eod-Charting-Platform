@@ -22,6 +22,11 @@ Native gap-only All History scans read trailing 5,000-bar pages through the exis
 
 Latest-only and Specified bars, numeric AST capped evaluation, native OFF by default, TypeScript scanner and alert fallback, scanner UI, original database and profile resolution, raw `.eod` immutability, Rust read-only connections, job permits, CA-01 adjusted-native HOLD, and existing database switching safeguards. No new dependencies or schema changes.
 
+## GitHub publication
+
+- Follow-up draft PR #125 now targets `main` for the repository's existing PR-only Rustfmt, Cargo and renderer CI gates. It incorporates but does not modify the still-open PR #124 source. This is a candidate to supersede #124, **not** a merged or accepted release.
+- The workflow trigger applies only to PRs targeting `main`, so the original stacked PR configuration did not start checks.
+
 ## Validation
 
 - Source inspection: GitHub PR #124 at `d6e63d59d049e2c21be4821e9b21065905f477b4`.
