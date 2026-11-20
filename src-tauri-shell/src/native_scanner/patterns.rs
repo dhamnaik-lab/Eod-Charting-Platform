@@ -201,6 +201,9 @@ fn to_match_record(
         }),
         source: result.source,
         pattern: details,
+        // Owned by the historical grouping pass in the executor, which is the only place
+        // that knows whether the endpoint run is consecutive. A detector never groups.
+        history: None,
     }
 }
 

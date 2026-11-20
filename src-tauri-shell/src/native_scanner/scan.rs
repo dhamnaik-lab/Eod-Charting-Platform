@@ -1128,7 +1128,7 @@ mod tests {
         assert_eq!(endpoint_dates.first().copied(), Some("2024-01-33"));
         assert_eq!(endpoint_dates.last().copied(), Some("2024-01-40"));
         // Sorting is strictly descending by date in the final report.
-        let mut dates: Vec<&str> = report.matches.iter().map(|m| m.date.as_str()).collect();
+        let dates: Vec<&str> = report.matches.iter().map(|m| m.date.as_str()).collect();
         let sorted = {
             let mut copy = dates.clone();
             copy.sort_by(|a, b| b.cmp(a));
