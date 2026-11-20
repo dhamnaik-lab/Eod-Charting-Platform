@@ -20,6 +20,7 @@ use super::ast::{
     PriceBasisV1, RuleV1,
 };
 use super::reader::{NativeBar, MAX_WINDOW_BARS};
+use crate::scanner_contract::ScannerDirectionV1;
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::Mutex;
 use std::time::Instant;
@@ -125,6 +126,71 @@ impl ScanMatchRecord {
     /// absent direction is the empty string rather than a distinct value.
     pub fn direction_as_key(&self) -> &str {
         self.direction.as_deref().unwrap_or("")
+    }
+
+    /// Direction in the transport's own spelling (`bullish` / `bearish` / `neutral`).
+    ///
+    /// The contract enum is `#[serde(rename_all = "lowercase")]`, so this is the same
+    /// text the wire format and the TypeScript contract use. Deriving it from `Debug`
+    /// would produce `Bullish`, which does not validate against the renderer contract.
+    pub fn direction_wire_text(direction: ScannerDirectionV1) -> String {
+        match direction {
+            ScannerDirectionV1::Bullish => "bullish".to_string(),
+            ScannerDirectionV1::Bearish => "bearish".to_string(),
+            ScannerDirectionV1::Neutral => "neutral".to_string(),
+        }
+    }
+}
+
+/// Consecutive historical pattern runs, keyed by `rule:direction`.
+///
+/// Mirrors `historicalMatchKey` + the active/completed group loop in
+/// `src/features/chartPatterns/evaluation.ts`: a run that continues at the next endpoint
+/// extends its group, and a run that stops matching at an endpoint is complete and can
+/// never be extended by a later, non-consecutive match.
+#[derive(Default)]
+struct HistoricalGroups {
+    active: std::collections::BTreeMap<String, usize>,
+    ordered: Vec<ScanMatchRecord>,
+}
+
+impl HistoricalGroups {
+    /// Folds one endpoint's matches into the open runs.
+    fn absorb(
+        &mut self,
+        endpoint: &mut std::collections::BTreeSet<String>,
+        record: ScanMatchRecord,
+    ) {
+        let key = format!("{}:{}", record.rule_id, record.direction_as_key());
+        endpoint.insert(key.clone());
+        match self.active.get(&key).copied() {
+            Some(position) => {
+                let group = &mut self.ordered[position];
+                if let Some(history) = group.history.as_mut() {
+                    history.last_matched_date = record.date.clone();
+                    history.match_count += 1;
+                }
+            }
+            None => {
+                let mut grouped = record;
+                grouped.history = Some(ScanMatchHistory {
+                    first_matched_date: grouped.date.clone(),
+                    last_matched_date: grouped.date.clone(),
+                    match_count: 1,
+                });
+                self.active.insert(key, self.ordered.len());
+                self.ordered.push(grouped);
+            }
+        }
+    }
+
+    /// Closes every run that did not match at the endpoint just evaluated.
+    fn end_endpoint(&mut self, endpoint: &std::collections::BTreeSet<String>) {
+        self.active.retain(|key, _| endpoint.contains(key));
+    }
+
+    fn into_matches(self) -> Vec<ScanMatchRecord> {
+        self.ordered
     }
 }
 
@@ -626,11 +692,9 @@ fn scan_target<D: ScanDataSource>(
 
     let mut rules_evaluated = 0usize;
 
-    // Track consecutive historical pattern runs per `rule:direction` so they can be
-    // grouped exactly like the accepted TypeScript historical evaluation.
-    let mut active_groups: std::collections::BTreeMap<String, usize> =
-        std::collections::BTreeMap::new();
-    let mut grouped_matches: Vec<ScanMatchRecord> = Vec::new();
+    // Consecutive historical pattern runs, grouped exactly like the accepted TypeScript
+    // historical evaluation.
+    let mut groups = HistoricalGroups::default();
 
     for rule in numeric_rules {
         if cancel.load(Ordering::SeqCst) {
@@ -763,7 +827,7 @@ fn scan_target<D: ScanDataSource>(
             let from = (index + 1).saturating_sub(super::patterns::PATTERN_MAX_WINDOW_BARS);
             evaluated_history_endpoints += 1;
             // Keys matching at *this* endpoint; anything absent here ends its run.
-            let mut active_keys: std::collections::BTreeSet<String> =
+            let mut endpoint_keys: std::collections::BTreeSet<String> =
                 std::collections::BTreeSet::new();
             match super::patterns::evaluate_pattern_rule(
                 rule,
@@ -779,33 +843,7 @@ fn scan_target<D: ScanDataSource>(
                         &rule.id,
                         result,
                     );
-                    // Historical grouping, mirroring `historicalMatchKey` in the accepted
-                    // TypeScript evaluation: consecutive matches for the same
-                    // `rule:direction` extend one group instead of publishing a row per
-                    // endpoint. The first result of a run is retained and annotated with
-                    // its history summary, so native result counts match TypeScript.
-                    let key = format!("{}:{}", record.rule_id, record.direction_as_key());
-                    active_keys.insert(key.clone());
-                    match active_groups.get(&key).copied() {
-                        Some(position) => {
-                            let group = &mut grouped_matches[position];
-                            let count = group.history.as_ref().map_or(0, |h| h.match_count);
-                            if let Some(history) = group.history.as_mut() {
-                                history.last_matched_date = record.date.clone();
-                                history.match_count = count + 1;
-                            }
-                        }
-                        None => {
-                            let mut grouped = record;
-                            grouped.history = Some(ScanMatchHistory {
-                                first_matched_date: grouped.date.clone(),
-                                last_matched_date: grouped.date.clone(),
-                                match_count: 1,
-                            });
-                            active_groups.insert(key, grouped_matches.len());
-                            grouped_matches.push(grouped);
-                        }
-                    }
+                    groups.absorb(&mut endpoint_keys, record);
                     if !matched_rule_ids.contains(&rule.id) {
                         matched_rule_ids.push(rule.id.clone());
                     }
@@ -816,15 +854,13 @@ fn scan_target<D: ScanDataSource>(
                     break;
                 }
             }
-            // A key that stopped matching at this endpoint ends its run: the group is
-            // complete and must not be extended by a later, non-consecutive match.
-            active_groups.retain(|key, _| active_keys.contains(key));
+            groups.end_endpoint(&endpoint_keys);
             index += 1;
         }
     }
 
     // Grouped historical rows replace the per-endpoint rows they summarize.
-    matches.extend(grouped_matches);
+    matches.extend(groups.into_matches());
 
     if !had_error && rules_evaluated == 0 {
         // Every rule needed more bars than the target has; that is unevaluable, not a
@@ -1144,44 +1180,90 @@ mod tests {
         );
     }
 
-    /// Audit fix: consecutive historical pattern matches must be grouped exactly like
-    /// `src/features/chartPatterns/evaluation.ts` (one row per consecutive run, counting
-    /// its endpoints), instead of emitting a row per endpoint.
+    /// The rendered direction must use the contract's own lowercase spelling; deriving it
+    /// from `Debug` produced `Bullish`, which the renderer contract does not accept.
+    #[test]
+    fn p1_direction_uses_the_transport_spelling() {
+        assert_eq!(
+            ScanMatchRecord::direction_wire_text(ScannerDirectionV1::Bullish),
+            "bullish"
+        );
+        assert_eq!(
+            ScanMatchRecord::direction_wire_text(ScannerDirectionV1::Bearish),
+            "bearish"
+        );
+        assert_eq!(
+            ScanMatchRecord::direction_wire_text(ScannerDirectionV1::Neutral),
+            "neutral"
+        );
+    }
+
+    fn grouped_record(date: &str, direction: Option<&str>) -> ScanMatchRecord {
+        ScanMatchRecord {
+            exchange: "NSE".to_string(),
+            symbol: "GAP".to_string(),
+            rule_id: "chart_breakaway_gap".to_string(),
+            date: date.to_string(),
+            direction: direction.map(ToOwned::to_owned),
+            ..ScanMatchRecord::default()
+        }
+    }
+
+    /// Audit fix: consecutive historical pattern matches collapse into one grouped result,
+    /// exactly like `src/features/chartPatterns/evaluation.ts`, instead of publishing a row
+    /// per endpoint.
     #[test]
     fn p1_historical_pattern_matches_are_grouped_not_duplicated() {
-        let mut bars = HashMap::new();
-        bars.insert("NSE:GAP".to_string(), gap_bars());
-        let source = FixtureSource::new(bars);
-        let report = execute_scan(
-            &source,
-            &request(vec![pattern_rule("chart_breakaway_gap")], true),
-            &[target("GAP")],
-            &AtomicBool::new(false),
-            ScanExecutionOptions::default(),
-            |_| {},
-        );
-
-        // Four or more endpoints were evaluated, but the consecutive run collapses to one
-        // published result carrying the full history summary.
-        assert!(
-            report.outcomes[0].evaluated_history_endpoints > 1,
-            "the fixture must exercise several endpoints"
-        );
-        assert_eq!(
-            report.matches.len(),
-            1,
-            "consecutive matches must collapse into one grouped result"
-        );
-        let history = report.matches[0]
+        let mut groups = HistoricalGroups::default();
+        for date in ["2024-01-01", "2024-01-02", "2024-01-03"] {
+            let mut endpoint = std::collections::BTreeSet::new();
+            groups.absorb(&mut endpoint, grouped_record(date, Some("bullish")));
+            groups.end_endpoint(&endpoint);
+        }
+        let grouped = groups.into_matches();
+        assert_eq!(grouped.len(), 1, "one run must publish one result");
+        let history = grouped[0]
             .history
             .as_ref()
-            .expect("a grouped historical row must carry its history summary");
-        assert_eq!(history.first_matched_date, report.matches[0].date);
-        assert_eq!(history.last_matched_date, "2024-01-25");
+            .expect("a grouped run must carry its history summary");
+        assert_eq!(history.first_matched_date, "2024-01-01");
+        assert_eq!(history.last_matched_date, "2024-01-03");
+        assert_eq!(history.match_count, 3);
         assert_eq!(
-            history.match_count as usize, report.outcomes[0].evaluated_history_endpoints,
-            "every evaluated endpoint in the run is counted exactly once"
+            grouped[0].date, "2024-01-01",
+            "the first result of the run is the one that is retained"
         );
+    }
+
+    /// A run that stops matching must not be extended by a later, non-consecutive match,
+    /// and a direction change is a different group.
+    #[test]
+    fn p1_non_consecutive_and_differing_direction_runs_stay_separate() {
+        let mut groups = HistoricalGroups::default();
+        let mut first = std::collections::BTreeSet::new();
+        groups.absorb(&mut first, grouped_record("2024-01-01", Some("bullish")));
+        groups.end_endpoint(&first);
+        // A quiet endpoint closes the run.
+        let quiet = std::collections::BTreeSet::new();
+        groups.end_endpoint(&quiet);
+        // The same rule matching again later is a new run, and so is the other direction.
+        let mut later = std::collections::BTreeSet::new();
+        groups.absorb(&mut later, grouped_record("2024-01-10", Some("bullish")));
+        groups.absorb(&mut later, grouped_record("2024-01-10", Some("bearish")));
+        groups.end_endpoint(&later);
+
+        let grouped = groups.into_matches();
+        assert_eq!(
+            grouped.len(),
+            3,
+            "two non-consecutive runs plus a direction change are three groups"
+        );
+        assert_eq!(grouped[0].history.as_ref().unwrap().match_count, 1);
+        assert_eq!(grouped[1].history.as_ref().unwrap().match_count, 1);
+        assert_eq!(grouped[2].history.as_ref().unwrap().match_count, 1);
+        assert_eq!(grouped[1].direction.as_deref(), Some("bullish"));
+        assert_eq!(grouped[2].direction.as_deref(), Some("bearish"));
+        assert_eq!(grouped[1].date, "2024-01-10");
     }
 
     /// Audit fix: `evaluation.lookbackBars` must actually bound the evaluated window

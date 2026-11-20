@@ -187,10 +187,11 @@ fn to_match_record(
         scanner_name: Some(result.scanner_name),
         category_id: Some(result.category_id),
         category_name: Some(result.category_name),
-        direction: result.direction.map(|direction| {
-            let text = format!("{direction:?}").to_ascii_lowercase();
-            text
-        }),
+        // The transport spelling comes from the contract enum itself; formatting the
+        // enum with `Debug` would emit `Bullish`, which the renderer contract rejects.
+        direction: result
+            .direction
+            .map(super::scan::ScanMatchRecord::direction_wire_text),
         score: result.score,
         reasons: result.reasons,
         values: result.values.map(|values| {
