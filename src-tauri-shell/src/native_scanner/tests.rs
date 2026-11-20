@@ -641,9 +641,10 @@ fn p1_08_a_worker_reuses_its_connection_across_targets() {
 // Item 3 — bounded reads must equal the full-history read
 // ---------------------------------------------------------------------------
 
-/// Builds a long daily history plus one mid-history split, so the adjusted path has to
-/// look at rows far older than the requested window.
-fn seed_long_history(temp: &Path, connection: &Connection, days: usize) {
+/// Builds a long, strictly ascending daily history for symbol `LONG` over the `connection`
+/// supplied by the caller (the fixture writes through SQLite, so the folder path is not
+/// needed here).
+fn seed_long_history(connection: &Connection, days: usize) {
     let mut batch = String::from(
         "INSERT INTO instruments (symbol, exchange, series) VALUES ('LONG', 'NSE', 'EQ');",
     );
@@ -667,7 +668,7 @@ fn seed_long_history(temp: &Path, connection: &Connection, days: usize) {
 fn p3_bounded_read_matches_the_full_history_read_for_a_raw_window() {
     let temp = TempDir::new("gateway_bounded_raw");
     let connection = seed_database(temp.path(), "hybrid");
-    seed_long_history(temp.path(), &connection, 280);
+    seed_long_history(&connection, 280);
 
     // A large window forces the bounded path, and the result must equal a read whose
     // window covers everything.
@@ -717,7 +718,7 @@ fn p3_bounded_read_matches_the_full_history_read_for_a_raw_window() {
 fn p3_bounded_read_preserves_adjusted_semantics() {
     let temp = TempDir::new("gateway_bounded_adjusted");
     let connection = seed_database(temp.path(), "hybrid");
-    seed_long_history(temp.path(), &connection, 280);
+    seed_long_history(&connection, 280);
     connection
         .execute_batch(
             "INSERT INTO corporate_actions
@@ -799,7 +800,7 @@ fn p3_bounded_read_preserves_adjusted_semantics() {
 fn p3_bounded_read_applies_a_split_newer_than_the_window() {
     let temp = TempDir::new("gateway_bounded_future_split");
     let connection = seed_database(temp.path(), "hybrid");
-    seed_long_history(temp.path(), &connection, 120);
+    seed_long_history(&connection, 120);
     // The generated history ends at 2023-05-08, so this split is after every row and all
     // of them must be divided by 2.0.
     connection
@@ -854,7 +855,7 @@ fn p3_bounded_read_applies_a_split_newer_than_the_window() {
 fn p3_bounded_read_ignores_a_split_older_than_the_window() {
     let temp = TempDir::new("gateway_bounded_past_split");
     let connection = seed_database(temp.path(), "hybrid");
-    seed_long_history(temp.path(), &connection, 120);
+    seed_long_history(&connection, 120);
     // 2023-01-15 (index 14); every in-window row is later than this.
     connection
         .execute_batch(
@@ -1026,106 +1027,6 @@ fn p3_bounded_read_handles_an_empty_history() {
     assert!(bars.is_empty());
 }
 
-// ---------------------------------------------------------------------------
-// Item 4 — canonical identity / revision safeguards fail closed
-// ---------------------------------------------------------------------------
-
-/// An unresolvable identity must fail closed even when corporate actions exist for the
-/// requested symbol: no adjustments may resurrect an unidentifiable target.
-#[test]
-fn p4_adjusted_read_fails_closed_without_a_resolvable_identity() {
-    let temp = TempDir::new("gateway_ca_identity");
-    let connection = seed_database(temp.path(), "hybrid");
-    connection
-        .execute_batch(
-            "INSERT INTO corporate_actions
-               (id, symbol, exchange, effective_date, action_type, factor, adjust_volume, source)
-             VALUES (1, 'GHOST', 'NSE', '2024-01-02', 'SPLIT', 2.0, 1, 'TEST');",
-        )
-        .expect("fixture");
-    let error = crate::database::read_scan_bars_for_folder(
-        temp.path(),
-        &connection,
-        "GHOST",
-        "NSE",
-        None,
-        10,
-        true,
-        false,
-        false,
-    )
-    .expect_err("adjusted read without identity must fail closed");
-    assert!(
-        error.contains("no resolvable instrument identity"),
-        "unexpected: {error}"
-    );
-}
-
-/// A dividend whose recorded factor is not a valid recorded value must fail closed
-/// rather than being silently skipped.
-#[test]
-fn p4_adjusted_read_fails_closed_on_invalid_dividend_factor() {
-    let temp = TempDir::new("gateway_ca_factor");
-    let connection = seed_database(temp.path(), "hybrid");
-    connection
-        .execute_batch(
-            "INSERT INTO instruments (symbol, exchange, series) VALUES ('BADF', 'NSE', 'EQ');
-             INSERT INTO eod_prices (symbol, exchange, date, open, high, low, close, prev_close, volume)
-             VALUES
-               ('BADF','NSE','2024-01-01', 100, 101, 99, 100, 100, 10),
-               ('BADF','NSE','2024-01-02', 100, 101, 99, 100, 100, 10);
-             INSERT INTO corporate_actions
-               (id, symbol, exchange, effective_date, action_type, factor, adjust_volume, cash_amount, source)
-             VALUES (1, 'BADF', 'NSE', '2024-01-03', 'DIVIDEND', 1.0, 0, 5.0, 'TEST');",
-        )
-        .expect("fixture");
-    let error = crate::database::read_scan_bars_for_folder(
-        temp.path(),
-        &connection,
-        "BADF",
-        "NSE",
-        None,
-        10,
-        true,
-        true,
-        false,
-    )
-    .expect_err("an invalid dividend factor must fail closed");
-    assert!(
-        error.contains("factor"),
-        "the error must name the invalid factor: {error}"
-    );
-}
-
-/// Liveness guard: the concurrency test must not be timing out on a healthy build.
-#[test]
-fn p1_08_a_single_read_completes_promptly() {
-    let temp = TempDir::new("gateway_prompt");
-    let connection = seed_database(temp.path(), "hybrid");
-    connection
-        .execute_batch(
-            "INSERT INTO instruments (symbol, exchange, series) VALUES ('FAST', 'NSE', 'EQ');
-             INSERT INTO eod_prices (symbol, exchange, date, open, high, low, close, prev_close, volume)
-             VALUES ('FAST','NSE','2024-01-01', 10, 11, 9, 10, 10, 100);",
-        )
-        .expect("fixture");
-    drop(connection);
-    let source = ReadOnlyDatabaseSource::open(temp.path().to_path_buf()).expect("open");
-    let target = ScanTarget {
-        exchange: "NSE".to_string(),
-        symbol: "FAST".to_string(),
-    };
-    let started = Instant::now();
-    let bars = source
-        .load_bars(&target, None, 5, PriceBasisV1::Raw, false, false)
-        .expect("read");
-    assert_eq!(bars.len(), 1);
-    assert!(
-        started.elapsed() < Duration::from_secs(30),
-        "a single-row read took {:?}",
-        started.elapsed()
-    );
-}
 // ---------------------------------------------------------------------------
 // Item 4 — canonical identity / revision safeguards fail closed
 // ---------------------------------------------------------------------------
