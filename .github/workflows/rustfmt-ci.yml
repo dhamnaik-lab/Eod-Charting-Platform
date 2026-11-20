@@ -35,6 +35,12 @@ jobs:
           # without it `**/*.rs` needs an extra directory level and would silently
           # expand to nothing, turning this gate into a false pass.
           native_files=(src-tauri-shell/src/native_scanner/**/*.rs)
+          # NOTE: src/database/eod_data.rs and src/database/binary_eod.rs are deliberately
+          # NOT enrolled. Both were already rustfmt-dirty in the accepted base (480 and 51
+          # differing lines respectively), so enrolling them would force a whole-file
+          # reformat of accepted database modules inside a scanner correction. The new code
+          # in those files is format-clean and was verified as such; the pre-existing
+          # dirtiness is recorded as a separate remediation item.
           scanner_files=(src-tauri-shell/src/scanner_*.rs "${native_files[@]}")
           if (( ${#scanner_files[@]} == 0 )); then
             echo 'No scanner Rust modules found; expected scanner sources are missing.' >&2

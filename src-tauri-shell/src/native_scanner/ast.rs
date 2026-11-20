@@ -200,6 +200,28 @@ fn reject_unknown_keys(
     }
 }
 
+/// Look up a required key, recording a structured issue when it is absent.
+///
+/// `Value::get` returning `None` is deliberately distinguished from a present value of
+/// the wrong type: absence is a `missing-field` error, wrong type is reported by the
+/// downstream coercion (`as_object`, `not-an-array`, ...).
+fn require_key<'a>(
+    root: &'a Map<String, Value>,
+    key: &str,
+    path: &str,
+    issues: &mut Vec<ValidationIssue>,
+) -> Option<&'a Value> {
+    let value = root.get(key);
+    if value.is_none() {
+        issues.push(ValidationIssue::new(
+            path,
+            "missing-field",
+            format!("{path} is required."),
+        ));
+    }
+    value
+}
+
 fn as_object<'a>(
     value: &'a Value,
     path: &str,
@@ -657,8 +679,10 @@ pub fn parse_native_scan_request_v1(
     );
 
     // -- universe -----------------------------------------------------------
-    let universe = root
-        .get("universe")
+    // A missing container must be reported here. Without this, `None` can reach the
+    // construction site with no issue recorded, and the old `expect()` panicked instead
+    // of returning a structured validation error.
+    let universe = require_key(root, "universe", "request.universe", &mut issues)
         .and_then(|value| as_object(value, "request.universe", &mut issues))
         .and_then(|universe| {
             let source = universe.get("source").and_then(Value::as_str);
@@ -743,8 +767,7 @@ pub fn parse_native_scan_request_v1(
         });
 
     // -- evaluation ---------------------------------------------------------
-    let evaluation = root
-        .get("evaluation")
+    let evaluation = require_key(root, "evaluation", "request.evaluation", &mut issues)
         .and_then(|value| as_object(value, "request.evaluation", &mut issues))
         .and_then(|evaluation| {
             reject_unknown_keys(
@@ -836,9 +859,18 @@ pub fn parse_native_scan_request_v1(
         });
 
     // -- rules --------------------------------------------------------------
-    let rules = root
-        .get("rules")
-        .and_then(Value::as_array)
+    let rules = require_key(root, "rules", "request.rules", &mut issues)
+        .and_then(|value| match value.as_array() {
+            Some(rules) => Some(rules),
+            None => {
+                issues.push(ValidationIssue::new(
+                    "request.rules",
+                    "not-an-array",
+                    "request.rules must be an array.",
+                ));
+                None
+            }
+        })
         .and_then(|rules| {
             if rules.is_empty() || rules.len() > MAX_RULES {
                 issues.push(ValidationIssue::new(
@@ -898,12 +930,24 @@ pub fn parse_native_scan_request_v1(
             "request.requestedRunId is required.",
         )]);
     };
+    // No `expect()`/`unwrap()` may guard construction: every path that yields `None`
+    // here must already have pushed an issue, so fail closed with a structured error.
+    let (Some(universe), Some(evaluation), Some(rules)) = (universe, evaluation, rules) else {
+        if issues.is_empty() {
+            issues.push(ValidationIssue::new(
+                "request",
+                "incomplete-request",
+                "request is missing a required section and could not be validated.",
+            ));
+        }
+        return Err(issues);
+    };
     Ok(NativeScanRequestV1 {
         schema_version: 1,
         requested_run_id,
-        universe: universe.expect("validated universe"),
-        evaluation: evaluation.expect("validated evaluation"),
-        rules: rules.expect("validated rules"),
+        universe,
+        evaluation,
+        rules,
     })
 }
 
@@ -1376,6 +1420,99 @@ mod tests {
             "evaluation": { "evaluateHistory": false, "priceBasis": "raw" },
             "rules": rules
         })
+    }
+
+    /// Every omitted required section must produce a structured error, never a panic.
+    ///
+    /// Regression: these inputs previously reached `expect("validated ...")` with an
+    /// empty issue list, because `Value::get` returning `None` recorded nothing.
+    #[test]
+    fn ns01_validator_reports_missing_top_level_sections_instead_of_panicking() {
+        let cases: [(&str, &str); 3] = [
+            ("universe", "request.universe"),
+            ("evaluation", "request.evaluation"),
+            ("rules", "request.rules"),
+        ];
+        for (missing, expected_path) in cases {
+            let mut value =
+                request_value(serde_json::json!([{ "id": "rule-1", "kind": "expression" }]));
+            value.as_object_mut().unwrap().remove(missing);
+            let error = parse_native_scan_request_v1(&value)
+                .expect_err("a missing required section must be rejected");
+            assert!(
+                error
+                    .iter()
+                    .any(|issue| issue.path == expected_path && issue.code == "missing-field"),
+                "missing `{missing}` must report missing-field at {expected_path}, got {error:?}"
+            );
+        }
+    }
+
+    /// A request missing all three containers at once must still fail closed with
+    /// structured errors and must not panic.
+    #[test]
+    fn ns01_validator_rejects_a_request_with_every_section_missing() {
+        let value = serde_json::json!({ "schemaVersion": 1, "requestedRunId": "run-1" });
+        let error = parse_native_scan_request_v1(&value)
+            .expect_err("a request with no sections must be rejected");
+        for expected_path in ["request.universe", "request.evaluation", "request.rules"] {
+            assert!(
+                error.iter().any(|issue| issue.path == expected_path),
+                "expected an issue at {expected_path}, got {error:?}"
+            );
+        }
+    }
+
+    /// `rules` present with a non-array type is distinct from `rules` absent, and must
+    /// report `not-an-array` rather than silently yielding `None`.
+    #[test]
+    fn ns01_validator_reports_rules_that_are_not_an_array() {
+        let mut value = request_value(serde_json::json!([]));
+        value["rules"] = serde_json::json!({ "unexpected": "object" });
+        let error = parse_native_scan_request_v1(&value).expect_err("non-array rules rejected");
+        assert!(
+            error
+                .iter()
+                .any(|issue| issue.path == "request.rules" && issue.code == "not-an-array"),
+            "expected not-an-array at request.rules, got {error:?}"
+        );
+    }
+
+    /// Non-object containers must be reported by the object coercion, not skipped.
+    #[test]
+    fn ns01_validator_reports_non_object_sections() {
+        for section in ["universe", "evaluation"] {
+            let mut value =
+                request_value(serde_json::json!([{ "id": "rule-1", "kind": "expression" }]));
+            value[section] = serde_json::json!("not-an-object");
+            let error = parse_native_scan_request_v1(&value)
+                .expect_err("non-object section must be rejected");
+            assert!(
+                error.iter().any(|issue| {
+                    issue.path == format!("request.{section}") && issue.code == "not-an-object"
+                }),
+                "expected not-an-object at request.{section}, got {error:?}"
+            );
+        }
+    }
+
+    /// Deeply malformed input must return an error rather than unwind.
+    #[test]
+    fn ns01_validator_never_panics_on_malformed_input() {
+        let cases = [
+            serde_json::json!(null),
+            serde_json::json!([]),
+            serde_json::json!("request"),
+            serde_json::json!(0),
+            serde_json::json!({}),
+            serde_json::json!({ "schemaVersion": 1 }),
+            serde_json::json!({ "schemaVersion": 1, "universe": null, "evaluation": null, "rules": null }),
+            serde_json::json!({ "schemaVersion": 2, "requestedRunId": "", "rules": [] }),
+        ];
+        for value in cases {
+            // The contract under test is "returns Err or Ok, never panics".
+            let _ = parse_native_scan_request_v1(&value);
+        }
     }
 
     #[test]
