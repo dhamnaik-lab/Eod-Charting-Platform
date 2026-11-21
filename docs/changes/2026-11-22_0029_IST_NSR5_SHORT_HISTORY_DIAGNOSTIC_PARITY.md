@@ -44,8 +44,9 @@ This is reporting/display parity, **not** exact byte-identical diagnostic wordin
 
 - Verified base commit `522cd8a73919e41007e132f7df41f4bbb13f2613` and inspected live source for Rust outcomes, native transport/adaptation, Scanner window display and prior regressions: **PASS source inspection**, not an executed runtime test.
 - The existing issue #131 Rust executor tests covering 0/1/2-bar results passed in merged PR #132 (native 115/0; full Rust 1,406/0). No Rust source changes are proposed by this issue; prior results are not re-labeled as new tests.
-- **Pending new GitHub Renderer CI:** Vitest, renderer TypeScript typecheck and Vite build. The new tests use mocked native events (not a live DB).
+- [GitHub Renderer CI #44938581594](https://github.com/dhamnaik-lab/Eod-Charting-Platform/actions/runs/44938581594) on source commit `c44b2ae520df1999e663ad2c5857caac01468b6e`: **COMPLETED/SUCCESS**. Vitest **2,108 passed, 1 skipped** across **289 passing test files and 1 skipped file**; `npm run typecheck:renderer` **PASS**; Vite production build **PASS** (6.68 seconds), verified from GitHub job-step results and logs. This includes the four new cases for mocked 0/1/2-bar native diagnostics and fallback/cancellation text.
 - **Not run:** New Rustfmt/Cargo tests (no Rust code touched), Windows portable build, live registered-database/native GUI visual acceptance. Manual acceptance remains part of the consolidated scanner release checkpoint.
+- This evidence update is a **documentation-only successor** to the successfully tested source commit; it does not change application source or tests. If GitHub automatically reruns CI at the documentation-only head, record that result separately rather than claiming it before completion.
 
 ## Risks and limits
 
