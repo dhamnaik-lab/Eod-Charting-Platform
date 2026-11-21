@@ -14,6 +14,7 @@
 
 import type { EodAlertRule, EodAlertTrigger } from '@/features/alerts/eodAlerts';
 import { listApplicationScannerDefinitions } from '@/features/scanner/catalog';
+import { isNativeCoreResultId, nativeCoreResultMetadataIssue } from '@/features/scanner/nativeCoreResultMetadataGate';
 import {
   NATIVE_SUPPORTED_PATTERN_IDS,
   NATIVE_SUPPORTED_PATTERN_NAMES,
@@ -259,6 +260,8 @@ function toScannerResult(match: NativeScanMatchV1, generatedAt: string): Scanner
         })()
       : {}),
     ...(match.source ? { source: match.source } : {}),
+    // Accepted core TypeScript results include an explicit empty warnings array.
+    ...(isNativeCoreResultId(scannerId) ? { warnings: [] } : {}),
     // Grouped historical annotation for consecutive pattern matches. The native executor
     // groups exactly like the TypeScript evaluation, so ScannerWindow can render the same
     // history counts on either backend.
@@ -377,6 +380,10 @@ export async function runNativeOrTypeScriptScannerBatch(
   // results are ever published, so a TypeScript fallback cannot produce duplicates or
   // stale rows. `onResultChunk` therefore fires once, with the final accepted set.
   const matches: ScannerResult[] = [];
+  // A malformed or unrequested native rule must never reach the published UI.
+  // Reject the entire run rather than emitting partial results with guessed metadata.
+  let rejectedNativeMatch: string | null = null;
+  const selectedRuleIds = new Set(options.scannerIds);
   const generatedAt = new Date().toISOString();
   let completed = 0;
   let total = options.targets.length;
@@ -432,7 +439,19 @@ export async function runNativeOrTypeScriptScannerBatch(
     },
     onMatches: (event) => {
       if (!recordEventIdentity(event.databaseIdentity) || databaseSelectionChanged()) return;
-      const chunk = event.matches.map((match) => toScannerResult(match, generatedAt));
+      const chunk: ScannerResult[] = [];
+      for (const match of event.matches) {
+        if (!selectedRuleIds.has(match.ruleId)) {
+          rejectedNativeMatch = `Unrequested rule ID "${match.ruleId}" in native match.`;
+          continue;
+        }
+        const metadataIssue = nativeCoreResultMetadataIssue(match);
+        if (metadataIssue) {
+          rejectedNativeMatch = metadataIssue;
+          continue;
+        }
+        chunk.push(toScannerResult(match, generatedAt));
+      }
       if (chunk.length === 0) return;
       // Buffered only; published after the terminal event is accepted.
       matches.push(...chunk);
@@ -533,6 +552,12 @@ export async function runNativeOrTypeScriptScannerBatch(
     return fallback(
       `Native scan failed: ${terminalState.error?.message ?? 'unknown native scanner error'}`,
     );
+  }
+
+  // A native result with an unrequested rule or incomplete core metadata cannot be
+  // considered an accepted scan. Buffered matches have not been published yet.
+  if (rejectedNativeMatch && !terminalState.cancelled) {
+    return fallback(`Native result rejected: ${rejectedNativeMatch}`);
   }
 
   // Deterministic, de-duplicated ordering identical to the TypeScript runner.
