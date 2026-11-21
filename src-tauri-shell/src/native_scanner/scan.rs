@@ -953,6 +953,14 @@ fn scan_target<D: ScanDataSource>(
         if cancel.load(Ordering::SeqCst) {
             break;
         }
+        // Never infer legacy metadata from a colliding rule ID or allow a core
+        // scanner to acquire unsupported native historical semantics.
+        if super::core_results::validate_core_rule(rule, request.evaluation.evaluate_history)
+            .is_err()
+        {
+            had_error = true;
+            break;
+        }
         // Per-rule warm-up (audit P2): a rule whose own minimum exceeds the loaded bars is
         // "not evaluated" for that rule only, while other rules on the same target still
         // run and can still match.
@@ -964,14 +972,29 @@ fn scan_target<D: ScanDataSource>(
             match evaluate_rule_latest(&rule.expression, &eval_bars) {
                 Ok(outcome) => {
                     if outcome.matched {
-                        matches.push(ScanMatchRecord {
-                            exchange: target.exchange.clone(),
-                            symbol: target.symbol.clone(),
-                            rule_id: rule.id.clone(),
-                            date: format_date(bars[bars.len() - 1].date),
-                            value: outcome.value,
-                            ..ScanMatchRecord::default()
-                        });
+                        let date = format_date(bars[bars.len() - 1].date);
+                        let record = super::core_results::core_match_record(
+                            rule,
+                            &bars,
+                            target,
+                            &date,
+                            outcome.value,
+                        );
+                        match record {
+                            Ok(Some(core)) => matches.push(core),
+                            Ok(None) => matches.push(ScanMatchRecord {
+                                exchange: target.exchange.clone(),
+                                symbol: target.symbol.clone(),
+                                rule_id: rule.id.clone(),
+                                date,
+                                value: outcome.value,
+                                ..ScanMatchRecord::default()
+                            }),
+                            Err(_) => {
+                                had_error = true;
+                                continue;
+                            }
+                        }
                         matched_rule_ids.push(rule.id.clone());
                     }
                 }

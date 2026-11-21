@@ -122,6 +122,8 @@ pub enum ScannerScalarValueV1 {
     Integer(i64),
     Float(f64),
     Text(String),
+    // Required for an accepted nullable core result (e.g. inside_bar.range_ratio).
+    Null,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
