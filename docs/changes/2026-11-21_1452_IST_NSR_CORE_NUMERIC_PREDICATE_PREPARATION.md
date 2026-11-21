@@ -4,7 +4,7 @@
 - **Workstream:** EOD Charting Platform — `E:\TA Projects\EOD Charting Platform`
 - **Source baseline:** verified `main@48da280cb37eeeef0e564e1c70b9db20f76bf567`
 - **Branch:** `feature/native-scanner-retirement-readiness-20261121`
-- **Status:** Candidate code and documentation committed to GitHub; CI and Windows validation pending. No merge or runtime activation.
+- **Status:** Candidate code and documentation committed to GitHub; Renderer CI PASS; Windows validation not run. No merge or runtime activation.
 
 ## Objective and previous limitation
 
@@ -26,8 +26,8 @@ There is **no production-route change**: only the accepted four gap patterns rea
 
 - Current GitHub `main` and `AGENTS.md` inspected before creating the new isolated branch.
 - Source inspection of `nativeScanAst.ts`, native contract, existing core/daily/signal scanner definitions and native UI adapter completed. Pure AST predicate expressions constructed using the existing V1 contract.
-- Focused Vitest `src/features/scanner/nativeCoreRuleExpressions.test.ts`: **PENDING real GitHub CI**.
-- Full renderer Vitest / typecheck / Vite build: **PENDING real GitHub CI**.
+- Focused Vitest `src/features/scanner/nativeCoreRuleExpressions.test.ts`: **PASS** on corrected head `93e30894b8b158a63e64ed969657a65f5f5238fa` (3 tests passed). Initial CI on `40f1c7ee` failed only on a flawed NR7 positive fixture that included a flat previous candle; fixture corrected without changing the native predicate.
+- Full renderer CI [run 44889620908](https://github.com/dhamnaik-lab/Eod-Charting-Platform/actions/runs/44889620908): **PASS** (286 files passed, 1 skipped; 2,019 tests passed, 1 skipped; `npm run typecheck:renderer` PASS; `npm run build:renderer` PASS, Vite built in 5.38s).
 - Rust validation: **NOT RUN**; no Rust modules changed in this bounded implementation.
 - Windows native portable, DB parity and smoke acceptance: **NOT RUN**.
 - No live source/database/profile contents accessed or modified on the operator's Windows drive; no dependency install.
