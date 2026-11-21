@@ -56,6 +56,27 @@ export const NATIVE_SUPPORTED_PATTERN_IDS = [
   'chart_exhaustion_gap',
 ] as const;
 
+/** Core OHLCV scans with exact Rust predicates and result metadata. All other
+ * core/daily-market definitions stay on the TypeScript runner. */
+export const NATIVE_SUPPORTED_CORE_IDS = [
+  'prev_day_high_break',
+  'prev_day_low_break',
+  'close_near_high',
+  'close_near_low',
+  'gap_up',
+  'gap_down',
+] as const;
+export type NativeSupportedCoreId = (typeof NATIVE_SUPPORTED_CORE_IDS)[number];
+
+export const NATIVE_SUPPORTED_CORE_NAMES: Record<NativeSupportedCoreId, string> = {
+  prev_day_high_break: 'Previous Day High Break',
+  prev_day_low_break: 'Previous Day Low Break',
+  close_near_high: 'Close Near High',
+  close_near_low: 'Close Near Low',
+  gap_up: 'Gap Up',
+  gap_down: 'Gap Down',
+};
+
 export type NativeSupportedPatternId = (typeof NATIVE_SUPPORTED_PATTERN_IDS)[number];
 
 export const NATIVE_SUPPORTED_PATTERN_NAMES: Record<NativeSupportedPatternId, string> = {
@@ -808,7 +829,7 @@ export function splitNativeSupportedScannerIds(scannerIds: readonly string[]): {
   native: string[];
   remaining: string[];
 } {
-  const supported = new Set<string>(NATIVE_SUPPORTED_PATTERN_IDS);
+  const supported = new Set<string>([...NATIVE_SUPPORTED_PATTERN_IDS, ...NATIVE_SUPPORTED_CORE_IDS]);
   const native: string[] = [];
   const remaining: string[] = [];
   for (const id of scannerIds) {
