@@ -4,7 +4,7 @@
 **Workstream:** `E:\TA Projects\EOD Charting Platform`  
 **Source authority:** GitHub `main@48da280cb37eeeef0e564e1c70b9db20f76bf567`  
 **Implementation branch:** `feature/native-scanner-completion-20261121`  
-**Status:** CANDIDATE; GitHub CI, independent parity and native Windows acceptance pending.
+**Status:** GitHub Rustfmt, Cargo, native/full Rust and Renderer CI **PASS** at source commit `b8908562892c1a1aaedc30388cd89c7edca409a7`; independent Windows real-data parity, portable acceptance and merge **PENDING**.
 
 ## Objective / previous limitation
 
@@ -43,9 +43,10 @@ For each native core hit the Rust numeric verdict is decorated with original sca
 ## Tests, validation, and evidence
 
 - Baseline GitHub source and source-control instructions independently inspected on `main@48da280...`. The branch was created explicitly from this commit. **PASS, read-only inspection**.
-- Rust pure-unit tests for six matches/nonmatches, canonical-rule id checks and metadata; end-to-end fixture test for native output, spoofed-id rejection and historical rejection — **IMPLEMENTED, NOT YET EXECUTED**.
-- TypeScript adapter tests for AST predicates, history-safe backend routing and unsupported family fallback — **IMPLEMENTED, NOT YET EXECUTED**.
-- Expected CI: GitHub Rustfmt, Cargo `--tests --locked`, native scanner suite, full Rust suite; Renderer Vitest, typecheck and production build. **PENDING**.
+- Rust unit/integration tests for six predicates, exact metadata, nonmatches, spoofed ids and historical rejection **EXECUTED / PASS** as part of [Native/Cargo CI #44888409609](https://github.com/dhamnaik-lab/Eod-Charting-Platform/actions/runs/44888409609): **112 native passed / 0 failed**; RSC-01..06 **18 passed / 0 failed**; full Rust regressions **1,403 passed / 0 failed / 26 ignored / 1 filtered**; Cargo check **PASS**.
+- TypeScript adapter tests for AST predicates, mixed historical fallback and core-only latest routing **EXECUTED / PASS** via [Renderer CI #44888409601](https://github.com/dhamnaik-lab/Eod-Charting-Platform/actions/runs/44888409601): **285 test files passed / 1 skipped; 2,019 tests passed / 1 skipped**, TypeScript typecheck **PASS**, Vite production build **PASS**.
+- [Rust Scanner Rustfmt CI #44888409623](https://github.com/dhamnaik-lab/Eod-Charting-Platform/actions/runs/44888409623): **PASS**. Initial formatting-only differences were repaired before final-source checks. Actual CI evidence also posted to draft PR #127.
+- Validation scope: GitHub CI is Linux-based; it does **not** constitute Windows Tauri/portable or real-data acceptance.
 - Windows portable on pinned branch and manual latest-only core parity with TypeScript — **NOT PERFORMED**.
 - No container Rust toolchain or Windows `E:\` access; no local `cargo`, `npm`, profile/database read or package build has been claimed. GitHub commit history is the immutable source rollback authority; no local `backups/` content has been created.
 
@@ -60,4 +61,4 @@ For each native core hit the Rust numeric verdict is decorated with original sca
 
 If CI or parity fails, keep the branch unmerged and revert only the NS-05 commits or close its PR. Source authority `48da280cb37eeeef0e564e1c70b9db20f76bf567` remains unchanged on `main`. Rollback needs no database or profile alteration.
 
-**Next checkpoint:** Run branch CI and correct only real failures. Do not move to NS-06 daily-market migration until this bounded step is validated. No TypeScript scanner files are deleted.
+**Next checkpoint:** Independently verify six-core behavior on an isolated Windows portable using matched TypeScript scanner results, then request explicit PR #127 merge approval. Do not move to NS-06 daily-market migration until that acceptance. No TypeScript scanner files were deleted.
