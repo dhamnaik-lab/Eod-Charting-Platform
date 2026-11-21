@@ -15,6 +15,7 @@
 //! - `job` / `ipc`: managed runs, events, cancellation and the database-use permit.
 
 pub mod ast;
+pub mod core_ohlcv;
 pub mod database_source;
 pub mod ipc;
 pub mod job;
