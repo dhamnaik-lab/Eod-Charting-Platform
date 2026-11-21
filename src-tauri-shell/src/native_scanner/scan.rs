@@ -381,7 +381,18 @@ pub fn effective_worker_count(requested: usize, target_count: usize) -> usize {
 pub fn required_bars_for_rule(rule: &RuleV1) -> usize {
     match super::patterns::minimum_bars_for_pattern_rule(rule) {
         Some(required) => required,
-        None => minimum_bars_for_expression(&rule.expression),
+        None => {
+            let minimum = minimum_bars_for_expression(&rule.expression);
+            // The accepted TypeScript batch skips an instrument with fewer than
+            // two completed bars, even for a one-bar core close-location rule.
+            // Restrict this floor to built-in core IDs; generic AST and pattern
+            // warm-ups retain their existing per-rule behavior.
+            if super::core_results::is_core_id(&rule.id) {
+                minimum.max(2)
+            } else {
+                minimum
+            }
+        }
     }
 }
 
@@ -1299,6 +1310,143 @@ mod tests {
             .enumerate()
             .map(|(index, close)| bar(20240101 + index as u32, *close))
             .collect()
+    }
+
+    // A production-valid expression, not merely a matching rule ID: Rust's
+    // canonical AST validator must accept this fixture after warm-up.
+    fn issue131_close_near_high_rule() -> RuleV1 {
+        use BinaryOpV1::{And, Gt, Gte, Mul, Sub};
+        use OhlcvFieldV1::{Close, High, Low};
+
+        let field = |name: OhlcvFieldV1| ExprV1::Field {
+            field: name,
+            lookback: 0,
+        };
+        let binary = |op: BinaryOpV1, left: ExprV1, right: ExprV1| ExprV1::Binary {
+            op,
+            left: Box::new(left),
+            right: Box::new(right),
+        };
+        let range = || binary(Sub, field(High), field(Low));
+        RuleV1 {
+            id: "close_near_high".to_string(),
+            expression: binary(
+                And,
+                binary(Gt, range(), ExprV1::Number { value: 0.0 }),
+                binary(
+                    Gte,
+                    field(Close),
+                    binary(
+                        Sub,
+                        field(High),
+                        binary(Mul, range(), ExprV1::Number { value: 0.1 }),
+                    ),
+                ),
+            ),
+        }
+    }
+
+    #[test]
+    fn issue131_core_warmup_requires_two_bars_without_changing_other_rules() {
+        let core = issue131_close_near_high_rule();
+        assert!(super::super::core_results::validate_core_rule(&core, false).is_ok());
+        assert_eq!(minimum_bars_for_expression(&core.expression), 1);
+        assert_eq!(required_bars_for_rule(&core), 2);
+
+        // The closed list covers all ten accepted core IDs; no broad numeric
+        // minimum is imposed on generic one-bar AST evaluations.
+        for id in [
+            "prev_day_high_break",
+            "prev_day_low_break",
+            "inside_bar",
+            "outside_bar",
+            "close_near_high",
+            "close_near_low",
+            "gap_up",
+            "gap_down",
+            "nr7",
+            "wide_range_candle",
+        ] {
+            let mut candidate = close_above(0.0);
+            candidate.id = id.to_string();
+            assert_eq!(
+                required_bars_for_rule(&candidate),
+                2,
+                "built-in {id} must observe the two-bar batch floor"
+            );
+        }
+
+        assert_eq!(required_bars_for_rule(&close_above(0.0)), 1);
+        let gap_pattern = pattern_rule("chart_common_gap");
+        assert_eq!(
+            required_bars_for_rule(&gap_pattern),
+            super::super::patterns::minimum_bars_for_pattern_rule(&gap_pattern).unwrap()
+        );
+        assert!(
+            evaluation_window(&request(vec![core], false), ScanExecutionOptions::default()) >= 2
+        );
+    }
+
+    #[test]
+    fn issue131_core_zero_one_two_bars_preserve_match_and_mixed_gap_outcomes() {
+        let mut today = bar(20260102, 109.0);
+        today.open = 100.0;
+        today.high = 110.0;
+        today.low = 90.0;
+        let mut bars = HashMap::new();
+        bars.insert("NSE:ZERO".to_string(), Vec::new());
+        bars.insert("NSE:ONE".to_string(), vec![today.clone()]);
+        bars.insert("NSE:TWO".to_string(), vec![bar(20260101, 100.0), today]);
+        let source = FixtureSource::new(bars);
+        let rule = issue131_close_near_high_rule();
+
+        let report = execute_scan(
+            &source,
+            &request(vec![rule.clone()], false),
+            &[target("ZERO"), target("ONE"), target("TWO")],
+            &AtomicBool::new(false),
+            ScanExecutionOptions::default(),
+            |_| {},
+        );
+        assert_eq!(report.counts.matched, 1);
+        assert_eq!(report.counts.skipped, 2);
+        assert_eq!(report.counts.no_match, 0);
+        assert_eq!(report.counts.failed, 0);
+        assert_eq!(report.matches.len(), 1);
+        assert_eq!(report.matches[0].symbol, "TWO");
+        assert_eq!(report.matches[0].rule_id, "close_near_high");
+        assert_eq!(
+            report.matches[0].scanner_name.as_deref(),
+            Some("Close Near High")
+        );
+
+        // Mixed core + gap requests remain per-rule: an unevaluable gap
+        // detector must not suppress the two-bar core result.
+        let mixed = execute_scan(
+            &source,
+            &request(vec![rule, pattern_rule("chart_common_gap")], false),
+            &[target("ONE"), target("TWO")],
+            &AtomicBool::new(false),
+            ScanExecutionOptions::default(),
+            |_| {},
+        );
+        assert_eq!(mixed.counts.matched, 1);
+        assert_eq!(mixed.counts.skipped, 1);
+        assert_eq!(mixed.matches.len(), 1);
+        assert_eq!(mixed.matches[0].rule_id, "close_near_high");
+
+        // Generic numeric rules are intentionally unaffected by this core
+        // batch floor and may still evaluate from one completed bar.
+        let generic = execute_scan(
+            &source,
+            &request(vec![close_above(108.0)], false),
+            &[target("ONE")],
+            &AtomicBool::new(false),
+            ScanExecutionOptions::default(),
+            |_| {},
+        );
+        assert_eq!(generic.counts.matched, 1);
+        assert_eq!(generic.matches[0].rule_id, "close_above");
     }
 
     #[test]
