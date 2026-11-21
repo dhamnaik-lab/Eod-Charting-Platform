@@ -15,6 +15,8 @@
 import type { EodAlertRule, EodAlertTrigger } from '@/features/alerts/eodAlerts';
 import { listApplicationScannerDefinitions } from '@/features/scanner/catalog';
 import {
+  NATIVE_SUPPORTED_CORE_IDS,
+  NATIVE_SUPPORTED_CORE_NAMES,
   NATIVE_SUPPORTED_PATTERN_IDS,
   NATIVE_SUPPORTED_PATTERN_NAMES,
   splitNativeSupportedScannerIds,
@@ -51,16 +53,44 @@ export interface NativeRuleCompileSet {
   compileErrors: Array<{ scannerId: string; errors: string[] }>;
 }
 
-function toRuleExpression(scannerId: string): NativeScanRuleV1['expression'] {
-  return { kind: 'pattern', id: scannerId as NativeSupportedPatternId };
+type CoreExpr = NativeScanRuleV1['expression'];
+const field = (name: 'open' | 'high' | 'low' | 'close', lookback = 0): CoreExpr =>
+  ({ kind: 'field', field: name, lookback });
+const number = (value: number): CoreExpr => ({ kind: 'number', value });
+const binary = (
+  op: 'gt' | 'lt' | 'gte' | 'lte' | 'and' | 'add' | 'sub' | 'mul',
+  left: CoreExpr,
+  right: CoreExpr,
+): CoreExpr => ({ kind: 'binary', op, left, right });
+
+/** Compile the exact predicates from coreOhlcvScanners.ts; no approximate rules. */
+function toRuleExpression(scannerId: string): CoreExpr {
+  const open = field('open');
+  const high = field('high');
+  const low = field('low');
+  const close = field('close');
+  const range = binary('sub', high, low);
+
+  switch (scannerId) {
+    case 'prev_day_high_break': return binary('gt', close, field('high', 1));
+    case 'prev_day_low_break': return binary('lt', close, field('low', 1));
+    case 'gap_up': return binary('gt', open, field('high', 1));
+    case 'gap_down': return binary('lt', open, field('low', 1));
+    case 'close_near_high':
+      return binary('and', binary('gt', high, low),
+        binary('gte', close, binary('sub', high, binary('mul', range, number(0.1)))));
+    case 'close_near_low':
+      return binary('and', binary('gt', high, low),
+        binary('lte', close, binary('add', low, binary('mul', range, number(0.1)))));
+    default: return { kind: 'pattern', id: scannerId as NativeSupportedPatternId };
+  }
 }
 
 /**
  * Builds the native rule set from the selected scanner ids.
  *
- * Only four chart patterns are natively supported today; every other selected scanner is
- * reported as unsupported so the caller can decide to fall back rather than scan a
- * different set of rules.
+ * Four gap patterns and six exact core OHLCV predicates are supported. Every other
+ * scanner stays on TypeScript; no rule may be silently dropped or approximated.
  */
 export function compileNativeScannerRules(
   scannerIds: readonly string[],
@@ -109,9 +139,10 @@ export function canRunNatively(
 export function describeNativeUnsupportedScanners(scannerIds: readonly string[]): string {
   const split = splitNativeSupportedScannerIds(scannerIds);
   if (split.remaining.length === 0) return '';
-  const supported = NATIVE_SUPPORTED_PATTERN_IDS.map((id) => NATIVE_SUPPORTED_PATTERN_NAMES[id]).join(
-    ', ',
-  );
+  const supported = [
+    ...NATIVE_SUPPORTED_PATTERN_IDS.map((id) => NATIVE_SUPPORTED_PATTERN_NAMES[id]),
+    ...NATIVE_SUPPORTED_CORE_IDS.map((id) => NATIVE_SUPPORTED_CORE_NAMES[id]),
+  ].join(', ');
   return `${split.remaining.length} selected scanner(s) are TypeScript-only (${split.remaining
     .slice(0, 5)
     .join(', ')}${split.remaining.length > 5 ? ', …' : ''}). The run uses the TypeScript backend; native support currently covers: ${supported}.`;
@@ -337,6 +368,15 @@ export async function runNativeOrTypeScriptScannerBatch(
   if (!canRunNatively(options.scannerIds)) {
     return fallback(describeNativeUnsupportedScanners(options.scannerIds) || undefined);
   }
+  const hasCore = options.scannerIds.some((id) =>
+    (NATIVE_SUPPORTED_CORE_IDS as readonly string[]).includes(id));
+  const hasGap = options.scannerIds.some((id) =>
+    (NATIVE_SUPPORTED_PATTERN_IDS as readonly string[]).includes(id));
+  // Core scans are latest-endpoint-only on the accepted TypeScript runner. Mixed
+  // Core + Gap historical requests cannot run under one global native history mode.
+  if (options.evaluateHistory && hasCore && hasGap) {
+    return fallback('Mixed core and gap historical requests stay on the TypeScript backend.');
+  }
   if (options.targets.length === 0) {
     return fallback('No targets were resolved for the selected universe.');
   }
@@ -361,7 +401,7 @@ export async function runNativeOrTypeScriptScannerBatch(
     evaluation: {
       asOfDate: parseIsoDate(options.toDate),
       lookbackBars: options.lookbackBars,
-      evaluateHistory: options.evaluateHistory,
+      evaluateHistory: options.evaluateHistory && !hasCore,
       priceBasis: 'raw',
     },
     rules: compiled.rules,
@@ -600,6 +640,9 @@ export function formatNativeScannerStatus(
 
 /** Exposed for the UI to render an accurate, non-flattering capability note. */
 export function describeNativeCapability(): string {
-  const names = NATIVE_SUPPORTED_PATTERN_IDS.map((id) => NATIVE_SUPPORTED_PATTERN_NAMES[id]);
+  const names = [
+    ...NATIVE_SUPPORTED_PATTERN_IDS.map((id) => NATIVE_SUPPORTED_PATTERN_NAMES[id]),
+    ...NATIVE_SUPPORTED_CORE_IDS.map((id) => NATIVE_SUPPORTED_CORE_NAMES[id]),
+  ];
   return `Native backend (experimental, off by default) currently evaluates: ${names.join(', ')}. Every other scanner stays on the TypeScript backend.`;
 }
