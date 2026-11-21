@@ -174,7 +174,11 @@ pub fn decorate_match(record: &mut ScanMatchRecord, bars: &[NativeBar]) {
             put(&mut values, "close", today.close);
             put(&mut values, "high", today.high);
             put(&mut values, "low", today.low);
-            put(&mut values, "clv", round((today.close - today.low) / range, 4));
+            put(
+                &mut values,
+                "clv",
+                round((today.close - today.low) / range, 4),
+            );
             (
                 "Close Near High",
                 "bullish",
@@ -192,7 +196,11 @@ pub fn decorate_match(record: &mut ScanMatchRecord, bars: &[NativeBar]) {
             put(&mut values, "close", today.close);
             put(&mut values, "high", today.high);
             put(&mut values, "low", today.low);
-            put(&mut values, "clv", round((today.close - today.low) / range, 4));
+            put(
+                &mut values,
+                "clv",
+                round((today.close - today.low) / range, 4),
+            );
             (
                 "Close Near Low",
                 "bearish",
@@ -248,12 +256,48 @@ mod tests {
     #[test]
     fn core_01_six_native_predicates_match_accepted_latest_eod_cases() {
         let positive = vec![
-            ("prev_day_high_break", vec![bar(20240101, 90.0, 100.0, 80.0, 95.0), bar(20240102, 101.0, 112.0, 99.0, 110.0)]),
-            ("prev_day_low_break", vec![bar(20240101, 90.0, 100.0, 80.0, 95.0), bar(20240102, 77.0, 80.0, 69.0, 75.0)]),
-            ("gap_up", vec![bar(20240101, 90.0, 100.0, 80.0, 95.0), bar(20240102, 101.0, 111.0, 100.0, 107.0)]),
-            ("gap_down", vec![bar(20240101, 90.0, 100.0, 80.0, 95.0), bar(20240102, 79.0, 85.0, 70.0, 80.0)]),
-            ("close_near_high", vec![bar(20240101, 90.0, 100.0, 80.0, 95.0), bar(20240102, 101.0, 110.0, 100.0, 109.5)]),
-            ("close_near_low", vec![bar(20240101, 90.0, 100.0, 80.0, 95.0), bar(20240102, 101.0, 110.0, 100.0, 100.5)]),
+            (
+                "prev_day_high_break",
+                vec![
+                    bar(20240101, 90.0, 100.0, 80.0, 95.0),
+                    bar(20240102, 101.0, 112.0, 99.0, 110.0),
+                ],
+            ),
+            (
+                "prev_day_low_break",
+                vec![
+                    bar(20240101, 90.0, 100.0, 80.0, 95.0),
+                    bar(20240102, 77.0, 80.0, 69.0, 75.0),
+                ],
+            ),
+            (
+                "gap_up",
+                vec![
+                    bar(20240101, 90.0, 100.0, 80.0, 95.0),
+                    bar(20240102, 101.0, 111.0, 100.0, 107.0),
+                ],
+            ),
+            (
+                "gap_down",
+                vec![
+                    bar(20240101, 90.0, 100.0, 80.0, 95.0),
+                    bar(20240102, 79.0, 85.0, 70.0, 80.0),
+                ],
+            ),
+            (
+                "close_near_high",
+                vec![
+                    bar(20240101, 90.0, 100.0, 80.0, 95.0),
+                    bar(20240102, 101.0, 110.0, 100.0, 109.5),
+                ],
+            ),
+            (
+                "close_near_low",
+                vec![
+                    bar(20240101, 90.0, 100.0, 80.0, 95.0),
+                    bar(20240102, 101.0, 110.0, 100.0, 100.5),
+                ],
+            ),
         ];
 
         for (id, bars) in positive {
@@ -269,8 +313,14 @@ mod tests {
             assert_eq!(record.category_id.as_deref(), Some("price_action"));
             assert!(record.scanner_name.is_some(), "{id}: name missing");
             assert!(record.direction.is_some(), "{id}: direction missing");
-            assert!(record.reasons.as_ref().is_some_and(|values| !values.is_empty()));
-            assert!(record.values.as_ref().is_some_and(|values| !values.is_empty()));
+            assert!(record
+                .reasons
+                .as_ref()
+                .is_some_and(|values| !values.is_empty()));
+            assert!(record
+                .values
+                .as_ref()
+                .is_some_and(|values| !values.is_empty()));
             assert_eq!(record.source.as_deref(), Some("EODScannerPlugin_v1"));
         }
     }
@@ -282,11 +332,9 @@ mod tests {
             bar(20240102, 90.0, 100.0, 80.0, 95.0),
         ];
         for id in NATIVE_CORE_IDS {
-            let result = evaluate_rule_latest(
-                &canonical_expression(id).unwrap(),
-                &eval_bars(&bars),
-            )
-            .unwrap();
+            let result =
+                evaluate_rule_latest(&canonical_expression(id).unwrap(), &eval_bars(&bars))
+                    .unwrap();
             assert!(!result.matched, "{id}: should not match");
         }
     }
