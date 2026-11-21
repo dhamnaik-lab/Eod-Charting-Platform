@@ -102,7 +102,7 @@ describe('NS-R2 opt-in core OHLCV native latest-only routing', () => {
     const nativeMatches = expected.map(asNativeMatch);
     const published: ScannerResult[][] = [];
     const fallback = vi.fn(async () => emptyTypeScriptOutput());
-    let sentRequest: NativeScanRequestV1 | null = null;
+    const sentRequests: NativeScanRequestV1[] = [];
     const outcome = await runNativeOrTypeScriptScannerBatch({
       targets: [{ exchange: 'NSE', symbol: 'TEST' }],
       scannerIds: expected.map((result) => result.scannerId),
@@ -114,7 +114,7 @@ describe('NS-R2 opt-in core OHLCV native latest-only routing', () => {
       runTypeScript: fallback,
       newRunId: () => 'nsr2-run',
       start: async (request) => {
-        sentRequest = request;
+        sentRequests.push(request);
         return {
           accepted: true, runId: request.requestedRunId,
           schemaVersion: 1, databaseIdentity: 'db#1', workerCount: 1, totalTargets: 1,
@@ -139,8 +139,8 @@ describe('NS-R2 opt-in core OHLCV native latest-only routing', () => {
     });
     expect(outcome.backend).toBe('native');
     expect(fallback).not.toHaveBeenCalled();
-    expect(sentRequest?.evaluation.evaluateHistory).toBe(false);
-    expect(sentRequest?.rules).toHaveLength(10);
+    expect(sentRequests[0]?.evaluation.evaluateHistory).toBe(false);
+    expect(sentRequests[0]?.rules).toHaveLength(10);
     expect(outcome.results).toHaveLength(10);
     expect(outcome.alertTriggers).toEqual([]);
     expect(published).toHaveLength(1);
