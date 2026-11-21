@@ -36,9 +36,8 @@ import {
   canRunNatively,
   describeNativeCapability,
   describeNativeUnsupportedScanners,
-  formatNativeScannerStatus,
+  formatScannerCompletionStatus,
   runNativeOrTypeScriptScannerBatch,
-  type NativeScannerRunOutcome,
 } from '@/plugins/scanner/nativeScannerRun';
 import {
   areScannerWorkspaceConfigsEqual,
@@ -805,19 +804,7 @@ export function ScannerWindow() {
         setAlertHistory(nextAlertHistory);
       }
       setActiveSection(output.alertTriggers.length > 0 ? 'alerts' : 'results');
-      const nativeOutcome =
-        'backend' in output ? (output as NativeScannerRunOutcome) : null;
-      setStatus(
-        nativeOutcome && nativeOutcome.backend === 'typescript-fallback'
-          ? `${formatNativeScannerStatus(nativeOutcome as NativeScannerRunOutcome, targets.length)} ${
-              output.cancelled
-                ? `Scan cancelled after ${output.scannedSymbols} symbol${output.scannedSymbols === 1 ? '' : 's'}.`
-                : `Scanned ${output.scannedSymbols} symbol${output.scannedSymbols === 1 ? '' : 's'}; ${output.results.length} match${output.results.length === 1 ? '' : 'es'}; ${output.alertTriggers.length} alert${output.alertTriggers.length === 1 ? '' : 's'}.`
-            }`
-          : output.cancelled
-            ? `Scan cancelled after ${output.scannedSymbols} symbol${output.scannedSymbols === 1 ? '' : 's'}; ${output.results.length} match${output.results.length === 1 ? '' : 'es'} recorded.`
-            : `Scanned ${output.scannedSymbols} symbol${output.scannedSymbols === 1 ? '' : 's'}; ${output.results.length} match${output.results.length === 1 ? '' : 'es'}; ${output.alertTriggers.length} alert${output.alertTriggers.length === 1 ? '' : 's'}.`,
-      );
+      setStatus(formatScannerCompletionStatus(output, targets.length));
     } catch (error) {
       setStatus(error instanceof Error ? error.message : 'Scanner run failed.');
     } finally {
