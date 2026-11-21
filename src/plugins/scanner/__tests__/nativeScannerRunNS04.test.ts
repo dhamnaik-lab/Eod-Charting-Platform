@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
+import { coreOhlcvScannerDefinitions } from '@/plugins/scanner/coreOhlcvScanners';
 import type { ScannerDefinition, ScannerResult, ScannerRunOutput } from '@/plugins/scanner/types';
 import {
   canRunNatively,
@@ -13,6 +14,7 @@ import type {
   NativeScanProgressEventV1,
 } from '@/features/scanner/nativeScanContract';
 import {
+  NATIVE_SUPPORTED_CORE_IDS,
   NATIVE_SUPPORTED_PATTERN_IDS,
   splitNativeSupportedScannerIds,
 } from '@/features/scanner/nativeScanContract';
@@ -100,6 +102,90 @@ describe('NS-04 native opt-in gating', () => {
     expect(missing.rules).toHaveLength(0);
     expect(missing.compileErrors).toHaveLength(1);
     expect(missing.compileErrors[0]!.scannerId).toBe('chart_common_gap');
+  });
+});
+
+describe('CORE-01 six native OHLCV definitions', () => {
+  it('compiles all six canonical numeric predicates with no approximations', () => {
+    const compiled = compileNativeScannerRules(
+      [...NATIVE_SUPPORTED_CORE_IDS], coreOhlcvScannerDefinitions,
+    );
+    expect(compiled.unsupportedScannerIds).toEqual([]);
+    expect(compiled.compileErrors).toEqual([]);
+    expect(compiled.nativeScannerIds).toEqual([...NATIVE_SUPPORTED_CORE_IDS]);
+    expect(compiled.rules).toHaveLength(6);
+    expect(compiled.rules.every((rule) => rule.expression.kind === 'binary')).toBe(true);
+    expect(compiled.rules.find((rule) => rule.id === 'prev_day_high_break')?.expression).toEqual({
+      kind: 'binary', op: 'gt',
+      left: { kind: 'field', field: 'close', lookback: 0 },
+      right: { kind: 'field', field: 'high', lookback: 1 },
+    });
+    expect(compiled.rules.find((rule) => rule.id === 'gap_down')?.expression).toEqual({
+      kind: 'binary', op: 'lt',
+      left: { kind: 'field', field: 'open', lookback: 0 },
+      right: { kind: 'field', field: 'low', lookback: 1 },
+    });
+    expect(compiled.rules.find((rule) => rule.id === 'close_near_high')?.expression).toMatchObject({
+      kind: 'binary', op: 'and',
+      right: { kind: 'binary', op: 'gte' },
+    });
+    expect(canRunNatively(['gap_up'], coreOhlcvScannerDefinitions)).toBe(true);
+    expect(canRunNatively(['inside_bar'], coreOhlcvScannerDefinitions)).toBe(false);
+  });
+
+  it('uses TypeScript for historical mixed gap/core requests without starting Rust', async () => {
+    const runTypeScript = vi.fn(async () => tsOutput());
+    const start = vi.fn();
+    const outcome = await runNativeOrTypeScriptScannerBatch(
+      baseOptions({
+        scannerIds: ['chart_common_gap', 'gap_up'],
+        evaluateHistory: true,
+      }),
+      { runTypeScript, start },
+    );
+    expect(outcome.backend).toBe('typescript-fallback');
+    expect(outcome.fallbackReason).toContain('Mixed core and gap historical');
+    expect(start).not.toHaveBeenCalled();
+    expect(runTypeScript).toHaveBeenCalledTimes(1);
+  });
+
+  it('runs a core-only All History selection as latest-only, matching TypeScript semantics', async () => {
+    const runTypeScript = vi.fn(async () => tsOutput());
+    let received: Parameters<NonNullable<import('@/plugins/scanner/nativeScannerRun').NativeScannerRunDeps['start']>>[0] | null = null;
+    let complete: ((event: unknown) => void) | null = null;
+    const outcome = await runNativeOrTypeScriptScannerBatch(
+      baseOptions({ scannerIds: ['gap_up'], evaluateHistory: true, lookbackBars: null }),
+      {
+        runTypeScript,
+        newRunId: () => 'core-1',
+        subscribe: async (_id, handlers) => {
+          complete = handlers.onComplete as (event: unknown) => void;
+          return () => undefined;
+        },
+        cancel: async () => ({ runId: 'core-1', cancelRequested: false, alreadyFinished: true }),
+        start: async (request) => {
+          received = request;
+          setTimeout(() => {
+            complete?.({
+              eventVersion: 1, runId: 'core-1', sequence: 1,
+              databaseIdentity: 'db#1', cancelled: false, durationMs: 1,
+              counts: { targets: 2, matched: 0, noMatch: 2, skipped: 0, failed: 0 },
+              diagnostics: [],
+            });
+          }, 0);
+          return {
+            accepted: true, runId: 'core-1', schemaVersion: 1,
+            databaseIdentity: 'db#1', workerCount: 2, totalTargets: 2,
+          };
+        },
+      },
+    );
+    expect(outcome.backend).toBe('native');
+    expect(received).toMatchObject({
+      evaluation: { evaluateHistory: false, lookbackBars: null, priceBasis: 'raw' },
+      rules: [{ id: 'gap_up' }],
+    });
+    expect(runTypeScript).not.toHaveBeenCalled();
   });
 });
 
