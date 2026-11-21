@@ -73,7 +73,9 @@ describe('core OHLCV native numeric candidates — NOT production-routed', () =>
     const large = regular.map((bar) => ({ ...bar }));
     large[19]!.high += 200;
     expect(evaluateCandidate('wide_range_candle', large)).toBe(true);
-    const narrow = regular.map((bar) => ({ ...bar }));
+    // Seed 4 has a zero-range candle among the previous six; a zero range
+    // correctly prevents any nonnegative current range from being strictly NR7.
+    const narrow = series(5, 20).map((bar) => ({ ...bar }));
     narrow[19]!.high = narrow[19]!.low + 0.0001;
     narrow[19]!.open = narrow[19]!.low + 0.00005;
     narrow[19]!.close = narrow[19]!.open;
