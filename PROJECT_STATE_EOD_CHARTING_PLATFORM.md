@@ -1,6 +1,6 @@
 # Project state — source snapshot audit baseline
 
-> **Current source note (21 Nov 2026 IST):** This document preserves its **2026-11-04 ZIP-only audit authority**. It is not an audit of current GitHub `main`. Current active scanner state is recorded in [the architecture](ARCHITECTURE_CURRENT_EOD_CHARTING_PLATFORM.md), [the feature matrix](FEATURE_STATUS_MATRIX_EOD_CHARTING_PLATFORM.md) and [the native retirement plan](docs/plans/2026-11-21_NATIVE_SCANNER_RETIREMENT_READINESS.md). Latest verified GitHub baseline for retirement branch: `48da280cb37eeeef0e564e1c70b9db20f76bf567`. Historical counts and no-test statements below apply only to the old uploaded snapshot, not to the merged NS-04 work.
+> **Current source note (22 Nov 2026 IST):** This is a **2026-11-04 ZIP-only historical audit**, not a live audit of the user's Windows checkout or a current GitHub source analysis. The active native scanner state is maintained in [Architecture](ARCHITECTURE_CURRENT_EOD_CHARTING_PLATFORM.md), [Feature status](FEATURE_STATUS_MATRIX_EOD_CHARTING_PLATFORM.md) and the [scanner retirement plan](docs/plans/2026-11-21_NATIVE_SCANNER_RETIREMENT_READINESS.md). Verified merged GitHub and user-reported local main: `09d329813706e3948820cc663507b197b5b07dd5` (after PR #134); latest scanner Rust/renderer CI has passed, but the **consolidated post-NSR5 Windows portable/live parity has not been performed**. Old snapshot counts, test absences and dates below retain their original authority and must not be projected onto the current source.
 
 ## Snapshot authority
 
