@@ -36,6 +36,10 @@
 
 - `src/features/scanner/nativeCoreRuleExpressions.ts`: candidate AST builders for **all ten** core OHLCV predicates, using existing `NativeExprV1`, including a 14-prior-bar average for Wide Range and a strict six-prior-range comparison for NR7. No runtime route or result-contract switch yet.
 - `src/features/scanner/nativeCoreRuleExpressions.test.ts`: differential tests against `runCoreScanner` across deterministic complete bars, warm-up boundaries and specialized wide/narrow patterns.
+- `src/features/scanner/nativeCoreResultMetadataGate.ts` (with its focused tests): fail-closed core-result metadata contract using accepted scanner definition columns/category, expected direction, nonempty reason, original source and finite values.
+- `src/plugins/scanner/nativeScannerRun.ts` and `nativeScannerRunNS04.test.ts`: reject unrequested rule IDs and malformed future core matches before buffered native results can be published; whole-run TypeScript fallback remains preserved.
+- CI [#44891185355](https://github.com/dhamnaik-lab/Eod-Charting-Platform/actions/runs/44891185355) PASS (2,023 renderer tests passed, one skipped; TS typecheck and production build). **No Rustfmt, Cargo or Windows validation was executed for this TypeScript-only change.**
+- **Toolchain boundary:** this ChatGPT runtime has no `rustfmt` or `cargo`, and cannot download a toolchain; Rust metadata implementation is not published. The mandatory real Rustfmt check and Rust regression suite must precede publishing altered Rust source.
 - These are **preparatory implementation**, not ten new production-supported native scanners: current backend still emits only partial metadata for numeric matches. User-facing fallback must remain until matching records are semantically identical.
 
 ## Source inventory and boundaries
