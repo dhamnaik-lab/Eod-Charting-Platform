@@ -679,3 +679,67 @@ describe('NS-04 native run with TypeScript preservation', () => {
     expect(fallback).toContain('reason here');
   });
 });
+
+describe('NS-R1 native result publication safety', () => {
+  it('falls back for unrequested rule IDs without exposing any provisional native rows', async () => {
+    const runTypeScript = vi.fn(async () => tsOutput());
+    const published: ScannerResult[][] = [];
+    const outcome = await runNativeOrTypeScriptScannerBatch(
+      baseOptions({ onResultChunk: (chunk: ScannerResult[]) => published.push(chunk) }),
+      {
+        runTypeScript,
+        newRunId: () => 'native-run',
+        subscribe: async (runId, handlers) => {
+          setTimeout(() => {
+            handlers.onMatches?.({
+              eventVersion: 1,
+              runId,
+              sequence: 1,
+              databaseIdentity: 'db#1',
+              matches: [
+                {
+                  exchange: 'NSE',
+                  symbol: 'TCS',
+                  ruleId: 'chart_breakaway_gap',
+                  date: '2026-01-20',
+                },
+                {
+                  exchange: 'NSE',
+                  symbol: 'INFY',
+                  ruleId: 'prev_day_high_break',
+                  date: '2026-01-20',
+                },
+              ],
+            } satisfies NativeScanMatchBatchEventV1);
+            handlers.onComplete?.({
+              eventVersion: 1,
+              runId,
+              sequence: 2,
+              databaseIdentity: 'db#1',
+              cancelled: false,
+              durationMs: 1,
+              counts: { targets: 2, matched: 2, noMatch: 0, skipped: 0, failed: 0 },
+              diagnostics: [],
+            });
+          }, 0);
+          return () => undefined;
+        },
+        cancel: async () => ({ runId: 'native-run', cancelRequested: false, alreadyFinished: true }),
+        start: async () => ({
+          accepted: true,
+          runId: 'native-run',
+          schemaVersion: 1 as const,
+          databaseIdentity: 'db#1',
+          workerCount: 1,
+          totalTargets: 2,
+        }),
+      },
+    );
+    expect(outcome.backend).toBe('typescript-fallback');
+    expect(outcome.fallbackReason).toContain('Unrequested rule ID');
+    expect(runTypeScript).toHaveBeenCalledTimes(1);
+    expect(published).toEqual([]);
+    expect(outcome.results).toEqual([]);
+    expect(outcome.alertTriggers).toEqual([]);
+  });
+});

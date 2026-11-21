@@ -105,3 +105,14 @@ Deferred presentation retains the internal Later category, but Status uses recor
 This document describes source composition only. Capability evidence and acceptance gaps belong to the [feature matrix](FEATURE_STATUS_MATRIX_EOD_CHARTING_PLATFORM.md), and dated source limitations to the [audit baseline](PROJECT_STATE_EOD_CHARTING_PLATFORM.md).
 
 Reviewed NIFTY history is exposed as a separate section in Manual Import, retaining official-source preview and explicit approval. Binary single-date download coverage uses sidecar bounds only to select files, then verifies canonical identity and exact date records; bulk/latest planning remains a separate follow-up.
+
+## Native Rust scanner execution and retirement boundary (21 Nov 2026 IST)
+
+The accepted production routing in `src/plugins/scanner/nativeScannerRun.ts` permits only the four fixture-backed native gap patterns when explicitly opted in, with TypeScript whole-run fallback for mixed/unsupported definitions and alert-bearing runs. Rust owns read-only data-source access, versioned AST evaluation, bounded concurrency, cancel/progress events, DB identity/revision checks and paged All History **gap-only** evaluation. Numeric All History still retains an endpoint cap, and adjusted native requests fail closed under CA-01 HOLD. Other chart-pattern worker and plugin consumers remain separate from scanner engine retirement.
+
+The migration branch `feature/native-scanner-retirement-readiness-20261121` introduces `nativeCoreRuleExpressions.ts`: typed numeric AST predicates for all ten existing core OHLCV rules, with TypeScript differential tests. **Candidate only:** do not route them to native until result metadata, historical grouping, alerts and safety behavior match, as documented in [native retirement readiness](docs/plans/2026-11-21_NATIVE_SCANNER_RETIREMENT_READINESS.md). No engine/runtime routing or persistence contract change is intended by this preparatory commit.
+
+
+### Native core-result structural gate (21 Nov 2026, draft PR #128)
+
+`src/features/scanner/nativeCoreResultMetadataGate.ts` defines a fail-closed structural contract for the existing ten built-in core OHLCV scanner result fields, using the accepted `coreOhlcvScannerDefinitions` as the column/category authority. `nativeScannerRun.ts` buffers native matches and rejects any unsolicited rule ID or incomplete core metadata before publishing results; it falls back as a whole run when the database identity remains valid. For future complete core records the adapter includes the accepted explicit empty `warnings` array. This **does not** generate Rust metadata, establish semantic parity, expand supported native rules, or modify historical grouping. See [NS-R1 change record](docs/changes/2026-11-21_1520_IST_NSR_NATIVE_CORE_RESULT_METADATA_GATE.md) and [retirement plan](docs/plans/2026-11-21_NATIVE_SCANNER_RETIREMENT_READINESS.md).
