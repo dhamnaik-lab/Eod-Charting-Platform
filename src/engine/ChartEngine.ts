@@ -993,7 +993,7 @@ export class ChartEngine {
           this.futureMarginMode,
         );
       } else {
-        const pivotIndex = pointerState.scaleX.toIndex(pointerState.clampedX);
+        const pivotIndex = (this.viewport.startIndex + this.viewport.endIndex) / 2;
         const stepCount = Math.max(1, Math.min(4, Math.round(Math.abs(event.deltaY) / 120) || 1));
         const zoomStep = 1.12;
         const factor = event.deltaY < 0 ? Math.pow(zoomStep, stepCount) : Math.pow(1 / zoomStep, stepCount);
@@ -1003,7 +1003,6 @@ export class ChartEngine {
           factor,
           this.bars.length,
           this.futureMarginMode,
-          'cursor',
         );
       }
 
