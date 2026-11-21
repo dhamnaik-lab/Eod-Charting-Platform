@@ -2274,4 +2274,61 @@ mod tests {
         assert_eq!(loads[0].2.as_deref(), Some("2024-01-02"));
         assert_eq!(loads[0].3, PriceBasisV1::Raw);
     }
+    #[test]
+    fn core_01_end_to_end_eod_metadata_and_safe_rejection() {
+        let mut symbols = HashMap::new();
+        symbols.insert("NSE:TEST".to_string(), series(&[95.0, 107.0]));
+        let source = FixtureSource::new(symbols);
+        let ids = ["gap_up", "prev_day_high_break"];
+        let rules = ids
+            .iter()
+            .map(|id| RuleV1 {
+                id: (*id).to_string(),
+                expression: super::super::core_ohlcv::canonical_expression(id).unwrap(),
+            })
+            .collect::<Vec<_>>();
+
+        let report = execute_scan(
+            &source,
+            &request(rules.clone(), false),
+            &[target("TEST")],
+            &AtomicBool::new(false),
+            ScanExecutionOptions::default(),
+            |_| {},
+        );
+        assert_eq!(report.counts.matched, 1);
+        assert_eq!(report.matches.len(), 2);
+        for match_record in &report.matches {
+            assert_eq!(match_record.category_id.as_deref(), Some("price_action"));
+            assert_eq!(match_record.source.as_deref(), Some("EODScannerPlugin_v1"));
+            assert!(match_record.scanner_name.is_some());
+            assert!(match_record.reasons.as_ref().is_some_and(|v| !v.is_empty()));
+            assert!(match_record.values.as_ref().is_some_and(|v| !v.is_empty()));
+        }
+
+        let mut wrong = rules.clone();
+        wrong[0].expression = ExprV1::Number { value: 1.0 };
+        let rejected = execute_scan(
+            &source,
+            &request(wrong, false),
+            &[target("TEST")],
+            &AtomicBool::new(false),
+            ScanExecutionOptions::default(),
+            |_| {},
+        );
+        assert_eq!(rejected.counts.failed, 1);
+        assert!(rejected.matches.is_empty());
+
+        let historical = execute_scan(
+            &source,
+            &request(rules, true),
+            &[target("TEST")],
+            &AtomicBool::new(false),
+            ScanExecutionOptions::default(),
+            |_| {},
+        );
+        assert_eq!(historical.counts.failed, 1);
+        assert!(historical.matches.is_empty());
+    }
+
 }
