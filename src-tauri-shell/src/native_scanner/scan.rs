@@ -2330,5 +2330,4 @@ mod tests {
         assert_eq!(historical.counts.failed, 1);
         assert!(historical.matches.is_empty());
     }
-
 }
