@@ -25,7 +25,8 @@ Charting workspaces, instruments and identity resolution, `.eod` binary price fi
 | [Git main synchronization](docs/changes/2026-11-06_MAIN_SYNCHRONIZATION.md) | Dated sync baseline, local work preservation and rollback evidence |
 | [FILE_INVENTORY.md](FILE_INVENTORY.md) | Short source navigation map |
 | [PROJECT_STATE_EOD_CHARTING_PLATFORM.md](PROJECT_STATE_EOD_CHARTING_PLATFORM.md) | Dated snapshot audit baseline, findings and check results |
+| [Native scanner retirement readiness](docs/plans/2026-11-21_NATIVE_SCANNER_RETIREMENT_READINESS.md) | Current 22 Nov 2026 source-confirmed native/TypeScript coverage, open migration gates and Windows acceptance HOLD |
 | [HANDOFF.md](HANDOFF.md) | Immediate resume/checkpoint instructions |
 | [NEXT_THREAD_PROMPT_EOD_CHARTING_PLATFORM.md](NEXT_THREAD_PROMPT_EOD_CHARTING_PLATFORM.md) | User-confirmed running/completed/next phase states only |
 
-**Source scope:** These documents describe the uploaded working-tree snapshot identified in the [audit baseline](PROJECT_STATE_EOD_CHARTING_PLATFORM.md#snapshot-authority). They must not be treated as proof that the live checkout has the same bytes.
+**Source scope:** This repository's older documentation includes a [dated 4 Nov 2026 ZIP-only snapshot audit](PROJECT_STATE_EOD_CHARTING_PLATFORM.md#snapshot-authority); its historical statements are not current behavior claims. The [native scanner retirement plan](docs/plans/2026-11-21_NATIVE_SCANNER_RETIREMENT_READINESS.md) tracks the later verified GitHub `main@09d329813706e3948820cc663507b197b5b07dd5` and reported local fast-forward. GitHub/source CI does **not** replace Windows portable/registered-DB acceptance. Other documents retain their stated evidence scopes.
