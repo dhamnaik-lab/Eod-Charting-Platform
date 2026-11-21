@@ -17,6 +17,7 @@ After NS-04 the native adapter supports four chart gaps but not the ten ready-fo
 - `docs/plans/2026-11-21_NATIVE_SCANNER_RETIREMENT_READINESS.md` (created): tracked remaining gates NS-R1..NS-R9, constraints, source authority and validation requirements.
 - `HANDOFF.md`, `NEXT_THREAD_PROMPT_EOD_CHARTING_PLATFORM.md`, `ARCHITECTURE_CURRENT_EOD_CHARTING_PLATFORM.md` (modified): current authoritative source/migration status and pending acceptance.
 - This IST change record.
+- `FILE_INVENTORY.md`, `FEATURE_STATUS_MATRIX_EOD_CHARTING_PLATFORM.md`, `PROJECT_STATE_EOD_CHARTING_PLATFORM.md` (updated current navigation/status while preserving dated snapshot provenance).
 
 ## Final behavior and preservation
 
