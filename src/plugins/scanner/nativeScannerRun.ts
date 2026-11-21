@@ -4,7 +4,8 @@
  * Contract:
  * - The accepted TypeScript runner (`runCoreEodScannerBatch`) remains the default. This
  *   module is only reached when the user explicitly enables the native backend and every
- *   selected scanner is parity-supported.
+ *   selected scanner has a supported native implementation. Core OHLCV rules are
+ *   latest-endpoint only; full-history core runs stay on TypeScript.
  * - If native cannot start, fails mid-run, or would have to mix with unsupported rules,
  *   the *whole* run falls back to TypeScript before any results/alerts are published. A
  *   partial native result set is never merged and alerts are never emitted twice.
@@ -15,10 +16,10 @@
 import type { EodAlertRule, EodAlertTrigger } from '@/features/alerts/eodAlerts';
 import { listApplicationScannerDefinitions } from '@/features/scanner/catalog';
 import { isNativeCoreResultId, nativeCoreResultMetadataIssue } from '@/features/scanner/nativeCoreResultMetadataGate';
+import { compileNativeCoreCandidate } from '@/features/scanner/nativeCoreRuleExpressions';
 import {
   NATIVE_SUPPORTED_PATTERN_IDS,
   NATIVE_SUPPORTED_PATTERN_NAMES,
-  splitNativeSupportedScannerIds,
   type NativeScanCountsV1,
   type NativeScanDiagnosticV1,
   type NativeScanMatchV1,
@@ -32,6 +33,7 @@ import type {
   ChartPatternGeometry,
   ChartPatternResultDetails,
 } from '@/features/chartPatterns/types';
+import { coreOhlcvScannerDefinitions } from '@/plugins/scanner/coreOhlcvScanners';
 import type { ScannerDefinition, ScannerResult, ScannerRunOutput, ScannerRunTarget } from '@/plugins/scanner/types';
 import {
   cancelNativeEodScan,
@@ -57,17 +59,36 @@ function toRuleExpression(scannerId: string): NativeScanRuleV1['expression'] {
 }
 
 /**
- * Builds the native rule set from the selected scanner ids.
- *
- * Only four chart patterns are natively supported today; every other selected scanner is
- * reported as unsupported so the caller can decide to fall back rather than scan a
- * different set of rules.
+ * Native eligibility is deliberately separate from the pattern-only V1 contract:
+ * all four accepted gap patterns and the ten built-in core OHLCV rules may compile.
+ * Other plugins, signals and custom rules remain TypeScript-only.
+ */
+function splitNativeRunnableScannerIds(scannerIds: readonly string[]): {
+  native: string[];
+  remaining: string[];
+} {
+  const patternIds = new Set<string>(NATIVE_SUPPORTED_PATTERN_IDS);
+  const native: string[] = [];
+  const remaining: string[] = [];
+  for (const id of scannerIds) {
+    if (patternIds.has(id) || isNativeCoreResultId(id)) {
+      native.push(id);
+    } else {
+      remaining.push(id);
+    }
+  }
+  return { native, remaining };
+}
+
+/**
+ * Builds a complete native rule set. The Rust backend also validates core rule IDs
+ * against the exact expected AST and rejects historical core evaluations.
  */
 export function compileNativeScannerRules(
   scannerIds: readonly string[],
   definitions: readonly ScannerDefinition[] = listApplicationScannerDefinitions(),
 ): NativeRuleCompileSet {
-  const split = splitNativeSupportedScannerIds(scannerIds);
+  const split = splitNativeRunnableScannerIds(scannerIds);
   const rules: NativeScanRuleV1[] = [];
   const definedIds = new Set(definitions.map((definition) => definition.id));
   const compileErrors: Array<{ scannerId: string; errors: string[] }> = [];
@@ -81,8 +102,18 @@ export function compileNativeScannerRules(
       });
       continue;
     }
+    const expression = isNativeCoreResultId(scannerId)
+      ? compileNativeCoreCandidate(scannerId)
+      : toRuleExpression(scannerId);
+    if (!expression) {
+      compileErrors.push({
+        scannerId,
+        errors: [`No approved native expression for scanner "${scannerId}".`],
+      });
+      continue;
+    }
     nativeScannerIds.push(scannerId);
-    rules.push({ id: scannerId, expression: toRuleExpression(scannerId) });
+    rules.push({ id: scannerId, expression });
   }
 
   return {
@@ -97,8 +128,12 @@ export function compileNativeScannerRules(
 export function canRunNatively(
   scannerIds: readonly string[],
   definitions: readonly ScannerDefinition[] = listApplicationScannerDefinitions(),
+  evaluateHistory = false,
 ): boolean {
   if (scannerIds.length === 0) return false;
+  // Core handlers return one latest result even when the TypeScript runner scans
+  // full history. Never claim a native history run would be equivalent.
+  if (evaluateHistory && scannerIds.some(isNativeCoreResultId)) return false;
   const compiled = compileNativeScannerRules(scannerIds, definitions);
   return (
     compiled.unsupportedScannerIds.length === 0 &&
@@ -107,15 +142,18 @@ export function canRunNatively(
   );
 }
 
-export function describeNativeUnsupportedScanners(scannerIds: readonly string[]): string {
-  const split = splitNativeSupportedScannerIds(scannerIds);
+export function describeNativeUnsupportedScanners(
+  scannerIds: readonly string[],
+  evaluateHistory = false,
+): string {
+  if (evaluateHistory && scannerIds.some(isNativeCoreResultId)) {
+    return 'Core OHLCV native scanning supports bounded/latest-bar runs only. Full-history core scans use the TypeScript backend.';
+  }
+  const split = splitNativeRunnableScannerIds(scannerIds);
   if (split.remaining.length === 0) return '';
-  const supported = NATIVE_SUPPORTED_PATTERN_IDS.map((id) => NATIVE_SUPPORTED_PATTERN_NAMES[id]).join(
-    ', ',
-  );
   return `${split.remaining.length} selected scanner(s) are TypeScript-only (${split.remaining
     .slice(0, 5)
-    .join(', ')}${split.remaining.length > 5 ? ', …' : ''}). The run uses the TypeScript backend; native support currently covers: ${supported}.`;
+    .join(', ')}${split.remaining.length > 5 ? ', …' : ''}). The run uses the TypeScript backend; native supports four gap patterns and ten core OHLCV scanners (latest-bar only).`;
 }
 
 export interface NativeScannerRunOutcome extends ScannerRunOutput {
@@ -337,8 +375,8 @@ export async function runNativeOrTypeScriptScannerBatch(
   if (databaseSelectionChanged()) return cancelledForDatabaseChange();
 
   // Hard preconditions: an unsupported or mixed rule set never starts natively.
-  if (!canRunNatively(options.scannerIds)) {
-    return fallback(describeNativeUnsupportedScanners(options.scannerIds) || undefined);
+  if (!canRunNatively(options.scannerIds, undefined, options.evaluateHistory)) {
+    return fallback(describeNativeUnsupportedScanners(options.scannerIds, options.evaluateHistory) || undefined);
   }
   if (options.targets.length === 0) {
     return fallback('No targets were resolved for the selected universe.');
@@ -626,5 +664,5 @@ export function formatNativeScannerStatus(
 /** Exposed for the UI to render an accurate, non-flattering capability note. */
 export function describeNativeCapability(): string {
   const names = NATIVE_SUPPORTED_PATTERN_IDS.map((id) => NATIVE_SUPPORTED_PATTERN_NAMES[id]);
-  return `Native backend (experimental, off by default) currently evaluates: ${names.join(', ')}. Every other scanner stays on the TypeScript backend.`;
+  return `Native backend (experimental, off by default) evaluates ${names.join(', ')} and ${coreOhlcvScannerDefinitions.length} core OHLCV scanners (latest-bar/bounded runs only). Full-history core scans and other rules stay on TypeScript.`;
 }

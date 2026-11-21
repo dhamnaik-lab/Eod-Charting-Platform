@@ -234,3 +234,190 @@ fn ns01_no_look_ahead_when_the_endpoint_moves_forward() {
     }
     assert!(previous_matched.is_some());
 }
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct CoreMetadataFixture {
+    version: u32,
+    rules: BTreeMap<String, Value>,
+    cases: Vec<CoreMetadataCase>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct CoreMetadataCase {
+    case_id: String,
+    rule_id: String,
+    description: String,
+    symbol: String,
+    exchange: String,
+    bars: Vec<FixtureBar>,
+    expected: Option<CoreMetadataExpected>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct CoreMetadataExpected {
+    symbol: String,
+    exchange: String,
+    scanner_id: String,
+    scanner_name: String,
+    category_id: String,
+    category_name: String,
+    date: String,
+    matched: bool,
+    direction: String,
+    reasons: Vec<String>,
+    values: BTreeMap<String, Value>,
+    warnings: Vec<Value>,
+    source: String,
+}
+
+/// Unlike the NS-01 boolean-only fixtures, this checks actual Rust core_match_record
+/// against immutable rows that the real TypeScript runCoreScanner re-evaluates in
+/// nativeCoreMetadataParityNSR3.test.ts. The generatedAt clock is intentionally omitted.
+#[test]
+fn nsr3_real_core_result_metadata_matches_typescript_fixtures() {
+    use super::core_results::core_match_record;
+    use super::reader::NativeBar;
+    use super::scan::ScanTarget;
+    use crate::scanner_contract::ScannerScalarValueV1;
+
+    let fixture: CoreMetadataFixture = serde_json::from_str(include_str!(
+        "../../../src/features/scanner/fixtures/nativeCoreMetadataParityFixtures.v1.json"
+    ))
+    .expect("shared NS-R3 metadata fixture must parse");
+    assert_eq!(fixture.version, 1);
+    assert_eq!(fixture.rules.len(), 10);
+    assert!(fixture.cases.len() >= 40);
+    for sample in &fixture.cases {
+        assert!(!sample.description.is_empty(), "{}", sample.case_id);
+        let expression = fixture
+            .rules
+            .get(&sample.rule_id)
+            .unwrap_or_else(|| panic!("unknown core rule in {}", sample.case_id));
+        let request = serde_json::json!({
+            "schemaVersion": 1,
+            "requestedRunId": "nsr3-parity",
+            "universe": {"source": "activeNseEq"},
+            "evaluation": {"evaluateHistory": false, "priceBasis": "raw"},
+            "rules": [{"id": sample.rule_id, "expression": expression}]
+        });
+        let parsed = parse_native_scan_request_v1(&request)
+            .unwrap_or_else(|issues| panic!("{} invalid AST: {issues:?}", sample.case_id));
+        let rule = &parsed.rules[0];
+        super::core_results::validate_core_rule(rule, false)
+            .unwrap_or_else(|message| panic!("{}: {message}", sample.case_id));
+        let eval_bars = to_eval_bars(&sample.bars);
+        let evaluated = evaluate_rule_latest(&rule.expression, &eval_bars)
+            .unwrap_or_else(|message| panic!("{}: {message}", sample.case_id));
+        assert_eq!(
+            evaluated.matched,
+            sample.expected.is_some(),
+            "{}: TypeScript/Rust predicate decision differs",
+            sample.case_id
+        );
+        let Some(expected) = &sample.expected else {
+            continue;
+        };
+        let bars: Vec<NativeBar> = sample
+            .bars
+            .iter()
+            .map(|bar| NativeBar {
+                date: pack_date(&bar.date),
+                open: bar.open,
+                high: bar.high,
+                low: bar.low,
+                close: bar.close,
+                volume: bar.volume,
+                prev_close: None,
+                open_interest: 0.0,
+            })
+            .collect();
+        let last_date = &sample.bars.last().expect("nonempty core fixture").date;
+        let target = ScanTarget {
+            exchange: sample.exchange.clone(),
+            symbol: sample.symbol.clone(),
+        };
+        let actual = core_match_record(rule, &bars, &target, last_date, evaluated.value)
+            .unwrap_or_else(|message| panic!("{}: {message}", sample.case_id))
+            .unwrap_or_else(|| panic!("{} produced no Rust metadata", sample.case_id));
+        assert_eq!(actual.symbol, expected.symbol, "{}", sample.case_id);
+        assert_eq!(actual.exchange, expected.exchange, "{}", sample.case_id);
+        assert_eq!(actual.rule_id, expected.scanner_id, "{}", sample.case_id);
+        assert_eq!(
+            actual.scanner_name.as_deref(),
+            Some(expected.scanner_name.as_str()),
+            "{}",
+            sample.case_id
+        );
+        assert_eq!(
+            actual.category_id.as_deref(),
+            Some(expected.category_id.as_str()),
+            "{}",
+            sample.case_id
+        );
+        assert_eq!(
+            actual.category_name.as_deref(),
+            Some(expected.category_name.as_str()),
+            "{}",
+            sample.case_id
+        );
+        assert_eq!(actual.date, expected.date, "{}", sample.case_id);
+        assert!(expected.matched, "{}", sample.case_id);
+        assert_eq!(
+            actual.direction.as_deref(),
+            Some(expected.direction.as_str()),
+            "{}",
+            sample.case_id
+        );
+        assert_eq!(
+            actual.reasons.as_deref(),
+            Some(expected.reasons.as_slice()),
+            "{}",
+            sample.case_id
+        );
+        assert_eq!(
+            actual.source.as_deref(),
+            Some(expected.source.as_str()),
+            "{}",
+            sample.case_id
+        );
+        assert!(
+            actual.score.is_none() && actual.pattern.is_none() && actual.history.is_none(),
+            "{}",
+            sample.case_id
+        );
+        // The TypeScript native result adapter adds warnings: [] to core rows.
+        assert!(expected.warnings.is_empty(), "{}", sample.case_id);
+        let actual_values = actual.values.as_ref().expect("core columns required");
+        assert_eq!(
+            actual_values.len(),
+            expected.values.len(),
+            "{}",
+            sample.case_id
+        );
+        for (name, expected_value) in &expected.values {
+            let actual_value = actual_values
+                .get(name)
+                .unwrap_or_else(|| panic!("{} missing column {name}", sample.case_id));
+            if expected_value.is_null() {
+                assert_eq!(
+                    actual_value,
+                    &ScannerScalarValueV1::Null,
+                    "{} {name}",
+                    sample.case_id
+                );
+                continue;
+            }
+            let expected_number = expected_value
+                .as_f64()
+                .unwrap_or_else(|| panic!("{} column {name} not numeric", sample.case_id));
+            let actual_number = match actual_value {
+                ScannerScalarValueV1::Integer(integer) => *integer as f64,
+                ScannerScalarValueV1::Float(float) => *float,
+                _ => panic!("{} unexpected type for {name}", sample.case_id),
+            };
+            assert_eq!(actual_number, expected_number, "{} {name}", sample.case_id);
+        }
+    }
+}

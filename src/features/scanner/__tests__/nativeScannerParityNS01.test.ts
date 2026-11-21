@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { existsSync } from 'node:fs';
 import { resolve } from 'node:path';
 import type { OHLCBar } from '@/engine/types';
+import { coreOhlcvScannerDefinitions } from '@/plugins/scanner/coreOhlcvScanners';
 import {
   NATIVE_SCAN_CONTRACT_VERSION,
   NATIVE_SUPPORTED_PATTERN_IDS,
@@ -128,6 +129,17 @@ describe('NS-01 committed parity fixtures', () => {
     expect(committed.contractCases).toEqual(regenerated.contractCases);
     expect(committed.compileCases).toEqual(regenerated.compileCases);
     expect(committed.barSets).toEqual(regenerated.barSets);
+  });
+
+  it('has exact-AST Rust/TypeScript endpoint fixtures for all ten core rules on three series', () => {
+    const bundle = loadFixture();
+    const cases = new Set(bundle.numericCases.map((entry) => entry.id));
+    for (const definition of coreOhlcvScannerDefinitions) {
+      for (const series of ['trend_40', 'trend_60', 'plateau_12']) {
+        expect(cases.has(`core_${definition.id}_${series}`)).toBe(true);
+      }
+    }
+    expect(coreOhlcvScannerDefinitions).toHaveLength(10);
   });
 
   it('covers the required numeric, compile and contract scenarios', () => {

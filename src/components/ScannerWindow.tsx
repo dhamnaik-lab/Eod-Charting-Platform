@@ -702,13 +702,14 @@ export function ScannerWindow() {
         signalRules,
         shouldCancel,
       };
-      const useNativeBackend = nativeScannerEnabled && canRunNatively(selectedScannerIds);
+      const useNativeBackend = nativeScannerEnabled &&
+        canRunNatively(selectedScannerIds, undefined, lookbackBars === null);
       if (useNativeBackend) activeNativeRunDatabaseRef.current = scanDatabasePath;
       if (nativeScannerEnabled && !useNativeBackend) {
         // Visible, unobtrusive fallback notice: unsupported/mixed rules stay TypeScript.
         setErrors((current) => [
           ...current,
-          describeNativeUnsupportedScanners(selectedScannerIds) ||
+          describeNativeUnsupportedScanners(selectedScannerIds, lookbackBars === null) ||
             'The native backend cannot evaluate the selected scanners; using TypeScript.',
         ]);
       }
@@ -1363,8 +1364,8 @@ export function ScannerWindow() {
                     Use native (Rust) backend
                   </label>
                   <span style={{ fontSize: '11px', color: 'var(--text-muted, #8a8a8a)' }}>
-                    {nativeScannerEnabled && !canRunNatively(selectedScannerIds)
-                      ? describeNativeUnsupportedScanners(selectedScannerIds)
+                    {nativeScannerEnabled && !canRunNatively(selectedScannerIds, undefined, lookbackBars === null)
+                      ? describeNativeUnsupportedScanners(selectedScannerIds, lookbackBars === null)
                       : describeNativeCapability()}
                   </span>
                 </label>
