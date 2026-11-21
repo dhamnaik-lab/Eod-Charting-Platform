@@ -344,25 +344,69 @@ fn nsr3_real_core_result_metadata_matches_typescript_fixtures() {
         assert_eq!(actual.symbol, expected.symbol, "{}", sample.case_id);
         assert_eq!(actual.exchange, expected.exchange, "{}", sample.case_id);
         assert_eq!(actual.rule_id, expected.scanner_id, "{}", sample.case_id);
-        assert_eq!(actual.scanner_name.as_deref(), Some(expected.scanner_name.as_str()), "{}", sample.case_id);
-        assert_eq!(actual.category_id.as_deref(), Some(expected.category_id.as_str()), "{}", sample.case_id);
-        assert_eq!(actual.category_name.as_deref(), Some(expected.category_name.as_str()), "{}", sample.case_id);
+        assert_eq!(
+            actual.scanner_name.as_deref(),
+            Some(expected.scanner_name.as_str()),
+            "{}",
+            sample.case_id
+        );
+        assert_eq!(
+            actual.category_id.as_deref(),
+            Some(expected.category_id.as_str()),
+            "{}",
+            sample.case_id
+        );
+        assert_eq!(
+            actual.category_name.as_deref(),
+            Some(expected.category_name.as_str()),
+            "{}",
+            sample.case_id
+        );
         assert_eq!(actual.date, expected.date, "{}", sample.case_id);
         assert!(expected.matched, "{}", sample.case_id);
-        assert_eq!(actual.direction.as_deref(), Some(expected.direction.as_str()), "{}", sample.case_id);
-        assert_eq!(actual.reasons.as_deref(), Some(expected.reasons.as_slice()), "{}", sample.case_id);
-        assert_eq!(actual.source.as_deref(), Some(expected.source.as_str()), "{}", sample.case_id);
-        assert!(actual.score.is_none() && actual.pattern.is_none() && actual.history.is_none(), "{}", sample.case_id);
+        assert_eq!(
+            actual.direction.as_deref(),
+            Some(expected.direction.as_str()),
+            "{}",
+            sample.case_id
+        );
+        assert_eq!(
+            actual.reasons.as_deref(),
+            Some(expected.reasons.as_slice()),
+            "{}",
+            sample.case_id
+        );
+        assert_eq!(
+            actual.source.as_deref(),
+            Some(expected.source.as_str()),
+            "{}",
+            sample.case_id
+        );
+        assert!(
+            actual.score.is_none() && actual.pattern.is_none() && actual.history.is_none(),
+            "{}",
+            sample.case_id
+        );
         // The TypeScript native result adapter adds warnings: [] to core rows.
         assert!(expected.warnings.is_empty(), "{}", sample.case_id);
         let actual_values = actual.values.as_ref().expect("core columns required");
-        assert_eq!(actual_values.len(), expected.values.len(), "{}", sample.case_id);
+        assert_eq!(
+            actual_values.len(),
+            expected.values.len(),
+            "{}",
+            sample.case_id
+        );
         for (name, expected_value) in &expected.values {
             let actual_value = actual_values
                 .get(name)
                 .unwrap_or_else(|| panic!("{} missing column {name}", sample.case_id));
             if expected_value.is_null() {
-                assert_eq!(actual_value, &ScannerScalarValueV1::Null, "{} {name}", sample.case_id);
+                assert_eq!(
+                    actual_value,
+                    &ScannerScalarValueV1::Null,
+                    "{} {name}",
+                    sample.case_id
+                );
                 continue;
             }
             let expected_number = expected_value
