@@ -637,6 +637,36 @@ export async function runNativeOrTypeScriptScannerBatch(
   };
 }
 
+/**
+ * Completion summary shared by the Scanner window's native and TypeScript paths.
+ * Keep the accepted TypeScript, fallback, and cancellation wording unchanged;
+ * only completed native scans use the backend's real skipped/failed accounting.
+ */
+export function formatScannerCompletionStatus(
+  outcome: ScannerRunOutput | NativeScannerRunOutcome,
+  symbolCount: number,
+): string {
+  const scannedSummary =
+    `Scanned ${outcome.scannedSymbols} symbol${outcome.scannedSymbols === 1 ? '' : 's'}; ${outcome.results.length} match${outcome.results.length === 1 ? '' : 'es'}; ${outcome.alertTriggers.length} alert${outcome.alertTriggers.length === 1 ? '' : 's'}.`;
+
+  if ('backend' in outcome && outcome.backend === 'typescript-fallback') {
+    const suffix = outcome.cancelled
+      ? `Scan cancelled after ${outcome.scannedSymbols} symbol${outcome.scannedSymbols === 1 ? '' : 's'}.`
+      : scannedSummary;
+    return `${formatNativeScannerStatus(outcome, symbolCount)} ${suffix}`;
+  }
+
+  if (outcome.cancelled) {
+    return `Scan cancelled after ${outcome.scannedSymbols} symbol${outcome.scannedSymbols === 1 ? '' : 's'}; ${outcome.results.length} match${outcome.results.length === 1 ? '' : 'es'} recorded.`;
+  }
+
+  if ('backend' in outcome && outcome.backend === 'native') {
+    return formatNativeScannerStatus(outcome, symbolCount);
+  }
+
+  return scannedSummary;
+}
+
 /** Status line text for a native run, mirroring the TypeScript wording. */
 export function formatNativeScannerStatus(
   outcome: NativeScannerRunOutcome,
