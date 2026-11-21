@@ -2,9 +2,10 @@
  * Native-ready predicates for the ten built-in core OHLCV scanners.
  *
  * These match the decisions in coreOhlcvScanners.ts on valid completed EOD bars.
- * Do not enable native UI routing from this table alone: the legacy result
- * metadata (reasons, direction, values, source) is part of the public contract.
- * The migration gate must first prove that metadata and history are identical.
+ * Used only for explicit opt-in latest-bar native routing. Rust independently
+ * validates the exact AST for each rule ID and generates legacy result metadata.
+ * Full-history core runs and unsupported selections must retain TypeScript fallback;
+ * runtime numeric/reason parity still requires Windows acceptance.
  */
 import type { NativeExprV1, NativeOhlcvField } from './nativeScanContract';
 
@@ -62,7 +63,7 @@ const NATIVE_CORE_PREDICATES: Readonly<Record<string, () => NativeExprV1>> = {
   ),
 };
 
-/** Candidate-only until native result metadata and historical parity are verified. */
+/** Built-in numeric rule IDs; native routing is limited to explicit bounded/latest runs. */
 export const NATIVE_CORE_CANDIDATE_IDS = Object.freeze(Object.keys(NATIVE_CORE_PREDICATES));
 
 export function compileNativeCoreCandidate(scannerId: string): NativeExprV1 | null {

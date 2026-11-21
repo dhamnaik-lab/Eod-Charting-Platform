@@ -2,12 +2,10 @@
  * Fail-closed metadata gate for native core OHLCV numeric matches.
  *
  * The existing TypeScript core scanners return a complete ScannerResult, not
- * merely a boolean decision. This is a structural precondition for a future
- * Rust core-result implementation, NOT proof of value/reason parity.
- *
- * Core scanning is still routed to TypeScript. This gate makes it impossible
- * for a future/native mismatched core record to silently become a partial
- * Chart Patterns - Gaps row.
+ * merely a boolean decision. This protects opt-in bounded/latest native
+ * results against missing metadata, NOT against all numeric/reason discrepancies.
+ * Complete, independently verified Rust/TypeScript parity is still required
+ * before retiring the TypeScript implementation.
  */
 import { coreOhlcvScannerDefinitions } from '@/plugins/scanner/coreOhlcvScanners';
 import type { ScannerDirection } from '@/plugins/scanner/types';
