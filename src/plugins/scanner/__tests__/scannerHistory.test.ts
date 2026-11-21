@@ -52,6 +52,45 @@ describe('scanner history and scope', () => {
     expect(mapEodRowsToScannerBars('NIFTY500', rows, null)).toHaveLength(1200);
   });
 
+  it.each([0, 1, 2])(
+    'requires two completed bars for core batch matches (%i provided)',
+    async (count) => {
+      const bars: EodRow[] = [
+        { date: '2026-01-01', open: 100, high: 110, low: 90, close: 100, volume: 1000 },
+        { date: '2026-01-02', open: 100, high: 110, low: 90, close: 109, volume: 1000 },
+      ];
+      const getEodData = vi.fn().mockResolvedValue({
+        requestedSymbol: 'TEST',
+        requestedExchange: 'NSE',
+        adjusted: false,
+        includeDividendAdjustments: false,
+        includeRightsAdjustments: false,
+        instrument: null,
+        bars: count === 0 ? [] : bars.slice(-count),
+        events: [],
+      });
+
+      const result = await runCoreEodScannerBatch(
+        { getEodData },
+        {
+          targets: [{ symbol: 'TEST', exchange: 'NSE' }],
+          scannerIds: ['close_near_high'],
+          lookbackBars: 20,
+        },
+      );
+
+      expect(result.scannedSymbols).toBe(1);
+      expect(result.results).toHaveLength(count === 2 ? 1 : 0);
+      expect(result.errors).toEqual(
+        count < 2 ? ['NSE:TEST has fewer than 2 completed bars.'] : [],
+      );
+      if (count === 2) {
+        expect(result.results[0]?.scannerId).toBe('close_near_high');
+      }
+      expect(getEodData).toHaveBeenCalledTimes(1);
+    },
+  );
+
   it('returns the complete selected watchlist without a replacement cap', async () => {
     const watchlist: Watchlist = {
       id: 1,
