@@ -1,0 +1,101 @@
+name: Rust Compile and Test CI
+
+# P0/P1 correction gate for the native scanner (PR #124).
+#
+# This job exists because the implementation environment has no Rust toolchain and
+# no crates registry access, so `cargo check` / `cargo test` could not be run there.
+# rustfmt alone proves only that the sources parse; it does not type-check, borrow-check,
+# resolve trait bounds or execute tests. This workflow closes that gap.
+#
+# It is additive: it does not replace, weaken or duplicate the existing Rustfmt gate or
+# the Renderer CI job. It adds no dependency and does not modify Cargo.toml / Cargo.lock.
+#
+# Scope decisions:
+# - `cargo check --tests` and `cargo test` compile the whole binary crate, which means the
+#   Tauri shell must build on Linux. That needs the WebKitGTK/GTK/soup development
+#   packages installed below; the Tauri crate itself is cross-platform.
+# - The Windows-only dependency table (`webview2-com`, `windows`) is not selected on
+#   Linux, so the guarded code paths are compiled only on the Windows acceptance run.
+# - Runner minutes are bounded by `timeout-minutes` and the job runs only for changes to
+#   the paths listed in `on.pull_request.paths` plus manual dispatch.
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'src-tauri-shell/**'
+      - '.github/workflows/rust-cargo-ci.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  cargo:
+    name: Cargo check and native scanner tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Ensure stable Rust toolchain is available
+        run: rustup component add rustfmt clippy --toolchain stable
+
+      - name: Set up Node.js 24
+        uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+          package-manager-cache: false
+
+      # `tauri::generate_context!()` reads `frontendDist: "../dist"` at compile time and
+      # panics if the directory is absent. Building the renderer first mirrors the real
+      # `beforeBuildCommand` and keeps tauri.conf.json untouched.
+      - name: Build renderer assets required by the Tauri build script
+        run: |
+          set -euo pipefail
+          npm ci
+          npm run build:renderer
+
+      - name: Install Tauri Linux build dependencies
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            pkg-config libgtk-3-dev libwebkit2gtk-4.1-dev libsoup-3.0-dev \
+            libjavascriptcoregtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev
+
+      - name: Report toolchain versions
+        run: |
+          set -euo pipefail
+          rustc --version
+          cargo --version
+
+      - name: Cargo check (all targets, locked)
+        working-directory: src-tauri-shell
+        run: cargo check --tests --locked
+
+      - name: Native scanner tests
+        working-directory: src-tauri-shell
+        run: cargo test --locked native_scanner -- --nocapture
+
+      - name: Scanner module regression tests (RSC-01..RSC-06)
+        working-directory: src-tauri-shell
+        run: cargo test --locked scanner_ -- --nocapture
+
+      # The whole-crate suite is part of the gate, but one accepted-base test is
+      # platform-portable incorrectly: `database::nse_identity_imports::
+      # resolves_standard_archive_paths` asserts Windows path separators and therefore
+      # cannot pass on a Linux runner. That file is untouched by this
+      # branch (verified against the accepted base 717eb6f) and is a Windows acceptance
+      # item, not a native-scanner defect, so it is skipped *by exact name* on Linux.
+      # The rest of the suite still runs, and any other failure still fails the job --
+      # this is not a blanket skip and it does not disable the suite.
+      - name: Full Rust regression suite
+        working-directory: src-tauri-shell
+        run: |
+          set -euo pipefail
+          cargo test --locked -- \
+            --skip database::nse_identity_imports::tests::resolves_standard_archive_paths

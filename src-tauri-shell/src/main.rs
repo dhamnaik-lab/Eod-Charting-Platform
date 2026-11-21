@@ -19,6 +19,8 @@ mod scanner_common_gap;
 mod scanner_runaway_gap;
 #[allow(dead_code)]
 mod scanner_exhaustion_gap;
+#[allow(dead_code)]
+mod native_scanner;
 
 use app_profile::*;
 use bhavcopy::*;
@@ -860,6 +862,9 @@ fn main() {
 
     let result = tauri::Builder::default()
         .manage(ActiveDatabaseConnectionState::new())
+        // NS-03: the native scan registry and its database-use permit. Native scanning
+        // stays opt-in; registering the state does not activate any UI path.
+        .manage(native_scanner::ipc::NativeScanState::default())
         .setup(|app| {
             let runtime_context = resolve_runtime_context(&app.handle())?;
             ensure_registry_initialized(&app.handle())?;
@@ -885,6 +890,18 @@ fn main() {
             }
 
             if let WindowEvent::CloseRequested { .. } = event {
+                // Finalize native scan jobs before the process exits so no run can emit a
+                // late event and the database-use permit is released deterministically.
+                let native_state = window.app_handle().state::<native_scanner::ipc::NativeScanState>();
+                let cancelled = native_scanner::ipc::finalize_all_runs(&native_state);
+                if cancelled > 0 {
+                    log_runtime_event(
+                        &window.app_handle(),
+                        "INFO",
+                        "shutdown",
+                        Some(&format!("cancelled {cancelled} native scan run(s)")),
+                    );
+                }
                 log_runtime_event(
                     &window.app_handle(),
                     "INFO",
@@ -1300,7 +1317,10 @@ fn main() {
             load_layout,
             delete_layout,
             get_setting,
-            set_setting
+            set_setting,
+            native_scanner::ipc::start_native_eod_scan,
+            native_scanner::ipc::cancel_native_eod_scan,
+            native_scanner::ipc::native_scanner_capabilities,
         ])
         .run(tauri::generate_context!());
 

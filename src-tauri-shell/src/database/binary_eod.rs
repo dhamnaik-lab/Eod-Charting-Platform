@@ -388,6 +388,90 @@ impl BinaryEodFile {
         Ok(records)
     }
 
+    /// Reads at most `limit` records, taking the **newest** ones within
+    /// `start_date..=end_date`.
+    ///
+    /// Genuinely bounded: it binary-searches the range bounds and seeks straight to the
+    /// window start, so a 30-year file costs the same handful of reads as a 30-day one.
+    /// The oldest records in the range are never decoded or materialized.
+    pub fn read_range_bounded(
+        &self,
+        start_date: u32,
+        end_date: u32,
+        limit: usize,
+    ) -> Result<Vec<EodRecord>, String> {
+        if limit == 0 {
+            return Ok(Vec::new());
+        }
+        let total_records = self.header.record_count as usize;
+        if total_records == 0 {
+            return Ok(Vec::new());
+        }
+        let mut file = open_ro_with_retry(&self.path).map_err(|e| e.to_string())?;
+
+        // First record with date >= start_date (the same lower bound `read_range` uses).
+        let range_start = match self.lower_bound(&mut file, total_records, start_date)? {
+            Some(index) => index,
+            None => return Ok(Vec::new()),
+        };
+        // First record with date > end_date, i.e. the exclusive end of the range.
+        let range_end =
+            match self.lower_bound(&mut file, total_records, end_date.saturating_add(1))? {
+                Some(index) => index,
+                None => total_records,
+            };
+        if range_end <= range_start {
+            return Ok(Vec::new());
+        }
+
+        // Newest `limit` records of the [range_start, range_end) range.
+        let start_idx = range_end.saturating_sub(limit).max(range_start);
+        let count = range_end - start_idx;
+
+        file.seek(SeekFrom::Start(
+            (HEADER_SIZE + start_idx * RECORD_SIZE) as u64,
+        ))
+        .map_err(|e| e.to_string())?;
+
+        let mut records = Vec::with_capacity(count);
+        for _ in 0..count {
+            let mut buf = [0u8; RECORD_SIZE];
+            file.read_exact(&mut buf).map_err(|e| e.to_string())?;
+            records.push(decode_record(&buf));
+        }
+        Ok(records)
+    }
+
+    /// Index of the first record whose date is `>= target`, or `None` when every record
+    /// is older. Binary search over the on-disk date column.
+    fn lower_bound(
+        &self,
+        file: &mut File,
+        total_records: usize,
+        target: u32,
+    ) -> Result<Option<usize>, String> {
+        if total_records == 0 {
+            return Ok(None);
+        }
+        let mut low = 0usize;
+        let mut high = total_records - 1;
+        let mut found = None;
+        while low <= high {
+            let mid = low + (high - low) / 2;
+            let date = self.read_date_at(file, mid)?;
+            if date >= target {
+                found = Some(mid);
+                if mid == 0 {
+                    break;
+                }
+                high = mid - 1;
+            } else {
+                low = mid + 1;
+            }
+        }
+        Ok(found)
+    }
+
     /// Returns incoming records that are not already present by date, plus the count skipped.
     /// Incoming records are sorted by date before checking.
     pub fn filter_records_against_existing(

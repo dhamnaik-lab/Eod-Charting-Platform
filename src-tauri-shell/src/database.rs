@@ -1,6 +1,6 @@
 #[allow(unused_imports)]
 pub use self::corporate_action_imports::{preview_split_bonus_reconciliation, CorporateActionReconciliationPreflightInput, CorporateActionReconciliationPreflightResult, CorporateActionReconciliationPreflightRow, CorporateActionReconciliationBlocker};
-pub(crate) use self::connection_registry::peek_active_database_folder_read_only;
+pub(crate) use self::connection_registry::{peek_active_database_folder_read_only, read_native_scan_selection, NativeScanSelection};
 pub mod binary_eod;
 pub(crate) mod storage_paths;
 mod bootstrap;
@@ -93,6 +93,9 @@ pub(crate) use self::corporate_action_imports::{
 pub use self::daily_market_snapshot::{cancel_daily_market_snapshot, get_daily_market_snapshot};
 pub use self::dnn_research_export::export_dnn_research_dataset;
 pub use self::eod_data::{get_eod_data, get_eod_data_binary};
+pub use self::eod_data::read_scan_bars_for_folder;
+#[allow(unused_imports)]
+pub use self::eod_data::ScanPriceBar;
 use self::eod_data::{find_instrument_record, resolve_instrument_context};
 pub use self::instrument_mutations::{apply_corporate_action, merge_symbols};
 pub use self::nse_identity_imports::{

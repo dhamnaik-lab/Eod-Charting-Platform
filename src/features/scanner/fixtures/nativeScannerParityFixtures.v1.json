@@ -1,0 +1,2500 @@
+{
+  "contractVersion": "eod-native-scan-contract-v1",
+  "schemaVersion": 1,
+  "exportedFrom": "src/features/scanner/nativeScanContract.ts",
+  "generatedBy": "src/features/scanner/__tests__/nativeScannerFixtureGenerator.ts",
+  "barSets": {
+    "trend_40": [
+      {
+        "date": "2024-01-01",
+        "open": 100,
+        "high": 100.77,
+        "low": 99.09,
+        "close": 100.68,
+        "volume": 15950
+      },
+      {
+        "date": "2024-01-02",
+        "open": 100.68,
+        "high": 102.22,
+        "low": 99.26,
+        "close": 101.5,
+        "volume": 17877
+      },
+      {
+        "date": "2024-01-03",
+        "open": 101.5,
+        "high": 102.41,
+        "low": 101.27,
+        "close": 101.89,
+        "volume": 15269
+      },
+      {
+        "date": "2024-01-04",
+        "open": 101.89,
+        "high": 102.38,
+        "low": 101.85,
+        "close": 102.37,
+        "volume": 11900
+      },
+      {
+        "date": "2024-01-05",
+        "open": 102.37,
+        "high": 103.87,
+        "low": 101.39,
+        "close": 102.92,
+        "volume": 14092
+      },
+      {
+        "date": "2024-01-06",
+        "open": 102.92,
+        "high": 103.8,
+        "low": 101.72,
+        "close": 102.82,
+        "volume": 11476
+      },
+      {
+        "date": "2024-01-07",
+        "open": 102.82,
+        "high": 103.26,
+        "low": 101.98,
+        "close": 102.85,
+        "volume": 8940
+      },
+      {
+        "date": "2024-01-08",
+        "open": 102.85,
+        "high": 102.93,
+        "low": 102.41,
+        "close": 102.6,
+        "volume": 15468
+      },
+      {
+        "date": "2024-01-09",
+        "open": 102.6,
+        "high": 104.44,
+        "low": 101.89,
+        "close": 104.41,
+        "volume": 18555
+      },
+      {
+        "date": "2024-01-10",
+        "open": 104.41,
+        "high": 105.27,
+        "low": 103.82,
+        "close": 104.34,
+        "volume": 11879
+      },
+      {
+        "date": "2024-01-11",
+        "open": 104.34,
+        "high": 104.54,
+        "low": 103.19,
+        "close": 104.39,
+        "volume": 14923
+      },
+      {
+        "date": "2024-01-12",
+        "open": 104.39,
+        "high": 104.96,
+        "low": 104.25,
+        "close": 104.53,
+        "volume": 14243
+      },
+      {
+        "date": "2024-01-13",
+        "open": 104.53,
+        "high": 106.04,
+        "low": 103.69,
+        "close": 104.85,
+        "volume": 11045
+      },
+      {
+        "date": "2024-01-14",
+        "open": 104.85,
+        "high": 105.63,
+        "low": 104.05,
+        "close": 105.05,
+        "volume": 14784
+      },
+      {
+        "date": "2024-01-15",
+        "open": 105.05,
+        "high": 107.02,
+        "low": 103.66,
+        "close": 106.07,
+        "volume": 17462
+      },
+      {
+        "date": "2024-01-16",
+        "open": 106.07,
+        "high": 107.38,
+        "low": 105.16,
+        "close": 105.79,
+        "volume": 10305
+      },
+      {
+        "date": "2024-01-17",
+        "open": 105.79,
+        "high": 106.63,
+        "low": 105,
+        "close": 106.46,
+        "volume": 11527
+      },
+      {
+        "date": "2024-01-18",
+        "open": 106.46,
+        "high": 107.68,
+        "low": 105.41,
+        "close": 106.34,
+        "volume": 16842
+      },
+      {
+        "date": "2024-01-19",
+        "open": 106.34,
+        "high": 106.37,
+        "low": 105.66,
+        "close": 106.34,
+        "volume": 15433
+      },
+      {
+        "date": "2024-01-20",
+        "open": 106.34,
+        "high": 106.54,
+        "low": 104.91,
+        "close": 106.18,
+        "volume": 13059
+      },
+      {
+        "date": "2024-01-21",
+        "open": 106.18,
+        "high": 107.83,
+        "low": 105.52,
+        "close": 107.42,
+        "volume": 18979
+      },
+      {
+        "date": "2024-01-22",
+        "open": 107.42,
+        "high": 107.52,
+        "low": 106.16,
+        "close": 107.39,
+        "volume": 16399
+      },
+      {
+        "date": "2024-01-23",
+        "open": 107.39,
+        "high": 107.92,
+        "low": 106.47,
+        "close": 107.04,
+        "volume": 11102
+      },
+      {
+        "date": "2024-01-24",
+        "open": 107.04,
+        "high": 107.15,
+        "low": 105.89,
+        "close": 106.87,
+        "volume": 15982
+      },
+      {
+        "date": "2024-01-25",
+        "open": 106.87,
+        "high": 108.36,
+        "low": 106.69,
+        "close": 107.92,
+        "volume": 12141
+      },
+      {
+        "date": "2024-01-26",
+        "open": 107.92,
+        "high": 108.89,
+        "low": 107.06,
+        "close": 108.37,
+        "volume": 14252
+      },
+      {
+        "date": "2024-01-27",
+        "open": 108.37,
+        "high": 109.29,
+        "low": 107.42,
+        "close": 108.95,
+        "volume": 10870
+      },
+      {
+        "date": "2024-01-28",
+        "open": 108.95,
+        "high": 111.77,
+        "low": 107.47,
+        "close": 110.36,
+        "volume": 9378
+      },
+      {
+        "date": "2024-01-29",
+        "open": 110.36,
+        "high": 112.72,
+        "low": 109.7,
+        "close": 112,
+        "volume": 10263
+      },
+      {
+        "date": "2024-01-30",
+        "open": 112,
+        "high": 112.56,
+        "low": 110.6,
+        "close": 111.83,
+        "volume": 14398
+      },
+      {
+        "date": "2024-01-31",
+        "open": 111.83,
+        "high": 113.19,
+        "low": 111.26,
+        "close": 112.78,
+        "volume": 14025
+      },
+      {
+        "date": "2024-02-01",
+        "open": 112.78,
+        "high": 115.01,
+        "low": 112.5,
+        "close": 113.75,
+        "volume": 17124
+      },
+      {
+        "date": "2024-02-02",
+        "open": 113.75,
+        "high": 117.01,
+        "low": 112.75,
+        "close": 115.59,
+        "volume": 13859
+      },
+      {
+        "date": "2024-02-03",
+        "open": 115.59,
+        "high": 118.96,
+        "low": 115.06,
+        "close": 117.48,
+        "volume": 12783
+      },
+      {
+        "date": "2024-02-04",
+        "open": 117.48,
+        "high": 119.38,
+        "low": 117.01,
+        "close": 118.25,
+        "volume": 13493
+      },
+      {
+        "date": "2024-02-05",
+        "open": 118.25,
+        "high": 119.77,
+        "low": 118.17,
+        "close": 119.42,
+        "volume": 13421
+      },
+      {
+        "date": "2024-02-06",
+        "open": 119.42,
+        "high": 119.76,
+        "low": 118,
+        "close": 119.15,
+        "volume": 17453
+      },
+      {
+        "date": "2024-02-07",
+        "open": 119.15,
+        "high": 121.03,
+        "low": 119.02,
+        "close": 120.01,
+        "volume": 10051
+      },
+      {
+        "date": "2024-02-08",
+        "open": 120.01,
+        "high": 121.63,
+        "low": 118.55,
+        "close": 121.48,
+        "volume": 20585
+      },
+      {
+        "date": "2024-02-09",
+        "open": 121.48,
+        "high": 123.17,
+        "low": 121.15,
+        "close": 122.37,
+        "volume": 19546
+      }
+    ],
+    "trend_60": [
+      {
+        "date": "2024-01-01",
+        "open": 100,
+        "high": 101.31,
+        "low": 98.75,
+        "close": 99.68,
+        "volume": 12879
+      },
+      {
+        "date": "2024-01-02",
+        "open": 99.68,
+        "high": 101.35,
+        "low": 98.5,
+        "close": 100.81,
+        "volume": 8552
+      },
+      {
+        "date": "2024-01-03",
+        "open": 100.81,
+        "high": 101.52,
+        "low": 99.37,
+        "close": 100.77,
+        "volume": 11282
+      },
+      {
+        "date": "2024-01-04",
+        "open": 100.77,
+        "high": 101.81,
+        "low": 99.76,
+        "close": 100.59,
+        "volume": 17055
+      },
+      {
+        "date": "2024-01-05",
+        "open": 100.59,
+        "high": 101.75,
+        "low": 100.11,
+        "close": 100.71,
+        "volume": 11968
+      },
+      {
+        "date": "2024-01-06",
+        "open": 100.71,
+        "high": 103.32,
+        "low": 99.56,
+        "close": 102.45,
+        "volume": 18237
+      },
+      {
+        "date": "2024-01-07",
+        "open": 102.45,
+        "high": 103.77,
+        "low": 101.38,
+        "close": 103.39,
+        "volume": 10750
+      },
+      {
+        "date": "2024-01-08",
+        "open": 103.39,
+        "high": 104.85,
+        "low": 102.18,
+        "close": 103.92,
+        "volume": 19350
+      },
+      {
+        "date": "2024-01-09",
+        "open": 103.92,
+        "high": 106.04,
+        "low": 103,
+        "close": 105.24,
+        "volume": 15030
+      },
+      {
+        "date": "2024-01-10",
+        "open": 105.24,
+        "high": 107.57,
+        "low": 104.76,
+        "close": 106.82,
+        "volume": 9243
+      },
+      {
+        "date": "2024-01-11",
+        "open": 106.82,
+        "high": 107.86,
+        "low": 105.4,
+        "close": 106.75,
+        "volume": 18501
+      },
+      {
+        "date": "2024-01-12",
+        "open": 106.75,
+        "high": 109.85,
+        "low": 106.44,
+        "close": 108.62,
+        "volume": 17450
+      },
+      {
+        "date": "2024-01-13",
+        "open": 108.62,
+        "high": 109.8,
+        "low": 107.85,
+        "close": 108.67,
+        "volume": 18618
+      },
+      {
+        "date": "2024-01-14",
+        "open": 108.67,
+        "high": 110.54,
+        "low": 108.09,
+        "close": 110.46,
+        "volume": 12019
+      },
+      {
+        "date": "2024-01-15",
+        "open": 110.46,
+        "high": 112.4,
+        "low": 109.13,
+        "close": 111.17,
+        "volume": 16798
+      },
+      {
+        "date": "2024-01-16",
+        "open": 111.17,
+        "high": 112.7,
+        "low": 110.44,
+        "close": 112.01,
+        "volume": 20105
+      },
+      {
+        "date": "2024-01-17",
+        "open": 112.01,
+        "high": 113.13,
+        "low": 111.62,
+        "close": 112.67,
+        "volume": 13390
+      },
+      {
+        "date": "2024-01-18",
+        "open": 112.67,
+        "high": 114.31,
+        "low": 112.36,
+        "close": 114.05,
+        "volume": 15303
+      },
+      {
+        "date": "2024-01-19",
+        "open": 114.05,
+        "high": 115.09,
+        "low": 112.97,
+        "close": 114.66,
+        "volume": 9383
+      },
+      {
+        "date": "2024-01-20",
+        "open": 114.66,
+        "high": 116.09,
+        "low": 113.76,
+        "close": 115.72,
+        "volume": 15733
+      },
+      {
+        "date": "2024-01-21",
+        "open": 115.72,
+        "high": 118.42,
+        "low": 115.5,
+        "close": 117.18,
+        "volume": 14862
+      },
+      {
+        "date": "2024-01-22",
+        "open": 117.18,
+        "high": 118.84,
+        "low": 116.98,
+        "close": 117.58,
+        "volume": 8878
+      },
+      {
+        "date": "2024-01-23",
+        "open": 117.58,
+        "high": 119.12,
+        "low": 116.25,
+        "close": 118.45,
+        "volume": 16229
+      },
+      {
+        "date": "2024-01-24",
+        "open": 118.45,
+        "high": 120.7,
+        "low": 117.65,
+        "close": 120.03,
+        "volume": 15170
+      },
+      {
+        "date": "2024-01-25",
+        "open": 120.03,
+        "high": 121.18,
+        "low": 119.57,
+        "close": 120.24,
+        "volume": 10153
+      },
+      {
+        "date": "2024-01-26",
+        "open": 120.24,
+        "high": 121.14,
+        "low": 119.52,
+        "close": 120.92,
+        "volume": 14321
+      },
+      {
+        "date": "2024-01-27",
+        "open": 120.92,
+        "high": 121.69,
+        "low": 120.72,
+        "close": 121.12,
+        "volume": 20290
+      },
+      {
+        "date": "2024-01-28",
+        "open": 121.12,
+        "high": 122.59,
+        "low": 120.96,
+        "close": 121.1,
+        "volume": 10418
+      },
+      {
+        "date": "2024-01-29",
+        "open": 121.1,
+        "high": 122.37,
+        "low": 119.99,
+        "close": 120.84,
+        "volume": 12739
+      },
+      {
+        "date": "2024-01-30",
+        "open": 120.84,
+        "high": 123.1,
+        "low": 120.43,
+        "close": 122.58,
+        "volume": 19751
+      },
+      {
+        "date": "2024-01-31",
+        "open": 122.58,
+        "high": 122.89,
+        "low": 122.15,
+        "close": 122.88,
+        "volume": 10252
+      },
+      {
+        "date": "2024-02-01",
+        "open": 122.88,
+        "high": 123.93,
+        "low": 121.73,
+        "close": 123.23,
+        "volume": 17400
+      },
+      {
+        "date": "2024-02-02",
+        "open": 123.23,
+        "high": 125.31,
+        "low": 122.91,
+        "close": 124.66,
+        "volume": 9199
+      },
+      {
+        "date": "2024-02-03",
+        "open": 124.66,
+        "high": 127.67,
+        "low": 124.47,
+        "close": 126.27,
+        "volume": 10578
+      },
+      {
+        "date": "2024-02-04",
+        "open": 126.27,
+        "high": 128.28,
+        "low": 126.16,
+        "close": 128.12,
+        "volume": 11277
+      },
+      {
+        "date": "2024-02-05",
+        "open": 128.12,
+        "high": 128.56,
+        "low": 127.01,
+        "close": 127.73,
+        "volume": 10706
+      },
+      {
+        "date": "2024-02-06",
+        "open": 127.73,
+        "high": 129.39,
+        "low": 126.48,
+        "close": 128.98,
+        "volume": 13971
+      },
+      {
+        "date": "2024-02-07",
+        "open": 128.98,
+        "high": 130.05,
+        "low": 128.87,
+        "close": 128.9,
+        "volume": 12258
+      },
+      {
+        "date": "2024-02-08",
+        "open": 128.9,
+        "high": 129.96,
+        "low": 127.56,
+        "close": 129.36,
+        "volume": 19762
+      },
+      {
+        "date": "2024-02-09",
+        "open": 129.36,
+        "high": 130.71,
+        "low": 128.68,
+        "close": 129.68,
+        "volume": 14342
+      },
+      {
+        "date": "2024-02-10",
+        "open": 129.68,
+        "high": 129.96,
+        "low": 129.49,
+        "close": 129.68,
+        "volume": 16095
+      },
+      {
+        "date": "2024-02-11",
+        "open": 129.68,
+        "high": 132.03,
+        "low": 129.52,
+        "close": 130.78,
+        "volume": 13039
+      },
+      {
+        "date": "2024-02-12",
+        "open": 130.78,
+        "high": 133.45,
+        "low": 129.75,
+        "close": 132.53,
+        "volume": 10083
+      },
+      {
+        "date": "2024-02-13",
+        "open": 132.53,
+        "high": 135.38,
+        "low": 131.04,
+        "close": 134.27,
+        "volume": 12484
+      },
+      {
+        "date": "2024-02-14",
+        "open": 134.27,
+        "high": 136.12,
+        "low": 133.22,
+        "close": 136.02,
+        "volume": 9970
+      },
+      {
+        "date": "2024-02-15",
+        "open": 136.02,
+        "high": 138.01,
+        "low": 135.19,
+        "close": 136.7,
+        "volume": 18710
+      },
+      {
+        "date": "2024-02-16",
+        "open": 136.7,
+        "high": 138.1,
+        "low": 135.65,
+        "close": 137.3,
+        "volume": 13344
+      },
+      {
+        "date": "2024-02-17",
+        "open": 137.3,
+        "high": 138.76,
+        "low": 136.83,
+        "close": 137.97,
+        "volume": 16226
+      },
+      {
+        "date": "2024-02-18",
+        "open": 137.97,
+        "high": 139.42,
+        "low": 136.6,
+        "close": 138.13,
+        "volume": 14097
+      },
+      {
+        "date": "2024-02-19",
+        "open": 138.13,
+        "high": 139.94,
+        "low": 137.65,
+        "close": 138.6,
+        "volume": 11357
+      },
+      {
+        "date": "2024-02-20",
+        "open": 138.6,
+        "high": 139.73,
+        "low": 138.11,
+        "close": 139.63,
+        "volume": 16134
+      },
+      {
+        "date": "2024-02-21",
+        "open": 139.63,
+        "high": 141.54,
+        "low": 139.11,
+        "close": 141.35,
+        "volume": 10329
+      },
+      {
+        "date": "2024-02-22",
+        "open": 141.35,
+        "high": 143.21,
+        "low": 140.4,
+        "close": 142.15,
+        "volume": 17836
+      },
+      {
+        "date": "2024-02-23",
+        "open": 142.15,
+        "high": 142.91,
+        "low": 140.37,
+        "close": 141.86,
+        "volume": 16106
+      },
+      {
+        "date": "2024-02-24",
+        "open": 141.86,
+        "high": 142.53,
+        "low": 140.5,
+        "close": 142.04,
+        "volume": 15269
+      },
+      {
+        "date": "2024-02-25",
+        "open": 142.04,
+        "high": 144.41,
+        "low": 141.23,
+        "close": 143.38,
+        "volume": 19973
+      },
+      {
+        "date": "2024-02-26",
+        "open": 143.38,
+        "high": 145.16,
+        "low": 143.19,
+        "close": 143.74,
+        "volume": 12148
+      },
+      {
+        "date": "2024-02-27",
+        "open": 143.74,
+        "high": 145.77,
+        "low": 142.83,
+        "close": 144.36,
+        "volume": 11875
+      },
+      {
+        "date": "2024-02-28",
+        "open": 144.36,
+        "high": 146.38,
+        "low": 143.55,
+        "close": 145.4,
+        "volume": 12546
+      },
+      {
+        "date": "2024-02-29",
+        "open": 145.4,
+        "high": 146.68,
+        "low": 144.37,
+        "close": 145.9,
+        "volume": 9504
+      }
+    ],
+    "plateau_12": [
+      {
+        "date": "2024-03-01",
+        "open": 9.75,
+        "high": 10.5,
+        "low": 9.5,
+        "close": 10,
+        "volume": 1000
+      },
+      {
+        "date": "2024-03-02",
+        "open": 9.75,
+        "high": 10.5,
+        "low": 9.5,
+        "close": 10,
+        "volume": 1100
+      },
+      {
+        "date": "2024-03-03",
+        "open": 9.75,
+        "high": 10.5,
+        "low": 9.5,
+        "close": 10,
+        "volume": 1200
+      },
+      {
+        "date": "2024-03-04",
+        "open": 9.75,
+        "high": 10.5,
+        "low": 9.5,
+        "close": 10,
+        "volume": 1300
+      },
+      {
+        "date": "2024-03-05",
+        "open": 11.75,
+        "high": 12.5,
+        "low": 11.5,
+        "close": 12,
+        "volume": 1400
+      },
+      {
+        "date": "2024-03-06",
+        "open": 11.75,
+        "high": 12.5,
+        "low": 11.5,
+        "close": 12,
+        "volume": 1500
+      },
+      {
+        "date": "2024-03-07",
+        "open": 11.75,
+        "high": 12.5,
+        "low": 11.5,
+        "close": 12,
+        "volume": 1600
+      },
+      {
+        "date": "2024-03-08",
+        "open": 10.75,
+        "high": 11.5,
+        "low": 10.5,
+        "close": 11,
+        "volume": 0
+      },
+      {
+        "date": "2024-03-09",
+        "open": 10.75,
+        "high": 11.5,
+        "low": 10.5,
+        "close": 11,
+        "volume": 1800
+      },
+      {
+        "date": "2024-03-10",
+        "open": 10.75,
+        "high": 11.5,
+        "low": 10.5,
+        "close": 11,
+        "volume": 1900
+      },
+      {
+        "date": "2024-03-11",
+        "open": 12.75,
+        "high": 13.5,
+        "low": 12.5,
+        "close": 13,
+        "volume": 2000
+      },
+      {
+        "date": "2024-03-12",
+        "open": 12.75,
+        "high": 13.5,
+        "low": 12.5,
+        "close": 13,
+        "volume": 2100
+      }
+    ]
+  },
+  "numericCases": [
+    {
+      "id": "numeric_close_above_sma20",
+      "description": "Close above its 20-period SMA with engine-identical warm-up.",
+      "source": "close > sma(close, 20)",
+      "expression": {
+        "kind": "binary",
+        "op": "gt",
+        "left": {
+          "kind": "field",
+          "field": "close",
+          "lookback": 0
+        },
+        "right": {
+          "kind": "indicator",
+          "name": "sma",
+          "period": 20,
+          "input": {
+            "kind": "field",
+            "field": "close",
+            "lookback": 0
+          }
+        }
+      },
+      "barSet": "trend_40",
+      "expectedValues": [
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1
+      ],
+      "expectedLatestMatched": true,
+      "minimumBars": 20,
+      "engineEquivalent": true
+    },
+    {
+      "id": "numeric_bracket_lookback_comparison",
+      "description": "Close[0] > High[1] and Close[1] < High[2] using completed-bar bracket lookback.",
+      "source": "close[0] > high[1] and close[1] < high[2]",
+      "expression": {
+        "kind": "binary",
+        "op": "and",
+        "left": {
+          "kind": "binary",
+          "op": "gt",
+          "left": {
+            "kind": "field",
+            "field": "close",
+            "lookback": 0
+          },
+          "right": {
+            "kind": "field",
+            "field": "high",
+            "lookback": 1
+          }
+        },
+        "right": {
+          "kind": "binary",
+          "op": "lt",
+          "left": {
+            "kind": "field",
+            "field": "close",
+            "lookback": 1
+          },
+          "right": {
+            "kind": "field",
+            "field": "high",
+            "lookback": 2
+          }
+        }
+      },
+      "barSet": "trend_40",
+      "expectedValues": [
+        null,
+        null,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        1,
+        0,
+        0
+      ],
+      "expectedLatestMatched": false,
+      "minimumBars": 3,
+      "engineEquivalent": false
+    },
+    {
+      "id": "numeric_ref_field_fold",
+      "description": "ref(close, 3) folds into an equivalent field lookback.",
+      "source": "ref(close, 3) > sma(close, 10)",
+      "expression": {
+        "kind": "binary",
+        "op": "gt",
+        "left": {
+          "kind": "field",
+          "field": "close",
+          "lookback": 3
+        },
+        "right": {
+          "kind": "indicator",
+          "name": "sma",
+          "period": 10,
+          "input": {
+            "kind": "field",
+            "field": "close",
+            "lookback": 0
+          }
+        }
+      },
+      "barSet": "trend_40",
+      "expectedValues": [
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        1,
+        0,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        0,
+        1,
+        1,
+        1,
+        0,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1
+      ],
+      "expectedLatestMatched": true,
+      "minimumBars": 10,
+      "engineEquivalent": false
+    },
+    {
+      "id": "numeric_ema_crossover",
+      "description": "SMA(5) crossing over EMA(20).",
+      "source": "crossover(sma(close, 5), ema(close, 20))",
+      "expression": {
+        "kind": "crossover",
+        "left": {
+          "kind": "indicator",
+          "name": "sma",
+          "period": 5,
+          "input": {
+            "kind": "field",
+            "field": "close",
+            "lookback": 0
+          }
+        },
+        "right": {
+          "kind": "indicator",
+          "name": "ema",
+          "period": 20,
+          "input": {
+            "kind": "field",
+            "field": "close",
+            "lookback": 0
+          }
+        }
+      },
+      "barSet": "trend_60",
+      "expectedValues": [
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "expectedLatestMatched": false,
+      "minimumBars": 21,
+      "engineEquivalent": true
+    },
+    {
+      "id": "numeric_plateau_crossover_ties",
+      "description": "Crossover across equal values must follow previous<=previous and current>current.",
+      "source": "crossover(close, sma(close, 3))",
+      "expression": {
+        "kind": "crossover",
+        "left": {
+          "kind": "field",
+          "field": "close",
+          "lookback": 0
+        },
+        "right": {
+          "kind": "indicator",
+          "name": "sma",
+          "period": 3,
+          "input": {
+            "kind": "field",
+            "field": "close",
+            "lookback": 0
+          }
+        }
+      },
+      "barSet": "plateau_12",
+      "expectedValues": [
+        null,
+        null,
+        null,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0
+      ],
+      "expectedLatestMatched": false,
+      "minimumBars": 4,
+      "engineEquivalent": true
+    },
+    {
+      "id": "numeric_plateau_crossunder_ties",
+      "description": "Crossunder across equal values must follow previous>=previous and current<current.",
+      "source": "crossunder(close, sma(close, 3))",
+      "expression": {
+        "kind": "crossunder",
+        "left": {
+          "kind": "field",
+          "field": "close",
+          "lookback": 0
+        },
+        "right": {
+          "kind": "indicator",
+          "name": "sma",
+          "period": 3,
+          "input": {
+            "kind": "field",
+            "field": "close",
+            "lookback": 0
+          }
+        }
+      },
+      "barSet": "plateau_12",
+      "expectedValues": [
+        null,
+        null,
+        null,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0
+      ],
+      "expectedLatestMatched": false,
+      "minimumBars": 4,
+      "engineEquivalent": true
+    },
+    {
+      "id": "numeric_rsi_above_50",
+      "description": "RSI(14) above 50 with engine-identical seeding.",
+      "source": "rsi(close, 14) > 50",
+      "expression": {
+        "kind": "binary",
+        "op": "gt",
+        "left": {
+          "kind": "indicator",
+          "name": "rsi",
+          "period": 14,
+          "input": {
+            "kind": "field",
+            "field": "close",
+            "lookback": 0
+          }
+        },
+        "right": {
+          "kind": "number",
+          "value": 50
+        }
+      },
+      "barSet": "trend_60",
+      "expectedValues": [
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1
+      ],
+      "expectedLatestMatched": true,
+      "minimumBars": 15,
+      "engineEquivalent": true
+    },
+    {
+      "id": "numeric_atr_relative_threshold",
+      "description": "ATR(14) above 2% of close (scanner-only ATR semantics).",
+      "source": "atr(14) > close * 0.02",
+      "expression": {
+        "kind": "binary",
+        "op": "gt",
+        "left": {
+          "kind": "indicator",
+          "name": "atr",
+          "period": 14
+        },
+        "right": {
+          "kind": "binary",
+          "op": "mul",
+          "left": {
+            "kind": "field",
+            "field": "close",
+            "lookback": 0
+          },
+          "right": {
+            "kind": "number",
+            "value": 0.02
+          }
+        }
+      },
+      "barSet": "trend_60",
+      "expectedValues": [
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "expectedLatestMatched": false,
+      "minimumBars": 14,
+      "engineEquivalent": false
+    },
+    {
+      "id": "numeric_volume_spike",
+      "description": "Volume above twice its 20-bar average.",
+      "source": "volume > volumeSma(20) * 2",
+      "expression": {
+        "kind": "binary",
+        "op": "gt",
+        "left": {
+          "kind": "field",
+          "field": "volume",
+          "lookback": 0
+        },
+        "right": {
+          "kind": "binary",
+          "op": "mul",
+          "left": {
+            "kind": "indicator",
+            "name": "volumeSma",
+            "period": 20
+          },
+          "right": {
+            "kind": "number",
+            "value": 2
+          }
+        }
+      },
+      "barSet": "trend_40",
+      "expectedValues": [
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "expectedLatestMatched": false,
+      "minimumBars": 20,
+      "engineEquivalent": false
+    },
+    {
+      "id": "numeric_nested_arithmetic_percent",
+      "description": "Nested arithmetic with division and multiplication.",
+      "source": "(close - sma(close, 10)) / sma(close, 10) * 100 > 1",
+      "expression": {
+        "kind": "binary",
+        "op": "gt",
+        "left": {
+          "kind": "binary",
+          "op": "mul",
+          "left": {
+            "kind": "binary",
+            "op": "div",
+            "left": {
+              "kind": "binary",
+              "op": "sub",
+              "left": {
+                "kind": "field",
+                "field": "close",
+                "lookback": 0
+              },
+              "right": {
+                "kind": "indicator",
+                "name": "sma",
+                "period": 10,
+                "input": {
+                  "kind": "field",
+                  "field": "close",
+                  "lookback": 0
+                }
+              }
+            },
+            "right": {
+              "kind": "indicator",
+              "name": "sma",
+              "period": 10,
+              "input": {
+                "kind": "field",
+                "field": "close",
+                "lookback": 0
+              }
+            }
+          },
+          "right": {
+            "kind": "number",
+            "value": 100
+          }
+        },
+        "right": {
+          "kind": "number",
+          "value": 1
+        }
+      },
+      "barSet": "trend_40",
+      "expectedValues": [
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        0,
+        0,
+        1,
+        1,
+        0,
+        0,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1
+      ],
+      "expectedLatestMatched": true,
+      "minimumBars": 10,
+      "engineEquivalent": true
+    },
+    {
+      "id": "numeric_division_by_zero_is_null",
+      "description": "A series divided by a zero series yields null, never Infinity.",
+      "source": "close / (close - close) > 1",
+      "expression": {
+        "kind": "binary",
+        "op": "gt",
+        "left": {
+          "kind": "binary",
+          "op": "div",
+          "left": {
+            "kind": "field",
+            "field": "close",
+            "lookback": 0
+          },
+          "right": {
+            "kind": "binary",
+            "op": "sub",
+            "left": {
+              "kind": "field",
+              "field": "close",
+              "lookback": 0
+            },
+            "right": {
+              "kind": "field",
+              "field": "close",
+              "lookback": 0
+            }
+          }
+        },
+        "right": {
+          "kind": "number",
+          "value": 1
+        }
+      },
+      "barSet": "plateau_12",
+      "expectedValues": [
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
+      ],
+      "expectedLatestMatched": false,
+      "minimumBars": 1,
+      "engineEquivalent": true
+    },
+    {
+      "id": "numeric_logical_and_or_nulls",
+      "description": "Logical operators propagate nulls without fabricating matches.",
+      "source": "(close > sma(close, 5)) and (close < sma(close, 20))",
+      "expression": {
+        "kind": "binary",
+        "op": "and",
+        "left": {
+          "kind": "binary",
+          "op": "gt",
+          "left": {
+            "kind": "field",
+            "field": "close",
+            "lookback": 0
+          },
+          "right": {
+            "kind": "indicator",
+            "name": "sma",
+            "period": 5,
+            "input": {
+              "kind": "field",
+              "field": "close",
+              "lookback": 0
+            }
+          }
+        },
+        "right": {
+          "kind": "binary",
+          "op": "lt",
+          "left": {
+            "kind": "field",
+            "field": "close",
+            "lookback": 0
+          },
+          "right": {
+            "kind": "indicator",
+            "name": "sma",
+            "period": 20,
+            "input": {
+              "kind": "field",
+              "field": "close",
+              "lookback": 0
+            }
+          }
+        }
+      },
+      "barSet": "trend_40",
+      "expectedValues": [
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        0,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "expectedLatestMatched": false,
+      "minimumBars": 20,
+      "engineEquivalent": false
+    },
+    {
+      "id": "numeric_unary_minus",
+      "description": "Unary minus compiles to 0 - x.",
+      "source": "-close < -sma(close, 5)",
+      "expression": {
+        "kind": "binary",
+        "op": "lt",
+        "left": {
+          "kind": "binary",
+          "op": "sub",
+          "left": {
+            "kind": "number",
+            "value": 0
+          },
+          "right": {
+            "kind": "field",
+            "field": "close",
+            "lookback": 0
+          }
+        },
+        "right": {
+          "kind": "binary",
+          "op": "sub",
+          "left": {
+            "kind": "number",
+            "value": 0
+          },
+          "right": {
+            "kind": "indicator",
+            "name": "sma",
+            "period": 5,
+            "input": {
+              "kind": "field",
+              "field": "close",
+              "lookback": 0
+            }
+          }
+        }
+      },
+      "barSet": "trend_40",
+      "expectedValues": [
+        null,
+        null,
+        null,
+        null,
+        1,
+        1,
+        1,
+        0,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        0,
+        1,
+        1,
+        1,
+        0,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1
+      ],
+      "expectedLatestMatched": true,
+      "minimumBars": 5,
+      "engineEquivalent": true
+    },
+    {
+      "id": "numeric_equality_and_inequality",
+      "description": "Equality comparison on a derived series.",
+      "source": "close == sma(close, 2)",
+      "expression": {
+        "kind": "binary",
+        "op": "eq",
+        "left": {
+          "kind": "field",
+          "field": "close",
+          "lookback": 0
+        },
+        "right": {
+          "kind": "indicator",
+          "name": "sma",
+          "period": 2,
+          "input": {
+            "kind": "field",
+            "field": "close",
+            "lookback": 0
+          }
+        }
+      },
+      "barSet": "trend_40",
+      "expectedValues": [
+        null,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "expectedLatestMatched": false,
+      "minimumBars": 2,
+      "engineEquivalent": true
+    },
+    {
+      "id": "numeric_volume_zero_plateau",
+      "description": "Zero-volume bars with volumeSma warm-up and multiplication.",
+      "source": "volume > volumeSma(2)",
+      "expression": {
+        "kind": "binary",
+        "op": "gt",
+        "left": {
+          "kind": "field",
+          "field": "volume",
+          "lookback": 0
+        },
+        "right": {
+          "kind": "indicator",
+          "name": "volumeSma",
+          "period": 2
+        }
+      },
+      "barSet": "plateau_12",
+      "expectedValues": [
+        null,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        0,
+        1,
+        1,
+        1,
+        1
+      ],
+      "expectedLatestMatched": true,
+      "minimumBars": 2,
+      "engineEquivalent": false
+    }
+  ],
+  "compileCases": [
+    {
+      "id": "compile_pattern_call_ok",
+      "description": "Pattern calls are accepted only when pattern rules are allowed.",
+      "source": "pattern('chart_breakaway_gap')",
+      "allowPattern": true,
+      "expect": "ok",
+      "expression": {
+        "kind": "pattern",
+        "id": "chart_breakaway_gap"
+      }
+    },
+    {
+      "id": "compile_chart_pattern_call_ok",
+      "description": "Chart-pattern function shorthand compiles to the four accepted ids.",
+      "source": "exhaustionGap() or commonGap()",
+      "allowPattern": true,
+      "expect": "ok",
+      "expression": {
+        "kind": "binary",
+        "op": "or",
+        "left": {
+          "kind": "pattern",
+          "id": "chart_exhaustion_gap"
+        },
+        "right": {
+          "kind": "pattern",
+          "id": "chart_common_gap"
+        }
+      }
+    },
+    {
+      "id": "compile_pattern_rejected_without_pattern_rules",
+      "description": "Numeric expressions cannot smuggle in a pattern call.",
+      "source": "pattern('chart_common_gap')",
+      "allowPattern": false,
+      "expect": "error",
+      "errorIncludes": "require pattern rules"
+    },
+    {
+      "id": "compile_negative_bracket_rejected",
+      "description": "Future references are rejected.",
+      "source": "close[-1] > 2",
+      "allowPattern": false,
+      "expect": "error",
+      "errorIncludes": "Negative/future reference"
+    },
+    {
+      "id": "compile_unknown_function_rejected",
+      "description": "Unknown functions are rejected at compile time.",
+      "source": "wma(close, 10) > 2",
+      "allowPattern": false,
+      "expect": "error",
+      "errorIncludes": "Unknown function"
+    },
+    {
+      "id": "compile_unsupported_pattern_rejected",
+      "description": "Unsupported chart patterns never silently disappear.",
+      "source": "pattern('chart_head_shoulders')",
+      "allowPattern": true,
+      "expect": "error",
+      "errorIncludes": "Unsupported pattern"
+    },
+    {
+      "id": "compile_ref_computed_series_rejected",
+      "description": "Shifting a computed series is not expressible in AST v1.",
+      "source": "ref(sma(close, 5), 1) > 2",
+      "allowPattern": false,
+      "expect": "error",
+      "errorIncludes": "computed series"
+    },
+    {
+      "id": "compile_assignment_rejected",
+      "description": "Scanner rules are single boolean conditions, not multi-line assignments.",
+      "source": "A = close > 1",
+      "allowPattern": false,
+      "expect": "error",
+      "errorIncludes": "assignments are not supported"
+    },
+    {
+      "id": "compile_non_field_bracket_rejected",
+      "description": "Bracket lookback is limited to OHLCV fields.",
+      "source": "sma[1] > 2",
+      "allowPattern": false,
+      "expect": "error",
+      "errorIncludes": "Bracket lookback is only supported"
+    },
+    {
+      "id": "compile_period_out_of_range_rejected",
+      "description": "Indicator periods are bounded.",
+      "source": "sma(close, 100000) > 2",
+      "allowPattern": false,
+      "expect": "error",
+      "errorIncludes": "period must be <="
+    },
+    {
+      "id": "compile_missing_paren_rejected",
+      "description": "Structural errors are reported, never ignored.",
+      "source": "sma(close, 5 > 2",
+      "allowPattern": false,
+      "expect": "error"
+    }
+  ],
+  "contractCases": [
+    {
+      "id": "contract_valid_explicit_targets",
+      "description": "A well-formed request validates unchanged.",
+      "expect": "ok",
+      "payload": {
+        "schemaVersion": 1,
+        "requestedRunId": "ns01-fixture-run",
+        "universe": {
+          "source": "explicitTargets",
+          "targets": [
+            {
+              "exchange": "NSE",
+              "symbol": "INFY"
+            },
+            {
+              "exchange": "NSE",
+              "symbol": "TCS"
+            }
+          ]
+        },
+        "evaluation": {
+          "evaluateHistory": false,
+          "priceBasis": "raw",
+          "lookbackBars": 250
+        },
+        "rules": [
+          {
+            "id": "close_above_sma",
+            "expression": {
+              "kind": "field",
+              "field": "close",
+              "lookback": 0
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "contract_valid_narrow_nse_eq_universe",
+      "description": "activeNseEq is an explicit, narrow universe with no target list.",
+      "expect": "ok",
+      "payload": {
+        "schemaVersion": 1,
+        "requestedRunId": "ns01-fixture-run",
+        "universe": {
+          "source": "activeNseEq"
+        },
+        "evaluation": {
+          "evaluateHistory": false,
+          "priceBasis": "raw",
+          "lookbackBars": 250
+        },
+        "rules": [
+          {
+            "id": "close_above_sma",
+            "expression": {
+              "kind": "field",
+              "field": "close",
+              "lookback": 0
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "contract_valid_adjusted_with_flags",
+      "description": "Adjusted basis may opt into dividend/rights adjustments.",
+      "expect": "ok",
+      "payload": {
+        "schemaVersion": 1,
+        "requestedRunId": "ns01-fixture-run",
+        "universe": {
+          "source": "explicitTargets",
+          "targets": [
+            {
+              "exchange": "NSE",
+              "symbol": "INFY"
+            },
+            {
+              "exchange": "NSE",
+              "symbol": "TCS"
+            }
+          ]
+        },
+        "evaluation": {
+          "evaluateHistory": true,
+          "priceBasis": "adjusted",
+          "includeDividendAdjustments": true,
+          "includeRightsAdjustments": true,
+          "asOfDate": "2026-01-30"
+        },
+        "rules": [
+          {
+            "id": "close_above_sma",
+            "expression": {
+              "kind": "field",
+              "field": "close",
+              "lookback": 0
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "contract_rejects_raw_basis_with_dividend_flag",
+      "description": "Raw basis plus adjustment flags is contradictory.",
+      "expect": "error",
+      "payload": {
+        "schemaVersion": 1,
+        "requestedRunId": "ns01-fixture-run",
+        "universe": {
+          "source": "explicitTargets",
+          "targets": [
+            {
+              "exchange": "NSE",
+              "symbol": "INFY"
+            },
+            {
+              "exchange": "NSE",
+              "symbol": "TCS"
+            }
+          ]
+        },
+        "evaluation": {
+          "evaluateHistory": false,
+          "priceBasis": "raw",
+          "includeDividendAdjustments": true
+        },
+        "rules": [
+          {
+            "id": "close_above_sma",
+            "expression": {
+              "kind": "field",
+              "field": "close",
+              "lookback": 0
+            }
+          }
+        ]
+      },
+      "expectedIssueCodes": [
+        "basis-flag-conflict"
+      ]
+    },
+    {
+      "id": "contract_rejects_unknown_root_field",
+      "description": "Unknown transport fields are rejected, not ignored.",
+      "expect": "error",
+      "payload": {
+        "schemaVersion": 1,
+        "requestedRunId": "ns01-fixture-run",
+        "universe": {
+          "source": "explicitTargets",
+          "targets": [
+            {
+              "exchange": "NSE",
+              "symbol": "INFY"
+            },
+            {
+              "exchange": "NSE",
+              "symbol": "TCS"
+            }
+          ]
+        },
+        "evaluation": {
+          "evaluateHistory": false,
+          "priceBasis": "raw",
+          "lookbackBars": 250
+        },
+        "rules": [
+          {
+            "id": "close_above_sma",
+            "expression": {
+              "kind": "field",
+              "field": "close",
+              "lookback": 0
+            }
+          }
+        ],
+        "activateNatively": true
+      },
+      "expectedIssueCodes": [
+        "unknown-field"
+      ]
+    },
+    {
+      "id": "contract_rejects_unsupported_pattern_rule",
+      "description": "Only the four parity-proven gap patterns are native rules.",
+      "expect": "error",
+      "payload": {
+        "schemaVersion": 1,
+        "requestedRunId": "ns01-fixture-run",
+        "universe": {
+          "source": "explicitTargets",
+          "targets": [
+            {
+              "exchange": "NSE",
+              "symbol": "INFY"
+            },
+            {
+              "exchange": "NSE",
+              "symbol": "TCS"
+            }
+          ]
+        },
+        "evaluation": {
+          "evaluateHistory": false,
+          "priceBasis": "raw",
+          "lookbackBars": 250
+        },
+        "rules": [
+          {
+            "id": "flag",
+            "expression": {
+              "kind": "pattern",
+              "id": "chart_flag"
+            }
+          }
+        ]
+      },
+      "expectedIssueCodes": [
+        "unsupported-pattern"
+      ]
+    },
+    {
+      "id": "contract_rejects_negative_lookback",
+      "description": "Negative lookbacks are rejected before any scan work.",
+      "expect": "error",
+      "payload": {
+        "schemaVersion": 1,
+        "requestedRunId": "ns01-fixture-run",
+        "universe": {
+          "source": "explicitTargets",
+          "targets": [
+            {
+              "exchange": "NSE",
+              "symbol": "INFY"
+            },
+            {
+              "exchange": "NSE",
+              "symbol": "TCS"
+            }
+          ]
+        },
+        "evaluation": {
+          "evaluateHistory": false,
+          "priceBasis": "raw",
+          "lookbackBars": 250
+        },
+        "rules": [
+          {
+            "id": "future",
+            "expression": {
+              "kind": "field",
+              "field": "close",
+              "lookback": -2
+            }
+          }
+        ]
+      },
+      "expectedIssueCodes": [
+        "out-of-range"
+      ]
+    },
+    {
+      "id": "contract_rejects_duplicate_targets",
+      "description": "Duplicate explicit targets are rejected instead of scanned twice.",
+      "expect": "error",
+      "payload": {
+        "schemaVersion": 1,
+        "requestedRunId": "ns01-fixture-run",
+        "universe": {
+          "source": "explicitTargets",
+          "targets": [
+            {
+              "exchange": "NSE",
+              "symbol": "INFY"
+            },
+            {
+              "exchange": "NSE",
+              "symbol": "INFY"
+            }
+          ]
+        },
+        "evaluation": {
+          "evaluateHistory": false,
+          "priceBasis": "raw",
+          "lookbackBars": 250
+        },
+        "rules": [
+          {
+            "id": "close_above_sma",
+            "expression": {
+              "kind": "field",
+              "field": "close",
+              "lookback": 0
+            }
+          }
+        ]
+      },
+      "expectedIssueCodes": [
+        "duplicate-target"
+      ]
+    },
+    {
+      "id": "contract_rejects_wrong_schema_version",
+      "description": "Schema versions are versioned and enforced.",
+      "expect": "error",
+      "payload": {
+        "schemaVersion": 2,
+        "requestedRunId": "ns01-fixture-run",
+        "universe": {
+          "source": "explicitTargets",
+          "targets": [
+            {
+              "exchange": "NSE",
+              "symbol": "INFY"
+            },
+            {
+              "exchange": "NSE",
+              "symbol": "TCS"
+            }
+          ]
+        },
+        "evaluation": {
+          "evaluateHistory": false,
+          "priceBasis": "raw",
+          "lookbackBars": 250
+        },
+        "rules": [
+          {
+            "id": "close_above_sma",
+            "expression": {
+              "kind": "field",
+              "field": "close",
+              "lookback": 0
+            }
+          }
+        ]
+      },
+      "expectedIssueCodes": [
+        "unsupported-schema"
+      ]
+    },
+    {
+      "id": "contract_rejects_duplicate_rule_ids",
+      "description": "Rule ids must be unique per run.",
+      "expect": "error",
+      "payload": {
+        "schemaVersion": 1,
+        "requestedRunId": "ns01-fixture-run",
+        "universe": {
+          "source": "explicitTargets",
+          "targets": [
+            {
+              "exchange": "NSE",
+              "symbol": "INFY"
+            },
+            {
+              "exchange": "NSE",
+              "symbol": "TCS"
+            }
+          ]
+        },
+        "evaluation": {
+          "evaluateHistory": false,
+          "priceBasis": "raw",
+          "lookbackBars": 250
+        },
+        "rules": [
+          {
+            "id": "same",
+            "expression": {
+              "kind": "number",
+              "value": 1
+            }
+          },
+          {
+            "id": "same",
+            "expression": {
+              "kind": "number",
+              "value": 2
+            }
+          }
+        ]
+      },
+      "expectedIssueCodes": [
+        "duplicate-rule"
+      ]
+    }
+  ]
+}

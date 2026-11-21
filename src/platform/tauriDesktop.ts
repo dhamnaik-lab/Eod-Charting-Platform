@@ -64,11 +64,20 @@ function hasTauriInternals(): boolean {
   return Boolean((window as Window & { __TAURI_INTERNALS__?: unknown }).__TAURI_INTERNALS__);
 }
 
-async function getTauriCore() {
+export async function getTauriCore() {
   return import('@tauri-apps/api/core');
 }
 
 async function getTauriEvent() {
+  return import('@tauri-apps/api/event');
+}
+
+/**
+ * NS-04: event bridge for the opt-in native scanner (`src/platform/nativeScannerBridge.ts`).
+ * Kept as a narrow named export so `invoke`/`listen` for the native scanner stay inside
+ * the approved platform boundary.
+ */
+export async function getNativeTauriEvent() {
   return import('@tauri-apps/api/event');
 }
 

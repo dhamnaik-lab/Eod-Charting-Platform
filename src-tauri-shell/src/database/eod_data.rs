@@ -203,6 +203,163 @@ pub async fn get_eod_data(app: AppHandle, input: EodDataInputPayload) -> AppResu
     .map_err(|error| error.to_string())?
 }
 
+/// One completed bar returned by the native-scanner read gateway, in real price units.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct ScanPriceBar {
+    pub date: u32,
+    pub open: f64,
+    pub high: f64,
+    pub low: f64,
+    pub close: f64,
+    pub prev_close: Option<f64>,
+    pub volume: f64,
+    pub open_interest: f64,
+}
+
+/// How many extra rows are loaded *before* the requested window so that the
+/// previous-close and index-adjacency semantics stay identical to a full read.
+///
+/// Eight calendar days covers a weekend plus the longest ordinary Indian trading
+/// holiday run, which is the window `guard_index_previous_close` treats as "adjacent".
+const SCAN_PADDING_BARS: usize = 8;
+
+/// Native-scanner read gateway (NS-01/NS-02).
+///
+/// Returns a bounded, date-ascending window of completed bars for one target with the
+/// *same* canonical resolution, unified binary/Hybrid read and approved adjustment
+/// projection that `get_eod_data` uses. Read-only by construction: it never writes, never
+/// mutates corporate actions and never touches `.eod` files.
+///
+/// `window` is clamped to the native reader bound. `as_of_date` is inclusive.
+///
+/// Reads are genuinely bounded: at most `window + SCAN_PADDING_BARS` rows are
+/// materialized, never the full history. See the in-function rationale for why the
+/// truncated slice produces identical bars.
+#[allow(clippy::too_many_arguments)]
+pub fn read_scan_bars_for_folder(
+    folder_path: &Path,
+    connection: &Connection,
+    requested_symbol: &str,
+    requested_exchange: &str,
+    as_of_date: Option<&str>,
+    window: usize,
+    adjusted: bool,
+    include_dividend_adjustments: bool,
+    include_rights_adjustments: bool,
+) -> Result<Vec<ScanPriceBar>, String> {
+    let symbol = normalize_symbol(requested_symbol)?;
+    let exchange = normalize_exchange(requested_exchange)?;
+    let Some(context) = resolve_instrument_context(connection, &symbol, &exchange)? else {
+        return Err(format!(
+            "Target {exchange}:{symbol} has no resolvable instrument identity."
+        ));
+    };
+    let from = "1900-01-01";
+    let to = match as_of_date {
+        Some(value) => normalize_optional_trade_date(Some(value))?.ok_or_else(|| {
+            format!("Invalid as-of date for {exchange}:{symbol}.")
+        })?,
+        None => "2100-12-31".to_string(),
+    };
+
+    let bounded = window
+        .min(crate::native_scanner::reader::MAX_WINDOW_BARS)
+        .max(1);
+
+    // Genuinely bounded read: at most `bounded + SCAN_PADDING_BARS` rows are
+    // materialized, never the whole history.
+    //
+    // Correctness of the truncated slice, consumer by consumer:
+    //
+    // - `apply_corporate_adjustments` multiplies a row by the factors of actions whose
+    //   `effective_date` is *after* that row. Those factors come from the corporate-action
+    //   rows in `context` (read from the database, not from the price slice), so an action
+    //   older than the slice still contributes its factor to every in-window row; it
+    //   simply has no older rows left to rescale. Adjusted prices are never derived from
+    //   neighbouring adjusted rows here.
+    // - The dividend presence gate asks only whether *some* loaded row precedes the
+    //   effective date. A dividend older than the slice is therefore skipped, which is
+    //   equivalent: it would have had no in-window row to rescale either way.
+    // - `recompute_prev_close` and `guard_index_previous_close` look back exactly one
+    //   bar, which `SCAN_PADDING_BARS` supplies. The first window row still sees its real
+    //   predecessor, so `prev_close` and the >7-day index break behave identically.
+    // - Per-date identity/alias selection (`select_preferred_price_row`,
+    //   `validate_index_alias_rows`, `validate_bse_code_rows`) does not depend on which
+    //   older dates are present.
+    //
+    // The `p3_*` tests assert bounded and full reads agree bar-for-bar for the raw,
+    // adjusted and binary paths rather than relying on this argument alone.
+    let rows = load_unified_price_rows_bounded(
+        folder_path,
+        connection,
+        &context,
+        from,
+        &to,
+        bounded.saturating_add(SCAN_PADDING_BARS),
+    )?;
+    let rows = if adjusted {
+        apply_corporate_adjustments(
+            rows,
+            &context.corporate_actions,
+            include_dividend_adjustments,
+            include_rights_adjustments,
+        )?
+    } else {
+        rows
+    };
+    let rows = if exchange == "NSE_INDEX" {
+        guard_index_previous_close(rows)
+    } else {
+        rows
+    };
+
+    let start = rows.len().saturating_sub(bounded);
+    rows[start..].iter().map(scan_price_bar_from_row).collect()
+}
+
+fn scan_price_bar_from_row(row: &PriceRow) -> AppResult<ScanPriceBar> {
+    let date = date_to_u32(&row.date);
+    if date == 0 {
+        return Err(format!(
+            "Invalid price row date for {}.",
+            row.symbol
+        ));
+    }
+    let finite = |value: f64, label: &str| -> AppResult<f64> {
+        if !value.is_finite() {
+            return Err(format!(
+                "Non-finite {label} on {} for {}.",
+                row.date, row.symbol
+            ));
+        }
+        Ok(value)
+    };
+    let open = finite(row.open, "open")?;
+    let high = finite(row.high, "high")?;
+    let low = finite(row.low, "low")?;
+    let close = finite(row.close, "close")?;
+    if high < low {
+        return Err(format!(
+            "Price row on {} for {} has high < low.",
+            row.date, row.symbol
+        ));
+    }
+    let prev_close = match row.prev_close {
+        Some(value) => Some(finite(value, "prev_close")?),
+        None => None,
+    };
+    Ok(ScanPriceBar {
+        date,
+        open,
+        high,
+        low,
+        close,
+        prev_close,
+        volume: row.volume.max(0) as f64,
+        open_interest: row.open_interest.max(0) as f64,
+    })
+}
+
 fn resolve_exact_instrument_context(
     connection: &Connection,
     requested_symbol: &str,
@@ -643,6 +800,126 @@ pub(super) fn load_unified_price_rows(
 ) -> AppResult<Vec<PriceRow>> {
     let storage_mode = get_price_storage_mode(connection);
     load_unified_price_rows_with_mode(folder_path, connection, context, from, to, storage_mode)
+}
+
+/// Loads at most `limit` rows (the newest within `from..=to`) instead of the whole
+/// history, then runs exactly the same merge/validation pipeline as the unbounded loader.
+///
+/// Bounding is per related symbol: each `.eod` file and each SQLite symbol contributes at
+/// most `limit` rows. Identity/alias resolution still runs over whatever was read, and
+/// `prev_close` is recomputed across the slice, so the newest rows are byte-identical to
+/// an unbounded read of the same dates.
+pub(super) fn load_unified_price_rows_bounded(
+    folder_path: &Path,
+    connection: &Connection,
+    context: &ResolvedInstrumentContext,
+    from: &str,
+    to: &str,
+    limit: usize,
+) -> AppResult<Vec<PriceRow>> {
+    let storage_mode = get_price_storage_mode(connection);
+    let mut raw_rows = Vec::new();
+    let from_u32 = date_to_u32(from);
+    let to_u32 = date_to_u32(to);
+    let limit = limit.max(1);
+
+    for symbol in &context.related_symbols {
+        if !same_chart_settlement(&context.exchange, &context.current_symbol, symbol) {
+            continue;
+        }
+        let bin_path = super::storage_paths::eod_path(folder_path, &context.exchange, symbol)?;
+        if bin_path.exists() {
+            let bin_file = BinaryEodFile::open(&bin_path)?;
+            if context.exchange == "BSE"
+                && bse_code_history::is_security_code(symbol)
+                && (bin_file.header.symbol != *symbol
+                    || bin_file.header.exchange != "BSE"
+                    || bin_file.header.price_scale == 0)
+            {
+                return Err(format!(
+                    "BSE security-code file identity/scale mismatch: {symbol}"
+                ));
+            }
+            // Seeks to the newest `limit` records instead of decoding the whole file.
+            let records = bin_file.read_range_bounded(from_u32, to_u32, limit)?;
+            for r in records {
+                raw_rows.push(eod_record_to_price_row(
+                    &r,
+                    symbol,
+                    bin_file.header.price_scale,
+                ));
+            }
+        } else if storage_mode == PriceStorageMode::Hybrid {
+            let mut statement = connection
+                .prepare(
+                    "
+                      SELECT
+                        symbol,
+                        date,
+                        open,
+                        high,
+                        low,
+                        close,
+                        prev_close,
+                        volume,
+                        open_interest
+                      FROM eod_prices
+                      WHERE exchange = ?
+                        AND symbol = ?
+                        AND date BETWEEN ? AND ?
+                      ORDER BY date DESC
+                      LIMIT ?
+                    ",
+                )
+                .map_err(|error| error.to_string())?;
+            let sql_rows = statement
+                .query_map(
+                    params![context.exchange, symbol, from, to, limit as i64],
+                    |row| {
+                        Ok(PriceRow {
+                            symbol: row.get(0)?,
+                            date: row.get(1)?,
+                            open: row.get(2)?,
+                            high: row.get(3)?,
+                            low: row.get(4)?,
+                            close: row.get(5)?,
+                            prev_close: row.get(6)?,
+                            volume: row.get(7)?,
+                            open_interest: row.get(8).unwrap_or(0),
+                        })
+                    },
+                )
+                .map_err(|error| error.to_string())?
+                .collect::<Result<Vec<_>, _>>()
+                .map_err(|error| error.to_string())?;
+            raw_rows.extend(sql_rows);
+        }
+    }
+
+    let mut by_date = HashMap::<String, Vec<PriceRow>>::new();
+    for row in raw_rows {
+        by_date.entry(row.date.clone()).or_default().push(row);
+    }
+
+    let mut rows = by_date.into_iter().collect::<Vec<_>>();
+    rows.sort_by(|left, right| left.0.cmp(&right.0));
+    let merged = rows
+        .into_iter()
+        .map(|(date, rows)| {
+            validate_index_alias_rows(&date, &rows, context)?;
+            bse_code_history::validate_bse_code_rows(&date, &rows, context)?;
+            Ok(select_preferred_price_row(&date, &rows, context))
+        })
+        .collect::<AppResult<Vec<_>>>()?
+        .into_iter()
+        .flatten()
+        .collect::<Vec<_>>();
+    let merged = recompute_prev_close(merged);
+    Ok(if context.exchange == "NSE_INDEX" {
+        guard_index_previous_close(merged)
+    } else {
+        merged
+    })
 }
 
 pub(super) fn load_unified_price_rows_with_mode(

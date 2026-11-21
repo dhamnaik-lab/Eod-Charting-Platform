@@ -33,6 +33,14 @@ import {
 } from '@/plugins/scanner/scannerRunConfig';
 import { runCoreEodScannerBatch } from '@/plugins/scanner/scannerRunner';
 import {
+  canRunNatively,
+  describeNativeCapability,
+  describeNativeUnsupportedScanners,
+  formatNativeScannerStatus,
+  runNativeOrTypeScriptScannerBatch,
+  type NativeScannerRunOutcome,
+} from '@/plugins/scanner/nativeScannerRun';
+import {
   areScannerWorkspaceConfigsEqual,
   deleteScannerWorkspace,
   duplicateScannerWorkspace,
@@ -111,6 +119,9 @@ export function ScannerWindow() {
   const [selectedWatchlistIds, setSelectedWatchlistIds] = useState<number[]>([]);
   const [lookbackBars, setLookbackBars] = useState<ScannerLookbackBars>(DEFAULT_LOOKBACK_BARS);
   const [executionMode, setExecutionMode] = useState<ScannerExecutionMode>('responsive');
+  // NS-04: native (Rust) scanning is explicitly opt-in and off by default. A production
+  // user who never toggles this keeps the accepted TypeScript scanner path unchanged.
+  const [nativeScannerEnabled, setNativeScannerEnabled] = useState(false);
   const [maxSymbols, setMaxSymbols] = useState(DEFAULT_MAX_SYMBOLS);
   const [toDate, setToDate] = useState('');
   const [results, setResults] = useState<ScannerResult[]>([]);
@@ -140,6 +151,7 @@ export function ScannerWindow() {
   const [workspaceHydrated, setWorkspaceHydrated] = useState(false);
   const [workspaceName, setWorkspaceName] = useState('');
   const cancelRequestedRef = useRef(false);
+  const activeNativeRunDatabaseRef = useRef<string | null>(null);
   const workspaceProfileRef = useRef<ScannerWorkspaceProfile | null>(null);
   const workspaceSaveGenerationRef = useRef(0);
 
@@ -417,6 +429,16 @@ export function ScannerWindow() {
     workspaceProfileRef.current = workspaceProfile;
   }, [workspaceProfile]);
 
+  // A native scan is bound to one registered database selection. The default
+  // TypeScript scanner is not changed by this opt-in cancellation guard.
+  useEffect(() => {
+    const original = activeNativeRunDatabaseRef.current;
+    if (original !== null &&
+        (!isOpen || snapshot?.activeDatabasePath !== original)) {
+      cancelRequestedRef.current = true;
+    }
+  }, [isOpen, snapshot?.activeDatabasePath]);
+
   useEffect(() => {
     if (!isOpen) {
       setWorkspaceHydrated(false);
@@ -629,6 +651,7 @@ export function ScannerWindow() {
     }
 
     cancelRequestedRef.current = false;
+    const scanDatabasePath = snapshot.activeDatabasePath;
     setRunning(true);
     setStatus(lookbackBars === null ? 'Preparing complete historical scanner inputs...' : 'Preparing scanner inputs...');
     setErrors([]);
@@ -667,7 +690,59 @@ export function ScannerWindow() {
       const scannedAt = new Date().toISOString();
       const scanStartedAt = Date.now();
       let lastProgressStatusAt = 0;
-      const output = await runCoreEodScannerBatch(api, {
+      const shouldCancel = () => cancelRequestedRef.current;
+      const scannerRequest = {
+        targets,
+        scannerIds: selectedScannerIds,
+        lookbackBars,
+        evaluateHistory: lookbackBars === null,
+        executionMode,
+        toDate: toDate || null,
+        alertRules: settings.eodAlertRules,
+        signalRules,
+        shouldCancel,
+      };
+      const useNativeBackend = nativeScannerEnabled && canRunNatively(selectedScannerIds);
+      if (useNativeBackend) activeNativeRunDatabaseRef.current = scanDatabasePath;
+      if (nativeScannerEnabled && !useNativeBackend) {
+        // Visible, unobtrusive fallback notice: unsupported/mixed rules stay TypeScript.
+        setErrors((current) => [
+          ...current,
+          describeNativeUnsupportedScanners(selectedScannerIds) ||
+            'The native backend cannot evaluate the selected scanners; using TypeScript.',
+        ]);
+      }
+      const output = useNativeBackend
+        ? await runNativeOrTypeScriptScannerBatch(
+            {
+              ...scannerRequest,
+              expectedDatabasePath: scanDatabasePath,
+              getActiveDatabasePath: () =>
+                useChartStore.getState().snapshot?.activeDatabasePath ?? null,
+              onProgress: ({ completed, total, symbol, exchange: targetExchange, resultCount }) => {
+                setStatus(
+                  formatScannerProgress({
+                    completed,
+                    total,
+                    symbol: `${targetExchange}:${symbol}`,
+                    resultCount,
+                    elapsedMs: Date.now() - scanStartedAt,
+                    remainingMs: null,
+                  }),
+                );
+              },
+              onResultChunk: (chunk) => {
+                if (!cancelRequestedRef.current &&
+                    useChartStore.getState().snapshot?.activeDatabasePath === scanDatabasePath) {
+                  setResults((current) => [...current, ...chunk]);
+                }
+              },
+            },
+            {
+              runTypeScript: () => runCoreEodScannerBatch(api, scannerRequest),
+            },
+          )
+        : await runCoreEodScannerBatch(api, {
         targets,
         scannerIds: selectedScannerIds,
         lookbackBars,
@@ -704,6 +779,12 @@ export function ScannerWindow() {
         },
       });
 
+      if (useNativeBackend &&
+          useChartStore.getState().snapshot?.activeDatabasePath !== scanDatabasePath) {
+        cancelRequestedRef.current = true;
+        setStatus('Native scan cancelled because the active database changed.');
+        return;
+      }
       setResults(output.results);
       setAlertTriggers(output.alertTriggers);
       setActiveAlertReviewTab('latest');
@@ -723,14 +804,23 @@ export function ScannerWindow() {
         setAlertHistory(nextAlertHistory);
       }
       setActiveSection(output.alertTriggers.length > 0 ? 'alerts' : 'results');
+      const nativeOutcome =
+        'backend' in output ? (output as NativeScannerRunOutcome) : null;
       setStatus(
-        output.cancelled
-          ? `Scan cancelled after ${output.scannedSymbols} symbol${output.scannedSymbols === 1 ? '' : 's'}; ${output.results.length} match${output.results.length === 1 ? '' : 'es'} recorded.`
-          : `Scanned ${output.scannedSymbols} symbol${output.scannedSymbols === 1 ? '' : 's'}; ${output.results.length} match${output.results.length === 1 ? '' : 'es'}; ${output.alertTriggers.length} alert${output.alertTriggers.length === 1 ? '' : 's'}.`,
+        nativeOutcome && nativeOutcome.backend === 'typescript-fallback'
+          ? `${formatNativeScannerStatus(nativeOutcome as NativeScannerRunOutcome, targets.length)} ${
+              output.cancelled
+                ? `Scan cancelled after ${output.scannedSymbols} symbol${output.scannedSymbols === 1 ? '' : 's'}.`
+                : `Scanned ${output.scannedSymbols} symbol${output.scannedSymbols === 1 ? '' : 's'}; ${output.results.length} match${output.results.length === 1 ? '' : 'es'}; ${output.alertTriggers.length} alert${output.alertTriggers.length === 1 ? '' : 's'}.`
+            }`
+          : output.cancelled
+            ? `Scan cancelled after ${output.scannedSymbols} symbol${output.scannedSymbols === 1 ? '' : 's'}; ${output.results.length} match${output.results.length === 1 ? '' : 'es'} recorded.`
+            : `Scanned ${output.scannedSymbols} symbol${output.scannedSymbols === 1 ? '' : 's'}; ${output.results.length} match${output.results.length === 1 ? '' : 'es'}; ${output.alertTriggers.length} alert${output.alertTriggers.length === 1 ? '' : 's'}.`,
       );
     } catch (error) {
       setStatus(error instanceof Error ? error.message : 'Scanner run failed.');
     } finally {
+      activeNativeRunDatabaseRef.current = null;
       setRunning(false);
     }
   };
@@ -1260,6 +1350,23 @@ export function ScannerWindow() {
                     <option value="responsive">Responsive (default)</option>
                     <option value="fast">Fast (uses more CPU)</option>
                   </select>
+                </label>
+                <label style={{ ...fieldStyle, minWidth: '220px' }}>
+                  <span style={labelStyle}>Scanner backend</span>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px' }}>
+                    <input
+                      type="checkbox"
+                      checked={nativeScannerEnabled}
+                      onChange={(event) => setNativeScannerEnabled(event.target.checked)}
+                      disabled={running}
+                    />
+                    Use native (Rust) backend
+                  </label>
+                  <span style={{ fontSize: '11px', color: 'var(--text-muted, #8a8a8a)' }}>
+                    {nativeScannerEnabled && !canRunNatively(selectedScannerIds)
+                      ? describeNativeUnsupportedScanners(selectedScannerIds)
+                      : describeNativeCapability()}
+                  </span>
                 </label>
                 <label style={fieldStyle}>
                   <span style={labelStyle}>To Date</span>

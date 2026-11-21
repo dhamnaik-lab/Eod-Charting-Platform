@@ -38,6 +38,8 @@ struct CachedDbStats {
 struct DatabaseRegistryFile {
     recent: Vec<KnownDatabase>,
     last_active_path: Option<String>,
+    #[serde(default)]
+    active_selection_revision: u64,
 }
 
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
@@ -48,6 +50,81 @@ struct DatabaseManifest {
     name: String,
     db_file: String,
     created_at: String,
+}
+
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub(crate) struct NativeScanSelection {
+    pub(crate) folder: PathBuf,
+    pub(crate) database_identity: String,
+    canonical_folder: PathBuf,
+    physical_file_identity: String,
+}
+
+fn advance_selection_revision(registry: &mut DatabaseRegistryFile) -> AppResult<()> {
+    registry.active_selection_revision = registry
+        .active_selection_revision
+        .checked_add(1)
+        .ok_or_else(|| "Database selection revision exhausted; refusing to reuse a scan identity.".to_string())?;
+    Ok(())
+}
+
+/// A read-only witness of the registered selection, its monotonic activation revision,
+/// and the actual SQLite file identity (not folder modification time).
+fn native_selection_from_registry(
+    registry: &DatabaseRegistryFile,
+) -> AppResult<Option<NativeScanSelection>> {
+    let Some(active) = registry.last_active_path.as_deref() else {
+        return Ok(None);
+    };
+    if !registry.recent.iter().any(|entry| entry.path == active) {
+        return Err("The selected database is not in the registered database list.".to_string());
+    }
+    let folder = PathBuf::from(active);
+    let canonical_folder = fs::canonicalize(&folder)
+        .map_err(|error| format!("Cannot verify the active database folder: {error}"))?;
+    let manifest = read_database_manifest(&folder)?;
+    let database_file = resolve_database_file_path(&folder, manifest.as_ref());
+    #[cfg(windows)]
+    let physical_file_identity = format!(
+        "{:?}",
+        database_deletion::identity(&database_file)
+            .map_err(|error| format!("Cannot verify the database file identity: {error}"))?
+    );
+    #[cfg(unix)]
+    let physical_file_identity = {
+        use std::os::unix::fs::MetadataExt;
+        let metadata = fs::metadata(&database_file)
+            .map_err(|error| format!("Cannot verify the database file identity: {error}"))?;
+        format!("{}:{}", metadata.dev(), metadata.ino())
+    };
+    #[cfg(not(any(windows, unix)))]
+    let physical_file_identity = {
+        return Err("Native scanner file identity is unsupported on this platform.".to_string());
+    };
+    Ok(Some(NativeScanSelection {
+        folder,
+        database_identity: format!("{}#{}", active, registry.active_selection_revision),
+        canonical_folder,
+        physical_file_identity,
+    }))
+}
+
+/// Serialize this read-only snapshot with existing DB-use / registry locks.
+/// Never initializes or rewrites an existing user profile.
+pub(crate) fn read_native_scan_selection(app: &AppHandle) -> AppResult<Option<NativeScanSelection>> {
+    let _permit = database_use::acquire_use()?;
+    let _registry = database_use::lock_registry()?;
+    let path = get_registry_path(app)?;
+    if !path.is_file() {
+        return Ok(None);
+    }
+    let registry = read_existing_registry(&path)?;
+    let selection = native_selection_from_registry(&registry)?;
+    if let Some(value) = &selection {
+        database_deletion::require_unblocked(&value.folder)?;
+    }
+    Ok(selection)
 }
 
 impl ActiveDatabaseConnectionState {
@@ -191,6 +268,7 @@ pub fn close_database(app: AppHandle) -> AppResult<AppSnapshot> {
     let _permit = database_use::acquire_use()?;
     let _registry = database_use::lock_registry()?;
     let mut registry = read_registry(&app)?;
+    advance_selection_revision(&mut registry)?;
     registry.last_active_path = None;
     write_registry(&app, &registry)?;
     clear_cached_connection(&app)?;
@@ -380,6 +458,7 @@ fn complete_verified_deletion(
     database_deletion::write_markers(state_dir, &markers)
         .map_err(|error| format!("{FAILED}: Could not persist the safety marker: {error}"))?;
     if active_matches {
+        advance_selection_revision(registry)?;
         registry.last_active_path = None;
         if let Err(error) = write_registry_at(profile, registry) {
             let detail = clear_deletion_marker(state_dir, &mut markers, id).err();
@@ -686,6 +765,7 @@ fn resolve_active_folder_locked(app: &AppHandle, registry: &DatabaseRegistryFile
     }
 
     let mut next = registry.clone();
+    advance_selection_revision(&mut next)?;
     next.last_active_path = None;
     write_registry(app, &next)?;
     clear_cached_connection(app)?;
@@ -741,6 +821,7 @@ fn read_existing_registry(registry_path: &Path) -> AppResult<DatabaseRegistryFil
     Ok(DatabaseRegistryFile {
         recent,
         last_active_path,
+        active_selection_revision: parsed.active_selection_revision,
     })
 }
 
@@ -812,6 +893,7 @@ fn touch_registry(app: &AppHandle, folder_path: &Path, label: &str) -> AppResult
     )
     .take(12)
     .collect();
+    advance_selection_revision(&mut registry)?;
     registry.last_active_path = Some(normalized_string);
     write_registry(app, &registry)
 }
@@ -1148,6 +1230,83 @@ fn peek_cached_folder_only(state: &ActiveDatabaseConnectionState) -> AppResult<O
     Ok(cached.as_ref().map(|entry| entry.folder_path.clone()))
 }
 
+
+#[cfg(test)]
+mod native_selection_revision_tests {
+    use super::*;
+
+    #[test]
+    fn old_registry_is_compatible_and_revision_refuses_wraparound() {
+        let mut registry: DatabaseRegistryFile =
+            serde_json::from_str(r#"{"recent":[],"lastActivePath":null}"#).unwrap();
+        assert_eq!(registry.active_selection_revision, 0);
+        advance_selection_revision(&mut registry).unwrap();
+        assert_eq!(registry.active_selection_revision, 1);
+        registry.active_selection_revision = u64::MAX;
+        assert!(advance_selection_revision(&mut registry).is_err());
+    }
+
+    #[test]
+    fn original_selection_is_invalid_after_aba_or_database_file_replacement() {
+        let fixtures = Path::new(env!("CARGO_MANIFEST_DIR"))
+            .parent()
+            .unwrap()
+            .join("tmp/fixtures/ns04-selection-identity");
+        fs::create_dir_all(&fixtures).unwrap();
+        let temp = tempfile::tempdir_in(fixtures).unwrap();
+        let a = temp.path().join("A");
+        let b = temp.path().join("B");
+        fs::create_dir(&a).unwrap();
+        fs::create_dir(&b).unwrap();
+        for folder in [&a, &b] {
+            drop(Connection::open(folder.join(DATABASE_FILE_NAME)).unwrap());
+        }
+        let path_a = path_to_string(&a);
+        let path_b = path_to_string(&b);
+        let mut registry = DatabaseRegistryFile {
+            recent: vec![
+                KnownDatabase {
+                    path: path_a.clone(),
+                    label: "A".to_string(),
+                    last_opened_at: String::new(),
+                },
+                KnownDatabase {
+                    path: path_b.clone(),
+                    label: "B".to_string(),
+                    last_opened_at: String::new(),
+                },
+            ],
+            last_active_path: Some(path_a.clone()),
+            active_selection_revision: 1,
+        };
+        let original = native_selection_from_registry(&registry).unwrap().unwrap();
+        assert_eq!(original.database_identity, format!("{path_a}#1"));
+        advance_selection_revision(&mut registry).unwrap();
+        registry.last_active_path = Some(path_b);
+        assert_ne!(native_selection_from_registry(&registry).unwrap(), Some(original.clone()));
+        advance_selection_revision(&mut registry).unwrap();
+        registry.last_active_path = Some(path_a.clone());
+        let returned = native_selection_from_registry(&registry).unwrap().unwrap();
+        assert_ne!(returned, original);
+        assert_eq!(returned.canonical_folder, original.canonical_folder);
+        assert_eq!(returned.physical_file_identity, original.physical_file_identity);
+
+        let sqlite = a.join(DATABASE_FILE_NAME);
+        fs::rename(&sqlite, a.join("previous.sqlite3")).unwrap();
+        drop(Connection::open(&sqlite).unwrap());
+        let replaced = native_selection_from_registry(&registry).unwrap().unwrap();
+        assert_eq!(replaced.database_identity, returned.database_identity);
+        assert_ne!(replaced.physical_file_identity, returned.physical_file_identity);
+        assert_ne!(replaced, returned);
+
+        registry.last_active_path = None;
+        assert!(native_selection_from_registry(&registry).unwrap().is_none());
+        registry.last_active_path = Some(path_a);
+        registry.recent.clear();
+        assert!(native_selection_from_registry(&registry).is_err());
+    }
+}
+
 #[cfg(all(test, windows))]
 mod deletion_registry_tests {
     use super::*;
@@ -1182,6 +1341,7 @@ mod deletion_registry_tests {
             let registry = DatabaseRegistryFile {
                 recent: vec![KnownDatabase { path: path.clone(), label: "fixture".into(), last_opened_at: "".into() }],
                 last_active_path: active.then_some(path),
+                active_selection_revision: 0,
             };
             write_registry_at(&self.registry_path, &registry).unwrap();
             registry
