@@ -269,6 +269,7 @@ export function ChartCanvas({
     return Boolean(instrument && drawing && isDrawingAlertSupported(drawing));
   }, [drawingContextMenu, drawings, instrument]);
 
+  const actualSpan = Math.max(1, viewport.endIndex - viewport.startIndex);
   const visibleSpan = useMemo(
     () => Math.max(1, Math.round(viewport.endIndex - viewport.startIndex)),
     [viewport.endIndex, viewport.startIndex],
@@ -277,10 +278,10 @@ export function ChartCanvas({
     () => getAllowedFutureBars(visibleSpan, futureMarginMode),
     [futureMarginMode, visibleSpan],
   );
-  const futureMarginBars = Math.max(0, Math.ceil(viewport.endIndex - bars.length));
+  const futureMarginBars = Math.max(0, viewport.endIndex - bars.length);
   const effectiveFutureBars = Math.max(futureMarginBars, allowedFutureBars);
-  const maxScrollStart = Math.max(0, bars.length + effectiveFutureBars - visibleSpan);
-  const scrollValue = Math.max(0, Math.min(maxScrollStart, Math.round(viewport.startIndex)));
+  const maxScrollStart = Math.max(0, bars.length + effectiveFutureBars - actualSpan);
+  const scrollValue = Math.max(0, Math.min(maxScrollStart, viewport.startIndex));
   const priceAutoFit = !paneScaleOverrides.price;
   const allPanesAutoFit = Object.keys(paneScaleOverrides).length === 0;
   const renkoSettings = useMemo(
@@ -379,7 +380,7 @@ export function ChartCanvas({
     }
 
     const pixelsPerBar = Math.max(8, Math.round(scrollbarViewportWidth / Math.max(visibleSpan, 1)));
-    return Math.max(scrollbarViewportWidth + maxScrollStart * pixelsPerBar, scrollbarViewportWidth);
+    return Math.max(Math.round(scrollbarViewportWidth + maxScrollStart * pixelsPerBar), scrollbarViewportWidth);
   }, [maxScrollStart, scrollbarViewportWidth, visibleSpan]);
   const layout = useMemo(
     () =>
@@ -2178,16 +2179,23 @@ export function ChartCanvas({
         ) : null}
       </div>
 
-      <div style={scrollbarWrapStyle}>
+      <div
+        style={scrollbarWrapStyle}
+        onMouseDownCapture={() => {
+          if (tabId && tabId !== activeChartTabId) {
+            activateChartTab(tabId);
+          }
+        }}
+      >
         {bottomBarStartContent ? <div style={bottomBarStartStyle}>{bottomBarStartContent}</div> : null}
         <div style={scrollbarControlsStyle}>
-          <button type="button" style={chartControlButtonStyle} onClick={() => resetViewport()} title="Reset zoom">
+          <button type="button" style={chartControlButtonStyle} onClick={() => runForChart(resetViewport)} title="Reset zoom">
             0
           </button>
           <button
             type="button"
             style={chartControlButtonStyle}
-            onClick={() => zoomViewportByFactor(1 / ZOOM_BUTTON_STEP)}
+            onClick={() => runForChart(() => zoomViewportByFactor(1 / ZOOM_BUTTON_STEP))}
             title="Zoom out"
           >
             -
@@ -2195,7 +2203,7 @@ export function ChartCanvas({
           <button
             type="button"
             style={chartControlButtonStyle}
-            onClick={() => zoomViewportByFactor(ZOOM_BUTTON_STEP)}
+            onClick={() => runForChart(() => zoomViewportByFactor(ZOOM_BUTTON_STEP))}
             title="Zoom in"
           >
             +
@@ -2203,7 +2211,7 @@ export function ChartCanvas({
           <button
             type="button"
             style={chartControlButtonStyle}
-            onClick={() => nudgeViewport(-Math.max(1, Math.round(visibleSpan * 0.2)))}
+            onClick={() => runForChart(() => nudgeViewport(-Math.max(1, Math.round(visibleSpan * 0.2))))}
             title="Scroll left"
           >
             {'<'}
@@ -2226,8 +2234,8 @@ export function ChartCanvas({
                   return;
                 }
 
-                const nextStart = Math.round((element.scrollLeft / maxScrollLeft) * maxScrollStart);
-                scrollToViewportStart(nextStart);
+                const nextStart = (element.scrollLeft / maxScrollLeft) * maxScrollStart;
+                scrollToViewportStart(nextStart, tabId ?? undefined);
               }}
               title="Horizontal chart scroll"
             >
@@ -2237,7 +2245,7 @@ export function ChartCanvas({
           <button
             type="button"
             style={chartControlButtonStyle}
-            onClick={() => nudgeViewport(Math.max(1, Math.round(visibleSpan * 0.2)))}
+            onClick={() => runForChart(() => nudgeViewport(Math.max(1, Math.round(visibleSpan * 0.2))))}
             title="Scroll right"
           >
             {'>'}
