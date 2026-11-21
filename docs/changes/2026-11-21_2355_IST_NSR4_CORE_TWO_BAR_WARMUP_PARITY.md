@@ -33,12 +33,16 @@ All ten canonical built-in core IDs recognized by `native_scanner::core_results:
 
 ## Validation commands / actual results
 
-- GitHub pinned baseline and affected source blobs: verified by read-only connector before writes.
-- `src-tauri-shell/src/native_scanner/scan.rs` scoped Rust unit tests, `cargo check --tests --locked`, `cargo test --locked native_scanner -- --nocapture`, `cargo test --locked scanner_ -- --nocapture`, full Rust regression suite: **PENDING GitHub Rust CI**.
-- `rustfmt --edition 2021 --check` on scanner modules: **PENDING GitHub Rustfmt CI**.
-- Renderer Vitest `scannerHistory.test.ts`, existing `nativeCoreLatestRoutingNSR2.test.ts`, TypeScript typecheck and production renderer build: **PENDING GitHub Renderer CI**.
-- Windows normal portable-build and live read-only acceptance: **NOT RUN**; deferred to consolidated scanner release checkpoint, not represented as a pass.
-- No source code was compiled or tested in the ChatGPT runtime (Rust toolchain unavailable).
+**Validated source revision:** `206fcc01f1fae6360140e4fd914065c4e53f02d8` (the subsequent change-record-only commit does not alter source/test code). **CI verification:** 2026-11-22 00:07 IST.
+
+- Pinned `main` baseline, Rust and renderer source blobs, GitHub branch, three-file scope: **PASS** (read-only connector and compare).
+- [Rust Scanner Rustfmt CI #44935559495](https://github.com/dhamnaik-lab/Eod-Charting-Platform/actions/runs/44935559495): **COMPLETED / SUCCESS** — `rustfmt --edition 2021 --check` on every scanner module. Initial run identified two test formatting issues; those were corrected exactly and the successful run uses the final source.
+- [Rust Compile and Test CI #44935559512](https://github.com/dhamnaik-lab/Eod-Charting-Platform/actions/runs/44935559512): **COMPLETED / SUCCESS** — `cargo check --tests --locked` PASS; `cargo test --locked native_scanner -- --nocapture`: **115 passed, 0 failed** (both new issue #131 executor tests reported `ok`); `cargo test --locked scanner_ -- --nocapture`: **18 passed, 0 failed**; complete Rust regression suite using the accepted exact Windows-path test skip: **1,406 passed, 0 failed, 26 ignored, 1 filtered out**. All counts are taken directly from GitHub job logs.
+- [Renderer CI #44935559542](https://github.com/dhamnaik-lab/Eod-Charting-Platform/actions/runs/44935559542): **COMPLETED / SUCCESS** — Vitest **2,104 passed, 1 skipped** across 289 passing files (one skipped); TypeScript renderer typecheck **PASS**; Vite production build **PASS** (7.26 seconds). Includes new TypeScript short-data test cases and existing full-history core fallback tests.
+- **NOT RUN:** Windows native portable build, Windows visual acceptance and live registered-database parity; those remain deferred to the consolidated scanner release checkpoint. A GitHub Linux build does not prove Windows operator acceptance.
+- No Rust or renderer source was compiled/tested inside the ChatGPT tool runtime; GitHub Actions is the actual execution authority.
+
+**Source blob evidence:** `scan.rs` `b0704a742d51d0227bb4834bc32d4a346d8bb668`; `scannerHistory.test.ts` `eedfd6a1db29102b81d3bea8d2bc4901044c11d7`.
 
 ## Risks / limitations
 
