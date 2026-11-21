@@ -1,0 +1,7641 @@
+{
+  "version": 1,
+  "description": "NS-R3 actual TypeScript handler expected ScannerResult metadata excluding generatedAt; Rust compares core_match_record on identical bars.",
+  "rules": {
+    "prev_day_high_break": {
+      "kind": "binary",
+      "op": "gt",
+      "left": {
+        "kind": "field",
+        "field": "close",
+        "lookback": 0
+      },
+      "right": {
+        "kind": "field",
+        "field": "high",
+        "lookback": 1
+      }
+    },
+    "prev_day_low_break": {
+      "kind": "binary",
+      "op": "lt",
+      "left": {
+        "kind": "field",
+        "field": "close",
+        "lookback": 0
+      },
+      "right": {
+        "kind": "field",
+        "field": "low",
+        "lookback": 1
+      }
+    },
+    "inside_bar": {
+      "kind": "binary",
+      "op": "and",
+      "left": {
+        "kind": "binary",
+        "op": "lt",
+        "left": {
+          "kind": "field",
+          "field": "high",
+          "lookback": 0
+        },
+        "right": {
+          "kind": "field",
+          "field": "high",
+          "lookback": 1
+        }
+      },
+      "right": {
+        "kind": "binary",
+        "op": "gt",
+        "left": {
+          "kind": "field",
+          "field": "low",
+          "lookback": 0
+        },
+        "right": {
+          "kind": "field",
+          "field": "low",
+          "lookback": 1
+        }
+      }
+    },
+    "outside_bar": {
+      "kind": "binary",
+      "op": "and",
+      "left": {
+        "kind": "binary",
+        "op": "gt",
+        "left": {
+          "kind": "field",
+          "field": "high",
+          "lookback": 0
+        },
+        "right": {
+          "kind": "field",
+          "field": "high",
+          "lookback": 1
+        }
+      },
+      "right": {
+        "kind": "binary",
+        "op": "lt",
+        "left": {
+          "kind": "field",
+          "field": "low",
+          "lookback": 0
+        },
+        "right": {
+          "kind": "field",
+          "field": "low",
+          "lookback": 1
+        }
+      }
+    },
+    "close_near_high": {
+      "kind": "binary",
+      "op": "and",
+      "left": {
+        "kind": "binary",
+        "op": "gt",
+        "left": {
+          "kind": "binary",
+          "op": "sub",
+          "left": {
+            "kind": "field",
+            "field": "high",
+            "lookback": 0
+          },
+          "right": {
+            "kind": "field",
+            "field": "low",
+            "lookback": 0
+          }
+        },
+        "right": {
+          "kind": "number",
+          "value": 0
+        }
+      },
+      "right": {
+        "kind": "binary",
+        "op": "gte",
+        "left": {
+          "kind": "field",
+          "field": "close",
+          "lookback": 0
+        },
+        "right": {
+          "kind": "binary",
+          "op": "sub",
+          "left": {
+            "kind": "field",
+            "field": "high",
+            "lookback": 0
+          },
+          "right": {
+            "kind": "binary",
+            "op": "mul",
+            "left": {
+              "kind": "binary",
+              "op": "sub",
+              "left": {
+                "kind": "field",
+                "field": "high",
+                "lookback": 0
+              },
+              "right": {
+                "kind": "field",
+                "field": "low",
+                "lookback": 0
+              }
+            },
+            "right": {
+              "kind": "number",
+              "value": 0.1
+            }
+          }
+        }
+      }
+    },
+    "close_near_low": {
+      "kind": "binary",
+      "op": "and",
+      "left": {
+        "kind": "binary",
+        "op": "gt",
+        "left": {
+          "kind": "binary",
+          "op": "sub",
+          "left": {
+            "kind": "field",
+            "field": "high",
+            "lookback": 0
+          },
+          "right": {
+            "kind": "field",
+            "field": "low",
+            "lookback": 0
+          }
+        },
+        "right": {
+          "kind": "number",
+          "value": 0
+        }
+      },
+      "right": {
+        "kind": "binary",
+        "op": "lte",
+        "left": {
+          "kind": "field",
+          "field": "close",
+          "lookback": 0
+        },
+        "right": {
+          "kind": "binary",
+          "op": "add",
+          "left": {
+            "kind": "field",
+            "field": "low",
+            "lookback": 0
+          },
+          "right": {
+            "kind": "binary",
+            "op": "mul",
+            "left": {
+              "kind": "binary",
+              "op": "sub",
+              "left": {
+                "kind": "field",
+                "field": "high",
+                "lookback": 0
+              },
+              "right": {
+                "kind": "field",
+                "field": "low",
+                "lookback": 0
+              }
+            },
+            "right": {
+              "kind": "number",
+              "value": 0.1
+            }
+          }
+        }
+      }
+    },
+    "gap_up": {
+      "kind": "binary",
+      "op": "gt",
+      "left": {
+        "kind": "field",
+        "field": "open",
+        "lookback": 0
+      },
+      "right": {
+        "kind": "field",
+        "field": "high",
+        "lookback": 1
+      }
+    },
+    "gap_down": {
+      "kind": "binary",
+      "op": "lt",
+      "left": {
+        "kind": "field",
+        "field": "open",
+        "lookback": 0
+      },
+      "right": {
+        "kind": "field",
+        "field": "low",
+        "lookback": 1
+      }
+    },
+    "nr7": {
+      "kind": "binary",
+      "op": "and",
+      "left": {
+        "kind": "binary",
+        "op": "and",
+        "left": {
+          "kind": "binary",
+          "op": "and",
+          "left": {
+            "kind": "binary",
+            "op": "and",
+            "left": {
+              "kind": "binary",
+              "op": "and",
+              "left": {
+                "kind": "binary",
+                "op": "lt",
+                "left": {
+                  "kind": "binary",
+                  "op": "sub",
+                  "left": {
+                    "kind": "field",
+                    "field": "high",
+                    "lookback": 0
+                  },
+                  "right": {
+                    "kind": "field",
+                    "field": "low",
+                    "lookback": 0
+                  }
+                },
+                "right": {
+                  "kind": "binary",
+                  "op": "sub",
+                  "left": {
+                    "kind": "field",
+                    "field": "high",
+                    "lookback": 1
+                  },
+                  "right": {
+                    "kind": "field",
+                    "field": "low",
+                    "lookback": 1
+                  }
+                }
+              },
+              "right": {
+                "kind": "binary",
+                "op": "lt",
+                "left": {
+                  "kind": "binary",
+                  "op": "sub",
+                  "left": {
+                    "kind": "field",
+                    "field": "high",
+                    "lookback": 0
+                  },
+                  "right": {
+                    "kind": "field",
+                    "field": "low",
+                    "lookback": 0
+                  }
+                },
+                "right": {
+                  "kind": "binary",
+                  "op": "sub",
+                  "left": {
+                    "kind": "field",
+                    "field": "high",
+                    "lookback": 2
+                  },
+                  "right": {
+                    "kind": "field",
+                    "field": "low",
+                    "lookback": 2
+                  }
+                }
+              }
+            },
+            "right": {
+              "kind": "binary",
+              "op": "lt",
+              "left": {
+                "kind": "binary",
+                "op": "sub",
+                "left": {
+                  "kind": "field",
+                  "field": "high",
+                  "lookback": 0
+                },
+                "right": {
+                  "kind": "field",
+                  "field": "low",
+                  "lookback": 0
+                }
+              },
+              "right": {
+                "kind": "binary",
+                "op": "sub",
+                "left": {
+                  "kind": "field",
+                  "field": "high",
+                  "lookback": 3
+                },
+                "right": {
+                  "kind": "field",
+                  "field": "low",
+                  "lookback": 3
+                }
+              }
+            }
+          },
+          "right": {
+            "kind": "binary",
+            "op": "lt",
+            "left": {
+              "kind": "binary",
+              "op": "sub",
+              "left": {
+                "kind": "field",
+                "field": "high",
+                "lookback": 0
+              },
+              "right": {
+                "kind": "field",
+                "field": "low",
+                "lookback": 0
+              }
+            },
+            "right": {
+              "kind": "binary",
+              "op": "sub",
+              "left": {
+                "kind": "field",
+                "field": "high",
+                "lookback": 4
+              },
+              "right": {
+                "kind": "field",
+                "field": "low",
+                "lookback": 4
+              }
+            }
+          }
+        },
+        "right": {
+          "kind": "binary",
+          "op": "lt",
+          "left": {
+            "kind": "binary",
+            "op": "sub",
+            "left": {
+              "kind": "field",
+              "field": "high",
+              "lookback": 0
+            },
+            "right": {
+              "kind": "field",
+              "field": "low",
+              "lookback": 0
+            }
+          },
+          "right": {
+            "kind": "binary",
+            "op": "sub",
+            "left": {
+              "kind": "field",
+              "field": "high",
+              "lookback": 5
+            },
+            "right": {
+              "kind": "field",
+              "field": "low",
+              "lookback": 5
+            }
+          }
+        }
+      },
+      "right": {
+        "kind": "binary",
+        "op": "lt",
+        "left": {
+          "kind": "binary",
+          "op": "sub",
+          "left": {
+            "kind": "field",
+            "field": "high",
+            "lookback": 0
+          },
+          "right": {
+            "kind": "field",
+            "field": "low",
+            "lookback": 0
+          }
+        },
+        "right": {
+          "kind": "binary",
+          "op": "sub",
+          "left": {
+            "kind": "field",
+            "field": "high",
+            "lookback": 6
+          },
+          "right": {
+            "kind": "field",
+            "field": "low",
+            "lookback": 6
+          }
+        }
+      }
+    },
+    "wide_range_candle": {
+      "kind": "binary",
+      "op": "gt",
+      "left": {
+        "kind": "binary",
+        "op": "sub",
+        "left": {
+          "kind": "field",
+          "field": "high",
+          "lookback": 0
+        },
+        "right": {
+          "kind": "field",
+          "field": "low",
+          "lookback": 0
+        }
+      },
+      "right": {
+        "kind": "binary",
+        "op": "mul",
+        "left": {
+          "kind": "number",
+          "value": 1.5
+        },
+        "right": {
+          "kind": "indicator",
+          "name": "sma",
+          "period": 14,
+          "input": {
+            "kind": "binary",
+            "op": "sub",
+            "left": {
+              "kind": "field",
+              "field": "high",
+              "lookback": 1
+            },
+            "right": {
+              "kind": "field",
+              "field": "low",
+              "lookback": 1
+            }
+          }
+        }
+      }
+    }
+  },
+  "cases": [
+    {
+      "caseId": "prev_day_high_break_regular_match",
+      "ruleId": "prev_day_high_break",
+      "description": "Completed 20-bar positive match",
+      "symbol": "META001",
+      "exchange": "NSE",
+      "bars": [
+        {
+          "date": "2026-01-01",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1000
+        },
+        {
+          "date": "2026-01-02",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1100
+        },
+        {
+          "date": "2026-01-03",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1200
+        },
+        {
+          "date": "2026-01-04",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1300
+        },
+        {
+          "date": "2026-01-05",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1400
+        },
+        {
+          "date": "2026-01-06",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1500
+        },
+        {
+          "date": "2026-01-07",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1600
+        },
+        {
+          "date": "2026-01-08",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1700
+        },
+        {
+          "date": "2026-01-09",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1800
+        },
+        {
+          "date": "2026-01-10",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1900
+        },
+        {
+          "date": "2026-01-11",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2000
+        },
+        {
+          "date": "2026-01-12",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2100
+        },
+        {
+          "date": "2026-01-13",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2200
+        },
+        {
+          "date": "2026-01-14",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2300
+        },
+        {
+          "date": "2026-01-15",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2400
+        },
+        {
+          "date": "2026-01-16",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2500
+        },
+        {
+          "date": "2026-01-17",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2600
+        },
+        {
+          "date": "2026-01-18",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2700
+        },
+        {
+          "date": "2026-01-19",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2800
+        },
+        {
+          "date": "2026-01-20",
+          "open": 108,
+          "high": 115,
+          "low": 105,
+          "close": 112,
+          "volume": 2900
+        }
+      ],
+      "expected": {
+        "symbol": "META001",
+        "exchange": "NSE",
+        "scannerId": "prev_day_high_break",
+        "scannerName": "Previous Day High Break",
+        "categoryId": "price_action",
+        "categoryName": "Price Action",
+        "date": "2026-01-20",
+        "matched": true,
+        "direction": "bullish",
+        "reasons": [
+          "Close (112) broke above yesterday high (110)"
+        ],
+        "values": {
+          "close": 112,
+          "prev_high": 110,
+          "high_diff": 2
+        },
+        "warnings": [],
+        "source": "EODScannerPlugin_v1"
+      }
+    },
+    {
+      "caseId": "prev_day_high_break_regular_nonmatch",
+      "ruleId": "prev_day_high_break",
+      "description": "Non-match on an ordinary 20-bar series",
+      "symbol": "META002",
+      "exchange": "BSE",
+      "bars": [
+        {
+          "date": "2026-01-01",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1000
+        },
+        {
+          "date": "2026-01-02",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1100
+        },
+        {
+          "date": "2026-01-03",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1200
+        },
+        {
+          "date": "2026-01-04",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1300
+        },
+        {
+          "date": "2026-01-05",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1400
+        },
+        {
+          "date": "2026-01-06",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1500
+        },
+        {
+          "date": "2026-01-07",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1600
+        },
+        {
+          "date": "2026-01-08",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1700
+        },
+        {
+          "date": "2026-01-09",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1800
+        },
+        {
+          "date": "2026-01-10",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1900
+        },
+        {
+          "date": "2026-01-11",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2000
+        },
+        {
+          "date": "2026-01-12",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2100
+        },
+        {
+          "date": "2026-01-13",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2200
+        },
+        {
+          "date": "2026-01-14",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2300
+        },
+        {
+          "date": "2026-01-15",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2400
+        },
+        {
+          "date": "2026-01-16",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2500
+        },
+        {
+          "date": "2026-01-17",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2600
+        },
+        {
+          "date": "2026-01-18",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2700
+        },
+        {
+          "date": "2026-01-19",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2800
+        },
+        {
+          "date": "2026-01-20",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2900
+        }
+      ],
+      "expected": null
+    },
+    {
+      "caseId": "prev_day_high_break_fractional_match",
+      "ruleId": "prev_day_high_break",
+      "description": "Fractional-price formatting and numeric rounding",
+      "symbol": "META003",
+      "exchange": "NSE",
+      "bars": [
+        {
+          "date": "2026-01-01",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1000
+        },
+        {
+          "date": "2026-01-02",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1100
+        },
+        {
+          "date": "2026-01-03",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1200
+        },
+        {
+          "date": "2026-01-04",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1300
+        },
+        {
+          "date": "2026-01-05",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1400
+        },
+        {
+          "date": "2026-01-06",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1500
+        },
+        {
+          "date": "2026-01-07",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1600
+        },
+        {
+          "date": "2026-01-08",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1700
+        },
+        {
+          "date": "2026-01-09",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1800
+        },
+        {
+          "date": "2026-01-10",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1900
+        },
+        {
+          "date": "2026-01-11",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2000
+        },
+        {
+          "date": "2026-01-12",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2100
+        },
+        {
+          "date": "2026-01-13",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2200
+        },
+        {
+          "date": "2026-01-14",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2300
+        },
+        {
+          "date": "2026-01-15",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2400
+        },
+        {
+          "date": "2026-01-16",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2500
+        },
+        {
+          "date": "2026-01-17",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2600
+        },
+        {
+          "date": "2026-01-18",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2700
+        },
+        {
+          "date": "2026-01-19",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2800
+        },
+        {
+          "date": "2026-01-20",
+          "open": 108,
+          "high": 116,
+          "low": 105,
+          "close": 111.234567,
+          "volume": 2900
+        }
+      ],
+      "expected": {
+        "symbol": "META003",
+        "exchange": "NSE",
+        "scannerId": "prev_day_high_break",
+        "scannerName": "Previous Day High Break",
+        "categoryId": "price_action",
+        "categoryName": "Price Action",
+        "date": "2026-01-20",
+        "matched": true,
+        "direction": "bullish",
+        "reasons": [
+          "Close (111.234567) broke above yesterday high (110)"
+        ],
+        "values": {
+          "close": 111.234567,
+          "prev_high": 110,
+          "high_diff": 1.2346
+        },
+        "warnings": [],
+        "source": "EODScannerPlugin_v1"
+      }
+    },
+    {
+      "caseId": "prev_day_low_break_regular_match",
+      "ruleId": "prev_day_low_break",
+      "description": "Completed 20-bar positive match",
+      "symbol": "META004",
+      "exchange": "BSE",
+      "bars": [
+        {
+          "date": "2026-01-01",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1000
+        },
+        {
+          "date": "2026-01-02",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1100
+        },
+        {
+          "date": "2026-01-03",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1200
+        },
+        {
+          "date": "2026-01-04",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1300
+        },
+        {
+          "date": "2026-01-05",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1400
+        },
+        {
+          "date": "2026-01-06",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1500
+        },
+        {
+          "date": "2026-01-07",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1600
+        },
+        {
+          "date": "2026-01-08",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1700
+        },
+        {
+          "date": "2026-01-09",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1800
+        },
+        {
+          "date": "2026-01-10",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1900
+        },
+        {
+          "date": "2026-01-11",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2000
+        },
+        {
+          "date": "2026-01-12",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2100
+        },
+        {
+          "date": "2026-01-13",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2200
+        },
+        {
+          "date": "2026-01-14",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2300
+        },
+        {
+          "date": "2026-01-15",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2400
+        },
+        {
+          "date": "2026-01-16",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2500
+        },
+        {
+          "date": "2026-01-17",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2600
+        },
+        {
+          "date": "2026-01-18",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2700
+        },
+        {
+          "date": "2026-01-19",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2800
+        },
+        {
+          "date": "2026-01-20",
+          "open": 92,
+          "high": 95,
+          "low": 85,
+          "close": 89,
+          "volume": 2900
+        }
+      ],
+      "expected": {
+        "symbol": "META004",
+        "exchange": "BSE",
+        "scannerId": "prev_day_low_break",
+        "scannerName": "Previous Day Low Break",
+        "categoryId": "price_action",
+        "categoryName": "Price Action",
+        "date": "2026-01-20",
+        "matched": true,
+        "direction": "bearish",
+        "reasons": [
+          "Close (89) broke below yesterday low (90)"
+        ],
+        "values": {
+          "close": 89,
+          "prev_low": 90,
+          "low_diff": 1
+        },
+        "warnings": [],
+        "source": "EODScannerPlugin_v1"
+      }
+    },
+    {
+      "caseId": "prev_day_low_break_regular_nonmatch",
+      "ruleId": "prev_day_low_break",
+      "description": "Non-match on an ordinary 20-bar series",
+      "symbol": "META005",
+      "exchange": "NSE",
+      "bars": [
+        {
+          "date": "2026-01-01",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1000
+        },
+        {
+          "date": "2026-01-02",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1100
+        },
+        {
+          "date": "2026-01-03",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1200
+        },
+        {
+          "date": "2026-01-04",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1300
+        },
+        {
+          "date": "2026-01-05",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1400
+        },
+        {
+          "date": "2026-01-06",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1500
+        },
+        {
+          "date": "2026-01-07",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1600
+        },
+        {
+          "date": "2026-01-08",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1700
+        },
+        {
+          "date": "2026-01-09",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1800
+        },
+        {
+          "date": "2026-01-10",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1900
+        },
+        {
+          "date": "2026-01-11",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2000
+        },
+        {
+          "date": "2026-01-12",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2100
+        },
+        {
+          "date": "2026-01-13",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2200
+        },
+        {
+          "date": "2026-01-14",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2300
+        },
+        {
+          "date": "2026-01-15",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2400
+        },
+        {
+          "date": "2026-01-16",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2500
+        },
+        {
+          "date": "2026-01-17",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2600
+        },
+        {
+          "date": "2026-01-18",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2700
+        },
+        {
+          "date": "2026-01-19",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2800
+        },
+        {
+          "date": "2026-01-20",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2900
+        }
+      ],
+      "expected": null
+    },
+    {
+      "caseId": "prev_day_low_break_fractional_match",
+      "ruleId": "prev_day_low_break",
+      "description": "Fractional-price formatting and numeric rounding",
+      "symbol": "META006",
+      "exchange": "BSE",
+      "bars": [
+        {
+          "date": "2026-01-01",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1000
+        },
+        {
+          "date": "2026-01-02",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1100
+        },
+        {
+          "date": "2026-01-03",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1200
+        },
+        {
+          "date": "2026-01-04",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1300
+        },
+        {
+          "date": "2026-01-05",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1400
+        },
+        {
+          "date": "2026-01-06",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1500
+        },
+        {
+          "date": "2026-01-07",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1600
+        },
+        {
+          "date": "2026-01-08",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1700
+        },
+        {
+          "date": "2026-01-09",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1800
+        },
+        {
+          "date": "2026-01-10",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1900
+        },
+        {
+          "date": "2026-01-11",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2000
+        },
+        {
+          "date": "2026-01-12",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2100
+        },
+        {
+          "date": "2026-01-13",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2200
+        },
+        {
+          "date": "2026-01-14",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2300
+        },
+        {
+          "date": "2026-01-15",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2400
+        },
+        {
+          "date": "2026-01-16",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2500
+        },
+        {
+          "date": "2026-01-17",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2600
+        },
+        {
+          "date": "2026-01-18",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2700
+        },
+        {
+          "date": "2026-01-19",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2800
+        },
+        {
+          "date": "2026-01-20",
+          "open": 92,
+          "high": 96,
+          "low": 89,
+          "close": 93.765432,
+          "volume": 2900
+        }
+      ],
+      "expected": null
+    },
+    {
+      "caseId": "inside_bar_regular_match",
+      "ruleId": "inside_bar",
+      "description": "Completed 20-bar positive match",
+      "symbol": "META007",
+      "exchange": "NSE",
+      "bars": [
+        {
+          "date": "2026-01-01",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1000
+        },
+        {
+          "date": "2026-01-02",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1100
+        },
+        {
+          "date": "2026-01-03",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1200
+        },
+        {
+          "date": "2026-01-04",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1300
+        },
+        {
+          "date": "2026-01-05",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1400
+        },
+        {
+          "date": "2026-01-06",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1500
+        },
+        {
+          "date": "2026-01-07",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1600
+        },
+        {
+          "date": "2026-01-08",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1700
+        },
+        {
+          "date": "2026-01-09",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1800
+        },
+        {
+          "date": "2026-01-10",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1900
+        },
+        {
+          "date": "2026-01-11",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2000
+        },
+        {
+          "date": "2026-01-12",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2100
+        },
+        {
+          "date": "2026-01-13",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2200
+        },
+        {
+          "date": "2026-01-14",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2300
+        },
+        {
+          "date": "2026-01-15",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2400
+        },
+        {
+          "date": "2026-01-16",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2500
+        },
+        {
+          "date": "2026-01-17",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2600
+        },
+        {
+          "date": "2026-01-18",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2700
+        },
+        {
+          "date": "2026-01-19",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2800
+        },
+        {
+          "date": "2026-01-20",
+          "open": 100,
+          "high": 109,
+          "low": 91,
+          "close": 100,
+          "volume": 2900
+        }
+      ],
+      "expected": {
+        "symbol": "META007",
+        "exchange": "NSE",
+        "scannerId": "inside_bar",
+        "scannerName": "Inside Bar",
+        "categoryId": "price_action",
+        "categoryName": "Price Action",
+        "date": "2026-01-20",
+        "matched": true,
+        "direction": "neutral",
+        "reasons": [
+          "Today range is completely inside yesterday range"
+        ],
+        "values": {
+          "high": 109,
+          "prev_high": 110,
+          "low": 91,
+          "prev_low": 90,
+          "range_ratio": 0.9
+        },
+        "warnings": [],
+        "source": "EODScannerPlugin_v1"
+      }
+    },
+    {
+      "caseId": "inside_bar_regular_nonmatch",
+      "ruleId": "inside_bar",
+      "description": "Non-match on an ordinary 20-bar series",
+      "symbol": "META008",
+      "exchange": "BSE",
+      "bars": [
+        {
+          "date": "2026-01-01",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1000
+        },
+        {
+          "date": "2026-01-02",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1100
+        },
+        {
+          "date": "2026-01-03",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1200
+        },
+        {
+          "date": "2026-01-04",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1300
+        },
+        {
+          "date": "2026-01-05",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1400
+        },
+        {
+          "date": "2026-01-06",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1500
+        },
+        {
+          "date": "2026-01-07",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1600
+        },
+        {
+          "date": "2026-01-08",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1700
+        },
+        {
+          "date": "2026-01-09",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1800
+        },
+        {
+          "date": "2026-01-10",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1900
+        },
+        {
+          "date": "2026-01-11",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2000
+        },
+        {
+          "date": "2026-01-12",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2100
+        },
+        {
+          "date": "2026-01-13",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2200
+        },
+        {
+          "date": "2026-01-14",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2300
+        },
+        {
+          "date": "2026-01-15",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2400
+        },
+        {
+          "date": "2026-01-16",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2500
+        },
+        {
+          "date": "2026-01-17",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2600
+        },
+        {
+          "date": "2026-01-18",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2700
+        },
+        {
+          "date": "2026-01-19",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2800
+        },
+        {
+          "date": "2026-01-20",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2900
+        }
+      ],
+      "expected": null
+    },
+    {
+      "caseId": "inside_bar_fractional_match",
+      "ruleId": "inside_bar",
+      "description": "Fractional-price formatting and numeric rounding",
+      "symbol": "META009",
+      "exchange": "NSE",
+      "bars": [
+        {
+          "date": "2026-01-01",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1000
+        },
+        {
+          "date": "2026-01-02",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1100
+        },
+        {
+          "date": "2026-01-03",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1200
+        },
+        {
+          "date": "2026-01-04",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1300
+        },
+        {
+          "date": "2026-01-05",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1400
+        },
+        {
+          "date": "2026-01-06",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1500
+        },
+        {
+          "date": "2026-01-07",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1600
+        },
+        {
+          "date": "2026-01-08",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1700
+        },
+        {
+          "date": "2026-01-09",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1800
+        },
+        {
+          "date": "2026-01-10",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1900
+        },
+        {
+          "date": "2026-01-11",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2000
+        },
+        {
+          "date": "2026-01-12",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2100
+        },
+        {
+          "date": "2026-01-13",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2200
+        },
+        {
+          "date": "2026-01-14",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2300
+        },
+        {
+          "date": "2026-01-15",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2400
+        },
+        {
+          "date": "2026-01-16",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2500
+        },
+        {
+          "date": "2026-01-17",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2600
+        },
+        {
+          "date": "2026-01-18",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2700
+        },
+        {
+          "date": "2026-01-19",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2800
+        },
+        {
+          "date": "2026-01-20",
+          "open": 100,
+          "high": 109.87654,
+          "low": 91.23456,
+          "close": 100.123456,
+          "volume": 2900
+        }
+      ],
+      "expected": {
+        "symbol": "META009",
+        "exchange": "NSE",
+        "scannerId": "inside_bar",
+        "scannerName": "Inside Bar",
+        "categoryId": "price_action",
+        "categoryName": "Price Action",
+        "date": "2026-01-20",
+        "matched": true,
+        "direction": "neutral",
+        "reasons": [
+          "Today range is completely inside yesterday range"
+        ],
+        "values": {
+          "high": 109.87654,
+          "prev_high": 110,
+          "low": 91.23456,
+          "prev_low": 90,
+          "range_ratio": 0.9321
+        },
+        "warnings": [],
+        "source": "EODScannerPlugin_v1"
+      }
+    },
+    {
+      "caseId": "outside_bar_regular_match",
+      "ruleId": "outside_bar",
+      "description": "Completed 20-bar positive match",
+      "symbol": "META010",
+      "exchange": "BSE",
+      "bars": [
+        {
+          "date": "2026-01-01",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1000
+        },
+        {
+          "date": "2026-01-02",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1100
+        },
+        {
+          "date": "2026-01-03",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1200
+        },
+        {
+          "date": "2026-01-04",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1300
+        },
+        {
+          "date": "2026-01-05",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1400
+        },
+        {
+          "date": "2026-01-06",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1500
+        },
+        {
+          "date": "2026-01-07",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1600
+        },
+        {
+          "date": "2026-01-08",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1700
+        },
+        {
+          "date": "2026-01-09",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1800
+        },
+        {
+          "date": "2026-01-10",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1900
+        },
+        {
+          "date": "2026-01-11",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2000
+        },
+        {
+          "date": "2026-01-12",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2100
+        },
+        {
+          "date": "2026-01-13",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2200
+        },
+        {
+          "date": "2026-01-14",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2300
+        },
+        {
+          "date": "2026-01-15",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2400
+        },
+        {
+          "date": "2026-01-16",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2500
+        },
+        {
+          "date": "2026-01-17",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2600
+        },
+        {
+          "date": "2026-01-18",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2700
+        },
+        {
+          "date": "2026-01-19",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2800
+        },
+        {
+          "date": "2026-01-20",
+          "open": 100,
+          "high": 111,
+          "low": 89,
+          "close": 100,
+          "volume": 2900
+        }
+      ],
+      "expected": {
+        "symbol": "META010",
+        "exchange": "BSE",
+        "scannerId": "outside_bar",
+        "scannerName": "Outside Bar",
+        "categoryId": "price_action",
+        "categoryName": "Price Action",
+        "date": "2026-01-20",
+        "matched": true,
+        "direction": "neutral",
+        "reasons": [
+          "Today range engulfs yesterday range"
+        ],
+        "values": {
+          "high": 111,
+          "prev_high": 110,
+          "low": 89,
+          "prev_low": 90
+        },
+        "warnings": [],
+        "source": "EODScannerPlugin_v1"
+      }
+    },
+    {
+      "caseId": "outside_bar_regular_nonmatch",
+      "ruleId": "outside_bar",
+      "description": "Non-match on an ordinary 20-bar series",
+      "symbol": "META011",
+      "exchange": "NSE",
+      "bars": [
+        {
+          "date": "2026-01-01",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1000
+        },
+        {
+          "date": "2026-01-02",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1100
+        },
+        {
+          "date": "2026-01-03",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1200
+        },
+        {
+          "date": "2026-01-04",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1300
+        },
+        {
+          "date": "2026-01-05",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1400
+        },
+        {
+          "date": "2026-01-06",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1500
+        },
+        {
+          "date": "2026-01-07",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1600
+        },
+        {
+          "date": "2026-01-08",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1700
+        },
+        {
+          "date": "2026-01-09",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1800
+        },
+        {
+          "date": "2026-01-10",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1900
+        },
+        {
+          "date": "2026-01-11",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2000
+        },
+        {
+          "date": "2026-01-12",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2100
+        },
+        {
+          "date": "2026-01-13",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2200
+        },
+        {
+          "date": "2026-01-14",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2300
+        },
+        {
+          "date": "2026-01-15",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2400
+        },
+        {
+          "date": "2026-01-16",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2500
+        },
+        {
+          "date": "2026-01-17",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2600
+        },
+        {
+          "date": "2026-01-18",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2700
+        },
+        {
+          "date": "2026-01-19",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2800
+        },
+        {
+          "date": "2026-01-20",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2900
+        }
+      ],
+      "expected": null
+    },
+    {
+      "caseId": "outside_bar_fractional_match",
+      "ruleId": "outside_bar",
+      "description": "Fractional-price formatting and numeric rounding",
+      "symbol": "META012",
+      "exchange": "BSE",
+      "bars": [
+        {
+          "date": "2026-01-01",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1000
+        },
+        {
+          "date": "2026-01-02",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1100
+        },
+        {
+          "date": "2026-01-03",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1200
+        },
+        {
+          "date": "2026-01-04",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1300
+        },
+        {
+          "date": "2026-01-05",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1400
+        },
+        {
+          "date": "2026-01-06",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1500
+        },
+        {
+          "date": "2026-01-07",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1600
+        },
+        {
+          "date": "2026-01-08",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1700
+        },
+        {
+          "date": "2026-01-09",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1800
+        },
+        {
+          "date": "2026-01-10",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1900
+        },
+        {
+          "date": "2026-01-11",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2000
+        },
+        {
+          "date": "2026-01-12",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2100
+        },
+        {
+          "date": "2026-01-13",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2200
+        },
+        {
+          "date": "2026-01-14",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2300
+        },
+        {
+          "date": "2026-01-15",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2400
+        },
+        {
+          "date": "2026-01-16",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2500
+        },
+        {
+          "date": "2026-01-17",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2600
+        },
+        {
+          "date": "2026-01-18",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2700
+        },
+        {
+          "date": "2026-01-19",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2800
+        },
+        {
+          "date": "2026-01-20",
+          "open": 100,
+          "high": 110.12345,
+          "low": 89.87654,
+          "close": 100.234567,
+          "volume": 2900
+        }
+      ],
+      "expected": {
+        "symbol": "META012",
+        "exchange": "BSE",
+        "scannerId": "outside_bar",
+        "scannerName": "Outside Bar",
+        "categoryId": "price_action",
+        "categoryName": "Price Action",
+        "date": "2026-01-20",
+        "matched": true,
+        "direction": "neutral",
+        "reasons": [
+          "Today range engulfs yesterday range"
+        ],
+        "values": {
+          "high": 110.12345,
+          "prev_high": 110,
+          "low": 89.87654,
+          "prev_low": 90
+        },
+        "warnings": [],
+        "source": "EODScannerPlugin_v1"
+      }
+    },
+    {
+      "caseId": "close_near_high_regular_match",
+      "ruleId": "close_near_high",
+      "description": "Completed 20-bar positive match",
+      "symbol": "META013",
+      "exchange": "NSE",
+      "bars": [
+        {
+          "date": "2026-01-01",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1000
+        },
+        {
+          "date": "2026-01-02",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1100
+        },
+        {
+          "date": "2026-01-03",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1200
+        },
+        {
+          "date": "2026-01-04",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1300
+        },
+        {
+          "date": "2026-01-05",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1400
+        },
+        {
+          "date": "2026-01-06",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1500
+        },
+        {
+          "date": "2026-01-07",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1600
+        },
+        {
+          "date": "2026-01-08",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1700
+        },
+        {
+          "date": "2026-01-09",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1800
+        },
+        {
+          "date": "2026-01-10",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1900
+        },
+        {
+          "date": "2026-01-11",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2000
+        },
+        {
+          "date": "2026-01-12",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2100
+        },
+        {
+          "date": "2026-01-13",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2200
+        },
+        {
+          "date": "2026-01-14",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2300
+        },
+        {
+          "date": "2026-01-15",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2400
+        },
+        {
+          "date": "2026-01-16",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2500
+        },
+        {
+          "date": "2026-01-17",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2600
+        },
+        {
+          "date": "2026-01-18",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2700
+        },
+        {
+          "date": "2026-01-19",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2800
+        },
+        {
+          "date": "2026-01-20",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 109,
+          "volume": 2900
+        }
+      ],
+      "expected": {
+        "symbol": "META013",
+        "exchange": "NSE",
+        "scannerId": "close_near_high",
+        "scannerName": "Close Near High",
+        "categoryId": "price_action",
+        "categoryName": "Price Action",
+        "date": "2026-01-20",
+        "matched": true,
+        "direction": "bullish",
+        "reasons": [
+          "Close (109) is near the session high (110)"
+        ],
+        "values": {
+          "close": 109,
+          "high": 110,
+          "low": 90,
+          "clv": 0.95
+        },
+        "warnings": [],
+        "source": "EODScannerPlugin_v1"
+      }
+    },
+    {
+      "caseId": "close_near_high_regular_nonmatch",
+      "ruleId": "close_near_high",
+      "description": "Non-match on an ordinary 20-bar series",
+      "symbol": "META014",
+      "exchange": "BSE",
+      "bars": [
+        {
+          "date": "2026-01-01",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1000
+        },
+        {
+          "date": "2026-01-02",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1100
+        },
+        {
+          "date": "2026-01-03",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1200
+        },
+        {
+          "date": "2026-01-04",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1300
+        },
+        {
+          "date": "2026-01-05",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1400
+        },
+        {
+          "date": "2026-01-06",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1500
+        },
+        {
+          "date": "2026-01-07",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1600
+        },
+        {
+          "date": "2026-01-08",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1700
+        },
+        {
+          "date": "2026-01-09",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1800
+        },
+        {
+          "date": "2026-01-10",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1900
+        },
+        {
+          "date": "2026-01-11",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2000
+        },
+        {
+          "date": "2026-01-12",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2100
+        },
+        {
+          "date": "2026-01-13",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2200
+        },
+        {
+          "date": "2026-01-14",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2300
+        },
+        {
+          "date": "2026-01-15",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2400
+        },
+        {
+          "date": "2026-01-16",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2500
+        },
+        {
+          "date": "2026-01-17",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2600
+        },
+        {
+          "date": "2026-01-18",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2700
+        },
+        {
+          "date": "2026-01-19",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2800
+        },
+        {
+          "date": "2026-01-20",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2900
+        }
+      ],
+      "expected": null
+    },
+    {
+      "caseId": "close_near_high_fractional_match",
+      "ruleId": "close_near_high",
+      "description": "Fractional-price formatting and numeric rounding",
+      "symbol": "META015",
+      "exchange": "NSE",
+      "bars": [
+        {
+          "date": "2026-01-01",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1000
+        },
+        {
+          "date": "2026-01-02",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1100
+        },
+        {
+          "date": "2026-01-03",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1200
+        },
+        {
+          "date": "2026-01-04",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1300
+        },
+        {
+          "date": "2026-01-05",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1400
+        },
+        {
+          "date": "2026-01-06",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1500
+        },
+        {
+          "date": "2026-01-07",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1600
+        },
+        {
+          "date": "2026-01-08",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1700
+        },
+        {
+          "date": "2026-01-09",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1800
+        },
+        {
+          "date": "2026-01-10",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1900
+        },
+        {
+          "date": "2026-01-11",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2000
+        },
+        {
+          "date": "2026-01-12",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2100
+        },
+        {
+          "date": "2026-01-13",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2200
+        },
+        {
+          "date": "2026-01-14",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2300
+        },
+        {
+          "date": "2026-01-15",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2400
+        },
+        {
+          "date": "2026-01-16",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2500
+        },
+        {
+          "date": "2026-01-17",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2600
+        },
+        {
+          "date": "2026-01-18",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2700
+        },
+        {
+          "date": "2026-01-19",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2800
+        },
+        {
+          "date": "2026-01-20",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 109.876543,
+          "volume": 2900
+        }
+      ],
+      "expected": {
+        "symbol": "META015",
+        "exchange": "NSE",
+        "scannerId": "close_near_high",
+        "scannerName": "Close Near High",
+        "categoryId": "price_action",
+        "categoryName": "Price Action",
+        "date": "2026-01-20",
+        "matched": true,
+        "direction": "bullish",
+        "reasons": [
+          "Close (109.876543) is near the session high (110)"
+        ],
+        "values": {
+          "close": 109.876543,
+          "high": 110,
+          "low": 90,
+          "clv": 0.9938
+        },
+        "warnings": [],
+        "source": "EODScannerPlugin_v1"
+      }
+    },
+    {
+      "caseId": "close_near_low_regular_match",
+      "ruleId": "close_near_low",
+      "description": "Completed 20-bar positive match",
+      "symbol": "META016",
+      "exchange": "BSE",
+      "bars": [
+        {
+          "date": "2026-01-01",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1000
+        },
+        {
+          "date": "2026-01-02",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1100
+        },
+        {
+          "date": "2026-01-03",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1200
+        },
+        {
+          "date": "2026-01-04",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1300
+        },
+        {
+          "date": "2026-01-05",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1400
+        },
+        {
+          "date": "2026-01-06",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1500
+        },
+        {
+          "date": "2026-01-07",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1600
+        },
+        {
+          "date": "2026-01-08",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1700
+        },
+        {
+          "date": "2026-01-09",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1800
+        },
+        {
+          "date": "2026-01-10",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1900
+        },
+        {
+          "date": "2026-01-11",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2000
+        },
+        {
+          "date": "2026-01-12",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2100
+        },
+        {
+          "date": "2026-01-13",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2200
+        },
+        {
+          "date": "2026-01-14",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2300
+        },
+        {
+          "date": "2026-01-15",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2400
+        },
+        {
+          "date": "2026-01-16",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2500
+        },
+        {
+          "date": "2026-01-17",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2600
+        },
+        {
+          "date": "2026-01-18",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2700
+        },
+        {
+          "date": "2026-01-19",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2800
+        },
+        {
+          "date": "2026-01-20",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 91,
+          "volume": 2900
+        }
+      ],
+      "expected": {
+        "symbol": "META016",
+        "exchange": "BSE",
+        "scannerId": "close_near_low",
+        "scannerName": "Close Near Low",
+        "categoryId": "price_action",
+        "categoryName": "Price Action",
+        "date": "2026-01-20",
+        "matched": true,
+        "direction": "bearish",
+        "reasons": [
+          "Close (91) is near the session low (90)"
+        ],
+        "values": {
+          "close": 91,
+          "high": 110,
+          "low": 90,
+          "clv": 0.05
+        },
+        "warnings": [],
+        "source": "EODScannerPlugin_v1"
+      }
+    },
+    {
+      "caseId": "close_near_low_regular_nonmatch",
+      "ruleId": "close_near_low",
+      "description": "Non-match on an ordinary 20-bar series",
+      "symbol": "META017",
+      "exchange": "NSE",
+      "bars": [
+        {
+          "date": "2026-01-01",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1000
+        },
+        {
+          "date": "2026-01-02",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1100
+        },
+        {
+          "date": "2026-01-03",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1200
+        },
+        {
+          "date": "2026-01-04",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1300
+        },
+        {
+          "date": "2026-01-05",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1400
+        },
+        {
+          "date": "2026-01-06",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1500
+        },
+        {
+          "date": "2026-01-07",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1600
+        },
+        {
+          "date": "2026-01-08",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1700
+        },
+        {
+          "date": "2026-01-09",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1800
+        },
+        {
+          "date": "2026-01-10",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1900
+        },
+        {
+          "date": "2026-01-11",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2000
+        },
+        {
+          "date": "2026-01-12",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2100
+        },
+        {
+          "date": "2026-01-13",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2200
+        },
+        {
+          "date": "2026-01-14",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2300
+        },
+        {
+          "date": "2026-01-15",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2400
+        },
+        {
+          "date": "2026-01-16",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2500
+        },
+        {
+          "date": "2026-01-17",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2600
+        },
+        {
+          "date": "2026-01-18",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2700
+        },
+        {
+          "date": "2026-01-19",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2800
+        },
+        {
+          "date": "2026-01-20",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2900
+        }
+      ],
+      "expected": null
+    },
+    {
+      "caseId": "close_near_low_fractional_match",
+      "ruleId": "close_near_low",
+      "description": "Fractional-price formatting and numeric rounding",
+      "symbol": "META018",
+      "exchange": "BSE",
+      "bars": [
+        {
+          "date": "2026-01-01",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1000
+        },
+        {
+          "date": "2026-01-02",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1100
+        },
+        {
+          "date": "2026-01-03",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1200
+        },
+        {
+          "date": "2026-01-04",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1300
+        },
+        {
+          "date": "2026-01-05",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1400
+        },
+        {
+          "date": "2026-01-06",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1500
+        },
+        {
+          "date": "2026-01-07",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1600
+        },
+        {
+          "date": "2026-01-08",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1700
+        },
+        {
+          "date": "2026-01-09",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1800
+        },
+        {
+          "date": "2026-01-10",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1900
+        },
+        {
+          "date": "2026-01-11",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2000
+        },
+        {
+          "date": "2026-01-12",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2100
+        },
+        {
+          "date": "2026-01-13",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2200
+        },
+        {
+          "date": "2026-01-14",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2300
+        },
+        {
+          "date": "2026-01-15",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2400
+        },
+        {
+          "date": "2026-01-16",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2500
+        },
+        {
+          "date": "2026-01-17",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2600
+        },
+        {
+          "date": "2026-01-18",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2700
+        },
+        {
+          "date": "2026-01-19",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2800
+        },
+        {
+          "date": "2026-01-20",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 90.123456,
+          "volume": 2900
+        }
+      ],
+      "expected": {
+        "symbol": "META018",
+        "exchange": "BSE",
+        "scannerId": "close_near_low",
+        "scannerName": "Close Near Low",
+        "categoryId": "price_action",
+        "categoryName": "Price Action",
+        "date": "2026-01-20",
+        "matched": true,
+        "direction": "bearish",
+        "reasons": [
+          "Close (90.123456) is near the session low (90)"
+        ],
+        "values": {
+          "close": 90.123456,
+          "high": 110,
+          "low": 90,
+          "clv": 0.0062
+        },
+        "warnings": [],
+        "source": "EODScannerPlugin_v1"
+      }
+    },
+    {
+      "caseId": "gap_up_regular_match",
+      "ruleId": "gap_up",
+      "description": "Completed 20-bar positive match",
+      "symbol": "META019",
+      "exchange": "NSE",
+      "bars": [
+        {
+          "date": "2026-01-01",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1000
+        },
+        {
+          "date": "2026-01-02",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1100
+        },
+        {
+          "date": "2026-01-03",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1200
+        },
+        {
+          "date": "2026-01-04",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1300
+        },
+        {
+          "date": "2026-01-05",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1400
+        },
+        {
+          "date": "2026-01-06",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1500
+        },
+        {
+          "date": "2026-01-07",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1600
+        },
+        {
+          "date": "2026-01-08",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1700
+        },
+        {
+          "date": "2026-01-09",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1800
+        },
+        {
+          "date": "2026-01-10",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1900
+        },
+        {
+          "date": "2026-01-11",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2000
+        },
+        {
+          "date": "2026-01-12",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2100
+        },
+        {
+          "date": "2026-01-13",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2200
+        },
+        {
+          "date": "2026-01-14",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2300
+        },
+        {
+          "date": "2026-01-15",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2400
+        },
+        {
+          "date": "2026-01-16",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2500
+        },
+        {
+          "date": "2026-01-17",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2600
+        },
+        {
+          "date": "2026-01-18",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2700
+        },
+        {
+          "date": "2026-01-19",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2800
+        },
+        {
+          "date": "2026-01-20",
+          "open": 115,
+          "high": 120,
+          "low": 111,
+          "close": 118,
+          "volume": 2900
+        }
+      ],
+      "expected": {
+        "symbol": "META019",
+        "exchange": "NSE",
+        "scannerId": "gap_up",
+        "scannerName": "Gap Up",
+        "categoryId": "price_action",
+        "categoryName": "Price Action",
+        "date": "2026-01-20",
+        "matched": true,
+        "direction": "bullish",
+        "reasons": [
+          "Today opened at 115, gapping up above yesterday high (110)"
+        ],
+        "values": {
+          "open": 115,
+          "prev_high": 110,
+          "gap_pct": 4.55
+        },
+        "warnings": [],
+        "source": "EODScannerPlugin_v1"
+      }
+    },
+    {
+      "caseId": "gap_up_regular_nonmatch",
+      "ruleId": "gap_up",
+      "description": "Non-match on an ordinary 20-bar series",
+      "symbol": "META020",
+      "exchange": "BSE",
+      "bars": [
+        {
+          "date": "2026-01-01",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1000
+        },
+        {
+          "date": "2026-01-02",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1100
+        },
+        {
+          "date": "2026-01-03",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1200
+        },
+        {
+          "date": "2026-01-04",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1300
+        },
+        {
+          "date": "2026-01-05",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1400
+        },
+        {
+          "date": "2026-01-06",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1500
+        },
+        {
+          "date": "2026-01-07",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1600
+        },
+        {
+          "date": "2026-01-08",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1700
+        },
+        {
+          "date": "2026-01-09",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1800
+        },
+        {
+          "date": "2026-01-10",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1900
+        },
+        {
+          "date": "2026-01-11",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2000
+        },
+        {
+          "date": "2026-01-12",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2100
+        },
+        {
+          "date": "2026-01-13",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2200
+        },
+        {
+          "date": "2026-01-14",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2300
+        },
+        {
+          "date": "2026-01-15",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2400
+        },
+        {
+          "date": "2026-01-16",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2500
+        },
+        {
+          "date": "2026-01-17",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2600
+        },
+        {
+          "date": "2026-01-18",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2700
+        },
+        {
+          "date": "2026-01-19",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2800
+        },
+        {
+          "date": "2026-01-20",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2900
+        }
+      ],
+      "expected": null
+    },
+    {
+      "caseId": "gap_up_fractional_match",
+      "ruleId": "gap_up",
+      "description": "Fractional-price formatting and numeric rounding",
+      "symbol": "META021",
+      "exchange": "NSE",
+      "bars": [
+        {
+          "date": "2026-01-01",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1000
+        },
+        {
+          "date": "2026-01-02",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1100
+        },
+        {
+          "date": "2026-01-03",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1200
+        },
+        {
+          "date": "2026-01-04",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1300
+        },
+        {
+          "date": "2026-01-05",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1400
+        },
+        {
+          "date": "2026-01-06",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1500
+        },
+        {
+          "date": "2026-01-07",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1600
+        },
+        {
+          "date": "2026-01-08",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1700
+        },
+        {
+          "date": "2026-01-09",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1800
+        },
+        {
+          "date": "2026-01-10",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1900
+        },
+        {
+          "date": "2026-01-11",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2000
+        },
+        {
+          "date": "2026-01-12",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2100
+        },
+        {
+          "date": "2026-01-13",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2200
+        },
+        {
+          "date": "2026-01-14",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2300
+        },
+        {
+          "date": "2026-01-15",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2400
+        },
+        {
+          "date": "2026-01-16",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2500
+        },
+        {
+          "date": "2026-01-17",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2600
+        },
+        {
+          "date": "2026-01-18",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2700
+        },
+        {
+          "date": "2026-01-19",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2800
+        },
+        {
+          "date": "2026-01-20",
+          "open": 112.34567,
+          "high": 118,
+          "low": 111,
+          "close": 115.123456,
+          "volume": 2900
+        }
+      ],
+      "expected": {
+        "symbol": "META021",
+        "exchange": "NSE",
+        "scannerId": "gap_up",
+        "scannerName": "Gap Up",
+        "categoryId": "price_action",
+        "categoryName": "Price Action",
+        "date": "2026-01-20",
+        "matched": true,
+        "direction": "bullish",
+        "reasons": [
+          "Today opened at 112.34567, gapping up above yesterday high (110)"
+        ],
+        "values": {
+          "open": 112.34567,
+          "prev_high": 110,
+          "gap_pct": 2.13
+        },
+        "warnings": [],
+        "source": "EODScannerPlugin_v1"
+      }
+    },
+    {
+      "caseId": "gap_down_regular_match",
+      "ruleId": "gap_down",
+      "description": "Completed 20-bar positive match",
+      "symbol": "META022",
+      "exchange": "BSE",
+      "bars": [
+        {
+          "date": "2026-01-01",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1000
+        },
+        {
+          "date": "2026-01-02",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1100
+        },
+        {
+          "date": "2026-01-03",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1200
+        },
+        {
+          "date": "2026-01-04",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1300
+        },
+        {
+          "date": "2026-01-05",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1400
+        },
+        {
+          "date": "2026-01-06",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1500
+        },
+        {
+          "date": "2026-01-07",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1600
+        },
+        {
+          "date": "2026-01-08",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1700
+        },
+        {
+          "date": "2026-01-09",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1800
+        },
+        {
+          "date": "2026-01-10",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1900
+        },
+        {
+          "date": "2026-01-11",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2000
+        },
+        {
+          "date": "2026-01-12",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2100
+        },
+        {
+          "date": "2026-01-13",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2200
+        },
+        {
+          "date": "2026-01-14",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2300
+        },
+        {
+          "date": "2026-01-15",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2400
+        },
+        {
+          "date": "2026-01-16",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2500
+        },
+        {
+          "date": "2026-01-17",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2600
+        },
+        {
+          "date": "2026-01-18",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2700
+        },
+        {
+          "date": "2026-01-19",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2800
+        },
+        {
+          "date": "2026-01-20",
+          "open": 85,
+          "high": 89,
+          "low": 80,
+          "close": 83,
+          "volume": 2900
+        }
+      ],
+      "expected": {
+        "symbol": "META022",
+        "exchange": "BSE",
+        "scannerId": "gap_down",
+        "scannerName": "Gap Down",
+        "categoryId": "price_action",
+        "categoryName": "Price Action",
+        "date": "2026-01-20",
+        "matched": true,
+        "direction": "bearish",
+        "reasons": [
+          "Today opened at 85, gapping down below yesterday low (90)"
+        ],
+        "values": {
+          "open": 85,
+          "prev_low": 90,
+          "gap_pct": 5.56
+        },
+        "warnings": [],
+        "source": "EODScannerPlugin_v1"
+      }
+    },
+    {
+      "caseId": "gap_down_regular_nonmatch",
+      "ruleId": "gap_down",
+      "description": "Non-match on an ordinary 20-bar series",
+      "symbol": "META023",
+      "exchange": "NSE",
+      "bars": [
+        {
+          "date": "2026-01-01",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1000
+        },
+        {
+          "date": "2026-01-02",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1100
+        },
+        {
+          "date": "2026-01-03",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1200
+        },
+        {
+          "date": "2026-01-04",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1300
+        },
+        {
+          "date": "2026-01-05",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1400
+        },
+        {
+          "date": "2026-01-06",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1500
+        },
+        {
+          "date": "2026-01-07",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1600
+        },
+        {
+          "date": "2026-01-08",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1700
+        },
+        {
+          "date": "2026-01-09",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1800
+        },
+        {
+          "date": "2026-01-10",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1900
+        },
+        {
+          "date": "2026-01-11",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2000
+        },
+        {
+          "date": "2026-01-12",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2100
+        },
+        {
+          "date": "2026-01-13",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2200
+        },
+        {
+          "date": "2026-01-14",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2300
+        },
+        {
+          "date": "2026-01-15",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2400
+        },
+        {
+          "date": "2026-01-16",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2500
+        },
+        {
+          "date": "2026-01-17",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2600
+        },
+        {
+          "date": "2026-01-18",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2700
+        },
+        {
+          "date": "2026-01-19",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2800
+        },
+        {
+          "date": "2026-01-20",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2900
+        }
+      ],
+      "expected": null
+    },
+    {
+      "caseId": "gap_down_fractional_match",
+      "ruleId": "gap_down",
+      "description": "Fractional-price formatting and numeric rounding",
+      "symbol": "META024",
+      "exchange": "BSE",
+      "bars": [
+        {
+          "date": "2026-01-01",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1000
+        },
+        {
+          "date": "2026-01-02",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1100
+        },
+        {
+          "date": "2026-01-03",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1200
+        },
+        {
+          "date": "2026-01-04",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1300
+        },
+        {
+          "date": "2026-01-05",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1400
+        },
+        {
+          "date": "2026-01-06",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1500
+        },
+        {
+          "date": "2026-01-07",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1600
+        },
+        {
+          "date": "2026-01-08",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1700
+        },
+        {
+          "date": "2026-01-09",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1800
+        },
+        {
+          "date": "2026-01-10",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1900
+        },
+        {
+          "date": "2026-01-11",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2000
+        },
+        {
+          "date": "2026-01-12",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2100
+        },
+        {
+          "date": "2026-01-13",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2200
+        },
+        {
+          "date": "2026-01-14",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2300
+        },
+        {
+          "date": "2026-01-15",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2400
+        },
+        {
+          "date": "2026-01-16",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2500
+        },
+        {
+          "date": "2026-01-17",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2600
+        },
+        {
+          "date": "2026-01-18",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2700
+        },
+        {
+          "date": "2026-01-19",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2800
+        },
+        {
+          "date": "2026-01-20",
+          "open": 88.76543,
+          "high": 89,
+          "low": 80,
+          "close": 84.321123,
+          "volume": 2900
+        }
+      ],
+      "expected": {
+        "symbol": "META024",
+        "exchange": "BSE",
+        "scannerId": "gap_down",
+        "scannerName": "Gap Down",
+        "categoryId": "price_action",
+        "categoryName": "Price Action",
+        "date": "2026-01-20",
+        "matched": true,
+        "direction": "bearish",
+        "reasons": [
+          "Today opened at 88.76543, gapping down below yesterday low (90)"
+        ],
+        "values": {
+          "open": 88.76543,
+          "prev_low": 90,
+          "gap_pct": 1.37
+        },
+        "warnings": [],
+        "source": "EODScannerPlugin_v1"
+      }
+    },
+    {
+      "caseId": "nr7_regular_match",
+      "ruleId": "nr7",
+      "description": "Completed 20-bar positive match",
+      "symbol": "META025",
+      "exchange": "NSE",
+      "bars": [
+        {
+          "date": "2026-01-01",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1000
+        },
+        {
+          "date": "2026-01-02",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1100
+        },
+        {
+          "date": "2026-01-03",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1200
+        },
+        {
+          "date": "2026-01-04",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1300
+        },
+        {
+          "date": "2026-01-05",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1400
+        },
+        {
+          "date": "2026-01-06",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1500
+        },
+        {
+          "date": "2026-01-07",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1600
+        },
+        {
+          "date": "2026-01-08",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1700
+        },
+        {
+          "date": "2026-01-09",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1800
+        },
+        {
+          "date": "2026-01-10",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1900
+        },
+        {
+          "date": "2026-01-11",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2000
+        },
+        {
+          "date": "2026-01-12",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2100
+        },
+        {
+          "date": "2026-01-13",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2200
+        },
+        {
+          "date": "2026-01-14",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2300
+        },
+        {
+          "date": "2026-01-15",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2400
+        },
+        {
+          "date": "2026-01-16",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2500
+        },
+        {
+          "date": "2026-01-17",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2600
+        },
+        {
+          "date": "2026-01-18",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2700
+        },
+        {
+          "date": "2026-01-19",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2800
+        },
+        {
+          "date": "2026-01-20",
+          "open": 100,
+          "high": 105,
+          "low": 95,
+          "close": 100,
+          "volume": 2900
+        }
+      ],
+      "expected": {
+        "symbol": "META025",
+        "exchange": "NSE",
+        "scannerId": "nr7",
+        "scannerName": "NR7 (Narrow Range 7)",
+        "categoryId": "price_action",
+        "categoryName": "Price Action",
+        "date": "2026-01-20",
+        "matched": true,
+        "direction": "neutral",
+        "reasons": [
+          "Today range (10.0000) is the narrowest in 7 days"
+        ],
+        "values": {
+          "range": 10,
+          "prev_min_range": 20
+        },
+        "warnings": [],
+        "source": "EODScannerPlugin_v1"
+      }
+    },
+    {
+      "caseId": "nr7_regular_nonmatch",
+      "ruleId": "nr7",
+      "description": "Non-match on an ordinary 20-bar series",
+      "symbol": "META026",
+      "exchange": "BSE",
+      "bars": [
+        {
+          "date": "2026-01-01",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1000
+        },
+        {
+          "date": "2026-01-02",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1100
+        },
+        {
+          "date": "2026-01-03",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1200
+        },
+        {
+          "date": "2026-01-04",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1300
+        },
+        {
+          "date": "2026-01-05",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1400
+        },
+        {
+          "date": "2026-01-06",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1500
+        },
+        {
+          "date": "2026-01-07",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1600
+        },
+        {
+          "date": "2026-01-08",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1700
+        },
+        {
+          "date": "2026-01-09",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1800
+        },
+        {
+          "date": "2026-01-10",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1900
+        },
+        {
+          "date": "2026-01-11",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2000
+        },
+        {
+          "date": "2026-01-12",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2100
+        },
+        {
+          "date": "2026-01-13",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2200
+        },
+        {
+          "date": "2026-01-14",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2300
+        },
+        {
+          "date": "2026-01-15",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2400
+        },
+        {
+          "date": "2026-01-16",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2500
+        },
+        {
+          "date": "2026-01-17",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2600
+        },
+        {
+          "date": "2026-01-18",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2700
+        },
+        {
+          "date": "2026-01-19",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2800
+        },
+        {
+          "date": "2026-01-20",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2900
+        }
+      ],
+      "expected": null
+    },
+    {
+      "caseId": "nr7_fractional_match",
+      "ruleId": "nr7",
+      "description": "Fractional-price formatting and numeric rounding",
+      "symbol": "META027",
+      "exchange": "NSE",
+      "bars": [
+        {
+          "date": "2026-01-01",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1000
+        },
+        {
+          "date": "2026-01-02",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1100
+        },
+        {
+          "date": "2026-01-03",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1200
+        },
+        {
+          "date": "2026-01-04",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1300
+        },
+        {
+          "date": "2026-01-05",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1400
+        },
+        {
+          "date": "2026-01-06",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1500
+        },
+        {
+          "date": "2026-01-07",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1600
+        },
+        {
+          "date": "2026-01-08",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1700
+        },
+        {
+          "date": "2026-01-09",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1800
+        },
+        {
+          "date": "2026-01-10",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1900
+        },
+        {
+          "date": "2026-01-11",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2000
+        },
+        {
+          "date": "2026-01-12",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2100
+        },
+        {
+          "date": "2026-01-13",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2200
+        },
+        {
+          "date": "2026-01-14",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2300
+        },
+        {
+          "date": "2026-01-15",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2400
+        },
+        {
+          "date": "2026-01-16",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2500
+        },
+        {
+          "date": "2026-01-17",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2600
+        },
+        {
+          "date": "2026-01-18",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2700
+        },
+        {
+          "date": "2026-01-19",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2800
+        },
+        {
+          "date": "2026-01-20",
+          "open": 100,
+          "high": 105.123456,
+          "low": 95.234567,
+          "close": 100,
+          "volume": 2900
+        }
+      ],
+      "expected": {
+        "symbol": "META027",
+        "exchange": "NSE",
+        "scannerId": "nr7",
+        "scannerName": "NR7 (Narrow Range 7)",
+        "categoryId": "price_action",
+        "categoryName": "Price Action",
+        "date": "2026-01-20",
+        "matched": true,
+        "direction": "neutral",
+        "reasons": [
+          "Today range (9.8889) is the narrowest in 7 days"
+        ],
+        "values": {
+          "range": 9.8889,
+          "prev_min_range": 20
+        },
+        "warnings": [],
+        "source": "EODScannerPlugin_v1"
+      }
+    },
+    {
+      "caseId": "wide_range_candle_regular_match",
+      "ruleId": "wide_range_candle",
+      "description": "Completed 20-bar positive match",
+      "symbol": "META028",
+      "exchange": "BSE",
+      "bars": [
+        {
+          "date": "2026-01-01",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1000
+        },
+        {
+          "date": "2026-01-02",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1100
+        },
+        {
+          "date": "2026-01-03",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1200
+        },
+        {
+          "date": "2026-01-04",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1300
+        },
+        {
+          "date": "2026-01-05",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1400
+        },
+        {
+          "date": "2026-01-06",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1500
+        },
+        {
+          "date": "2026-01-07",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1600
+        },
+        {
+          "date": "2026-01-08",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1700
+        },
+        {
+          "date": "2026-01-09",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1800
+        },
+        {
+          "date": "2026-01-10",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1900
+        },
+        {
+          "date": "2026-01-11",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2000
+        },
+        {
+          "date": "2026-01-12",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2100
+        },
+        {
+          "date": "2026-01-13",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2200
+        },
+        {
+          "date": "2026-01-14",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2300
+        },
+        {
+          "date": "2026-01-15",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2400
+        },
+        {
+          "date": "2026-01-16",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2500
+        },
+        {
+          "date": "2026-01-17",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2600
+        },
+        {
+          "date": "2026-01-18",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2700
+        },
+        {
+          "date": "2026-01-19",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2800
+        },
+        {
+          "date": "2026-01-20",
+          "open": 100,
+          "high": 130,
+          "low": 70,
+          "close": 100,
+          "volume": 2900
+        }
+      ],
+      "expected": {
+        "symbol": "META028",
+        "exchange": "BSE",
+        "scannerId": "wide_range_candle",
+        "scannerName": "Wide Range Candle",
+        "categoryId": "volatility",
+        "categoryName": "Volatility",
+        "date": "2026-01-20",
+        "matched": true,
+        "direction": "neutral",
+        "reasons": [
+          "Today range (60.00) is wider than the 14-day average (20.00)"
+        ],
+        "values": {
+          "range": 60,
+          "avg_range_14": 20,
+          "range_ratio": 3
+        },
+        "warnings": [],
+        "source": "EODScannerPlugin_v1"
+      }
+    },
+    {
+      "caseId": "wide_range_candle_regular_nonmatch",
+      "ruleId": "wide_range_candle",
+      "description": "Non-match on an ordinary 20-bar series",
+      "symbol": "META029",
+      "exchange": "NSE",
+      "bars": [
+        {
+          "date": "2026-01-01",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1000
+        },
+        {
+          "date": "2026-01-02",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1100
+        },
+        {
+          "date": "2026-01-03",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1200
+        },
+        {
+          "date": "2026-01-04",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1300
+        },
+        {
+          "date": "2026-01-05",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1400
+        },
+        {
+          "date": "2026-01-06",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1500
+        },
+        {
+          "date": "2026-01-07",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1600
+        },
+        {
+          "date": "2026-01-08",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1700
+        },
+        {
+          "date": "2026-01-09",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1800
+        },
+        {
+          "date": "2026-01-10",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1900
+        },
+        {
+          "date": "2026-01-11",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2000
+        },
+        {
+          "date": "2026-01-12",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2100
+        },
+        {
+          "date": "2026-01-13",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2200
+        },
+        {
+          "date": "2026-01-14",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2300
+        },
+        {
+          "date": "2026-01-15",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2400
+        },
+        {
+          "date": "2026-01-16",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2500
+        },
+        {
+          "date": "2026-01-17",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2600
+        },
+        {
+          "date": "2026-01-18",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2700
+        },
+        {
+          "date": "2026-01-19",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2800
+        },
+        {
+          "date": "2026-01-20",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2900
+        }
+      ],
+      "expected": null
+    },
+    {
+      "caseId": "wide_range_candle_fractional_match",
+      "ruleId": "wide_range_candle",
+      "description": "Fractional-price formatting and numeric rounding",
+      "symbol": "META030",
+      "exchange": "BSE",
+      "bars": [
+        {
+          "date": "2026-01-01",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1000
+        },
+        {
+          "date": "2026-01-02",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1100
+        },
+        {
+          "date": "2026-01-03",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1200
+        },
+        {
+          "date": "2026-01-04",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1300
+        },
+        {
+          "date": "2026-01-05",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1400
+        },
+        {
+          "date": "2026-01-06",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1500
+        },
+        {
+          "date": "2026-01-07",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1600
+        },
+        {
+          "date": "2026-01-08",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1700
+        },
+        {
+          "date": "2026-01-09",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1800
+        },
+        {
+          "date": "2026-01-10",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1900
+        },
+        {
+          "date": "2026-01-11",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2000
+        },
+        {
+          "date": "2026-01-12",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2100
+        },
+        {
+          "date": "2026-01-13",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2200
+        },
+        {
+          "date": "2026-01-14",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2300
+        },
+        {
+          "date": "2026-01-15",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2400
+        },
+        {
+          "date": "2026-01-16",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2500
+        },
+        {
+          "date": "2026-01-17",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2600
+        },
+        {
+          "date": "2026-01-18",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2700
+        },
+        {
+          "date": "2026-01-19",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2800
+        },
+        {
+          "date": "2026-01-20",
+          "open": 100,
+          "high": 131.234567,
+          "low": 68.901234,
+          "close": 100,
+          "volume": 2900
+        }
+      ],
+      "expected": {
+        "symbol": "META030",
+        "exchange": "BSE",
+        "scannerId": "wide_range_candle",
+        "scannerName": "Wide Range Candle",
+        "categoryId": "volatility",
+        "categoryName": "Volatility",
+        "date": "2026-01-20",
+        "matched": true,
+        "direction": "neutral",
+        "reasons": [
+          "Today range (62.33) is wider than the 14-day average (20.00)"
+        ],
+        "values": {
+          "range": 62.3333,
+          "avg_range_14": 20,
+          "range_ratio": 3.1167
+        },
+        "warnings": [],
+        "source": "EODScannerPlugin_v1"
+      }
+    },
+    {
+      "caseId": "inside_bar_short_null_ratio",
+      "ruleId": "inside_bar",
+      "description": "Matches with fewer than ten preceding bars: range_ratio null",
+      "symbol": "META031",
+      "exchange": "NSE",
+      "bars": [
+        {
+          "date": "2026-01-01",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1000
+        },
+        {
+          "date": "2026-01-02",
+          "open": 100,
+          "high": 109,
+          "low": 91,
+          "close": 100,
+          "volume": 1100
+        }
+      ],
+      "expected": {
+        "symbol": "META031",
+        "exchange": "NSE",
+        "scannerId": "inside_bar",
+        "scannerName": "Inside Bar",
+        "categoryId": "price_action",
+        "categoryName": "Price Action",
+        "date": "2026-01-02",
+        "matched": true,
+        "direction": "neutral",
+        "reasons": [
+          "Today range is completely inside yesterday range"
+        ],
+        "values": {
+          "high": 109,
+          "prev_high": 110,
+          "low": 91,
+          "prev_low": 90,
+          "range_ratio": null
+        },
+        "warnings": [],
+        "source": "EODScannerPlugin_v1"
+      }
+    },
+    {
+      "caseId": "high_break_one_bar_no_match",
+      "ruleId": "prev_day_high_break",
+      "description": "No previous completed bar",
+      "symbol": "META032",
+      "exchange": "BSE",
+      "bars": [
+        {
+          "date": "2026-01-01",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 109,
+          "volume": 1000
+        }
+      ],
+      "expected": null
+    },
+    {
+      "caseId": "nr7_six_bars_nonmatch",
+      "ruleId": "nr7",
+      "description": "NR7 minimum seven bars",
+      "symbol": "META033",
+      "exchange": "NSE",
+      "bars": [
+        {
+          "date": "2026-01-01",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1000
+        },
+        {
+          "date": "2026-01-02",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1100
+        },
+        {
+          "date": "2026-01-03",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1200
+        },
+        {
+          "date": "2026-01-04",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1300
+        },
+        {
+          "date": "2026-01-05",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1400
+        },
+        {
+          "date": "2026-01-06",
+          "open": 100,
+          "high": 105,
+          "low": 95,
+          "close": 100,
+          "volume": 1500
+        }
+      ],
+      "expected": null
+    },
+    {
+      "caseId": "wide_range_fourteen_bars_nonmatch",
+      "ruleId": "wide_range_candle",
+      "description": "Fourteen bars do not satisfy previous-14 warmup",
+      "symbol": "META034",
+      "exchange": "BSE",
+      "bars": [
+        {
+          "date": "2026-01-01",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1000
+        },
+        {
+          "date": "2026-01-02",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1100
+        },
+        {
+          "date": "2026-01-03",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1200
+        },
+        {
+          "date": "2026-01-04",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1300
+        },
+        {
+          "date": "2026-01-05",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1400
+        },
+        {
+          "date": "2026-01-06",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1500
+        },
+        {
+          "date": "2026-01-07",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1600
+        },
+        {
+          "date": "2026-01-08",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1700
+        },
+        {
+          "date": "2026-01-09",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1800
+        },
+        {
+          "date": "2026-01-10",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1900
+        },
+        {
+          "date": "2026-01-11",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2000
+        },
+        {
+          "date": "2026-01-12",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2100
+        },
+        {
+          "date": "2026-01-13",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2200
+        },
+        {
+          "date": "2026-01-14",
+          "open": 100,
+          "high": 130,
+          "low": 70,
+          "close": 100,
+          "volume": 2300
+        }
+      ],
+      "expected": null
+    },
+    {
+      "caseId": "close_near_high_zero_range",
+      "ruleId": "close_near_high",
+      "description": "Zero-range candle has no near-high signal",
+      "symbol": "META035",
+      "exchange": "NSE",
+      "bars": [
+        {
+          "date": "2026-01-01",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1000
+        },
+        {
+          "date": "2026-01-02",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1100
+        },
+        {
+          "date": "2026-01-03",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1200
+        },
+        {
+          "date": "2026-01-04",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1300
+        },
+        {
+          "date": "2026-01-05",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1400
+        },
+        {
+          "date": "2026-01-06",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1500
+        },
+        {
+          "date": "2026-01-07",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1600
+        },
+        {
+          "date": "2026-01-08",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1700
+        },
+        {
+          "date": "2026-01-09",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1800
+        },
+        {
+          "date": "2026-01-10",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1900
+        },
+        {
+          "date": "2026-01-11",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2000
+        },
+        {
+          "date": "2026-01-12",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2100
+        },
+        {
+          "date": "2026-01-13",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2200
+        },
+        {
+          "date": "2026-01-14",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2300
+        },
+        {
+          "date": "2026-01-15",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2400
+        },
+        {
+          "date": "2026-01-16",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2500
+        },
+        {
+          "date": "2026-01-17",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2600
+        },
+        {
+          "date": "2026-01-18",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2700
+        },
+        {
+          "date": "2026-01-19",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2800
+        },
+        {
+          "date": "2026-01-20",
+          "open": 100,
+          "high": 100,
+          "low": 100,
+          "close": 100,
+          "volume": 2900
+        }
+      ],
+      "expected": null
+    },
+    {
+      "caseId": "close_near_low_zero_range",
+      "ruleId": "close_near_low",
+      "description": "Zero-range candle has no near-low signal",
+      "symbol": "META036",
+      "exchange": "BSE",
+      "bars": [
+        {
+          "date": "2026-01-01",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1000
+        },
+        {
+          "date": "2026-01-02",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1100
+        },
+        {
+          "date": "2026-01-03",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1200
+        },
+        {
+          "date": "2026-01-04",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1300
+        },
+        {
+          "date": "2026-01-05",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1400
+        },
+        {
+          "date": "2026-01-06",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1500
+        },
+        {
+          "date": "2026-01-07",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1600
+        },
+        {
+          "date": "2026-01-08",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1700
+        },
+        {
+          "date": "2026-01-09",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1800
+        },
+        {
+          "date": "2026-01-10",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1900
+        },
+        {
+          "date": "2026-01-11",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2000
+        },
+        {
+          "date": "2026-01-12",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2100
+        },
+        {
+          "date": "2026-01-13",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2200
+        },
+        {
+          "date": "2026-01-14",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2300
+        },
+        {
+          "date": "2026-01-15",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2400
+        },
+        {
+          "date": "2026-01-16",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2500
+        },
+        {
+          "date": "2026-01-17",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2600
+        },
+        {
+          "date": "2026-01-18",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2700
+        },
+        {
+          "date": "2026-01-19",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2800
+        },
+        {
+          "date": "2026-01-20",
+          "open": 100,
+          "high": 100,
+          "low": 100,
+          "close": 100,
+          "volume": 2900
+        }
+      ],
+      "expected": null
+    },
+    {
+      "caseId": "gap_up_exact_boundary",
+      "ruleId": "gap_up",
+      "description": "Open equal to previous high does not gap up",
+      "symbol": "META037",
+      "exchange": "NSE",
+      "bars": [
+        {
+          "date": "2026-01-01",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1000
+        },
+        {
+          "date": "2026-01-02",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1100
+        },
+        {
+          "date": "2026-01-03",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1200
+        },
+        {
+          "date": "2026-01-04",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1300
+        },
+        {
+          "date": "2026-01-05",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1400
+        },
+        {
+          "date": "2026-01-06",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1500
+        },
+        {
+          "date": "2026-01-07",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1600
+        },
+        {
+          "date": "2026-01-08",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1700
+        },
+        {
+          "date": "2026-01-09",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1800
+        },
+        {
+          "date": "2026-01-10",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1900
+        },
+        {
+          "date": "2026-01-11",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2000
+        },
+        {
+          "date": "2026-01-12",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2100
+        },
+        {
+          "date": "2026-01-13",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2200
+        },
+        {
+          "date": "2026-01-14",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2300
+        },
+        {
+          "date": "2026-01-15",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2400
+        },
+        {
+          "date": "2026-01-16",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2500
+        },
+        {
+          "date": "2026-01-17",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2600
+        },
+        {
+          "date": "2026-01-18",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2700
+        },
+        {
+          "date": "2026-01-19",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2800
+        },
+        {
+          "date": "2026-01-20",
+          "open": 110,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2900
+        }
+      ],
+      "expected": null
+    },
+    {
+      "caseId": "gap_down_exact_boundary",
+      "ruleId": "gap_down",
+      "description": "Open equal to previous low does not gap down",
+      "symbol": "META038",
+      "exchange": "BSE",
+      "bars": [
+        {
+          "date": "2026-01-01",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1000
+        },
+        {
+          "date": "2026-01-02",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1100
+        },
+        {
+          "date": "2026-01-03",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1200
+        },
+        {
+          "date": "2026-01-04",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1300
+        },
+        {
+          "date": "2026-01-05",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1400
+        },
+        {
+          "date": "2026-01-06",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1500
+        },
+        {
+          "date": "2026-01-07",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1600
+        },
+        {
+          "date": "2026-01-08",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1700
+        },
+        {
+          "date": "2026-01-09",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1800
+        },
+        {
+          "date": "2026-01-10",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1900
+        },
+        {
+          "date": "2026-01-11",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2000
+        },
+        {
+          "date": "2026-01-12",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2100
+        },
+        {
+          "date": "2026-01-13",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2200
+        },
+        {
+          "date": "2026-01-14",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2300
+        },
+        {
+          "date": "2026-01-15",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2400
+        },
+        {
+          "date": "2026-01-16",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2500
+        },
+        {
+          "date": "2026-01-17",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2600
+        },
+        {
+          "date": "2026-01-18",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2700
+        },
+        {
+          "date": "2026-01-19",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2800
+        },
+        {
+          "date": "2026-01-20",
+          "open": 90,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2900
+        }
+      ],
+      "expected": null
+    },
+    {
+      "caseId": "close_near_high_inclusive_boundary",
+      "ruleId": "close_near_high",
+      "description": "Inclusive ten-percent upper close-location boundary",
+      "symbol": "META039",
+      "exchange": "NSE",
+      "bars": [
+        {
+          "date": "2026-01-01",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1000
+        },
+        {
+          "date": "2026-01-02",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1100
+        },
+        {
+          "date": "2026-01-03",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1200
+        },
+        {
+          "date": "2026-01-04",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1300
+        },
+        {
+          "date": "2026-01-05",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1400
+        },
+        {
+          "date": "2026-01-06",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1500
+        },
+        {
+          "date": "2026-01-07",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1600
+        },
+        {
+          "date": "2026-01-08",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1700
+        },
+        {
+          "date": "2026-01-09",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1800
+        },
+        {
+          "date": "2026-01-10",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1900
+        },
+        {
+          "date": "2026-01-11",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2000
+        },
+        {
+          "date": "2026-01-12",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2100
+        },
+        {
+          "date": "2026-01-13",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2200
+        },
+        {
+          "date": "2026-01-14",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2300
+        },
+        {
+          "date": "2026-01-15",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2400
+        },
+        {
+          "date": "2026-01-16",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2500
+        },
+        {
+          "date": "2026-01-17",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2600
+        },
+        {
+          "date": "2026-01-18",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2700
+        },
+        {
+          "date": "2026-01-19",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2800
+        },
+        {
+          "date": "2026-01-20",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 108,
+          "volume": 2900
+        }
+      ],
+      "expected": {
+        "symbol": "META039",
+        "exchange": "NSE",
+        "scannerId": "close_near_high",
+        "scannerName": "Close Near High",
+        "categoryId": "price_action",
+        "categoryName": "Price Action",
+        "date": "2026-01-20",
+        "matched": true,
+        "direction": "bullish",
+        "reasons": [
+          "Close (108) is near the session high (110)"
+        ],
+        "values": {
+          "close": 108,
+          "high": 110,
+          "low": 90,
+          "clv": 0.9
+        },
+        "warnings": [],
+        "source": "EODScannerPlugin_v1"
+      }
+    },
+    {
+      "caseId": "close_near_low_inclusive_boundary",
+      "ruleId": "close_near_low",
+      "description": "Inclusive ten-percent lower close-location boundary",
+      "symbol": "META040",
+      "exchange": "BSE",
+      "bars": [
+        {
+          "date": "2026-01-01",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1000
+        },
+        {
+          "date": "2026-01-02",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1100
+        },
+        {
+          "date": "2026-01-03",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1200
+        },
+        {
+          "date": "2026-01-04",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1300
+        },
+        {
+          "date": "2026-01-05",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1400
+        },
+        {
+          "date": "2026-01-06",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1500
+        },
+        {
+          "date": "2026-01-07",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1600
+        },
+        {
+          "date": "2026-01-08",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1700
+        },
+        {
+          "date": "2026-01-09",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1800
+        },
+        {
+          "date": "2026-01-10",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1900
+        },
+        {
+          "date": "2026-01-11",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2000
+        },
+        {
+          "date": "2026-01-12",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2100
+        },
+        {
+          "date": "2026-01-13",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2200
+        },
+        {
+          "date": "2026-01-14",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2300
+        },
+        {
+          "date": "2026-01-15",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2400
+        },
+        {
+          "date": "2026-01-16",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2500
+        },
+        {
+          "date": "2026-01-17",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2600
+        },
+        {
+          "date": "2026-01-18",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2700
+        },
+        {
+          "date": "2026-01-19",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2800
+        },
+        {
+          "date": "2026-01-20",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 92,
+          "volume": 2900
+        }
+      ],
+      "expected": {
+        "symbol": "META040",
+        "exchange": "BSE",
+        "scannerId": "close_near_low",
+        "scannerName": "Close Near Low",
+        "categoryId": "price_action",
+        "categoryName": "Price Action",
+        "date": "2026-01-20",
+        "matched": true,
+        "direction": "bearish",
+        "reasons": [
+          "Close (92) is near the session low (90)"
+        ],
+        "values": {
+          "close": 92,
+          "high": 110,
+          "low": 90,
+          "clv": 0.1
+        },
+        "warnings": [],
+        "source": "EODScannerPlugin_v1"
+      }
+    },
+    {
+      "caseId": "asof_latest_prior_match_not_current",
+      "ruleId": "prev_day_high_break",
+      "description": "Latest endpoint is not a match although prior endpoint matched",
+      "symbol": "META041",
+      "exchange": "NSE",
+      "bars": [
+        {
+          "date": "2026-01-01",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1000
+        },
+        {
+          "date": "2026-01-02",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1100
+        },
+        {
+          "date": "2026-01-03",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1200
+        },
+        {
+          "date": "2026-01-04",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1300
+        },
+        {
+          "date": "2026-01-05",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1400
+        },
+        {
+          "date": "2026-01-06",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1500
+        },
+        {
+          "date": "2026-01-07",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1600
+        },
+        {
+          "date": "2026-01-08",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1700
+        },
+        {
+          "date": "2026-01-09",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1800
+        },
+        {
+          "date": "2026-01-10",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1900
+        },
+        {
+          "date": "2026-01-11",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2000
+        },
+        {
+          "date": "2026-01-12",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2100
+        },
+        {
+          "date": "2026-01-13",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2200
+        },
+        {
+          "date": "2026-01-14",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2300
+        },
+        {
+          "date": "2026-01-15",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2400
+        },
+        {
+          "date": "2026-01-16",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2500
+        },
+        {
+          "date": "2026-01-17",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2600
+        },
+        {
+          "date": "2026-01-18",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2700
+        },
+        {
+          "date": "2026-01-19",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2800
+        },
+        {
+          "date": "2026-01-20",
+          "open": 108,
+          "high": 115,
+          "low": 105,
+          "close": 112,
+          "volume": 2900
+        },
+        {
+          "date": "2026-01-21",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2900
+        }
+      ],
+      "expected": null
+    },
+    {
+      "caseId": "wide_range_fifteen_bar_boundary",
+      "ruleId": "wide_range_candle",
+      "description": "Exactly fourteen completed preceding bars",
+      "symbol": "META042",
+      "exchange": "BSE",
+      "bars": [
+        {
+          "date": "2026-01-01",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1000
+        },
+        {
+          "date": "2026-01-02",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1100
+        },
+        {
+          "date": "2026-01-03",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1200
+        },
+        {
+          "date": "2026-01-04",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1300
+        },
+        {
+          "date": "2026-01-05",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1400
+        },
+        {
+          "date": "2026-01-06",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1500
+        },
+        {
+          "date": "2026-01-07",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1600
+        },
+        {
+          "date": "2026-01-08",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1700
+        },
+        {
+          "date": "2026-01-09",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1800
+        },
+        {
+          "date": "2026-01-10",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 1900
+        },
+        {
+          "date": "2026-01-11",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2000
+        },
+        {
+          "date": "2026-01-12",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2100
+        },
+        {
+          "date": "2026-01-13",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2200
+        },
+        {
+          "date": "2026-01-14",
+          "open": 100,
+          "high": 110,
+          "low": 90,
+          "close": 100,
+          "volume": 2300
+        },
+        {
+          "date": "2026-01-15",
+          "open": 100,
+          "high": 130,
+          "low": 70,
+          "close": 100,
+          "volume": 2400
+        }
+      ],
+      "expected": {
+        "symbol": "META042",
+        "exchange": "BSE",
+        "scannerId": "wide_range_candle",
+        "scannerName": "Wide Range Candle",
+        "categoryId": "volatility",
+        "categoryName": "Volatility",
+        "date": "2026-01-15",
+        "matched": true,
+        "direction": "neutral",
+        "reasons": [
+          "Today range (60.00) is wider than the 14-day average (20.00)"
+        ],
+        "values": {
+          "range": 60,
+          "avg_range_14": 20,
+          "range_ratio": 3
+        },
+        "warnings": [],
+        "source": "EODScannerPlugin_v1"
+      }
+    }
+  ]
+}
