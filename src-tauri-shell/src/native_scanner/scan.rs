@@ -381,7 +381,15 @@ pub fn effective_worker_count(requested: usize, target_count: usize) -> usize {
 pub fn required_bars_for_rule(rule: &RuleV1) -> usize {
     match super::patterns::minimum_bars_for_pattern_rule(rule) {
         Some(required) => required,
-        None => minimum_bars_for_expression(&rule.expression),
+        None => {
+            let minimum = minimum_bars_for_expression(&rule.expression);
+            if super::core_ohlcv::NATIVE_CORE_IDS.contains(&rule.id.as_str()) {
+                // The accepted TypeScript batch skips targets with fewer than
+                // two completed bars, even for single-bar core predicates.
+                return minimum.max(2);
+            }
+            minimum
+        }
     }
 }
 
@@ -846,6 +854,29 @@ fn scan_target<D: ScanDataSource>(
     options: ScanExecutionOptions,
     cancel: &AtomicBool,
 ) -> TargetOutcome {
+    // Core IDs have contract-owned predicates. Reject attempts to reuse their
+    // metadata for unrelated arbitrary numeric expressions, or to request
+    // per-endpoint history that the accepted TypeScript core scanner never emits.
+    if let Some(rule) = numeric_rules.iter().find(|rule| {
+        !super::core_ohlcv::is_canonical_core_rule(rule)
+            || (request.evaluation.evaluate_history
+                && super::core_ohlcv::NATIVE_CORE_IDS.contains(&rule.id.as_str()))
+    }) {
+        return TargetOutcome {
+            target: target.clone(),
+            status: TargetStatus::Error,
+            matches: Vec::new(),
+            matched_rule_ids: Vec::new(),
+            bars: 0,
+            evaluated_history_endpoints: 0,
+            message: Some(format!(
+                "{}: core rule {} requires its canonical AST and latest-only evaluation.",
+                target.key(),
+                rule.id
+            )),
+        };
+    }
+
     // The four native gap patterns need full history; existing capped numeric AST
     // history and latest-only requests retain their previous bounded semantics.
     if request.evaluation.evaluate_history
@@ -964,14 +995,16 @@ fn scan_target<D: ScanDataSource>(
             match evaluate_rule_latest(&rule.expression, &eval_bars) {
                 Ok(outcome) => {
                     if outcome.matched {
-                        matches.push(ScanMatchRecord {
+                        let mut record = ScanMatchRecord {
                             exchange: target.exchange.clone(),
                             symbol: target.symbol.clone(),
                             rule_id: rule.id.clone(),
                             date: format_date(bars[bars.len() - 1].date),
                             value: outcome.value,
                             ..ScanMatchRecord::default()
-                        });
+                        };
+                        super::core_ohlcv::decorate_match(&mut record, &bars);
+                        matches.push(record);
                         matched_rule_ids.push(rule.id.clone());
                     }
                 }
