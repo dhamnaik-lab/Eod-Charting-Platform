@@ -16,6 +16,7 @@
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import type { OHLCBar } from '@/engine/types';
+import { compileNativeCoreCandidate } from '@/features/scanner/nativeCoreRuleExpressions';
 import {
   NATIVE_SCAN_CONTRACT_VERSION,
   validateNativeScanRequestV1,
@@ -94,12 +95,32 @@ interface NumericCase {
   engineEquivalent: boolean;
 }
 
+
+/**
+ * NS-R2: accepted built-in numeric predicates. Their serialized ASTs must
+ * exactly match nativeCoreRuleExpressions.ts before Rust parity fixtures are
+ * generated. Three existing data sets exercise warmups, ties, and trend bars.
+ */
+const CORE_PREDICATE_PARITY_SOURCES: ReadonlyArray<{ id: string; source: string }> = [
+  { id: 'prev_day_high_break', source: 'close > high[1]' },
+  { id: 'prev_day_low_break', source: 'close < low[1]' },
+  { id: 'inside_bar', source: 'high < high[1] and low > low[1]' },
+  { id: 'outside_bar', source: 'high > high[1] and low < low[1]' },
+  { id: 'close_near_high', source: '(high - low) > 0 and close >= high - (high - low) * 0.1' },
+  { id: 'close_near_low', source: '(high - low) > 0 and close <= low + (high - low) * 0.1' },
+  { id: 'gap_up', source: 'open > high[1]' },
+  { id: 'gap_down', source: 'open < low[1]' },
+  { id: 'nr7', source: '(high - low) < (high[1] - low[1]) and (high - low) < (high[2] - low[2]) and (high - low) < (high[3] - low[3]) and (high - low) < (high[4] - low[4]) and (high - low) < (high[5] - low[5]) and (high - low) < (high[6] - low[6])' },
+  { id: 'wide_range_candle', source: '(high - low) > 1.5 * sma(high[1] - low[1], 14)' },
+];
+
 const numericSources: Array<{
   id: string;
   description: string;
   source: string;
   barSet: keyof typeof barSets;
   engineEquivalent?: boolean;
+  coreId?: string;
 }> = [
   {
     id: 'numeric_close_above_sma20',
@@ -197,6 +218,16 @@ const numericSources: Array<{
     barSet: 'plateau_12',
     engineEquivalent: false,
   },
+  ...CORE_PREDICATE_PARITY_SOURCES.flatMap((spec) =>
+    (['trend_40', 'trend_60', 'plateau_12'] as const).map((barSet) => ({
+      id: `core_${spec.id}_${barSet}`,
+      description: `NS-R2 ${spec.id} exact-AST parity on ${barSet}; every endpoint is checked by Rust.`,
+      source: spec.source,
+      barSet,
+      coreId: spec.id,
+      engineEquivalent: false,
+    })),
+  ),
 ];
 
 function toEngineFormula(source: string): string {
@@ -208,6 +239,12 @@ function generateNumericCases(): NumericCase[] {
     const compiled = compileNativeScannerExpression(entry.source);
     if (!compiled.ok || !compiled.expression) {
       throw new Error(`${entry.id}: compile failed: ${compiled.errors.join('; ')}`);
+    }
+    if (entry.coreId) {
+      const acceptedAst = compileNativeCoreCandidate(entry.coreId);
+      if (!acceptedAst || JSON.stringify(compiled.expression) !== JSON.stringify(acceptedAst)) {
+        throw new Error(`${entry.id}: fixture AST differs from the production core numeric predicate.`);
+      }
     }
     const bars = barSets[entry.barSet]!;
     const engineEquivalent = entry.engineEquivalent !== false;

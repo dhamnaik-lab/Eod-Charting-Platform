@@ -2001,6 +2001,2983 @@
       "expectedLatestMatched": true,
       "minimumBars": 2,
       "engineEquivalent": false
+    },
+    {
+      "id": "core_prev_day_high_break_trend_40",
+      "description": "NS-R2 prev_day_high_break exact-AST parity on trend_40; every endpoint is checked by Rust.",
+      "source": "close > high[1]",
+      "expression": {
+        "kind": "binary",
+        "op": "gt",
+        "left": {
+          "kind": "field",
+          "field": "close",
+          "lookback": 0
+        },
+        "right": {
+          "kind": "field",
+          "field": "high",
+          "lookback": 1
+        }
+      },
+      "barSet": "trend_40",
+      "expectedValues": [
+        null,
+        1,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        1,
+        1,
+        1,
+        1,
+        1,
+        0,
+        1,
+        1,
+        1,
+        1,
+        0,
+        1,
+        0,
+        1,
+        1,
+        1
+      ],
+      "expectedLatestMatched": true,
+      "minimumBars": 2,
+      "engineEquivalent": false
+    },
+    {
+      "id": "core_prev_day_high_break_trend_60",
+      "description": "NS-R2 prev_day_high_break exact-AST parity on trend_60; every endpoint is checked by Rust.",
+      "source": "close > high[1]",
+      "expression": {
+        "kind": "binary",
+        "op": "gt",
+        "left": {
+          "kind": "field",
+          "field": "close",
+          "lookback": 0
+        },
+        "right": {
+          "kind": "field",
+          "field": "high",
+          "lookback": 1
+        }
+      },
+      "barSet": "trend_60",
+      "expectedValues": [
+        null,
+        0,
+        0,
+        0,
+        0,
+        1,
+        1,
+        1,
+        1,
+        1,
+        0,
+        1,
+        0,
+        1,
+        1,
+        0,
+        0,
+        1,
+        1,
+        1,
+        1,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        1,
+        1,
+        1,
+        1,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        1,
+        1,
+        1,
+        1,
+        0,
+        0,
+        0,
+        0,
+        0,
+        1,
+        1,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0
+      ],
+      "expectedLatestMatched": false,
+      "minimumBars": 2,
+      "engineEquivalent": false
+    },
+    {
+      "id": "core_prev_day_high_break_plateau_12",
+      "description": "NS-R2 prev_day_high_break exact-AST parity on plateau_12; every endpoint is checked by Rust.",
+      "source": "close > high[1]",
+      "expression": {
+        "kind": "binary",
+        "op": "gt",
+        "left": {
+          "kind": "field",
+          "field": "close",
+          "lookback": 0
+        },
+        "right": {
+          "kind": "field",
+          "field": "high",
+          "lookback": 1
+        }
+      },
+      "barSet": "plateau_12",
+      "expectedValues": [
+        null,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0
+      ],
+      "expectedLatestMatched": false,
+      "minimumBars": 2,
+      "engineEquivalent": false
+    },
+    {
+      "id": "core_prev_day_low_break_trend_40",
+      "description": "NS-R2 prev_day_low_break exact-AST parity on trend_40; every endpoint is checked by Rust.",
+      "source": "close < low[1]",
+      "expression": {
+        "kind": "binary",
+        "op": "lt",
+        "left": {
+          "kind": "field",
+          "field": "close",
+          "lookback": 0
+        },
+        "right": {
+          "kind": "field",
+          "field": "low",
+          "lookback": 1
+        }
+      },
+      "barSet": "trend_40",
+      "expectedValues": [
+        null,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "expectedLatestMatched": false,
+      "minimumBars": 2,
+      "engineEquivalent": false
+    },
+    {
+      "id": "core_prev_day_low_break_trend_60",
+      "description": "NS-R2 prev_day_low_break exact-AST parity on trend_60; every endpoint is checked by Rust.",
+      "source": "close < low[1]",
+      "expression": {
+        "kind": "binary",
+        "op": "lt",
+        "left": {
+          "kind": "field",
+          "field": "close",
+          "lookback": 0
+        },
+        "right": {
+          "kind": "field",
+          "field": "low",
+          "lookback": 1
+        }
+      },
+      "barSet": "trend_60",
+      "expectedValues": [
+        null,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "expectedLatestMatched": false,
+      "minimumBars": 2,
+      "engineEquivalent": false
+    },
+    {
+      "id": "core_prev_day_low_break_plateau_12",
+      "description": "NS-R2 prev_day_low_break exact-AST parity on plateau_12; every endpoint is checked by Rust.",
+      "source": "close < low[1]",
+      "expression": {
+        "kind": "binary",
+        "op": "lt",
+        "left": {
+          "kind": "field",
+          "field": "close",
+          "lookback": 0
+        },
+        "right": {
+          "kind": "field",
+          "field": "low",
+          "lookback": 1
+        }
+      },
+      "barSet": "plateau_12",
+      "expectedValues": [
+        null,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0
+      ],
+      "expectedLatestMatched": false,
+      "minimumBars": 2,
+      "engineEquivalent": false
+    },
+    {
+      "id": "core_inside_bar_trend_40",
+      "description": "NS-R2 inside_bar exact-AST parity on trend_40; every endpoint is checked by Rust.",
+      "source": "high < high[1] and low > low[1]",
+      "expression": {
+        "kind": "binary",
+        "op": "and",
+        "left": {
+          "kind": "binary",
+          "op": "lt",
+          "left": {
+            "kind": "field",
+            "field": "high",
+            "lookback": 0
+          },
+          "right": {
+            "kind": "field",
+            "field": "high",
+            "lookback": 1
+          }
+        },
+        "right": {
+          "kind": "binary",
+          "op": "gt",
+          "left": {
+            "kind": "field",
+            "field": "low",
+            "lookback": 0
+          },
+          "right": {
+            "kind": "field",
+            "field": "low",
+            "lookback": 1
+          }
+        }
+      },
+      "barSet": "trend_40",
+      "expectedValues": [
+        null,
+        0,
+        0,
+        1,
+        0,
+        1,
+        1,
+        1,
+        0,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "expectedLatestMatched": false,
+      "minimumBars": 2,
+      "engineEquivalent": false
+    },
+    {
+      "id": "core_inside_bar_trend_60",
+      "description": "NS-R2 inside_bar exact-AST parity on trend_60; every endpoint is checked by Rust.",
+      "source": "high < high[1] and low > low[1]",
+      "expression": {
+        "kind": "binary",
+        "op": "and",
+        "left": {
+          "kind": "binary",
+          "op": "lt",
+          "left": {
+            "kind": "field",
+            "field": "high",
+            "lookback": 0
+          },
+          "right": {
+            "kind": "field",
+            "field": "high",
+            "lookback": 1
+          }
+        },
+        "right": {
+          "kind": "binary",
+          "op": "gt",
+          "left": {
+            "kind": "field",
+            "field": "low",
+            "lookback": 0
+          },
+          "right": {
+            "kind": "field",
+            "field": "low",
+            "lookback": 1
+          }
+        }
+      },
+      "barSet": "trend_60",
+      "expectedValues": [
+        null,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "expectedLatestMatched": false,
+      "minimumBars": 2,
+      "engineEquivalent": false
+    },
+    {
+      "id": "core_inside_bar_plateau_12",
+      "description": "NS-R2 inside_bar exact-AST parity on plateau_12; every endpoint is checked by Rust.",
+      "source": "high < high[1] and low > low[1]",
+      "expression": {
+        "kind": "binary",
+        "op": "and",
+        "left": {
+          "kind": "binary",
+          "op": "lt",
+          "left": {
+            "kind": "field",
+            "field": "high",
+            "lookback": 0
+          },
+          "right": {
+            "kind": "field",
+            "field": "high",
+            "lookback": 1
+          }
+        },
+        "right": {
+          "kind": "binary",
+          "op": "gt",
+          "left": {
+            "kind": "field",
+            "field": "low",
+            "lookback": 0
+          },
+          "right": {
+            "kind": "field",
+            "field": "low",
+            "lookback": 1
+          }
+        }
+      },
+      "barSet": "plateau_12",
+      "expectedValues": [
+        null,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "expectedLatestMatched": false,
+      "minimumBars": 2,
+      "engineEquivalent": false
+    },
+    {
+      "id": "core_outside_bar_trend_40",
+      "description": "NS-R2 outside_bar exact-AST parity on trend_40; every endpoint is checked by Rust.",
+      "source": "high > high[1] and low < low[1]",
+      "expression": {
+        "kind": "binary",
+        "op": "and",
+        "left": {
+          "kind": "binary",
+          "op": "gt",
+          "left": {
+            "kind": "field",
+            "field": "high",
+            "lookback": 0
+          },
+          "right": {
+            "kind": "field",
+            "field": "high",
+            "lookback": 1
+          }
+        },
+        "right": {
+          "kind": "binary",
+          "op": "lt",
+          "left": {
+            "kind": "field",
+            "field": "low",
+            "lookback": 0
+          },
+          "right": {
+            "kind": "field",
+            "field": "low",
+            "lookback": 1
+          }
+        }
+      },
+      "barSet": "trend_40",
+      "expectedValues": [
+        null,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        1,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0
+      ],
+      "expectedLatestMatched": false,
+      "minimumBars": 2,
+      "engineEquivalent": false
+    },
+    {
+      "id": "core_outside_bar_trend_60",
+      "description": "NS-R2 outside_bar exact-AST parity on trend_60; every endpoint is checked by Rust.",
+      "source": "high > high[1] and low < low[1]",
+      "expression": {
+        "kind": "binary",
+        "op": "and",
+        "left": {
+          "kind": "binary",
+          "op": "gt",
+          "left": {
+            "kind": "field",
+            "field": "high",
+            "lookback": 0
+          },
+          "right": {
+            "kind": "field",
+            "field": "high",
+            "lookback": 1
+          }
+        },
+        "right": {
+          "kind": "binary",
+          "op": "lt",
+          "left": {
+            "kind": "field",
+            "field": "low",
+            "lookback": 0
+          },
+          "right": {
+            "kind": "field",
+            "field": "low",
+            "lookback": 1
+          }
+        }
+      },
+      "barSet": "trend_60",
+      "expectedValues": [
+        null,
+        1,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0
+      ],
+      "expectedLatestMatched": false,
+      "minimumBars": 2,
+      "engineEquivalent": false
+    },
+    {
+      "id": "core_outside_bar_plateau_12",
+      "description": "NS-R2 outside_bar exact-AST parity on plateau_12; every endpoint is checked by Rust.",
+      "source": "high > high[1] and low < low[1]",
+      "expression": {
+        "kind": "binary",
+        "op": "and",
+        "left": {
+          "kind": "binary",
+          "op": "gt",
+          "left": {
+            "kind": "field",
+            "field": "high",
+            "lookback": 0
+          },
+          "right": {
+            "kind": "field",
+            "field": "high",
+            "lookback": 1
+          }
+        },
+        "right": {
+          "kind": "binary",
+          "op": "lt",
+          "left": {
+            "kind": "field",
+            "field": "low",
+            "lookback": 0
+          },
+          "right": {
+            "kind": "field",
+            "field": "low",
+            "lookback": 1
+          }
+        }
+      },
+      "barSet": "plateau_12",
+      "expectedValues": [
+        null,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "expectedLatestMatched": false,
+      "minimumBars": 2,
+      "engineEquivalent": false
+    },
+    {
+      "id": "core_close_near_high_trend_40",
+      "description": "NS-R2 close_near_high exact-AST parity on trend_40; every endpoint is checked by Rust.",
+      "source": "(high - low) > 0 and close >= high - (high - low) * 0.1",
+      "expression": {
+        "kind": "binary",
+        "op": "and",
+        "left": {
+          "kind": "binary",
+          "op": "gt",
+          "left": {
+            "kind": "binary",
+            "op": "sub",
+            "left": {
+              "kind": "field",
+              "field": "high",
+              "lookback": 0
+            },
+            "right": {
+              "kind": "field",
+              "field": "low",
+              "lookback": 0
+            }
+          },
+          "right": {
+            "kind": "number",
+            "value": 0
+          }
+        },
+        "right": {
+          "kind": "binary",
+          "op": "gte",
+          "left": {
+            "kind": "field",
+            "field": "close",
+            "lookback": 0
+          },
+          "right": {
+            "kind": "binary",
+            "op": "sub",
+            "left": {
+              "kind": "field",
+              "field": "high",
+              "lookback": 0
+            },
+            "right": {
+              "kind": "binary",
+              "op": "mul",
+              "left": {
+                "kind": "binary",
+                "op": "sub",
+                "left": {
+                  "kind": "field",
+                  "field": "high",
+                  "lookback": 0
+                },
+                "right": {
+                  "kind": "field",
+                  "field": "low",
+                  "lookback": 0
+                }
+              },
+              "right": {
+                "kind": "number",
+                "value": 0.1
+              }
+            }
+          }
+        }
+      },
+      "barSet": "trend_40",
+      "expectedValues": [
+        1,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0
+      ],
+      "expectedLatestMatched": false,
+      "minimumBars": 1,
+      "engineEquivalent": false
+    },
+    {
+      "id": "core_close_near_high_trend_60",
+      "description": "NS-R2 close_near_high exact-AST parity on trend_60; every endpoint is checked by Rust.",
+      "source": "(high - low) > 0 and close >= high - (high - low) * 0.1",
+      "expression": {
+        "kind": "binary",
+        "op": "and",
+        "left": {
+          "kind": "binary",
+          "op": "gt",
+          "left": {
+            "kind": "binary",
+            "op": "sub",
+            "left": {
+              "kind": "field",
+              "field": "high",
+              "lookback": 0
+            },
+            "right": {
+              "kind": "field",
+              "field": "low",
+              "lookback": 0
+            }
+          },
+          "right": {
+            "kind": "number",
+            "value": 0
+          }
+        },
+        "right": {
+          "kind": "binary",
+          "op": "gte",
+          "left": {
+            "kind": "field",
+            "field": "close",
+            "lookback": 0
+          },
+          "right": {
+            "kind": "binary",
+            "op": "sub",
+            "left": {
+              "kind": "field",
+              "field": "high",
+              "lookback": 0
+            },
+            "right": {
+              "kind": "binary",
+              "op": "mul",
+              "left": {
+                "kind": "binary",
+                "op": "sub",
+                "left": {
+                  "kind": "field",
+                  "field": "high",
+                  "lookback": 0
+                },
+                "right": {
+                  "kind": "field",
+                  "field": "low",
+                  "lookback": 0
+                }
+              },
+              "right": {
+                "kind": "number",
+                "value": 0.1
+              }
+            }
+          }
+        }
+      },
+      "barSet": "trend_60",
+      "expectedValues": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        0,
+        1,
+        1,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "expectedLatestMatched": false,
+      "minimumBars": 1,
+      "engineEquivalent": false
+    },
+    {
+      "id": "core_close_near_high_plateau_12",
+      "description": "NS-R2 close_near_high exact-AST parity on plateau_12; every endpoint is checked by Rust.",
+      "source": "(high - low) > 0 and close >= high - (high - low) * 0.1",
+      "expression": {
+        "kind": "binary",
+        "op": "and",
+        "left": {
+          "kind": "binary",
+          "op": "gt",
+          "left": {
+            "kind": "binary",
+            "op": "sub",
+            "left": {
+              "kind": "field",
+              "field": "high",
+              "lookback": 0
+            },
+            "right": {
+              "kind": "field",
+              "field": "low",
+              "lookback": 0
+            }
+          },
+          "right": {
+            "kind": "number",
+            "value": 0
+          }
+        },
+        "right": {
+          "kind": "binary",
+          "op": "gte",
+          "left": {
+            "kind": "field",
+            "field": "close",
+            "lookback": 0
+          },
+          "right": {
+            "kind": "binary",
+            "op": "sub",
+            "left": {
+              "kind": "field",
+              "field": "high",
+              "lookback": 0
+            },
+            "right": {
+              "kind": "binary",
+              "op": "mul",
+              "left": {
+                "kind": "binary",
+                "op": "sub",
+                "left": {
+                  "kind": "field",
+                  "field": "high",
+                  "lookback": 0
+                },
+                "right": {
+                  "kind": "field",
+                  "field": "low",
+                  "lookback": 0
+                }
+              },
+              "right": {
+                "kind": "number",
+                "value": 0.1
+              }
+            }
+          }
+        }
+      },
+      "barSet": "plateau_12",
+      "expectedValues": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "expectedLatestMatched": false,
+      "minimumBars": 1,
+      "engineEquivalent": false
+    },
+    {
+      "id": "core_close_near_low_trend_40",
+      "description": "NS-R2 close_near_low exact-AST parity on trend_40; every endpoint is checked by Rust.",
+      "source": "(high - low) > 0 and close <= low + (high - low) * 0.1",
+      "expression": {
+        "kind": "binary",
+        "op": "and",
+        "left": {
+          "kind": "binary",
+          "op": "gt",
+          "left": {
+            "kind": "binary",
+            "op": "sub",
+            "left": {
+              "kind": "field",
+              "field": "high",
+              "lookback": 0
+            },
+            "right": {
+              "kind": "field",
+              "field": "low",
+              "lookback": 0
+            }
+          },
+          "right": {
+            "kind": "number",
+            "value": 0
+          }
+        },
+        "right": {
+          "kind": "binary",
+          "op": "lte",
+          "left": {
+            "kind": "field",
+            "field": "close",
+            "lookback": 0
+          },
+          "right": {
+            "kind": "binary",
+            "op": "add",
+            "left": {
+              "kind": "field",
+              "field": "low",
+              "lookback": 0
+            },
+            "right": {
+              "kind": "binary",
+              "op": "mul",
+              "left": {
+                "kind": "binary",
+                "op": "sub",
+                "left": {
+                  "kind": "field",
+                  "field": "high",
+                  "lookback": 0
+                },
+                "right": {
+                  "kind": "field",
+                  "field": "low",
+                  "lookback": 0
+                }
+              },
+              "right": {
+                "kind": "number",
+                "value": 0.1
+              }
+            }
+          }
+        }
+      },
+      "barSet": "trend_40",
+      "expectedValues": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "expectedLatestMatched": false,
+      "minimumBars": 1,
+      "engineEquivalent": false
+    },
+    {
+      "id": "core_close_near_low_trend_60",
+      "description": "NS-R2 close_near_low exact-AST parity on trend_60; every endpoint is checked by Rust.",
+      "source": "(high - low) > 0 and close <= low + (high - low) * 0.1",
+      "expression": {
+        "kind": "binary",
+        "op": "and",
+        "left": {
+          "kind": "binary",
+          "op": "gt",
+          "left": {
+            "kind": "binary",
+            "op": "sub",
+            "left": {
+              "kind": "field",
+              "field": "high",
+              "lookback": 0
+            },
+            "right": {
+              "kind": "field",
+              "field": "low",
+              "lookback": 0
+            }
+          },
+          "right": {
+            "kind": "number",
+            "value": 0
+          }
+        },
+        "right": {
+          "kind": "binary",
+          "op": "lte",
+          "left": {
+            "kind": "field",
+            "field": "close",
+            "lookback": 0
+          },
+          "right": {
+            "kind": "binary",
+            "op": "add",
+            "left": {
+              "kind": "field",
+              "field": "low",
+              "lookback": 0
+            },
+            "right": {
+              "kind": "binary",
+              "op": "mul",
+              "left": {
+                "kind": "binary",
+                "op": "sub",
+                "left": {
+                  "kind": "field",
+                  "field": "high",
+                  "lookback": 0
+                },
+                "right": {
+                  "kind": "field",
+                  "field": "low",
+                  "lookback": 0
+                }
+              },
+              "right": {
+                "kind": "number",
+                "value": 0.1
+              }
+            }
+          }
+        }
+      },
+      "barSet": "trend_60",
+      "expectedValues": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "expectedLatestMatched": false,
+      "minimumBars": 1,
+      "engineEquivalent": false
+    },
+    {
+      "id": "core_close_near_low_plateau_12",
+      "description": "NS-R2 close_near_low exact-AST parity on plateau_12; every endpoint is checked by Rust.",
+      "source": "(high - low) > 0 and close <= low + (high - low) * 0.1",
+      "expression": {
+        "kind": "binary",
+        "op": "and",
+        "left": {
+          "kind": "binary",
+          "op": "gt",
+          "left": {
+            "kind": "binary",
+            "op": "sub",
+            "left": {
+              "kind": "field",
+              "field": "high",
+              "lookback": 0
+            },
+            "right": {
+              "kind": "field",
+              "field": "low",
+              "lookback": 0
+            }
+          },
+          "right": {
+            "kind": "number",
+            "value": 0
+          }
+        },
+        "right": {
+          "kind": "binary",
+          "op": "lte",
+          "left": {
+            "kind": "field",
+            "field": "close",
+            "lookback": 0
+          },
+          "right": {
+            "kind": "binary",
+            "op": "add",
+            "left": {
+              "kind": "field",
+              "field": "low",
+              "lookback": 0
+            },
+            "right": {
+              "kind": "binary",
+              "op": "mul",
+              "left": {
+                "kind": "binary",
+                "op": "sub",
+                "left": {
+                  "kind": "field",
+                  "field": "high",
+                  "lookback": 0
+                },
+                "right": {
+                  "kind": "field",
+                  "field": "low",
+                  "lookback": 0
+                }
+              },
+              "right": {
+                "kind": "number",
+                "value": 0.1
+              }
+            }
+          }
+        }
+      },
+      "barSet": "plateau_12",
+      "expectedValues": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "expectedLatestMatched": false,
+      "minimumBars": 1,
+      "engineEquivalent": false
+    },
+    {
+      "id": "core_gap_up_trend_40",
+      "description": "NS-R2 gap_up exact-AST parity on trend_40; every endpoint is checked by Rust.",
+      "source": "open > high[1]",
+      "expression": {
+        "kind": "binary",
+        "op": "gt",
+        "left": {
+          "kind": "field",
+          "field": "open",
+          "lookback": 0
+        },
+        "right": {
+          "kind": "field",
+          "field": "high",
+          "lookback": 1
+        }
+      },
+      "barSet": "trend_40",
+      "expectedValues": [
+        null,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "expectedLatestMatched": false,
+      "minimumBars": 2,
+      "engineEquivalent": false
+    },
+    {
+      "id": "core_gap_up_trend_60",
+      "description": "NS-R2 gap_up exact-AST parity on trend_60; every endpoint is checked by Rust.",
+      "source": "open > high[1]",
+      "expression": {
+        "kind": "binary",
+        "op": "gt",
+        "left": {
+          "kind": "field",
+          "field": "open",
+          "lookback": 0
+        },
+        "right": {
+          "kind": "field",
+          "field": "high",
+          "lookback": 1
+        }
+      },
+      "barSet": "trend_60",
+      "expectedValues": [
+        null,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "expectedLatestMatched": false,
+      "minimumBars": 2,
+      "engineEquivalent": false
+    },
+    {
+      "id": "core_gap_up_plateau_12",
+      "description": "NS-R2 gap_up exact-AST parity on plateau_12; every endpoint is checked by Rust.",
+      "source": "open > high[1]",
+      "expression": {
+        "kind": "binary",
+        "op": "gt",
+        "left": {
+          "kind": "field",
+          "field": "open",
+          "lookback": 0
+        },
+        "right": {
+          "kind": "field",
+          "field": "high",
+          "lookback": 1
+        }
+      },
+      "barSet": "plateau_12",
+      "expectedValues": [
+        null,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0
+      ],
+      "expectedLatestMatched": false,
+      "minimumBars": 2,
+      "engineEquivalent": false
+    },
+    {
+      "id": "core_gap_down_trend_40",
+      "description": "NS-R2 gap_down exact-AST parity on trend_40; every endpoint is checked by Rust.",
+      "source": "open < low[1]",
+      "expression": {
+        "kind": "binary",
+        "op": "lt",
+        "left": {
+          "kind": "field",
+          "field": "open",
+          "lookback": 0
+        },
+        "right": {
+          "kind": "field",
+          "field": "low",
+          "lookback": 1
+        }
+      },
+      "barSet": "trend_40",
+      "expectedValues": [
+        null,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "expectedLatestMatched": false,
+      "minimumBars": 2,
+      "engineEquivalent": false
+    },
+    {
+      "id": "core_gap_down_trend_60",
+      "description": "NS-R2 gap_down exact-AST parity on trend_60; every endpoint is checked by Rust.",
+      "source": "open < low[1]",
+      "expression": {
+        "kind": "binary",
+        "op": "lt",
+        "left": {
+          "kind": "field",
+          "field": "open",
+          "lookback": 0
+        },
+        "right": {
+          "kind": "field",
+          "field": "low",
+          "lookback": 1
+        }
+      },
+      "barSet": "trend_60",
+      "expectedValues": [
+        null,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "expectedLatestMatched": false,
+      "minimumBars": 2,
+      "engineEquivalent": false
+    },
+    {
+      "id": "core_gap_down_plateau_12",
+      "description": "NS-R2 gap_down exact-AST parity on plateau_12; every endpoint is checked by Rust.",
+      "source": "open < low[1]",
+      "expression": {
+        "kind": "binary",
+        "op": "lt",
+        "left": {
+          "kind": "field",
+          "field": "open",
+          "lookback": 0
+        },
+        "right": {
+          "kind": "field",
+          "field": "low",
+          "lookback": 1
+        }
+      },
+      "barSet": "plateau_12",
+      "expectedValues": [
+        null,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0
+      ],
+      "expectedLatestMatched": false,
+      "minimumBars": 2,
+      "engineEquivalent": false
+    },
+    {
+      "id": "core_nr7_trend_40",
+      "description": "NS-R2 nr7 exact-AST parity on trend_40; every endpoint is checked by Rust.",
+      "source": "(high - low) < (high[1] - low[1]) and (high - low) < (high[2] - low[2]) and (high - low) < (high[3] - low[3]) and (high - low) < (high[4] - low[4]) and (high - low) < (high[5] - low[5]) and (high - low) < (high[6] - low[6])",
+      "expression": {
+        "kind": "binary",
+        "op": "and",
+        "left": {
+          "kind": "binary",
+          "op": "and",
+          "left": {
+            "kind": "binary",
+            "op": "and",
+            "left": {
+              "kind": "binary",
+              "op": "and",
+              "left": {
+                "kind": "binary",
+                "op": "and",
+                "left": {
+                  "kind": "binary",
+                  "op": "lt",
+                  "left": {
+                    "kind": "binary",
+                    "op": "sub",
+                    "left": {
+                      "kind": "field",
+                      "field": "high",
+                      "lookback": 0
+                    },
+                    "right": {
+                      "kind": "field",
+                      "field": "low",
+                      "lookback": 0
+                    }
+                  },
+                  "right": {
+                    "kind": "binary",
+                    "op": "sub",
+                    "left": {
+                      "kind": "field",
+                      "field": "high",
+                      "lookback": 1
+                    },
+                    "right": {
+                      "kind": "field",
+                      "field": "low",
+                      "lookback": 1
+                    }
+                  }
+                },
+                "right": {
+                  "kind": "binary",
+                  "op": "lt",
+                  "left": {
+                    "kind": "binary",
+                    "op": "sub",
+                    "left": {
+                      "kind": "field",
+                      "field": "high",
+                      "lookback": 0
+                    },
+                    "right": {
+                      "kind": "field",
+                      "field": "low",
+                      "lookback": 0
+                    }
+                  },
+                  "right": {
+                    "kind": "binary",
+                    "op": "sub",
+                    "left": {
+                      "kind": "field",
+                      "field": "high",
+                      "lookback": 2
+                    },
+                    "right": {
+                      "kind": "field",
+                      "field": "low",
+                      "lookback": 2
+                    }
+                  }
+                }
+              },
+              "right": {
+                "kind": "binary",
+                "op": "lt",
+                "left": {
+                  "kind": "binary",
+                  "op": "sub",
+                  "left": {
+                    "kind": "field",
+                    "field": "high",
+                    "lookback": 0
+                  },
+                  "right": {
+                    "kind": "field",
+                    "field": "low",
+                    "lookback": 0
+                  }
+                },
+                "right": {
+                  "kind": "binary",
+                  "op": "sub",
+                  "left": {
+                    "kind": "field",
+                    "field": "high",
+                    "lookback": 3
+                  },
+                  "right": {
+                    "kind": "field",
+                    "field": "low",
+                    "lookback": 3
+                  }
+                }
+              }
+            },
+            "right": {
+              "kind": "binary",
+              "op": "lt",
+              "left": {
+                "kind": "binary",
+                "op": "sub",
+                "left": {
+                  "kind": "field",
+                  "field": "high",
+                  "lookback": 0
+                },
+                "right": {
+                  "kind": "field",
+                  "field": "low",
+                  "lookback": 0
+                }
+              },
+              "right": {
+                "kind": "binary",
+                "op": "sub",
+                "left": {
+                  "kind": "field",
+                  "field": "high",
+                  "lookback": 4
+                },
+                "right": {
+                  "kind": "field",
+                  "field": "low",
+                  "lookback": 4
+                }
+              }
+            }
+          },
+          "right": {
+            "kind": "binary",
+            "op": "lt",
+            "left": {
+              "kind": "binary",
+              "op": "sub",
+              "left": {
+                "kind": "field",
+                "field": "high",
+                "lookback": 0
+              },
+              "right": {
+                "kind": "field",
+                "field": "low",
+                "lookback": 0
+              }
+            },
+            "right": {
+              "kind": "binary",
+              "op": "sub",
+              "left": {
+                "kind": "field",
+                "field": "high",
+                "lookback": 5
+              },
+              "right": {
+                "kind": "field",
+                "field": "low",
+                "lookback": 5
+              }
+            }
+          }
+        },
+        "right": {
+          "kind": "binary",
+          "op": "lt",
+          "left": {
+            "kind": "binary",
+            "op": "sub",
+            "left": {
+              "kind": "field",
+              "field": "high",
+              "lookback": 0
+            },
+            "right": {
+              "kind": "field",
+              "field": "low",
+              "lookback": 0
+            }
+          },
+          "right": {
+            "kind": "binary",
+            "op": "sub",
+            "left": {
+              "kind": "field",
+              "field": "high",
+              "lookback": 6
+            },
+            "right": {
+              "kind": "field",
+              "field": "low",
+              "lookback": 6
+            }
+          }
+        }
+      },
+      "barSet": "trend_40",
+      "expectedValues": [
+        null,
+        0,
+        null,
+        null,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0
+      ],
+      "expectedLatestMatched": false,
+      "minimumBars": 7,
+      "engineEquivalent": false
+    },
+    {
+      "id": "core_nr7_trend_60",
+      "description": "NS-R2 nr7 exact-AST parity on trend_60; every endpoint is checked by Rust.",
+      "source": "(high - low) < (high[1] - low[1]) and (high - low) < (high[2] - low[2]) and (high - low) < (high[3] - low[3]) and (high - low) < (high[4] - low[4]) and (high - low) < (high[5] - low[5]) and (high - low) < (high[6] - low[6])",
+      "expression": {
+        "kind": "binary",
+        "op": "and",
+        "left": {
+          "kind": "binary",
+          "op": "and",
+          "left": {
+            "kind": "binary",
+            "op": "and",
+            "left": {
+              "kind": "binary",
+              "op": "and",
+              "left": {
+                "kind": "binary",
+                "op": "and",
+                "left": {
+                  "kind": "binary",
+                  "op": "lt",
+                  "left": {
+                    "kind": "binary",
+                    "op": "sub",
+                    "left": {
+                      "kind": "field",
+                      "field": "high",
+                      "lookback": 0
+                    },
+                    "right": {
+                      "kind": "field",
+                      "field": "low",
+                      "lookback": 0
+                    }
+                  },
+                  "right": {
+                    "kind": "binary",
+                    "op": "sub",
+                    "left": {
+                      "kind": "field",
+                      "field": "high",
+                      "lookback": 1
+                    },
+                    "right": {
+                      "kind": "field",
+                      "field": "low",
+                      "lookback": 1
+                    }
+                  }
+                },
+                "right": {
+                  "kind": "binary",
+                  "op": "lt",
+                  "left": {
+                    "kind": "binary",
+                    "op": "sub",
+                    "left": {
+                      "kind": "field",
+                      "field": "high",
+                      "lookback": 0
+                    },
+                    "right": {
+                      "kind": "field",
+                      "field": "low",
+                      "lookback": 0
+                    }
+                  },
+                  "right": {
+                    "kind": "binary",
+                    "op": "sub",
+                    "left": {
+                      "kind": "field",
+                      "field": "high",
+                      "lookback": 2
+                    },
+                    "right": {
+                      "kind": "field",
+                      "field": "low",
+                      "lookback": 2
+                    }
+                  }
+                }
+              },
+              "right": {
+                "kind": "binary",
+                "op": "lt",
+                "left": {
+                  "kind": "binary",
+                  "op": "sub",
+                  "left": {
+                    "kind": "field",
+                    "field": "high",
+                    "lookback": 0
+                  },
+                  "right": {
+                    "kind": "field",
+                    "field": "low",
+                    "lookback": 0
+                  }
+                },
+                "right": {
+                  "kind": "binary",
+                  "op": "sub",
+                  "left": {
+                    "kind": "field",
+                    "field": "high",
+                    "lookback": 3
+                  },
+                  "right": {
+                    "kind": "field",
+                    "field": "low",
+                    "lookback": 3
+                  }
+                }
+              }
+            },
+            "right": {
+              "kind": "binary",
+              "op": "lt",
+              "left": {
+                "kind": "binary",
+                "op": "sub",
+                "left": {
+                  "kind": "field",
+                  "field": "high",
+                  "lookback": 0
+                },
+                "right": {
+                  "kind": "field",
+                  "field": "low",
+                  "lookback": 0
+                }
+              },
+              "right": {
+                "kind": "binary",
+                "op": "sub",
+                "left": {
+                  "kind": "field",
+                  "field": "high",
+                  "lookback": 4
+                },
+                "right": {
+                  "kind": "field",
+                  "field": "low",
+                  "lookback": 4
+                }
+              }
+            }
+          },
+          "right": {
+            "kind": "binary",
+            "op": "lt",
+            "left": {
+              "kind": "binary",
+              "op": "sub",
+              "left": {
+                "kind": "field",
+                "field": "high",
+                "lookback": 0
+              },
+              "right": {
+                "kind": "field",
+                "field": "low",
+                "lookback": 0
+              }
+            },
+            "right": {
+              "kind": "binary",
+              "op": "sub",
+              "left": {
+                "kind": "field",
+                "field": "high",
+                "lookback": 5
+              },
+              "right": {
+                "kind": "field",
+                "field": "low",
+                "lookback": 5
+              }
+            }
+          }
+        },
+        "right": {
+          "kind": "binary",
+          "op": "lt",
+          "left": {
+            "kind": "binary",
+            "op": "sub",
+            "left": {
+              "kind": "field",
+              "field": "high",
+              "lookback": 0
+            },
+            "right": {
+              "kind": "field",
+              "field": "low",
+              "lookback": 0
+            }
+          },
+          "right": {
+            "kind": "binary",
+            "op": "sub",
+            "left": {
+              "kind": "field",
+              "field": "high",
+              "lookback": 6
+            },
+            "right": {
+              "kind": "field",
+              "field": "low",
+              "lookback": 6
+            }
+          }
+        }
+      },
+      "barSet": "trend_60",
+      "expectedValues": [
+        null,
+        0,
+        null,
+        null,
+        null,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        1,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "expectedLatestMatched": false,
+      "minimumBars": 7,
+      "engineEquivalent": false
+    },
+    {
+      "id": "core_nr7_plateau_12",
+      "description": "NS-R2 nr7 exact-AST parity on plateau_12; every endpoint is checked by Rust.",
+      "source": "(high - low) < (high[1] - low[1]) and (high - low) < (high[2] - low[2]) and (high - low) < (high[3] - low[3]) and (high - low) < (high[4] - low[4]) and (high - low) < (high[5] - low[5]) and (high - low) < (high[6] - low[6])",
+      "expression": {
+        "kind": "binary",
+        "op": "and",
+        "left": {
+          "kind": "binary",
+          "op": "and",
+          "left": {
+            "kind": "binary",
+            "op": "and",
+            "left": {
+              "kind": "binary",
+              "op": "and",
+              "left": {
+                "kind": "binary",
+                "op": "and",
+                "left": {
+                  "kind": "binary",
+                  "op": "lt",
+                  "left": {
+                    "kind": "binary",
+                    "op": "sub",
+                    "left": {
+                      "kind": "field",
+                      "field": "high",
+                      "lookback": 0
+                    },
+                    "right": {
+                      "kind": "field",
+                      "field": "low",
+                      "lookback": 0
+                    }
+                  },
+                  "right": {
+                    "kind": "binary",
+                    "op": "sub",
+                    "left": {
+                      "kind": "field",
+                      "field": "high",
+                      "lookback": 1
+                    },
+                    "right": {
+                      "kind": "field",
+                      "field": "low",
+                      "lookback": 1
+                    }
+                  }
+                },
+                "right": {
+                  "kind": "binary",
+                  "op": "lt",
+                  "left": {
+                    "kind": "binary",
+                    "op": "sub",
+                    "left": {
+                      "kind": "field",
+                      "field": "high",
+                      "lookback": 0
+                    },
+                    "right": {
+                      "kind": "field",
+                      "field": "low",
+                      "lookback": 0
+                    }
+                  },
+                  "right": {
+                    "kind": "binary",
+                    "op": "sub",
+                    "left": {
+                      "kind": "field",
+                      "field": "high",
+                      "lookback": 2
+                    },
+                    "right": {
+                      "kind": "field",
+                      "field": "low",
+                      "lookback": 2
+                    }
+                  }
+                }
+              },
+              "right": {
+                "kind": "binary",
+                "op": "lt",
+                "left": {
+                  "kind": "binary",
+                  "op": "sub",
+                  "left": {
+                    "kind": "field",
+                    "field": "high",
+                    "lookback": 0
+                  },
+                  "right": {
+                    "kind": "field",
+                    "field": "low",
+                    "lookback": 0
+                  }
+                },
+                "right": {
+                  "kind": "binary",
+                  "op": "sub",
+                  "left": {
+                    "kind": "field",
+                    "field": "high",
+                    "lookback": 3
+                  },
+                  "right": {
+                    "kind": "field",
+                    "field": "low",
+                    "lookback": 3
+                  }
+                }
+              }
+            },
+            "right": {
+              "kind": "binary",
+              "op": "lt",
+              "left": {
+                "kind": "binary",
+                "op": "sub",
+                "left": {
+                  "kind": "field",
+                  "field": "high",
+                  "lookback": 0
+                },
+                "right": {
+                  "kind": "field",
+                  "field": "low",
+                  "lookback": 0
+                }
+              },
+              "right": {
+                "kind": "binary",
+                "op": "sub",
+                "left": {
+                  "kind": "field",
+                  "field": "high",
+                  "lookback": 4
+                },
+                "right": {
+                  "kind": "field",
+                  "field": "low",
+                  "lookback": 4
+                }
+              }
+            }
+          },
+          "right": {
+            "kind": "binary",
+            "op": "lt",
+            "left": {
+              "kind": "binary",
+              "op": "sub",
+              "left": {
+                "kind": "field",
+                "field": "high",
+                "lookback": 0
+              },
+              "right": {
+                "kind": "field",
+                "field": "low",
+                "lookback": 0
+              }
+            },
+            "right": {
+              "kind": "binary",
+              "op": "sub",
+              "left": {
+                "kind": "field",
+                "field": "high",
+                "lookback": 5
+              },
+              "right": {
+                "kind": "field",
+                "field": "low",
+                "lookback": 5
+              }
+            }
+          }
+        },
+        "right": {
+          "kind": "binary",
+          "op": "lt",
+          "left": {
+            "kind": "binary",
+            "op": "sub",
+            "left": {
+              "kind": "field",
+              "field": "high",
+              "lookback": 0
+            },
+            "right": {
+              "kind": "field",
+              "field": "low",
+              "lookback": 0
+            }
+          },
+          "right": {
+            "kind": "binary",
+            "op": "sub",
+            "left": {
+              "kind": "field",
+              "field": "high",
+              "lookback": 6
+            },
+            "right": {
+              "kind": "field",
+              "field": "low",
+              "lookback": 6
+            }
+          }
+        }
+      },
+      "barSet": "plateau_12",
+      "expectedValues": [
+        null,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "expectedLatestMatched": false,
+      "minimumBars": 7,
+      "engineEquivalent": false
+    },
+    {
+      "id": "core_wide_range_candle_trend_40",
+      "description": "NS-R2 wide_range_candle exact-AST parity on trend_40; every endpoint is checked by Rust.",
+      "source": "(high - low) > 1.5 * sma(high[1] - low[1], 14)",
+      "expression": {
+        "kind": "binary",
+        "op": "gt",
+        "left": {
+          "kind": "binary",
+          "op": "sub",
+          "left": {
+            "kind": "field",
+            "field": "high",
+            "lookback": 0
+          },
+          "right": {
+            "kind": "field",
+            "field": "low",
+            "lookback": 0
+          }
+        },
+        "right": {
+          "kind": "binary",
+          "op": "mul",
+          "left": {
+            "kind": "number",
+            "value": 1.5
+          },
+          "right": {
+            "kind": "indicator",
+            "name": "sma",
+            "period": 14,
+            "input": {
+              "kind": "binary",
+              "op": "sub",
+              "left": {
+                "kind": "field",
+                "field": "high",
+                "lookback": 1
+              },
+              "right": {
+                "kind": "field",
+                "field": "low",
+                "lookback": 1
+              }
+            }
+          }
+        }
+      },
+      "barSet": "trend_40",
+      "expectedValues": [
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        1,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        1,
+        1,
+        0,
+        0,
+        0,
+        1,
+        1,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "expectedLatestMatched": false,
+      "minimumBars": 15,
+      "engineEquivalent": false
+    },
+    {
+      "id": "core_wide_range_candle_trend_60",
+      "description": "NS-R2 wide_range_candle exact-AST parity on trend_60; every endpoint is checked by Rust.",
+      "source": "(high - low) > 1.5 * sma(high[1] - low[1], 14)",
+      "expression": {
+        "kind": "binary",
+        "op": "gt",
+        "left": {
+          "kind": "binary",
+          "op": "sub",
+          "left": {
+            "kind": "field",
+            "field": "high",
+            "lookback": 0
+          },
+          "right": {
+            "kind": "field",
+            "field": "low",
+            "lookback": 0
+          }
+        },
+        "right": {
+          "kind": "binary",
+          "op": "mul",
+          "left": {
+            "kind": "number",
+            "value": 1.5
+          },
+          "right": {
+            "kind": "indicator",
+            "name": "sma",
+            "period": 14,
+            "input": {
+              "kind": "binary",
+              "op": "sub",
+              "left": {
+                "kind": "field",
+                "field": "high",
+                "lookback": 1
+              },
+              "right": {
+                "kind": "field",
+                "field": "low",
+                "lookback": 1
+              }
+            }
+          }
+        }
+      },
+      "barSet": "trend_60",
+      "expectedValues": [
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        1,
+        1,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "expectedLatestMatched": false,
+      "minimumBars": 15,
+      "engineEquivalent": false
+    },
+    {
+      "id": "core_wide_range_candle_plateau_12",
+      "description": "NS-R2 wide_range_candle exact-AST parity on plateau_12; every endpoint is checked by Rust.",
+      "source": "(high - low) > 1.5 * sma(high[1] - low[1], 14)",
+      "expression": {
+        "kind": "binary",
+        "op": "gt",
+        "left": {
+          "kind": "binary",
+          "op": "sub",
+          "left": {
+            "kind": "field",
+            "field": "high",
+            "lookback": 0
+          },
+          "right": {
+            "kind": "field",
+            "field": "low",
+            "lookback": 0
+          }
+        },
+        "right": {
+          "kind": "binary",
+          "op": "mul",
+          "left": {
+            "kind": "number",
+            "value": 1.5
+          },
+          "right": {
+            "kind": "indicator",
+            "name": "sma",
+            "period": 14,
+            "input": {
+              "kind": "binary",
+              "op": "sub",
+              "left": {
+                "kind": "field",
+                "field": "high",
+                "lookback": 1
+              },
+              "right": {
+                "kind": "field",
+                "field": "low",
+                "lookback": 1
+              }
+            }
+          }
+        }
+      },
+      "barSet": "plateau_12",
+      "expectedValues": [
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
+      ],
+      "expectedLatestMatched": false,
+      "minimumBars": 15,
+      "engineEquivalent": false
     }
   ],
   "compileCases": [
