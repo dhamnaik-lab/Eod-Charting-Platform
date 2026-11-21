@@ -56,11 +56,13 @@ After removing exactly the first local chart-fix paragraph and following blank l
 
 ## Validation performed / actual result
 
-- GitHub current-branch and merged PR status reads: PASS on pinned `main@09d329813706e3948820cc663507b197b5b07dd5`.
-- Exact two local-hand-off SHA-256 checks and Git blob suffix reconstruction: PASS (recorded above; local ZIP content only). No Windows files were written.
-- Documentation-only GitHub file updates: source-blob checked and committed on isolated branch; a new PR is still to be created and checked for exact file scope.
-- GitHub documentation diff, link existence, PowerShell `scripts/check-doc-references.ps1` and `scripts/validate-change.ps1 -Profile docs`: **PENDING**; do not claim PASS before actual output.
-- No Rustfmt, Cargo, Vitest, renderer build or portable app command was run by this documentation refresh, and no fresh source-code changes require them.
+- GitHub main head and merged PR #124/#125/#128/#129/#132/#134 status: **PASS (read-only connector)** at pinned `main@09d329813706e3948820cc663507b197b5b07dd5`; superseded PR #127 closed unmerged.
+- Verified both original local handoff SHA-256 values, removed only their first local chart note and blank separator, converted CRLF to LF, and computed their exact Git object SHA-1: **PASS** against GitHub main blobs `847b11...` and `45f0cc...`. Thus the ZIP source was not treated as current until corroborated by user command-output preservation and exact Git blob reconstruction.
+- GitHub comparison: nine documentation-only paths (eight living documents + this change record), **PASS**. No source, tests, configuration, dependencies, databases or release output changed.
+- Markdown relative-link static check against complete, non-truncated 1,288-entry GitHub baseline tree: **713 relative references checked; 708 resolve, 5 do not exist on GitHub**. Known exceptions: 2 links in preserved local handoff/chart notes to the **untracked local-only** `docs/changes/2026-11-21_1915_IST_CHART_WHEEL_ZOOM_AND_SCROLLBAR_SYNC.md`, plus 3 older historical `backups/.../backup-manifest.json` links. These paths were **not** invented or published; GitHub link resolution remains incomplete until independently handled by their owners. All newly authored scanner plan/architecture/matrix/readme reference targets resolve. This is a **limited PASS with five explicitly unresolved local-only references**, not a zero-broken-link certificate.
+- GitHub documentation PR publication and final scope verification: **PENDING**.
+- Windows PowerShell `scripts/check-doc-references.ps1` and `scripts/validate-change.ps1 -Profile docs`: **NOT RUN** (not executable against the user's inaccessible Windows root). No Windows backup creation or local worktree change was performed.
+- No Rustfmt, Cargo, Vitest, TypeScript check, renderer build or portable app command was run for the docs-only refresh; older CI results are cited only for previously merged source code.
 
 ## Risks and rollback
 
