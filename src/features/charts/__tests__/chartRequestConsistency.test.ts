@@ -340,4 +340,63 @@ describe('chart request ownership', () => {
     expect(h.read).toHaveBeenCalledWith(expect.objectContaining({ databasePath: 'db-B', forceReload: true }));
     vi.clearAllTimers();
   });
+  it('clears a disjoint restored price axis after startup hydration without changing other panes', async () => {
+    vi.useFakeTimers(); vi.stubGlobal('window', { setTimeout });
+    const h = harness();
+    const indicatorRange = { min: -50, max: 50 };
+    const restored = h.getState().chartTabs.map((tab) => tab.id === 'one'
+      ? {
+          ...tab,
+          viewport: { startIndex: 0, endIndex: 60 },
+          paneScaleOverrides: { price: { min: 72000, max: 88000 }, obv: indicatorRange },
+        }
+      : tab);
+    startup.workspace.mockResolvedValue({ chartTabs: restored, activeChartTabId: 'one' });
+    h.read.mockResolvedValue(result('NIFTY', 458));
+
+    await h.hydration.applySnapshot({ activeDatabasePath: 'db-A', watchlists: [] } as unknown as NonNullable<ChartStoreState['snapshot']>);
+    await vi.advanceTimersByTimeAsync(45);
+
+    const active = h.getState().chartTabs[0];
+    expect(active.rawBars[0].close).toBe(458);
+    expect(active.displayBars[0].close).toBe(458);
+    expect(active.paneScaleOverrides).toEqual({ obv: indicatorRange });
+    expect(active.viewport.endIndex).toBeGreaterThan(active.viewport.startIndex);
+    expect(h.getState().chartTabs[1]).toEqual(restored[1]);
+    expect(h.toast).not.toHaveBeenCalled();
+  });
+
+  it('preserves a valid manual price range overlapping restored candle prices', async () => {
+    vi.useFakeTimers(); vi.stubGlobal('window', { setTimeout });
+    const h = harness();
+    const matchingRange = { min: 450, max: 465 };
+    const restored = h.getState().chartTabs.map((tab) => tab.id === 'one'
+      ? { ...tab, paneScaleOverrides: { price: matchingRange } }
+      : tab);
+    startup.workspace.mockResolvedValue({ chartTabs: restored, activeChartTabId: 'one' });
+    h.read.mockResolvedValue(result('NIFTY', 458));
+
+    await h.hydration.applySnapshot({ activeDatabasePath: 'db-A', watchlists: [] } as unknown as NonNullable<ChartStoreState['snapshot']>);
+    await vi.advanceTimersByTimeAsync(45);
+
+    expect(h.getState().chartTabs[0].rawBars[0].close).toBe(458);
+    expect(h.getState().chartTabs[0].paneScaleOverrides.price).toEqual(matchingRange);
+  });
+
+  it('does not reset saved manual price axes during an ordinary same-symbol hydration', async () => {
+    const h = harness();
+    const manualRange = { min: 72000, max: 88000 };
+    h.setState({
+      chartTabs: h.getState().chartTabs.map((tab) => tab.id === 'one'
+        ? { ...tab, paneScaleOverrides: { price: manualRange } }
+        : tab),
+    });
+    h.read.mockResolvedValue(result('NIFTY', 458));
+
+    await h.hydration.hydrateChartTabData('one');
+
+    expect(h.getState().chartTabs[0].rawBars[0].close).toBe(458);
+    expect(h.getState().chartTabs[0].paneScaleOverrides.price).toEqual(manualRange);
+  });
+
 });

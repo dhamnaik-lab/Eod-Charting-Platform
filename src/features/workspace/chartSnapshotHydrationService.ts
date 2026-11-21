@@ -62,10 +62,37 @@ interface HydrateChartTabDataOptions {
   includeDividendAdjustments?: boolean;
   includeRightsAdjustments?: boolean;
   forceReload?: boolean;
+  validateRestoredPriceScale?: boolean;
 }
 
 function getActiveChartTab(chartTabs: ChartTabState[], activeChartTabId: string): ChartTabState | null {
   return chartTabs.find((tab) => tab.id === activeChartTabId) ?? chartTabs[0] ?? null;
+}
+
+/**
+ * A saved manual price range is valid at startup only if at least one visible
+ * candle intersects it. A completely disjoint range would hide every candle.
+ * Run this after the restored bars/viewport are ready, never on normal reloads.
+ */
+function clearDisjointRestoredPriceScale(tab: ChartTabState): ChartTabState {
+  const savedRange = tab.paneScaleOverrides.price;
+  if (!savedRange || tab.displayBars.length === 0) return tab;
+
+  const start = Math.max(0, Math.floor(tab.viewport.startIndex));
+  const end = Math.min(tab.displayBars.length, Math.ceil(tab.viewport.endIndex));
+  let hasValidVisibleBar = false;
+
+  for (let index = start; index < end; index += 1) {
+    const bar = tab.displayBars[index];
+    if (!Number.isFinite(bar.low) || !Number.isFinite(bar.high)) continue;
+    hasValidVisibleBar = true;
+    if (bar.low <= savedRange.max && bar.high >= savedRange.min) return tab;
+  }
+
+  if (!hasValidVisibleBar) return tab;
+
+  const { price: _staleRange, ...otherPaneOverrides } = tab.paneScaleOverrides;
+  return { ...tab, paneScaleOverrides: otherPaneOverrides };
 }
 
 export function createChartSnapshotHydrationController(
@@ -140,19 +167,21 @@ export function createChartSnapshotHydrationController(
 
       deps.setState((nextState) => !canApply(nextState) ? {} : ({
         isLoadingBars: nextState.activeChartTabId === tabId ? false : nextState.isLoadingBars,
-        chartTabs: nextState.chartTabs.map((candidate) =>
-          candidate.id === tabId
-            ? applyEodResultToTab(
-                {
-                  ...candidate,
-                  compareOverlays: hydratedCompareOverlays,
-                },
-                targetInstrument,
-                result,
-                candidate.viewport.endIndex > candidate.viewport.startIndex,
-              )
-            : candidate,
-        ),
+        chartTabs: nextState.chartTabs.map((candidate) => {
+          if (candidate.id !== tabId) return candidate;
+          const hydrated = applyEodResultToTab(
+            {
+              ...candidate,
+              compareOverlays: hydratedCompareOverlays,
+            },
+            targetInstrument,
+            result,
+            candidate.viewport.endIndex > candidate.viewport.startIndex,
+          );
+          return options?.validateRestoredPriceScale
+            ? clearDisjointRestoredPriceScale(hydrated)
+            : hydrated;
+        }),
       }));
     } catch (error) {
       if (!canApply(deps.getState())) return;
@@ -279,6 +308,7 @@ export function createChartSnapshotHydrationController(
               includeDividendAdjustments: startupDividendAdjustments,
               includeRightsAdjustments: startupRightsAdjustments,
               forceReload: true,
+              validateRestoredPriceScale: true,
             });
           }, 40);
         }
