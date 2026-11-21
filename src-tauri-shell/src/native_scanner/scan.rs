@@ -1382,7 +1382,9 @@ mod tests {
             required_bars_for_rule(&gap_pattern),
             super::super::patterns::minimum_bars_for_pattern_rule(&gap_pattern).unwrap()
         );
-        assert!(evaluation_window(&request(vec![core], false), ScanExecutionOptions::default()) >= 2);
+        assert!(
+            evaluation_window(&request(vec![core], false), ScanExecutionOptions::default()) >= 2
+        );
     }
 
     #[test]
@@ -1394,10 +1396,7 @@ mod tests {
         let mut bars = HashMap::new();
         bars.insert("NSE:ZERO".to_string(), Vec::new());
         bars.insert("NSE:ONE".to_string(), vec![today.clone()]);
-        bars.insert(
-            "NSE:TWO".to_string(),
-            vec![bar(20260101, 100.0), today],
-        );
+        bars.insert("NSE:TWO".to_string(), vec![bar(20260101, 100.0), today]);
         let source = FixtureSource::new(bars);
         let rule = issue131_close_near_high_rule();
 
