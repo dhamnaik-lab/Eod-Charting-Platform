@@ -331,7 +331,7 @@ const compileCases: CompileCase[] = [
   {
     id: 'compile_unsupported_pattern_rejected',
     description: 'Unsupported chart patterns never silently disappear.',
-    source: "pattern('chart_head_shoulders')",
+    source: "pattern('chart_unknown_pattern')",
     allowPattern: true,
     expect: 'error',
     errorIncludes: 'Unsupported pattern',

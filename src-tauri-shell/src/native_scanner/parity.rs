@@ -452,7 +452,7 @@ impl super::scan::ScanDataSource for InlineScanSource {
     fn load_bars(
         &self,
         target: &super::scan::ScanTarget,
-        _as_of_date: Option<&str>,
+        as_of_date: Option<&str>,
         window: usize,
         _price_basis: PriceBasisV1,
         _include_dividend_adjustments: bool,
@@ -461,11 +461,15 @@ impl super::scan::ScanDataSource for InlineScanSource {
         if let Some(error) = self.errors_by_key.get(&target.key()) {
             return Err(error.clone());
         }
-        let bars = self
+        let mut bars = self
             .bars_by_key
             .get(&target.key())
             .cloned()
             .unwrap_or_default();
+        if let Some(as_of) = as_of_date {
+            let limit = super::reader::parse_scan_date(as_of)?;
+            bars.retain(|bar| bar.date <= limit);
+        }
         let start = bars.len().saturating_sub(window);
         Ok(bars[start..].to_vec())
     }
@@ -711,4 +715,780 @@ fn nsr2_daily_market_batch_handles_mixed_rules_errors_cancellation_and_worker_co
     assert!(cancelled.cancelled);
     assert!(cancelled.matches.is_empty());
     assert_eq!(cancelled.counts.matched, 0);
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct ChartPattern50FixtureBundle {
+    contract_version: String,
+    fixed_generated_at: String,
+    total_pattern_count: usize,
+    migrated_pattern_count: usize,
+    manifest: Vec<ChartPattern50ManifestEntry>,
+    scenarios: Vec<ChartPattern50Scenario>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct ChartPattern50ManifestEntry {
+    pattern_id: String,
+    scanner_name: String,
+    category_id: String,
+    family: String,
+    min_bars: usize,
+    status: String,
+    positive_case_id: String,
+    negative_case_id: String,
+    boundary_case_id: String,
+    geometry_verified: bool,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct ChartPattern50Scenario {
+    id: String,
+    pattern_id: String,
+    category: String,
+    description: String,
+    request: ChartPattern50Request,
+    response: ChartPattern50Response,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct ChartPattern50Request {
+    contract_version: String,
+    request_id: String,
+    target: ChartPattern50Target,
+    bars: Vec<FixtureBar>,
+    scanner_ids: Vec<String>,
+    lookback_bars: Option<usize>,
+    evaluate_history: bool,
+    execution_mode: String,
+    generated_at: String,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct ChartPattern50Target {
+    exchange: String,
+    symbol: String,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct ChartPattern50Response {
+    contract_version: String,
+    request_id: String,
+    target: ChartPattern50Target,
+    latest_results: Vec<ChartPattern50ExpectedResult>,
+    historical_results: Vec<ChartPattern50ExpectedResult>,
+    results: Vec<ChartPattern50ExpectedResult>,
+    scanned_bars: usize,
+    cancelled: bool,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct ChartPattern50ExpectedResult {
+    symbol: String,
+    exchange: String,
+    scanner_id: String,
+    scanner_name: String,
+    category_id: String,
+    category_name: String,
+    date: String,
+    matched: bool,
+    direction: Option<String>,
+    score: Option<f64>,
+    reasons: Vec<String>,
+    values: BTreeMap<String, Value>,
+    chart_pattern: Option<ChartPattern50ExpectedDetails>,
+    warnings: Vec<Value>,
+    source: String,
+    generated_at: String,
+    history: Option<ChartPattern50ExpectedHistory>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct ChartPattern50ExpectedDetails {
+    family: String,
+    confidence: f64,
+    pattern_start_date: Option<String>,
+    pattern_end_date: String,
+    breakout_level: Option<f64>,
+    support_level: Option<f64>,
+    resistance_level: Option<f64>,
+    neckline_level: Option<f64>,
+    target_price: Option<f64>,
+    stop_loss_price: Option<f64>,
+    potential_gain_pct: Option<f64>,
+    risk_reward_ratio: Option<f64>,
+    pivots: Option<Vec<ChartPattern50ExpectedPivot>>,
+    geometry: Option<Value>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct ChartPattern50ExpectedPivot {
+    index: usize,
+    date: String,
+    price: f64,
+    kind: String,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct ChartPattern50ExpectedHistory {
+    first_matched_date: String,
+    last_matched_date: String,
+    match_count: u64,
+}
+
+fn load_nsr3_chart_pattern_fixture_bundle() -> ChartPattern50FixtureBundle {
+    serde_json::from_str(include_str!(
+        "../../../src/features/scanner/fixtures/nativeChartPatterns50ParityFixtures.v1.json"
+    ))
+    .expect("shared NS-R3 chart pattern parity fixture must parse")
+}
+
+fn assert_f64_semantic_eq(context: &str, actual: f64, expected: f64) {
+    assert!(
+        actual.is_finite() && expected.is_finite(),
+        "{context}: non-finite float comparison actual={actual} expected={expected}"
+    );
+    let diff = (actual - expected).abs();
+    assert!(
+        diff <= 1e-10,
+        "{context}: float mismatch actual={actual} expected={expected} diff={diff}"
+    );
+}
+
+fn assert_opt_f64_semantic_eq(context: &str, actual: Option<f64>, expected: Option<f64>) {
+    match (actual, expected) {
+        (Some(a), Some(e)) => assert_f64_semantic_eq(context, a, e),
+        (None, None) => {}
+        (a, e) => panic!("{context}: optional float mismatch actual={a:?} expected={e:?}"),
+    }
+}
+
+fn assert_json_semantically_eq(context: &str, actual: &Value, expected: &Value) {
+    match (actual, expected) {
+        (Value::Null, Value::Null) => {}
+        (Value::Bool(a), Value::Bool(e)) => {
+            assert_eq!(a, e, "{context}: bool mismatch");
+        }
+        (Value::Number(a), Value::Number(e)) => {
+            let af = a
+                .as_f64()
+                .unwrap_or_else(|| panic!("{context}: non-f64 actual number {a}"));
+            let ef = e
+                .as_f64()
+                .unwrap_or_else(|| panic!("{context}: non-f64 expected number {e}"));
+            assert_f64_semantic_eq(context, af, ef);
+        }
+        (Value::String(a), Value::String(e)) => {
+            assert_eq!(a, e, "{context}: string mismatch");
+        }
+        (Value::Array(a), Value::Array(e)) => {
+            assert_eq!(
+                a.len(),
+                e.len(),
+                "{context}: array length mismatch actual={} expected={} ({a:?} vs {e:?})",
+                a.len(),
+                e.len()
+            );
+            for (idx, (av, ev)) in a.iter().zip(e.iter()).enumerate() {
+                assert_json_semantically_eq(&format!("{context}[{idx}]"), av, ev);
+            }
+        }
+        (Value::Object(a), Value::Object(e)) => {
+            let mut a_keys: Vec<&String> = a.keys().collect();
+            let mut e_keys: Vec<&String> = e.keys().collect();
+            a_keys.sort();
+            e_keys.sort();
+            assert_eq!(
+                a_keys, e_keys,
+                "{context}: object keys mismatch actual={a_keys:?} expected={e_keys:?}"
+            );
+            for key in e_keys {
+                let next_ctx = format!("{context}.{key}");
+                assert_json_semantically_eq(&next_ctx, &a[key], &e[key]);
+            }
+        }
+        (a, e) => panic!("{context}: JSON variant mismatch actual={a:?} expected={e:?}"),
+    }
+}
+
+fn assert_pattern_record_matches_expected(
+    case_id: &str,
+    actual: &super::scan::ScanMatchRecord,
+    expected: &ChartPattern50ExpectedResult,
+) {
+    use crate::scanner_contract::ScannerScalarValueV1;
+
+    assert!(expected.matched, "{case_id}: expected.matched must be true");
+    assert_eq!(actual.symbol, expected.symbol, "{case_id}.symbol");
+    assert_eq!(actual.exchange, expected.exchange, "{case_id}.exchange");
+    assert_eq!(actual.rule_id, expected.scanner_id, "{case_id}.rule_id");
+    assert_eq!(
+        actual.scanner_name.as_deref(),
+        Some(expected.scanner_name.as_str()),
+        "{case_id}.scanner_name"
+    );
+    assert_eq!(
+        actual.category_id.as_deref(),
+        Some(expected.category_id.as_str()),
+        "{case_id}.category_id"
+    );
+    assert_eq!(
+        actual.category_name.as_deref(),
+        Some(expected.category_name.as_str()),
+        "{case_id}.category_name"
+    );
+    assert_eq!(actual.date, expected.date, "{case_id}.date");
+    assert_eq!(
+        actual.direction.as_deref(),
+        expected.direction.as_deref(),
+        "{case_id}.direction"
+    );
+    assert_opt_f64_semantic_eq(&format!("{case_id}.score"), actual.score, expected.score);
+    assert_eq!(
+        actual.reasons.as_deref(),
+        Some(expected.reasons.as_slice()),
+        "{case_id}.reasons"
+    );
+    assert_eq!(
+        actual.source.as_deref(),
+        Some(expected.source.as_str()),
+        "{case_id}.source"
+    );
+    assert!(expected.warnings.is_empty(), "{case_id}.warnings");
+
+    let actual_values = actual
+        .values
+        .as_ref()
+        .unwrap_or_else(|| panic!("{case_id}: missing scalar values"));
+    let actual_val_keys: Vec<&String> = actual_values.keys().collect();
+    let expected_val_keys: Vec<&String> = expected.values.keys().collect();
+    assert_eq!(
+        actual_val_keys, expected_val_keys,
+        "{case_id}.values keys mismatch"
+    );
+    for (key, expected_val) in &expected.values {
+        let actual_val = &actual_values[key];
+        let val_ctx = format!("{case_id}.values.{key}");
+        match (actual_val, expected_val) {
+            (ScannerScalarValueV1::Null, Value::Null) => {}
+            (ScannerScalarValueV1::Bool(a), Value::Bool(e)) => {
+                assert_eq!(a, e, "{val_ctx}");
+            }
+            (ScannerScalarValueV1::Text(a), Value::String(e)) => {
+                assert_eq!(a, e, "{val_ctx}");
+            }
+            (ScannerScalarValueV1::Integer(a), e) => {
+                let ef = e
+                    .as_f64()
+                    .unwrap_or_else(|| panic!("{val_ctx}: expected number, got {e:?}"));
+                assert_f64_semantic_eq(&val_ctx, *a as f64, ef);
+            }
+            (ScannerScalarValueV1::Float(a), e) => {
+                let ef = e
+                    .as_f64()
+                    .unwrap_or_else(|| panic!("{val_ctx}: expected number, got {e:?}"));
+                assert_f64_semantic_eq(&val_ctx, *a, ef);
+            }
+            (a, e) => panic!("{val_ctx}: scalar value mismatch actual={a:?} expected={e:?}"),
+        }
+    }
+
+    let expected_details = expected
+        .chart_pattern
+        .as_ref()
+        .unwrap_or_else(|| panic!("{case_id}: expected chartPattern details"));
+    let actual_details = actual
+        .pattern
+        .as_ref()
+        .unwrap_or_else(|| panic!("{case_id}: actual chartPattern details missing"));
+
+    assert_eq!(
+        actual_details.family, expected_details.family,
+        "{case_id}.chartPattern.family"
+    );
+    assert_f64_semantic_eq(
+        &format!("{case_id}.chartPattern.confidence"),
+        actual_details.confidence,
+        expected_details.confidence,
+    );
+    assert_eq!(
+        actual_details.pattern_start_date, expected_details.pattern_start_date,
+        "{case_id}.chartPattern.patternStartDate"
+    );
+    assert_eq!(
+        actual_details.pattern_end_date, expected_details.pattern_end_date,
+        "{case_id}.chartPattern.patternEndDate"
+    );
+    assert_opt_f64_semantic_eq(
+        &format!("{case_id}.chartPattern.breakoutLevel"),
+        actual_details.breakout_level,
+        expected_details.breakout_level,
+    );
+    assert_opt_f64_semantic_eq(
+        &format!("{case_id}.chartPattern.supportLevel"),
+        actual_details.support_level,
+        expected_details.support_level,
+    );
+    assert_opt_f64_semantic_eq(
+        &format!("{case_id}.chartPattern.resistanceLevel"),
+        actual_details.resistance_level,
+        expected_details.resistance_level,
+    );
+    assert_opt_f64_semantic_eq(
+        &format!("{case_id}.chartPattern.necklineLevel"),
+        actual_details.neckline_level,
+        expected_details.neckline_level,
+    );
+    assert_opt_f64_semantic_eq(
+        &format!("{case_id}.chartPattern.targetPrice"),
+        actual_details.target_price,
+        expected_details.target_price,
+    );
+    assert_opt_f64_semantic_eq(
+        &format!("{case_id}.chartPattern.stopLossPrice"),
+        actual_details.stop_loss_price,
+        expected_details.stop_loss_price,
+    );
+    assert_opt_f64_semantic_eq(
+        &format!("{case_id}.chartPattern.potentialGainPct"),
+        actual_details.potential_gain_pct,
+        expected_details.potential_gain_pct,
+    );
+    assert_opt_f64_semantic_eq(
+        &format!("{case_id}.chartPattern.riskRewardRatio"),
+        actual_details.risk_reward_ratio,
+        expected_details.risk_reward_ratio,
+    );
+
+    match (&actual_details.pivots, &expected_details.pivots) {
+        (Some(ap), Some(ep)) => {
+            assert_eq!(
+                ap.len(),
+                ep.len(),
+                "{case_id}.chartPattern.pivots length mismatch"
+            );
+            for (idx, (a, e)) in ap.iter().zip(ep.iter()).enumerate() {
+                assert_eq!(a.index, e.index, "{case_id}.pivots[{idx}].index");
+                assert_eq!(a.date, e.date, "{case_id}.pivots[{idx}].date");
+                assert_eq!(a.kind, e.kind, "{case_id}.pivots[{idx}].kind");
+                assert_f64_semantic_eq(&format!("{case_id}.pivots[{idx}].price"), a.price, e.price);
+            }
+        }
+        (None, None) => {}
+        (a, e) => panic!("{case_id}.chartPattern.pivots mismatch: actual={a:?} expected={e:?}"),
+    }
+
+    match (&actual_details.geometry, &expected_details.geometry) {
+        (Some(actual_geom), Some(expected_geom)) => {
+            assert_json_semantically_eq(
+                &format!("{case_id}.chartPattern.geometry"),
+                &actual_geom.json,
+                expected_geom,
+            );
+        }
+        (None, None) => {}
+        (a, e) => {
+            panic!("{case_id}.chartPattern.geometry presence mismatch: actual={a:?} expected={e:?}")
+        }
+    }
+
+    match (&actual.history, &expected.history) {
+        (Some(ah), Some(eh)) => {
+            assert_eq!(
+                ah.first_matched_date, eh.first_matched_date,
+                "{case_id}.history.firstMatchedDate"
+            );
+            assert_eq!(
+                ah.last_matched_date, eh.last_matched_date,
+                "{case_id}.history.lastMatchedDate"
+            );
+            assert_eq!(
+                ah.match_count, eh.match_count,
+                "{case_id}.history.matchCount"
+            );
+        }
+        (None, None) => {}
+        (a, e) => panic!("{case_id}.history mismatch: actual={a:?} expected={e:?}"),
+    }
+}
+
+#[test]
+fn nsr3_chart_patterns_50_manifest_and_fixtures_are_complete() {
+    let fixture = load_nsr3_chart_pattern_fixture_bundle();
+    assert_eq!(
+        fixture.contract_version,
+        crate::scanner_contract::RUST_SCANNER_CONTRACT_VERSION
+    );
+    assert_eq!(fixture.total_pattern_count, 54);
+    assert_eq!(fixture.migrated_pattern_count, 50);
+    assert_eq!(fixture.manifest.len(), 54);
+    assert_eq!(super::ast::SUPPORTED_PATTERN_IDS.len(), 54);
+    assert_eq!(super::patterns::NATIVE_PATTERN_IDS.len(), 54);
+
+    let scenario_ids: std::collections::BTreeSet<&str> =
+        fixture.scenarios.iter().map(|s| s.id.as_str()).collect();
+    let mut existing_count = 0usize;
+    let mut migrated_count = 0usize;
+    for (idx, entry) in fixture.manifest.iter().enumerate() {
+        assert_eq!(entry.pattern_id, super::ast::SUPPORTED_PATTERN_IDS[idx]);
+        assert_eq!(entry.pattern_id, super::patterns::NATIVE_PATTERN_IDS[idx]);
+        assert!(!entry.scanner_name.is_empty(), "{}", entry.pattern_id);
+        assert!(!entry.category_id.is_empty(), "{}", entry.pattern_id);
+        assert!(!entry.family.is_empty(), "{}", entry.pattern_id);
+        assert!(entry.geometry_verified, "{}", entry.pattern_id);
+        assert_eq!(
+            super::patterns::minimum_bars_for_pattern_rule(&super::ast::RuleV1 {
+                id: entry.pattern_id.clone(),
+                expression: ExprV1::Pattern {
+                    id: entry.pattern_id.clone(),
+                },
+            }),
+            Some(entry.min_bars),
+            "{}: min_bars mismatch",
+            entry.pattern_id
+        );
+        match entry.status.as_str() {
+            "existing_native_gap" => existing_count += 1,
+            "migrated_nsr3" => {
+                migrated_count += 1;
+                assert!(
+                    scenario_ids.contains(entry.positive_case_id.as_str()),
+                    "missing positive scenario {}",
+                    entry.positive_case_id
+                );
+                assert!(
+                    scenario_ids.contains(entry.negative_case_id.as_str()),
+                    "missing negative scenario {}",
+                    entry.negative_case_id
+                );
+                assert!(
+                    scenario_ids.contains(entry.boundary_case_id.as_str()),
+                    "missing boundary scenario {}",
+                    entry.boundary_case_id
+                );
+            }
+            other => panic!("{}: unexpected manifest status {other}", entry.pattern_id),
+        }
+    }
+    assert_eq!(existing_count, 4);
+    assert_eq!(migrated_count, 50);
+    assert_eq!(fixture.scenarios.len(), 156);
+}
+
+#[test]
+fn nsr3_all_156_chart_pattern_scenarios_match_typescript_parity_including_geometry_and_history() {
+    use super::scan::{execute_scan, ScanExecutionOptions, ScanTarget, TargetStatus};
+    use std::sync::atomic::AtomicBool;
+
+    let fixture = load_nsr3_chart_pattern_fixture_bundle();
+    assert!(!fixture.fixed_generated_at.is_empty());
+
+    let mut positive_checked = 0usize;
+    let mut negative_checked = 0usize;
+    let mut boundary_checked = 0usize;
+    let mut extra_checked = 0usize;
+    let mut historical_checked = 0usize;
+
+    for scenario in &fixture.scenarios {
+        assert!(!scenario.description.is_empty(), "{}", scenario.id);
+        assert_eq!(
+            scenario.request.contract_version,
+            crate::scanner_contract::RUST_SCANNER_CONTRACT_VERSION,
+            "{}",
+            scenario.id
+        );
+        assert_eq!(
+            scenario.response.contract_version,
+            crate::scanner_contract::RUST_SCANNER_CONTRACT_VERSION,
+            "{}",
+            scenario.id
+        );
+        assert_eq!(
+            scenario.request.request_id, scenario.response.request_id,
+            "{}",
+            scenario.id
+        );
+        assert_eq!(scenario.request.execution_mode, "fast", "{}", scenario.id);
+        assert!(!scenario.response.cancelled, "{}", scenario.id);
+        assert_eq!(
+            scenario.request.scanner_ids,
+            vec![scenario.pattern_id.clone()],
+            "{}",
+            scenario.id
+        );
+        assert_eq!(
+            scenario.response.scanned_bars,
+            scenario.request.bars.len(),
+            "{}",
+            scenario.id
+        );
+
+        let payload = serde_json::json!({
+            "schemaVersion": 1,
+            "requestedRunId": scenario.request.request_id,
+            "universe": {
+                "source": "explicitTargets",
+                "targets": [{
+                    "exchange": scenario.request.target.exchange,
+                    "symbol": scenario.request.target.symbol
+                }]
+            },
+            "evaluation": {
+                "evaluateHistory": scenario.request.evaluate_history,
+                "lookbackBars": scenario.request.lookback_bars,
+                "priceBasis": "raw"
+            },
+            "rules": [{
+                "id": scenario.pattern_id,
+                "expression": { "kind": "pattern", "id": scenario.pattern_id }
+            }]
+        });
+        let request = parse_native_scan_request_v1(&payload)
+            .unwrap_or_else(|issues| panic!("{} invalid native AST: {issues:?}", scenario.id));
+        let target = ScanTarget {
+            exchange: scenario.request.target.exchange.clone(),
+            symbol: scenario.request.target.symbol.clone(),
+        };
+        assert_eq!(target.exchange, scenario.response.target.exchange);
+        assert_eq!(target.symbol, scenario.response.target.symbol);
+
+        let native_bars = to_native_bars(&scenario.request.bars);
+        let mut bars_by_key = BTreeMap::new();
+        bars_by_key.insert(target.key(), native_bars.clone());
+        let source = InlineScanSource {
+            identity: "nsr3-chart-pattern-parity#1".to_string(),
+            bars_by_key,
+            errors_by_key: BTreeMap::new(),
+        };
+        let report = execute_scan(
+            &source,
+            &request,
+            std::slice::from_ref(&target),
+            &AtomicBool::new(false),
+            ScanExecutionOptions::default(),
+            |_| {},
+        );
+        assert!(!report.cancelled, "{}", scenario.id);
+        assert_eq!(report.outcomes.len(), 1, "{}", scenario.id);
+        let outcome = &report.outcomes[0];
+
+        match scenario.category.as_str() {
+            "boundary" => {
+                boundary_checked += 1;
+                assert!(
+                    scenario.response.results.is_empty(),
+                    "{}: boundary TS scenario unexpectedly matched",
+                    scenario.id
+                );
+                assert_eq!(
+                    outcome.status,
+                    TargetStatus::Skipped,
+                    "{}: boundary scenario below minBars must skip (message={:?})",
+                    scenario.id,
+                    outcome.message
+                );
+                assert_eq!(report.counts.skipped, 1, "{}", scenario.id);
+                assert!(report.matches.is_empty(), "{}", scenario.id);
+            }
+            "negative" => {
+                negative_checked += 1;
+                assert!(
+                    scenario.response.results.is_empty(),
+                    "{}: negative TS scenario unexpectedly matched",
+                    scenario.id
+                );
+                assert_eq!(
+                    outcome.status,
+                    TargetStatus::NoMatch,
+                    "{}: negative scenario must report NoMatch (matches={:?})",
+                    scenario.id,
+                    report.matches
+                );
+                assert_eq!(report.counts.no_match, 1, "{}", scenario.id);
+                assert!(report.matches.is_empty(), "{}", scenario.id);
+            }
+            "positive" | "extra" => {
+                if scenario.category == "positive" {
+                    positive_checked += 1;
+                } else {
+                    extra_checked += 1;
+                }
+                assert!(
+                    !scenario.request.evaluate_history,
+                    "{}: latest scenario must not enable history",
+                    scenario.id
+                );
+                assert!(
+                    !scenario.response.latest_results.is_empty(),
+                    "{}: positive/extra scenario must produce >= 1 TS result",
+                    scenario.id
+                );
+                assert_eq!(
+                    outcome.status,
+                    TargetStatus::Match,
+                    "{}: positive/extra scenario failed to match in Rust (outcome={outcome:?})",
+                    scenario.id
+                );
+                assert_eq!(
+                    report.matches.len(),
+                    scenario.response.latest_results.len(),
+                    "{}: match count mismatch",
+                    scenario.id
+                );
+                for (idx, (actual, expected)) in report
+                    .matches
+                    .iter()
+                    .zip(scenario.response.latest_results.iter())
+                    .enumerate()
+                {
+                    assert_pattern_record_matches_expected(
+                        &format!("{}[{idx}]", scenario.id),
+                        actual,
+                        expected,
+                    );
+                }
+                let direct_slice = &native_bars[native_bars
+                    .len()
+                    .saturating_sub(super::patterns::PATTERN_MAX_WINDOW_BARS)..];
+                let direct_eval = super::patterns::evaluate_pattern_rule(
+                    &request.rules[0],
+                    &target.exchange,
+                    &target.symbol,
+                    direct_slice,
+                    &scenario.request.generated_at,
+                );
+                match direct_eval {
+                    super::patterns::PatternEvaluation::Evaluated(Some(direct_result)) => {
+                        assert_eq!(
+                            direct_result.generated_at, scenario.request.generated_at,
+                            "{}.direct.generated_at",
+                            scenario.id
+                        );
+                        let direct_record = super::patterns::pattern_match_record(
+                            &target.exchange,
+                            &target.symbol,
+                            &scenario.pattern_id,
+                            direct_result,
+                        );
+                        assert_pattern_record_matches_expected(
+                            &format!("{}.direct", scenario.id),
+                            &direct_record,
+                            &scenario.response.latest_results[0],
+                        );
+                    }
+                    super::patterns::PatternEvaluation::Evaluated(None) => {
+                        panic!(
+                            "{}: direct evaluate_pattern_rule returned None",
+                            scenario.id
+                        )
+                    }
+                    super::patterns::PatternEvaluation::Unsupported => {
+                        panic!(
+                            "{}: direct evaluate_pattern_rule returned Unsupported",
+                            scenario.id
+                        )
+                    }
+                }
+            }
+            "historical" => {
+                historical_checked += 1;
+                assert!(
+                    scenario.request.evaluate_history,
+                    "{}: historical scenario must set evaluateHistory=true",
+                    scenario.id
+                );
+                assert!(
+                    !scenario.response.historical_results.is_empty(),
+                    "{}: historical scenario must produce grouped TS matches",
+                    scenario.id
+                );
+                assert_eq!(outcome.status, TargetStatus::Match, "{}", scenario.id);
+                assert_eq!(
+                    report.matches.len(),
+                    scenario.response.historical_results.len(),
+                    "{}: grouped historical count mismatch actual={:?} expected_dates={:?}",
+                    scenario.id,
+                    report
+                        .matches
+                        .iter()
+                        .map(|m| (&m.date, &m.history))
+                        .collect::<Vec<_>>(),
+                    scenario
+                        .response
+                        .historical_results
+                        .iter()
+                        .map(|r| (&r.date, &r.history))
+                        .collect::<Vec<_>>()
+                );
+                let mut expected_sorted: Vec<&ChartPattern50ExpectedResult> =
+                    scenario.response.historical_results.iter().collect();
+                expected_sorted.sort_by(|left, right| {
+                    right
+                        .date
+                        .cmp(&left.date)
+                        .then_with(|| left.exchange.cmp(&right.exchange))
+                        .then_with(|| left.symbol.cmp(&right.symbol))
+                        .then_with(|| left.scanner_id.cmp(&right.scanner_id))
+                });
+                assert!(
+                    report
+                        .matches
+                        .windows(2)
+                        .all(|pair| pair[0].date >= pair[1].date),
+                    "{}: historical matches must be sorted date-descending",
+                    scenario.id
+                );
+                for (idx, (actual, expected)) in report
+                    .matches
+                    .iter()
+                    .zip(expected_sorted.iter())
+                    .enumerate()
+                {
+                    assert_pattern_record_matches_expected(
+                        &format!("{}[{idx}]", scenario.id),
+                        actual,
+                        expected,
+                    );
+                }
+
+                // Exercise bounded multi-page sliding history (>260-bar MAX_PATTERN_WINDOW_BARS)
+                if scenario.request.bars.len() > super::patterns::PATTERN_MAX_WINDOW_BARS {
+                    let paged = execute_scan(
+                        &source,
+                        &request,
+                        std::slice::from_ref(&target),
+                        &AtomicBool::new(false),
+                        ScanExecutionOptions {
+                            max_window_bars: super::patterns::PATTERN_MAX_WINDOW_BARS + 5,
+                            ..ScanExecutionOptions::default()
+                        },
+                        |_| {},
+                    );
+                    assert_eq!(
+                        paged.matches, report.matches,
+                        "{}: multi-page reverse historical scan must match single-page scan",
+                        scenario.id
+                    );
+                    assert_eq!(paged.counts, report.counts, "{}", scenario.id);
+                }
+            }
+            other => panic!("{}: unknown fixture category {other}", scenario.id),
+        }
+    }
+
+    assert_eq!(positive_checked, 50);
+    assert_eq!(negative_checked, 50);
+    assert_eq!(boundary_checked, 50);
+    assert_eq!(extra_checked, 2);
+    assert_eq!(historical_checked, 4);
 }

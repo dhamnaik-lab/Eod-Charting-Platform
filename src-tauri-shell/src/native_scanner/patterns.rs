@@ -36,13 +36,8 @@ pub const PATTERN_HISTORY_ENDPOINT_START: usize = 20;
 /// (`MAX_PATTERN_WINDOW_BARS` / `MAX_HISTORY_WINDOW_BARS`).
 pub const PATTERN_MAX_WINDOW_BARS: usize = 260;
 
-/// Every pattern id the native backend can execute.
-pub const NATIVE_PATTERN_IDS: [&str; 4] = [
-    CHART_BREAKAWAY_GAP_SCANNER_ID,
-    CHART_COMMON_GAP_SCANNER_ID,
-    CHART_RUNAWAY_GAP_SCANNER_ID,
-    CHART_EXHAUSTION_GAP_SCANNER_ID,
-];
+/// Every pattern id the native backend can execute (all 54 built-in chart patterns).
+pub const NATIVE_PATTERN_IDS: [&str; 54] = super::ast::SUPPORTED_PATTERN_IDS;
 
 /// Minimum bars each detector requires before it can return a match.
 fn minimum_bars(pattern_id: &str) -> Option<usize> {
@@ -53,7 +48,7 @@ fn minimum_bars(pattern_id: &str) -> Option<usize> {
         // Runaway Gap and Exhaustion Gap both need a 20-bar trend plus the pair.
         CHART_RUNAWAY_GAP_SCANNER_ID => Some(22),
         CHART_EXHAUSTION_GAP_SCANNER_ID => Some(22),
-        _ => None,
+        _ => super::chart_patterns::minimum_bars_for_migrated_pattern(pattern_id),
     }
 }
 
@@ -73,6 +68,9 @@ fn detect(
         CHART_COMMON_GAP_SCANNER_ID => detect_chart_common_gap(target, bars, generated_at),
         CHART_RUNAWAY_GAP_SCANNER_ID => detect_chart_runaway_gap(target, bars, generated_at),
         CHART_EXHAUSTION_GAP_SCANNER_ID => detect_chart_exhaustion_gap(target, bars, generated_at),
+        _ if NATIVE_PATTERN_IDS.contains(&pattern_id) => {
+            super::chart_patterns::detect_chart_pattern(pattern_id, target, bars, generated_at)
+        }
         _ => return None,
     };
     Some(result)
@@ -119,6 +117,17 @@ fn to_contract_target(exchange: &str, symbol: &str) -> ScannerRunTargetV1 {
     }
 }
 
+fn pattern_family_wire_text(family: crate::scanner_contract::ChartPatternFamilyV1) -> String {
+    match family {
+        crate::scanner_contract::ChartPatternFamilyV1::Gap => "gap".to_string(),
+        crate::scanner_contract::ChartPatternFamilyV1::Reversal => "reversal".to_string(),
+        crate::scanner_contract::ChartPatternFamilyV1::Continuation => "continuation".to_string(),
+        crate::scanner_contract::ChartPatternFamilyV1::NeutralBilateral => {
+            "neutral-bilateral".to_string()
+        }
+    }
+}
+
 /// Converts the detector's accepted result into a native match record.
 ///
 /// Every accepted field is preserved so the renderer receives byte-comparable metadata
@@ -147,7 +156,7 @@ fn to_match_record(
             geometry,
         } = pattern;
         super::scan::ScanPatternDetails {
-            family: format!("{family:?}").to_ascii_lowercase(),
+            family: pattern_family_wire_text(family),
             confidence,
             pattern_start_date,
             pattern_end_date,
@@ -299,7 +308,7 @@ mod tests {
     }
 
     #[test]
-    fn p0_01_all_four_gap_patterns_are_dispatchable() {
+    fn p0_01_all_54_chart_patterns_are_dispatchable() {
         for id in NATIVE_PATTERN_IDS {
             let rule = rule(id);
             assert_eq!(
@@ -308,7 +317,7 @@ mod tests {
                 "{id} must be dispatchable by the native scanner"
             );
             assert!(
-                minimum_bars_for_pattern_rule(&rule).unwrap_or(0) >= 12,
+                minimum_bars_for_pattern_rule(&rule).unwrap_or(0) >= 5,
                 "{id} must declare a warm-up"
             );
         }
