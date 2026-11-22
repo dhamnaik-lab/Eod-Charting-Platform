@@ -272,6 +272,79 @@ struct CoreMetadataExpected {
     source: String,
 }
 
+fn assert_record_matches_expected(
+    case_id: &str,
+    actual: &super::scan::ScanMatchRecord,
+    expected: &CoreMetadataExpected,
+) {
+    use crate::scanner_contract::ScannerScalarValueV1;
+
+    assert_eq!(actual.symbol, expected.symbol, "{case_id}");
+    assert_eq!(actual.exchange, expected.exchange, "{case_id}");
+    assert_eq!(actual.rule_id, expected.scanner_id, "{case_id}");
+    assert_eq!(
+        actual.scanner_name.as_deref(),
+        Some(expected.scanner_name.as_str()),
+        "{case_id}"
+    );
+    assert_eq!(
+        actual.category_id.as_deref(),
+        Some(expected.category_id.as_str()),
+        "{case_id}"
+    );
+    assert_eq!(
+        actual.category_name.as_deref(),
+        Some(expected.category_name.as_str()),
+        "{case_id}"
+    );
+    assert_eq!(actual.date, expected.date, "{case_id}");
+    assert!(expected.matched, "{case_id}");
+    assert_eq!(
+        actual.direction.as_deref(),
+        Some(expected.direction.as_str()),
+        "{case_id}"
+    );
+    assert_eq!(
+        actual.reasons.as_deref(),
+        Some(expected.reasons.as_slice()),
+        "{case_id}"
+    );
+    assert_eq!(
+        actual.source.as_deref(),
+        Some(expected.source.as_str()),
+        "{case_id}"
+    );
+    assert!(
+        actual.score.is_none() && actual.pattern.is_none() && actual.history.is_none(),
+        "{case_id}"
+    );
+    assert!(expected.warnings.is_empty(), "{case_id}");
+    let actual_values = actual.values.as_ref().expect("core columns required");
+    assert_eq!(actual_values.len(), expected.values.len(), "{case_id}");
+    for (name, expected_value) in &expected.values {
+        let actual_value = actual_values
+            .get(name)
+            .unwrap_or_else(|| panic!("{case_id} missing column {name}"));
+        if expected_value.is_null() {
+            assert_eq!(
+                actual_value,
+                &ScannerScalarValueV1::Null,
+                "{case_id} {name}"
+            );
+            continue;
+        }
+        let expected_number = expected_value
+            .as_f64()
+            .unwrap_or_else(|| panic!("{case_id} column {name} not numeric"));
+        let actual_number = match actual_value {
+            ScannerScalarValueV1::Integer(integer) => *integer as f64,
+            ScannerScalarValueV1::Float(float) => *float,
+            _ => panic!("{case_id} unexpected type for {name}"),
+        };
+        assert_eq!(actual_number, expected_number, "{case_id} {name}");
+    }
+}
+
 /// Unlike the NS-01 boolean-only fixtures, this checks actual Rust core_match_record
 /// against immutable rows that the real TypeScript runCoreScanner re-evaluates in
 /// nativeCoreMetadataParityNSR3.test.ts. The generatedAt clock is intentionally omitted.
@@ -280,7 +353,6 @@ fn nsr3_real_core_result_metadata_matches_typescript_fixtures() {
     use super::core_results::core_match_record;
     use super::reader::NativeBar;
     use super::scan::ScanTarget;
-    use crate::scanner_contract::ScannerScalarValueV1;
 
     let fixture: CoreMetadataFixture = serde_json::from_str(include_str!(
         "../../../src/features/scanner/fixtures/nativeCoreMetadataParityFixtures.v1.json"
@@ -341,83 +413,302 @@ fn nsr3_real_core_result_metadata_matches_typescript_fixtures() {
         let actual = core_match_record(rule, &bars, &target, last_date, evaluated.value)
             .unwrap_or_else(|message| panic!("{}: {message}", sample.case_id))
             .unwrap_or_else(|| panic!("{} produced no Rust metadata", sample.case_id));
-        assert_eq!(actual.symbol, expected.symbol, "{}", sample.case_id);
-        assert_eq!(actual.exchange, expected.exchange, "{}", sample.case_id);
-        assert_eq!(actual.rule_id, expected.scanner_id, "{}", sample.case_id);
+        assert_record_matches_expected(&sample.case_id, &actual, expected);
+    }
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct DailyMarketFixture {
+    version: u32,
+    rules: BTreeMap<String, Value>,
+    cases: Vec<DailyMarketCase>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct DailyMarketCase {
+    case_id: String,
+    rule_id: String,
+    description: String,
+    symbol: String,
+    exchange: String,
+    bars: Vec<FixtureBar>,
+    expected_status: String,
+    expected: Option<CoreMetadataExpected>,
+}
+
+struct InlineScanSource {
+    identity: String,
+    bars_by_key: BTreeMap<String, Vec<super::reader::NativeBar>>,
+    errors_by_key: BTreeMap<String, String>,
+}
+
+impl super::scan::ScanDataSource for InlineScanSource {
+    fn database_identity(&self) -> &str {
+        &self.identity
+    }
+
+    fn load_bars(
+        &self,
+        target: &super::scan::ScanTarget,
+        _as_of_date: Option<&str>,
+        window: usize,
+        _price_basis: PriceBasisV1,
+        _include_dividend_adjustments: bool,
+        _include_rights_adjustments: bool,
+    ) -> Result<Vec<super::reader::NativeBar>, String> {
+        if let Some(error) = self.errors_by_key.get(&target.key()) {
+            return Err(error.clone());
+        }
+        let bars = self
+            .bars_by_key
+            .get(&target.key())
+            .cloned()
+            .unwrap_or_default();
+        let start = bars.len().saturating_sub(window);
+        Ok(bars[start..].to_vec())
+    }
+}
+
+fn to_native_bars(bars: &[FixtureBar]) -> Vec<super::reader::NativeBar> {
+    bars.iter()
+        .map(|bar| super::reader::NativeBar {
+            date: pack_date(&bar.date),
+            open: bar.open,
+            high: bar.high,
+            low: bar.low,
+            close: bar.close,
+            volume: bar.volume,
+            prev_close: None,
+            open_interest: 0.0,
+        })
+        .collect()
+}
+
+#[test]
+fn nsr2_daily_market_result_metadata_and_outcomes_match_typescript_fixtures() {
+    use super::scan::{execute_scan, ScanExecutionOptions, ScanTarget, TargetStatus};
+    use std::sync::atomic::AtomicBool;
+
+    let fixture: DailyMarketFixture = serde_json::from_str(include_str!(
+        "../../../src/features/scanner/fixtures/nativeDailyMarketParityFixtures.v1.json"
+    ))
+    .expect("shared NS-R2 Daily Market parity fixture must parse");
+    assert_eq!(fixture.version, 1);
+    assert_eq!(fixture.rules.len(), 5);
+    assert!(fixture.cases.len() >= 35);
+
+    for sample in &fixture.cases {
+        assert!(!sample.description.is_empty(), "{}", sample.case_id);
+        let expression = fixture
+            .rules
+            .get(&sample.rule_id)
+            .unwrap_or_else(|| panic!("unknown Daily Market rule in {}", sample.case_id));
+        let payload = serde_json::json!({
+            "schemaVersion": 1,
+            "requestedRunId": "nsr2-dm-parity",
+            "universe": {
+                "source": "explicitTargets",
+                "targets": [{ "exchange": sample.exchange, "symbol": sample.symbol }]
+            },
+            "evaluation": { "evaluateHistory": false, "priceBasis": "raw" },
+            "rules": [{ "id": sample.rule_id, "expression": expression }]
+        });
+        let request = parse_native_scan_request_v1(&payload)
+            .unwrap_or_else(|issues| panic!("{} invalid AST: {issues:?}", sample.case_id));
+        let target = ScanTarget {
+            exchange: sample.exchange.clone(),
+            symbol: sample.symbol.clone(),
+        };
+        let mut bars_by_key = BTreeMap::new();
+        bars_by_key.insert(target.key(), to_native_bars(&sample.bars));
+        let source = InlineScanSource {
+            identity: "nsr2-dm-fixture#1".to_string(),
+            bars_by_key,
+            errors_by_key: BTreeMap::new(),
+        };
+        let report = execute_scan(
+            &source,
+            &request,
+            &[target],
+            &AtomicBool::new(false),
+            ScanExecutionOptions::default(),
+            |_| {},
+        );
+        assert_eq!(report.outcomes.len(), 1, "{}", sample.case_id);
+        let outcome = &report.outcomes[0];
         assert_eq!(
-            actual.scanner_name.as_deref(),
-            Some(expected.scanner_name.as_str()),
-            "{}",
-            sample.case_id
+            outcome.status.as_str(),
+            sample.expected_status,
+            "{}: status mismatch (message: {:?})",
+            sample.case_id,
+            outcome.message
         );
-        assert_eq!(
-            actual.category_id.as_deref(),
-            Some(expected.category_id.as_str()),
-            "{}",
-            sample.case_id
-        );
-        assert_eq!(
-            actual.category_name.as_deref(),
-            Some(expected.category_name.as_str()),
-            "{}",
-            sample.case_id
-        );
-        assert_eq!(actual.date, expected.date, "{}", sample.case_id);
-        assert!(expected.matched, "{}", sample.case_id);
-        assert_eq!(
-            actual.direction.as_deref(),
-            Some(expected.direction.as_str()),
-            "{}",
-            sample.case_id
-        );
-        assert_eq!(
-            actual.reasons.as_deref(),
-            Some(expected.reasons.as_slice()),
-            "{}",
-            sample.case_id
-        );
-        assert_eq!(
-            actual.source.as_deref(),
-            Some(expected.source.as_str()),
-            "{}",
-            sample.case_id
-        );
-        assert!(
-            actual.score.is_none() && actual.pattern.is_none() && actual.history.is_none(),
-            "{}",
-            sample.case_id
-        );
-        // The TypeScript native result adapter adds warnings: [] to core rows.
-        assert!(expected.warnings.is_empty(), "{}", sample.case_id);
-        let actual_values = actual.values.as_ref().expect("core columns required");
-        assert_eq!(
-            actual_values.len(),
-            expected.values.len(),
-            "{}",
-            sample.case_id
-        );
-        for (name, expected_value) in &expected.values {
-            let actual_value = actual_values
-                .get(name)
-                .unwrap_or_else(|| panic!("{} missing column {name}", sample.case_id));
-            if expected_value.is_null() {
-                assert_eq!(
-                    actual_value,
-                    &ScannerScalarValueV1::Null,
-                    "{} {name}",
+        match sample.expected_status.as_str() {
+            "match" => {
+                assert_eq!(report.counts.matched, 1, "{}", sample.case_id);
+                assert_eq!(report.matches.len(), 1, "{}", sample.case_id);
+                let expected = sample
+                    .expected
+                    .as_ref()
+                    .expect("match case must include expected metadata");
+                assert_record_matches_expected(&sample.case_id, &report.matches[0], expected);
+            }
+            "no-match" => {
+                assert_eq!(report.counts.no_match, 1, "{}", sample.case_id);
+                assert!(report.matches.is_empty(), "{}", sample.case_id);
+                assert!(sample.expected.is_none(), "{}", sample.case_id);
+            }
+            "skipped" => {
+                assert_eq!(report.counts.skipped, 1, "{}", sample.case_id);
+                assert!(report.matches.is_empty(), "{}", sample.case_id);
+                assert!(sample.expected.is_none(), "{}", sample.case_id);
+                assert!(
+                    outcome.message.as_ref().is_some_and(|m| !m.is_empty()),
+                    "{}: skipped target must report diagnostic",
                     sample.case_id
                 );
-                continue;
             }
-            let expected_number = expected_value
-                .as_f64()
-                .unwrap_or_else(|| panic!("{} column {name} not numeric", sample.case_id));
-            let actual_number = match actual_value {
-                ScannerScalarValueV1::Integer(integer) => *integer as f64,
-                ScannerScalarValueV1::Float(float) => *float,
-                _ => panic!("{} unexpected type for {name}", sample.case_id),
-            };
-            assert_eq!(actual_number, expected_number, "{} {name}", sample.case_id);
+            other => panic!("{}: unexpected expected_status {other}", sample.case_id),
+        }
+
+        // Historical evaluation for Daily Market rules must fail closed.
+        let mut history_payload = payload.clone();
+        history_payload["evaluation"]["evaluateHistory"] = serde_json::json!(true);
+        let history_request = parse_native_scan_request_v1(&history_payload).unwrap();
+        if sample.bars.len()
+            >= super::core_results::minimum_bars_for_daily_market_id(&sample.rule_id).unwrap_or(0)
+        {
+            let history_report = execute_scan(
+                &source,
+                &history_request,
+                &[ScanTarget {
+                    exchange: sample.exchange.clone(),
+                    symbol: sample.symbol.clone(),
+                }],
+                &AtomicBool::new(false),
+                ScanExecutionOptions::default(),
+                |_| {},
+            );
+            assert_eq!(
+                history_report.outcomes[0].status,
+                TargetStatus::Error,
+                "{}: historical Daily Market request must fail closed",
+                sample.case_id
+            );
         }
     }
+}
+
+#[test]
+fn nsr2_daily_market_batch_handles_mixed_rules_errors_cancellation_and_worker_counts() {
+    use super::scan::{execute_scan, ScanExecutionOptions, ScanTarget};
+    use std::sync::atomic::AtomicBool;
+
+    let fixture: DailyMarketFixture = serde_json::from_str(include_str!(
+        "../../../src/features/scanner/fixtures/nativeDailyMarketParityFixtures.v1.json"
+    ))
+    .expect("fixture must parse");
+
+    let gainer_case = fixture
+        .cases
+        .iter()
+        .find(|c| c.case_id == "top_gainers_fractional_bse_match")
+        .unwrap();
+    let surge_case = fixture
+        .cases
+        .iter()
+        .find(|c| c.case_id == "volume_surge_21_bars_above_1_5_bearish_bse")
+        .unwrap();
+    let short_case = fixture
+        .cases
+        .iter()
+        .find(|c| c.case_id == "top_gainers_1_bar_skipped")
+        .unwrap();
+
+    let t_bse_gain = ScanTarget {
+        exchange: gainer_case.exchange.clone(),
+        symbol: gainer_case.symbol.clone(),
+    };
+    let t_bse_surge = ScanTarget {
+        exchange: surge_case.exchange.clone(),
+        symbol: surge_case.symbol.clone(),
+    };
+    let t_short = ScanTarget {
+        exchange: short_case.exchange.clone(),
+        symbol: short_case.symbol.clone(),
+    };
+    let t_error = ScanTarget {
+        exchange: "NSE".to_string(),
+        symbol: "BROKEN".to_string(),
+    };
+
+    let mut bars_by_key = BTreeMap::new();
+    bars_by_key.insert(t_bse_gain.key(), to_native_bars(&gainer_case.bars));
+    bars_by_key.insert(t_bse_surge.key(), to_native_bars(&surge_case.bars));
+    bars_by_key.insert(t_short.key(), to_native_bars(&short_case.bars));
+
+    let mut errors_by_key = BTreeMap::new();
+    errors_by_key.insert(t_error.key(), "corrupt .eod header".to_string());
+
+    let source = InlineScanSource {
+        identity: "nsr2-dm-batch#1".to_string(),
+        bars_by_key,
+        errors_by_key,
+    };
+
+    // Mixed rules: Daily Market (`top_gainers`, `volume_surge`) + Gap Pattern (`chart_common_gap`)
+    let payload = serde_json::json!({
+        "schemaVersion": 1,
+        "requestedRunId": "nsr2-dm-mixed",
+        "universe": { "source": "activeBse" },
+        "evaluation": { "evaluateHistory": false, "priceBasis": "raw" },
+        "rules": [
+            { "id": "top_gainers", "expression": fixture.rules["top_gainers"] },
+            { "id": "volume_surge", "expression": fixture.rules["volume_surge"] },
+            { "id": "chart_common_gap", "expression": { "kind": "pattern", "id": "chart_common_gap" } }
+        ]
+    });
+    let request = parse_native_scan_request_v1(&payload).unwrap();
+    let targets = vec![t_bse_gain, t_bse_surge, t_short, t_error];
+
+    let report_w1 = execute_scan(
+        &source,
+        &request,
+        &targets,
+        &AtomicBool::new(false),
+        ScanExecutionOptions::default().with_worker_count(1),
+        |_| {},
+    );
+    let report_w4 = execute_scan(
+        &source,
+        &request,
+        &targets,
+        &AtomicBool::new(false),
+        ScanExecutionOptions::default().with_worker_count(4),
+        |_| {},
+    );
+
+    assert_eq!(report_w1.counts.targets, 4);
+    assert_eq!(report_w1.counts.matched, 2);
+    assert_eq!(report_w1.counts.no_match, 0);
+    assert_eq!(report_w1.counts.skipped, 1);
+    assert_eq!(report_w1.counts.failed, 1);
+    assert_eq!(report_w1.matches, report_w4.matches);
+    assert_eq!(report_w1.counts, report_w4.counts);
+    assert!(!report_w1.cancelled);
+
+    // Pre-cancelled run stops cleanly with zero matches.
+    let cancelled = execute_scan(
+        &source,
+        &request,
+        &targets,
+        &AtomicBool::new(true),
+        ScanExecutionOptions::default(),
+        |_| {},
+    );
+    assert!(cancelled.cancelled);
+    assert!(cancelled.matches.is_empty());
+    assert_eq!(cancelled.counts.matched, 0);
 }

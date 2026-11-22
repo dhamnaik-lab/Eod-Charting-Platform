@@ -382,6 +382,10 @@ pub fn required_bars_for_rule(rule: &RuleV1) -> usize {
     match super::patterns::minimum_bars_for_pattern_rule(rule) {
         Some(required) => required,
         None => {
+            if let Some(required) = super::core_results::minimum_bars_for_daily_market_id(&rule.id)
+            {
+                return required;
+            }
             let minimum = minimum_bars_for_expression(&rule.expression);
             // The accepted TypeScript batch skips an instrument with fewer than
             // two completed bars, even for a one-bar core close-location rule.
@@ -980,6 +984,18 @@ fn scan_target<D: ScanDataSource>(
         }
         rules_evaluated += 1;
         if !request.evaluation.evaluate_history {
+            if super::core_results::is_daily_market_id(&rule.id) {
+                let date = format_date(bars[bars.len() - 1].date);
+                match super::core_results::evaluate_daily_market_rule(rule, &bars, target, &date) {
+                    Ok(Some(record)) => {
+                        matches.push(record);
+                        matched_rule_ids.push(rule.id.clone());
+                    }
+                    Ok(None) => {}
+                    Err(_) => had_error = true,
+                }
+                continue;
+            }
             match evaluate_rule_latest(&rule.expression, &eval_bars) {
                 Ok(outcome) => {
                     if outcome.matched {

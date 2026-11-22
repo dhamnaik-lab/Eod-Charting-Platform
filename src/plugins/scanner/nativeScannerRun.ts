@@ -15,8 +15,8 @@
 
 import type { EodAlertRule, EodAlertTrigger } from '@/features/alerts/eodAlerts';
 import { listApplicationScannerDefinitions } from '@/features/scanner/catalog';
-import { isNativeCoreResultId, nativeCoreResultMetadataIssue } from '@/features/scanner/nativeCoreResultMetadataGate';
-import { compileNativeCoreCandidate } from '@/features/scanner/nativeCoreRuleExpressions';
+import { isNativeBuiltInResultId, nativeCoreResultMetadataIssue } from '@/features/scanner/nativeCoreResultMetadataGate';
+import { compileNativeBuiltInCandidate } from '@/features/scanner/nativeCoreRuleExpressions';
 import {
   NATIVE_SUPPORTED_PATTERN_IDS,
   NATIVE_SUPPORTED_PATTERN_NAMES,
@@ -34,6 +34,7 @@ import type {
   ChartPatternResultDetails,
 } from '@/features/chartPatterns/types';
 import { coreOhlcvScannerDefinitions } from '@/plugins/scanner/coreOhlcvScanners';
+import { dailyMarketScannerDefinitions } from '@/plugins/scanner/dailyMarketScanners';
 import type { ScannerDefinition, ScannerResult, ScannerRunOutput, ScannerRunTarget } from '@/plugins/scanner/types';
 import {
   cancelNativeEodScan,
@@ -60,8 +61,9 @@ function toRuleExpression(scannerId: string): NativeScanRuleV1['expression'] {
 
 /**
  * Native eligibility is deliberately separate from the pattern-only V1 contract:
- * all four accepted gap patterns and the ten built-in core OHLCV rules may compile.
- * Other plugins, signals and custom rules remain TypeScript-only.
+ * all four accepted gap patterns, the ten built-in core OHLCV rules, and the five
+ * Daily Market rules may compile. Other plugins, signals and custom rules remain
+ * TypeScript-only.
  */
 function splitNativeRunnableScannerIds(scannerIds: readonly string[]): {
   native: string[];
@@ -71,7 +73,7 @@ function splitNativeRunnableScannerIds(scannerIds: readonly string[]): {
   const native: string[] = [];
   const remaining: string[] = [];
   for (const id of scannerIds) {
-    if (patternIds.has(id) || isNativeCoreResultId(id)) {
+    if (patternIds.has(id) || isNativeBuiltInResultId(id)) {
       native.push(id);
     } else {
       remaining.push(id);
@@ -81,8 +83,8 @@ function splitNativeRunnableScannerIds(scannerIds: readonly string[]): {
 }
 
 /**
- * Builds a complete native rule set. The Rust backend also validates core rule IDs
- * against the exact expected AST and rejects historical core evaluations.
+ * Builds a complete native rule set. The Rust backend also validates built-in rule IDs
+ * against the exact expected AST and rejects historical core/daily-market evaluations.
  */
 export function compileNativeScannerRules(
   scannerIds: readonly string[],
@@ -102,8 +104,8 @@ export function compileNativeScannerRules(
       });
       continue;
     }
-    const expression = isNativeCoreResultId(scannerId)
-      ? compileNativeCoreCandidate(scannerId)
+    const expression = isNativeBuiltInResultId(scannerId)
+      ? compileNativeBuiltInCandidate(scannerId)
       : toRuleExpression(scannerId);
     if (!expression) {
       compileErrors.push({
@@ -131,9 +133,9 @@ export function canRunNatively(
   evaluateHistory = false,
 ): boolean {
   if (scannerIds.length === 0) return false;
-  // Core handlers return one latest result even when the TypeScript runner scans
-  // full history. Never claim a native history run would be equivalent.
-  if (evaluateHistory && scannerIds.some(isNativeCoreResultId)) return false;
+  // Core and Daily Market handlers return one latest result even when the TypeScript runner
+  // scans full history. Never claim a native history run would be equivalent.
+  if (evaluateHistory && scannerIds.some(isNativeBuiltInResultId)) return false;
   const compiled = compileNativeScannerRules(scannerIds, definitions);
   return (
     compiled.unsupportedScannerIds.length === 0 &&
@@ -146,14 +148,14 @@ export function describeNativeUnsupportedScanners(
   scannerIds: readonly string[],
   evaluateHistory = false,
 ): string {
-  if (evaluateHistory && scannerIds.some(isNativeCoreResultId)) {
-    return 'Core OHLCV native scanning supports bounded/latest-bar runs only. Full-history core scans use the TypeScript backend.';
+  if (evaluateHistory && scannerIds.some(isNativeBuiltInResultId)) {
+    return 'Core OHLCV and Daily Market native scanning support bounded/latest-bar runs only. Full-history core and daily market scans use the TypeScript backend.';
   }
   const split = splitNativeRunnableScannerIds(scannerIds);
   if (split.remaining.length === 0) return '';
   return `${split.remaining.length} selected scanner(s) are TypeScript-only (${split.remaining
     .slice(0, 5)
-    .join(', ')}${split.remaining.length > 5 ? ', …' : ''}). The run uses the TypeScript backend; native supports four gap patterns and ten core OHLCV scanners (latest-bar only).`;
+    .join(', ')}${split.remaining.length > 5 ? ', …' : ''}). The run uses the TypeScript backend; native supports four gap patterns, ten core OHLCV scanners, and five daily market scanners (latest-bar only).`;
 }
 
 export interface NativeScannerRunOutcome extends ScannerRunOutput {
@@ -298,8 +300,8 @@ function toScannerResult(match: NativeScanMatchV1, generatedAt: string): Scanner
         })()
       : {}),
     ...(match.source ? { source: match.source } : {}),
-    // Accepted core TypeScript results include an explicit empty warnings array.
-    ...(isNativeCoreResultId(scannerId) ? { warnings: [] } : {}),
+    // Accepted core and Daily Market TypeScript results include an explicit empty warnings array.
+    ...(isNativeBuiltInResultId(scannerId) ? { warnings: [] } : {}),
     // Grouped historical annotation for consecutive pattern matches. The native executor
     // groups exactly like the TypeScript evaluation, so ScannerWindow can render the same
     // history counts on either backend.
@@ -694,5 +696,5 @@ export function formatNativeScannerStatus(
 /** Exposed for the UI to render an accurate, non-flattering capability note. */
 export function describeNativeCapability(): string {
   const names = NATIVE_SUPPORTED_PATTERN_IDS.map((id) => NATIVE_SUPPORTED_PATTERN_NAMES[id]);
-  return `Native backend (experimental, off by default) evaluates ${names.join(', ')} and ${coreOhlcvScannerDefinitions.length} core OHLCV scanners (latest-bar/bounded runs only). Full-history core scans and other rules stay on TypeScript.`;
+  return `Native backend (experimental, off by default) evaluates ${names.join(', ')}, ${coreOhlcvScannerDefinitions.length} core OHLCV scanners, and ${dailyMarketScannerDefinitions.length} daily market scanners (latest-bar/bounded runs only). Full-history core/daily market scans and other rules stay on TypeScript.`;
 }
