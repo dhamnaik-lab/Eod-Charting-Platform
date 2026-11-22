@@ -79,7 +79,7 @@ describe('NS-01 native scanner transport contract', () => {
     expect(capabilities.defaultEnabled).toBe(false);
     expect(capabilities.workerCount).toBe(3);
     expect(capabilities.supportedPatternIds).toEqual([...NATIVE_SUPPORTED_PATTERN_IDS]);
-    expect(capabilities.supportedPatternIds).toHaveLength(4);
+    expect(capabilities.supportedPatternIds).toHaveLength(54);
     expect(capabilities.supportedIndicatorNames).toEqual(['sma', 'ema', 'rsi', 'atr', 'volumeSma']);
     expect(capabilities.supportedUniverseSources).toEqual([
       'explicitTargets',
@@ -272,13 +272,13 @@ describe('NS-01 scanner-only compiler', () => {
     }
   });
 
-  it('keeps all four supported gap patterns addressable and nothing more', () => {
+  it('keeps all 54 built-in chart patterns addressable and rejects unknown pattern ids', () => {
     for (const id of NATIVE_SUPPORTED_PATTERN_IDS) {
       const compiled = compileNativeScannerExpression(`pattern('${id}')`, { allowPattern: true });
       expect(compiled.ok, id).toBe(true);
       expect(compiled.expression).toEqual({ kind: 'pattern', id });
     }
-    const unsupported = compileNativeScannerExpression("pattern('chart_triangle')", {
+    const unsupported = compileNativeScannerExpression("pattern('chart_unknown_pattern')", {
       allowPattern: true,
     });
     expect(unsupported.ok).toBe(false);
@@ -405,15 +405,11 @@ describe('NS-01 request validation boundary', () => {
 });
 
 describe('NS-01 opt-in safety properties', () => {
-  it('keeps native patterns limited to the four RSC parity-proven ids', () => {
-    expect([...NATIVE_SUPPORTED_PATTERN_IDS]).toEqual([
-      'chart_breakaway_gap',
-      'chart_common_gap',
-      'chart_runaway_gap',
-      'chart_exhaustion_gap',
-    ]);
-    // Exhaustion Gap is only included because RSC-06 shipped in the accepted base.
+  it('keeps native patterns limited to the 54 built-in chart-pattern ids', () => {
+    expect(NATIVE_SUPPORTED_PATTERN_IDS).toHaveLength(54);
+    expect(new Set(NATIVE_SUPPORTED_PATTERN_IDS).size).toBe(54);
     expect(NATIVE_SUPPORTED_PATTERN_IDS).toContain('chart_exhaustion_gap');
+    expect(NATIVE_SUPPORTED_PATTERN_IDS).toContain('chart_head_shoulders');
   });
 
   it('never reports native as enabled by default', () => {

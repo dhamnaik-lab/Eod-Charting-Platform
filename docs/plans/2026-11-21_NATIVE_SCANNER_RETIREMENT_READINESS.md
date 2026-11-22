@@ -1,9 +1,9 @@
 # Native Rust scanner — current coverage, remaining work, and TypeScript retirement gates
 
-**Status updated:** 2026-11-22 01:56 IST (UTC+05:30)  
+**Status updated:** 2026-11-22 03:09 IST (UTC+05:30)  
 **Workstream:** EOD Charting Platform — E:\TA Projects\EOD Charting Platform  
-**Verified source authority:** GitHub/local main `19de1c239e5b26497aa9ae96893dbdab7b92700d` plus local NS-R2 Daily Market implementation.  
-**Current outcome:** NS-04, NS-R core latest-only / diagnostic corrections, and NS-R2 Daily Market latest-only native parity are implemented locally; **native remains OFF by default, TypeScript remains the default and fallback, and full scanner retirement is NOT authorized**. No consolidated post-NSR2 Windows portable acceptance is recorded. CA-01 adjusted-native execution remains HOLD.
+**Verified source authority:** GitHub/local main `19de1c239e5b26497aa9ae96893dbdab7b92700d` plus local NS-R2 Daily Market and NS-R3 50-pattern chart-pattern implementations.  
+**Current outcome:** NS-04, NS-R core latest-only / diagnostic corrections, NS-R2 Daily Market latest-only parity, and NS-R3 complete 54-pattern chart-pattern parity (latest + paged All History up to 32 rules per native request) are implemented locally; **native remains OFF by default, TypeScript remains the default and fallback, and full scanner retirement is NOT authorized**. No consolidated post-NSR3 Windows portable acceptance is recorded. CA-01 adjusted-native execution remains HOLD.
 
 This is the **living** native-scanner roadmap. Earlier candidate-only statements in dated change records and the initial 21 Nov plan belong to their original evidence time; they do not override this verified main source. Historical records must not be silently rewritten.
 
@@ -15,7 +15,7 @@ This is the **living** native-scanner roadmap. Earlier candidate-only statements
 | Ten built-in core OHLCV predicates | Explicit opt-in, latest/bounded endpoint only | Canonical versioned AST + Rust match metadata and fail-closed TS gate. Two completed bars are required for built-in core rules. Zero/one-bar targets count as native Skipped with a diagnostic; completed native scans display genuine skipped/failed counts. |
 | Core OHLCV and Daily Market All History | TypeScript whole-run fallback | Do not claim native full-history equivalence. |
 | Daily market (gainers, losers, volume surge, 52-week extremes) | Explicit opt-in, latest/bounded endpoint only (**merge blocker open on >=100k `volume_surge` locale**) | Canonical AST + Rust evaluator (`core_results.rs`), 38 shared TS/Rust parity fixtures (`nativeDailyMarketParityFixtures.v1.json`), `< 100,000` locale pin test (`nativeDailyMarketParityNSR2.test.ts`), and fail-closed TS gate. Warm-up requires 2 bars (`top_gainers`/`top_losers`), 21 bars (`volume_surge`), or 20 bars (`high_52w`/`low_52w`); 52-week window caps at 252 trailing bars. **MERGE BLOCKER:** complete metadata parity is **NOT claimed** while `volume_surge` `toLocaleString()` on `en-IN` Windows formats `>= 100,000` with lakh/crore grouping (`1,50,000`) vs Rust 3-digit grouping (`150,000`). Windows portable acceptance pending. |
-| Other chart-pattern families | TypeScript/accepted chart-pattern worker paths | Only four gap patterns are approved for native routing. Do not conflate the Toolbar worker with the native scanner. |
+| Remaining 50 built-in chart patterns (`chart_patterns.rs`) + 4 gaps = 54 total | Explicit opt-in, latest and paged All History (`<= 32` selected rules per request) | Shared 156-scenario TS/Rust fixture bundle (`nativeChartPatterns50ParityFixtures.v1.json`) verifies all 54 pattern definitions, `min_bars` warm-up, metadata, scalars, pivots, overlay JSON geometry, and >260-bar historical grouping. Selections `> 32` rules (`NATIVE_SCAN_LIMITS.maxRules`) fall back cleanly to whole-run TypeScript; Toolbar worker remains separate. Windows portable acceptance pending. |
 | Built-in visual signals, custom signals and formula scans | TypeScript / existing owners | Native semantics, result metadata and historical behavior unverified. |
 | Price, indicator, drawing and scanner-match alerts | TypeScript-owned | Native adapter refuses alert-bearing runs to avoid duplicate triggers and changed persistence. |
 | External plugin scanners | Existing restricted plugin boundary | External packages remain metadata-only where applicable; no privileged untrusted execution. |
@@ -43,7 +43,7 @@ The **gate IDs** below are the original migration roadmap; they must not be conf
 |---|---|---|
 | NS-R1: ten-core predicates and result metadata | **Implemented for latest-only**, automated fixture/metadata tests passed; Windows rollout pending | Final bundled native/TS differential acceptance at selected-symbol endpoints, including values, reasons, source, category, direction and metadata |
 | NS-R2: daily market scanners | **Implemented for latest-only; open `volume_surge` >=100k locale merge blocker** (38 shared fixtures + 44 Vitest cases passed; complete metadata parity NOT claimed) | Resolve `volume_surge` `>= 100,000` `en-IN` vs 3-digit locale formatting policy and complete consolidated Windows portable acceptance before merging/retiring TypeScript |
-| NS-R3: remaining chart patterns | **Not migrated** beyond four gaps | Geometry, pivots, score, family, no-look-ahead and historical results |
+| NS-R3: remaining chart patterns | **Implemented locally (50 migrated + 4 gaps = 54 total)**; 156-scenario TS/Rust parity, geometry, historical grouping, worker/cancel/CA-01 checks passed; Windows rollout pending | Consolidated Windows portable acceptance on real NSE/BSE `.eod` databases |
 | NS-R4: visual signals, custom signals, formulas | **Not migrated** | Indicator/AST, warm-up, output, grouping and user formula parity |
 | NS-R5: alert-equivalent execution | **Not migrated**; TypeScript-owned | Exactly-once triggers, persisted alert history, cancellation and fallback safeguards |
 | NS-R6: external plugin compatibility | **Boundary unresolved for retirement** | Explicit safe execution owner without auto-running untrusted plugin code |

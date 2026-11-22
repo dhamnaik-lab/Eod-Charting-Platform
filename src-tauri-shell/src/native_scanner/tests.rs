@@ -1285,3 +1285,392 @@ fn ca01_native_source_rejects_duplicate_and_conflicting_bse_settlement_actions()
         assert!(error.contains("CA-01 HOLD"), "{case}: {error}");
     }
 }
+
+fn nsr3_double_bottom_pattern_bars(symbol: &str, count: usize) -> Vec<NativeBar> {
+    let mut bars = Vec::with_capacity(count);
+    let base_start = count.saturating_sub(26);
+    for i in 0..count {
+        let day = 1 + (i % 28);
+        let month = 1 + (i / 28);
+        let date = 20250000 + (month as u32) * 100 + (day as u32);
+        let rel = i.saturating_sub(base_start);
+        let (open, high, low, close, volume) = if i < base_start || rel < 4 {
+            (110.0, 112.0, 108.0, 110.0, 100_000.0)
+        } else {
+            let closes = [
+                104.0, 96.0, 90.0, 96.0, 104.0, 109.0, 106.0, 99.0, 91.0, 97.0, 104.0, 108.0,
+                110.0, 112.0, 114.0, 113.0, 112.0, 114.0, 115.0, 116.0, 115.0, 117.0,
+            ];
+            let idx = rel - 4;
+            let c = if idx < closes.len() {
+                closes[idx]
+            } else if i % 40 == count - 1 {
+                118.0
+            } else {
+                115.0 + ((i % 3) as f64)
+            };
+            (c - 0.5, c + 1.5, c - 1.5, c, 150_000.0 + (i as f64) * 500.0)
+        };
+        let _ = symbol;
+        bars.push(NativeBar {
+            date,
+            open,
+            high,
+            low,
+            close,
+            prev_close: None,
+            volume,
+            open_interest: 0.0,
+        });
+    }
+    bars
+}
+
+#[test]
+fn nsr3_chart_patterns_operational_workers_cancellation_limits_and_ca01_hold() {
+    use super::ast::{parse_native_scan_request_v1, MAX_RULES, SUPPORTED_PATTERN_IDS};
+    use super::database_source::ReadOnlyDatabaseSource;
+    use super::patterns::NATIVE_PATTERN_IDS;
+    use super::scan::TargetStatus;
+
+    assert_eq!(SUPPORTED_PATTERN_IDS.len(), 54);
+    assert_eq!(NATIVE_PATTERN_IDS.len(), 54);
+    assert_eq!(MAX_RULES, 32);
+
+    // 32 pattern rules succeed validation; 33 pattern rules reject cleanly with too-many-rules.
+    let valid_rules_32: Vec<serde_json::Value> = SUPPORTED_PATTERN_IDS
+        .iter()
+        .take(32)
+        .map(|id| serde_json::json!({ "id": id, "expression": { "kind": "pattern", "id": id } }))
+        .collect();
+    let req_32 = parse_native_scan_request_v1(&serde_json::json!({
+        "schemaVersion": 1,
+        "requestedRunId": "nsr3-limit-32",
+        "universe": { "source": "activeNseEq" },
+        "evaluation": { "evaluateHistory": false, "priceBasis": "raw" },
+        "rules": valid_rules_32
+    }));
+    assert!(req_32.is_ok(), "32 pattern rules must validate cleanly");
+
+    let over_limit_rules_33: Vec<serde_json::Value> = SUPPORTED_PATTERN_IDS
+        .iter()
+        .take(33)
+        .map(|id| serde_json::json!({ "id": id, "expression": { "kind": "pattern", "id": id } }))
+        .collect();
+    let issues_33 = parse_native_scan_request_v1(&serde_json::json!({
+        "schemaVersion": 1,
+        "requestedRunId": "nsr3-limit-33",
+        "universe": { "source": "activeNseEq" },
+        "evaluation": { "evaluateHistory": false, "priceBasis": "raw" },
+        "rules": over_limit_rules_33
+    }))
+    .expect_err("33 pattern rules must exceed maxRules=32");
+    assert!(
+        issues_33
+            .iter()
+            .any(|issue| issue.code == "missing-rules" && issue.message.contains("1 to 32 entries")),
+        "expected missing-rules (1 to 32 entries) issue, got {issues_33:?}"
+    );
+
+    // Seed read-only hybrid SQLite database with 5 targets across NSE & BSE + corporate action
+    // that triggers CA-01 HOLD on Adjusted basis while keeping Raw reads clean.
+    let temp = TempDir::new("nsr3_operational");
+    let conn = seed_database(temp.path(), "hybrid");
+    let targets = vec![
+        ScanTarget {
+            exchange: "NSE".to_string(),
+            symbol: "ALP".to_string(),
+        },
+        ScanTarget {
+            exchange: "NSE".to_string(),
+            symbol: "BET".to_string(),
+        },
+        ScanTarget {
+            exchange: "NSE".to_string(),
+            symbol: "GAM".to_string(),
+        },
+        ScanTarget {
+            exchange: "NSE".to_string(),
+            symbol: "DEL".to_string(),
+        },
+        ScanTarget {
+            exchange: "BSE".to_string(),
+            symbol: "500180".to_string(),
+        },
+    ];
+    for target in &targets {
+        let isin = if target.symbol == "ALP" {
+            Some("SHARED-ALP-ISIN")
+        } else {
+            None
+        };
+        conn.execute(
+            "INSERT INTO instruments (symbol, exchange, isin, series, is_active) VALUES (?1, ?2, ?3, 'EQ', 1)",
+            rusqlite::params![target.symbol, target.exchange, isin],
+        )
+        .expect("insert instrument");
+        for bar in nsr3_double_bottom_pattern_bars(&target.symbol, 40) {
+            let y = bar.date / 10_000;
+            let m = (bar.date / 100) % 100;
+            let d = bar.date % 100;
+            let iso = format!("{y:04}-{m:02}-{d:02}");
+            conn.execute(
+                "INSERT INTO eod_prices (symbol, exchange, date, open, high, low, close, volume)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
+                rusqlite::params![
+                    target.symbol,
+                    target.exchange,
+                    iso,
+                    bar.open,
+                    bar.high,
+                    bar.low,
+                    bar.close,
+                    bar.volume
+                ],
+            )
+            .expect("insert bar");
+        }
+    }
+    conn.execute_batch(
+        "INSERT INTO instruments (symbol, exchange, isin, series, is_active)
+         VALUES ('ALP#', 'BSE', 'SHARED-ALP-ISIN', 'EQ', 1);
+         INSERT INTO corporate_actions (id, symbol, exchange, isin, effective_date, action_type, factor, adjust_volume, source)
+         VALUES (1, 'ALP', 'NSE', 'SHARED-ALP-ISIN', '2025-03-01', 'SPLIT', 2.0, 1, 'TEST'),
+                (2, 'ALP#', 'BSE', 'SHARED-ALP-ISIN', '2025-03-01', 'SPLIT', 2.0, 1, 'TEST');",
+    )
+    .expect("insert CA-01 HOLD split fixture");
+    drop(conn);
+
+    let source = ReadOnlyDatabaseSource::open(temp.path().to_path_buf()).expect("open db");
+    let raw_request = parse_native_scan_request_v1(&serde_json::json!({
+        "schemaVersion": 1,
+        "requestedRunId": "nsr3-op-raw",
+        "universe": { "source": "activeNseEq" },
+        "evaluation": { "evaluateHistory": true, "priceBasis": "raw" },
+        "rules": [
+            { "id": "chart_island_reversal_top", "expression": { "kind": "pattern", "id": "chart_island_reversal_top" } },
+            { "id": "chart_double_bottom", "expression": { "kind": "pattern", "id": "chart_double_bottom" } },
+            { "id": "chart_rising_channel", "expression": { "kind": "pattern", "id": "chart_rising_channel" } },
+            { "id": "chart_head_shoulders", "expression": { "kind": "pattern", "id": "chart_head_shoulders" } },
+            { "id": "chart_common_gap", "expression": { "kind": "pattern", "id": "chart_common_gap" } }
+        ]
+    }))
+    .expect("valid raw batch");
+
+    let report_w1 = execute_scan(
+        &source,
+        &raw_request,
+        &targets,
+        &AtomicBool::new(false),
+        ScanExecutionOptions::default().with_worker_count(1),
+        |_| {},
+    );
+    let report_w4 = execute_scan(
+        &source,
+        &raw_request,
+        &targets,
+        &AtomicBool::new(false),
+        ScanExecutionOptions::default().with_worker_count(4),
+        |_| {},
+    );
+
+    assert!(!report_w1.cancelled);
+    assert!(!report_w4.cancelled);
+    assert_eq!(report_w1.workers_used, 1);
+    assert_eq!(report_w4.workers_used, 4);
+    assert_eq!(report_w1.counts.targets, 5);
+    assert_eq!(report_w1.counts.failed, 0);
+    assert!(report_w1.counts.matched >= 1);
+    assert_eq!(report_w1.matches, report_w4.matches);
+    assert_eq!(report_w1.counts, report_w4.counts);
+    let actual_target_keys: Vec<String> =
+        report_w1.outcomes.iter().map(|o| o.target.key()).collect();
+    let expected_target_keys: Vec<String> = targets.iter().map(ScanTarget::key).collect();
+    assert_eq!(actual_target_keys, expected_target_keys);
+    assert_eq!(report_w1.outcomes.len(), report_w4.outcomes.len());
+    assert!(report_w1.matches.windows(2).all(|pair| {
+        pair[0].date > pair[1].date
+            || (pair[0].date == pair[1].date
+                && (
+                    pair[0].exchange.as_str(),
+                    pair[0].symbol.as_str(),
+                    pair[0].rule_id.as_str(),
+                ) <= (
+                    pair[1].exchange.as_str(),
+                    pair[1].symbol.as_str(),
+                    pair[1].rule_id.as_str(),
+                ))
+    }));
+
+    // Cancellation stops cleanly without partial matches.
+    let cancelled = execute_scan(
+        &source,
+        &raw_request,
+        &targets,
+        &AtomicBool::new(true),
+        ScanExecutionOptions::default().with_worker_count(4),
+        |_| {},
+    );
+    assert!(cancelled.cancelled);
+    assert!(cancelled.matches.is_empty());
+    assert_eq!(cancelled.counts.matched, 0);
+
+    // Adjusted pricing on a newly migrated chart pattern stays fail-closed under CA-01 HOLD.
+    let adjusted_request = parse_native_scan_request_v1(&serde_json::json!({
+        "schemaVersion": 1,
+        "requestedRunId": "nsr3-op-adjusted",
+        "universe": {
+            "source": "explicitTargets",
+            "targets": [{ "exchange": "NSE", "symbol": "ALP" }]
+        },
+        "evaluation": { "evaluateHistory": false, "priceBasis": "adjusted" },
+        "rules": [
+            { "id": "chart_head_shoulders", "expression": { "kind": "pattern", "id": "chart_head_shoulders" } }
+        ]
+    }))
+    .expect("AST parses before IPC CA-01 gate; executor source still rejects adjusted");
+    let adj_report = execute_scan(
+        &source,
+        &adjusted_request,
+        &targets[..1],
+        &AtomicBool::new(false),
+        ScanExecutionOptions::default(),
+        |_| {},
+    );
+    assert_eq!(adj_report.outcomes.len(), 1);
+    assert_eq!(adj_report.outcomes[0].status, TargetStatus::Error);
+    assert!(
+        adj_report.outcomes[0]
+            .message
+            .as_deref()
+            .is_some_and(|msg| msg.contains("CA-01 HOLD")),
+        "expected CA-01 HOLD message, got {:?}",
+        adj_report.outcomes[0].message
+    );
+}
+
+struct InMemoryBenchmarkSource {
+    identity: String,
+    data: std::collections::BTreeMap<String, Vec<NativeBar>>,
+}
+
+impl ScanDataSource for InMemoryBenchmarkSource {
+    fn database_identity(&self) -> &str {
+        &self.identity
+    }
+
+    fn load_bars(
+        &self,
+        target: &ScanTarget,
+        as_of_date: Option<&str>,
+        window: usize,
+        _price_basis: PriceBasisV1,
+        _include_dividend_adjustments: bool,
+        _include_rights_adjustments: bool,
+    ) -> Result<Vec<NativeBar>, String> {
+        let mut bars = self.data.get(&target.key()).cloned().unwrap_or_default();
+        if let Some(as_of) = as_of_date {
+            let limit = super::reader::parse_scan_date(as_of)?;
+            bars.retain(|bar| bar.date <= limit);
+        }
+        let start = bars.len().saturating_sub(window);
+        Ok(bars[start..].to_vec())
+    }
+}
+
+#[test]
+fn nsr3_native_chart_patterns_multi_symbol_benchmark() {
+    use super::ast::parse_native_scan_request_v1;
+    use std::time::Instant;
+
+    let symbol_count = 20usize;
+    let bar_count = 300usize;
+    let mut data = std::collections::BTreeMap::new();
+    let mut targets = Vec::with_capacity(symbol_count);
+    for idx in 0..symbol_count {
+        let symbol = format!("BENCH{:02}", idx + 1);
+        let bars = nsr3_double_bottom_pattern_bars(&symbol, bar_count);
+        let target = ScanTarget {
+            exchange: "NSE".to_string(),
+            symbol,
+        };
+        data.insert(target.key(), bars);
+        targets.push(target);
+    }
+    let source = InMemoryBenchmarkSource {
+        identity: "nsr3-benchmark#1".to_string(),
+        data,
+    };
+
+    let rule_ids = [
+        "chart_island_reversal_top",
+        "chart_double_bottom",
+        "chart_triple_top",
+        "chart_rising_wedge_top",
+        "chart_rising_channel",
+        "chart_coil_volatility_squeeze",
+        "chart_cup_handle",
+        "chart_head_shoulders",
+        "chart_rounding_bottom",
+        "chart_common_gap",
+    ];
+    let rules_json: Vec<serde_json::Value> = rule_ids
+        .iter()
+        .map(|id| serde_json::json!({ "id": id, "expression": { "kind": "pattern", "id": id } }))
+        .collect();
+
+    let latest_req = parse_native_scan_request_v1(&serde_json::json!({
+        "schemaVersion": 1,
+        "requestedRunId": "nsr3-bench-latest",
+        "universe": { "source": "activeNseEq" },
+        "evaluation": { "evaluateHistory": false, "priceBasis": "raw" },
+        "rules": rules_json.clone()
+    }))
+    .unwrap();
+    let t_latest = Instant::now();
+    let latest_report = execute_scan(
+        &source,
+        &latest_req,
+        &targets,
+        &AtomicBool::new(false),
+        ScanExecutionOptions::default().with_worker_count(4),
+        |_| {},
+    );
+    let latest_ms = t_latest.elapsed().as_secs_f64() * 1000.0;
+
+    let hist_req = parse_native_scan_request_v1(&serde_json::json!({
+        "schemaVersion": 1,
+        "requestedRunId": "nsr3-bench-hist",
+        "universe": { "source": "activeNseEq" },
+        "evaluation": { "evaluateHistory": true, "priceBasis": "raw" },
+        "rules": rules_json
+    }))
+    .unwrap();
+    let t_hist = Instant::now();
+    let hist_report = execute_scan(
+        &source,
+        &hist_req,
+        &targets,
+        &AtomicBool::new(false),
+        ScanExecutionOptions::default().with_worker_count(4),
+        |_| {},
+    );
+    let hist_ms = t_hist.elapsed().as_secs_f64() * 1000.0;
+
+    eprintln!(
+        "NSR3_RUST_BENCHMARK symbols={} bars={} rules={} latest_ms={:.2} latest_matches={} historical_ms={:.2} historical_matches={}",
+        symbol_count,
+        bar_count,
+        rule_ids.len(),
+        latest_ms,
+        latest_report.matches.len(),
+        hist_ms,
+        hist_report.matches.len()
+    );
+
+    assert_eq!(latest_report.counts.targets, symbol_count);
+    assert_eq!(latest_report.counts.failed, 0);
+    assert_eq!(hist_report.counts.targets, symbol_count);
+    assert_eq!(hist_report.counts.failed, 0);
+    assert!(!hist_report.matches.is_empty());
+}

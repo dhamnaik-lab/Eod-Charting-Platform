@@ -18,6 +18,7 @@ import { listApplicationScannerDefinitions } from '@/features/scanner/catalog';
 import { isNativeBuiltInResultId, nativeCoreResultMetadataIssue } from '@/features/scanner/nativeCoreResultMetadataGate';
 import { compileNativeBuiltInCandidate } from '@/features/scanner/nativeCoreRuleExpressions';
 import {
+  NATIVE_SCAN_LIMITS,
   NATIVE_SUPPORTED_PATTERN_IDS,
   NATIVE_SUPPORTED_PATTERN_NAMES,
   type NativeScanCountsV1,
@@ -61,9 +62,9 @@ function toRuleExpression(scannerId: string): NativeScanRuleV1['expression'] {
 
 /**
  * Native eligibility is deliberately separate from the pattern-only V1 contract:
- * all four accepted gap patterns, the ten built-in core OHLCV rules, and the five
- * Daily Market rules may compile. Other plugins, signals and custom rules remain
- * TypeScript-only.
+ * all 54 built-in chart patterns, the ten built-in core OHLCV rules, and the five
+ * Daily Market rules may compile (bounded by `NATIVE_SCAN_LIMITS.maxRules` per run).
+ * Other plugins, signals and custom rules remain TypeScript-only.
  */
 function splitNativeRunnableScannerIds(scannerIds: readonly string[]): {
   native: string[];
@@ -126,7 +127,7 @@ export function compileNativeScannerRules(
   };
 }
 
-/** True only when every selected scanner is natively supported and compiled cleanly. */
+/** True only when every selected scanner is natively supported, fits `maxRules`, and compiled cleanly. */
 export function canRunNatively(
   scannerIds: readonly string[],
   definitions: readonly ScannerDefinition[] = listApplicationScannerDefinitions(),
@@ -140,7 +141,8 @@ export function canRunNatively(
   return (
     compiled.unsupportedScannerIds.length === 0 &&
     compiled.compileErrors.length === 0 &&
-    compiled.rules.length === scannerIds.length
+    compiled.rules.length === scannerIds.length &&
+    compiled.rules.length <= NATIVE_SCAN_LIMITS.maxRules
   );
 }
 
@@ -152,10 +154,15 @@ export function describeNativeUnsupportedScanners(
     return 'Core OHLCV and Daily Market native scanning support bounded/latest-bar runs only. Full-history core and daily market scans use the TypeScript backend.';
   }
   const split = splitNativeRunnableScannerIds(scannerIds);
-  if (split.remaining.length === 0) return '';
+  if (split.remaining.length === 0) {
+    if (split.native.length > NATIVE_SCAN_LIMITS.maxRules) {
+      return `Selected ${split.native.length} native rules exceeds the single-run limit of ${NATIVE_SCAN_LIMITS.maxRules} rules. The run uses the TypeScript backend for the complete selection.`;
+    }
+    return '';
+  }
   return `${split.remaining.length} selected scanner(s) are TypeScript-only (${split.remaining
     .slice(0, 5)
-    .join(', ')}${split.remaining.length > 5 ? ', …' : ''}). The run uses the TypeScript backend; native supports four gap patterns, ten core OHLCV scanners, and five daily market scanners (latest-bar only).`;
+    .join(', ')}${split.remaining.length > 5 ? ', …' : ''}). The run uses the TypeScript backend; native supports ${NATIVE_SUPPORTED_PATTERN_IDS.length} chart patterns, ten core OHLCV scanners, and five daily market scanners (latest-bar only).`;
 }
 
 export interface NativeScannerRunOutcome extends ScannerRunOutput {
@@ -695,6 +702,5 @@ export function formatNativeScannerStatus(
 
 /** Exposed for the UI to render an accurate, non-flattering capability note. */
 export function describeNativeCapability(): string {
-  const names = NATIVE_SUPPORTED_PATTERN_IDS.map((id) => NATIVE_SUPPORTED_PATTERN_NAMES[id]);
-  return `Native backend (experimental, off by default) evaluates ${names.join(', ')}, ${coreOhlcvScannerDefinitions.length} core OHLCV scanners, and ${dailyMarketScannerDefinitions.length} daily market scanners (latest-bar/bounded runs only). Full-history core/daily market scans and other rules stay on TypeScript.`;
+  return `Native backend (experimental, off by default) evaluates all ${NATIVE_SUPPORTED_PATTERN_IDS.length} built-in chart patterns (up to ${NATIVE_SCAN_LIMITS.maxRules} rules per run), ${coreOhlcvScannerDefinitions.length} core OHLCV scanners, and ${dailyMarketScannerDefinitions.length} daily market scanners (latest-bar/bounded runs only). Oversized (> ${NATIVE_SCAN_LIMITS.maxRules} rule) selections, full-history core/daily market scans, and other rules stay on TypeScript.`;
 }

@@ -18,6 +18,7 @@ import type { OHLCBar } from '@/engine/types';
 import { evaluateCustomFormulaDefinition } from '@/modules/formulaEngine/customFormulaEngine';
 import {
   NATIVE_SCAN_LIMITS,
+  NATIVE_SUPPORTED_PATTERN_IDS,
   type NativeBinaryOperator,
   type NativeExprV1,
   type NativeIndicatorName,
@@ -40,17 +41,75 @@ const FIELD_NAMES: readonly NativeOhlcvField[] = ['open', 'high', 'low', 'close'
 
 const INDICATOR_FUNCTIONS: readonly NativeIndicatorName[] = ['sma', 'ema', 'rsi', 'volumeSma'];
 
-/** Call-form aliases for the four natively supported chart patterns. */
-const PATTERN_CALL_ALIASES: Record<string, NativeSupportedPatternId> = {
-  breakawaygap: 'chart_breakaway_gap',
-  breakaway_gap: 'chart_breakaway_gap',
-  commongap: 'chart_common_gap',
-  common_gap: 'chart_common_gap',
-  runawaygap: 'chart_runaway_gap',
-  runaway_gap: 'chart_runaway_gap',
-  exhaustiongap: 'chart_exhaustion_gap',
-  exhaustion_gap: 'chart_exhaustion_gap',
+const PATTERN_MIN_BARS: Record<NativeSupportedPatternId, number> = {
+  chart_common_gap: 12,
+  chart_breakaway_gap: 22,
+  chart_runaway_gap: 22,
+  chart_exhaustion_gap: 22,
+  chart_island_reversal_top: 5,
+  chart_island_reversal_bottom: 5,
+  chart_double_bottom: 12,
+  chart_double_top: 12,
+  chart_triple_bottom: 12,
+  chart_triple_top: 12,
+  chart_v_bottom: 15,
+  chart_spike_top: 15,
+  chart_horn_bottom: 12,
+  chart_horn_top: 12,
+  chart_bump_run_bottom: 20,
+  chart_bump_run_top: 20,
+  chart_blow_off_top: 16,
+  chart_rectangle_range: 21,
+  chart_ascending_triangle: 13,
+  chart_descending_triangle: 13,
+  chart_symmetrical_triangle: 12,
+  chart_falling_wedge_bottom: 14,
+  chart_rising_wedge_top: 14,
+  chart_diamond_bottom: 19,
+  chart_diamond_top: 19,
+  chart_diamond_pattern: 19,
+  chart_broadening_bottom: 14,
+  chart_broadening_formation: 14,
+  chart_rising_three_methods: 5,
+  chart_falling_three_methods: 5,
+  chart_mat_hold_bullish: 5,
+  chart_mat_hold_bearish: 5,
+  chart_bull_flag: 13,
+  chart_bear_flag: 13,
+  chart_bull_pennant: 13,
+  chart_bear_pennant: 13,
+  chart_rising_channel: 20,
+  chart_falling_channel: 20,
+  chart_high_tight_flag: 15,
+  chart_coil_volatility_squeeze: 8,
+  chart_three_rising_valleys: 14,
+  chart_three_falling_peaks: 14,
+  chart_measured_move_up: 15,
+  chart_measured_move_down: 15,
+  chart_head_shoulders: 16,
+  chart_inverse_head_shoulders: 16,
+  chart_complex_head_shoulders: 22,
+  chart_cup_handle: 18,
+  chart_inverted_cup_handle: 18,
+  chart_rounding_bottom: 18,
+  chart_adam_eve_bottom: 16,
+  chart_adam_eve_top: 16,
+  chart_scallop_handle: 18,
+  chart_rounding_top: 18,
 };
+
+/** Call-form and `pattern(...)` aliases for all 54 natively supported chart patterns. */
+const PATTERN_CALL_ALIASES: Record<string, NativeSupportedPatternId> = (() => {
+  const aliases: Record<string, NativeSupportedPatternId> = {};
+  for (const id of NATIVE_SUPPORTED_PATTERN_IDS) {
+    const shortName = id.replace(/^chart_/, '');
+    const compact = shortName.replace(/_/g, '');
+    aliases[id] = id;
+    aliases[shortName] = id;
+    aliases[compact] = id;
+  }
+  return aliases;
+})();
 
 // ---------------------------------------------------------------------------
 // Tokenizer (scanner-only; mirrors the documented formula grammar)
@@ -393,23 +452,12 @@ class NativeExprParser {
       }
 
       if (this.allowPattern) {
-        switch (name) {
-          case 'pattern':
-            return this.parsePatternCall();
-          case 'breakaway_gap':
-          case 'breakawaygap':
-            return { kind: 'pattern', id: 'chart_breakaway_gap' };
-          case 'common_gap':
-          case 'commongap':
-            return { kind: 'pattern', id: 'chart_common_gap' };
-          case 'runaway_gap':
-          case 'runawaygap':
-            return { kind: 'pattern', id: 'chart_runaway_gap' };
-          case 'exhaustion_gap':
-          case 'exhaustiongap':
-            return { kind: 'pattern', id: 'chart_exhaustion_gap' };
-          default:
-            break;
+        if (name === 'pattern') {
+          return this.parsePatternCall();
+        }
+        const patternId = PATTERN_CALL_ALIASES[name];
+        if (patternId) {
+          return { kind: 'pattern', id: patternId };
         }
       }
 
@@ -429,16 +477,6 @@ class NativeExprParser {
   }
 
   private parsePatternCall(): NativeExprV1 {
-    const patterns: Record<string, NativeExprV1> = {
-      chart_breakaway_gap: { kind: 'pattern', id: 'chart_breakaway_gap' },
-      chart_common_gap: { kind: 'pattern', id: 'chart_common_gap' },
-      chart_runaway_gap: { kind: 'pattern', id: 'chart_runaway_gap' },
-      chart_exhaustion_gap: { kind: 'pattern', id: 'chart_exhaustion_gap' },
-      breakaway_gap: { kind: 'pattern', id: 'chart_breakaway_gap' },
-      common_gap: { kind: 'pattern', id: 'chart_common_gap' },
-      runaway_gap: { kind: 'pattern', id: 'chart_runaway_gap' },
-      exhaustion_gap: { kind: 'pattern', id: 'chart_exhaustion_gap' },
-    };
     if (this.check('rparen')) {
       this.index += 1;
       throw new Error('pattern(...) requires a supported pattern id.');
@@ -446,14 +484,14 @@ class NativeExprParser {
     const idToken = this.check('string')
       ? (this.index += 1, this.previous())
       : this.consume('identifier', 'pattern(...) requires a supported pattern id.');
-    const pattern = patterns[idToken.value.toLowerCase()];
-    if (!pattern) {
+    const patternId = PATTERN_CALL_ALIASES[idToken.value.toLowerCase()];
+    if (!patternId) {
       throw new Error(
-        `Unsupported pattern "${idToken.value}"; supported ids are ${Object.keys(patterns).slice(0, 4).join(', ')} (line ${idToken.line}, col ${idToken.column}).`,
+        `Unsupported pattern "${idToken.value}"; supported ids are all ${NATIVE_SUPPORTED_PATTERN_IDS.length} built-in chart patterns (line ${idToken.line}, col ${idToken.column}).`,
       );
     }
     this.consume('rparen', 'Expected ")" after pattern id.');
-    return pattern;
+    return { kind: 'pattern', id: patternId };
   }
 
   private parseCall(name: string, token: Token): NativeExprV1 {
@@ -1006,7 +1044,7 @@ export function minimumBarsForExpression(expression: NativeExprV1): number {
         minimumBarsForExpression(expression.right),
       );
     case 'pattern':
-      return 22;
+      return PATTERN_MIN_BARS[expression.id] ?? 22;
   }
 }
 

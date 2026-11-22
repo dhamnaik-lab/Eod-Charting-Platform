@@ -24,13 +24,63 @@ pub const MAX_LOOKBACK_BARS: usize = 5000;
 pub const MAX_EXPLICIT_TARGETS: usize = 5000;
 pub const MAX_ID_LENGTH: usize = 128;
 
-/// Chart patterns with accepted, fixture-backed Rust parity. Everything else stays on
-/// the preserved TypeScript worker path.
-pub const SUPPORTED_PATTERN_IDS: [&str; 4] = [
-    "chart_breakaway_gap",
+/// All 54 built-in chart patterns with accepted, fixture-backed Rust parity.
+/// Other scanner rules (unmigrated plugins/signals/custom formulas) stay on the preserved TypeScript path.
+pub const SUPPORTED_PATTERN_IDS: [&str; 54] = [
     "chart_common_gap",
+    "chart_breakaway_gap",
     "chart_runaway_gap",
     "chart_exhaustion_gap",
+    "chart_island_reversal_top",
+    "chart_island_reversal_bottom",
+    "chart_double_bottom",
+    "chart_double_top",
+    "chart_triple_bottom",
+    "chart_triple_top",
+    "chart_v_bottom",
+    "chart_spike_top",
+    "chart_horn_bottom",
+    "chart_horn_top",
+    "chart_bump_run_bottom",
+    "chart_bump_run_top",
+    "chart_blow_off_top",
+    "chart_rectangle_range",
+    "chart_ascending_triangle",
+    "chart_descending_triangle",
+    "chart_symmetrical_triangle",
+    "chart_falling_wedge_bottom",
+    "chart_rising_wedge_top",
+    "chart_diamond_bottom",
+    "chart_diamond_top",
+    "chart_diamond_pattern",
+    "chart_broadening_bottom",
+    "chart_broadening_formation",
+    "chart_rising_three_methods",
+    "chart_falling_three_methods",
+    "chart_mat_hold_bullish",
+    "chart_mat_hold_bearish",
+    "chart_bull_flag",
+    "chart_bear_flag",
+    "chart_bull_pennant",
+    "chart_bear_pennant",
+    "chart_rising_channel",
+    "chart_falling_channel",
+    "chart_high_tight_flag",
+    "chart_coil_volatility_squeeze",
+    "chart_three_rising_valleys",
+    "chart_three_falling_peaks",
+    "chart_measured_move_up",
+    "chart_measured_move_down",
+    "chart_head_shoulders",
+    "chart_inverse_head_shoulders",
+    "chart_complex_head_shoulders",
+    "chart_cup_handle",
+    "chart_inverted_cup_handle",
+    "chart_rounding_bottom",
+    "chart_adam_eve_bottom",
+    "chart_adam_eve_top",
+    "chart_scallop_handle",
+    "chart_rounding_top",
 ];
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -1573,7 +1623,7 @@ mod tests {
         );
 
         let issues = parse_native_scan_request_v1(&request_value(json!([
-            { "id": "r1", "expression": { "kind": "pattern", "id": "chart_head_shoulders" } }
+            { "id": "r1", "expression": { "kind": "pattern", "id": "chart_unknown_pattern" } }
         ])))
         .expect_err("unsupported pattern");
         assert!(issues
