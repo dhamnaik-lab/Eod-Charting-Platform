@@ -207,7 +207,7 @@ export const dailyMarketScannerHandlers: Record<string, ScannerHandler> = {
       definition,
       metrics.changePercent >= 0 ? 'bullish' : 'bearish',
       [
-        `Volume surge: ${metrics.volumeRatio20.toFixed(2)}x of 20-day average (${metrics.today.volume.toLocaleString()} vs ${Math.round(metrics.averageVolume20!).toLocaleString()})`,
+        `Volume surge: ${metrics.volumeRatio20.toFixed(2)}x of 20-day average (${metrics.today.volume.toLocaleString('en-IN')} vs ${Math.round(metrics.averageVolume20!).toLocaleString('en-IN')})`,
       ],
       {
         volume: metrics.today.volume,
