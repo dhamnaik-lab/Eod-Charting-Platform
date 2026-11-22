@@ -557,7 +557,7 @@ fn format_js_fixed_2(value: f64) -> String {
     format!("{sign}{abs_rounded:.2}")
 }
 
-fn format_locale_3_group(value: f64) -> String {
+fn format_locale_en_in(value: f64) -> String {
     if !value.is_finite() {
         return format_js_number(value);
     }
@@ -572,9 +572,9 @@ fn format_locale_3_group(value: f64) -> String {
         Some((integer, fraction)) => (integer, Some(fraction)),
         None => (raw.as_str(), None),
     };
-    let mut grouped = String::with_capacity(int_part.len() + int_part.len() / 3);
+    let mut grouped = String::with_capacity(int_part.len() + int_part.len() / 2);
     for (idx, ch) in int_part.chars().rev().enumerate() {
-        if idx > 0 && idx % 3 == 0 {
+        if idx == 3 || (idx > 3 && (idx - 3) % 2 == 0) {
             grouped.push(',');
         }
         grouped.push(ch);
@@ -718,8 +718,8 @@ pub fn evaluate_daily_market_rule(
             let reason = format!(
                 "Volume surge: {}x of 20-day average ({} vs {})",
                 format_js_fixed_2(volume_ratio),
-                format_locale_3_group(metrics.today.volume),
-                format_locale_3_group(rounded_avg)
+                format_locale_en_in(metrics.today.volume),
+                format_locale_en_in(rounded_avg)
             );
             add_number(&mut values, "volume", metrics.today.volume)?;
             add_number(&mut values, "avg_volume_20", rounded_avg)?;
@@ -1111,9 +1111,17 @@ mod tests {
         assert_eq!(format_js_fixed_2(-0.004), "-0.00");
         assert_eq!(format_js_fixed_2(10.005), "10.01");
         assert_eq!(format_js_fixed_2(0.0), "0.00");
-        assert_eq!(format_locale_3_group(0.0), "0");
-        assert_eq!(format_locale_3_group(1500.0), "1,500");
-        assert_eq!(format_locale_3_group(15000.5), "15,000.5");
-        assert_eq!(format_locale_3_group(1250.5_f64.round()), "1,251");
+        assert_eq!(format_locale_en_in(0.0), "0");
+        assert_eq!(format_locale_en_in(999.0), "999");
+        assert_eq!(format_locale_en_in(1500.0), "1,500");
+        assert_eq!(format_locale_en_in(15000.5), "15,000.5");
+        assert_eq!(format_locale_en_in(99999.0), "99,999");
+        assert_eq!(format_locale_en_in(100000.0), "1,00,000");
+        assert_eq!(format_locale_en_in(150000.0), "1,50,000");
+        assert_eq!(format_locale_en_in(1250000.0), "12,50,000");
+        assert_eq!(format_locale_en_in(12345678.0), "1,23,45,678");
+        assert_eq!(format_locale_en_in(123456789.0), "12,34,56,789");
+        assert_eq!(format_locale_en_in(123456.7896), "1,23,456.79");
+        assert_eq!(format_locale_en_in(1250.5_f64.round()), "1,251");
     }
 }

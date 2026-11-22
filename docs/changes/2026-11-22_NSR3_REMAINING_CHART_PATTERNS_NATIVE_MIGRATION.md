@@ -38,9 +38,9 @@ Only the 4 built-in gap detectors (`chart_common_gap`, `chart_breakaway_gap`, `c
 - `HANDOFF.md`, `NEXT_THREAD_PROMPT_EOD_CHARTING_PLATFORM.md`, `docs/plans/2026-11-21_NATIVE_SCANNER_RETIREMENT_READINESS.md`, `ARCHITECTURE_CURRENT_EOD_CHARTING_PLATFORM.md`, `FEATURE_STATUS_MATRIX_EOD_CHARTING_PLATFORM.md` — synchronized living documentation while preserving all NS-R2 and historical entries.
 
 ## Semantics & subtle parity fixes verified
-- **Triangle `min_bars` alignment:** Both `PATTERN_SPECS` (`chart_patterns.rs`) and `PATTERN_MIN_BARS` (`nativeScanAst.ts`) enforce `13` minimum bars for `chart_ascending_triangle` and `chart_descending_triangle` because TypeScript `latestTriangleSetup()` slices `bars.slice(-121, -1)` and requires `baseBars.length >= 12`.
+- **Triangle `min_bars` alignment (`C-4`):** Both `PATTERN_SPECS` (`chart_patterns.rs`) and `PATTERN_MIN_BARS` (`nativeScanAst.ts`) enforce `13` minimum bars for `chart_ascending_triangle` and `chart_descending_triangle` because TypeScript `latestTriangleSetup()` in `src/features/chartPatterns/setups.ts:170-172` evaluates `12` completed setup/consolidation bars strictly preceding the breakout bar (`baseBars = bars.slice(-STRUCTURE_LOOKBACK_BARS - 1, -1); if (baseBars.length < 12) return null;`) plus `1` breakout bar (`latest`), totaling `13` bars (`C-4` verified).
 - **Lookback constants & pivot strictness:** Uses exact accepted TypeScript baseline lookbacks (`REVERSAL_LOOKBACK_BARS = 180`, `STRUCTURE_LOOKBACK_BARS = 120`, `CUP_HANDLE_LOOKBACK_BARS = 160`) and strict pivot comparison (`bar.high > neighbor.high` / `bar.low < neighbor.low`).
-- **Result metadata:** Preserves omitted optional projection fields (`targetPrice`, `stopLossPrice`, `potentialGainPct`, `riskRewardRatio`, `geometry.targetProjection` all `None`/omitted matching `createChartPatternResult` in `src/features/chartPatterns/shared.ts`), fixed `"neutral-bilateral"` family wire formatting in `patterns.rs`, and verified descending-date canonical match sorting across multi-episode historical grouping.
+- **Result metadata (`C-5`):** Preserves absent optional projection fields (`targetPrice`, `stopLossPrice`, `potentialGainPct`, `riskRewardRatio`, `geometry.targetProjection` all `None`/omitted matching `createChartPatternResult` in `src/features/chartPatterns/shared.ts` without speculative calculations), fixed `"neutral-bilateral"` family wire formatting in `patterns.rs`, and verified descending-date canonical match sorting across multi-episode historical grouping.
 
 ## Behavior preserved
 - Native Rust scanner stays **OFF by default**; TypeScript (`runCoreEodScannerBatch`) remains default and whole-run fallback.
@@ -60,9 +60,9 @@ Measured locally on identical synthetic datasets (`latest_matches=0`, `historica
 4. `Invoke-EOD-SharedCargo.ps1 -Mode Preview` + `-Mode Run` (`--bin eod-charting-platform-shell scanner_`) — **PASS** (`18 passed; 0 failed; 0 ignored; 1453 filtered out; finished in 0.05s`; `BUILD01_SHARED_CARGO_COMMAND_PASS`).
 5. `Invoke-EOD-SharedCargo.ps1 -Mode Preview` + `-Mode Run -CargoAction check` — **PASS** (`exit 0`, `BUILD01_SHARED_CARGO_COMMAND_PASS`; finished in `11.68s`; 1 pre-existing dead-code warning in `src/bhavcopy/calendar.rs`).
 6. Focused 9-file Vitest run (including `nativeChartPatterns50ParityNSR3.test.ts` without `GENERATE_NSR3_FIXTURES`, `nativeScannerParityNS01.test.ts`, `nativeDailyMarketParityNSR2.test.ts`, `nativeScannerRunNS04.test.ts`, `nativeCoreLatestRoutingNSR2.test.ts`, `chartPatternScanners.test.ts`, `chartPatternChannels.test.ts`, `nativeIntegration.test.ts`, `toolbarChartPatternWorkerCHIP01.test.ts`) — **PASS** (`9 files, 216 passed (216)`).
-7. Broader scanner + chart-pattern Vitest run (`src/features/scanner/ src/plugins/scanner/__tests__/ src/features/chartPatterns/__tests__/ src/components/__tests__/ScannerChartRouting.test.ts`) — **PASS** (`exit 0`, `29 passed (29)`, `343 passed (343)` after NS-R2 locale pin test).
+7. Broader scanner + chart-pattern Vitest run (`src/features/scanner/ src/plugins/scanner/__tests__/ src/features/chartPatterns/__tests__/ src/components/__tests__/ScannerChartRouting.test.ts`) — **PASS** (`exit 0`, `29 passed (29)`, `345 passed (345)` after NS-R2 `en-IN` C-1 resolution).
 8. `npm.cmd run typecheck:renderer` — **PASS** (`exit 0`).
-9. `npm.cmd run build:renderer` — **PASS** (`exit 0`, `851 modules transformed`, `built in 7.03s`).
+9. `npm.cmd run build:renderer` — **PASS** (`exit 0`, `851 modules transformed`, `built in 7.12s`).
 10. `pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-doc-references.ps1` — **PASS** (`exit 0`, `[PASS] Live documentation references are valid.`).
 
 ## Risks and remaining acceptance

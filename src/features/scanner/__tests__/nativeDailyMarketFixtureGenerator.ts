@@ -412,6 +412,32 @@ export function generateDailyMarketParityFixtures(): DailyMarketParityFixtureBun
       expectedStatus: 'match',
     }),
     buildCase({
+      caseId: 'volume_surge_lakh_scale_en_in_grouping_match',
+      ruleId: 'volume_surge',
+      description: 'Lakh-scale volumes (>=100,000) format deterministically with en-IN grouping (1,50,000 vs 1,00,000).',
+      symbol: 'TATAMOTORS',
+      exchange: 'NSE',
+      bars: makeBars(
+        21,
+        { 20: { close: 104, volume: 150_000 } },
+        { close: 100, volume: 100_000 },
+      ),
+      expectedStatus: 'match',
+    }),
+    buildCase({
+      caseId: 'volume_surge_crore_scale_en_in_grouping_bse_match',
+      ruleId: 'volume_surge',
+      description: 'Crore-scale BSE volumes format deterministically with en-IN grouping (1,23,45,678 vs 12,50,000).',
+      symbol: '500325',
+      exchange: 'BSE',
+      bars: makeBars(
+        21,
+        { 20: { close: 96, volume: 12_345_678 } },
+        { close: 100, volume: 1_250_000 },
+      ),
+      expectedStatus: 'match',
+    }),
+    buildCase({
       caseId: 'volume_surge_zero_average_volume_nonmatch',
       ruleId: 'volume_surge',
       description: 'Zero prior-20 average volume yields non-match instead of dividing by zero.',
@@ -607,6 +633,20 @@ export function generateDailyMarketParityFixtures(): DailyMarketParityFixtureBun
       expectedStatus: 'match',
     }),
   ];
+
+  // Independent specification assertions for lakh/crore en-IN formatting (C-1).
+  const expectedReasonsByCaseId: Record<string, string> = {
+    volume_surge_lakh_scale_en_in_grouping_match:
+      'Volume surge: 1.50x of 20-day average (1,50,000 vs 1,00,000)',
+    volume_surge_crore_scale_en_in_grouping_bse_match:
+      'Volume surge: 9.88x of 20-day average (1,23,45,678 vs 12,50,000)',
+  };
+  for (const [caseId, expectedReason] of Object.entries(expectedReasonsByCaseId)) {
+    const actualReason = cases.find((sample) => sample.caseId === caseId)?.expected?.reasons?.[0];
+    if (actualReason !== expectedReason) {
+      throw new Error(`${caseId}: expected reason "${expectedReason}", got "${actualReason ?? 'none'}"`);
+    }
+  }
 
   return {
     version: 1,

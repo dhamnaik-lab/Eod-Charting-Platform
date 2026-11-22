@@ -479,59 +479,70 @@ describe('NS-R2 Daily Market native metadata gate and routing', () => {
     expect(formatScannerCompletionStatus(skippedOutcome, 1)).toContain('1 skipped');
   });
 
-  it('pins <100,000 3-digit volume_surge reason parity and documents the >=100,000 toLocaleString() locale merge blocker', () => {
+  it('formats volume_surge reasons deterministically with en-IN grouping across thousand, lakh, and crore scales', () => {
     const surgeDef = definitionsById.get('volume_surge')!;
 
-    // Below 100,000: TypeScript toLocaleString() matches Rust 3-digit grouping across en-IN & en-US.
-    const below100kBars: EodBar[] = Array.from({ length: 21 }, (_, idx) => ({
-      symbol: 'SURGE99K',
-      date: `2025-01-${String(idx + 1).padStart(2, '0')}`,
-      open: 100,
-      high: 102,
-      low: 99,
-      close: idx === 20 ? 104 : 100,
-      volume: idx === 20 ? 99_999 : 50_000,
-    }));
-    const below100kResult = runDailyMarketScanner(
-      { symbol: 'SURGE99K', exchange: 'NSE', bars: below100kBars },
-      surgeDef,
-    );
-    expect(below100kResult?.reasons).toEqual([
-      `Volume surge: 2.00x of 20-day average (${(99_999).toLocaleString()} vs ${(50_000).toLocaleString()})`,
-    ]);
-    expect((99_999).toLocaleString('en-IN')).toBe('99,999');
-    expect((99_999).toLocaleString('en-US')).toBe('99,999');
+    const makeSeries = (symbol: string, todayVol: number, priorVol: number, todayClose: number): EodBar[] =>
+      Array.from({ length: 21 }, (_, idx) => ({
+        symbol,
+        date: `2025-01-${String(idx + 1).padStart(2, '0')}`,
+        open: 100,
+        high: 105,
+        low: 95,
+        close: idx === 20 ? todayClose : 100,
+        volume: idx === 20 ? todayVol : priorVol,
+      }));
 
-    // At/above 100,000: numeric values match, but en-IN TS toLocaleString() emits lakh grouping while Rust emits 3-digit grouping.
-    const above100kBars: EodBar[] = Array.from({ length: 21 }, (_, idx) => ({
-      symbol: 'SURGE150K',
-      date: `2025-01-${String(idx + 1).padStart(2, '0')}`,
-      open: 100,
-      high: 102,
-      low: 99,
-      close: idx === 20 ? 104 : 100,
-      volume: idx === 20 ? 150_000 : 100_000,
-    }));
-    const above100kResult = runDailyMarketScanner(
-      { symbol: 'SURGE150K', exchange: 'NSE', bars: above100kBars },
+    // Thousand scale (< 100,000)
+    const kResult = runDailyMarketScanner(
+      { symbol: 'SURGE99K', exchange: 'NSE', bars: makeSeries('SURGE99K', 99_999, 50_000, 104) },
       surgeDef,
     );
-    expect(above100kResult?.values).toEqual({
+    expect(kResult?.reasons).toEqual([
+      'Volume surge: 2.00x of 20-day average (99,999 vs 50,000)',
+    ]);
+    expect(nativeCoreResultMetadataIssue(asNativeMatch(kResult!))).toBeNull();
+
+    // Lakh scale (>= 100,000) — independent en-IN expectation
+    const lakhResult = runDailyMarketScanner(
+      { symbol: 'TATAMOTORS', exchange: 'NSE', bars: makeSeries('TATAMOTORS', 150_000, 100_000, 104) },
+      surgeDef,
+    );
+    expect(lakhResult?.reasons).toEqual([
+      'Volume surge: 1.50x of 20-day average (1,50,000 vs 1,00,000)',
+    ]);
+    expect(lakhResult?.values).toEqual({
       volume: 150_000,
       avg_volume_20: 100_000,
       vol_ratio: 1.5,
       change_pct: 4,
     });
+    expect(nativeCoreResultMetadataIssue(asNativeMatch(lakhResult!))).toBeNull();
+
+    // Crore scale (>= 10,000,000) — independent en-IN expectation
+    const croreResult = runDailyMarketScanner(
+      { symbol: '500325', exchange: 'BSE', bars: makeSeries('500325', 12_345_678, 1_250_000, 96) },
+      surgeDef,
+    );
+    expect(croreResult?.direction).toBe('bearish');
+    expect(croreResult?.reasons).toEqual([
+      'Volume surge: 9.88x of 20-day average (1,23,45,678 vs 12,50,000)',
+    ]);
+    expect(croreResult?.values).toEqual({
+      volume: 12_345_678,
+      avg_volume_20: 1_250_000,
+      vol_ratio: 9.88,
+      change_pct: -4,
+    });
+    expect(nativeCoreResultMetadataIssue(asNativeMatch(croreResult!))).toBeNull();
+
+    // Committed fixture bundle includes both independent lakh/crore cases (`40` cases total)
+    expect(fixture.cases).toHaveLength(40);
     expect(
-      nativeCoreResultMetadataIssue(
-        asNativeMatch({
-          ...above100kResult!,
-          reasons: ['Volume surge: 1.50x of 20-day average (150,000 vs 100,000)'],
-        }),
-      ),
-    ).toBeNull();
-    // Explicit documentation of the unresolved cross-locale reason mismatch on >= 100,000 volumes:
-    expect((150_000).toLocaleString('en-IN')).toBe('1,50,000');
-    expect((150_000).toLocaleString('en-US')).toBe('150,000');
+      fixture.cases.find((c) => c.caseId === 'volume_surge_lakh_scale_en_in_grouping_match')?.expected?.reasons,
+    ).toEqual(['Volume surge: 1.50x of 20-day average (1,50,000 vs 1,00,000)']);
+    expect(
+      fixture.cases.find((c) => c.caseId === 'volume_surge_crore_scale_en_in_grouping_bse_match')?.expected?.reasons,
+    ).toEqual(['Volume surge: 9.88x of 20-day average (1,23,45,678 vs 12,50,000)']);
   });
 });
