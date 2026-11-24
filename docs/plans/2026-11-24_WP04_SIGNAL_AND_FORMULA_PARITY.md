@@ -181,9 +181,17 @@ The main SQLite catalog, database manifest and NTPC history SHA-256 values match
 
 ## Formula contract
 
-The first Custom Formula Scanner workflow has a preserved local implementation. Actual-data Windows portable acceptance and source publication are pending.
+The first Custom Formula Scanner workflow is available on `codex/wp04-custom-formula`. The branch is based on published `main@096044a`. Actual-data Windows portable acceptance is pending.
 
-The chart formula editor evaluates assignment programs and uses the numeric assignments as plots. The existing Scanner batch helper evaluates the same programs and reports the first numeric plot whose latest value is nonzero. No application caller for that helper was found in the current source. The probe confirms that `RULE = close > 0` produces a boolean output with zero numeric plots, while `FIRST = close` followed by `RULE = close > 200` exposes the first nonzero plot. Before exposing native formula scans, decide whether Scanner should explicitly select a boolean predicate or adopt the numeric plot contract. Keep chart formula behavior in its existing engine. [Scanner helper](../../src/plugins/scanner/scannerRunner.ts#L201) · [Formula evaluation](../../src/modules/formulaEngine/customFormulaEngine.ts#L138)
+The chart formula editor evaluates assignment programs and uses numeric assignments as plots. Before this workflow, the unused batch helper chose the first nonzero numeric plot. For example, FIRST = close could produce a hit even when RULE = close > 200 evaluated false. The Scanner now requires explicit selection and validates one named boolean series. The chart evaluator retains numeric plot output. [Formula evaluation](../../src/modules/formulaEngine/customFormulaEngine.ts)
+
+### Standalone TypeScript workflow · 24 November 2026 IST
+
+Open Scanner → Run → Custom Formula. Check the formula, select one named boolean series, then scan the active chart symbol or a watchlist of up to 50 distinct targets. The trailing input window is 20–800 bars, defaulting to 800. The cutoff is inclusive. A hit requires `true` on that target's last completed raw EOD bar through the cutoff. Results show the actual bar date and selected predicate. The summary counts matches, false predicates, unavailable values, and failures. [Scanner UI](../../src/components/ScannerWindow.tsx) · [Batch runner](../../src/plugins/scanner/scannerRunner.ts)
+
+The branch passed renderer typechecking, 194 focused tests and a browser run with mocked desktop reads. The browser run covered explicit selection and edit invalidation, draft retention across minimize and restore, cutoff and target limits, outcome counts, cancellation and a database switch away and back. These checks used the published Scanner Results table. [Formula tests](../../src/plugins/scanner/__tests__/formulaScanner.test.ts)
+
+Windows acceptance uses the normal operator-built portable from this branch with separately authorized actual EOD data. Check a true comparison, a false comparison, and a known crossover or warm-up case at a common symbol, cutoff and lookback. Record the selected predicate, result date and outcome counts.
 
 ## Checkpoint
 

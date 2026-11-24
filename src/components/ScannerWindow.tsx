@@ -17,7 +17,8 @@ import {
 import { getActiveChartTab, useChartStore } from '@/store/chartStore';
 import { useUiStore } from '@/store/uiStore';
 import { useWindowStore } from '@/store/windowStore';
-import { getDesktopApi, type Watchlist } from '@/platform';
+import { getDesktopApi, type InstrumentKey, type Watchlist } from '@/platform';
+import { prepareScannerFormula } from '@/modules/formulaEngine/customFormulaEngine';
 import { isPluginEnabled } from '@/plugins/registry';
 import { CORE_EOD_SCANNER_PLUGIN_ID } from '@/plugins/scanner/scannerPlugin';
 import { listApplicationScannerDefinitions, requiresCoreScannerPlugin } from '@/features/scanner/catalog';
@@ -31,7 +32,15 @@ import {
   resolveScannerTargets,
   type ScannerLookbackBars,
 } from '@/plugins/scanner/scannerRunConfig';
-import { runCoreEodScannerBatch } from '@/plugins/scanner/scannerRunner';
+import {
+  CUSTOM_FORMULA_SCANNER_ID,
+  FORMULA_LOOKBACK_MAX,
+  FORMULA_TARGET_LIMIT,
+  formulaScannerMarketDate,
+  runCoreEodScannerBatch,
+  runCustomFormulaScannerBatch,
+  type FormulaScannerRunRequest,
+} from '@/plugins/scanner/scannerRunner';
 import {
   canRunNatively,
   describeNativeCapability,
@@ -79,6 +88,17 @@ type ResultDirectionFilter = 'all' | 'bullish' | 'bearish' | 'neutral';
 type ResultViewPreset = 'compact' | 'pattern-detail' | 'values' | 'debug';
 type AlertReviewTab = 'latest' | 'history';
 type ScannerExecutionMode = 'responsive' | 'fast';
+type FormulaScannerInputs = Pick<FormulaScannerRunRequest, 'formula' | 'formulaName' | 'predicate' | 'toDate' | 'lookbackBars'> & {
+  universeSource: 'active-chart' | 'watchlists';
+  exchange: string;
+  selectedWatchlists: Watchlist[];
+};
+type FormulaScannerDraft = Omit<FormulaScannerInputs, 'selectedWatchlists' | 'lookbackBars'> & {
+  predicates: readonly string[];
+  validationError: string;
+  selectedWatchlistIds: number[];
+  lookbackBars: string;
+};
 
 interface ScannerGroup {
   label: string;
@@ -97,6 +117,7 @@ export function ScannerWindow() {
   const openRequestCount = useUiStore((state) => state.scannerOpenRequestCount);
   const onClose = useUiStore((state) => state.closeScannerWindow);
   const snapshot = useChartStore((state) => state.snapshot);
+  const activeDatabasePath = snapshot?.activeDatabasePath;
   const chartTabs = useChartStore((state) => state.chartTabs);
   const activeChartTabId = useChartStore((state) => state.activeChartTabId);
   const selectedWatchlistId = useChartStore((state) => state.selectedWatchlistId);
@@ -139,7 +160,22 @@ export function ScannerWindow() {
   const [recentOnly, setRecentOnly] = useState(true);
   const [warningsExpanded, setWarningsExpanded] = useState(false);
   const [activeSection, setActiveSection] = useState<ScannerWorkspaceSection>('run');
+  const [formulaMode, setFormulaMode] = useState(false);
+  const [formulaDraft, setFormulaDraft] = useState<FormulaScannerDraft>({
+    formula: '',
+    formulaName: '',
+    predicates: [],
+    predicate: '',
+    validationError: '',
+    universeSource: 'active-chart',
+    exchange: 'NSE',
+    selectedWatchlistIds: [],
+    lookbackBars: String(DEFAULT_LOOKBACK_BARS),
+    toDate: '',
+  });
+  const [formulaResults, setFormulaResults] = useState(false);
   const [resultView, setResultView] = useState<ResultViewPreset>('values');
+  const resultsTableView = formulaResults ? 'values' : resultView;
   const [activeAlertReviewTab, setActiveAlertReviewTab] = useState<AlertReviewTab>('latest');
   const [priorityFilter, setPriorityFilter] = useState<ScannerPriorityFilter>('all');
   const [prioritySort, setPrioritySort] = useState<ScannerPrioritySort>('category');
@@ -152,6 +188,7 @@ export function ScannerWindow() {
   const [workspaceProfile, setWorkspaceProfile] = useState<ScannerWorkspaceProfile | null>(null);
   const [workspaceHydrated, setWorkspaceHydrated] = useState(false);
   const [workspaceName, setWorkspaceName] = useState('');
+  const showStandardUniverse = !(activeSection === 'run' && formulaMode) && !(activeSection === 'results' && formulaResults);
   const cancelRequestedRef = useRef(false);
   const activeNativeRunDatabaseRef = useRef<string | null>(null);
   const workspaceProfileRef = useRef<ScannerWorkspaceProfile | null>(null);
@@ -197,13 +234,13 @@ export function ScannerWindow() {
     [scannerDefinitions],
   );
   const displayedResults = useMemo(
-    () => filterScannerResults(results, scannerDefinitionById, {
+    () => formulaResults ? results : filterScannerResults(results, scannerDefinitionById, {
       familyFilter,
       directionFilter,
       minScore,
       recentOnly,
     }),
-    [results, scannerDefinitionById, familyFilter, directionFilter, minScore, recentOnly],
+    [results, scannerDefinitionById, familyFilter, directionFilter, minScore, recentOnly, formulaResults],
   );
   const patternMapEntries = useMemo(
     () =>
@@ -633,6 +670,74 @@ export function ScannerWindow() {
     setStatus('Cancellation requested; stopping the active chart-pattern calculation...');
   };
 
+  const handleRunFormula = async (inputs: FormulaScannerInputs) => {
+    const api = getDesktopApi();
+    if (running) return;
+    if (!api || !activeDatabasePath) {
+      setStatus(api ? 'Open a database before running a formula scan.' : 'Desktop API bridge is unavailable.');
+      return;
+    }
+
+    const scanDatabasePath = activeDatabasePath;
+    let databaseChanged = useChartStore.getState().snapshot?.activeDatabasePath !== scanDatabasePath;
+    const unsubscribe = useChartStore.subscribe((state) => {
+      if (state.snapshot?.activeDatabasePath !== scanDatabasePath) databaseChanged = true;
+    });
+    cancelRequestedRef.current = false;
+    setRunning(true);
+    setFormulaResults(true);
+    setResults([]);
+    setErrors([]);
+    setStatus('Preparing formula scan…');
+    const scanStartedAt = Date.now();
+
+    try {
+      const targets = await resolveScannerTargets(api, {
+        exchange: inputs.exchange,
+        universeSource: inputs.universeSource,
+        activeInstrument,
+        selectedWatchlists: inputs.selectedWatchlists,
+        maxSymbols: FORMULA_TARGET_LIMIT,
+      });
+      const output = await runCustomFormulaScannerBatch(api, {
+        formula: inputs.formula,
+        formulaName: inputs.formulaName,
+        predicate: inputs.predicate,
+        targets,
+        databasePath: scanDatabasePath,
+        lookbackBars: inputs.lookbackBars,
+        toDate: inputs.toDate,
+        shouldCancel: () => cancelRequestedRef.current || databaseChanged,
+        onProgress: (progress) => {
+          const elapsedMs = Date.now() - scanStartedAt;
+          setStatus(formatScannerProgress({
+            ...progress,
+            symbol: `${progress.exchange}:${progress.symbol}`,
+            elapsedMs,
+            remainingMs: elapsedMs * (progress.total / progress.completed - 1),
+          }));
+        },
+      });
+      if (databaseChanged) {
+        setStatus('Formula scan cancelled because the active database changed.');
+        return;
+      }
+      setResults(output.results);
+      setErrors(output.errors);
+      setActiveSection('results');
+      const { matched, false: falseCount, unavailable, failed } = output.counts;
+      const status = output.cancelled ? 'Formula scan cancelled' : 'Formula scan complete';
+      setStatus(`${status}. ${matched} matched · ${falseCount} false · ${unavailable} unavailable · ${failed} failed.`);
+    } catch (error) {
+      setStatus(databaseChanged
+        ? 'Formula scan cancelled because the active database changed.'
+        : error instanceof Error ? error.message : 'Formula scan failed.');
+    } finally {
+      unsubscribe();
+      setRunning(false);
+    }
+  };
+
   const handleRun = async () => {
     const api = getDesktopApi();
     if (!api) {
@@ -660,6 +765,7 @@ export function ScannerWindow() {
     setStatus(lookbackBars === null ? 'Preparing complete historical scanner inputs...' : 'Preparing scanner inputs...');
     setErrors([]);
     setResults([]);
+    setFormulaResults(false);
     setAlertTriggers([]);
     if (lookbackBars === null) {
       setRecentOnly(false);
@@ -1050,16 +1156,16 @@ export function ScannerWindow() {
           {activeSection !== 'alerts' ? (
             <div style={workspaceHeaderStyle}>
               <div style={metaStyle}>
-                <span>
+                <span role="status">
                   {activeSection === 'market-movers'
                     ? 'Market Movers ranks completed daily bars and does not modify the database.'
                     : status || 'Core EOD Scanner reads completed daily bars and does not modify the database.'}
                 </span>
                 {activeSection === 'market-movers' ? (
                   <span>Universe, as-of date, and scan accounting are shown in the Market Movers panel below.</span>
-                ) : universeSource === 'watchlists' && selectedWatchlists.length > 0 ? (
+                ) : showStandardUniverse && universeSource === 'watchlists' && selectedWatchlists.length > 0 ? (
                   <span>Selected watchlists: {formatSelectedWatchlistLabel(selectedWatchlists)}</span>
-                ) : selectedWatchlist ? (
+                ) : showStandardUniverse && selectedWatchlist ? (
                   <span>Current watchlist: {selectedWatchlist.name}</span>
                 ) : null}
                 {activeInstrument ? <span>Active chart: {activeInstrument.exchange}:{activeInstrument.symbol}</span> : null}
@@ -1068,6 +1174,44 @@ export function ScannerWindow() {
           ) : null}
 
           {activeSection === 'run' ? (
+            <div style={filterBarStyle} role="group" aria-label="Scanner run type">
+              <button
+                type="button"
+                style={dailyPresetButtonStyle(!formulaMode)}
+                aria-pressed={!formulaMode}
+                disabled={running}
+                onClick={() => setFormulaMode(false)}
+              >
+                Standard Scan
+              </button>
+              <button
+                type="button"
+                style={dailyPresetButtonStyle(formulaMode)}
+                aria-pressed={formulaMode}
+                disabled={running}
+                onClick={() => setFormulaMode(true)}
+              >
+                Custom Formula
+              </button>
+            </div>
+          ) : null}
+          <div hidden={activeSection !== 'run' || !formulaMode} style={formulaPanelStyle}>
+            <ScannerFormulaPanel
+              activeInstrument={activeInstrument}
+              watchlists={watchlists}
+              draft={formulaDraft}
+              onDraftChange={(updates) => setFormulaDraft((current) => ({ ...current, ...updates }))}
+              canRun={Boolean(activeDatabasePath)}
+              running={running}
+              onRun={handleRunFormula}
+              onCancel={() => {
+                cancelRequestedRef.current = true;
+                setStatus('Cancelling formula scan…');
+              }}
+            />
+          </div>
+
+          {activeSection === 'run' && !formulaMode ? (
             <>
               <div style={scannerInfoStyle}>
                 <strong>Scanner Workspace</strong>
@@ -1425,7 +1569,7 @@ export function ScannerWindow() {
 
           {activeSection === 'results' ? (
             <>
-              <div style={filterBarStyle}>
+              {!formulaResults ? <div style={filterBarStyle}>
                 <label style={filterFieldStyle}>
                   <span style={labelStyle}>Family</span>
                   <select
@@ -1485,7 +1629,7 @@ export function ScannerWindow() {
                 <span style={filterSummaryStyle}>
                   Showing {displayedResults.length} of {results.length} matches
                 </span>
-              </div>
+              </div> : null}
 
               {historicalPatternResultCount > 0 ? (
                 <div style={scannerInfoStyle}>
@@ -1593,10 +1737,10 @@ export function ScannerWindow() {
                       <th style={thStyle}>Direction</th>
                       <th style={thStyle}>Score</th>
                       <th style={thStyle}>Date</th>
-                      {resultView === 'compact' ? null : <th style={thStyle}>Reasons</th>}
-                      {resultView === 'pattern-detail' ? <th style={thStyle}>Pattern Detail</th> : null}
-                      {resultView === 'values' || resultView === 'debug' ? <th style={thStyle}>Values</th> : null}
-                      {resultView === 'debug' ? (
+                      {resultsTableView === 'compact' ? null : <th style={thStyle}>Reasons</th>}
+                      {resultsTableView === 'pattern-detail' ? <th style={thStyle}>Pattern Detail</th> : null}
+                      {resultsTableView === 'values' || resultsTableView === 'debug' ? <th style={thStyle}>Values</th> : null}
+                      {resultsTableView === 'debug' ? (
                         <>
                           <th style={thStyle}>Scanner Id</th>
                           <th style={thStyle}>Source</th>
@@ -1609,7 +1753,7 @@ export function ScannerWindow() {
                   <tbody>
                     {displayedResults.length === 0 ? (
                       <tr>
-                        <td style={emptyCellStyle} colSpan={getResultViewColumnCount(resultView)}>
+                        <td style={emptyCellStyle} colSpan={getResultViewColumnCount(resultsTableView)}>
                           {results.length === 0 ? 'No scanner matches yet.' : 'No matches for the current filters.'}
                         </td>
                       </tr>
@@ -1636,14 +1780,14 @@ export function ScannerWindow() {
                               </div>
                             ) : null}
                           </td>
-                          {resultView === 'compact' ? null : <td style={tdStyle}>{result.reasons?.join('; ') ?? ''}</td>}
-                          {resultView === 'pattern-detail' ? (
+                          {resultsTableView === 'compact' ? null : <td style={tdStyle}>{result.reasons?.join('; ') ?? ''}</td>}
+                          {resultsTableView === 'pattern-detail' ? (
                             <td style={tdStyle}>{formatPatternDetails(result)}</td>
                           ) : null}
-                          {resultView === 'values' || resultView === 'debug' ? (
+                          {resultsTableView === 'values' || resultsTableView === 'debug' ? (
                             <td style={tdStyle}>{formatValues(result.values)}</td>
                           ) : null}
-                          {resultView === 'debug' ? (
+                          {resultsTableView === 'debug' ? (
                             <>
                               <td style={tdStyle}>{result.scannerId}</td>
                               <td style={tdStyle}>{result.source ?? '-'}</td>
@@ -1658,13 +1802,15 @@ export function ScannerWindow() {
                             >
                               Show
                             </button>
-                            <button
-                              type="button"
-                              style={linkButtonStyle}
-                              onClick={() => void handleCreateScannerAlert(result)}
-                            >
-                              Alert
-                            </button>
+                            {result.scannerId !== CUSTOM_FORMULA_SCANNER_ID ? (
+                              <button
+                                type="button"
+                                style={linkButtonStyle}
+                                onClick={() => void handleCreateScannerAlert(result)}
+                              >
+                                Alert
+                              </button>
+                            ) : null}
                           </td>
                         </tr>
                       ))
@@ -2000,6 +2146,183 @@ export function ScannerWindow() {
       </div>
     </FloatingWindow>
   );
+function ScannerFormulaPanel({
+  activeInstrument,
+  watchlists,
+  draft,
+  onDraftChange,
+  canRun,
+  running,
+  onRun,
+  onCancel,
+}: {
+  activeInstrument: InstrumentKey | null;
+  watchlists: Watchlist[];
+  draft: FormulaScannerDraft;
+  onDraftChange: (updates: Partial<FormulaScannerDraft>) => void;
+  canRun: boolean;
+  running: boolean;
+  onRun: (inputs: FormulaScannerInputs) => Promise<void>;
+  onCancel: () => void;
+}) {
+  const { formula, formulaName, predicates, predicate, validationError } = draft;
+  const { universeSource, exchange, selectedWatchlistIds, lookbackBars, toDate } = draft;
+  const selectedWatchlists = watchlists.filter(({ id }) => selectedWatchlistIds.includes(id));
+
+  const checkFormula = () => {
+    try {
+      onDraftChange({ predicates: prepareScannerFormula(formula).predicates, predicate: '', validationError: '' });
+    } catch (error) {
+      onDraftChange({
+        predicates: [],
+        predicate: '',
+        validationError: error instanceof Error ? error.message : 'Unable to check the formula.',
+      });
+    }
+  };
+
+  return (
+    <form
+      style={scannerInfoStyle}
+      onSubmit={(event) => {
+        event.preventDefault();
+        if (!canRun || running || !predicates.includes(predicate)) return;
+        void onRun({
+          formula,
+          formulaName,
+          predicate,
+          universeSource,
+          exchange,
+          selectedWatchlists,
+          lookbackBars: Number(lookbackBars),
+          toDate,
+        });
+      }}
+    >
+      <fieldset style={formulaFieldsStyle} disabled={running}>
+        <label style={fieldStyle}>
+          <span style={labelStyle}>Name (optional)</span>
+          <input style={inputStyle} value={formulaName} onChange={(event) => onDraftChange({ formulaName: event.target.value })} />
+        </label>
+        <label style={fieldStyle}>
+          <span style={labelStyle}>Formula</span>
+          <textarea
+            rows={5}
+            spellCheck={false}
+            style={formulaCodeStyle}
+            placeholder={'MA = SMA(close, 20)\nRULE = close > MA'}
+            value={formula}
+            onChange={(event) => onDraftChange({ formula: event.target.value, predicates: [], predicate: '', validationError: '' })}
+          />
+        </label>
+        <div style={filterBarStyle}>
+          <button type="button" style={secondaryButtonStyle} onClick={checkFormula}>Check Formula</button>
+          <label style={fieldStyle}>
+            <span style={labelStyle}>Match Predicate</span>
+            <select
+              style={inputStyle}
+              value={predicate}
+              disabled={predicates.length === 0}
+              onChange={(event) => onDraftChange({ predicate: event.target.value })}
+            >
+              <option value="">Select a boolean assignment</option>
+              {predicates.map((name) => <option key={name} value={name}>{name}</option>)}
+            </select>
+          </label>
+        </div>
+        {validationError ? <div role="alert" style={warningListStyle}>{validationError}</div> : null}
+        <div style={formulaControlsStyle}>
+          <label style={fieldStyle}>
+            <span style={labelStyle}>Universe</span>
+            <select
+              style={inputStyle}
+              value={universeSource}
+              onChange={(event) => onDraftChange({ universeSource: event.target.value === 'watchlists' ? 'watchlists' : 'active-chart' })}
+            >
+              <option value="active-chart">Active Chart</option>
+              <option value="watchlists">Watchlists</option>
+            </select>
+          </label>
+          {universeSource === 'watchlists' ? (
+            <>
+              <label style={fieldStyle}>
+                <span style={labelStyle}>Exchange</span>
+                <select style={inputStyle} value={exchange} onChange={(event) => onDraftChange({ exchange: event.target.value })}>
+                  <option value="NSE">NSE</option>
+                  <option value="BSE">BSE</option>
+                </select>
+              </label>
+              <div style={fieldStyle}>
+                <span style={labelStyle}>Watchlists</span>
+                <details style={multiSelectStyle}>
+                  <summary style={multiSelectSummaryStyle}>{formatSelectedWatchlistLabel(selectedWatchlists)}</summary>
+                  <div style={multiSelectPanelStyle}>
+                    {watchlists.length === 0 ? <div style={multiSelectEmptyStyle}>No watchlists available.</div> : null}
+                    {watchlists.map(({ id, name }) => (
+                      <label key={id} style={multiSelectOptionStyle}>
+                        <input
+                          type="checkbox"
+                          checked={selectedWatchlistIds.includes(id)}
+                          onChange={(event) => {
+                            onDraftChange({
+                              selectedWatchlistIds: event.target.checked
+                                ? [...selectedWatchlistIds, id]
+                                : selectedWatchlistIds.filter((selectedId) => selectedId !== id),
+                            });
+                          }}
+                        />
+                        <span>{name}</span>
+                      </label>
+                    ))}
+                  </div>
+                </details>
+              </div>
+            </>
+          ) : null}
+          <label style={fieldStyle}>
+            <span style={labelStyle}>Lookback ({MIN_LOOKBACK_BARS}–{FORMULA_LOOKBACK_MAX} bars)</span>
+            <input
+              type="number"
+              style={inputStyle}
+              required
+              min={MIN_LOOKBACK_BARS}
+              max={FORMULA_LOOKBACK_MAX}
+              value={lookbackBars}
+              onChange={(event) => onDraftChange({ lookbackBars: event.target.value })}
+            />
+          </label>
+          <label style={fieldStyle}>
+            <span style={labelStyle}>To Date (optional)</span>
+            <input
+              type="date"
+              style={inputStyle}
+              value={toDate}
+              max={formulaScannerMarketDate()}
+              onChange={(event) => onDraftChange({ toDate: event.target.value })}
+            />
+          </label>
+        </div>
+        {!canRun ? <span>Open a database to run a formula scan.</span> : null}
+        {canRun && universeSource === 'active-chart' && !activeInstrument ? <span>Select an active chart symbol.</span> : null}
+        <div style={filterBarStyle}>
+          <button
+            type="submit"
+            style={primaryButtonStyle}
+            disabled={!canRun || !predicate || (universeSource === 'active-chart' ? !activeInstrument : selectedWatchlists.length === 0)}
+          >
+            Scan Formula
+          </button>
+        </div>
+      </fieldset>
+      {running ? (
+        <div style={filterBarStyle}>
+          <button type="button" style={secondaryButtonStyle} onClick={onCancel}>Cancel</button>
+        </div>
+      ) : null}
+    </form>
+  );
+}
+
 }
 
 function formatValues(values: ScannerResult['values']): string {
@@ -2382,6 +2705,32 @@ const inputStyle: React.CSSProperties = {
   borderRadius: 4,
   padding: '0 8px',
   minWidth: 0,
+};
+
+const formulaPanelStyle: React.CSSProperties = { minHeight: 0, overflowY: 'auto' };
+
+const formulaFieldsStyle: React.CSSProperties = {
+  display: 'grid',
+  gap: 12,
+  minWidth: 0,
+  margin: 0,
+  border: 0,
+  padding: 0,
+};
+
+const formulaControlsStyle: React.CSSProperties = {
+  display: 'grid',
+  gridTemplateColumns: 'repeat(auto-fit, minmax(135px, 1fr))',
+  alignItems: 'end',
+  gap: 12,
+};
+
+const formulaCodeStyle: React.CSSProperties = {
+  ...inputStyle,
+  height: 'auto',
+  padding: 8,
+  resize: 'vertical',
+  fontFamily: 'monospace',
 };
 
 const multiSelectStyle: React.CSSProperties = {

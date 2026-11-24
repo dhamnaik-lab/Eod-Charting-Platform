@@ -1,5 +1,5 @@
 import type { OHLCBar } from '@/engine/types';
-import { evaluateCustomFormulaDefinition } from '@/modules/formulaEngine/customFormulaEngine';
+import { prepareScannerFormula } from '@/modules/formulaEngine/customFormulaEngine';
 import type { InstrumentKey } from '@/platform';
 import type { DesktopApi, EodDataResult } from '@/platform';
 import {
@@ -23,6 +23,7 @@ import { coreOhlcvScannerDefinitions, runCoreScanner } from '@/plugins/scanner/c
 import { dailyMarketScannerDefinitions, runDailyMarketScanner } from '@/plugins/scanner/dailyMarketScanners';
 import { evaluateSignalScannerDefinitions } from '@/plugins/scanner/signalScanners';
 import { pluginHost } from '@/plugins/hostRuntime';
+import { DEFAULT_LOOKBACK_BARS, DEFAULT_MAX_SYMBOLS, MIN_LOOKBACK_BARS } from '@/plugins/scanner/scannerRunConfig';
 
 export async function runCoreEodScannerBatch(
   api: Pick<DesktopApi, 'getEodData'>,
@@ -198,84 +199,134 @@ function mapResultToContextBars(result: EodDataResult, lookbackBars: number | nu
 }
 
 
+export const CUSTOM_FORMULA_SCANNER_ID = 'custom_formula';
+export const FORMULA_LOOKBACK_MAX = DEFAULT_LOOKBACK_BARS;
+export const FORMULA_TARGET_LIMIT = DEFAULT_MAX_SYMBOLS;
+
+export interface FormulaScannerRunRequest {
+  formula: string;
+  formulaName?: string;
+  predicate: string;
+  targets: InstrumentKey[];
+  databasePath: string;
+  toDate?: string;
+  lookbackBars: number;
+  shouldCancel?: () => boolean;
+  onProgress?: ScannerRunRequest['onProgress'];
+}
+
+export interface FormulaScannerRunOutput {
+  results: ScannerResult[];
+  counts: { matched: number; false: number; unavailable: number; failed: number };
+  cancelled: boolean;
+  errors: string[];
+}
+
+export function formulaScannerMarketDate(now = new Date()): string {
+  const parts = new Intl.DateTimeFormat('en', {
+    timeZone: 'Asia/Kolkata',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).formatToParts(now);
+  return ['year', 'month', 'day'].map((type) => parts.find((part) => part.type === type)?.value).join('-');
+}
+
 export async function runCustomFormulaScannerBatch(
   api: Pick<DesktopApi, 'getEodData'>,
-  request: {
-    formula: string;
-    formulaName?: string;
-    targets: InstrumentKey[];
-    toDate?: string;
-    lookbackBars?: number;
+  request: FormulaScannerRunRequest,
+): Promise<FormulaScannerRunOutput> {
+  const program = prepareScannerFormula(request.formula);
+  const predicate = program.predicates.find((name) => name.toLowerCase() === request.predicate.toLowerCase());
+  if (!predicate) {
+    throw new Error('Select a named bar-by-bar boolean assignment from the checked formula.');
   }
-): Promise<ScannerRunOutput> {
-  const formulaName = request.formulaName || 'Custom Formula';
-  const results: ScannerRunOutput['results'] = [];
-  const errors: string[] = [];
-  let scannedSymbols = 0;
-  const now = new Date().toISOString();
+  if (!request.databasePath) {
+    throw new Error('Open a database before running a formula scan.');
+  }
+  const { lookbackBars } = request;
+  if (!Number.isInteger(lookbackBars) || lookbackBars < MIN_LOOKBACK_BARS || lookbackBars > FORMULA_LOOKBACK_MAX) {
+    throw new Error(`Enter a lookback of ${MIN_LOOKBACK_BARS}–${FORMULA_LOOKBACK_MAX} bars.`);
+  }
+  const targets = [...new Map(request.targets.map((target) => [`${target.exchange}:${target.symbol}`, target])).values()];
+  if (targets.length === 0 || targets.length > FORMULA_TARGET_LIMIT) {
+    throw new Error(`Select 1–${FORMULA_TARGET_LIMIT} distinct symbols for the formula scan.`);
+  }
 
-  for (const target of request.targets) {
+  const now = new Date();
+  const marketDate = formulaScannerMarketDate(now);
+  const cutoff = request.toDate || marketDate;
+  const parsedCutoff = new Date(cutoff + 'T00:00:00Z');
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(cutoff) || !Number.isFinite(parsedCutoff.getTime()) ||
+    parsedCutoff.toISOString().slice(0, 10) !== cutoff || cutoff > marketDate) {
+    throw new Error('Choose a cutoff on or before the current market date.');
+  }
+
+  const output: FormulaScannerRunOutput = {
+    results: [],
+    counts: { matched: 0, false: 0, unavailable: 0, failed: 0 },
+    cancelled: false,
+    errors: [],
+  };
+  const formulaName = request.formulaName?.trim() || 'Custom Formula';
+  const generatedAt = now.toISOString();
+
+  for (const [index, target] of targets.entries()) {
+    if (request.shouldCancel?.()) {
+      output.cancelled = true;
+      break;
+    }
     try {
       const data = await api.getEodData({
         symbol: target.symbol,
         exchange: target.exchange,
-        to: request.toDate || undefined,
+        to: cutoff,
+        adjusted: false,
+        resolveIdentity: false,
+        databasePath: request.databasePath,
       });
-      scannedSymbols += 1;
-      if (scannedSymbols % 8 === 0) {
-        await new Promise<void>((resolve) => setTimeout(resolve, 0));
+      if (request.shouldCancel?.()) {
+        output.cancelled = true;
+        break;
       }
-      const bars = mapResultToContextBars(data, request.lookbackBars ?? null);
-      if (bars.length < 5) continue;
 
+      const bars = mapEodRowsToScannerBars(target.symbol, data.bars.filter(({ date }) => date <= cutoff), lookbackBars);
       const ohlcBars: OHLCBar[] = bars.map((bar) => ({
-        date: bar.date,
-        open: bar.open,
-        high: bar.high,
-        low: bar.low,
-        close: bar.close,
-        volume: bar.volume,
+        ...bar,
         timestamp: new Date(bar.date).getTime(),
       }));
-
-      const evaluation = evaluateCustomFormulaDefinition(request.formula, ohlcBars);
-      if (evaluation.errors.length > 0) {
-        errors.push(`${target.symbol}: ${evaluation.errors.join(', ')}`);
-        continue;
-      }
-
-      const lastIndex = ohlcBars.length - 1;
-      const latestBar = ohlcBars[lastIndex];
-      const matchPlot = evaluation.plots.find((p) => p.values[lastIndex] !== null && p.values[lastIndex] !== 0);
-
-      if (matchPlot) {
-        results.push({
+      const match = program.evaluateLatest(predicate, ohlcBars);
+      if (match === true) {
+        output.counts.matched += 1;
+        output.results.push({
           symbol: target.symbol,
           exchange: target.exchange,
-          scannerId: 'custom_formula',
+          scannerId: CUSTOM_FORMULA_SCANNER_ID,
           scannerName: formulaName,
-          categoryId: 'custom_formula',
+          categoryId: CUSTOM_FORMULA_SCANNER_ID,
           categoryName: 'Custom Formula',
           matched: true,
-          direction: 'bullish',
-          date: latestBar.date,
-          values: {
-            plotValue: matchPlot.values[lastIndex] ?? 0,
-            formula: request.formula,
-          },
-          generatedAt: now,
+          direction: 'neutral',
+          date: ohlcBars[ohlcBars.length - 1].date,
+          values: { predicate },
+          generatedAt,
         });
+      } else {
+        output.counts[match === false ? 'false' : 'unavailable'] += 1;
       }
     } catch (err) {
-      errors.push(`${target.symbol}: ${err instanceof Error ? err.message : String(err)}`);
+      if (request.shouldCancel?.()) {
+        output.cancelled = true;
+        break;
+      }
+      output.counts.failed += 1;
+      const message = err instanceof Error ? err.message : String(err);
+      output.errors.push(`${target.exchange}:${target.symbol}: ${message}`);
+    }
+    request.onProgress?.({ ...target, completed: index + 1, total: targets.length, resultCount: output.results.length });
+    if (index + 1 < targets.length) {
+      await new Promise<void>((resolve) => setTimeout(resolve, 0));
     }
   }
-
-  return {
-    results,
-    scannedSymbols,
-    cancelled: false,
-    alertTriggers: [],
-    errors,
-  };
+  return output;
 }

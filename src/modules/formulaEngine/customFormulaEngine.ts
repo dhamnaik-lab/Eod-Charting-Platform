@@ -21,6 +21,7 @@ interface FormulaToken {
 interface AssignmentNode {
   name: string;
   line: number;
+  column: number;
   expression: ExpressionNode;
 }
 
@@ -54,6 +55,7 @@ interface EvaluationContext {
   length: number;
   fields: Map<string, FormulaValue>;
   variables: Map<string, FormulaValue>;
+  scanner: boolean;
 }
 
 export interface CustomFormulaIndicatorInput {
@@ -150,14 +152,7 @@ export function evaluateCustomFormulaDefinition(
 
   try {
     const program = parseProgram(normalizedFormula);
-    const context = createEvaluationContext(bars);
-    const assignments: Array<{ name: string; value: FormulaValue }> = [];
-
-    program.forEach((statement) => {
-      const value = evaluateExpression(statement.expression, context);
-      context.variables.set(statement.name.toLowerCase(), value);
-      assignments.push({ name: statement.name, value });
-    });
+    const assignments = evaluateAssignments(program, bars);
 
     return {
       plots: assignments.flatMap(({ name, value }, index) => {
@@ -168,7 +163,7 @@ export function evaluateCustomFormulaDefinition(
         return [{
           key: `plot-${index}-${name.toLowerCase()}`,
           label: name,
-          values: normalizeNumericSeries(value, context.length),
+          values: normalizeNumericSeries(value, bars.length),
         }];
       }),
       booleanOutputs: assignments
@@ -183,6 +178,55 @@ export function evaluateCustomFormulaDefinition(
       errors: [error instanceof Error ? error.message : 'Unable to evaluate formula.'],
     };
   }
+}
+
+export interface ScannerFormulaProgram {
+  predicates: readonly string[];
+  evaluateLatest: (predicate: string, bars: OHLCBar[]) => boolean | null;
+}
+
+export function prepareScannerFormula(formula: string): ScannerFormulaProgram {
+  const program = parseProgram(formula.replace(/\r\n/g, '\n'));
+  const names = new Set<string>();
+  for (const { name, line, column } of program) {
+    const key = name.toLowerCase();
+    if (names.has(key)) {
+      throw new Error(`Duplicate assignment "${name}" (line ${line}, col ${column}).`);
+    }
+    names.add(key);
+  }
+
+  // Empty series retain their types and let preflight check the program without quotes.
+  const assignments = evaluateAssignments(program, [], true);
+  const predicates = assignments.filter(({ value }) => value.kind === 'series-boolean').map(({ name }) => name);
+  if (predicates.length === 0) {
+    throw new Error('Add a bar-by-bar boolean assignment, such as RULE = close > 0.');
+  }
+
+  return {
+    predicates,
+    evaluateLatest(predicate, bars) {
+      const key = predicate.toLowerCase();
+      if (!predicates.some((name) => name.toLowerCase() === key)) {
+        throw new Error('Select a named bar-by-bar boolean assignment from the checked formula.');
+      }
+      if (bars.length === 0) return null;
+      const output = evaluateAssignments(program, bars, true).find(({ name }) => name.toLowerCase() === key)?.value;
+      if (output?.kind !== 'series-boolean') {
+        throw new Error(`Unable to evaluate boolean assignment "${predicate}".`);
+      }
+      return output.values[bars.length - 1] ?? null;
+    },
+  };
+}
+
+function evaluateAssignments(program: AssignmentNode[], bars: OHLCBar[], scanner = false) {
+  const context = createEvaluationContext(bars, scanner);
+  return program.map((statement) => {
+    const value = evaluateExpression(statement.expression, context);
+    context.variables.set(statement.name.toLowerCase(), value);
+    return { name: statement.name, value };
+  });
 }
 
 function createValidationBars(): OHLCBar[] {
@@ -214,7 +258,7 @@ function createValidationBars(): OHLCBar[] {
   return bars;
 }
 
-function createEvaluationContext(bars: OHLCBar[]): EvaluationContext {
+function createEvaluationContext(bars: OHLCBar[], scanner: boolean): EvaluationContext {
   const fields = new Map<string, FormulaValue>();
   const closes = bars.map((bar) => bar.close);
   const opens = bars.map((bar) => bar.open);
@@ -233,6 +277,7 @@ function createEvaluationContext(bars: OHLCBar[]): EvaluationContext {
     length: bars.length,
     fields,
     variables: new Map<string, FormulaValue>(),
+    scanner,
   };
 }
 
@@ -258,6 +303,7 @@ class FormulaParser {
       statements.push({
         name: nameToken.value,
         line: nameToken.line,
+        column: nameToken.column,
         expression,
       });
 
@@ -592,6 +638,22 @@ function tokenizeFormula(source: string): FormulaToken[] {
 }
 
 function evaluateExpression(expression: ExpressionNode, context: EvaluationContext): FormulaValue {
+  const value = evaluateExpressionValue(expression, context);
+  if (!context.scanner) return value;
+  if (value.kind === 'scalar-number' && !Number.isFinite(value.value)) {
+    const { line, column } = expression.token;
+    throw new Error(`Expected a finite number (line ${line}, col ${column}).`);
+  }
+  if (value.kind === 'series-number' && value.values.some((point) => point !== null && !Number.isFinite(point))) {
+    return {
+      kind: 'series-number',
+      values: value.values.map((point) => point !== null && Number.isFinite(point) ? point : null),
+    };
+  }
+  return value;
+}
+
+function evaluateExpressionValue(expression: ExpressionNode, context: EvaluationContext): FormulaValue {
   switch (expression.type) {
     case 'number':
       return { kind: 'scalar-number', value: expression.value };
@@ -716,14 +778,14 @@ function evaluateFunction(expression: Extract<ExpressionNode, { type: 'call' }>,
         ),
       };
     case 'ref': {
-      if (args.length < 2 || args.length > 3) {
+      if (args.length < 2 || args.length > (context.scanner ? 2 : 3)) {
         throw createArgumentCountError(expression, 'ref expects 2 arguments: ref(series, barsBack).');
       }
       return {
         kind: 'series-number',
         values: calculateReferenceShift(
           normalizeNumericSeries(args[0], context.length),
-          requireInteger(args[1], expression.name, 2, expression.token),
+          requireFormulaOffset(args[1], expression, context),
         ),
       };
     }
@@ -735,7 +797,7 @@ function evaluateFunction(expression: Extract<ExpressionNode, { type: 'call' }>,
         kind: 'series-number',
         values: calculateChange(
           normalizeNumericSeries(args[0], context.length),
-          args.length === 2 ? requireInteger(args[1], expression.name, 2, expression.token) : 1,
+          args.length === 2 ? requireFormulaOffset(args[1], expression, context) : 1,
         ),
       };
     }
@@ -881,6 +943,9 @@ function applyComparisonOperator(
   }
 
   if (isBooleanValue(left) && isBooleanValue(right)) {
+    if (context.scanner && operator !== '==' && operator !== '!=') {
+      compareBooleanValues(false, false, operator, token);
+    }
     const leftSeries = normalizeBooleanSeries(left, context.length, token);
     const rightSeries = normalizeBooleanSeries(right, context.length, token);
     return {
@@ -1058,6 +1123,19 @@ function requireInteger(
   }
 
   return Math.trunc(value.value);
+}
+
+function requireFormulaOffset(
+  value: FormulaValue,
+  expression: Extract<ExpressionNode, { type: 'call' }>,
+  context: EvaluationContext,
+): number {
+  const { name, token } = expression;
+  const offset = requireInteger(value, name, 2, token);
+  if (context.scanner && value.kind === 'scalar-number' && value.value < 0) {
+    throw new Error(`${name} barsBack must be nonnegative in Scanner (line ${token.line}, col ${token.column}).`);
+  }
+  return offset;
 }
 
 function calculateSimpleMovingAverage(
