@@ -103,6 +103,122 @@ describe('signalScanners Engine', () => {
     expect(results).toEqual([]);
   });
 
+  it('uses the explicitly selected RSI plot and its value as the trigger price', () => {
+    const rule: ChartSignalRule = {
+      id: 'custom_rsi_plot',
+      label: 'Custom RSI threshold',
+      enabled: true,
+      conditionType: 'crosses_above',
+      seriesA: { indicatorId: 'rsi_14', plotKey: 'rsi' },
+      seriesB: { staticValue: 30 },
+      position: 'on_series',
+    };
+    const closes = [...oversoldCloses, 97];
+    const context = scannerContext(closes);
+    const latestDate = context.bars.at(-1)!.date;
+    const scannerId = 'signal_active_custom_rules';
+
+    expect(evaluateSignalScannerDefinitions(context, [scannerId], [rule])).toEqual([{
+      symbol: context.symbol,
+      exchange: context.exchange,
+      scannerId,
+      scannerName: rule.label + ' (' + rule.label + ')',
+      categoryId: 'visual_signals',
+      categoryName: 'Visual Signals & Crossovers',
+      date: latestDate,
+      matched: true,
+      direction: 'bullish',
+      score: 85,
+      reasons: ['Triggered ' + rule.label + ' on ' + latestDate],
+      values: { close: 97, trigger_price: 36.81, condition: 'crosses_above', rule_id: rule.id },
+      generatedAt: expect.any(String),
+    }]);
+    expect(evaluateSignalScannerDefinitions(scannerContext([28, 29, 31]), [scannerId], [rule])).toEqual([]);
+    expect(evaluateSignalScannerDefinitions(scannerContext([...closes, 97]), [scannerId], [rule])).toEqual([]);
+  });
+
+  it('uses the chosen OHLC source when the indicator is unavailable', () => {
+    const context = scannerContext([28, 29, 30]);
+    const rule: ChartSignalRule = {
+      id: 'custom_high_cross',
+      label: 'Custom high threshold',
+      enabled: true,
+      conditionType: 'crosses_above',
+      seriesA: { indicatorId: 'chart_only', plotKey: 'value', source: 'high' },
+      seriesB: { staticValue: 30 },
+      position: 'on_series',
+    };
+
+    const results = evaluateSignalScannerDefinitions(context, ['signal_active_custom_rules'], [rule]);
+    expect(results).toHaveLength(1);
+    expect(results[0].values).toEqual({
+      close: 30, trigger_price: 31, condition: 'crosses_above', rule_id: rule.id,
+    });
+  });
+
+  it.each([
+    { conditionType: 'greater_than', shape: 'arrow_up', direction: 'bullish', score: 85,
+      crossing: [28, 30, 31], sameSide: [31, 32, 33], currentEqual: [28, 29, 30], triggerPrice: 30 },
+    { conditionType: 'less_than', shape: 'arrow_down', direction: 'bearish', score: 80,
+      crossing: [32, 30, 29], sameSide: [29, 28, 27], currentEqual: [32, 31, 30], triggerPrice: 30 },
+    { conditionType: 'greater_than', shape: 'circle', direction: 'neutral', score: 80,
+      crossing: [28, 30, 31], sameSide: [31, 32, 33], currentEqual: [28, 29, 30], triggerPrice: 30 },
+  ] as const)('requires a fresh $conditionType crossover for a $shape rule', ({
+    conditionType, shape, direction, score, crossing, sameSide, currentEqual, triggerPrice,
+  }) => {
+    const scannerId = 'signal_active_custom_rules';
+    const rule: ChartSignalRule = {
+      id: 'custom_threshold',
+      label: 'Custom threshold',
+      enabled: true,
+      conditionType,
+      seriesA: {},
+      seriesB: { staticValue: 30 },
+      shape,
+    };
+    const evaluate = (closes: readonly number[]) => evaluateSignalScannerDefinitions(
+      scannerContext(closes), [scannerId], [rule],
+    );
+
+    const results = evaluate(crossing);
+    expect(results).toHaveLength(1);
+    expect(results[0]).toMatchObject({
+      direction,
+      score,
+      values: { trigger_price: triggerPrice, condition: conditionType, rule_id: rule.id },
+    });
+    expect(evaluate(sameSide)).toEqual([]);
+    expect(evaluate(currentEqual)).toEqual([]);
+  });
+
+  it('returns every enabled match in rule order with distinct rule IDs', () => {
+    const scannerId = 'signal_active_custom_rules';
+    const context = scannerContext([28, 29, 31]);
+    const firstRule: ChartSignalRule = {
+      id: 'custom_first',
+      label: 'Shared rule name',
+      enabled: true,
+      conditionType: 'crosses_above',
+      seriesA: { source: 'close' },
+      seriesB: { staticValue: 30 },
+    };
+    const secondRule = { ...firstRule, id: 'custom_second' };
+    const rules = [
+      firstRule,
+      { ...firstRule, id: 'custom_disabled', enabled: false },
+      { ...firstRule, id: 'custom_no_match', seriesB: { staticValue: 32 } },
+      secondRule,
+    ];
+
+    const results = evaluateSignalScannerDefinitions(context, [scannerId], rules);
+    expect(results.map(({ scannerId, values }) => [scannerId, values?.rule_id])).toEqual([
+      [scannerId, firstRule.id],
+      [scannerId, secondRule.id],
+    ]);
+    expect(evaluateSignalScannerDefinitions(context, [scannerId], [])).toEqual([]);
+    expect(evaluateSignalScannerDefinitions(context, ['signal_golden_cross'], rules)).toEqual([]);
+  });
+
   it('keeps the existing source fallback for a custom rule with a missing plot', () => {
     const context = scannerContext([28, 29, 31]);
     const rule: ChartSignalRule = {

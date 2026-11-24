@@ -716,18 +716,25 @@ fn parse_expr(
 pub fn parse_native_scan_request_v1(
     value: &Value,
 ) -> Result<NativeScanRequestV1, Vec<ValidationIssue>> {
-    parse_native_scan_request(value, false)
+    parse_native_scan_request(value, false, false)
 }
 
 pub(super) fn parse_native_numeric_history_request(
     value: &Value,
 ) -> Result<NativeScanRequestV1, Vec<ValidationIssue>> {
-    parse_native_scan_request(value, true)
+    parse_native_scan_request(value, true, false)
+}
+
+pub(super) fn parse_native_custom_signal_envelope(
+    value: &Value,
+) -> Result<NativeScanRequestV1, Vec<ValidationIssue>> {
+    parse_native_scan_request(value, false, true)
 }
 
 fn parse_native_scan_request(
     value: &Value,
     allow_bse_settlement_suffix: bool,
+    custom_signals: bool,
 ) -> Result<NativeScanRequestV1, Vec<ValidationIssue>> {
     let mut issues: Vec<ValidationIssue> = Vec::new();
     let Some(root) = as_object(value, "request", &mut issues) else {
@@ -740,7 +747,11 @@ fn parse_native_scan_request(
             "requestedRunId",
             "universe",
             "evaluation",
-            "rules",
+            if custom_signals {
+                "customSignals"
+            } else {
+                "rules"
+            },
         ],
         "request",
         &mut issues,
@@ -945,7 +956,13 @@ fn parse_native_scan_request(
         });
 
     // -- rules --------------------------------------------------------------
-    let rules = require_key(root, "rules", "request.rules", &mut issues)
+    let empty_rules = Value::Array(Vec::new());
+    let rule_input = if custom_signals {
+        Some(&empty_rules)
+    } else {
+        require_key(root, "rules", "request.rules", &mut issues)
+    };
+    let rules = rule_input
         .and_then(|value| match value.as_array() {
             Some(rules) => Some(rules),
             None => {
@@ -958,7 +975,7 @@ fn parse_native_scan_request(
             }
         })
         .and_then(|rules| {
-            if rules.is_empty() || rules.len() > MAX_RULES {
+            if (!custom_signals && rules.is_empty()) || rules.len() > MAX_RULES {
                 issues.push(ValidationIssue::new(
                     "request.rules",
                     "missing-rules",
@@ -983,6 +1000,14 @@ fn parse_native_scan_request(
                 else {
                     continue;
                 };
+                if id == super::custom_signals::SCANNER_ID {
+                    state.issues.push(ValidationIssue::new(
+                        format!("{path}.id"),
+                        "reserved-custom-signal",
+                        "The custom signal Scanner ID requires the separate V1 custom signal envelope.",
+                    ));
+                    continue;
+                }
                 if !seen.insert(id.clone()) {
                     state.issues.push(ValidationIssue::new(
                         format!("{path}.id"),

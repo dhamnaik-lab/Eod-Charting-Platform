@@ -333,6 +333,7 @@ pub struct TargetOutcome {
 
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct ScanReport {
+    pub custom_signal_result_count: Option<usize>,
     pub database_identity: String,
     /// True when the run stopped early; a cancelled run holds no partial target.
     pub cancelled: bool,
@@ -406,6 +407,11 @@ pub fn effective_worker_count(requested: usize, target_count: usize) -> usize {
 /// rule**: a 200-bar SMA must not suppress a `close > 0` rule that can already be
 /// evaluated against 20 bars.
 pub fn required_bars_for_rule(rule: &RuleV1) -> usize {
+    // A valid short Scanner context is evaluated, with the indicator warm-up
+    // deciding the preset verdict. This keeps the requested window exact.
+    if super::preset_signals::is_preset_id(&rule.id) {
+        return 2;
+    }
     match super::patterns::minimum_bars_for_pattern_rule(rule) {
         Some(required) => required,
         None => {
@@ -475,6 +481,18 @@ pub fn execute_scan<D: ScanDataSource>(
     targets: &[ScanTarget],
     cancel: &AtomicBool,
     options: ScanExecutionOptions,
+    progress: impl FnMut(ScanProgress),
+) -> ScanReport {
+    execute_scan_with_signals(source, request, targets, cancel, options, None, progress)
+}
+
+pub(super) fn execute_scan_with_signals<D: ScanDataSource>(
+    source: &D,
+    request: &NativeScanRequestV1,
+    targets: &[ScanTarget],
+    cancel: &AtomicBool,
+    options: ScanExecutionOptions,
+    custom_signals: Option<&super::custom_signals::CustomSignalBatch>,
     mut progress: impl FnMut(ScanProgress),
 ) -> ScanReport {
     let started = Instant::now();
@@ -516,6 +534,7 @@ pub fn execute_scan<D: ScanDataSource>(
                 &numeric_rules,
                 &pattern_rules,
                 options,
+                custom_signals,
                 cancel,
             ));
             if cancel.load(Ordering::SeqCst) {
@@ -547,6 +566,7 @@ pub fn execute_scan<D: ScanDataSource>(
                         numeric_rules,
                         pattern_rules,
                         options,
+                        custom_signals,
                         cancel,
                     );
                     if let Ok(mut guard) = slots_cell.lock() {
@@ -611,6 +631,7 @@ pub fn execute_scan<D: ScanDataSource>(
     });
 
     ScanReport {
+        custom_signal_result_count: custom_signals.map(|_| matches.len()),
         database_identity: source.database_identity().to_string(),
         cancelled,
         counts,
@@ -891,6 +912,7 @@ fn scan_target<D: ScanDataSource>(
     numeric_rules: &[&RuleV1],
     pattern_rules: &[&RuleV1],
     options: ScanExecutionOptions,
+    custom_signals: Option<&super::custom_signals::CustomSignalBatch>,
     cancel: &AtomicBool,
 ) -> TargetOutcome {
     // The four native gap patterns need full history; existing capped numeric AST
@@ -903,14 +925,32 @@ fn scan_target<D: ScanDataSource>(
         return scan_full_pattern_history(source, request, target, window, pattern_rules, cancel);
     }
     let as_of = request.evaluation.as_of_date.as_deref();
-    let bars = match source.load_bars(
-        target,
-        as_of,
-        window,
-        request.evaluation.price_basis,
-        request.evaluation.include_dividend_adjustments,
-        request.evaluation.include_rights_adjustments,
-    ) {
+    let preset_run = super::preset_signals::uses_presets(request);
+    let load = || {
+        if preset_run {
+            super::preset_signals::validate_request(request)
+                .map_err(|(_, message)| message.to_owned())?;
+            if request.evaluation.lookback_bars != Some(window) {
+                return Err(
+                    "The native preset window cannot honor the requested lookback.".to_owned(),
+                );
+            }
+        }
+        if custom_signals.is_some() && request.evaluation.lookback_bars != Some(window) {
+            return Err(
+                "The native custom signal window cannot honor the requested lookback.".to_owned(),
+            );
+        }
+        source.load_bars(
+            target,
+            as_of,
+            window,
+            request.evaluation.price_basis,
+            request.evaluation.include_dividend_adjustments,
+            request.evaluation.include_rights_adjustments,
+        )
+    };
+    let bars = match load() {
         Ok(bars) => bars,
         Err(message) => {
             return TargetOutcome {
@@ -926,7 +966,7 @@ fn scan_target<D: ScanDataSource>(
         }
     };
 
-    if bars.is_empty() {
+    if bars.is_empty() && custom_signals.is_none() {
         return TargetOutcome {
             target: target.clone(),
             status: TargetStatus::Skipped,
@@ -939,6 +979,37 @@ fn scan_target<D: ScanDataSource>(
                 "{} has no completed bars at or before the requested window start.",
                 target.key()
             )),
+        };
+    }
+
+    if let Some(batch) = custom_signals {
+        let outcome = if bars.len() > window {
+            Err(format!(
+                "{} exceeded the requested raw bar window.",
+                target.key()
+            ))
+        } else {
+            super::custom_signals::evaluate_target(target, &bars, &batch.rules)
+        };
+        let (status, matches, message) = match outcome {
+            Ok(matches) if matches.is_empty() => (TargetStatus::NoMatch, matches, None),
+            Ok(matches) => (TargetStatus::Match, matches, None),
+            Err(message) => (TargetStatus::Skipped, Vec::new(), Some(message)),
+        };
+        let matched_rule_ids = if matches.is_empty() {
+            Vec::new()
+        } else {
+            vec![super::custom_signals::SCANNER_ID.to_string()]
+        };
+        return TargetOutcome {
+            target: target.clone(),
+            status,
+            matches,
+            matched_rule_ids,
+            bars: bars.len(),
+            evaluated_history_endpoints: 0,
+            numeric_history_coverage: None,
+            message,
         };
     }
 
@@ -1020,6 +1091,13 @@ fn scan_target<D: ScanDataSource>(
         }
         rules_evaluated += 1;
         if !request.evaluation.evaluate_history {
+            if preset_run {
+                if let Some(record) = super::preset_signals::evaluate(&rule.id, target, &bars) {
+                    matches.push(record);
+                    matched_rule_ids.push(rule.id.clone());
+                }
+                continue;
+            }
             if super::core_results::is_daily_market_id(&rule.id) {
                 let date = format_date(bars[bars.len() - 1].date);
                 match super::core_results::evaluate_daily_market_rule(rule, &bars, target, &date) {

@@ -17,7 +17,8 @@
 //! - Native scanning stays opt-in. NS-04 is the only caller; there is no default
 //!   activation, no automatic switching and no removal of the TypeScript path.
 
-use super::ast::parse_native_scan_request_v1;
+use super::ast::{parse_native_custom_signal_envelope, parse_native_scan_request_v1};
+use super::custom_signals::{self, CustomSignalBatch};
 use super::database_source::ReadOnlyDatabaseSource;
 use super::job::{
     clamp_worker_count, codes, events, resolve_targets, EventEmitter, EventSink, JobRejection,
@@ -88,10 +89,8 @@ impl From<JobRejection> for NativeScanCommandError {
     }
 }
 
-fn validate_request(
-    value: &Value,
-) -> Result<super::ast::NativeScanRequestV1, NativeScanCommandError> {
-    let request = parse_native_scan_request_v1(value).map_err(|issues| NativeScanCommandError {
+fn request_validation_error(issues: Vec<super::ast::ValidationIssue>) -> NativeScanCommandError {
+    NativeScanCommandError {
         code: codes::INVALID_REQUEST.to_string(),
         message: format!(
             "The native scan request was rejected with {} validation issue(s).",
@@ -105,7 +104,13 @@ fn validate_request(
                 message: issue.message,
             })
             .collect(),
-    })?;
+    }
+}
+
+fn validate_request(
+    value: &Value,
+) -> Result<super::ast::NativeScanRequestV1, NativeScanCommandError> {
+    let request = parse_native_scan_request_v1(value).map_err(request_validation_error)?;
     // CA-01 HOLD: a complete adjusted projection cannot be verified while two
     // Split/Bonus rows can claim one issuer event across normal/T+0 identities.
     // Reject at the untrusted IPC boundary before opening a database or starting
@@ -122,7 +127,34 @@ fn validate_request(
             }],
         });
     }
+    super::preset_signals::validate_request(&request).map_err(|(path, message)| {
+        NativeScanCommandError {
+            code: codes::INVALID_REQUEST.to_string(),
+            message: message.to_string(),
+            issues: vec![NativeScanIssueV1 {
+                path: path.to_string(),
+                code: "native-signal-preset-admission".to_string(),
+                message: message.to_string(),
+            }],
+        }
+    })?;
     Ok(request)
+}
+
+pub(super) fn validate_start_request(
+    value: &Value,
+) -> Result<(super::ast::NativeScanRequestV1, Option<CustomSignalBatch>), NativeScanCommandError> {
+    let Some(wire) = value.get("customSignals") else {
+        return validate_request(value).map(|request| (request, None));
+    };
+    let request = parse_native_custom_signal_envelope(value).map_err(request_validation_error)?;
+    let invalid =
+        |message: &str| NativeScanCommandError::new(codes::INVALID_REQUEST, message.to_owned());
+    let batch = CustomSignalBatch::deserialize(wire)
+        .map_err(|error| invalid(&format!("Invalid custom signal request: {error}")))?;
+    let targets = value["universe"]["targets"].as_array().map_or(0, Vec::len);
+    batch.validate(&request, targets).map_err(invalid)?;
+    Ok((request, Some(batch)))
 }
 
 /// Tauri-backed event sink. Events are app-wide and carry `runId`, so a listener for a
@@ -194,6 +226,7 @@ struct PreparedJob {
     database_identity: String,
     selection: NativeScanSelection,
     request: super::ast::NativeScanRequestV1,
+    custom_signals: Option<CustomSignalBatch>,
     targets: Vec<super::scan::ScanTarget>,
     source: ReadOnlyDatabaseSource,
     worker_count: usize,
@@ -205,6 +238,7 @@ fn prepare_job(
     app: &AppHandle,
     state: &NativeScanState,
     request: super::ast::NativeScanRequestV1,
+    custom_signals: Option<CustomSignalBatch>,
     worker_count: usize,
     batch_size: usize,
     progress_interval_ms: u64,
@@ -229,6 +263,15 @@ fn prepare_job(
                 "No registered active database is selected.",
             )
         })?;
+    if custom_signals
+        .as_ref()
+        .is_some_and(|batch| batch.database_identity != selection.database_identity)
+    {
+        return Err(NativeScanCommandError::new(
+            codes::DATABASE_CHANGED,
+            "The selected database differs from the custom signal snapshot.",
+        ));
+    }
     let folder_path = selection.folder.clone();
 
     // P0-03 ordering: the permit is acquired *before* admission and then handed to the
@@ -249,6 +292,20 @@ fn prepare_job(
     })?;
     let targets =
         resolve_targets(&connection, &request.universe).map_err(NativeScanCommandError::from)?;
+    if custom_signals.is_some()
+        && (targets.len() != request.universe.targets.len()
+            || targets
+                .iter()
+                .zip(&request.universe.targets)
+                .any(|(actual, expected)| {
+                    actual.exchange != expected.0 || actual.symbol != expected.1
+                }))
+    {
+        return Err(NativeScanCommandError::new(
+            codes::INVALID_REQUEST,
+            "The resolved custom signal universe differs from the requested targets.",
+        ));
+    }
     // Enumerating targets is the only work done on this connection. It is dropped before
     // the scan so no rusqlite handle is shared across worker boundaries.
     drop(connection);
@@ -282,6 +339,7 @@ fn prepare_job(
         database_identity,
         selection,
         request,
+        custom_signals,
         targets,
         source,
         worker_count,
@@ -300,6 +358,7 @@ fn run_prepared_job(app: AppHandle, job: PreparedJob) {
         database_identity,
         selection,
         request,
+        custom_signals,
         targets,
         source,
         worker_count,
@@ -331,12 +390,13 @@ fn run_prepared_job(app: AppHandle, job: PreparedJob) {
     // P0-03: finalize on *every* exit path, including a panic inside the scan, so the
     // permit cannot outlive the worker. A panic still propagates after finalizing.
     let outcome = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-        super::scan::execute_scan(
+        super::scan::execute_scan_with_signals(
             &source,
             &request,
             &targets,
             cancel.flag(),
             ScanExecutionOptions::default().with_worker_count(worker_count),
+            custom_signals.as_ref(),
             |progress| {
                 if !selection_still_current(&app, &selection) {
                     selection_invalidated = true;
@@ -389,12 +449,15 @@ pub async fn start_native_eod_scan(
     app: AppHandle,
     payload: NativeScanStartPayload,
 ) -> Result<ScanStartAckV1, NativeScanCommandError> {
-    let request = validate_request(&payload.request)?;
+    let (request, custom_signals) = validate_start_request(&payload.request)?;
     let worker_count = clamp_worker_count(payload.worker_count);
-    let batch_size = payload
+    let mut batch_size = payload
         .event_batch_size
         .unwrap_or(DEFAULT_EVENT_BATCH_SIZE)
         .clamp(1, 1000);
+    if custom_signals.is_some() {
+        batch_size = batch_size.min(DEFAULT_EVENT_BATCH_SIZE);
+    }
     let progress_interval_ms = payload
         .progress_interval_ms
         .unwrap_or(DEFAULT_PROGRESS_INTERVAL_MS)
@@ -407,6 +470,7 @@ pub async fn start_native_eod_scan(
             &app_for_setup,
             &state,
             request,
+            custom_signals,
             worker_count,
             batch_size,
             progress_interval_ms,
@@ -474,16 +538,53 @@ pub struct NativeScannerCapabilitiesPayload {
     pub default_enabled: bool,
     pub worker_count: usize,
     pub supported_pattern_ids: Vec<&'static str>,
+    pub signal_presets: NativeSignalPresetCapabilities,
+    pub custom_signals: NativeCustomSignalCapabilities,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub custom_signal_selection: Option<String>,
     pub event_names: Vec<&'static str>,
     pub max_rules: usize,
     pub max_lookback_bars: usize,
     pub active: bool,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct NativeSignalPresetCapabilities {
+    pub evaluator_version: u32,
+    pub supported_ids: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct NativeCustomSignalCapabilities {
+    pub evaluator_version: u32,
+    pub max_rules: usize,
+    pub max_possible_results: usize,
+    pub max_event_batch_size: usize,
+    pub max_rule_id_bytes: usize,
+    pub max_label_bytes: usize,
+}
+
 #[tauri::command]
-pub fn native_scanner_capabilities(
-    state: State<'_, NativeScanState>,
+pub async fn native_scanner_capabilities(
+    app: AppHandle,
+    include_selection: Option<bool>,
 ) -> NativeScannerCapabilitiesPayload {
+    let active = app.state::<NativeScanState>().registry.active_run_count() > 0;
+    let custom_signal_selection = if include_selection == Some(true) {
+        tauri::async_runtime::spawn_blocking(move || {
+            read_native_scan_selection(&app)
+                .ok()
+                .flatten()
+                .map(|selection| selection.database_identity)
+        })
+        .await
+        .ok()
+        .flatten()
+    } else {
+        None
+    };
     NativeScannerCapabilitiesPayload {
         contract_version: super::CONTRACT_VERSION,
         schema_version: 1,
@@ -491,6 +592,12 @@ pub fn native_scanner_capabilities(
         default_enabled: false,
         worker_count: super::job::DEFAULT_WORKER_COUNT,
         supported_pattern_ids: super::ast::SUPPORTED_PATTERN_IDS.to_vec(),
+        signal_presets: NativeSignalPresetCapabilities {
+            evaluator_version: super::preset_signals::EVALUATOR_VERSION,
+            supported_ids: super::preset_signals::supported_ids()
+                .map(str::to_owned)
+                .collect(),
+        },
         event_names: vec![
             events::PROGRESS,
             events::MATCH,
@@ -499,7 +606,16 @@ pub fn native_scanner_capabilities(
         ],
         max_rules: super::ast::MAX_RULES,
         max_lookback_bars: super::ast::MAX_LOOKBACK_BARS,
-        active: state.registry.active_run_count() > 0,
+        custom_signals: NativeCustomSignalCapabilities {
+            evaluator_version: custom_signals::EVALUATOR_VERSION,
+            max_rules: super::ast::MAX_RULES,
+            max_possible_results: custom_signals::MAX_POSSIBLE_RESULTS,
+            max_event_batch_size: DEFAULT_EVENT_BATCH_SIZE,
+            max_rule_id_bytes: custom_signals::MAX_RULE_ID_BYTES,
+            max_label_bytes: custom_signals::MAX_LABEL_BYTES,
+        },
+        custom_signal_selection,
+        active,
     }
 }
 
@@ -511,6 +627,137 @@ pub fn counts_to_v1(counts: super::scan::ScanCounts) -> ScanCountsV1 {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn wp04_v1_admits_only_valid_custom_signal_envelopes() {
+        let valid_rule = serde_json::json!({
+            "id": "first:rule", "label": "Même règle", "conditionType": "crosses_above",
+            "seriesA": {"kind": "ohlc", "source": "close"},
+            "seriesB": {"kind": "constant", "value": 30},
+        });
+        let valid = serde_json::json!({
+            "schemaVersion": 1, "requestedRunId": "wp04-custom",
+            "universe": {"source": "explicitTargets", "targets": [{"exchange": "NSE", "symbol": "TCS"}]},
+            "evaluation": {"evaluateHistory": false, "lookbackBars": 20, "priceBasis": "raw"},
+            "customSignals": {"evaluatorVersion": 1, "databaseIdentity": "fixture#1", "rules": [valid_rule]},
+        });
+        assert!(validate_start_request(&valid).unwrap().1.is_some());
+        assert!(parse_native_scan_request_v1(&valid).is_err());
+        assert!(super::super::ast::parse_native_numeric_history_request(&valid).is_err());
+
+        let mut mixed = valid.clone();
+        mixed["rules"] = serde_json::json!([]);
+        assert!(validate_start_request(&mixed).is_err());
+
+        let mut generic = valid.clone();
+        generic.as_object_mut().unwrap().remove("customSignals");
+        generic["rules"] = serde_json::json!([{
+            "id": custom_signals::SCANNER_ID,
+            "expression": {"kind": "constant", "value": 1}
+        }]);
+        for parsed in [
+            parse_native_scan_request_v1(&generic),
+            super::super::ast::parse_native_numeric_history_request(&generic),
+        ] {
+            assert!(parsed
+                .unwrap_err()
+                .iter()
+                .any(|issue| issue.code == "reserved-custom-signal"));
+        }
+
+        for (path, value) in [
+            ("/evaluation/evaluateHistory", serde_json::json!(true)),
+            ("/evaluation/asOfDate", serde_json::json!("2025-02-31")),
+            ("/evaluation/lookbackBars", serde_json::json!(19)),
+            ("/evaluation/lookbackBars", serde_json::json!(5001)),
+            ("/evaluation/priceBasis", serde_json::json!("adjusted")),
+            ("/customSignals/evaluatorVersion", serde_json::json!(2)),
+            ("/customSignals/databaseIdentity", serde_json::json!("")),
+            (
+                "/customSignals/rules/0/id",
+                serde_json::json!("a".repeat(129)),
+            ),
+            (
+                "/customSignals/rules/0/label",
+                serde_json::json!("é".repeat(129)),
+            ),
+            (
+                "/customSignals/rules/0/seriesA/source",
+                serde_json::json!("volume"),
+            ),
+            (
+                "/customSignals/rules",
+                serde_json::json!([valid_rule, valid_rule]),
+            ),
+            (
+                "/universe/targets",
+                serde_json::json!([
+                    {"exchange": "NSE", "symbol": "TCS"}, {"exchange": "NSE", "symbol": "TCS"}
+                ]),
+            ),
+        ] {
+            let mut candidate = valid.clone();
+            if path == "/evaluation/asOfDate" {
+                candidate["evaluation"]["asOfDate"] = value;
+            } else {
+                *candidate.pointer_mut(path).expect("invalid case pointer") = value;
+            }
+            assert!(validate_start_request(&candidate).is_err(), "{path}");
+        }
+
+        let mut unknown = valid;
+        unknown["customSignals"]["rules"][0]["seriesA"]["unexpected"] = serde_json::json!(true);
+        assert!(validate_start_request(&unknown).is_err());
+    }
+
+    #[test]
+    fn wp04_v1_admits_only_bounded_canonical_preset_batches() {
+        let request = serde_json::json!({
+            "schemaVersion": 1, "requestedRunId": "wp04-preset",
+            "universe": {"source": "explicitTargets", "targets": [{"exchange": "NSE", "symbol": "TCS"}]},
+            "evaluation": {"evaluateHistory": false, "lookbackBars": 20, "priceBasis": "raw"},
+            "rules": [{
+                "id": "signal_golden_cross",
+                "expression": {
+                    "kind": "crossover",
+                    "left": {"kind": "indicator", "name": "ema", "period": 20,
+                        "input": {"kind": "field", "field": "close", "lookback": 0}},
+                    "right": {"kind": "indicator", "name": "sma", "period": 50,
+                        "input": {"kind": "field", "field": "close", "lookback": 0}},
+                }
+            }],
+        });
+        assert!(validate_request(&request).is_ok());
+        for lookback in [
+            serde_json::json!(19),
+            serde_json::Value::Null,
+            serde_json::json!(5001),
+        ] {
+            let mut bad = request.clone();
+            bad["evaluation"]["lookbackBars"] = lookback;
+            assert!(validate_request(&bad).is_err());
+        }
+        let mut mixed = request.clone();
+        mixed["rules"]
+            .as_array_mut()
+            .unwrap()
+            .push(serde_json::json!({
+                "id": "match-all", "expression": {"kind": "number", "value": 1},
+            }));
+        assert!(validate_request(&mixed).is_err());
+
+        let mut forged = request.clone();
+        forged["rules"][0]["expression"]["left"]["period"] = serde_json::json!(21);
+        assert!(validate_request(&forged).is_err());
+
+        let mut historical = request.clone();
+        historical["evaluation"]["evaluateHistory"] = serde_json::json!(true);
+        assert!(validate_request(&historical).is_err());
+
+        let mut active = request;
+        active["universe"] = serde_json::json!({"source": "activeNseEq"});
+        assert!(validate_request(&active).is_err());
+    }
 
     #[test]
     fn ns03_invalid_payloads_are_rejected_with_field_paths() {

@@ -13,6 +13,7 @@
  */
 
 import { getTauriCore, getNativeTauriEvent } from './tauriDesktop';
+import { isNativeCustomSignalCapability, type NativeCustomSignalRequestV1 } from '@/features/scanner/nativeCustomSignals';
 import type {
   NativeScanCancelAckV1,
   NativeScanCompleteEventV1,
@@ -23,8 +24,12 @@ import type {
   NativeScannerCapabilitiesV1,
 } from '@/features/scanner/nativeScanContract';
 import {
+  NATIVE_SCAN_CONTRACT_VERSION,
   NATIVE_SCAN_EVENT_VERSION,
+  NATIVE_SCAN_SCHEMA_VERSION,
+  NATIVE_SIGNAL_PRESET_EVALUATOR_VERSION,
   createNativeScannerCapabilitiesV1,
+  isNativeSignalPresetId,
 } from '@/features/scanner/nativeScanContract';
 
 export const NATIVE_SCAN_EVENT_NAMES = {
@@ -95,15 +100,35 @@ export async function isNativeScannerBridgeAvailable(): Promise<boolean> {
  * with `workerCount: 0`, which callers treat as "native unavailable" — never as an error
  * the user has to resolve before scanning with the TypeScript backend.
  */
-export async function readNativeScannerCapabilities(): Promise<NativeScannerCapabilitiesV1> {
+export async function readNativeScannerCapabilities(includeSelection = false): Promise<NativeScannerCapabilitiesV1> {
   try {
     const { invoke } = await getTauriCore();
-    const raw = await invoke<Partial<NativeScannerCapabilitiesV1> & { supportedPatternIds?: string[] }>(
-      'native_scanner_capabilities',
-    );
+    const args: [string, { includeSelection: boolean }?] = includeSelection
+      ? ['native_scanner_capabilities', { includeSelection: true }]
+      : ['native_scanner_capabilities'];
+    const raw = await invoke<Partial<NativeScannerCapabilitiesV1>>(...args);
+    const customSignals = raw.contractVersion === NATIVE_SCAN_CONTRACT_VERSION &&
+      raw.schemaVersion === NATIVE_SCAN_SCHEMA_VERSION &&
+      Number.isInteger(raw.workerCount) && (raw.workerCount ?? 0) > 0 &&
+      isNativeCustomSignalCapability(raw.customSignals) ? raw.customSignals : undefined;
+    const present = raw.signalPresets;
+    const presetIds = present?.supportedIds;
+    const signalPresets = raw.contractVersion === NATIVE_SCAN_CONTRACT_VERSION &&
+      raw.schemaVersion === NATIVE_SCAN_SCHEMA_VERSION &&
+      Number.isInteger(raw.workerCount) && (raw.workerCount ?? 0) > 0 &&
+      present?.evaluatorVersion === NATIVE_SIGNAL_PRESET_EVALUATOR_VERSION &&
+      Array.isArray(presetIds) && presetIds.length > 0 &&
+      presetIds.every((id: unknown) => typeof id === 'string' && isNativeSignalPresetId(id)) &&
+      new Set(presetIds).size === presetIds.length
+      ? present
+      : undefined;
     return {
-      contractVersion: 'eod-native-scan-contract-v1',
-      schemaVersion: 1,
+      contractVersion: NATIVE_SCAN_CONTRACT_VERSION,
+      schemaVersion: NATIVE_SCAN_SCHEMA_VERSION,
+      ...(signalPresets ? { signalPresets } : {}),
+      ...(customSignals ? { customSignals } : {}),
+      ...(customSignals && typeof raw.customSignalSelection === 'string' && raw.customSignalSelection.length > 0
+        ? { customSignalSelection: raw.customSignalSelection } : {}),
       defaultEnabled: false,
       workerCount: typeof raw.workerCount === 'number' ? raw.workerCount : 0,
       supportedPatternIds: Array.isArray(raw.supportedPatternIds) ? raw.supportedPatternIds : [],
@@ -209,7 +234,7 @@ export async function subscribeToNativeScanEvents(
  * whether to retry with the TypeScript backend.
  */
 export async function startNativeEodScan(
-  request: NativeScanRequestV1,
+  request: NativeScanRequestV1 | NativeCustomSignalRequestV1,
   options: NativeScanStartOptions = {},
 ): Promise<NativeScanStartAckV1> {
   const { invoke } = await getTauriCore();

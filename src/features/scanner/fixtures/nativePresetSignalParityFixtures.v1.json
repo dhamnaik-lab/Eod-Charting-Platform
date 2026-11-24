@@ -1,0 +1,1518 @@
+{
+  "version": 1,
+  "priceScale": 10000,
+  "startDate": "2025-01-01",
+  "barSets": {
+    "flat": [
+      1000000,
+      1000000,
+      1000000,
+      1000000,
+      1000000,
+      1000000,
+      1000000,
+      1000000,
+      1000000,
+      1000000,
+      1000000,
+      1000000,
+      1000000,
+      1000000,
+      1000000,
+      1000000,
+      1000000,
+      1000000,
+      1000000,
+      1000000,
+      1000000,
+      1000000,
+      1000000,
+      1000000,
+      1000000,
+      1000000,
+      1000000,
+      1000000,
+      1000000,
+      1000000,
+      1000000,
+      1000000,
+      1000000,
+      1000000,
+      1000000,
+      1000000,
+      1000000,
+      1000000,
+      1000000,
+      1000000,
+      1000000,
+      1000000,
+      1000000,
+      1000000,
+      1000000,
+      1000000,
+      1000000,
+      1000000,
+      1000000,
+      1000000,
+      1000000
+    ],
+    "golden": [
+      1000000,
+      1000000,
+      1000000,
+      1000000,
+      1000000,
+      1000000,
+      1000000,
+      1000000,
+      1000000,
+      1000000,
+      1000000,
+      1000000,
+      1000000,
+      1000000,
+      1000000,
+      1000000,
+      1000000,
+      1000000,
+      1000000,
+      1000000,
+      1000000,
+      1000000,
+      1000000,
+      1000000,
+      1000000,
+      1000000,
+      1000000,
+      1000000,
+      1000000,
+      1000000,
+      1000000,
+      1000000,
+      1000000,
+      1000000,
+      1000000,
+      1000000,
+      1000000,
+      1000000,
+      1000000,
+      1000000,
+      1000000,
+      1000000,
+      1000000,
+      1000000,
+      1000000,
+      1000000,
+      1000000,
+      1000000,
+      1000000,
+      1000000,
+      1100000,
+      1100000
+    ],
+    "death": [
+      1000000,
+      1000000,
+      1000000,
+      1000000,
+      1000000,
+      1000000,
+      1000000,
+      1000000,
+      1000000,
+      1000000,
+      1000000,
+      1000000,
+      1000000,
+      1000000,
+      1000000,
+      1000000,
+      1000000,
+      1000000,
+      1000000,
+      1000000,
+      1000000,
+      1000000,
+      1000000,
+      1000000,
+      1000000,
+      1000000,
+      1000000,
+      1000000,
+      1000000,
+      1000000,
+      1000000,
+      1000000,
+      1000000,
+      1000000,
+      1000000,
+      1000000,
+      1000000,
+      1000000,
+      1000000,
+      1000000,
+      1000000,
+      1000000,
+      1000000,
+      1000000,
+      1000000,
+      1000000,
+      1000000,
+      1000000,
+      1000000,
+      1000000,
+      900000,
+      900000
+    ],
+    "olderEmaSeed": [
+      2000000,
+      1000000,
+      1000000,
+      1000000,
+      1000000,
+      1000000,
+      1000000,
+      1000000,
+      1000000,
+      1000000,
+      1000000,
+      1000000,
+      1000000,
+      1000000,
+      1000000,
+      1000000,
+      1000000,
+      1000000,
+      1000000,
+      1000000,
+      1000000,
+      1000000,
+      1000000,
+      1000000,
+      1000000,
+      1000000,
+      1000000,
+      1000000,
+      1000000,
+      1000000,
+      1000000,
+      1000000,
+      1000000,
+      1000000,
+      1000000,
+      1000000,
+      1000000,
+      1000000,
+      1000000,
+      1000000,
+      1000000,
+      1000000,
+      1000000,
+      1000000,
+      1000000,
+      1000000,
+      1000000,
+      1000000,
+      1000000,
+      1000000,
+      1000000,
+      1100000
+    ],
+    "rollingSmaTie": [
+      985275,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000004,
+      1000003
+    ],
+    "bounce": [
+      1000000,
+      1005000,
+      1010000,
+      1015000,
+      1020000,
+      1025000,
+      1030000,
+      1020000,
+      1010000,
+      1000000,
+      990000,
+      980000,
+      970000,
+      960000,
+      960000,
+      970000,
+      970000
+    ],
+    "drop": [
+      1000000,
+      995000,
+      990000,
+      985000,
+      980000,
+      975000,
+      970000,
+      980000,
+      990000,
+      1000000,
+      1010000,
+      1020000,
+      1030000,
+      1040000,
+      1040000,
+      1030000,
+      1030000
+    ],
+    "bounceRoundsTo30": [
+      1000000,
+      1005000,
+      1010000,
+      1015000,
+      1020000,
+      1025000,
+      1030000,
+      1020000,
+      1010000,
+      1000000,
+      990000,
+      980000,
+      970000,
+      960000,
+      960000,
+      960006
+    ],
+    "bounceRoundsAbove30": [
+      1000000,
+      1005000,
+      1010000,
+      1015000,
+      1020000,
+      1025000,
+      1030000,
+      1020000,
+      1010000,
+      1000000,
+      990000,
+      980000,
+      970000,
+      960000,
+      960000,
+      960007
+    ],
+    "dropRoundsTo70": [
+      1000000,
+      995000,
+      990000,
+      985000,
+      980000,
+      975000,
+      970000,
+      980000,
+      990000,
+      1000000,
+      1010000,
+      1020000,
+      1030000,
+      1040000,
+      1040000,
+      1039994
+    ],
+    "dropRoundsBelow70": [
+      1000000,
+      995000,
+      990000,
+      985000,
+      980000,
+      975000,
+      970000,
+      980000,
+      990000,
+      1000000,
+      1010000,
+      1020000,
+      1030000,
+      1040000,
+      1040000,
+      1039993
+    ],
+    "rawPrice30Cross": [
+      280000,
+      290000,
+      310000
+    ],
+    "rawPrice70Cross": [
+      720000,
+      710000,
+      690000
+    ],
+    "doubleCross": [
+      1000000,
+      1000000,
+      1000000,
+      1000000,
+      1000000,
+      1000000,
+      1000000,
+      1000000,
+      1000000,
+      1000000,
+      1000000,
+      1000000,
+      1000000,
+      1000000,
+      1000000,
+      1000000,
+      1000000,
+      1000000,
+      1000000,
+      1000000,
+      1000000,
+      1000000,
+      1000000,
+      1000000,
+      1000000,
+      1000000,
+      1000000,
+      1000000,
+      1000000,
+      1000000,
+      1000000,
+      1000000,
+      1000000,
+      1000000,
+      1000000,
+      1000000,
+      1000000,
+      1000000,
+      1000000,
+      1000000,
+      1000000,
+      1000000,
+      1000000,
+      1000000,
+      1000000,
+      1000000,
+      1000000,
+      1000000,
+      1000000,
+      1000000,
+      800000,
+      1300000
+    ]
+  },
+  "cases": [
+    {
+      "caseId": "zero-bars-before-cutoff",
+      "target": {
+        "exchange": "NSE",
+        "symbol": "PRESET_PARITY"
+      },
+      "scannerIds": [
+        "signal_golden_cross"
+      ],
+      "barSet": "golden",
+      "asOfDate": "2024-12-31",
+      "lookbackBars": 800,
+      "expected": {
+        "matches": [],
+        "errors": [
+          "NSE:PRESET_PARITY has fewer than 2 completed bars."
+        ]
+      }
+    },
+    {
+      "caseId": "one-bar-at-cutoff",
+      "target": {
+        "exchange": "NSE",
+        "symbol": "PRESET_PARITY"
+      },
+      "scannerIds": [
+        "signal_golden_cross"
+      ],
+      "barSet": "golden",
+      "asOfDate": "2025-01-01",
+      "lookbackBars": 800,
+      "expected": {
+        "matches": [],
+        "errors": [
+          "NSE:PRESET_PARITY has fewer than 2 completed bars."
+        ]
+      }
+    },
+    {
+      "caseId": "sma-warmup-50",
+      "target": {
+        "exchange": "NSE",
+        "symbol": "PRESET_PARITY"
+      },
+      "scannerIds": [
+        "signal_golden_cross"
+      ],
+      "barSet": "golden",
+      "asOfDate": "2025-02-20",
+      "lookbackBars": 50,
+      "expected": {
+        "matches": [],
+        "errors": []
+      }
+    },
+    {
+      "caseId": "short-window-would-match-if-widened",
+      "target": {
+        "exchange": "NSE",
+        "symbol": "PRESET_PARITY"
+      },
+      "scannerIds": [
+        "signal_golden_cross"
+      ],
+      "barSet": "golden",
+      "asOfDate": "2025-02-20",
+      "lookbackBars": 20,
+      "expected": {
+        "matches": [],
+        "errors": []
+      }
+    },
+    {
+      "caseId": "golden-cross-at-51",
+      "target": {
+        "exchange": "NSE",
+        "symbol": "PRESET_PARITY"
+      },
+      "scannerIds": [
+        "signal_golden_cross"
+      ],
+      "barSet": "golden",
+      "asOfDate": "2025-02-20",
+      "lookbackBars": 800,
+      "expected": {
+        "matches": [
+          {
+            "symbol": "PRESET_PARITY",
+            "exchange": "NSE",
+            "scannerId": "signal_golden_cross",
+            "scannerName": "Golden Cross (MA Cross Above) (Golden Cross (EMA 20 / SMA 50))",
+            "categoryId": "visual_signals",
+            "categoryName": "Visual Signals & Crossovers",
+            "date": "2025-02-20",
+            "matched": true,
+            "direction": "bullish",
+            "score": 85,
+            "reasons": [
+              "Triggered Golden Cross (EMA 20 / SMA 50) on 2025-02-20"
+            ],
+            "values": {
+              "close": 110,
+              "trigger_price": 109,
+              "condition": "crosses_above",
+              "rule_id": "preset_golden_cross"
+            }
+          }
+        ],
+        "errors": []
+      }
+    },
+    {
+      "caseId": "death-cross-at-51",
+      "target": {
+        "exchange": "BSE",
+        "symbol": "PRESET_PARITY"
+      },
+      "scannerIds": [
+        "signal_death_cross"
+      ],
+      "barSet": "death",
+      "asOfDate": "2025-02-20",
+      "lookbackBars": 800,
+      "expected": {
+        "matches": [
+          {
+            "symbol": "PRESET_PARITY",
+            "exchange": "BSE",
+            "scannerId": "signal_death_cross",
+            "scannerName": "Death Cross (MA Cross Below) (Death Cross (EMA 20 / SMA 50))",
+            "categoryId": "visual_signals",
+            "categoryName": "Visual Signals & Crossovers",
+            "date": "2025-02-20",
+            "matched": true,
+            "direction": "bearish",
+            "score": 80,
+            "reasons": [
+              "Triggered Death Cross (EMA 20 / SMA 50) on 2025-02-20"
+            ],
+            "values": {
+              "close": 90,
+              "trigger_price": 91,
+              "condition": "crosses_below",
+              "rule_id": "preset_death_cross"
+            }
+          }
+        ],
+        "errors": []
+      }
+    },
+    {
+      "caseId": "average-current-equality",
+      "target": {
+        "exchange": "NSE",
+        "symbol": "PRESET_PARITY"
+      },
+      "scannerIds": [
+        "signal_golden_cross",
+        "signal_death_cross"
+      ],
+      "barSet": "flat",
+      "asOfDate": null,
+      "lookbackBars": 800,
+      "expected": {
+        "matches": [],
+        "errors": []
+      }
+    },
+    {
+      "caseId": "golden-only-at-prior-endpoint",
+      "target": {
+        "exchange": "NSE",
+        "symbol": "PRESET_PARITY"
+      },
+      "scannerIds": [
+        "signal_golden_cross"
+      ],
+      "barSet": "golden",
+      "asOfDate": null,
+      "lookbackBars": 800,
+      "expected": {
+        "matches": [],
+        "errors": []
+      }
+    },
+    {
+      "caseId": "death-only-at-prior-endpoint",
+      "target": {
+        "exchange": "NSE",
+        "symbol": "PRESET_PARITY"
+      },
+      "scannerIds": [
+        "signal_death_cross"
+      ],
+      "barSet": "death",
+      "asOfDate": null,
+      "lookbackBars": 800,
+      "expected": {
+        "matches": [],
+        "errors": []
+      }
+    },
+    {
+      "caseId": "no-golden-cross-with-older-ema-seed",
+      "target": {
+        "exchange": "NSE",
+        "symbol": "PRESET_PARITY"
+      },
+      "scannerIds": [
+        "signal_golden_cross"
+      ],
+      "barSet": "olderEmaSeed",
+      "asOfDate": null,
+      "lookbackBars": 52,
+      "expected": {
+        "matches": [],
+        "errors": []
+      }
+    },
+    {
+      "caseId": "golden-cross-with-exact-trailing-51",
+      "target": {
+        "exchange": "NSE",
+        "symbol": "PRESET_PARITY"
+      },
+      "scannerIds": [
+        "signal_golden_cross"
+      ],
+      "barSet": "olderEmaSeed",
+      "asOfDate": null,
+      "lookbackBars": 51,
+      "expected": {
+        "matches": [
+          {
+            "symbol": "PRESET_PARITY",
+            "exchange": "NSE",
+            "scannerId": "signal_golden_cross",
+            "scannerName": "Golden Cross (MA Cross Above) (Golden Cross (EMA 20 / SMA 50))",
+            "categoryId": "visual_signals",
+            "categoryName": "Visual Signals & Crossovers",
+            "date": "2025-02-21",
+            "matched": true,
+            "direction": "bullish",
+            "score": 85,
+            "reasons": [
+              "Triggered Golden Cross (EMA 20 / SMA 50) on 2025-02-21"
+            ],
+            "values": {
+              "close": 110,
+              "trigger_price": 109,
+              "condition": "crosses_above",
+              "rule_id": "preset_golden_cross"
+            }
+          }
+        ],
+        "errors": []
+      }
+    },
+    {
+      "caseId": "fractional-rolling-sma-death-cross",
+      "target": {
+        "exchange": "NSE",
+        "symbol": "PRESET_PARITY"
+      },
+      "scannerIds": [
+        "signal_golden_cross",
+        "signal_death_cross"
+      ],
+      "barSet": "rollingSmaTie",
+      "asOfDate": null,
+      "lookbackBars": 800,
+      "expected": {
+        "matches": [
+          {
+            "symbol": "PRESET_PARITY",
+            "exchange": "NSE",
+            "scannerId": "signal_death_cross",
+            "scannerName": "Death Cross (MA Cross Below) (Death Cross (EMA 20 / SMA 50))",
+            "categoryId": "visual_signals",
+            "categoryName": "Visual Signals & Crossovers",
+            "date": "2026-02-24",
+            "matched": true,
+            "direction": "bearish",
+            "score": 80,
+            "reasons": [
+              "Triggered Death Cross (EMA 20 / SMA 50) on 2026-02-24"
+            ],
+            "values": {
+              "close": 100.0003,
+              "trigger_price": 101.0003,
+              "condition": "crosses_below",
+              "rule_id": "preset_death_cross"
+            }
+          }
+        ],
+        "errors": []
+      }
+    },
+    {
+      "caseId": "rsi-warmup-15",
+      "target": {
+        "exchange": "NSE",
+        "symbol": "PRESET_PARITY"
+      },
+      "scannerIds": [
+        "signal_rsi_oversold_bounce"
+      ],
+      "barSet": "bounce",
+      "asOfDate": "2025-01-15",
+      "lookbackBars": 800,
+      "expected": {
+        "matches": [],
+        "errors": []
+      }
+    },
+    {
+      "caseId": "bounce-at-16",
+      "target": {
+        "exchange": "NSE",
+        "symbol": "PRESET_PARITY"
+      },
+      "scannerIds": [
+        "signal_rsi_oversold_bounce"
+      ],
+      "barSet": "bounce",
+      "asOfDate": "2025-01-16",
+      "lookbackBars": 800,
+      "expected": {
+        "matches": [
+          {
+            "symbol": "PRESET_PARITY",
+            "exchange": "NSE",
+            "scannerId": "signal_rsi_oversold_bounce",
+            "scannerName": "RSI Oversold Bounce (> 30) (RSI Oversold Bounce (> 30))",
+            "categoryId": "visual_signals",
+            "categoryName": "Visual Signals & Crossovers",
+            "date": "2025-01-16",
+            "matched": true,
+            "direction": "bullish",
+            "score": 85,
+            "reasons": [
+              "Triggered RSI Oversold Bounce (> 30) on 2025-01-16"
+            ],
+            "values": {
+              "close": 97,
+              "trigger_price": 96,
+              "condition": "crosses_above",
+              "rule_id": "preset_rsi_oversold"
+            }
+          }
+        ],
+        "errors": []
+      }
+    },
+    {
+      "caseId": "drop-at-16",
+      "target": {
+        "exchange": "NSE",
+        "symbol": "PRESET_PARITY"
+      },
+      "scannerIds": [
+        "signal_rsi_overbought_drop"
+      ],
+      "barSet": "drop",
+      "asOfDate": "2025-01-16",
+      "lookbackBars": 800,
+      "expected": {
+        "matches": [
+          {
+            "symbol": "PRESET_PARITY",
+            "exchange": "NSE",
+            "scannerId": "signal_rsi_overbought_drop",
+            "scannerName": "RSI Overbought Drop (< 70) (RSI Overbought Drop (< 70))",
+            "categoryId": "visual_signals",
+            "categoryName": "Visual Signals & Crossovers",
+            "date": "2025-01-16",
+            "matched": true,
+            "direction": "bearish",
+            "score": 80,
+            "reasons": [
+              "Triggered RSI Overbought Drop (< 70) on 2025-01-16"
+            ],
+            "values": {
+              "close": 103,
+              "trigger_price": 104,
+              "condition": "crosses_below",
+              "rule_id": "preset_rsi_overbought"
+            }
+          }
+        ],
+        "errors": []
+      }
+    },
+    {
+      "caseId": "bounce-only-at-prior-endpoint",
+      "target": {
+        "exchange": "NSE",
+        "symbol": "PRESET_PARITY"
+      },
+      "scannerIds": [
+        "signal_rsi_oversold_bounce"
+      ],
+      "barSet": "bounce",
+      "asOfDate": null,
+      "lookbackBars": 800,
+      "expected": {
+        "matches": [],
+        "errors": []
+      }
+    },
+    {
+      "caseId": "drop-only-at-prior-endpoint",
+      "target": {
+        "exchange": "NSE",
+        "symbol": "PRESET_PARITY"
+      },
+      "scannerIds": [
+        "signal_rsi_overbought_drop"
+      ],
+      "barSet": "drop",
+      "asOfDate": null,
+      "lookbackBars": 800,
+      "expected": {
+        "matches": [],
+        "errors": []
+      }
+    },
+    {
+      "caseId": "rsi-rounds-to-30",
+      "target": {
+        "exchange": "NSE",
+        "symbol": "PRESET_PARITY"
+      },
+      "scannerIds": [
+        "signal_rsi_oversold_bounce"
+      ],
+      "barSet": "bounceRoundsTo30",
+      "asOfDate": null,
+      "lookbackBars": 800,
+      "expected": {
+        "matches": [],
+        "errors": []
+      }
+    },
+    {
+      "caseId": "rsi-rounds-above-30",
+      "target": {
+        "exchange": "NSE",
+        "symbol": "PRESET_PARITY"
+      },
+      "scannerIds": [
+        "signal_rsi_oversold_bounce"
+      ],
+      "barSet": "bounceRoundsAbove30",
+      "asOfDate": null,
+      "lookbackBars": 800,
+      "expected": {
+        "matches": [
+          {
+            "symbol": "PRESET_PARITY",
+            "exchange": "NSE",
+            "scannerId": "signal_rsi_oversold_bounce",
+            "scannerName": "RSI Oversold Bounce (> 30) (RSI Oversold Bounce (> 30))",
+            "categoryId": "visual_signals",
+            "categoryName": "Visual Signals & Crossovers",
+            "date": "2025-01-16",
+            "matched": true,
+            "direction": "bullish",
+            "score": 85,
+            "reasons": [
+              "Triggered RSI Oversold Bounce (> 30) on 2025-01-16"
+            ],
+            "values": {
+              "close": 96.0007,
+              "trigger_price": 95.0007,
+              "condition": "crosses_above",
+              "rule_id": "preset_rsi_oversold"
+            }
+          }
+        ],
+        "errors": []
+      }
+    },
+    {
+      "caseId": "rsi-rounds-to-70",
+      "target": {
+        "exchange": "NSE",
+        "symbol": "PRESET_PARITY"
+      },
+      "scannerIds": [
+        "signal_rsi_overbought_drop"
+      ],
+      "barSet": "dropRoundsTo70",
+      "asOfDate": null,
+      "lookbackBars": 800,
+      "expected": {
+        "matches": [],
+        "errors": []
+      }
+    },
+    {
+      "caseId": "rsi-rounds-below-70",
+      "target": {
+        "exchange": "NSE",
+        "symbol": "PRESET_PARITY"
+      },
+      "scannerIds": [
+        "signal_rsi_overbought_drop"
+      ],
+      "barSet": "dropRoundsBelow70",
+      "asOfDate": null,
+      "lookbackBars": 800,
+      "expected": {
+        "matches": [
+          {
+            "symbol": "PRESET_PARITY",
+            "exchange": "NSE",
+            "scannerId": "signal_rsi_overbought_drop",
+            "scannerName": "RSI Overbought Drop (< 70) (RSI Overbought Drop (< 70))",
+            "categoryId": "visual_signals",
+            "categoryName": "Visual Signals & Crossovers",
+            "date": "2025-01-16",
+            "matched": true,
+            "direction": "bearish",
+            "score": 80,
+            "reasons": [
+              "Triggered RSI Overbought Drop (< 70) on 2025-01-16"
+            ],
+            "values": {
+              "close": 103.9993,
+              "trigger_price": 104.9993,
+              "condition": "crosses_below",
+              "rule_id": "preset_rsi_overbought"
+            }
+          }
+        ],
+        "errors": []
+      }
+    },
+    {
+      "caseId": "price-30-does-not-stand-in-for-rsi",
+      "target": {
+        "exchange": "NSE",
+        "symbol": "PRESET_PARITY"
+      },
+      "scannerIds": [
+        "signal_rsi_oversold_bounce"
+      ],
+      "barSet": "rawPrice30Cross",
+      "asOfDate": null,
+      "lookbackBars": 800,
+      "expected": {
+        "matches": [],
+        "errors": []
+      }
+    },
+    {
+      "caseId": "price-70-does-not-stand-in-for-rsi",
+      "target": {
+        "exchange": "NSE",
+        "symbol": "PRESET_PARITY"
+      },
+      "scannerIds": [
+        "signal_rsi_overbought_drop"
+      ],
+      "barSet": "rawPrice70Cross",
+      "asOfDate": null,
+      "lookbackBars": 800,
+      "expected": {
+        "matches": [],
+        "errors": []
+      }
+    },
+    {
+      "caseId": "two-matches-in-scanner-result-order",
+      "target": {
+        "exchange": "NSE",
+        "symbol": "PRESET_PARITY"
+      },
+      "scannerIds": [
+        "signal_rsi_overbought_drop",
+        "signal_rsi_oversold_bounce",
+        "signal_golden_cross",
+        "signal_death_cross"
+      ],
+      "barSet": "doubleCross",
+      "asOfDate": null,
+      "lookbackBars": 800,
+      "expected": {
+        "matches": [
+          {
+            "symbol": "PRESET_PARITY",
+            "exchange": "NSE",
+            "scannerId": "signal_golden_cross",
+            "scannerName": "Golden Cross (MA Cross Above) (Golden Cross (EMA 20 / SMA 50))",
+            "categoryId": "visual_signals",
+            "categoryName": "Visual Signals & Crossovers",
+            "date": "2025-02-21",
+            "matched": true,
+            "direction": "bullish",
+            "score": 85,
+            "reasons": [
+              "Triggered Golden Cross (EMA 20 / SMA 50) on 2025-02-21"
+            ],
+            "values": {
+              "close": 130,
+              "trigger_price": 129,
+              "condition": "crosses_above",
+              "rule_id": "preset_golden_cross"
+            }
+          },
+          {
+            "symbol": "PRESET_PARITY",
+            "exchange": "NSE",
+            "scannerId": "signal_rsi_oversold_bounce",
+            "scannerName": "RSI Oversold Bounce (> 30) (RSI Oversold Bounce (> 30))",
+            "categoryId": "visual_signals",
+            "categoryName": "Visual Signals & Crossovers",
+            "date": "2025-02-21",
+            "matched": true,
+            "direction": "bullish",
+            "score": 85,
+            "reasons": [
+              "Triggered RSI Oversold Bounce (> 30) on 2025-02-21"
+            ],
+            "values": {
+              "close": 130,
+              "trigger_price": 129,
+              "condition": "crosses_above",
+              "rule_id": "preset_rsi_oversold"
+            }
+          }
+        ],
+        "errors": []
+      }
+    }
+  ],
+  "rounding": [
+    {
+      "valueBits": "403dfeb851eb851e",
+      "threshold": 30,
+      "comparison": -1
+    },
+    {
+      "valueBits": "403dfeb851eb851f",
+      "threshold": 30,
+      "comparison": 0
+    },
+    {
+      "valueBits": "403dfeb851eb8520",
+      "threshold": 30,
+      "comparison": 0
+    },
+    {
+      "valueBits": "403e0147ae147ae0",
+      "threshold": 30,
+      "comparison": 0
+    },
+    {
+      "valueBits": "403e0147ae147ae1",
+      "threshold": 30,
+      "comparison": 0
+    },
+    {
+      "valueBits": "403e0147ae147ae2",
+      "threshold": 30,
+      "comparison": 1
+    },
+    {
+      "valueBits": "40517fae147ae147",
+      "threshold": 70,
+      "comparison": -1
+    },
+    {
+      "valueBits": "40517fae147ae148",
+      "threshold": 70,
+      "comparison": 0
+    },
+    {
+      "valueBits": "40517fae147ae149",
+      "threshold": 70,
+      "comparison": 0
+    },
+    {
+      "valueBits": "40518051eb851eb7",
+      "threshold": 70,
+      "comparison": 0
+    },
+    {
+      "valueBits": "40518051eb851eb8",
+      "threshold": 70,
+      "comparison": 0
+    },
+    {
+      "valueBits": "40518051eb851eb9",
+      "threshold": 70,
+      "comparison": 1
+    }
+  ]
+}

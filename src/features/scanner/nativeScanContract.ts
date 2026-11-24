@@ -14,6 +14,8 @@
  * - No negative or future references exist, and no rule may read past `asOfDate`.
  */
 
+import type { NativeCustomSignalCapabilitiesV1 } from './nativeCustomSignals';
+
 export const NATIVE_SCAN_SCHEMA_VERSION = 1 as const;
 export const NATIVE_SCAN_CONTRACT_VERSION = 'eod-native-scan-contract-v1' as const;
 export const NATIVE_SCAN_EVENT_VERSION = 1 as const;
@@ -379,6 +381,8 @@ export interface NativeScanCompleteEventV1 {
   /** Workers the run actually used, not the requested count (P1-08). */
   workersUsed?: number;
   diagnostics: NativeScanDiagnosticV1[];
+  /** Number of would-be emitted result records for a custom-signal run. */
+  customSignalResultCount?: number;
   /** Present only for targets with completed numeric history in an uncancelled run. */
   numericHistoryCoverage?: NativeNumericHistoryCoverageV1[];
 }
@@ -410,6 +414,25 @@ export interface NativeScanCancelAckV1 {
   alreadyFinished: boolean;
 }
 
+export const NATIVE_SIGNAL_PRESET_IDS = [
+  'signal_golden_cross',
+  'signal_death_cross',
+  'signal_rsi_oversold_bounce',
+  'signal_rsi_overbought_drop',
+] as const;
+export const NATIVE_SIGNAL_PRESET_EVALUATOR_VERSION = 1 as const;
+
+export type NativeSignalPresetId = typeof NATIVE_SIGNAL_PRESET_IDS[number];
+
+export function isNativeSignalPresetId(id: string): id is NativeSignalPresetId {
+  return (NATIVE_SIGNAL_PRESET_IDS as readonly string[]).includes(id);
+}
+
+export interface NativeSignalPresetCapabilitiesV1 {
+  evaluatorVersion: 1;
+  supportedIds: readonly string[];
+}
+
 export interface NativeScannerCapabilitiesV1 {
   contractVersion: typeof NATIVE_SCAN_CONTRACT_VERSION;
   schemaVersion: typeof NATIVE_SCAN_SCHEMA_VERSION;
@@ -417,6 +440,9 @@ export interface NativeScannerCapabilitiesV1 {
   workerCount: number;
   supportedPatternIds: readonly string[];
   supportedIndicatorNames: readonly NativeIndicatorName[];
+  signalPresets?: NativeSignalPresetCapabilitiesV1;
+  customSignals?: NativeCustomSignalCapabilitiesV1;
+  customSignalSelection?: string;
   supportedUniverseSources: readonly NativeScanUniverseV1['source'][];
   maxLimits: typeof NATIVE_SCAN_LIMITS;
 }
@@ -696,6 +722,16 @@ function walkExpr(
  * pattern ids, negative lookbacks and malformed dates *before* any scan work.
  */
 export function validateNativeScanRequestV1(value: unknown): NativeScanValidationResult {
+  return validateNativeScanEnvelope(value, false);
+}
+
+export function validateNativeCustomSignalEnvelope(
+  envelope: Omit<NativeScanRequestV1, 'rules'>,
+): NativeScanValidationResult {
+  return validateNativeScanEnvelope({ ...envelope, rules: [] }, true);
+}
+
+function validateNativeScanEnvelope(value: unknown, allowEmptyRules: boolean): NativeScanValidationResult {
   const issues: NativeScanValidationIssue[] = [];
   const root = requireObject(value, 'request', issues);
   if (!root) return { ok: false, issues };
@@ -858,7 +894,7 @@ export function validateNativeScanRequestV1(value: unknown): NativeScanValidatio
   // -- rules ----------------------------------------------------------------
   const rawRules = root.rules;
   let rules: NativeScanRuleV1[] | null = null;
-  if (!Array.isArray(rawRules) || rawRules.length === 0) {
+  if (!Array.isArray(rawRules) || (!allowEmptyRules && rawRules.length === 0)) {
     issues.push({
       path: 'request.rules',
       code: 'missing-rules',

@@ -14,6 +14,9 @@ use serde::Deserialize;
 use serde_json::Value;
 use std::collections::BTreeMap;
 
+mod custom_signals;
+mod preset_signals;
+
 const FIXTURE_JSON: &str =
     include_str!("../../../src/features/scanner/fixtures/nativeScannerParityFixtures.v1.json");
 

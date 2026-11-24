@@ -1,0 +1,2380 @@
+{
+  "version": 1,
+  "priceScale": 10000,
+  "startDate": "2025-01-01",
+  "barSets": {
+    "up": [
+      [
+        280000,
+        1
+      ],
+      [
+        300000,
+        1
+      ],
+      [
+        310000,
+        1
+      ],
+      [
+        320000,
+        1
+      ]
+    ],
+    "down": [
+      [
+        320000,
+        1
+      ],
+      [
+        300000,
+        1
+      ],
+      [
+        290000,
+        1
+      ],
+      [
+        280000,
+        1
+      ]
+    ],
+    "averages": [
+      [
+        1000000,
+        200
+      ],
+      [
+        1100000,
+        2
+      ]
+    ],
+    "rollingSma": [
+      [
+        985275,
+        1
+      ],
+      [
+        1000004,
+        418
+      ],
+      [
+        1000003,
+        1
+      ]
+    ],
+    "rsiUp": [
+      [
+        1000000,
+        1
+      ],
+      [
+        1005000,
+        1
+      ],
+      [
+        1010000,
+        1
+      ],
+      [
+        1015000,
+        1
+      ],
+      [
+        1020000,
+        1
+      ],
+      [
+        1025000,
+        1
+      ],
+      [
+        1030000,
+        1
+      ],
+      [
+        1020000,
+        1
+      ],
+      [
+        1010000,
+        1
+      ],
+      [
+        1000000,
+        1
+      ],
+      [
+        990000,
+        1
+      ],
+      [
+        980000,
+        1
+      ],
+      [
+        970000,
+        1
+      ],
+      [
+        960000,
+        1
+      ],
+      [
+        960000,
+        1
+      ],
+      [
+        970000,
+        1
+      ],
+      [
+        970000,
+        1
+      ]
+    ],
+    "rsiDown": [
+      [
+        1000000,
+        1
+      ],
+      [
+        995000,
+        1
+      ],
+      [
+        990000,
+        1
+      ],
+      [
+        985000,
+        1
+      ],
+      [
+        980000,
+        1
+      ],
+      [
+        975000,
+        1
+      ],
+      [
+        970000,
+        1
+      ],
+      [
+        980000,
+        1
+      ],
+      [
+        990000,
+        1
+      ],
+      [
+        1000000,
+        1
+      ],
+      [
+        1010000,
+        1
+      ],
+      [
+        1020000,
+        1
+      ],
+      [
+        1030000,
+        1
+      ],
+      [
+        1040000,
+        1
+      ],
+      [
+        1040000,
+        1
+      ],
+      [
+        1030000,
+        1
+      ],
+      [
+        1030000,
+        1
+      ]
+    ],
+    "rsiRoundsTo30": [
+      [
+        1000000,
+        1
+      ],
+      [
+        1005000,
+        1
+      ],
+      [
+        1010000,
+        1
+      ],
+      [
+        1015000,
+        1
+      ],
+      [
+        1020000,
+        1
+      ],
+      [
+        1025000,
+        1
+      ],
+      [
+        1030000,
+        1
+      ],
+      [
+        1020000,
+        1
+      ],
+      [
+        1010000,
+        1
+      ],
+      [
+        1000000,
+        1
+      ],
+      [
+        990000,
+        1
+      ],
+      [
+        980000,
+        1
+      ],
+      [
+        970000,
+        1
+      ],
+      [
+        960000,
+        1
+      ],
+      [
+        960000,
+        1
+      ],
+      [
+        960006,
+        1
+      ]
+    ],
+    "rsiRoundsAbove30": [
+      [
+        1000000,
+        1
+      ],
+      [
+        1005000,
+        1
+      ],
+      [
+        1010000,
+        1
+      ],
+      [
+        1015000,
+        1
+      ],
+      [
+        1020000,
+        1
+      ],
+      [
+        1025000,
+        1
+      ],
+      [
+        1030000,
+        1
+      ],
+      [
+        1020000,
+        1
+      ],
+      [
+        1010000,
+        1
+      ],
+      [
+        1000000,
+        1
+      ],
+      [
+        990000,
+        1
+      ],
+      [
+        980000,
+        1
+      ],
+      [
+        970000,
+        1
+      ],
+      [
+        960000,
+        1
+      ],
+      [
+        960000,
+        1
+      ],
+      [
+        960007,
+        1
+      ]
+    ]
+  },
+  "cases": [
+    {
+      "caseId": "all-ohlc-sources-and-on-series-prices",
+      "target": {
+        "exchange": "NSE",
+        "symbol": "CUSTOM_PARITY"
+      },
+      "barSet": "up",
+      "asOfDate": "2025-01-03",
+      "lookbackBars": 800,
+      "rules": [
+        {
+          "id": "open",
+          "label": "open",
+          "enabled": true,
+          "conditionType": "crosses_above",
+          "seriesA": {
+            "source": "open"
+          },
+          "seriesB": {
+            "staticValue": 30
+          },
+          "position": "on_series"
+        },
+        {
+          "id": "high",
+          "label": "high",
+          "enabled": true,
+          "conditionType": "crosses_above",
+          "seriesA": {
+            "source": "high"
+          },
+          "seriesB": {
+            "staticValue": 30.75
+          },
+          "position": "on_series"
+        },
+        {
+          "id": "low",
+          "label": "low",
+          "enabled": true,
+          "conditionType": "crosses_above",
+          "seriesA": {
+            "source": "low"
+          },
+          "seriesB": {
+            "staticValue": 28.75
+          },
+          "position": "on_series"
+        },
+        {
+          "id": "close",
+          "label": "close",
+          "enabled": true,
+          "conditionType": "crosses_above",
+          "seriesA": {
+            "source": "close"
+          },
+          "seriesB": {
+            "staticValue": 30
+          },
+          "position": "on_series"
+        },
+        {
+          "id": "hl2",
+          "label": "hl2",
+          "enabled": true,
+          "conditionType": "crosses_above",
+          "seriesA": {
+            "source": "hl2"
+          },
+          "seriesB": {
+            "staticValue": 30
+          },
+          "position": "on_series"
+        },
+        {
+          "id": "hlc3",
+          "label": "hlc3",
+          "enabled": true,
+          "conditionType": "crosses_above",
+          "seriesA": {
+            "source": "hlc3"
+          },
+          "seriesB": {
+            "staticValue": 30
+          },
+          "position": "on_series"
+        },
+        {
+          "id": "ohlc4",
+          "label": "ohlc4",
+          "enabled": true,
+          "conditionType": "crosses_above",
+          "seriesA": {
+            "source": "ohlc4"
+          },
+          "seriesB": {
+            "staticValue": 30
+          },
+          "position": "on_series"
+        }
+      ],
+      "resolvedRules": [
+        {
+          "id": "open",
+          "label": "open",
+          "conditionType": "crosses_above",
+          "seriesA": {
+            "kind": "ohlc",
+            "source": "open"
+          },
+          "seriesB": {
+            "kind": "constant",
+            "value": 30
+          },
+          "position": "on_series"
+        },
+        {
+          "id": "high",
+          "label": "high",
+          "conditionType": "crosses_above",
+          "seriesA": {
+            "kind": "ohlc",
+            "source": "high"
+          },
+          "seriesB": {
+            "kind": "constant",
+            "value": 30.75
+          },
+          "position": "on_series"
+        },
+        {
+          "id": "low",
+          "label": "low",
+          "conditionType": "crosses_above",
+          "seriesA": {
+            "kind": "ohlc",
+            "source": "low"
+          },
+          "seriesB": {
+            "kind": "constant",
+            "value": 28.75
+          },
+          "position": "on_series"
+        },
+        {
+          "id": "close",
+          "label": "close",
+          "conditionType": "crosses_above",
+          "seriesA": {
+            "kind": "ohlc",
+            "source": "close"
+          },
+          "seriesB": {
+            "kind": "constant",
+            "value": 30
+          },
+          "position": "on_series"
+        },
+        {
+          "id": "hl2",
+          "label": "hl2",
+          "conditionType": "crosses_above",
+          "seriesA": {
+            "kind": "ohlc",
+            "source": "hl2"
+          },
+          "seriesB": {
+            "kind": "constant",
+            "value": 30
+          },
+          "position": "on_series"
+        },
+        {
+          "id": "hlc3",
+          "label": "hlc3",
+          "conditionType": "crosses_above",
+          "seriesA": {
+            "kind": "ohlc",
+            "source": "hlc3"
+          },
+          "seriesB": {
+            "kind": "constant",
+            "value": 30
+          },
+          "position": "on_series"
+        },
+        {
+          "id": "ohlc4",
+          "label": "ohlc4",
+          "conditionType": "crosses_above",
+          "seriesA": {
+            "kind": "ohlc",
+            "source": "ohlc4"
+          },
+          "seriesB": {
+            "kind": "constant",
+            "value": 30
+          },
+          "position": "on_series"
+        }
+      ],
+      "expected": {
+        "matches": [
+          {
+            "symbol": "CUSTOM_PARITY",
+            "exchange": "NSE",
+            "scannerId": "signal_active_custom_rules",
+            "scannerName": "open (open)",
+            "categoryId": "visual_signals",
+            "categoryName": "Visual Signals & Crossovers",
+            "date": "2025-01-03",
+            "matched": true,
+            "direction": "bullish",
+            "score": 85,
+            "reasons": [
+              "Triggered open on 2025-01-03"
+            ],
+            "values": {
+              "close": 31,
+              "trigger_price": 30.75,
+              "condition": "crosses_above",
+              "rule_id": "open"
+            }
+          },
+          {
+            "symbol": "CUSTOM_PARITY",
+            "exchange": "NSE",
+            "scannerId": "signal_active_custom_rules",
+            "scannerName": "high (high)",
+            "categoryId": "visual_signals",
+            "categoryName": "Visual Signals & Crossovers",
+            "date": "2025-01-03",
+            "matched": true,
+            "direction": "bullish",
+            "score": 85,
+            "reasons": [
+              "Triggered high on 2025-01-03"
+            ],
+            "values": {
+              "close": 31,
+              "trigger_price": 31.75,
+              "condition": "crosses_above",
+              "rule_id": "high"
+            }
+          },
+          {
+            "symbol": "CUSTOM_PARITY",
+            "exchange": "NSE",
+            "scannerId": "signal_active_custom_rules",
+            "scannerName": "low (low)",
+            "categoryId": "visual_signals",
+            "categoryName": "Visual Signals & Crossovers",
+            "date": "2025-01-03",
+            "matched": true,
+            "direction": "bullish",
+            "score": 85,
+            "reasons": [
+              "Triggered low on 2025-01-03"
+            ],
+            "values": {
+              "close": 31,
+              "trigger_price": 29.75,
+              "condition": "crosses_above",
+              "rule_id": "low"
+            }
+          },
+          {
+            "symbol": "CUSTOM_PARITY",
+            "exchange": "NSE",
+            "scannerId": "signal_active_custom_rules",
+            "scannerName": "close (close)",
+            "categoryId": "visual_signals",
+            "categoryName": "Visual Signals & Crossovers",
+            "date": "2025-01-03",
+            "matched": true,
+            "direction": "bullish",
+            "score": 85,
+            "reasons": [
+              "Triggered close on 2025-01-03"
+            ],
+            "values": {
+              "close": 31,
+              "trigger_price": 31,
+              "condition": "crosses_above",
+              "rule_id": "close"
+            }
+          },
+          {
+            "symbol": "CUSTOM_PARITY",
+            "exchange": "NSE",
+            "scannerId": "signal_active_custom_rules",
+            "scannerName": "hl2 (hl2)",
+            "categoryId": "visual_signals",
+            "categoryName": "Visual Signals & Crossovers",
+            "date": "2025-01-03",
+            "matched": true,
+            "direction": "bullish",
+            "score": 85,
+            "reasons": [
+              "Triggered hl2 on 2025-01-03"
+            ],
+            "values": {
+              "close": 31,
+              "trigger_price": 30.75,
+              "condition": "crosses_above",
+              "rule_id": "hl2"
+            }
+          },
+          {
+            "symbol": "CUSTOM_PARITY",
+            "exchange": "NSE",
+            "scannerId": "signal_active_custom_rules",
+            "scannerName": "hlc3 (hlc3)",
+            "categoryId": "visual_signals",
+            "categoryName": "Visual Signals & Crossovers",
+            "date": "2025-01-03",
+            "matched": true,
+            "direction": "bullish",
+            "score": 85,
+            "reasons": [
+              "Triggered hlc3 on 2025-01-03"
+            ],
+            "values": {
+              "close": 31,
+              "trigger_price": 30.833333333333332,
+              "condition": "crosses_above",
+              "rule_id": "hlc3"
+            }
+          },
+          {
+            "symbol": "CUSTOM_PARITY",
+            "exchange": "NSE",
+            "scannerId": "signal_active_custom_rules",
+            "scannerName": "ohlc4 (ohlc4)",
+            "categoryId": "visual_signals",
+            "categoryName": "Visual Signals & Crossovers",
+            "date": "2025-01-03",
+            "matched": true,
+            "direction": "bullish",
+            "score": 85,
+            "reasons": [
+              "Triggered ohlc4 on 2025-01-03"
+            ],
+            "values": {
+              "close": 31,
+              "trigger_price": 30.8125,
+              "condition": "crosses_above",
+              "rule_id": "ohlc4"
+            }
+          }
+        ],
+        "errors": []
+      }
+    },
+    {
+      "caseId": "multiple-matches-same-label-in-configured-order",
+      "target": {
+        "exchange": "NSE",
+        "symbol": "CUSTOM_PARITY"
+      },
+      "barSet": "up",
+      "asOfDate": "2025-01-03",
+      "lookbackBars": 800,
+      "rules": [
+        {
+          "id": "first|rule",
+          "label": "Même règle",
+          "enabled": true,
+          "conditionType": "crosses_above",
+          "seriesA": {},
+          "seriesB": {
+            "staticValue": 30
+          }
+        },
+        {
+          "id": "disabled",
+          "label": "Même règle",
+          "enabled": false,
+          "conditionType": "crosses_above",
+          "seriesA": {},
+          "seriesB": {
+            "staticValue": 30
+          }
+        },
+        {
+          "id": "second:rule",
+          "label": "Même règle",
+          "enabled": true,
+          "conditionType": "crosses_above",
+          "seriesA": {},
+          "seriesB": {
+            "staticValue": 30
+          }
+        }
+      ],
+      "resolvedRules": [
+        {
+          "id": "first|rule",
+          "label": "Même règle",
+          "conditionType": "crosses_above",
+          "seriesA": {
+            "kind": "ohlc",
+            "source": "close"
+          },
+          "seriesB": {
+            "kind": "constant",
+            "value": 30
+          }
+        },
+        {
+          "id": "second:rule",
+          "label": "Même règle",
+          "conditionType": "crosses_above",
+          "seriesA": {
+            "kind": "ohlc",
+            "source": "close"
+          },
+          "seriesB": {
+            "kind": "constant",
+            "value": 30
+          }
+        }
+      ],
+      "expected": {
+        "matches": [
+          {
+            "symbol": "CUSTOM_PARITY",
+            "exchange": "NSE",
+            "scannerId": "signal_active_custom_rules",
+            "scannerName": "Même règle (Même règle)",
+            "categoryId": "visual_signals",
+            "categoryName": "Visual Signals & Crossovers",
+            "date": "2025-01-03",
+            "matched": true,
+            "direction": "bullish",
+            "score": 85,
+            "reasons": [
+              "Triggered Même règle on 2025-01-03"
+            ],
+            "values": {
+              "close": 31,
+              "trigger_price": 29.75,
+              "condition": "crosses_above",
+              "rule_id": "first|rule"
+            }
+          },
+          {
+            "symbol": "CUSTOM_PARITY",
+            "exchange": "NSE",
+            "scannerId": "signal_active_custom_rules",
+            "scannerName": "Même règle (Même règle)",
+            "categoryId": "visual_signals",
+            "categoryName": "Visual Signals & Crossovers",
+            "date": "2025-01-03",
+            "matched": true,
+            "direction": "bullish",
+            "score": 85,
+            "reasons": [
+              "Triggered Même règle on 2025-01-03"
+            ],
+            "values": {
+              "close": 31,
+              "trigger_price": 29.75,
+              "condition": "crosses_above",
+              "rule_id": "second:rule"
+            }
+          }
+        ],
+        "errors": []
+      }
+    },
+    {
+      "caseId": "disabled-rule-does-not-match",
+      "target": {
+        "exchange": "NSE",
+        "symbol": "CUSTOM_PARITY"
+      },
+      "barSet": "up",
+      "asOfDate": "2025-01-03",
+      "lookbackBars": 800,
+      "rules": [
+        {
+          "id": "disabled",
+          "label": "Même règle",
+          "enabled": false,
+          "conditionType": "crosses_above",
+          "seriesA": {},
+          "seriesB": {
+            "staticValue": 30
+          }
+        }
+      ],
+      "resolvedRules": [],
+      "expected": {
+        "matches": [],
+        "errors": []
+      }
+    },
+    {
+      "caseId": "no-configured-rules",
+      "target": {
+        "exchange": "NSE",
+        "symbol": "CUSTOM_PARITY"
+      },
+      "barSet": "up",
+      "asOfDate": "2025-01-03",
+      "lookbackBars": 800,
+      "rules": [],
+      "resolvedRules": [],
+      "expected": {
+        "matches": [],
+        "errors": []
+      }
+    },
+    {
+      "caseId": "greater-from-equality",
+      "target": {
+        "exchange": "NSE",
+        "symbol": "CUSTOM_PARITY"
+      },
+      "barSet": "up",
+      "asOfDate": "2025-01-03",
+      "lookbackBars": 800,
+      "rules": [
+        {
+          "id": "greater",
+          "label": "greater",
+          "enabled": true,
+          "conditionType": "greater_than",
+          "seriesA": {},
+          "seriesB": {
+            "staticValue": 30
+          },
+          "shape": "arrow_up"
+        }
+      ],
+      "resolvedRules": [
+        {
+          "id": "greater",
+          "label": "greater",
+          "conditionType": "greater_than",
+          "seriesA": {
+            "kind": "ohlc",
+            "source": "close"
+          },
+          "seriesB": {
+            "kind": "constant",
+            "value": 30
+          },
+          "shape": "arrow_up"
+        }
+      ],
+      "expected": {
+        "matches": [
+          {
+            "symbol": "CUSTOM_PARITY",
+            "exchange": "NSE",
+            "scannerId": "signal_active_custom_rules",
+            "scannerName": "greater (greater)",
+            "categoryId": "visual_signals",
+            "categoryName": "Visual Signals & Crossovers",
+            "date": "2025-01-03",
+            "matched": true,
+            "direction": "bullish",
+            "score": 85,
+            "reasons": [
+              "Triggered greater on 2025-01-03"
+            ],
+            "values": {
+              "close": 31,
+              "trigger_price": 29.75,
+              "condition": "greater_than",
+              "rule_id": "greater"
+            }
+          }
+        ],
+        "errors": []
+      }
+    },
+    {
+      "caseId": "greater-current-equality",
+      "target": {
+        "exchange": "NSE",
+        "symbol": "CUSTOM_PARITY"
+      },
+      "barSet": "up",
+      "asOfDate": "2025-01-02",
+      "lookbackBars": 800,
+      "rules": [
+        {
+          "id": "greater",
+          "label": "greater",
+          "enabled": true,
+          "conditionType": "greater_than",
+          "seriesA": {},
+          "seriesB": {
+            "staticValue": 30
+          },
+          "shape": "arrow_up"
+        }
+      ],
+      "resolvedRules": [
+        {
+          "id": "greater",
+          "label": "greater",
+          "conditionType": "greater_than",
+          "seriesA": {
+            "kind": "ohlc",
+            "source": "close"
+          },
+          "seriesB": {
+            "kind": "constant",
+            "value": 30
+          },
+          "shape": "arrow_up"
+        }
+      ],
+      "expected": {
+        "matches": [],
+        "errors": []
+      }
+    },
+    {
+      "caseId": "greater-already-on-the-same-side",
+      "target": {
+        "exchange": "NSE",
+        "symbol": "CUSTOM_PARITY"
+      },
+      "barSet": "up",
+      "asOfDate": null,
+      "lookbackBars": 800,
+      "rules": [
+        {
+          "id": "greater",
+          "label": "greater",
+          "enabled": true,
+          "conditionType": "greater_than",
+          "seriesA": {},
+          "seriesB": {
+            "staticValue": 30
+          },
+          "shape": "arrow_up"
+        }
+      ],
+      "resolvedRules": [
+        {
+          "id": "greater",
+          "label": "greater",
+          "conditionType": "greater_than",
+          "seriesA": {
+            "kind": "ohlc",
+            "source": "close"
+          },
+          "seriesB": {
+            "kind": "constant",
+            "value": 30
+          },
+          "shape": "arrow_up"
+        }
+      ],
+      "expected": {
+        "matches": [],
+        "errors": []
+      }
+    },
+    {
+      "caseId": "less-from-equality",
+      "target": {
+        "exchange": "BSE",
+        "symbol": "CUSTOM_PARITY"
+      },
+      "barSet": "down",
+      "asOfDate": "2025-01-03",
+      "lookbackBars": 800,
+      "rules": [
+        {
+          "id": "less",
+          "label": "less",
+          "enabled": true,
+          "conditionType": "less_than",
+          "seriesA": {},
+          "seriesB": {
+            "staticValue": 30
+          },
+          "shape": "arrow_down"
+        }
+      ],
+      "resolvedRules": [
+        {
+          "id": "less",
+          "label": "less",
+          "conditionType": "less_than",
+          "seriesA": {
+            "kind": "ohlc",
+            "source": "close"
+          },
+          "seriesB": {
+            "kind": "constant",
+            "value": 30
+          },
+          "shape": "arrow_down"
+        }
+      ],
+      "expected": {
+        "matches": [
+          {
+            "symbol": "CUSTOM_PARITY",
+            "exchange": "BSE",
+            "scannerId": "signal_active_custom_rules",
+            "scannerName": "less (less)",
+            "categoryId": "visual_signals",
+            "categoryName": "Visual Signals & Crossovers",
+            "date": "2025-01-03",
+            "matched": true,
+            "direction": "bearish",
+            "score": 80,
+            "reasons": [
+              "Triggered less on 2025-01-03"
+            ],
+            "values": {
+              "close": 29,
+              "trigger_price": 29.75,
+              "condition": "less_than",
+              "rule_id": "less"
+            }
+          }
+        ],
+        "errors": []
+      }
+    },
+    {
+      "caseId": "less-current-equality",
+      "target": {
+        "exchange": "NSE",
+        "symbol": "CUSTOM_PARITY"
+      },
+      "barSet": "down",
+      "asOfDate": "2025-01-02",
+      "lookbackBars": 800,
+      "rules": [
+        {
+          "id": "less",
+          "label": "less",
+          "enabled": true,
+          "conditionType": "less_than",
+          "seriesA": {},
+          "seriesB": {
+            "staticValue": 30
+          },
+          "shape": "arrow_down"
+        }
+      ],
+      "resolvedRules": [
+        {
+          "id": "less",
+          "label": "less",
+          "conditionType": "less_than",
+          "seriesA": {
+            "kind": "ohlc",
+            "source": "close"
+          },
+          "seriesB": {
+            "kind": "constant",
+            "value": 30
+          },
+          "shape": "arrow_down"
+        }
+      ],
+      "expected": {
+        "matches": [],
+        "errors": []
+      }
+    },
+    {
+      "caseId": "less-already-on-the-same-side",
+      "target": {
+        "exchange": "NSE",
+        "symbol": "CUSTOM_PARITY"
+      },
+      "barSet": "down",
+      "asOfDate": null,
+      "lookbackBars": 800,
+      "rules": [
+        {
+          "id": "less",
+          "label": "less",
+          "enabled": true,
+          "conditionType": "less_than",
+          "seriesA": {},
+          "seriesB": {
+            "staticValue": 30
+          },
+          "shape": "arrow_down"
+        }
+      ],
+      "resolvedRules": [
+        {
+          "id": "less",
+          "label": "less",
+          "conditionType": "less_than",
+          "seriesA": {
+            "kind": "ohlc",
+            "source": "close"
+          },
+          "seriesB": {
+            "kind": "constant",
+            "value": 30
+          },
+          "shape": "arrow_down"
+        }
+      ],
+      "expected": {
+        "matches": [],
+        "errors": []
+      }
+    },
+    {
+      "caseId": "neutral-shape-with-explicit-price-position",
+      "target": {
+        "exchange": "NSE",
+        "symbol": "CUSTOM_PARITY"
+      },
+      "barSet": "up",
+      "asOfDate": "2025-01-03",
+      "lookbackBars": 800,
+      "rules": [
+        {
+          "id": "greater",
+          "label": "",
+          "enabled": true,
+          "conditionType": "greater_than",
+          "seriesA": {},
+          "seriesB": {
+            "staticValue": 30
+          },
+          "shape": "circle",
+          "position": "above_bar"
+        }
+      ],
+      "resolvedRules": [
+        {
+          "id": "greater",
+          "label": "",
+          "conditionType": "greater_than",
+          "seriesA": {
+            "kind": "ohlc",
+            "source": "close"
+          },
+          "seriesB": {
+            "kind": "constant",
+            "value": 30
+          },
+          "shape": "circle",
+          "position": "above_bar"
+        }
+      ],
+      "expected": {
+        "matches": [
+          {
+            "symbol": "CUSTOM_PARITY",
+            "exchange": "NSE",
+            "scannerId": "signal_active_custom_rules",
+            "scannerName": "Custom Signal Rule ()",
+            "categoryId": "visual_signals",
+            "categoryName": "Visual Signals & Crossovers",
+            "date": "2025-01-03",
+            "matched": true,
+            "direction": "neutral",
+            "score": 80,
+            "reasons": [
+              "Triggered  on 2025-01-03"
+            ],
+            "values": {
+              "close": 31,
+              "trigger_price": 31.75,
+              "condition": "greater_than",
+              "rule_id": "greater"
+            }
+          }
+        ],
+        "errors": []
+      }
+    },
+    {
+      "caseId": "plot-and-indicator-fallback",
+      "target": {
+        "exchange": "NSE",
+        "symbol": "CUSTOM_PARITY"
+      },
+      "barSet": "up",
+      "asOfDate": "2025-01-03",
+      "lookbackBars": 800,
+      "rules": [
+        {
+          "id": "missing-plot",
+          "label": "missing-plot",
+          "enabled": true,
+          "conditionType": "crosses_above",
+          "seriesA": {
+            "indicatorId": "rsi_14",
+            "plotKey": "missing",
+            "source": "open"
+          },
+          "seriesB": {
+            "staticValue": 30
+          },
+          "position": "on_series"
+        },
+        {
+          "id": "missing-indicator",
+          "label": "missing-indicator",
+          "enabled": true,
+          "conditionType": "crosses_above",
+          "seriesA": {
+            "indicatorId": "chart_only",
+            "source": "high"
+          },
+          "seriesB": {
+            "staticValue": 30.75
+          },
+          "position": "on_series"
+        },
+        {
+          "id": "default-close",
+          "label": "default-close",
+          "enabled": true,
+          "conditionType": "crosses_above",
+          "seriesA": {
+            "indicatorId": "chart_only"
+          },
+          "seriesB": {
+            "staticValue": 30
+          }
+        }
+      ],
+      "resolvedRules": [
+        {
+          "id": "missing-plot",
+          "label": "missing-plot",
+          "conditionType": "crosses_above",
+          "seriesA": {
+            "kind": "ohlc",
+            "source": "open"
+          },
+          "seriesB": {
+            "kind": "constant",
+            "value": 30
+          },
+          "position": "on_series"
+        },
+        {
+          "id": "missing-indicator",
+          "label": "missing-indicator",
+          "conditionType": "crosses_above",
+          "seriesA": {
+            "kind": "ohlc",
+            "source": "high"
+          },
+          "seriesB": {
+            "kind": "constant",
+            "value": 30.75
+          },
+          "position": "on_series"
+        },
+        {
+          "id": "default-close",
+          "label": "default-close",
+          "conditionType": "crosses_above",
+          "seriesA": {
+            "kind": "ohlc",
+            "source": "close"
+          },
+          "seriesB": {
+            "kind": "constant",
+            "value": 30
+          }
+        }
+      ],
+      "expected": {
+        "matches": [
+          {
+            "symbol": "CUSTOM_PARITY",
+            "exchange": "NSE",
+            "scannerId": "signal_active_custom_rules",
+            "scannerName": "missing-plot (missing-plot)",
+            "categoryId": "visual_signals",
+            "categoryName": "Visual Signals & Crossovers",
+            "date": "2025-01-03",
+            "matched": true,
+            "direction": "bullish",
+            "score": 85,
+            "reasons": [
+              "Triggered missing-plot on 2025-01-03"
+            ],
+            "values": {
+              "close": 31,
+              "trigger_price": 30.75,
+              "condition": "crosses_above",
+              "rule_id": "missing-plot"
+            }
+          },
+          {
+            "symbol": "CUSTOM_PARITY",
+            "exchange": "NSE",
+            "scannerId": "signal_active_custom_rules",
+            "scannerName": "missing-indicator (missing-indicator)",
+            "categoryId": "visual_signals",
+            "categoryName": "Visual Signals & Crossovers",
+            "date": "2025-01-03",
+            "matched": true,
+            "direction": "bullish",
+            "score": 85,
+            "reasons": [
+              "Triggered missing-indicator on 2025-01-03"
+            ],
+            "values": {
+              "close": 31,
+              "trigger_price": 31.75,
+              "condition": "crosses_above",
+              "rule_id": "missing-indicator"
+            }
+          },
+          {
+            "symbol": "CUSTOM_PARITY",
+            "exchange": "NSE",
+            "scannerId": "signal_active_custom_rules",
+            "scannerName": "default-close (default-close)",
+            "categoryId": "visual_signals",
+            "categoryName": "Visual Signals & Crossovers",
+            "date": "2025-01-03",
+            "matched": true,
+            "direction": "bullish",
+            "score": 85,
+            "reasons": [
+              "Triggered default-close on 2025-01-03"
+            ],
+            "values": {
+              "close": 31,
+              "trigger_price": 29.75,
+              "condition": "crosses_above",
+              "rule_id": "default-close"
+            }
+          }
+        ],
+        "errors": []
+      }
+    },
+    {
+      "caseId": "constant-takes-precedence-over-indicator",
+      "target": {
+        "exchange": "NSE",
+        "symbol": "CUSTOM_PARITY"
+      },
+      "barSet": "up",
+      "asOfDate": "2025-01-03",
+      "lookbackBars": 800,
+      "rules": [
+        {
+          "id": "rhs-constant",
+          "label": "rhs-constant",
+          "enabled": true,
+          "conditionType": "crosses_above",
+          "seriesA": {},
+          "seriesB": {
+            "indicatorId": "rsi_14",
+            "plotKey": "rsi",
+            "staticValue": 30
+          }
+        },
+        {
+          "id": "lhs-already-constant",
+          "label": "lhs-already-constant",
+          "enabled": true,
+          "conditionType": "crosses_above",
+          "seriesA": {
+            "indicatorId": "rsi_14",
+            "plotKey": "rsi",
+            "staticValue": 31
+          },
+          "seriesB": {
+            "staticValue": 30
+          }
+        }
+      ],
+      "resolvedRules": [
+        {
+          "id": "rhs-constant",
+          "label": "rhs-constant",
+          "conditionType": "crosses_above",
+          "seriesA": {
+            "kind": "ohlc",
+            "source": "close"
+          },
+          "seriesB": {
+            "kind": "constant",
+            "value": 30
+          }
+        },
+        {
+          "id": "lhs-already-constant",
+          "label": "lhs-already-constant",
+          "conditionType": "crosses_above",
+          "seriesA": {
+            "kind": "constant",
+            "value": 31
+          },
+          "seriesB": {
+            "kind": "constant",
+            "value": 30
+          }
+        }
+      ],
+      "expected": {
+        "matches": [
+          {
+            "symbol": "CUSTOM_PARITY",
+            "exchange": "NSE",
+            "scannerId": "signal_active_custom_rules",
+            "scannerName": "rhs-constant (rhs-constant)",
+            "categoryId": "visual_signals",
+            "categoryName": "Visual Signals & Crossovers",
+            "date": "2025-01-03",
+            "matched": true,
+            "direction": "bullish",
+            "score": 85,
+            "reasons": [
+              "Triggered rhs-constant on 2025-01-03"
+            ],
+            "values": {
+              "close": 31,
+              "trigger_price": 29.75,
+              "condition": "crosses_above",
+              "rule_id": "rhs-constant"
+            }
+          }
+        ],
+        "errors": []
+      }
+    },
+    {
+      "caseId": "indicator-to-indicator-explicit-and-primary-plots",
+      "target": {
+        "exchange": "NSE",
+        "symbol": "CUSTOM_PARITY"
+      },
+      "barSet": "averages",
+      "asOfDate": "2025-07-20",
+      "lookbackBars": 800,
+      "rules": [
+        {
+          "id": "ema-sma",
+          "label": "ema-sma",
+          "enabled": true,
+          "conditionType": "crosses_above",
+          "seriesA": {
+            "indicatorId": "ema_20",
+            "plotKey": "ema"
+          },
+          "seriesB": {
+            "indicatorId": "sma_50",
+            "plotKey": "sma"
+          },
+          "position": "on_series"
+        },
+        {
+          "id": "sma-pair",
+          "label": "sma-pair",
+          "enabled": true,
+          "conditionType": "crosses_above",
+          "seriesA": {
+            "indicatorId": "sma_50",
+            "plotKey": ""
+          },
+          "seriesB": {
+            "indicatorId": "sma_200"
+          },
+          "position": "on_series"
+        }
+      ],
+      "resolvedRules": [
+        {
+          "id": "ema-sma",
+          "label": "ema-sma",
+          "conditionType": "crosses_above",
+          "seriesA": {
+            "kind": "indicator",
+            "plot": "ema20"
+          },
+          "seriesB": {
+            "kind": "indicator",
+            "plot": "sma50"
+          },
+          "position": "on_series"
+        },
+        {
+          "id": "sma-pair",
+          "label": "sma-pair",
+          "conditionType": "crosses_above",
+          "seriesA": {
+            "kind": "indicator",
+            "plot": "sma50"
+          },
+          "seriesB": {
+            "kind": "indicator",
+            "plot": "sma200"
+          },
+          "position": "on_series"
+        }
+      ],
+      "expected": {
+        "matches": [
+          {
+            "symbol": "CUSTOM_PARITY",
+            "exchange": "NSE",
+            "scannerId": "signal_active_custom_rules",
+            "scannerName": "ema-sma (ema-sma)",
+            "categoryId": "visual_signals",
+            "categoryName": "Visual Signals & Crossovers",
+            "date": "2025-07-20",
+            "matched": true,
+            "direction": "bullish",
+            "score": 85,
+            "reasons": [
+              "Triggered ema-sma on 2025-07-20"
+            ],
+            "values": {
+              "close": 110,
+              "trigger_price": 100.95238095238095,
+              "condition": "crosses_above",
+              "rule_id": "ema-sma"
+            }
+          },
+          {
+            "symbol": "CUSTOM_PARITY",
+            "exchange": "NSE",
+            "scannerId": "signal_active_custom_rules",
+            "scannerName": "sma-pair (sma-pair)",
+            "categoryId": "visual_signals",
+            "categoryName": "Visual Signals & Crossovers",
+            "date": "2025-07-20",
+            "matched": true,
+            "direction": "bullish",
+            "score": 85,
+            "reasons": [
+              "Triggered sma-pair on 2025-07-20"
+            ],
+            "values": {
+              "close": 110,
+              "trigger_price": 100.2,
+              "condition": "crosses_above",
+              "rule_id": "sma-pair"
+            }
+          }
+        ],
+        "errors": []
+      }
+    },
+    {
+      "caseId": "sma-200-needs-a-previous-value",
+      "target": {
+        "exchange": "NSE",
+        "symbol": "CUSTOM_PARITY"
+      },
+      "barSet": "averages",
+      "asOfDate": "2025-07-20",
+      "lookbackBars": 200,
+      "rules": [
+        {
+          "id": "sma-pair",
+          "label": "sma-pair",
+          "enabled": true,
+          "conditionType": "crosses_above",
+          "seriesA": {
+            "indicatorId": "sma_50",
+            "plotKey": ""
+          },
+          "seriesB": {
+            "indicatorId": "sma_200"
+          },
+          "position": "on_series"
+        }
+      ],
+      "resolvedRules": [
+        {
+          "id": "sma-pair",
+          "label": "sma-pair",
+          "conditionType": "crosses_above",
+          "seriesA": {
+            "kind": "indicator",
+            "plot": "sma50"
+          },
+          "seriesB": {
+            "kind": "indicator",
+            "plot": "sma200"
+          },
+          "position": "on_series"
+        }
+      ],
+      "expected": {
+        "matches": [],
+        "errors": []
+      }
+    },
+    {
+      "caseId": "sma-50-needs-a-previous-value",
+      "target": {
+        "exchange": "NSE",
+        "symbol": "CUSTOM_PARITY"
+      },
+      "barSet": "averages",
+      "asOfDate": "2025-07-20",
+      "lookbackBars": 50,
+      "rules": [
+        {
+          "id": "ema-sma",
+          "label": "ema-sma",
+          "enabled": true,
+          "conditionType": "crosses_above",
+          "seriesA": {
+            "indicatorId": "ema_20",
+            "plotKey": "ema"
+          },
+          "seriesB": {
+            "indicatorId": "sma_50",
+            "plotKey": "sma"
+          },
+          "position": "on_series"
+        }
+      ],
+      "resolvedRules": [
+        {
+          "id": "ema-sma",
+          "label": "ema-sma",
+          "conditionType": "crosses_above",
+          "seriesA": {
+            "kind": "indicator",
+            "plot": "ema20"
+          },
+          "seriesB": {
+            "kind": "indicator",
+            "plot": "sma50"
+          },
+          "position": "on_series"
+        }
+      ],
+      "expected": {
+        "matches": [],
+        "errors": []
+      }
+    },
+    {
+      "caseId": "ema-20-needs-a-previous-value",
+      "target": {
+        "exchange": "NSE",
+        "symbol": "CUSTOM_PARITY"
+      },
+      "barSet": "averages",
+      "asOfDate": "2025-07-20",
+      "lookbackBars": 20,
+      "rules": [
+        {
+          "id": "ema-limit",
+          "label": "ema-limit",
+          "enabled": true,
+          "conditionType": "crosses_above",
+          "seriesA": {
+            "indicatorId": "ema_20",
+            "plotKey": "ema"
+          },
+          "seriesB": {
+            "staticValue": 100
+          },
+          "position": "on_series"
+        }
+      ],
+      "resolvedRules": [
+        {
+          "id": "ema-limit",
+          "label": "ema-limit",
+          "conditionType": "crosses_above",
+          "seriesA": {
+            "kind": "indicator",
+            "plot": "ema20"
+          },
+          "seriesB": {
+            "kind": "constant",
+            "value": 100
+          },
+          "position": "on_series"
+        }
+      ],
+      "expected": {
+        "matches": [],
+        "errors": []
+      }
+    },
+    {
+      "caseId": "ema-20-exact-warmup",
+      "target": {
+        "exchange": "NSE",
+        "symbol": "CUSTOM_PARITY"
+      },
+      "barSet": "averages",
+      "asOfDate": "2025-07-20",
+      "lookbackBars": 21,
+      "rules": [
+        {
+          "id": "ema-limit",
+          "label": "ema-limit",
+          "enabled": true,
+          "conditionType": "crosses_above",
+          "seriesA": {
+            "indicatorId": "ema_20",
+            "plotKey": "ema"
+          },
+          "seriesB": {
+            "staticValue": 100
+          },
+          "position": "on_series"
+        }
+      ],
+      "resolvedRules": [
+        {
+          "id": "ema-limit",
+          "label": "ema-limit",
+          "conditionType": "crosses_above",
+          "seriesA": {
+            "kind": "indicator",
+            "plot": "ema20"
+          },
+          "seriesB": {
+            "kind": "constant",
+            "value": 100
+          },
+          "position": "on_series"
+        }
+      ],
+      "expected": {
+        "matches": [
+          {
+            "symbol": "CUSTOM_PARITY",
+            "exchange": "NSE",
+            "scannerId": "signal_active_custom_rules",
+            "scannerName": "ema-limit (ema-limit)",
+            "categoryId": "visual_signals",
+            "categoryName": "Visual Signals & Crossovers",
+            "date": "2025-07-20",
+            "matched": true,
+            "direction": "bullish",
+            "score": 85,
+            "reasons": [
+              "Triggered ema-limit on 2025-07-20"
+            ],
+            "values": {
+              "close": 110,
+              "trigger_price": 100.95238095238095,
+              "condition": "crosses_above",
+              "rule_id": "ema-limit"
+            }
+          }
+        ],
+        "errors": []
+      }
+    },
+    {
+      "caseId": "fractional-rolling-sma-order",
+      "target": {
+        "exchange": "NSE",
+        "symbol": "CUSTOM_PARITY"
+      },
+      "barSet": "rollingSma",
+      "asOfDate": null,
+      "lookbackBars": 800,
+      "rules": [
+        {
+          "id": "ema-sma",
+          "label": "ema-sma",
+          "enabled": true,
+          "conditionType": "crosses_below",
+          "seriesA": {
+            "indicatorId": "ema_20",
+            "plotKey": "ema"
+          },
+          "seriesB": {
+            "indicatorId": "sma_50",
+            "plotKey": "sma"
+          },
+          "position": "on_series"
+        }
+      ],
+      "resolvedRules": [
+        {
+          "id": "ema-sma",
+          "label": "ema-sma",
+          "conditionType": "crosses_below",
+          "seriesA": {
+            "kind": "indicator",
+            "plot": "ema20"
+          },
+          "seriesB": {
+            "kind": "indicator",
+            "plot": "sma50"
+          },
+          "position": "on_series"
+        }
+      ],
+      "expected": {
+        "matches": [
+          {
+            "symbol": "CUSTOM_PARITY",
+            "exchange": "NSE",
+            "scannerId": "signal_active_custom_rules",
+            "scannerName": "ema-sma (ema-sma)",
+            "categoryId": "visual_signals",
+            "categoryName": "Visual Signals & Crossovers",
+            "date": "2026-02-24",
+            "matched": true,
+            "direction": "bearish",
+            "score": 80,
+            "reasons": [
+              "Triggered ema-sma on 2026-02-24"
+            ],
+            "values": {
+              "close": 100.0003,
+              "trigger_price": 100.0003904761904,
+              "condition": "crosses_below",
+              "rule_id": "ema-sma"
+            }
+          }
+        ],
+        "errors": []
+      }
+    },
+    {
+      "caseId": "exact-rsi-plot-and-trigger-price",
+      "target": {
+        "exchange": "NSE",
+        "symbol": "CUSTOM_PARITY"
+      },
+      "barSet": "rsiUp",
+      "asOfDate": "2025-01-16",
+      "lookbackBars": 800,
+      "rules": [
+        {
+          "id": "rsi-bounce",
+          "label": "rsi-bounce",
+          "enabled": true,
+          "conditionType": "crosses_above",
+          "seriesA": {
+            "indicatorId": "rsi_14",
+            "plotKey": "rsi"
+          },
+          "seriesB": {
+            "staticValue": 30
+          },
+          "position": "on_series"
+        }
+      ],
+      "resolvedRules": [
+        {
+          "id": "rsi-bounce",
+          "label": "rsi-bounce",
+          "conditionType": "crosses_above",
+          "seriesA": {
+            "kind": "indicator",
+            "plot": "rsi14"
+          },
+          "seriesB": {
+            "kind": "constant",
+            "value": 30
+          },
+          "position": "on_series"
+        }
+      ],
+      "expected": {
+        "matches": [
+          {
+            "symbol": "CUSTOM_PARITY",
+            "exchange": "NSE",
+            "scannerId": "signal_active_custom_rules",
+            "scannerName": "rsi-bounce (rsi-bounce)",
+            "categoryId": "visual_signals",
+            "categoryName": "Visual Signals & Crossovers",
+            "date": "2025-01-16",
+            "matched": true,
+            "direction": "bullish",
+            "score": 85,
+            "reasons": [
+              "Triggered rsi-bounce on 2025-01-16"
+            ],
+            "values": {
+              "close": 97,
+              "trigger_price": 36.81,
+              "condition": "crosses_above",
+              "rule_id": "rsi-bounce"
+            }
+          }
+        ],
+        "errors": []
+      }
+    },
+    {
+      "caseId": "rsi-14-needs-a-previous-value",
+      "target": {
+        "exchange": "NSE",
+        "symbol": "CUSTOM_PARITY"
+      },
+      "barSet": "rsiUp",
+      "asOfDate": "2025-01-15",
+      "lookbackBars": 800,
+      "rules": [
+        {
+          "id": "rsi-bounce",
+          "label": "rsi-bounce",
+          "enabled": true,
+          "conditionType": "crosses_above",
+          "seriesA": {
+            "indicatorId": "rsi_14",
+            "plotKey": "rsi"
+          },
+          "seriesB": {
+            "staticValue": 30
+          },
+          "position": "on_series"
+        }
+      ],
+      "resolvedRules": [
+        {
+          "id": "rsi-bounce",
+          "label": "rsi-bounce",
+          "conditionType": "crosses_above",
+          "seriesA": {
+            "kind": "indicator",
+            "plot": "rsi14"
+          },
+          "seriesB": {
+            "kind": "constant",
+            "value": 30
+          },
+          "position": "on_series"
+        }
+      ],
+      "expected": {
+        "matches": [],
+        "errors": []
+      }
+    },
+    {
+      "caseId": "rsi-does-not-repeat-a-prior-match",
+      "target": {
+        "exchange": "NSE",
+        "symbol": "CUSTOM_PARITY"
+      },
+      "barSet": "rsiUp",
+      "asOfDate": null,
+      "lookbackBars": 800,
+      "rules": [
+        {
+          "id": "rsi-bounce",
+          "label": "rsi-bounce",
+          "enabled": true,
+          "conditionType": "crosses_above",
+          "seriesA": {
+            "indicatorId": "rsi_14",
+            "plotKey": "rsi"
+          },
+          "seriesB": {
+            "staticValue": 30
+          },
+          "position": "on_series"
+        }
+      ],
+      "resolvedRules": [
+        {
+          "id": "rsi-bounce",
+          "label": "rsi-bounce",
+          "conditionType": "crosses_above",
+          "seriesA": {
+            "kind": "indicator",
+            "plot": "rsi14"
+          },
+          "seriesB": {
+            "kind": "constant",
+            "value": 30
+          },
+          "position": "on_series"
+        }
+      ],
+      "expected": {
+        "matches": [],
+        "errors": []
+      }
+    },
+    {
+      "caseId": "rsi-crosses-below-a-configured-constant",
+      "target": {
+        "exchange": "NSE",
+        "symbol": "CUSTOM_PARITY"
+      },
+      "barSet": "rsiDown",
+      "asOfDate": "2025-01-16",
+      "lookbackBars": 800,
+      "rules": [
+        {
+          "id": "rsi-drop",
+          "label": "rsi-drop",
+          "enabled": true,
+          "conditionType": "crosses_below",
+          "seriesA": {
+            "indicatorId": "rsi_14"
+          },
+          "seriesB": {
+            "staticValue": 70
+          },
+          "position": "on_series"
+        }
+      ],
+      "resolvedRules": [
+        {
+          "id": "rsi-drop",
+          "label": "rsi-drop",
+          "conditionType": "crosses_below",
+          "seriesA": {
+            "kind": "indicator",
+            "plot": "rsi14"
+          },
+          "seriesB": {
+            "kind": "constant",
+            "value": 70
+          },
+          "position": "on_series"
+        }
+      ],
+      "expected": {
+        "matches": [
+          {
+            "symbol": "CUSTOM_PARITY",
+            "exchange": "NSE",
+            "scannerId": "signal_active_custom_rules",
+            "scannerName": "rsi-drop (rsi-drop)",
+            "categoryId": "visual_signals",
+            "categoryName": "Visual Signals & Crossovers",
+            "date": "2025-01-16",
+            "matched": true,
+            "direction": "bearish",
+            "score": 80,
+            "reasons": [
+              "Triggered rsi-drop on 2025-01-16"
+            ],
+            "values": {
+              "close": 103,
+              "trigger_price": 63.19,
+              "condition": "crosses_below",
+              "rule_id": "rsi-drop"
+            }
+          }
+        ],
+        "errors": []
+      }
+    },
+    {
+      "caseId": "rsi-rounds-to-equality",
+      "target": {
+        "exchange": "NSE",
+        "symbol": "CUSTOM_PARITY"
+      },
+      "barSet": "rsiRoundsTo30",
+      "asOfDate": null,
+      "lookbackBars": 800,
+      "rules": [
+        {
+          "id": "rsi-bounce",
+          "label": "rsi-bounce",
+          "enabled": true,
+          "conditionType": "crosses_above",
+          "seriesA": {
+            "indicatorId": "rsi_14",
+            "plotKey": "rsi"
+          },
+          "seriesB": {
+            "staticValue": 30
+          },
+          "position": "on_series"
+        }
+      ],
+      "resolvedRules": [
+        {
+          "id": "rsi-bounce",
+          "label": "rsi-bounce",
+          "conditionType": "crosses_above",
+          "seriesA": {
+            "kind": "indicator",
+            "plot": "rsi14"
+          },
+          "seriesB": {
+            "kind": "constant",
+            "value": 30
+          },
+          "position": "on_series"
+        }
+      ],
+      "expected": {
+        "matches": [],
+        "errors": []
+      }
+    },
+    {
+      "caseId": "rsi-rounds-above-equality",
+      "target": {
+        "exchange": "NSE",
+        "symbol": "CUSTOM_PARITY"
+      },
+      "barSet": "rsiRoundsAbove30",
+      "asOfDate": null,
+      "lookbackBars": 800,
+      "rules": [
+        {
+          "id": "rsi-bounce",
+          "label": "rsi-bounce",
+          "enabled": true,
+          "conditionType": "crosses_above",
+          "seriesA": {
+            "indicatorId": "rsi_14",
+            "plotKey": "rsi"
+          },
+          "seriesB": {
+            "staticValue": 30
+          },
+          "position": "on_series"
+        }
+      ],
+      "resolvedRules": [
+        {
+          "id": "rsi-bounce",
+          "label": "rsi-bounce",
+          "conditionType": "crosses_above",
+          "seriesA": {
+            "kind": "indicator",
+            "plot": "rsi14"
+          },
+          "seriesB": {
+            "kind": "constant",
+            "value": 30
+          },
+          "position": "on_series"
+        }
+      ],
+      "expected": {
+        "matches": [
+          {
+            "symbol": "CUSTOM_PARITY",
+            "exchange": "NSE",
+            "scannerId": "signal_active_custom_rules",
+            "scannerName": "rsi-bounce (rsi-bounce)",
+            "categoryId": "visual_signals",
+            "categoryName": "Visual Signals & Crossovers",
+            "date": "2025-01-16",
+            "matched": true,
+            "direction": "bullish",
+            "score": 85,
+            "reasons": [
+              "Triggered rsi-bounce on 2025-01-16"
+            ],
+            "values": {
+              "close": 96.0007,
+              "trigger_price": 30.01,
+              "condition": "crosses_above",
+              "rule_id": "rsi-bounce"
+            }
+          }
+        ],
+        "errors": []
+      }
+    },
+    {
+      "caseId": "zero-completed-bars",
+      "target": {
+        "exchange": "NSE",
+        "symbol": "CUSTOM_PARITY"
+      },
+      "barSet": "up",
+      "asOfDate": "2024-12-31",
+      "lookbackBars": 800,
+      "rules": [
+        {
+          "id": "greater",
+          "label": "greater",
+          "enabled": true,
+          "conditionType": "greater_than",
+          "seriesA": {},
+          "seriesB": {
+            "staticValue": 30
+          },
+          "shape": "arrow_up"
+        }
+      ],
+      "resolvedRules": [
+        {
+          "id": "greater",
+          "label": "greater",
+          "conditionType": "greater_than",
+          "seriesA": {
+            "kind": "ohlc",
+            "source": "close"
+          },
+          "seriesB": {
+            "kind": "constant",
+            "value": 30
+          },
+          "shape": "arrow_up"
+        }
+      ],
+      "expected": {
+        "matches": [],
+        "errors": [
+          "NSE:CUSTOM_PARITY has fewer than 2 completed bars."
+        ]
+      }
+    },
+    {
+      "caseId": "one-completed-bar",
+      "target": {
+        "exchange": "NSE",
+        "symbol": "CUSTOM_PARITY"
+      },
+      "barSet": "up",
+      "asOfDate": "2025-01-01",
+      "lookbackBars": 800,
+      "rules": [
+        {
+          "id": "greater",
+          "label": "greater",
+          "enabled": true,
+          "conditionType": "greater_than",
+          "seriesA": {},
+          "seriesB": {
+            "staticValue": 30
+          },
+          "shape": "arrow_up"
+        }
+      ],
+      "resolvedRules": [
+        {
+          "id": "greater",
+          "label": "greater",
+          "conditionType": "greater_than",
+          "seriesA": {
+            "kind": "ohlc",
+            "source": "close"
+          },
+          "seriesB": {
+            "kind": "constant",
+            "value": 30
+          },
+          "shape": "arrow_up"
+        }
+      ],
+      "expected": {
+        "matches": [],
+        "errors": [
+          "NSE:CUSTOM_PARITY has fewer than 2 completed bars."
+        ]
+      }
+    }
+  ],
+  "rounding": [
+    {
+      "valueBits": "3fbfffffffffffff",
+      "expected": 0.12
+    },
+    {
+      "valueBits": "3fc0000000000000",
+      "expected": 0.13
+    },
+    {
+      "valueBits": "3fc0000000000001",
+      "expected": 0.13
+    },
+    {
+      "valueBits": "3fd7ffffffffffff",
+      "expected": 0.37
+    },
+    {
+      "valueBits": "3fd8000000000000",
+      "expected": 0.38
+    },
+    {
+      "valueBits": "3fd8000000000001",
+      "expected": 0.38
+    },
+    {
+      "valueBits": "40454fffffffffff",
+      "expected": 42.62
+    },
+    {
+      "valueBits": "4045500000000000",
+      "expected": 42.63
+    },
+    {
+      "valueBits": "4045500000000001",
+      "expected": 42.63
+    },
+    {
+      "valueBits": "4051b7ffffffffff",
+      "expected": 70.87
+    },
+    {
+      "valueBits": "4051b80000000000",
+      "expected": 70.88
+    },
+    {
+      "valueBits": "4051b80000000001",
+      "expected": 70.88
+    },
+    {
+      "valueBits": "403dfeb851eb851e",
+      "expected": 29.99
+    },
+    {
+      "valueBits": "403dfeb851eb851f",
+      "expected": 30
+    },
+    {
+      "valueBits": "403dfeb851eb8520",
+      "expected": 30
+    },
+    {
+      "valueBits": "40518051eb851eb7",
+      "expected": 70
+    },
+    {
+      "valueBits": "40518051eb851eb8",
+      "expected": 70
+    },
+    {
+      "valueBits": "40518051eb851eb9",
+      "expected": 70.01
+    }
+  ]
+}

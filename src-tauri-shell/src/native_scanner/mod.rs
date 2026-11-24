@@ -18,11 +18,13 @@
 pub mod ast;
 pub mod chart_patterns;
 pub mod core_results;
+mod custom_signals;
 pub mod database_source;
 pub mod ipc;
 pub mod job;
 pub mod numeric_history;
 pub mod patterns;
+mod preset_signals;
 pub mod reader;
 pub mod scan;
 pub mod universe;

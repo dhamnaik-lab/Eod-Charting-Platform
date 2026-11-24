@@ -3,6 +3,8 @@ import { evaluateSignalRules } from '@/engine/Signals';
 import { buildRenderableIndicators } from '@/engine/Indicators';
 import type { ScannerContext, ScannerDefinition, ScannerResult } from '@/plugins/scanner/types';
 
+export const ACTIVE_CUSTOM_SIGNAL_SCANNER_ID = 'signal_active_custom_rules';
+
 export const signalScannerDefinitions: ScannerDefinition[] = [
   {
     id: 'signal_golden_cross',
@@ -61,7 +63,7 @@ export const signalScannerDefinitions: ScannerDefinition[] = [
     implementationStatus: 'ready_for_engine',
   },
   {
-    id: 'signal_active_custom_rules',
+    id: ACTIVE_CUSTOM_SIGNAL_SCANNER_ID,
     name: 'Active Custom Signal Rules',
     categoryId: 'visual_signals',
     categoryName: 'Visual Signals & Crossovers',
@@ -166,13 +168,13 @@ export function evaluateSignalScannerDefinitions(
     if (rsiOverbought) rulesToEvaluate.push({ rule: rsiOverbought, scannerId: 'signal_rsi_overbought_drop', scannerName: 'RSI Overbought Drop (< 70)' });
   }
 
-  if (requestedSet.has('signal_active_custom_rules') && customSignalRules?.length) {
+  if (requestedSet.has(ACTIVE_CUSTOM_SIGNAL_SCANNER_ID) && customSignalRules?.length) {
     customSignalRules
       .filter((r) => r.enabled)
       .forEach((rule) => {
         rulesToEvaluate.push({
           rule,
-          scannerId: 'signal_active_custom_rules',
+          scannerId: ACTIVE_CUSTOM_SIGNAL_SCANNER_ID,
           scannerName: rule.label || 'Custom Signal Rule',
         });
       });

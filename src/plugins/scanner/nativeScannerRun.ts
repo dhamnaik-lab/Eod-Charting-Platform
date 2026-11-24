@@ -13,14 +13,31 @@
  *   TypeScript path so the existing alert history semantics are untouched.
  */
 
+import type { ChartSignalRule } from '@/engine/types';
 import type { EodAlertRule, EodAlertTrigger } from '@/features/alerts/eodAlerts';
+import {
+  compileNativeCustomSignalRules,
+  isNativeCustomSignalCapability,
+  isNativeCustomSignalSelection,
+  NATIVE_CUSTOM_SIGNAL_LIMITS,
+  nativeCustomSignalMatchIssue,
+  type NativeCustomSignalRequestV1,
+} from '@/features/scanner/nativeCustomSignals';
+import { ACTIVE_CUSTOM_SIGNAL_SCANNER_ID } from '@/plugins/scanner/signalScanners';
 import { listApplicationScannerDefinitions } from '@/features/scanner/catalog';
 import { isNativeBuiltInResultId, nativeCoreResultMetadataIssue } from '@/features/scanner/nativeCoreResultMetadataGate';
 import { compileNativeBuiltInCandidate } from '@/features/scanner/nativeCoreRuleExpressions';
 import {
+  compileNativeSignalPreset,
+  isNativeSignalPresetWindow,
+  nativeSignalPresetMatchIssue,
+} from '@/features/scanner/nativeSignalPresets';
+import {
   NATIVE_SCAN_LIMITS,
   NATIVE_SUPPORTED_PATTERN_IDS,
   NATIVE_SUPPORTED_PATTERN_NAMES,
+  NATIVE_SIGNAL_PRESET_EVALUATOR_VERSION,
+  isNativeSignalPresetId,
   type NativeNumericHistoryCoverageV1,
   type NativeScanCountsV1,
   type NativeScanDiagnosticV1,
@@ -28,7 +45,10 @@ import {
   type NativeScanPatternDetailsV1,
   type NativeScanRequestV1,
   type NativeScanRuleV1,
+  type NativeScannerCapabilitiesV1,
+  validateNativeCustomSignalEnvelope,
   type NativeSupportedPatternId,
+  validateNativeScanRequestV1,
 } from '@/features/scanner/nativeScanContract';
 import type {
   ChartPatternFamily,
@@ -40,9 +60,11 @@ import { dailyMarketScannerDefinitions } from '@/plugins/scanner/dailyMarketScan
 import type { ScannerDefinition, ScannerResult, ScannerRunOutput, ScannerRunTarget } from '@/plugins/scanner/types';
 import {
   cancelNativeEodScan,
+  readNativeScannerCapabilities,
   startNativeEodScan,
   subscribeToNativeScanEvents,
   type NativeScanCommandErrorV1,
+  type NativeScanStartAckV1,
 } from '@/platform/nativeScannerBridge';
 
 export type NativeScannerBackendMode = 'typescript' | 'native';
@@ -65,17 +87,18 @@ function toRuleExpression(scannerId: string): NativeScanRuleV1['expression'] {
  * Native eligibility is deliberately separate from the pattern-only V1 contract:
  * all 54 built-in chart patterns, the ten built-in core OHLCV rules, and the five
  * Daily Market rules may compile (bounded by `NATIVE_SCAN_LIMITS.maxRules` per run).
- * Other plugins, signals and custom rules remain TypeScript-only.
+ * The four signal presets can compile in a preset-only batch.
  */
 function splitNativeRunnableScannerIds(scannerIds: readonly string[]): {
   native: string[];
   remaining: string[];
 } {
   const patternIds = new Set<string>(NATIVE_SUPPORTED_PATTERN_IDS);
+  const presetOnly = scannerIds.length > 0 && scannerIds.every(isNativeSignalPresetId);
   const native: string[] = [];
   const remaining: string[] = [];
   for (const id of scannerIds) {
-    if (patternIds.has(id) || isNativeBuiltInResultId(id)) {
+    if (presetOnly || patternIds.has(id) || isNativeBuiltInResultId(id)) {
       native.push(id);
     } else {
       remaining.push(id);
@@ -106,9 +129,11 @@ export function compileNativeScannerRules(
       });
       continue;
     }
-    const expression = isNativeBuiltInResultId(scannerId)
-      ? compileNativeBuiltInCandidate(scannerId)
-      : toRuleExpression(scannerId);
+    const expression = isNativeSignalPresetId(scannerId)
+      ? compileNativeSignalPreset(scannerId)
+      : isNativeBuiltInResultId(scannerId)
+        ? compileNativeBuiltInCandidate(scannerId)
+        : toRuleExpression(scannerId);
     if (!expression) {
       compileErrors.push({
         scannerId,
@@ -133,8 +158,14 @@ export function canRunNatively(
   scannerIds: readonly string[],
   definitions: readonly ScannerDefinition[] = listApplicationScannerDefinitions(),
   evaluateHistory = false,
+  lookbackBars?: number | null,
 ): boolean {
   if (scannerIds.length === 0) return false;
+  if (scannerIds.includes(ACTIVE_CUSTOM_SIGNAL_SCANNER_ID)) {
+    return isNativeCustomSignalSelection(scannerIds) && !evaluateHistory && isNativeSignalPresetWindow(lookbackBars);
+  }
+  if (scannerIds.some(isNativeSignalPresetId) &&
+      (evaluateHistory || !isNativeSignalPresetWindow(lookbackBars))) return false;
   // Core and Daily Market handlers return one latest result even when the TypeScript runner
   // scans full history. Never claim a native history run would be equivalent.
   if (evaluateHistory && scannerIds.some(isNativeBuiltInResultId)) return false;
@@ -150,7 +181,16 @@ export function canRunNatively(
 export function describeNativeUnsupportedScanners(
   scannerIds: readonly string[],
   evaluateHistory = false,
+  lookbackBars?: number | null,
 ): string {
+  if (scannerIds.includes(ACTIVE_CUSTOM_SIGNAL_SCANNER_ID) &&
+      (!isNativeCustomSignalSelection(scannerIds) || evaluateHistory || !isNativeSignalPresetWindow(lookbackBars))) {
+    return 'Native custom signals require Active Custom Signal Rules by itself and a latest scan with 20 to 5,000 bars. The complete selection uses TypeScript.';
+  }
+  if (scannerIds.some(isNativeSignalPresetId) &&
+      (evaluateHistory || !isNativeSignalPresetWindow(lookbackBars) || !scannerIds.every(isNativeSignalPresetId))) {
+    return 'Native signal presets require a preset-only latest scan with a lookback of 20 to 5,000 bars. The complete selection uses TypeScript.';
+  }
   if (evaluateHistory && scannerIds.some(isNativeBuiltInResultId)) {
     return 'Core OHLCV and Daily Market native scanning support bounded/latest-bar runs only. Full-history core and daily market scans use the TypeScript backend.';
   }
@@ -184,9 +224,11 @@ export interface NativeScannerRunOutcome extends ScannerRunOutput {
 export interface NativeScannerRunDeps {
   /** The preserved TypeScript runner; always available as the fallback. */
   runTypeScript: () => Promise<ScannerRunOutput>;
-  start?: typeof startNativeEodScan;
+  start?: (request: NativeScanRequestV1) => Promise<NativeScanStartAckV1>;
+  startCustom?: (request: NativeCustomSignalRequestV1) => Promise<NativeScanStartAckV1>;
   cancel?: typeof cancelNativeEodScan;
   subscribe?: typeof subscribeToNativeScanEvents;
+  readCapabilities?: typeof readNativeScannerCapabilities;
   newRunId?: () => string;
 }
 
@@ -287,6 +329,14 @@ function toScannerResult(match: NativeScanMatchV1, generatedAt: string): Scanner
   const scannerId = match.ruleId;
   const supported = (NATIVE_SUPPORTED_PATTERN_IDS as readonly string[]).includes(scannerId);
   const direction = match.direction ?? (match.pattern ? 'neutral' : undefined);
+  const values = (isNativeSignalPresetId(scannerId) || scannerId === ACTIVE_CUSTOM_SIGNAL_SCANNER_ID) && match.values
+    ? {
+        close: match.values.close,
+        trigger_price: match.values.trigger_price,
+        condition: match.values.condition,
+        rule_id: match.values.rule_id,
+      }
+    : match.values;
   return {
     symbol: match.symbol,
     exchange: match.exchange,
@@ -301,7 +351,7 @@ function toScannerResult(match: NativeScanMatchV1, generatedAt: string): Scanner
     ...(direction ? { direction } : {}),
     ...(match.score !== undefined ? { score: match.score } : {}),
     ...(match.reasons && match.reasons.length > 0 ? { reasons: match.reasons } : {}),
-    ...(match.values ? { values: match.values } : {}),
+    ...(values ? { values } : {}),
     ...(match.pattern
       ? (() => {
           const details = toChartPatternDetails(match.pattern);
@@ -339,6 +389,9 @@ export async function runNativeOrTypeScriptScannerBatch(
     toDate?: string | null;
     evaluateHistory: boolean;
     alertRules: EodAlertRule[];
+    signalRules?: readonly ChartSignalRule[];
+    /** Captured before resolving the explicit target universe. */
+    customSignalCapabilities?: NativeScannerCapabilitiesV1;
     shouldCancel?: () => boolean;
     /** The registered database selection at the start of UI preparation. */
     expectedDatabasePath?: string | null;
@@ -355,27 +408,50 @@ export async function runNativeOrTypeScriptScannerBatch(
   },
   deps: NativeScannerRunDeps,
 ): Promise<NativeScannerRunOutcome> {
+  const presetPilot = options.scannerIds.length > 0 && options.scannerIds.every(isNativeSignalPresetId);
+  const customPilot = isNativeCustomSignalSelection(options.scannerIds);
+  const strictSignals = presetPilot || customPilot;
+  const signalKind = customPilot ? 'custom signal' : 'signal preset';
+  const customCapability = options.customSignalCapabilities?.customSignals;
+  const customIdentity = customPilot && isNativeCustomSignalCapability(customCapability)
+    ? options.customSignalCapabilities?.customSignalSelection : undefined;
+  const readCapabilities = deps.readCapabilities ?? readNativeScannerCapabilities;
   const databaseSelectionChanged = (): boolean =>
     options.getActiveDatabasePath !== undefined &&
     normalizeDatabasePath(options.getActiveDatabasePath()) !==
       normalizeDatabasePath(options.expectedDatabasePath);
 
-  const cancelledForDatabaseChange = (
-    reason = 'Native scan cancelled because the active database changed.',
-  ): NativeScannerRunOutcome => ({
+  const customSelectionStillCurrent = async (): Promise<boolean> => {
+    if (databaseSelectionChanged()) return false;
+    if (!customIdentity) return true;
+    if (!options.expectedDatabasePath || !nativeIdentityMatchesPath(customIdentity, options.expectedDatabasePath)) return false;
+    const current = await readCapabilities(true).catch(() => undefined);
+    return !databaseSelectionChanged() &&
+      isNativeCustomSignalCapability(current?.customSignals) && current?.customSignalSelection === customIdentity;
+  };
+
+  const cancelledWithoutResults = (reason?: string): NativeScannerRunOutcome => ({
     backend: 'native',
     results: [],
     alertTriggers: [],
-    errors: [reason],
+    errors: reason ? [reason] : [],
     scannedSymbols: 0,
     cancelled: true,
   });
+  const cancelledForDatabaseChange = (reason = 'Native scan cancelled because the active database changed.') =>
+    cancelledWithoutResults(reason);
 
   const fallback = async (reason?: string): Promise<NativeScannerRunOutcome> => {
     // Never retry a scan of database A against the newly selected database B.
-    if (databaseSelectionChanged()) return cancelledForDatabaseChange();
+    if (databaseSelectionChanged() || (customIdentity && !await customSelectionStillCurrent())) {
+      return cancelledForDatabaseChange();
+    }
+    if (strictSignals && options.shouldCancel?.()) return cancelledWithoutResults();
     const output = await deps.runTypeScript();
-    if (databaseSelectionChanged()) return cancelledForDatabaseChange();
+    if (databaseSelectionChanged() || (customIdentity && !await customSelectionStillCurrent())) {
+      return cancelledForDatabaseChange();
+    }
+    if (customPilot && options.shouldCancel?.()) return cancelledWithoutResults();
     return {
       ...output,
       backend: 'typescript-fallback',
@@ -386,8 +462,8 @@ export async function runNativeOrTypeScriptScannerBatch(
   if (databaseSelectionChanged()) return cancelledForDatabaseChange();
 
   // Hard preconditions: an unsupported or mixed rule set never starts natively.
-  if (!canRunNatively(options.scannerIds, undefined, options.evaluateHistory)) {
-    return fallback(describeNativeUnsupportedScanners(options.scannerIds, options.evaluateHistory) || undefined);
+  if (!canRunNatively(options.scannerIds, undefined, options.evaluateHistory, options.lookbackBars)) {
+    return fallback(describeNativeUnsupportedScanners(options.scannerIds, options.evaluateHistory, options.lookbackBars) || undefined);
   }
   if (options.targets.length === 0) {
     return fallback('No targets were resolved for the selected universe.');
@@ -399,7 +475,7 @@ export async function runNativeOrTypeScriptScannerBatch(
   }
 
   const runId = (deps.newRunId ?? createRunId)();
-  const compiled = compileNativeScannerRules(options.scannerIds);
+  const compiled = customPilot ? null : compileNativeScannerRules(options.scannerIds);
   const request: NativeScanRequestV1 = {
     schemaVersion: 1,
     requestedRunId: runId,
@@ -416,8 +492,59 @@ export async function runNativeOrTypeScriptScannerBatch(
       evaluateHistory: options.evaluateHistory,
       priceBasis: 'raw',
     },
-    rules: compiled.rules,
+    rules: compiled?.rules ?? [],
   };
+
+  let customRequest: NativeCustomSignalRequestV1 | null = null;
+  if (customPilot) {
+    const customRules = compileNativeCustomSignalRules(options.signalRules);
+    const { rules: _rules, ...envelope } = request;
+    const validated = validateNativeCustomSignalEnvelope(envelope);
+    const validatedTargets = validated.ok && validated.request.universe.source === 'explicitTargets'
+      ? validated.request.universe.targets : [];
+    if (!customRules?.length || validatedTargets.length !== options.targets.length ||
+        (options.toDate && !request.evaluation.asOfDate) ||
+        validatedTargets.some(({ exchange, symbol }, index) =>
+          exchange !== options.targets[index].exchange || symbol !== options.targets[index].symbol)) {
+      return fallback('The native custom-signal selection has unsupported rules, targets or dates.');
+    }
+    if (!isNativeCustomSignalCapability(customCapability)) {
+      return fallback('This executable does not advertise the required native custom-signal capability.');
+    }
+    if (options.targets.length * customRules.length > customCapability.maxPossibleResults) {
+      return fallback('The native custom-signal selection exceeds the result limit.');
+    }
+    if (!customIdentity || !options.expectedDatabasePath ||
+        !nativeIdentityMatchesPath(customIdentity, options.expectedDatabasePath)) {
+      return cancelledForDatabaseChange('The native custom-signal database selection could not be verified.');
+    }
+    customRequest = {
+      ...envelope,
+      customSignals: {
+        evaluatorVersion: customCapability.evaluatorVersion,
+        databaseIdentity: customIdentity,
+        rules: customRules,
+      },
+    };
+  }
+
+  if (presetPilot) {
+    if ((options.toDate && !request.evaluation.asOfDate) ||
+        options.targets.some(({ exchange, symbol }) => exchange !== exchange.toUpperCase() || symbol !== symbol.toUpperCase()) ||
+        !validateNativeScanRequestV1(request).ok) {
+      return fallback('Native signal presets require valid V1 targets and an as-of date in YYYY-MM-DD format.');
+    }
+
+    if (options.shouldCancel?.()) return cancelledWithoutResults();
+    const capability = await readCapabilities().catch(() => undefined);
+    if (databaseSelectionChanged()) return cancelledForDatabaseChange();
+    if (options.shouldCancel?.()) return cancelledWithoutResults();
+    const presets = capability?.signalPresets;
+    if (presets?.evaluatorVersion !== NATIVE_SIGNAL_PRESET_EVALUATOR_VERSION ||
+        !Array.isArray(presets.supportedIds) || !options.scannerIds.every((id) => presets.supportedIds.includes(id))) {
+      return fallback('This executable does not advertise the required native signal presets.');
+    }
+  }
 
   // Subscribe *before* starting so no early progress/completion event is missed.
   const start = deps.start ?? startNativeEodScan;
@@ -433,6 +560,19 @@ export async function runNativeOrTypeScriptScannerBatch(
   // Reject the entire run rather than emitting partial results with guessed metadata.
   let rejectedNativeMatch: string | null = null;
   const selectedRuleIds = new Set(options.scannerIds);
+  const targetKey = (target: { exchange: string; symbol: string }) => JSON.stringify([target.exchange, target.symbol]);
+  const signalTargets = new Map(strictSignals ? options.targets.map((target, index) => [targetKey(target), index]) : []);
+  const customRules = new Map(customRequest?.customSignals.rules.map((rule, index) => [rule.id, { rule, index }]));
+  const signalMatchDates = new Map<string, string>();
+  const signalMatchKeys = new Set<string>();
+  let signalSequence = 0;
+  const recordSignalSequence = (sequence: number) => {
+    if (!strictSignals) return;
+    if (sequence !== signalSequence + 1) {
+      rejectedNativeMatch = 'The native ' + signalKind + ' event stream is incomplete.';
+    }
+    signalSequence = sequence;
+  };
   const generatedAt = new Date().toISOString();
   let completed = 0;
   let total = options.targets.length;
@@ -443,6 +583,7 @@ export async function runNativeOrTypeScriptScannerBatch(
     counts: NativeScanCountsV1 | null;
     diagnostics: NativeScanDiagnosticV1[];
     numericHistoryCoverage?: readonly NativeNumericHistoryCoverageV1[];
+    customSignalResultCount?: number;
   } = {
     kind: null,
     cancelled: false,
@@ -460,7 +601,7 @@ export async function runNativeOrTypeScriptScannerBatch(
   const observedIdentities = new Set<string>();
   let identityMismatch = false;
   const recordEventIdentity = (identity: string): boolean => {
-    if (!identity) {
+    if (!identity || (customIdentity && identity !== customIdentity)) {
       identityMismatch = true;
     } else {
       observedIdentities.add(identity);
@@ -477,6 +618,7 @@ export async function runNativeOrTypeScriptScannerBatch(
       // P1-10: a stale or superseded run can never move this run's progress.
       if (terminalState.kind !== null || !recordEventIdentity(event.databaseIdentity) ||
           databaseSelectionChanged()) return;
+      recordSignalSequence(event.sequence);
       completed = event.completed;
       total = event.total;
       options.onProgress?.({
@@ -488,17 +630,46 @@ export async function runNativeOrTypeScriptScannerBatch(
       });
     },
     onMatches: (event) => {
+      if (strictSignals && terminalState.kind !== null) return;
       if (!recordEventIdentity(event.databaseIdentity) || databaseSelectionChanged()) return;
+      recordSignalSequence(event.sequence);
+      if ((strictSignals && !Array.isArray(event.matches)) ||
+          (customPilot && (event.matches.length > NATIVE_CUSTOM_SIGNAL_LIMITS.maxEventBatchSize ||
+            event.matches.length + matches.length > signalTargets.size * customRules.size))) {
+        rejectedNativeMatch = 'Missing or oversized native ' + signalKind + ' match batch.';
+        return;
+      }
       const chunk: ScannerResult[] = [];
       for (const match of event.matches) {
+        if (strictSignals && (!match || typeof match !== 'object')) {
+          rejectedNativeMatch = 'Malformed native ' + signalKind + ' match.';
+          continue;
+        }
         if (!selectedRuleIds.has(match.ruleId)) {
           rejectedNativeMatch = `Unrequested rule ID "${match.ruleId}" in native match.`;
           continue;
         }
-        const metadataIssue = nativeCoreResultMetadataIssue(match);
+        const ruleId = match.values?.rule_id;
+        const metadataIssue = customPilot
+          ? nativeCustomSignalMatchIssue(match, typeof ruleId === 'string' ? customRules.get(ruleId)?.rule : undefined, request.evaluation.asOfDate ?? null)
+          : presetPilot
+            ? nativeSignalPresetMatchIssue(match, request.evaluation.asOfDate ?? null)
+            : nativeCoreResultMetadataIssue(match);
         if (metadataIssue) {
           rejectedNativeMatch = metadataIssue;
           continue;
+        }
+        if (strictSignals) {
+          const target = targetKey(match);
+          const matchKey = JSON.stringify([target, customPilot ? ruleId : match.ruleId, match.date]);
+          const priorDate = signalMatchDates.get(target);
+          if (!signalTargets.has(target) || signalMatchKeys.has(matchKey) ||
+              (priorDate !== undefined && priorDate !== match.date)) {
+            rejectedNativeMatch = 'Unexpected target, duplicate match or conflicting date in native ' + signalKind + ' results.';
+            continue;
+          }
+          signalMatchDates.set(target, match.date);
+          signalMatchKeys.add(matchKey);
         }
         chunk.push(toScannerResult(match, generatedAt));
       }
@@ -509,11 +680,16 @@ export async function runNativeOrTypeScriptScannerBatch(
     onComplete: (event) => {
       // P1-10: only the first terminal event for this run counts; duplicates are ignored.
       if (terminalState.kind !== null || !recordEventIdentity(event.databaseIdentity)) return;
+      recordSignalSequence(event.sequence);
       terminalState.kind = 'complete';
-      terminalState.cancelled = event.cancelled;
+      if (strictSignals && typeof event.cancelled !== 'boolean') {
+        rejectedNativeMatch = 'Invalid native ' + signalKind + ' completion status.';
+      }
+      terminalState.cancelled = event.cancelled === true;
       terminalState.counts = event.counts;
       terminalState.diagnostics = event.diagnostics;
       terminalState.numericHistoryCoverage = event.numericHistoryCoverage;
+      terminalState.customSignalResultCount = event.customSignalResultCount;
       resolveTerminal?.();
     },
     onError: (event) => {
@@ -527,7 +703,20 @@ export async function runNativeOrTypeScriptScannerBatch(
       terminalState.diagnostics = event.diagnostics;
       resolveTerminal?.();
     },
+  }).catch((error: unknown) => {
+    if (!customPilot) throw error;
+    return null;
   });
+
+  if (!unsubscribe) return fallback('Native custom-signal events could not be subscribed.');
+  if (customPilot && terminalState.kind === 'error') {
+    unsubscribe();
+    return fallback('Native custom-signal events are unavailable.');
+  }
+  if (strictSignals && (databaseSelectionChanged() || options.shouldCancel?.())) {
+    unsubscribe();
+    return databaseSelectionChanged() ? cancelledForDatabaseChange() : cancelledWithoutResults();
+  }
 
   const cancellationTimer = setInterval(() => {
     if ((options.shouldCancel?.() || databaseSelectionChanged() || identityMismatch) &&
@@ -540,18 +729,25 @@ export async function runNativeOrTypeScriptScannerBatch(
 
   let acknowledgement: Awaited<ReturnType<typeof start>>;
   try {
-    acknowledgement = await start(request);
+    acknowledgement = customRequest
+      ? await (deps.startCustom ?? startNativeEodScan)(customRequest)
+      : await start(request);
   } catch (error) {
     clearInterval(cancellationTimer);
     unsubscribe();
     const commandError = error as NativeScanCommandErrorV1;
-    return fallback(`Native scan could not start: ${commandError.message ?? String(error)}`);
+    if (customPilot) {
+      await cancel(runId).catch(() => undefined);
+      if (commandError?.code === 'native-scan-database-changed') return cancelledForDatabaseChange();
+    }
+    return fallback(`Native scan could not start: ${commandError?.message ?? String(error)}`);
   }
-  acknowledgedIdentity = acknowledgement.databaseIdentity;
+  acknowledgedIdentity = acknowledgement?.databaseIdentity ?? null;
   const invalidAcknowledgement =
-    !acknowledgement.accepted ||
+    !acknowledgement?.accepted ||
     acknowledgement.runId !== runId ||
     !acknowledgedIdentity ||
+    (customIdentity !== undefined && acknowledgedIdentity !== customIdentity) ||
     [...observedIdentities].some((identity) => identity !== acknowledgedIdentity) ||
     (options.expectedDatabasePath !== undefined &&
       (options.expectedDatabasePath === null ||
@@ -565,6 +761,14 @@ export async function runNativeOrTypeScriptScannerBatch(
         ? 'Native scan rejected a mismatched run or database identity.'
         : undefined,
     );
+  }
+
+  if (strictSignals && (acknowledgement.schemaVersion !== request.schemaVersion ||
+      acknowledgement.totalTargets !== signalTargets.size)) {
+    await cancel(runId).catch(() => undefined);
+    clearInterval(cancellationTimer);
+    unsubscribe();
+    return fallback('Native ' + signalKind + ' acknowledgement did not match the requested batch.');
   }
 
   if (options.shouldCancel?.()) {
@@ -611,15 +815,35 @@ export async function runNativeOrTypeScriptScannerBatch(
     return fallback(`Native result rejected: ${rejectedNativeMatch}`);
   }
 
-  // Deterministic, de-duplicated ordering identical to the TypeScript runner.
+  if (strictSignals && options.shouldCancel?.()) return cancelledWithoutResults();
+  if (customPilot && terminalState.cancelled) return cancelledWithoutResults();
+  if (strictSignals && !terminalState.cancelled) {
+    const counts = terminalState.counts;
+    if (!counts || counts.targets !== signalTargets.size || counts.failed !== 0 || counts.skipped !== 0 ||
+        counts.matched !== signalMatchDates.size || counts.noMatch !== counts.targets - counts.matched ||
+        (customPilot && terminalState.customSignalResultCount !== matches.length) ||
+        !Array.isArray(terminalState.diagnostics) || terminalState.diagnostics.length !== 0) {
+      return fallback('Native ' + signalKind + ' completion was incomplete; retrying the full selection in TypeScript.');
+    }
+  }
+  if (customPilot) {
+    if (!await customSelectionStillCurrent()) return cancelledForDatabaseChange();
+    if (options.shouldCancel?.()) return cancelledWithoutResults();
+  }
+
+  // Generic matches have one rule per scanner ID. Custom matches already have
+  // distinct configured rule identities and were validated as a complete set.
   const unique = new Map<string, ScannerResult>();
-  for (const result of matches) {
+  for (const result of customPilot ? [] : matches) {
     const key = `${result.exchange}:${result.symbol}:${result.scannerId}:${result.date}`;
     if (!unique.has(key)) unique.set(key, result);
   }
-  const results = [...unique.values()].sort(
+  const targetOrder = (result: ScannerResult) => signalTargets.get(targetKey(result)) ?? 0;
+  const ruleOrder = (result: ScannerResult) => customRules.get(String(result.values?.rule_id))?.index ?? 0;
+  const results = (customPilot ? matches : [...unique.values()]).sort(
     (first, second) =>
-      second.date.localeCompare(first.date) || first.scannerName.localeCompare(second.scannerName),
+      second.date.localeCompare(first.date) || first.scannerName.localeCompare(second.scannerName) ||
+      (customPilot ? targetOrder(first) - targetOrder(second) || ruleOrder(first) - ruleOrder(second) : 0),
   );
 
   // P0-02/P1-05: a cancelled run publishes nothing partial, and the reported counts come
@@ -749,5 +973,5 @@ export function formatNativeScannerStatus(
 
 /** Exposed for the UI to render an accurate, non-flattering capability note. */
 export function describeNativeCapability(): string {
-  return `Native backend (experimental, off by default) evaluates all ${NATIVE_SUPPORTED_PATTERN_IDS.length} built-in chart patterns (up to ${NATIVE_SCAN_LIMITS.maxRules} rules per run), ${coreOhlcvScannerDefinitions.length} core OHLCV scanners, and ${dailyMarketScannerDefinitions.length} daily market scanners (latest-bar/bounded runs only). Oversized (> ${NATIVE_SCAN_LIMITS.maxRules} rule) selections, full-history core/daily market scans, and other rules stay on TypeScript.`;
+  return `Native backend (experimental, off by default) evaluates all ${NATIVE_SUPPORTED_PATTERN_IDS.length} built-in chart patterns (up to ${NATIVE_SCAN_LIMITS.maxRules} rules per run), ${coreOhlcvScannerDefinitions.length} core OHLCV scanners, and ${dailyMarketScannerDefinitions.length} daily market scanners (latest-bar/bounded runs only). Built-in signal presets and Active Custom Signal Rules support their own latest-only selections with a 20–5,000 bar lookback. Oversized (> ${NATIVE_SCAN_LIMITS.maxRules} rule) selections, full-history core/daily market scans, and other rules stay on TypeScript.`;
 }

@@ -75,6 +75,7 @@ fn parse_request(raw: Value) -> Result<NativeScanRequestV1, String> {
         if matches!(rule.expression, ExprV1::Pattern { .. })
             || core_results::is_core_id(&rule.id)
             || core_results::is_daily_market_id(&rule.id)
+            || super::preset_signals::is_preset_id(&rule.id)
         {
             return Err("Numeric history V2 accepts generic numeric rules only.".into());
         }
@@ -543,3 +544,18 @@ pub(crate) fn shutdown(state: &NumericHistoryState) {
 
 #[cfg(test)]
 mod tests;
+
+#[cfg(test)]
+#[test]
+fn wp04_v2_rejects_reserved_signal_preset_ids() {
+    let error = parse_request(serde_json::json!({
+        "schemaVersion": 2, "requestedRunId": "wp04-reserved-id",
+        "targets": [{"exchange": "NSE", "symbol": "TCS"}],
+        "rules": [{"id": "signal_golden_cross", "expression": {"kind": "number", "value": 1}}]
+    }))
+    .unwrap_err();
+    assert_eq!(
+        error,
+        "Numeric history V2 accepts generic numeric rules only."
+    );
+}

@@ -65,6 +65,9 @@ import {
   type ScannerPatternMapPriorityFilter,
   type ScannerPatternMapStatusFilter,
 } from '@/plugins/scanner/scannerPatternMap';
+import { isNativeCustomSignalSelection } from '@/features/scanner/nativeCustomSignals';
+import { readNativeScannerCapabilities } from '@/platform/nativeScannerBridge';
+import { ACTIVE_CUSTOM_SIGNAL_SCANNER_ID } from '@/plugins/scanner/signalScanners';
 import type { ScannerDefinition, ScannerResult } from '@/plugins/scanner/types';
 import { MarketMoversFullView } from '@/features/marketMovers/MarketMoversFullView';
 
@@ -651,6 +654,8 @@ export function ScannerWindow() {
 
     cancelRequestedRef.current = false;
     const scanDatabasePath = snapshot.activeDatabasePath;
+    const nativeCustomSelection = nativeScannerEnabled && selectedScannerIds.includes(ACTIVE_CUSTOM_SIGNAL_SCANNER_ID);
+    const scanSignalRules = nativeCustomSelection ? structuredClone(signalRules) : signalRules;
     setRunning(true);
     setStatus(lookbackBars === null ? 'Preparing complete historical scanner inputs...' : 'Preparing scanner inputs...');
     setErrors([]);
@@ -668,6 +673,12 @@ export function ScannerWindow() {
         setStatus('Core EOD Scanner plugin is disabled in Settings.');
         return;
       }
+
+      const nativeEligibleSelection = nativeScannerEnabled && canRunNatively(selectedScannerIds, undefined, lookbackBars === null, lookbackBars);
+      const customSignalCapabilities = nativeCustomSelection && nativeEligibleSelection &&
+        isNativeCustomSignalSelection(selectedScannerIds) && settings.eodAlertRules.length === 0
+        ? await readNativeScannerCapabilities(true)
+        : undefined;
 
       const targets = await resolveScannerTargets(api, {
         exchange,
@@ -698,17 +709,16 @@ export function ScannerWindow() {
         executionMode,
         toDate: toDate || null,
         alertRules: settings.eodAlertRules,
-        signalRules,
+        signalRules: scanSignalRules,
         shouldCancel,
       };
-      const useNativeBackend = nativeScannerEnabled &&
-        canRunNatively(selectedScannerIds, undefined, lookbackBars === null);
+      const useNativeBackend = nativeScannerEnabled && (nativeEligibleSelection || nativeCustomSelection);
       if (useNativeBackend) activeNativeRunDatabaseRef.current = scanDatabasePath;
       if (nativeScannerEnabled && !useNativeBackend) {
         // Visible, unobtrusive fallback notice: unsupported/mixed rules stay TypeScript.
         setErrors((current) => [
           ...current,
-          describeNativeUnsupportedScanners(selectedScannerIds, lookbackBars === null) ||
+          describeNativeUnsupportedScanners(selectedScannerIds, lookbackBars === null, lookbackBars) ||
             'The native backend cannot evaluate the selected scanners; using TypeScript.',
         ]);
       }
@@ -716,6 +726,7 @@ export function ScannerWindow() {
         ? await runNativeOrTypeScriptScannerBatch(
             {
               ...scannerRequest,
+              customSignalCapabilities,
               expectedDatabasePath: scanDatabasePath,
               getActiveDatabasePath: () =>
                 useChartStore.getState().snapshot?.activeDatabasePath ?? null,
@@ -1351,8 +1362,8 @@ export function ScannerWindow() {
                     Use native (Rust) backend
                   </label>
                   <span style={{ fontSize: '11px', color: 'var(--text-muted, #8a8a8a)' }}>
-                    {nativeScannerEnabled && !canRunNatively(selectedScannerIds, undefined, lookbackBars === null)
-                      ? describeNativeUnsupportedScanners(selectedScannerIds, lookbackBars === null)
+                    {nativeScannerEnabled && !canRunNatively(selectedScannerIds, undefined, lookbackBars === null, lookbackBars)
+                      ? describeNativeUnsupportedScanners(selectedScannerIds, lookbackBars === null, lookbackBars)
                       : describeNativeCapability()}
                   </span>
                 </label>
@@ -2031,13 +2042,11 @@ function formatDuration(milliseconds: number): string {
 }
 
 function scannerResultKey(result: ScannerResult): string {
-  return [
-    result.exchange,
-    result.symbol,
-    result.scannerId,
-    result.history?.firstMatchedDate ?? result.date,
-    result.chartPattern?.patternStartDate ?? '',
-  ].join(':');
+  const key = getScannerPatternMapResultKey(result);
+  const ruleId = result.values?.rule_id;
+  return result.scannerId === ACTIVE_CUSTOM_SIGNAL_SCANNER_ID && typeof ruleId === 'string' && ruleId.length > 0
+    ? key + ':' + ruleId
+    : key;
 }
 
 function formatPatternDetails(result: ScannerResult): string {
