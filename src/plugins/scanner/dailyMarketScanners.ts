@@ -134,11 +134,11 @@ const DAILY_MARKET_DEFINITIONS: ScannerDefinition[] = [
     categoryName: 'Daily Market',
     priority: 1,
     scannerType: 'breakout',
-    description: 'Close or High touches the 52-week (252 bar) high.',
-    logicText: 'Close >= Max(High, 252 bars)',
+    description: 'The session high matches the highest high in the trailing window.',
+    logicText: 'High >= Max(High, up to 252 bars including the current bar)',
     requiredData: ['ohlcv'],
     suggestedOutputColumns: ['close', 'high_52w', 'dist_52w_pct'],
-    eodSafetyNotes: 'Requires up to 252 lookback bars.',
+    eodSafetyNotes: 'Requires at least 20 completed daily bars and uses up to 252.',
     implementationStatus: 'ready_for_engine',
   },
   {
@@ -148,11 +148,11 @@ const DAILY_MARKET_DEFINITIONS: ScannerDefinition[] = [
     categoryName: 'Daily Market',
     priority: 1,
     scannerType: 'breakdown',
-    description: 'Close or Low touches the 52-week (252 bar) low.',
-    logicText: 'Close <= Min(Low, 252 bars)',
+    description: 'The session low matches the lowest low in the trailing window.',
+    logicText: 'Low <= Min(Low, up to 252 bars including the current bar)',
     requiredData: ['ohlcv'],
     suggestedOutputColumns: ['close', 'low_52w', 'dist_52w_pct'],
-    eodSafetyNotes: 'Requires up to 252 lookback bars.',
+    eodSafetyNotes: 'Requires at least 20 completed daily bars and uses up to 252.',
     implementationStatus: 'ready_for_engine',
   },
 ];
@@ -201,11 +201,12 @@ export const dailyMarketScannerHandlers: Record<string, ScannerHandler> = {
   volume_surge: (context, definition) => {
     const metrics = calculateDailyMarketMetrics(context.bars);
     if (!metrics || metrics.volumeRatio20 === null || metrics.volumeRatio20 < 1.5) return null;
+    const direction = metrics.absoluteChange === 0 ? 'neutral' : metrics.absoluteChange > 0 ? 'bullish' : 'bearish';
 
     return createResult(
       context,
       definition,
-      metrics.changePercent >= 0 ? 'bullish' : 'bearish',
+      direction,
       [
         `Volume surge: ${metrics.volumeRatio20.toFixed(2)}x of 20-day average (${metrics.today.volume.toLocaleString('en-IN')} vs ${Math.round(metrics.averageVolume20!).toLocaleString('en-IN')})`,
       ],

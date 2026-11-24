@@ -709,7 +709,9 @@ pub fn evaluate_daily_market_rule(
             if volume_ratio < VOLUME_SURGE_MIN_RATIO {
                 return Ok(None);
             }
-            let direction = if metrics.change_percent >= 0.0 {
+            let direction = if metrics.absolute_change == 0.0 {
+                "neutral"
+            } else if metrics.absolute_change > 0.0 {
                 "bullish"
             } else {
                 "bearish"

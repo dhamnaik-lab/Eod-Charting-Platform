@@ -172,15 +172,12 @@ describe('NS-R2 Daily Market native metadata gate and routing', () => {
         nativeCoreResultMetadataIssue({ ...nativeMatch, score: 80 }),
         sample.caseId,
       ).toContain('score');
-      expect(
-        nativeCoreResultMetadataIssue({
-          ...nativeMatch,
-          direction: 'neutral',
-        }),
-        sample.caseId,
-      ).toContain('direction');
       const changePct = nativeMatch.values?.change_pct;
-      if (sample.ruleId !== 'volume_surge' || (typeof changePct === 'number' && changePct !== 0)) {
+      if (sample.ruleId !== 'volume_surge' || changePct !== 0) {
+        expect(
+          nativeCoreResultMetadataIssue({ ...nativeMatch, direction: 'neutral' }),
+          sample.caseId,
+        ).toContain('direction');
         expect(
           nativeCoreResultMetadataIssue({
             ...nativeMatch,
@@ -197,15 +194,15 @@ describe('NS-R2 Daily Market native metadata gate and routing', () => {
         sample.caseId,
       ).toContain('columns');
     }
+  });
 
-    const surgeMatch = positiveSamples.find((sample) => sample.ruleId === 'volume_surge')!;
-    const neutralSurge = asNativeMatch({
-      ...(surgeMatch.expected as Omit<ScannerResult, 'generatedAt'>),
-      generatedAt: '2026-11-22T00:00:00.000Z',
-    });
-    expect(
-      nativeCoreResultMetadataIssue({ ...neutralSurge, direction: 'neutral' }),
-    ).toContain('direction');
+  it.each([
+    ['volume_surge_21_bars_exact_1_5_neutral_zero_change', 'neutral'],
+    ['volume_surge_small_gain_rounds_to_zero', 'bullish'],
+    ['volume_surge_small_loss_rounds_to_zero', 'bearish'],
+  ])('%s uses the actual close change to determine direction', (caseId, direction) => {
+    const sample = fixture.cases.find((entry) => entry.caseId === caseId);
+    expect(sample?.expected).toMatchObject({ direction, values: { change_pct: 0 } });
   });
 
   it('compiles Daily Market rules with Core OHLCV and gap patterns and blocks history/mixed fallback', () => {
@@ -536,8 +533,7 @@ describe('NS-R2 Daily Market native metadata gate and routing', () => {
     });
     expect(nativeCoreResultMetadataIssue(asNativeMatch(croreResult!))).toBeNull();
 
-    // Committed fixture bundle includes both independent lakh/crore cases (`40` cases total)
-    expect(fixture.cases).toHaveLength(40);
+    // Check both independent lakh/crore cases in the committed bundle.
     expect(
       fixture.cases.find((c) => c.caseId === 'volume_surge_lakh_scale_en_in_grouping_match')?.expected?.reasons,
     ).toEqual(['Volume surge: 1.50x of 20-day average (1,50,000 vs 1,00,000)']);

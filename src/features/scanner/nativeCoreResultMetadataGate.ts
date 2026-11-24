@@ -34,7 +34,7 @@ const CORE_DIRECTIONS: Readonly<Record<string, ScannerDirection>> = {
   wide_range_candle: 'neutral',
 };
 
-/** Fixed direction for directional Daily Market scanners; `volume_surge` depends on `change_pct`. */
+/** Fixed direction for Daily Market scanners with a single possible direction. */
 const DAILY_MARKET_FIXED_DIRECTIONS: Readonly<Record<string, ScannerDirection>> = {
   top_gainers: 'bullish',
   top_losers: 'bearish',
@@ -57,12 +57,12 @@ function isValidDailyMarketDirection(match: NativeScanMatchV1): boolean {
     : undefined;
   if (fixed) return match.direction === fixed;
   if (match.ruleId !== 'volume_surge') return false;
-  if (match.direction !== 'bullish' && match.direction !== 'bearish') return false;
   const changePct = match.values?.change_pct;
   if (typeof changePct !== 'number' || !Number.isFinite(changePct)) return false;
   if (changePct > 0) return match.direction === 'bullish';
   if (changePct < 0) return match.direction === 'bearish';
-  return true;
+  // The IPC value is rounded, so a directional move can also display as 0%.
+  return match.direction === 'neutral' || match.direction === 'bullish' || match.direction === 'bearish';
 }
 
 function validateBuiltInMatchMetadata(
