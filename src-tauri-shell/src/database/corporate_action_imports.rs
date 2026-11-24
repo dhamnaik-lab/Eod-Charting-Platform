@@ -1,23 +1,23 @@
 // Pure evidence classifier only; no autonomous Dividend activation.
-pub(crate) mod simple_cash_dividend_evidence;
-#[cfg(test)]
-mod simple_cash_dividend_evidence_tests;
+mod auto_approval;
+mod bse_browser;
 mod bse_fetch;
 mod bse_identity_mapping;
-mod bse_browser;
-mod auto_approval;
 mod classification_refresh;
 mod dividend_validation_cache;
 mod identity_recheck;
 mod informational_closure;
+pub(crate) mod simple_cash_dividend_evidence;
+#[cfg(test)]
+mod simple_cash_dividend_evidence_tests;
 pub use informational_closure::{
     reopen_corporate_action_informational_closure, sync_corporate_action_informational_closures,
 };
 mod dated_symbol_chain;
-pub(in crate::database) mod split_bonus_symbol_chain;
 pub(super) mod event_price_route;
 mod price_validation_freshness;
 mod split_bonus_preparation;
+pub(in crate::database) mod split_bonus_symbol_chain;
 mod split_bonus_terms;
 mod split_isin_price_proof;
 pub use classification_refresh::refresh_corporate_action_import_classifications;
@@ -33,9 +33,12 @@ mod historical_isin_transition;
 mod matching_performance_tests;
 #[cfg(test)]
 mod real_data_performance_tests;
-mod repair_preview;
 mod reconciliation_preflight;
-pub use reconciliation_preflight::{CorporateActionReconciliationPreflightInput, CorporateActionReconciliationPreflightResult, CorporateActionReconciliationPreflightRow, CorporateActionReconciliationBlocker};
+mod repair_preview;
+pub use reconciliation_preflight::{
+    CorporateActionReconciliationBlocker, CorporateActionReconciliationPreflightInput,
+    CorporateActionReconciliationPreflightResult, CorporateActionReconciliationPreflightRow,
+};
 
 use chrono::{Duration as ChronoDuration, NaiveDate};
 use reqwest::blocking::Client;
@@ -64,10 +67,8 @@ use repair_preview::{
 };
 
 use super::binary_eod::{date_to_u32, u32_to_date, BinaryEodFile};
+use super::instrument_mutations::upsert_instrument_isin_history_evidence;
 use super::storage_mode::{get_price_storage_mode, PriceStorageMode};
-use super::instrument_mutations::{
-    upsert_instrument_isin_history_evidence,
-};
 use super::{
     emit_database_changed, find_instrument_record, get_app_snapshot_internal,
     invalidate_cached_db_stats, normalize_exchange, normalize_optional_text, normalize_symbol,
@@ -670,18 +671,27 @@ pub async fn list_corporate_action_event_identities(
             "Open a database before listing Corporate Action event identities.".to_string()
         })?;
         let connection = open_read_only_connection_for_folder(&folder_path)?;
-        connection.execute_batch("BEGIN DEFERRED").map_err(|error| error.to_string())?;
-        let mut result = event_identity_resolution::list_effective_event_identities(&connection, &input)?;
-        for id in event_identity_resolution::validate_event_identity_import_ids(&input.import_ids)? {
-            if let Some(corporate_action_id) = auto_approval::verified_existing_dividend(
-                &connection, &folder_path, id,
-            )? {
-                result.existing_dividends.push(super::CorporateActionExistingDividend {
-                    import_id: id, corporate_action_id,
-                });
+        connection
+            .execute_batch("BEGIN DEFERRED")
+            .map_err(|error| error.to_string())?;
+        let mut result =
+            event_identity_resolution::list_effective_event_identities(&connection, &input)?;
+        for id in event_identity_resolution::validate_event_identity_import_ids(&input.import_ids)?
+        {
+            if let Some(corporate_action_id) =
+                auto_approval::verified_existing_dividend(&connection, &folder_path, id)?
+            {
+                result
+                    .existing_dividends
+                    .push(super::CorporateActionExistingDividend {
+                        import_id: id,
+                        corporate_action_id,
+                    });
             }
         }
-        connection.execute_batch("COMMIT").map_err(|error| error.to_string())?;
+        connection
+            .execute_batch("COMMIT")
+            .map_err(|error| error.to_string())?;
         Ok(result)
     })
     .await
@@ -744,9 +754,8 @@ fn resolve_reviewed_corporate_action_database(
     app: &AppHandle,
     expected_database_path: &str,
 ) -> AppResult<super::database_use::DatabasePath> {
-    let folder_path = resolve_active_database_folder(app)?.ok_or_else(|| {
-        "Open a database before approving corporate action imports.".to_string()
-    })?;
+    let folder_path = resolve_active_database_folder(app)?
+        .ok_or_else(|| "Open a database before approving corporate action imports.".to_string())?;
     verify_import_lookup_database(&folder_path, expected_database_path)?;
     Ok(folder_path)
 }
@@ -758,7 +767,8 @@ pub async fn approve_corporate_action_import(
 ) -> AppResult<CorporateActionImportApprovalResult> {
     let app_handle = app.clone();
     tauri::async_runtime::spawn_blocking(move || {
-        let folder_path = resolve_reviewed_corporate_action_database(&app_handle, &input.expected_database_path)?;
+        let folder_path =
+            resolve_reviewed_corporate_action_database(&app_handle, &input.expected_database_path)?;
         let connection = open_connection_for_folder(&folder_path, false)?;
 
         let result = approve_corporate_action_import_internal(&connection, &folder_path, &input)?;
@@ -784,7 +794,8 @@ pub async fn approve_corporate_action_import_with_isin_mismatch(
 ) -> AppResult<CorporateActionImportApprovalResult> {
     let app_handle = app.clone();
     tauri::async_runtime::spawn_blocking(move || {
-        let folder_path = resolve_reviewed_corporate_action_database(&app_handle, &input.expected_database_path)?;
+        let folder_path =
+            resolve_reviewed_corporate_action_database(&app_handle, &input.expected_database_path)?;
         let connection = open_connection_for_folder(&folder_path, false)?;
         let result = run_connection_transaction(&connection, |connection| {
             approve_corporate_action_import_with_isin_mismatch_internal(
@@ -815,7 +826,8 @@ pub async fn approve_corporate_action_import_with_price_validation_exception(
 ) -> AppResult<CorporateActionImportApprovalResult> {
     let app_handle = app.clone();
     tauri::async_runtime::spawn_blocking(move || {
-        let folder_path = resolve_reviewed_corporate_action_database(&app_handle, &input.expected_database_path)?;
+        let folder_path =
+            resolve_reviewed_corporate_action_database(&app_handle, &input.expected_database_path)?;
         let connection = open_connection_for_folder(&folder_path, false)?;
         let result = run_connection_transaction(&connection, |connection| {
             approve_corporate_action_import_with_price_validation_exception_internal(
@@ -846,7 +858,8 @@ pub async fn approve_corporate_action_imports(
 ) -> AppResult<CorporateActionImportBulkApprovalResult> {
     let app_handle = app.clone();
     tauri::async_runtime::spawn_blocking(move || {
-        let folder_path = resolve_reviewed_corporate_action_database(&app_handle, &input.expected_database_path)?;
+        let folder_path =
+            resolve_reviewed_corporate_action_database(&app_handle, &input.expected_database_path)?;
         let connection = open_connection_for_folder(&folder_path, false)?;
 
         let result = approve_corporate_action_imports_internal(&connection, &folder_path, &input)?;
@@ -930,11 +943,8 @@ pub async fn evaluate_simple_cash_dividend_prepared_scope(
             import_ids: input.import_ids,
             expected_database_path: input.expected_database_path,
         };
-        let result = dividend_validation_cache::evaluate(
-            &mut connection,
-            &folder_path,
-            &internal_input,
-        )?;
+        let result =
+            dividend_validation_cache::evaluate(&mut connection, &folder_path, &internal_input)?;
         Ok::<CorporateActionDividendPreparedScopeEvaluationResult, String>(
             map_simple_cash_dividend_prepared_scope_result(result),
         )
@@ -969,7 +979,9 @@ where
         &auto_approval::SimpleCashDividendWriteStageInput,
     ) -> AppResult<auto_approval::SimpleCashDividendWriteStageResult>,
 {
-    connection.execute_batch("BEGIN IMMEDIATE TRANSACTION").map_err(|e| e.to_string())?;
+    connection
+        .execute_batch("BEGIN IMMEDIATE TRANSACTION")
+        .map_err(|e| e.to_string())?;
     let outcome = (|| {
         let result = executor(connection, folder_path, input)?;
         if result.failed > 0 || !result.complete {
@@ -994,12 +1006,16 @@ where
             Err(error) => {
                 // A commit error is not a confirmed rollback receipt.
                 let _ = connection.execute_batch("ROLLBACK");
-                Err(format!("Dividend commit outcome requires reconciliation: {error}"))
+                Err(format!(
+                    "Dividend commit outcome requires reconciliation: {error}"
+                ))
             }
         },
         Err(error) => match connection.execute_batch("ROLLBACK") {
             Ok(()) => Err(format!("CA_DIVIDEND_ROLLBACK_CONFIRMED: {error}")),
-            Err(rollback) => Err(format!("Dividend rollback unconfirmed: {error}; rollback error: {rollback}")),
+            Err(rollback) => Err(format!(
+                "Dividend rollback unconfirmed: {error}; rollback error: {rollback}"
+            )),
         },
     }
 }
@@ -1045,7 +1061,10 @@ async fn execute_simple_cash_dividend_write_stage_transaction_owner(
     validate_simple_cash_dividend_write_stage_transaction_owner(&folder_path, &input)?;
     let folder_for_write = folder_path.clone();
     let committed_result = tauri::async_runtime::spawn_blocking(move || {
-        execute_simple_cash_dividend_write_stage_transaction_owner_for_folder(&folder_for_write, &input)
+        execute_simple_cash_dividend_write_stage_transaction_owner_for_folder(
+            &folder_for_write,
+            &input,
+        )
     })
     .await
     .map_err(|error| error.to_string())??;
@@ -1142,7 +1161,8 @@ pub async fn approve_recommended_corporate_action_isin_mismatches(
 ) -> AppResult<CorporateActionImportBulkApprovalResult> {
     let app_handle = app.clone();
     tauri::async_runtime::spawn_blocking(move || {
-        let folder_path = resolve_reviewed_corporate_action_database(&app_handle, &input.expected_database_path)?;
+        let folder_path =
+            resolve_reviewed_corporate_action_database(&app_handle, &input.expected_database_path)?;
         let connection = open_connection_for_folder(&folder_path, false)?;
         let result = approve_recommended_corporate_action_isin_mismatches_internal(
             &connection,
@@ -1180,7 +1200,9 @@ pub async fn execute_simple_cash_dividend_write_stage(
     };
     let committed_result =
         execute_simple_cash_dividend_write_stage_transaction_owner(app, private_input).await?;
-    Ok(map_simple_cash_dividend_write_stage_result(committed_result))
+    Ok(map_simple_cash_dividend_write_stage_result(
+        committed_result,
+    ))
 }
 
 #[tauri::command]
@@ -1216,9 +1238,11 @@ pub async fn quick_resolve_corporate_action_import(
                 quick_resolve_corporate_action_import_internal(connection, &input)
             })
         })
-        .and_then(|result| result.ok_or_else(|| {
-            "Open a database before quick-resolving corporate action imports.".to_string()
-        }))
+        .and_then(|result| {
+            result.ok_or_else(|| {
+                "Open a database before quick-resolving corporate action imports.".to_string()
+            })
+        })
     })
     .await
     .map_err(|error| error.to_string())?
@@ -1549,7 +1573,11 @@ fn fetch_official_corporate_actions_with_session(
         &to_date,
         force_refresh,
     )?;
-    let missing_ranges = if exchange == "BSE" { bse_fetch::bounded_ranges(missing_ranges)? } else { missing_ranges };
+    let missing_ranges = if exchange == "BSE" {
+        bse_fetch::bounded_ranges(missing_ranges)?
+    } else {
+        missing_ranges
+    };
     result.fetched_ranges = missing_ranges.len() as u32;
     result.fetched_days = if force_refresh {
         result.requested_days
@@ -1566,7 +1594,14 @@ fn fetch_official_corporate_actions_with_session(
 
     // Collection belongs to explicit Fetch, including cached CA ranges. Offline
     // Load/approval paths only consume and recheck retained source bytes.
-    let mut bse_session = if exchange == "BSE" { Some(match session { Some(session) => session, None => bse_fetch::BseSession::new(cancelled.clone())? }) } else { None };
+    let mut bse_session = if exchange == "BSE" {
+        Some(match session {
+            Some(session) => session,
+            None => bse_fetch::BseSession::new(cancelled.clone())?,
+        })
+    } else {
+        None
+    };
     if exchange == "NSE" {
         if let Err(error) = dated_symbol_chain::collect(connection, force_refresh) {
             result.errors.push(format!("Historical identity source unavailable: {error}. Unproven identities remain unresolved."));
@@ -1574,7 +1609,11 @@ fn fetch_official_corporate_actions_with_session(
     }
     if exchange == "BSE" {
         bse_fetch::check_cancel(&cancelled)?;
-        emit_corporate_action_progress(app, 3, "Collecting official BSE security-code mappings; no approvals...");
+        emit_corporate_action_progress(
+            app,
+            3,
+            "Collecting official BSE security-code mappings; no approvals...",
+        );
         match bse_identity_mapping::collect(app, connection, folder, bse_session.as_mut().expect("BSE session")) {
             Ok(count) => emit_corporate_action_progress(app, 4, format!("Filled {count} missing BSE security-code mapping(s). Load & Validate will retry unmatched rows; no approvals.")),
             Err(error) => result.errors.push(format!("BSE security-code identity source unavailable: {error}. Unmatched rows remain unresolved; retry Fetch before Load & Validate.")),
@@ -1615,7 +1654,13 @@ fn fetch_official_corporate_actions_with_session(
                 "BSE window {} of {}: {} to {}. {} completed window(s) saved; Cancel Fetch stops safely.",
                 range_index + 1, missing_ranges.len(), range.from_date, range.to_date, result.fetched_ranges
             ));
-            fetch_bse_action_candidates(app, connection, &range.from_date, &range.to_date, bse_session.as_mut().unwrap())?
+            fetch_bse_action_candidates(
+                app,
+                connection,
+                &range.from_date,
+                &range.to_date,
+                bse_session.as_mut().unwrap(),
+            )?
         } else {
             fetch_nse_action_candidates(app, connection, &range.from_date, &range.to_date)?
         };
@@ -1689,18 +1734,24 @@ fn fetch_official_corporate_actions_with_session(
         let range_errors = result.rows_error.saturating_sub(range_errors_before);
         bse_fetch::check_cancel(&cancelled)?;
         if exchange == "BSE" {
-            result.fetched_days += bse_fetch::commit_window(connection, range, range_errors, &cancelled, &mut result.errors)?;
+            result.fetched_days += bse_fetch::commit_window(
+                connection,
+                range,
+                range_errors,
+                &cancelled,
+                &mut result.errors,
+            )?;
             result.fetched_ranges += 1;
         } else {
-        record_fetch_coverage_if_complete(
-            connection,
-            &exchange,
-            source,
-            &range.from_date,
-            &range.to_date,
-            range_errors,
-            &mut result.errors,
-        )?;
+            record_fetch_coverage_if_complete(
+                connection,
+                &exchange,
+                source,
+                &range.from_date,
+                &range.to_date,
+                range_errors,
+                &mut result.errors,
+            )?;
         }
     }
 
@@ -3152,7 +3203,6 @@ fn select_unique_active_instrument(
     )
 }
 
-
 fn has_active_instrument_match_by_isin(
     connection: &Connection,
     isin: &str,
@@ -3398,7 +3448,8 @@ fn find_identity_chain_resolved_instrument(
     };
 
     if let Some(matched) = selected {
-        let isin_mismatch = normalized_isin.is_some() && matched.isin.is_some()
+        let isin_mismatch = normalized_isin.is_some()
+            && matched.isin.is_some()
             && normalized_isin != normalize_isin(matched.isin.as_deref());
         return Ok(Some(ResolvedCsvInstrument {
             symbol: Some(matched.symbol.clone()),
@@ -3408,7 +3459,12 @@ fn find_identity_chain_resolved_instrument(
                 .company_name
                 .clone()
                 .or_else(|| company_name.clone()),
-            review_status: if isin_mismatch { REVIEW_STATUS_PENDING_ISIN_MISMATCH } else { "PENDING" }.to_string(),
+            review_status: if isin_mismatch {
+                REVIEW_STATUS_PENDING_ISIN_MISMATCH
+            } else {
+                "PENDING"
+            }
+            .to_string(),
             message: Some(if matched.is_active {
                 "Matched the official NSE symbol to the current active database symbol through identity history chain."
                     .to_string()
@@ -3930,17 +3986,33 @@ fn fetch_bse_action_text(client: &Client, url: &str, json: bool) -> AppResult<St
     fetch_bse_action_text_with_cancel(client, url, json, None)
 }
 
-fn fetch_bse_action_text_with_cancel(client: &Client, url: &str, json: bool, cancelled: Option<&std::sync::atomic::AtomicBool>) -> AppResult<String> {
+fn fetch_bse_action_text_with_cancel(
+    client: &Client,
+    url: &str,
+    json: bool,
+    cancelled: Option<&std::sync::atomic::AtomicBool>,
+) -> AppResult<String> {
     let bytes = fetch_bse_action_bytes_with_cancel(client, url, json, cancelled)?;
     String::from_utf8(bytes).map_err(|e| format!("BSE response was not valid UTF-8: {e}"))
 }
 
-fn fetch_bse_action_bytes_with_cancel(client: &Client, url: &str, json: bool, cancelled: Option<&std::sync::atomic::AtomicBool>) -> AppResult<Vec<u8>> {
-    let stage = if json { "API request" } else { "session warm-up" };
+fn fetch_bse_action_bytes_with_cancel(
+    client: &Client,
+    url: &str,
+    json: bool,
+    cancelled: Option<&std::sync::atomic::AtomicBool>,
+) -> AppResult<Vec<u8>> {
+    let stage = if json {
+        "API request"
+    } else {
+        "session warm-up"
+    };
     // Retry only transient transport failures once. A refusal is not an empty feed
     // and must never be recorded as successfully fetched date coverage.
     for attempt in 0..2 {
-        if let Some(flag) = cancelled { bse_fetch::check_cancel(flag)?; }
+        if let Some(flag) = cancelled {
+            bse_fetch::check_cancel(flag)?;
+        }
         let mut request = client
             .get(url)
             .header(REFERER, BSE_ACTIONS_PAGE_URL)
@@ -3960,14 +4032,18 @@ fn fetch_bse_action_bytes_with_cancel(client: &Client, url: &str, json: bool, ca
             let status = response.status();
             if !status.is_success() {
                 return Ok(Err(if status.as_u16() == 403 {
-                    format!("BSE_DIRECT_ACCESS_BLOCKED: BSE {stage} returned HTTP 403 (access denied).")
+                    format!(
+                        "BSE_DIRECT_ACCESS_BLOCKED: BSE {stage} returned HTTP 403 (access denied)."
+                    )
                 } else {
                     format!("BSE {stage} failed: HTTP {} ({url})", status.as_u16())
                 }));
             }
             response.bytes().map(|bytes| Ok(bytes.to_vec()))
         });
-        if let Some(flag) = cancelled { bse_fetch::check_cancel(flag)?; }
+        if let Some(flag) = cancelled {
+            bse_fetch::check_cancel(flag)?;
+        }
         match result {
             Ok(text) => return text,
             Err(error) => {
@@ -3987,7 +4063,9 @@ fn fetch_bse_action_bytes_with_cancel(client: &Client, url: &str, json: bool, ca
                     detail.push_str(&format!(" -> {cause}"));
                     source = cause.source();
                 }
-                return Err(format!("BSE {stage} transport failure: {detail}. Completed windows are retained."));
+                return Err(format!(
+                    "BSE {stage} transport failure: {detail}. Completed windows are retained."
+                ));
             }
         }
     }
@@ -4624,14 +4702,14 @@ pub(super) fn ensure_import_evidence(
     if let Some(existing_id) = existing_id {
         if normalized_note.is_some() {
             connection
-            .execute(
-                "
+                .execute(
+                    "
                   UPDATE corporate_action_import_evidence
                   SET note = COALESCE(?, note)
                   WHERE id = ?
                 ",
-                params![normalized_note, existing_id],
-            )
+                    params![normalized_note, existing_id],
+                )
                 .map_err(|error| error.to_string())?;
         }
         return Ok(existing_id);
@@ -4993,32 +5071,46 @@ fn retain_exact_duplicate_candidate_evidence(
     import_id: i64,
     candidate: &NewImportCandidate,
 ) -> AppResult<HistoricalCandidateStoreOutcome> {
-    connection.execute_batch("SAVEPOINT duplicate_candidate_evidence")
+    connection
+        .execute_batch("SAVEPOINT duplicate_candidate_evidence")
         .map_err(|error| error.to_string())?;
     let operation = (|| {
-        let existing_ids = connection.prepare(
-            "SELECT id FROM corporate_action_import_evidence WHERE import_id = ?",
-        ).map_err(|error| error.to_string())?
+        let existing_ids = connection
+            .prepare("SELECT id FROM corporate_action_import_evidence WHERE import_id = ?")
+            .map_err(|error| error.to_string())?
             .query_map([import_id], |row| row.get::<_, i64>(0))
             .map_err(|error| error.to_string())?
-            .collect::<Result<HashSet<_>, _>>().map_err(|error| error.to_string())?;
+            .collect::<Result<HashSet<_>, _>>()
+            .map_err(|error| error.to_string())?;
         // The shared writer updates a matching record's note. A duplicate Fetch
         // must preserve older provenance, including legacy/backfill warnings.
         let mut capture = candidate.clone();
         capture.evidence.note = None;
         let evidence_id = ensure_candidate_import_evidence(
-            connection, import_id, &capture, Some(now_iso().as_str()),
+            connection,
+            import_id,
+            &capture,
+            Some(now_iso().as_str()),
         )?;
         if existing_ids.contains(&evidence_id) {
             return Ok(HistoricalCandidateStoreOutcome::Duplicate { import_id });
         }
-        connection.execute("UPDATE corporate_action_import_evidence SET note = ? WHERE id = ?",
-            params![candidate.evidence.note, evidence_id]).map_err(|error| error.to_string())?;
-        Ok(HistoricalCandidateStoreOutcome::EvidenceAttached { import_id, evidence_id })
+        connection
+            .execute(
+                "UPDATE corporate_action_import_evidence SET note = ? WHERE id = ?",
+                params![candidate.evidence.note, evidence_id],
+            )
+            .map_err(|error| error.to_string())?;
+        Ok(HistoricalCandidateStoreOutcome::EvidenceAttached {
+            import_id,
+            evidence_id,
+        })
     })();
     match operation {
         Ok(outcome) => {
-            if let Err(error) = connection.execute_batch("RELEASE SAVEPOINT duplicate_candidate_evidence") {
+            if let Err(error) =
+                connection.execute_batch("RELEASE SAVEPOINT duplicate_candidate_evidence")
+            {
                 let _ = connection.execute_batch("ROLLBACK TO SAVEPOINT duplicate_candidate_evidence; RELEASE SAVEPOINT duplicate_candidate_evidence");
                 return Err(error.to_string());
             }
@@ -5403,7 +5495,11 @@ fn approve_corporate_action_import_internal(
     verify_import_lookup_database(folder_path, &input.expected_database_path)?;
     let _route_permit = split_bonus_symbol_chain::approval_permit(connection, &[input.import_id])?;
     run_connection_transaction(connection, |connection| {
-        split_bonus_symbol_chain::ensure_permit(connection, &[input.import_id], _route_permit.is_some())?;
+        split_bonus_symbol_chain::ensure_permit(
+            connection,
+            &[input.import_id],
+            _route_permit.is_some(),
+        )?;
         approve_corporate_action_import_without_transaction(
             connection,
             folder_path,
@@ -5814,10 +5910,15 @@ fn strict_quick_resolve_proof(
     // issuer prefix, or attached announcement is not event-date identity proof.
     if let Some(isin) = import_row.isin.as_deref() {
         if has_instrument_isin_history_evidence(
-            connection, &suggestion.exchange, &suggestion.symbol, isin,
+            connection,
+            &suggestion.exchange,
+            &suggestion.symbol,
+            isin,
             import_row.ex_date.as_deref(),
         )? {
-            return Ok(Some(CorporateActionQuickResolveProof::ExactEventDateHistoricalIsin));
+            return Ok(Some(
+                CorporateActionQuickResolveProof::ExactEventDateHistoricalIsin,
+            ));
         }
     }
 
@@ -5855,19 +5956,21 @@ fn strict_quick_resolve_proof(
     // A split that itself changed the equity ISIN: same symbol, same issuer and
     // equity type, plus a current MATCHED local price validation. Never prefix alone.
     if split_isin_price_proof::evaluate(connection, import_row, suggestion)? {
-        return Ok(Some(CorporateActionQuickResolveProof::VerifiedSplitIsinPriceProof));
+        return Ok(Some(
+            CorporateActionQuickResolveProof::VerifiedSplitIsinPriceProof,
+        ));
     }
 
     let transition = match historical_isin_transition::load_verified_historical_isin_transition(
-        connection,
-        import_row,
-        suggestion,
+        connection, import_row, suggestion,
     ) {
         Ok(Some(transition)) => transition,
         Ok(None) => return Ok(None),
         // Ambiguous evidence is a row-level inability to prove identity, not a
         // database failure. Keep this row unavailable without aborting the queue.
-        Err(error) if error.starts_with("Historical ISIN transition proof is ambiguous") => return Ok(None),
+        Err(error) if error.starts_with("Historical ISIN transition proof is ambiguous") => {
+            return Ok(None)
+        }
         Err(error) => return Err(error),
     };
     Ok(Some(
@@ -5900,7 +6003,9 @@ fn quick_resolve_corporate_action_import_internal(
     }
 
     let suggestions = list_resolution_suggestions_for_import_row(connection, &import_row)?;
-    let Some((suggestion, proof)) = unique_proven_identity_suggestion(connection, &import_row, &suggestions)? else {
+    let Some((suggestion, proof)) =
+        unique_proven_identity_suggestion(connection, &import_row, &suggestions)?
+    else {
         return Err("Quick Resolve requires exactly one candidate with exact event-date historical ISIN evidence, a qualifying persisted event-identity resolution, or a verified same-symbol historical-ISIN transition; this row remains manual-review-only.".to_string());
     };
     let (message, decision_type, decision_reason) = match proof {
@@ -6074,7 +6179,6 @@ fn unique_proven_identity_suggestion<'a>(
     }
     Ok(None)
 }
-
 
 fn recheck_corporate_action_imports_internal(
     connection: &Connection,
@@ -6384,10 +6488,12 @@ fn ensure_split_bonus_price_validation(
     allow_exception: bool,
 ) -> AppResult<()> {
     ensure_compound_scan_fingerprint_current(connection, import_row)?;
-    let requires_price_validation = matches!(import_row.action_type.as_str(), "SPLIT" | "BONUS" | "DEMERGER")
-        || (import_row.action_type == "RIGHTS"
-            && import_row.factor.is_some()
-            && import_row.cash_amount.is_none());
+    let requires_price_validation = matches!(
+        import_row.action_type.as_str(),
+        "SPLIT" | "BONUS" | "DEMERGER"
+    ) || (import_row.action_type == "RIGHTS"
+        && import_row.factor.is_some()
+        && import_row.cash_amount.is_none());
     if !requires_price_validation {
         return Ok(());
     }
@@ -6504,7 +6610,6 @@ fn is_split_bonus_validation_current(
     Ok(true)
 }
 
-
 #[cfg(test)]
 fn reconcile_existing_corporate_action_import_internal(
     connection: &Connection,
@@ -6548,16 +6653,12 @@ fn reconcile_existing_corporate_action_import_internal(
         .map(str::trim)
         .filter(|value| !value.is_empty())
         .ok_or_else(|| {
-            "R1-B1 strict existing-event reconciliation requires a stored raw ISIN."
-                .to_string()
+            "R1-B1 strict existing-event reconciliation requires a stored raw ISIN.".to_string()
         })?;
-    let ex_date = import_row
-        .ex_date
-        .as_deref()
-        .ok_or_else(|| {
-            "R1-B1 strict existing-event reconciliation requires a Corporate Action ex-date."
-                .to_string()
-        })?;
+    let ex_date = import_row.ex_date.as_deref().ok_or_else(|| {
+        "R1-B1 strict existing-event reconciliation requires a Corporate Action ex-date."
+            .to_string()
+    })?;
 
     let candidates = load_identity_chain_instrument_candidates(
         connection,
@@ -6667,12 +6768,7 @@ fn reconcile_existing_corporate_action_import_internal(
                 current_target.symbol.as_str(),
                 current_target.symbol.as_str()
             ],
-            |row| {
-                Ok((
-                    row.get::<_, String>(0)?,
-                    row.get::<_, Option<String>>(1)?,
-                ))
-            },
+            |row| Ok((row.get::<_, String>(0)?, row.get::<_, Option<String>>(1)?)),
         )
         .map_err(|error| error.to_string())?
         .collect::<rusqlite::Result<Vec<_>>>()
@@ -6844,7 +6940,6 @@ fn reconcile_existing_corporate_action_import_internal(
     }
 }
 
-
 fn approve_corporate_action_import_without_transaction(
     connection: &Connection,
     folder_path: &Path,
@@ -6897,12 +6992,15 @@ fn approve_corporate_action_import_without_transaction(
         );
     }
 
-    if !allow_isin_mismatch && identity_recheck::machine_identity_is_unproven(connection, &import_row)? {
+    if !allow_isin_mismatch
+        && identity_recheck::machine_identity_is_unproven(connection, &import_row)?
+    {
         return Err("Stored machine identity no longer has verified evidence. Load & Validate must recheck identity before approval.".to_string());
     }
     let verified_target = split_bonus_symbol_chain::verified(connection, folder_path, &import_row)?;
     if split_bonus_symbol_chain::has_decision(connection, import_row.id)?
-        && (allow_isin_mismatch || allow_price_validation_exception || verified_target.is_none()) {
+        && (allow_isin_mismatch || allow_price_validation_exception || verified_target.is_none())
+    {
         return Err("The verified rename route requires ordinary explicit approval with all current proofs.".into());
     }
     split_bonus_preparation::ensure_components_prepared(connection, &import_row)?;
@@ -6913,11 +7011,19 @@ fn approve_corporate_action_import_without_transaction(
     let Some(effective_date) = import_row.ex_date.clone() else {
         return Err("Ex-date is required before approval.".to_string());
     };
-    ensure_official_import_eod_ready(connection, folder_path, &import_row, &symbol, &effective_date)?;
-    if matches!(import_row.action_type.as_str(), "SPLIT" | "BONUS" | "DEMERGER")
-        || (import_row.action_type == "RIGHTS"
-            && import_row.factor.is_some()
-            && import_row.cash_amount.is_none())
+    ensure_official_import_eod_ready(
+        connection,
+        folder_path,
+        &import_row,
+        &symbol,
+        &effective_date,
+    )?;
+    if matches!(
+        import_row.action_type.as_str(),
+        "SPLIT" | "BONUS" | "DEMERGER"
+    ) || (import_row.action_type == "RIGHTS"
+        && import_row.factor.is_some()
+        && import_row.cash_amount.is_none())
     {
         ensure_split_bonus_price_validation(
             connection,
@@ -6927,7 +7033,9 @@ fn approve_corporate_action_import_without_transaction(
         // Metadata/factor freshness alone cannot prove unchanged OHLC bars.
         // Re-read the authoritative EOD window within the approval transaction.
         price_validation_freshness::ensure_scan_uses_current_price_window(
-            connection, folder_path, &import_row,
+            connection,
+            folder_path,
+            &import_row,
         )?;
     }
 
@@ -6953,7 +7061,12 @@ fn approve_corporate_action_import_without_transaction(
         action_type: import_row.action_type.clone(),
         exchange: import_row.exchange.clone(),
         effective_date: effective_date.clone(),
-        symbol: Some(verified_target.as_ref().map(|p| p.target.clone()).unwrap_or_else(|| symbol.clone())),
+        symbol: Some(
+            verified_target
+                .as_ref()
+                .map(|p| p.target.clone())
+                .unwrap_or_else(|| symbol.clone()),
+        ),
         isin: import_row.isin.clone(),
         record_date: import_row.record_date.clone(),
         ratio_num: import_row.ratio_num,
@@ -6966,14 +7079,22 @@ fn approve_corporate_action_import_without_transaction(
         old_name: None,
         new_symbol: None,
         new_name: None,
-        current_symbol: verified_target.as_ref().map(|p| p.target.clone()).or_else(|| import_row.symbol.clone()),
+        current_symbol: verified_target
+            .as_ref()
+            .map(|p| p.target.clone())
+            .or_else(|| import_row.symbol.clone()),
         current_name: import_row.company_name.clone(),
         note: Some(import_row.purpose_raw.clone()),
         source: Some(approved_corporate_action_source(&import_row.source)),
         source_ref: source_ref.clone(),
     };
 
-    let approved = match super::instrument_mutations::apply_official_import_price_adjustment(connection, &payload, folder_path, &import_row) {
+    let approved = match super::instrument_mutations::apply_official_import_price_adjustment(
+        connection,
+        &payload,
+        folder_path,
+        &import_row,
+    ) {
         Ok(result) => result,
         Err(error) if error.contains("already exists") => {
             let existing = match &verified_target {
@@ -6996,9 +7117,9 @@ fn approve_corporate_action_import_without_transaction(
 
     if let Some(expected_factor) = import_row.factor {
         let factor_matches = if matches!(import_row.action_type.as_str(), "DEMERGER" | "RIGHTS") {
-            approved
-                .factor
-                .is_some_and(|actual| (actual - expected_factor).abs() <= 1e-6 * expected_factor.abs().max(1.0))
+            approved.factor.is_some_and(|actual| {
+                (actual - expected_factor).abs() <= 1e-6 * expected_factor.abs().max(1.0)
+            })
         } else {
             approved.factor == Some(expected_factor)
         };
@@ -7143,21 +7264,37 @@ fn get_import_row(connection: &Connection, id: i64) -> AppResult<CorporateAction
 
 // Exact instrument metadata for display only. Minimal historical/test schemas
 // without instruments.is_active leave it unknown; never infer inactivity from an ISIN.
-fn hydrate_import_instrument_activity(connection: &Connection, rows: &mut [CorporateActionImportRow]) -> AppResult<()> {
-    let available: bool = connection.query_row(
-        "SELECT EXISTS(SELECT 1 FROM pragma_table_info('instruments') WHERE name='is_active')",
-        [], |row| row.get(0),
-    ).map_err(|error| error.to_string())?;
-    if !available { return Ok(()); }
-    let mut statement = connection.prepare_cached(
-        "SELECT is_active FROM instruments WHERE symbol=? AND exchange=?",
-    ).map_err(|error| error.to_string())?;
+fn hydrate_import_instrument_activity(
+    connection: &Connection,
+    rows: &mut [CorporateActionImportRow],
+) -> AppResult<()> {
+    let available: bool = connection
+        .query_row(
+            "SELECT EXISTS(SELECT 1 FROM pragma_table_info('instruments') WHERE name='is_active')",
+            [],
+            |row| row.get(0),
+        )
+        .map_err(|error| error.to_string())?;
+    if !available {
+        return Ok(());
+    }
+    let mut statement = connection
+        .prepare_cached("SELECT is_active FROM instruments WHERE symbol=? AND exchange=?")
+        .map_err(|error| error.to_string())?;
     for row in rows {
-        row.instrument_is_active = statement.query_row(
-            params![row.symbol, row.exchange], |result| result.get::<_, Option<i64>>(0),
-        ).optional().map_err(|error| error.to_string())?.flatten().map(|value| value != 0);
+        row.instrument_is_active = statement
+            .query_row(params![row.symbol, row.exchange], |result| {
+                result.get::<_, Option<i64>>(0)
+            })
+            .optional()
+            .map_err(|error| error.to_string())?
+            .flatten()
+            .map(|value| value != 0);
         if row.instrument_is_active == Some(false)
-            && matches!(row.action_type.as_str(), "SPLIT" | "BONUS" | "DEMERGER" | "RIGHTS")
+            && matches!(
+                row.action_type.as_str(),
+                "SPLIT" | "BONUS" | "DEMERGER" | "RIGHTS"
+            )
         {
             let folder = split_isin_price_proof::database_folder(connection)?;
             if matches!(row.action_type.as_str(), "SPLIT" | "BONUS") {
@@ -7371,8 +7508,10 @@ fn build_resolution_hint_for_import_row(
         .iter()
         .filter(|candidate| candidate.is_active)
         .collect::<Vec<_>>();
-    let proven_suggestion = unique_proven_identity_suggestion(connection, import_row, &suggestions)?;
-    let (top_suggestion, quick_resolve_proof) = if let Some((suggestion, proof)) = proven_suggestion {
+    let proven_suggestion =
+        unique_proven_identity_suggestion(connection, import_row, &suggestions)?;
+    let (top_suggestion, quick_resolve_proof) = if let Some((suggestion, proof)) = proven_suggestion
+    {
         (Some(suggestion), Some(proof))
     } else if active_suggestions.len() == 1 {
         (Some(active_suggestions[0]), None)
@@ -7392,7 +7531,12 @@ fn build_resolution_hint_for_import_row(
         )
     } else if let Some(top_suggestion) = top_suggestion {
         (
-            if top_suggestion.is_active { "ONE_ACTIVE" } else { "ONE_HISTORICAL" }.to_string(),
+            if top_suggestion.is_active {
+                "ONE_ACTIVE"
+            } else {
+                "ONE_HISTORICAL"
+            }
+            .to_string(),
             if quick_resolvable {
                 match quick_resolve_proof.as_ref() {
                     Some(CorporateActionQuickResolveProof::VerifiedDatedSymbolChain(_)) => {
@@ -7568,7 +7712,10 @@ fn validate_exact_import_lookup_ids(import_ids: &[i64]) -> AppResult<()> {
     let mut seen = HashSet::new();
     for id in import_ids {
         if *id <= 0 || *id > 9_007_199_254_740_991_i64 || !seen.insert(*id) {
-            return Err("Exact import lookup requires unique positive JavaScript-safe integer IDs.".to_string());
+            return Err(
+                "Exact import lookup requires unique positive JavaScript-safe integer IDs."
+                    .to_string(),
+            );
         }
     }
     Ok(())
@@ -7579,7 +7726,9 @@ fn verify_import_lookup_database(active: &Path, expected: &str) -> AppResult<()>
         return Err("The reviewed database context is missing.".to_string());
     }
     let active_path = active.canonicalize().map_err(|error| error.to_string())?;
-    let expected_path = Path::new(expected).canonicalize().map_err(|error| error.to_string())?;
+    let expected_path = Path::new(expected)
+        .canonicalize()
+        .map_err(|error| error.to_string())?;
     if active_path != expected_path {
         return Err("The active database changed after review. Load & Prepare again.".to_string());
     }
@@ -7593,18 +7742,31 @@ fn read_import_rows_by_ids(
     validate_exact_import_lookup_ids(import_ids)?;
     // One bound primary-key query, same projection/evidence fields as the existing list.
     // No paging, mutation, migration, or omission of approved rows after an Apply.
-    let sql = import_row_sql(&format!("WHERE id IN ({})", super::question_marks(import_ids.len())));
-    let mut statement = connection.prepare(&sql).map_err(|error| error.to_string())?;
+    let sql = import_row_sql(&format!(
+        "WHERE id IN ({})",
+        super::question_marks(import_ids.len())
+    ));
+    let mut statement = connection
+        .prepare(&sql)
+        .map_err(|error| error.to_string())?;
     let mut rows = statement
         .query_map(params_from_iter(import_ids.iter()), map_import_row)
         .map_err(|error| error.to_string())?
         .collect::<Result<Vec<_>, _>>()
         .map_err(|error| error.to_string())?;
     hydrate_import_instrument_activity(connection, &mut rows)?;
-    let mut by_id = rows.into_iter().map(|row| (row.id, row)).collect::<HashMap<_, _>>();
-    import_ids.iter().map(|id| {
-        by_id.remove(id).ok_or_else(|| format!("Exact import lookup is missing reviewed ID {id}. Load & Prepare again."))
-    }).collect()
+    let mut by_id = rows
+        .into_iter()
+        .map(|row| (row.id, row))
+        .collect::<HashMap<_, _>>();
+    import_ids
+        .iter()
+        .map(|id| {
+            by_id.remove(id).ok_or_else(|| {
+                format!("Exact import lookup is missing reviewed ID {id}. Load & Prepare again.")
+            })
+        })
+        .collect()
 }
 
 fn list_import_rows(
@@ -7688,8 +7850,10 @@ fn list_import_rows(
     } else {
         format!("WHERE {}", clauses.join(" AND "))
     };
-    let order = if input.and_then(|value| value.review_status.as_deref())
-        .is_some_and(|status| status.trim().eq_ignore_ascii_case("APPROVED")) {
+    let order = if input
+        .and_then(|value| value.review_status.as_deref())
+        .is_some_and(|status| status.trim().eq_ignore_ascii_case("APPROVED"))
+    {
         "julianday(approved_at) DESC, approved_at DESC, id DESC"
     } else {
         "COALESCE(ex_date, record_date, imported_at) DESC, CASE review_status WHEN 'PENDING' THEN 0 WHEN 'PENDING_ISIN_MISMATCH' THEN 1 WHEN 'UNRESOLVED' THEN 2 WHEN 'NEEDS_REVIEW' THEN 3 WHEN 'UNSUPPORTED' THEN 4 WHEN 'APPROVED' THEN 5 ELSE 6 END, imported_at DESC, id DESC"
@@ -7886,8 +8050,11 @@ fn run_corporate_action_scan_internal(
         let mut statement = connection.prepare(
             "SELECT corporate_action_import_id FROM corporate_action_scan_results WHERE scan_run_id=? AND corporate_action_import_id IS NOT NULL",
         ).map_err(|e| e.to_string())?;
-        let ids = statement.query_map([scan_run_id], |r| r.get::<_, i64>(0))
-            .map_err(|e| e.to_string())?.collect::<Result<Vec<_>, _>>().map_err(|e| e.to_string())?;
+        let ids = statement
+            .query_map([scan_run_id], |r| r.get::<_, i64>(0))
+            .map_err(|e| e.to_string())?
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(|e| e.to_string())?;
         for id in ids {
             let row = get_import_row(connection, id)?;
             split_bonus_symbol_chain::prepare(connection, folder_path, &row)?;
@@ -8839,14 +9006,23 @@ fn scan_candidate(
             // Do not rewrite historical factors or approved adjustments. Even a
             // previously MATCHED price-drop scan cannot supply missing terms.
             return Ok(scan_result_row(
-                scan_run_id, candidate, "REVIEW", None, None, &reason, scanned_at,
+                scan_run_id,
+                candidate,
+                "REVIEW",
+                None,
+                None,
+                &reason,
+                scanned_at,
             ));
         }
     }
     if let (Some(row), Some(expected)) = (&import_row_opt, candidate.factor) {
         if row.approved_corporate_action_id.is_none()
             && matches!(row.action_type.as_str(), "SPLIT" | "BONUS")
-            && !matches!(row.review_status.as_str(), "UNRESOLVED" | REVIEW_STATUS_PENDING_ISIN_MISMATCH)
+            && !matches!(
+                row.review_status.as_str(),
+                "UNRESOLVED" | REVIEW_STATUS_PENDING_ISIN_MISMATCH
+            )
             && expected.is_finite()
             && expected > 0.0
         {
@@ -8910,9 +9086,9 @@ fn scan_candidate(
             && candidate.factor.is_none()
             && row.parse_status != "PARSED"
     });
-    let non_ratio_event = import_row_opt.as_ref().is_some_and(|row| {
-        matches!(row.action_type.as_str(), "DIVIDEND" | "RIGHTS")
-    });
+    let non_ratio_event = import_row_opt
+        .as_ref()
+        .is_some_and(|row| matches!(row.action_type.as_str(), "DIVIDEND" | "RIGHTS"));
     let expected_factor = match candidate.factor {
         Some(factor) if factor.is_finite() && factor > 0.0 => factor,
         _ => {
@@ -8932,12 +9108,11 @@ fn scan_candidate(
         }
     };
 
-    let compound_context =
-        if non_ratio_event || is_demerger || is_unparsed_split_bonus {
-            None
-        } else {
-            load_same_date_split_bonus_compound_context(connection, candidate)?
-        };
+    let compound_context = if non_ratio_event || is_demerger || is_unparsed_split_bonus {
+        None
+    } else {
+        load_same_date_split_bonus_compound_context(connection, candidate)?
+    };
     let validation_factor = compound_context
         .as_ref()
         .map(|context| context.combined_factor)
@@ -8958,7 +9133,13 @@ fn scan_candidate(
     let window_result = if strict_route {
         split_bonus_symbol_chain::trade_window(connection, folder_path, stored.as_ref().unwrap())
     } else {
-        match load_trade_window(connection, folder_path, symbol, &candidate.exchange, ex_date)? {
+        match load_trade_window(
+            connection,
+            folder_path,
+            symbol,
+            &candidate.exchange,
+            ex_date,
+        )? {
             Some(window) => Ok(Some(window)),
             None => match &stored {
                 Some(row) => load_import_trade_window(
@@ -9052,7 +9233,10 @@ fn scan_candidate(
                 scanned_at,
             ));
         };
-        if matches!(row.review_status.as_str(), "UNRESOLVED" | REVIEW_STATUS_PENDING_ISIN_MISMATCH) {
+        if matches!(
+            row.review_status.as_str(),
+            "UNRESOLVED" | REVIEW_STATUS_PENDING_ISIN_MISMATCH
+        ) {
             return Ok(scan_result_row(
                 scan_run_id,
                 candidate,
@@ -9087,7 +9271,11 @@ fn scan_candidate(
             ) {
                 if event_isin != current_isin
                     && !has_instrument_isin_history_evidence(
-                        connection, &candidate.exchange, symbol, &event_isin, Some(ex_date),
+                        connection,
+                        &candidate.exchange,
+                        symbol,
+                        &event_isin,
+                        Some(ex_date),
                     )?
                 {
                     return Ok(scan_result_row(
@@ -9145,7 +9333,9 @@ fn scan_candidate(
                 // f:1 new:old, Bonus (f-1):1); face values are never invented.
                 let (ratio_num, ratio_den, old_fv, new_fv) = match stated.as_ref() {
                     Some(p) => (p.ratio_num, p.ratio_den, p.old_face_value, p.new_face_value),
-                    None if row.action_type == "SPLIT" => (Some(inferred_factor), Some(1.0), None, None),
+                    None if row.action_type == "SPLIT" => {
+                        (Some(inferred_factor), Some(1.0), None, None)
+                    }
                     None => (Some(inferred_factor - 1.0), Some(1.0), None, None),
                 };
                 connection
@@ -9369,7 +9559,12 @@ fn resolve_event_time_historical_price_symbol(
                 )
                 .map_err(|error| error.to_string())?;
             let mut rows = statement
-                .query(params![exchange, root_symbol, current_symbol.as_str(), ex_date])
+                .query(params![
+                    exchange,
+                    root_symbol,
+                    current_symbol.as_str(),
+                    ex_date
+                ])
                 .map_err(|error| error.to_string())?;
             let mut values = Vec::new();
             while let Some(row) = rows.next().map_err(|error| error.to_string())? {
@@ -9411,13 +9606,21 @@ fn ensure_official_import_eod_ready(
     // Reject upcoming ex-dates before attempting any price I/O.
     ensure_import_ex_date_reached(ex_date, &import_row.action_type, today)?;
     let window = load_import_trade_window(
-        connection, folder_path, import_row, symbol, &import_row.exchange, ex_date,
+        connection,
+        folder_path,
+        import_row,
+        symbol,
+        &import_row.exchange,
+        ex_date,
     )?;
     ensure_import_trade_window_ready(window.as_ref(), ex_date, today)
-
 }
 
-fn ensure_import_ex_date_reached(ex_date: &str, action_type: &str, today: NaiveDate) -> AppResult<()> {
+fn ensure_import_ex_date_reached(
+    ex_date: &str,
+    action_type: &str,
+    today: NaiveDate,
+) -> AppResult<()> {
     let ex = NaiveDate::parse_from_str(ex_date, "%Y-%m-%d")
         .map_err(|_| "The official ex-date is invalid.".to_string())?;
     if ex > today {
@@ -9435,32 +9638,55 @@ fn ensure_import_trade_window_ready(
     today: NaiveDate,
 ) -> AppResult<()> {
     let Some((previous, ex_bar)) = window else {
-        return Err("Waiting for EOD Data: cum-date and ex-date trading bars are not both available.".to_string());
+        return Err(
+            "Waiting for EOD Data: cum-date and ex-date trading bars are not both available."
+                .to_string(),
+        );
     };
     let today_iso = today.format("%Y-%m-%d").to_string();
-    if previous.date.as_str() >= ex_date || ex_bar.date.as_str() < ex_date ||
-       ex_bar.date.as_str() > today_iso.as_str() ||
-       !previous.close.is_finite() || previous.close <= 0.0 ||
-       !ex_bar.close.is_finite() || ex_bar.close <= 0.0 {
-        return Err("Waiting for EOD Data: the local trading-close evidence is incomplete or invalid.".to_string());
+    if previous.date.as_str() >= ex_date
+        || ex_bar.date.as_str() < ex_date
+        || ex_bar.date.as_str() > today_iso.as_str()
+        || !previous.close.is_finite()
+        || previous.close <= 0.0
+        || !ex_bar.close.is_finite()
+        || ex_bar.close <= 0.0
+    {
+        return Err(
+            "Waiting for EOD Data: the local trading-close evidence is incomplete or invalid."
+                .to_string(),
+        );
     }
     Ok(())
 }
 
 fn load_import_trade_window(
-    connection: &Connection, folder: &Path, row: &CorporateActionImportRow,
-    symbol: &str, exchange: &str, date: &str,
+    connection: &Connection,
+    folder: &Path,
+    row: &CorporateActionImportRow,
+    symbol: &str,
+    exchange: &str,
+    date: &str,
 ) -> AppResult<Option<(ScannedBar, ScannedBar)>> {
-    if row.symbol.as_deref() != Some(symbol) || row.exchange != exchange || row.ex_date.as_deref() != Some(date) {
+    if row.symbol.as_deref() != Some(symbol)
+        || row.exchange != exchange
+        || row.ex_date.as_deref() != Some(date)
+    {
         return Err("Official event-price lookup context changed.".into());
     }
-    if split_bonus_symbol_chain::has_identity_route(connection,row)? {
-        return split_bonus_symbol_chain::trade_window(connection,folder,row);
+    if split_bonus_symbol_chain::has_identity_route(connection, row)? {
+        return split_bonus_symbol_chain::trade_window(connection, folder, row);
     }
-    let legacy = load_trade_window(connection,folder,symbol,exchange,date)?;
-    let today = chrono::Utc::now().with_timezone(&chrono::FixedOffset::east_opt(19800).unwrap()).date_naive();
-    if legacy.is_some() && ensure_import_trade_window_ready(legacy.as_ref(),date,today).is_ok() { return Ok(legacy); }
-    if let Some(route) = event_price_route::resolve(connection,folder,row)? { return Ok(Some(route.window())); }
+    let legacy = load_trade_window(connection, folder, symbol, exchange, date)?;
+    let today = chrono::Utc::now()
+        .with_timezone(&chrono::FixedOffset::east_opt(19800).unwrap())
+        .date_naive();
+    if legacy.is_some() && ensure_import_trade_window_ready(legacy.as_ref(), date, today).is_ok() {
+        return Ok(legacy);
+    }
+    if let Some(route) = event_price_route::resolve(connection, folder, row)? {
+        return Ok(Some(route.window()));
+    }
     Ok(legacy)
 }
 
@@ -9473,7 +9699,10 @@ fn load_trade_window(
 ) -> AppResult<Option<(ScannedBar, ScannedBar)>> {
     let mode = get_price_storage_mode(connection);
     let binary_path = |target: &str| {
-        folder_path.join("eod_data").join(exchange).join(format!("{target}.eod"))
+        folder_path
+            .join("eod_data")
+            .join(exchange)
+            .join(format!("{target}.eod"))
     };
     if let Some(window) = load_binary_trade_window(folder_path, symbol, exchange, ex_date)? {
         return Ok(Some(window));
@@ -9511,7 +9740,8 @@ fn load_trade_window(
                 )
                 .optional()
                 .map_err(|e| e.to_string())?;
-            if let Some(alt_symbol) = bse_alt_symbol.filter(|alt| !alt.is_empty() && alt != symbol) {
+            if let Some(alt_symbol) = bse_alt_symbol.filter(|alt| !alt.is_empty() && alt != symbol)
+            {
                 if let Some(window) =
                     load_binary_trade_window(folder_path, &alt_symbol, exchange, ex_date)?
                 {
@@ -10169,9 +10399,11 @@ fn parse_corporate_action_purpose(purpose: &str) -> ParsedAction {
     }
 
     if normalized.contains("RIGHT")
-        || ["RHT", "RHTS", "RGHT", "RGTS", "RHGT", "RHS", "RIGTHS", "RIGTS"]
-            .iter()
-            .any(|token| normalized_token_position(&normalized, token).is_some())
+        || [
+            "RHT", "RHTS", "RGHT", "RGTS", "RHGT", "RHS", "RIGTHS", "RIGTS",
+        ]
+        .iter()
+        .any(|token| normalized_token_position(&normalized, token).is_some())
     {
         let ratio = extract_ratio_pair(purpose);
         let issue_price = extract_rights_issue_price(purpose);
@@ -10664,7 +10896,9 @@ fn legacy_purpose_tokens(value: &str) -> Vec<String> {
             while index < chars.len()
                 && (chars[index].is_ascii_digit()
                     || (chars[index] == '.'
-                        && chars.get(index + 1).is_some_and(|next| next.is_ascii_digit())))
+                        && chars
+                            .get(index + 1)
+                            .is_some_and(|next| next.is_ascii_digit())))
             {
                 index += 1;
             }
@@ -10702,10 +10936,17 @@ fn is_legacy_bonus_token(tokens: &[String], index: usize) -> bool {
 /// Only attested glued words and spelling shapes; never mutate stored source text.
 fn canonical_dividend_wording(value: &str) -> String {
     let mut corrected = value.to_string();
-    for (start, matched) in value.to_ascii_uppercase().match_indices("ANNUAL GENERAL ME0ETINGDIVIDEND").collect::<Vec<_>>().into_iter().rev() {
+    for (start, matched) in value
+        .to_ascii_uppercase()
+        .match_indices("ANNUAL GENERAL ME0ETINGDIVIDEND")
+        .collect::<Vec<_>>()
+        .into_iter()
+        .rev()
+    {
         let end = start + matched.len();
         if (start == 0 || !value[..start].ends_with(|c: char| c.is_alphanumeric()))
-            && (end == value.len() || !value[end..].starts_with(|c: char| c.is_alphanumeric())) {
+            && (end == value.len() || !value[end..].starts_with(|c: char| c.is_alphanumeric()))
+        {
             corrected.replace_range(start..end, "Annual General Meetingdividend");
         }
     }
@@ -10727,13 +10968,30 @@ fn canonical_dividend_wording(value: &str) -> String {
             words.next();
         }
         let word = value[start..end].to_ascii_uppercase();
-        let preceding = previous.filter(|(_, prev_end)| value[*prev_end..start].chars().all(char::is_whitespace));
-        let after_interim = preceding.is_some_and(|(prev_start, prev_end)| value[prev_start..prev_end].eq_ignore_ascii_case("INTERIM"));
+        let preceding = previous
+            .filter(|(_, prev_end)| value[*prev_end..start].chars().all(char::is_whitespace));
+        let after_interim = preceding.is_some_and(|(prev_start, prev_end)| {
+            value[prev_start..prev_end].eq_ignore_ascii_case("INTERIM")
+        });
         let replacement = match word.as_str() {
             "INTERIMDIVIDEND" => Some((start, "Interim Dividend")),
-            "MEETINGDIVIDEND" if normalize_text(&value[..start]).split_whitespace().rev().take(2).eq(["GENERAL", "ANNUAL"]) => Some((start, "Meeting Dividend")),
-            "LDIVIDEND" if preceding.is_some_and(|(a, b)| value[a..b].eq_ignore_ascii_case("SPECIA")) => Some((preceding.unwrap().0, "Special Dividend")),
-            "DIVDEND" | "DIVIDNED" | "DIVIDED" | "DIVIDEN" if after_interim => Some((start, "Dividend")),
+            "MEETINGDIVIDEND"
+                if normalize_text(&value[..start])
+                    .split_whitespace()
+                    .rev()
+                    .take(2)
+                    .eq(["GENERAL", "ANNUAL"]) =>
+            {
+                Some((start, "Meeting Dividend"))
+            }
+            "LDIVIDEND"
+                if preceding.is_some_and(|(a, b)| value[a..b].eq_ignore_ascii_case("SPECIA")) =>
+            {
+                Some((preceding.unwrap().0, "Special Dividend"))
+            }
+            "DIVDEND" | "DIVIDNED" | "DIVIDED" | "DIVIDEN" if after_interim => {
+                Some((start, "Dividend"))
+            }
             "DIVIDND" => Some((start, "Dividend")),
             _ => None,
         };
@@ -10755,8 +11013,9 @@ fn canonical_purpose(value: &str) -> String {
     let dividend_wording = canonical_dividend_wording(&meeting_wording);
     let value = dividend_wording.as_str();
     let tokens = legacy_purpose_tokens(value);
-    let triggered = (0..tokens.len())
-        .any(|index| is_legacy_split_token(&tokens, index) || is_legacy_bonus_token(&tokens, index));
+    let triggered = (0..tokens.len()).any(|index| {
+        is_legacy_split_token(&tokens, index) || is_legacy_bonus_token(&tokens, index)
+    });
     if !triggered {
         return value.to_string();
     }
@@ -10785,12 +11044,17 @@ fn canonical_purpose(value: &str) -> String {
 /// Interpret only a whole meeting prefix and an explicitly separated cash clause.
 /// This is parser input only: the official `purpose_raw` remains untouched.
 fn canonical_meeting_dividend(value: &str) -> String {
-    for (index, separator) in value.char_indices().filter(|(_, ch)| matches!(ch, '/' | '-')) {
+    for (index, separator) in value
+        .char_indices()
+        .filter(|(_, ch)| matches!(ch, '/' | '-'))
+    {
         if !informational_closure::is_meeting_purpose(value[..index].trim()) {
             continue;
         }
         let suffix = value[index + separator.len_utf8()..].trim();
-        let word_end = suffix.find(|c: char| !c.is_ascii_alphabetic()).unwrap_or(suffix.len());
+        let word_end = suffix
+            .find(|c: char| !c.is_ascii_alphabetic())
+            .unwrap_or(suffix.len());
         let word = suffix[..word_end].to_ascii_uppercase();
         if informational_closure::within_two_edits(&word, "DIVIDEND") {
             // Drop the meeting prefix from parser input so an ordinal can never
@@ -10799,9 +11063,12 @@ fn canonical_meeting_dividend(value: &str) -> String {
         }
         let normalized = normalize_text(suffix);
         let words = normalized.split_whitespace().collect::<Vec<_>>();
-        if words.len() >= 4 && matches!(words[0], "RE" | "RS")
-            && words[words.len()-2..] == ["PER", "SHARE"]
-            && words[1..words.len()-2].iter().all(|word| word.bytes().all(|c| c.is_ascii_digit()))
+        if words.len() >= 4
+            && matches!(words[0], "RE" | "RS")
+            && words[words.len() - 2..] == ["PER", "SHARE"]
+            && words[1..words.len() - 2]
+                .iter()
+                .all(|word| word.bytes().all(|c| c.is_ascii_digit()))
             && !suffix.contains('%')
             && extract_first_currency_amount(suffix).is_some()
             && extract_numbers(suffix).len() == 1
@@ -10818,7 +11085,9 @@ fn expand_legacy_abbreviations(normalized: &str) -> String {
     let normalized = dividend_wording.as_str();
     let tokens = normalized.split_whitespace().collect::<Vec<_>>();
     let numeric = |index: usize| {
-        tokens.get(index).is_some_and(|token| token.chars().all(|ch| ch.is_ascii_digit()))
+        tokens
+            .get(index)
+            .is_some_and(|token| token.chars().all(|ch| ch.is_ascii_digit()))
     };
     tokens
         .iter()
@@ -11161,14 +11430,14 @@ fn positive_number(value: f64) -> Option<f64> {
 }
 
 #[cfg(test)]
-#[path = "corporate_action_imports/v114x_tests.rs"]
-mod v114x_tests;
+#[path = "corporate_action_imports/v114t_tests.rs"]
+mod v114t_tests;
 #[cfg(test)]
 #[path = "corporate_action_imports/v114w_tests.rs"]
 mod v114w_tests;
 #[cfg(test)]
-#[path = "corporate_action_imports/v114t_tests.rs"]
-mod v114t_tests;
+#[path = "corporate_action_imports/v114x_tests.rs"]
+mod v114x_tests;
 #[cfg(test)]
 #[path = "corporate_action_imports/v114y_tests.rs"]
 mod v114y_tests;
@@ -11199,7 +11468,9 @@ mod tests {
                         // On Windows an accepted socket inherits the listener's
                         // non-blocking mode; reads must block until the request arrives.
                         stream.set_nonblocking(false).unwrap();
-                        stream.set_read_timeout(Some(Duration::from_secs(1))).unwrap();
+                        stream
+                            .set_read_timeout(Some(Duration::from_secs(1)))
+                            .unwrap();
                         // Read the complete header before closing the socket. Closing
                         // with unread request bytes causes Windows to send a reset.
                         let mut request = Vec::new();
@@ -11230,7 +11501,10 @@ mod tests {
         let (url, worker) = bse_test_server(vec![
             "HTTP/1.1 200 OK\r\nContent-Length: 2\r\nConnection: close\r\n\r\n[]",
         ]);
-        assert_eq!(fetch_bse_action_text(&bse_action_fetch_client().unwrap(), &url, true).unwrap(), "[]");
+        assert_eq!(
+            fetch_bse_action_text(&bse_action_fetch_client().unwrap(), &url, true).unwrap(),
+            "[]"
+        );
         assert_eq!(worker.join().unwrap(), 1);
     }
 
@@ -11239,7 +11513,8 @@ mod tests {
         let (url, worker) = bse_test_server(vec![
             "HTTP/1.1 403 Forbidden\r\nContent-Length: 0\r\nConnection: close\r\n\r\n",
         ]);
-        let error = fetch_bse_action_text(&bse_action_fetch_client().unwrap(), &url, true).unwrap_err();
+        let error =
+            fetch_bse_action_text(&bse_action_fetch_client().unwrap(), &url, true).unwrap_err();
         assert!(error.contains("BSE_DIRECT_ACCESS_BLOCKED"));
         assert!(error.contains("API request"));
         assert!(error.contains("HTTP 403"));
@@ -11252,7 +11527,10 @@ mod tests {
             "HTTP/1.1 200 OK\r\nContent-Length: 100\r\nConnection: close\r\n\r\n[",
             "HTTP/1.1 200 OK\r\nContent-Length: 2\r\nConnection: close\r\n\r\n[]",
         ]);
-        assert_eq!(fetch_bse_action_text(&bse_action_fetch_client().unwrap(), &url, true).unwrap(), "[]");
+        assert_eq!(
+            fetch_bse_action_text(&bse_action_fetch_client().unwrap(), &url, true).unwrap(),
+            "[]"
+        );
         assert_eq!(worker.join().unwrap(), 2);
     }
 
@@ -11261,12 +11539,17 @@ mod tests {
     fn bse_action_transport_live_probe() {
         let client = bse_action_fetch_client().unwrap();
         fetch_bse_action_text(&client, BSE_ACTIONS_PAGE_URL, false).unwrap();
-        let today = (chrono::Utc::now() + ChronoDuration::minutes(330)).format("%Y%m%d").to_string();
+        let today = (chrono::Utc::now() + ChronoDuration::minutes(330))
+            .format("%Y%m%d")
+            .to_string();
         let url = format!("{BSE_ACTIONS_API_URL}?scripcode=&Fdate={today}&Purposecode=&TDate={today}&ddlcategorys=E&ddlindustrys=&segment=0&strSearch=S");
         let text = fetch_bse_action_text(&client, &url, true).unwrap();
         let rows: Value = serde_json::from_str(&text).unwrap();
         assert!(rows.is_array());
-        println!("Live BSE official JSON rows: {}", rows.as_array().unwrap().len());
+        println!(
+            "Live BSE official JSON rows: {}",
+            rows.as_array().unwrap().len()
+        );
     }
 
     #[test]
@@ -11276,29 +11559,52 @@ mod tests {
         let other = tempfile::tempdir().unwrap();
         let expected = reviewed.path().to_string_lossy().to_string();
         let single = CorporateActionImportApprovalInput {
-            import_id: 1, expected_database_path: expected.clone(),
+            import_id: 1,
+            expected_database_path: expected.clone(),
         };
         let bulk = CorporateActionImportBulkApprovalInput {
-            import_ids: vec![1], expected_database_path: expected.clone(),
+            import_ids: vec![1],
+            expected_database_path: expected.clone(),
         };
         let exceptional = CorporateActionImportExceptionalApprovalInput {
-            import_id: 1, reason: "Reviewed official evidence.".to_string(),
+            import_id: 1,
+            reason: "Reviewed official evidence.".to_string(),
             expected_database_path: expected,
         };
         // No schema: a successful guard must fail before any import lookup/write.
         for error in [
-            approve_corporate_action_import_internal(&connection, other.path(), &single).unwrap_err(),
-            approve_corporate_action_imports_internal(&connection, other.path(), &bulk).unwrap_err(),
-            approve_recommended_corporate_action_isin_mismatches_internal(&connection, other.path(), &bulk).unwrap_err(),
-            approve_corporate_action_import_with_isin_mismatch_internal(&connection, other.path(), &exceptional).unwrap_err(),
-            approve_corporate_action_import_with_price_validation_exception_internal(&connection, other.path(), &exceptional).unwrap_err(),
+            approve_corporate_action_import_internal(&connection, other.path(), &single)
+                .unwrap_err(),
+            approve_corporate_action_imports_internal(&connection, other.path(), &bulk)
+                .unwrap_err(),
+            approve_recommended_corporate_action_isin_mismatches_internal(
+                &connection,
+                other.path(),
+                &bulk,
+            )
+            .unwrap_err(),
+            approve_corporate_action_import_with_isin_mismatch_internal(
+                &connection,
+                other.path(),
+                &exceptional,
+            )
+            .unwrap_err(),
+            approve_corporate_action_import_with_price_validation_exception_internal(
+                &connection,
+                other.path(),
+                &exceptional,
+            )
+            .unwrap_err(),
         ] {
             assert!(error.contains("active database changed"), "{error}");
         }
         assert!(connection.is_autocommit());
-        assert!(serde_json::from_value::<CorporateActionImportBulkApprovalInput>(
-            serde_json::json!({"importIds": [1]})
-        ).is_err());
+        assert!(
+            serde_json::from_value::<CorporateActionImportBulkApprovalInput>(
+                serde_json::json!({"importIds": [1]})
+            )
+            .is_err()
+        );
     }
 
     fn create_import_evidence_table(connection: &Connection) {
@@ -12106,13 +12412,26 @@ mod tests {
             ("Bon 1:1/Fv Spl Rs.5tors.2", 2.5, 2.0),
             ("Fv Spl-10 To 5 / Bon 1:2", 2.0, 1.5),
             // PR #25 review: the `/-` currency suffix must not split the purpose.
-            ("Bonus 1:1 / Fv Splt Frm Rs 10/- Per Share To Rs 5/- Per Share", 2.0, 2.0),
+            (
+                "Bonus 1:1 / Fv Splt Frm Rs 10/- Per Share To Rs 5/- Per Share",
+                2.0,
+                2.0,
+            ),
         ] {
             let whole = parse_corporate_action_purpose(purpose);
             assert_eq!(whole.parse_status, "NEEDS_REVIEW", "{purpose}");
-            assert!(whole.message.as_deref().unwrap_or_default().contains("Multiple corporate-action types"));
+            assert!(whole
+                .message
+                .as_deref()
+                .unwrap_or_default()
+                .contains("Multiple corporate-action types"));
             let parts = split_bonus_preparation::components(purpose).expect(purpose);
-            let factor = |kind: &str| parts.iter().find(|p| p.action_type == kind).and_then(|p| p.factor);
+            let factor = |kind: &str| {
+                parts
+                    .iter()
+                    .find(|p| p.action_type == kind)
+                    .and_then(|p| p.factor)
+            };
             assert_eq!(factor("SPLIT"), Some(split_factor), "{purpose}");
             assert_eq!(factor("BONUS"), Some(bonus_factor), "{purpose}");
         }
@@ -12129,9 +12448,19 @@ mod tests {
         ] {
             assert_eq!(canonical_purpose(purpose), purpose, "{purpose}");
         }
-        assert_ne!(parse_corporate_action_purpose("Spl Div Rs 5 Per Share").action_type, "SPLIT");
-        assert_ne!(parse_corporate_action_purpose("Bon 1 Dvr : 20 Eq Shares").action_type, "BONUS");
-        assert!(detected_corporate_action_families(&normalize_text("Spl Div Rs 5")).iter().all(|f| f != "SPLIT"));
+        assert_ne!(
+            parse_corporate_action_purpose("Spl Div Rs 5 Per Share").action_type,
+            "SPLIT"
+        );
+        assert_ne!(
+            parse_corporate_action_purpose("Bon 1 Dvr : 20 Eq Shares").action_type,
+            "BONUS"
+        );
+        assert!(
+            detected_corporate_action_families(&normalize_text("Spl Div Rs 5"))
+                .iter()
+                .all(|f| f != "SPLIT")
+        );
     }
 
     #[test]
@@ -12152,25 +12481,60 @@ mod tests {
         ] {
             let parsed = parse_corporate_action_purpose(purpose);
             assert_eq!(parsed.action_type, "DIVIDEND", "{purpose}");
-            if cash > 0.0 { assert_eq!(parsed.cash_amount, Some(cash), "{purpose}"); }
-            else { assert_eq!(parsed.parse_status, "NEEDS_REVIEW"); }
-            assert!(detected_corporate_action_families(&normalize_text(purpose)).iter().any(|kind| kind == "DIVIDEND"), "{purpose}");
+            if cash > 0.0 {
+                assert_eq!(parsed.cash_amount, Some(cash), "{purpose}");
+            } else {
+                assert_eq!(parsed.parse_status, "NEEDS_REVIEW");
+            }
+            assert!(
+                detected_corporate_action_families(&normalize_text(purpose))
+                    .iter()
+                    .any(|kind| kind == "DIVIDEND"),
+                "{purpose}"
+            );
         }
-        for purpose in ["Interim Divided Assets", "Dividend Yield", "Interim Dividnedness", "Notinterimdividend Rs 5", "Othermeetingdividend Rs 3", "Semiannual General Meetingdividend Rs 3", "General Meetingdividend Rs 4", "Ldividend Rs 5", "Final Divided Rs 3", "Specia Ldividendary Rs 2"] {
+        for purpose in [
+            "Interim Divided Assets",
+            "Dividend Yield",
+            "Interim Dividnedness",
+            "Notinterimdividend Rs 5",
+            "Othermeetingdividend Rs 3",
+            "Semiannual General Meetingdividend Rs 3",
+            "General Meetingdividend Rs 4",
+            "Ldividend Rs 5",
+            "Final Divided Rs 3",
+            "Specia Ldividendary Rs 2",
+        ] {
             // Only the exact Interim Divided spelling is expanded, even without
             // cash; missing financial terms must remain unready.
             if purpose == "Interim Divided Assets" {
-                assert_eq!(parse_corporate_action_purpose(purpose).parse_status, "NEEDS_REVIEW");
+                assert_eq!(
+                    parse_corporate_action_purpose(purpose).parse_status,
+                    "NEEDS_REVIEW"
+                );
             } else {
                 assert_eq!(canonical_purpose(purpose), purpose, "{purpose}");
             }
         }
-        for purpose in ["Interim Dividnedness Rs 1", "Notinterimdividend Rs 5", "General Meetingdividend Rs 4", "Semiannual General Meetingdividend Rs 3", "Final Divided Rs 3"] {
-            assert_eq!(parse_corporate_action_purpose(purpose).action_type, "OTHER", "{purpose}");
+        for purpose in [
+            "Interim Dividnedness Rs 1",
+            "Notinterimdividend Rs 5",
+            "General Meetingdividend Rs 4",
+            "Semiannual General Meetingdividend Rs 3",
+            "Final Divided Rs 3",
+        ] {
+            assert_eq!(
+                parse_corporate_action_purpose(purpose).action_type,
+                "OTHER",
+                "{purpose}"
+            );
         }
         let combined = parse_corporate_action_purpose("Bonus 1:1 / Interimdividend Rs 2");
         assert_eq!(combined.parse_status, "NEEDS_REVIEW");
-        assert!(combined.message.unwrap().contains("Multiple corporate-action types"));
+        assert!(combined
+            .message
+            .unwrap()
+            .contains("Multiple corporate-action types"));
     }
 
     #[test]
@@ -12185,16 +12549,36 @@ mod tests {
         assert_eq!(parsed.cash_amount, Some(0.85));
         assert_eq!(parsed.parse_status, "PARSED");
         assert_eq!(get_import_row(&c, 1).unwrap().purpose_raw, purpose);
-        for purpose in ["Annual General Meeting- Re Per Share", "Annual Gemeral Meeting/Dividend"] {
-            assert_eq!(parse_corporate_action_purpose(purpose).cash_amount, None, "{purpose}");
+        for purpose in [
+            "Annual General Meeting- Re Per Share",
+            "Annual Gemeral Meeting/Dividend",
+        ] {
+            assert_eq!(
+                parse_corporate_action_purpose(purpose).cash_amount,
+                None,
+                "{purpose}"
+            );
         }
-        assert_eq!(c.query_row("SELECT count(*) FROM corporate_actions", [], |r| r.get::<_, i64>(0)).unwrap(), 0);
+        assert_eq!(
+            c.query_row("SELECT count(*) FROM corporate_actions", [], |r| r
+                .get::<_, i64>(0))
+                .unwrap(),
+            0
+        );
     }
 
     #[test]
     fn ca_nse_remaining_meeting_cash_parser_preserves_source() {
-        for meeting in ["Annual General Meeting", "Annaul General Meting", "Entra Ordinary General Meetin", "AGM", "25th AGM"] {
-            for word in ["Dividend", "Divided", "Dividen", "Ivdend", "Divdend", "Dividnd"] {
+        for meeting in [
+            "Annual General Meeting",
+            "Annaul General Meting",
+            "Entra Ordinary General Meetin",
+            "AGM",
+            "25th AGM",
+        ] {
+            for word in [
+                "Dividend", "Divided", "Dividen", "Ivdend", "Divdend", "Dividnd",
+            ] {
                 for separator in ["/", "-"] {
                     let purpose = format!("{meeting} {separator} {word} - Re 0.50 Per Share");
                     let parsed = parse_corporate_action_purpose(&purpose);
@@ -12209,14 +12593,24 @@ mod tests {
                 assert_eq!(parsed.parse_status, "NEEDS_REVIEW", "{purpose}");
             }
         }
-        for purpose in ["Annual General Meeting / Rs 2.5 Per Share", "Extra-Ordinary General Meeting - Re. 0.50/- Per Share"] {
+        for purpose in [
+            "Annual General Meeting / Rs 2.5 Per Share",
+            "Extra-Ordinary General Meeting - Re. 0.50/- Per Share",
+        ] {
             let parsed = parse_corporate_action_purpose(purpose);
             assert_eq!(parsed.action_type, "DIVIDEND", "{purpose}");
             assert!(parsed.cash_amount.is_some(), "{purpose}");
         }
-        for purpose in ["General Meeting Rs 2 Per Share", "Other / Divided Rs 2", "General Meeting / Ivdendary Rs 2",
-            "General Meeting / Rs Per Share", "General Meeting / Rs 2 Per Unit", "General Meeting / Rs 2% Per Share",
-            "Annual General Xeeing / Divided Rs 2", "General Meeting / Rs 0 Per Share"] {
+        for purpose in [
+            "General Meeting Rs 2 Per Share",
+            "Other / Divided Rs 2",
+            "General Meeting / Ivdendary Rs 2",
+            "General Meeting / Rs Per Share",
+            "General Meeting / Rs 2 Per Unit",
+            "General Meeting / Rs 2% Per Share",
+            "Annual General Xeeing / Divided Rs 2",
+            "General Meeting / Rs 0 Per Share",
+        ] {
             assert_eq!(canonical_meeting_dividend(purpose), purpose, "{purpose}");
         }
         let c = Connection::open_in_memory().unwrap();
@@ -12224,9 +12618,17 @@ mod tests {
         let purpose = "Annaul General Meting/Ivdend Re 0.50 Per Share";
         c.execute("INSERT INTO corporate_action_imports(dedupe_key,exchange,source,symbol,purpose_raw,action_type,review_status) VALUES ('meeting-money','NSE','NSE_API','MEETINGCO',?,'OTHER','UNSUPPORTED')", [purpose]).unwrap();
         let row = get_import_row(&c, 1).unwrap();
-        assert_eq!(parse_corporate_action_purpose(&row.purpose_raw).cash_amount, Some(0.5));
+        assert_eq!(
+            parse_corporate_action_purpose(&row.purpose_raw).cash_amount,
+            Some(0.5)
+        );
         assert_eq!(get_import_row(&c, 1).unwrap().purpose_raw, purpose);
-        assert_eq!(c.query_row("SELECT count(*) FROM corporate_actions", [], |r| r.get::<_, i64>(0)).unwrap(), 0);
+        assert_eq!(
+            c.query_row("SELECT count(*) FROM corporate_actions", [], |r| r
+                .get::<_, i64>(0))
+                .unwrap(),
+            0
+        );
     }
 
     #[test]
@@ -12241,11 +12643,27 @@ mod tests {
         assert_eq!(first.purpose_raw, purpose);
         assert_eq!(first.review_status, "PENDING");
         assert_eq!(first.approved_corporate_action_id, None);
-        c.execute("UPDATE corporate_action_imports SET exchange='BSE' WHERE id=1", []).unwrap();
-        assert_eq!(list_import_rows(&c, None).unwrap()[0].instrument_is_active, Some(true));
-        c.execute("UPDATE corporate_action_imports SET symbol='MISSING' WHERE id=1", []).unwrap();
+        c.execute(
+            "UPDATE corporate_action_imports SET exchange='BSE' WHERE id=1",
+            [],
+        )
+        .unwrap();
+        assert_eq!(
+            list_import_rows(&c, None).unwrap()[0].instrument_is_active,
+            Some(true)
+        );
+        c.execute(
+            "UPDATE corporate_action_imports SET symbol='MISSING' WHERE id=1",
+            [],
+        )
+        .unwrap();
         assert_eq!(get_import_row(&c, 1).unwrap().instrument_is_active, None);
-        assert_eq!(c.query_row("SELECT count(*) FROM corporate_actions", [], |r| r.get::<_, i64>(0)).unwrap(), 0);
+        assert_eq!(
+            c.query_row("SELECT count(*) FROM corporate_actions", [], |r| r
+                .get::<_, i64>(0))
+                .unwrap(),
+            0
+        );
     }
 
     #[test]
@@ -12353,8 +12771,7 @@ mod tests {
 
     #[test]
     fn parses_consolidation_ratio_and_reverse_split() {
-        let ratio_1_to_5 =
-            parse_corporate_action_purpose("Consolidation in the ratio of 1:5");
+        let ratio_1_to_5 = parse_corporate_action_purpose("Consolidation in the ratio of 1:5");
         assert_eq!(ratio_1_to_5.action_type, "SPLIT");
         assert_eq!(ratio_1_to_5.parse_status, "PARSED");
         assert_eq!(ratio_1_to_5.ratio_num, Some(1.0));
@@ -12362,8 +12779,7 @@ mod tests {
         assert_eq!(ratio_1_to_5.factor, Some(0.2));
         assert_eq!(ratio_1_to_5.price_factor, Some(5.0));
 
-        let ratio_10_to_1_swapped =
-            parse_corporate_action_purpose("Consolidation of shares 10:1");
+        let ratio_10_to_1_swapped = parse_corporate_action_purpose("Consolidation of shares 10:1");
         assert_eq!(ratio_10_to_1_swapped.action_type, "SPLIT");
         assert_eq!(ratio_10_to_1_swapped.parse_status, "PARSED");
         assert_eq!(ratio_10_to_1_swapped.ratio_num, Some(1.0));
@@ -12371,8 +12787,7 @@ mod tests {
         assert_eq!(ratio_10_to_1_swapped.factor, Some(0.1));
         assert_eq!(ratio_10_to_1_swapped.price_factor, Some(10.0));
 
-        let rev_split =
-            parse_corporate_action_purpose("Reverse Split in the ratio of 1:10");
+        let rev_split = parse_corporate_action_purpose("Reverse Split in the ratio of 1:10");
         assert_eq!(rev_split.action_type, "SPLIT");
         assert_eq!(rev_split.parse_status, "PARSED");
         assert_eq!(rev_split.ratio_num, Some(1.0));
@@ -12785,19 +13200,40 @@ mod tests {
     fn duplicate_fetch_evidence_recovers_missing_witness_and_repeats_without_writes() {
         let (c, candidate, import_id) = duplicate_fetch_evidence_fixture();
         // Model an old build that kept the import but did not retain evidence.
-        c.execute("DELETE FROM corporate_action_import_evidence WHERE import_id=?",[import_id]).unwrap();
+        c.execute(
+            "DELETE FROM corporate_action_import_evidence WHERE import_id=?",
+            [import_id],
+        )
+        .unwrap();
         c.execute_batch("CREATE TEMP TRIGGER duplicate_no_import_update BEFORE UPDATE ON corporate_action_imports
             BEGIN SELECT RAISE(ABORT,'import changes forbidden'); END;").unwrap();
-        let outcome = store_import_candidate_evidence_aware(&c,&candidate).unwrap();
-        assert!(matches!(outcome,HistoricalCandidateStoreOutcome::EvidenceAttached { import_id: id, .. } if id==import_id));
-        let row = get_import_row(&c,import_id).unwrap();
-        assert_eq!(row.evidence_count,1);
-        assert_eq!(row.latest_evidence_note,candidate.evidence.note);
-        let before: i64 = c.query_row("SELECT total_changes()",[],|r|r.get(0)).unwrap();
-        assert!(matches!(store_import_candidate_evidence_aware(&c,&candidate).unwrap(),HistoricalCandidateStoreOutcome::Duplicate { import_id: id } if id==import_id));
-        assert_eq!(before,c.query_row("SELECT total_changes()",[],|r|r.get::<_,i64>(0)).unwrap());
-        assert_eq!(get_import_row(&c,import_id).unwrap().evidence_count,1);
-        assert_eq!(c.query_row("SELECT count(*) FROM corporate_action_imports",[],|r|r.get::<_,i64>(0)).unwrap(),1);
+        let outcome = store_import_candidate_evidence_aware(&c, &candidate).unwrap();
+        assert!(
+            matches!(outcome,HistoricalCandidateStoreOutcome::EvidenceAttached { import_id: id, .. } if id==import_id)
+        );
+        let row = get_import_row(&c, import_id).unwrap();
+        assert_eq!(row.evidence_count, 1);
+        assert_eq!(row.latest_evidence_note, candidate.evidence.note);
+        let before: i64 = c
+            .query_row("SELECT total_changes()", [], |r| r.get(0))
+            .unwrap();
+        assert!(
+            matches!(store_import_candidate_evidence_aware(&c,&candidate).unwrap(),HistoricalCandidateStoreOutcome::Duplicate { import_id: id } if id==import_id)
+        );
+        assert_eq!(
+            before,
+            c.query_row("SELECT total_changes()", [], |r| r.get::<_, i64>(0))
+                .unwrap()
+        );
+        assert_eq!(get_import_row(&c, import_id).unwrap().evidence_count, 1);
+        assert_eq!(
+            c.query_row("SELECT count(*) FROM corporate_action_imports", [], |r| r
+                .get::<_, i64>(
+                0
+            ))
+            .unwrap(),
+            1
+        );
     }
 
     #[test]
@@ -12808,30 +13244,52 @@ mod tests {
         c.execute_batch("CREATE TEMP TRIGGER duplicate_no_import_update BEFORE UPDATE ON corporate_action_imports
             BEGIN SELECT RAISE(ABORT,'approved import changes forbidden'); END;").unwrap();
         let old: (i64,String,Option<String>) = c.query_row("SELECT id,captured_at,note FROM corporate_action_import_evidence WHERE import_id=?",[import_id],|r|Ok((r.get(0)?,r.get(1)?,r.get(2)?))).unwrap();
-        assert!(matches!(store_import_candidate_evidence_aware(&c,&candidate).unwrap(),HistoricalCandidateStoreOutcome::Duplicate { .. }));
+        assert!(matches!(
+            store_import_candidate_evidence_aware(&c, &candidate).unwrap(),
+            HistoricalCandidateStoreOutcome::Duplicate { .. }
+        ));
         let mut fresh = candidate.clone();
-        fresh.evidence.source_locator = Some("https://www.nseindia.com/verified-refetch".to_string());
-        let outcome = store_import_candidate_evidence_aware(&c,&fresh).unwrap();
-        let HistoricalCandidateStoreOutcome::EvidenceAttached { evidence_id, .. } = outcome else { panic!("Fresh source evidence was discarded") };
-        let retained: (i64,String,Option<String>) = c.query_row("SELECT id,captured_at,note FROM corporate_action_import_evidence WHERE id=?",[old.0],|r|Ok((r.get(0)?,r.get(1)?,r.get(2)?))).unwrap();
-        assert_eq!(old,retained);
-        let fresh_note: Option<String> = c.query_row("SELECT note FROM corporate_action_import_evidence WHERE id=?",[evidence_id],|r|r.get(0)).unwrap();
-        assert_eq!(fresh_note,fresh.evidence.note);
-        let row = get_import_row(&c,import_id).unwrap();
-        assert_eq!(row.evidence_count,2);
-        assert_eq!(row.review_status,"APPROVED");
-        assert_eq!(row.approved_at.as_deref(),Some("2026-08-20"));
+        fresh.evidence.source_locator =
+            Some("https://www.nseindia.com/verified-refetch".to_string());
+        let outcome = store_import_candidate_evidence_aware(&c, &fresh).unwrap();
+        let HistoricalCandidateStoreOutcome::EvidenceAttached { evidence_id, .. } = outcome else {
+            panic!("Fresh source evidence was discarded")
+        };
+        let retained: (i64, String, Option<String>) = c
+            .query_row(
+                "SELECT id,captured_at,note FROM corporate_action_import_evidence WHERE id=?",
+                [old.0],
+                |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)),
+            )
+            .unwrap();
+        assert_eq!(old, retained);
+        let fresh_note: Option<String> = c
+            .query_row(
+                "SELECT note FROM corporate_action_import_evidence WHERE id=?",
+                [evidence_id],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert_eq!(fresh_note, fresh.evidence.note);
+        let row = get_import_row(&c, import_id).unwrap();
+        assert_eq!(row.evidence_count, 2);
+        assert_eq!(row.review_status, "APPROVED");
+        assert_eq!(row.approved_at.as_deref(), Some("2026-08-20"));
     }
 
     #[test]
     fn duplicate_fetch_evidence_rolls_back_when_new_note_cannot_be_saved() {
-        let (c,candidate,import_id) = duplicate_fetch_evidence_fixture();
-        c.execute("DELETE FROM corporate_action_import_evidence WHERE import_id=?",[import_id]).unwrap();
+        let (c, candidate, import_id) = duplicate_fetch_evidence_fixture();
+        c.execute(
+            "DELETE FROM corporate_action_import_evidence WHERE import_id=?",
+            [import_id],
+        )
+        .unwrap();
         c.execute_batch("CREATE TEMP TRIGGER duplicate_fail_note BEFORE UPDATE OF note ON corporate_action_import_evidence
             WHEN NEW.note IS NOT NULL BEGIN SELECT RAISE(ABORT,'injected evidence note failure'); END;").unwrap();
-        let error = store_import_candidate_evidence_aware(&c,&candidate).unwrap_err();
+        let error = store_import_candidate_evidence_aware(&c, &candidate).unwrap_err();
         assert!(error.contains("injected evidence note failure"));
-        assert_eq!(get_import_row(&c,import_id).unwrap().evidence_count,0);
+        assert_eq!(get_import_row(&c, import_id).unwrap().evidence_count, 0);
         assert!(c.is_autocommit());
     }
 
@@ -13169,15 +13627,31 @@ mod tests {
         assert_eq!(rows[1].symbol.as_deref(), Some("OLDER"));
         // Approval history is independently chronological, not ex-date sorted.
         connection.execute_batch("UPDATE corporate_action_imports SET review_status='APPROVED', approved_at=CASE symbol WHEN 'OLDER' THEN '2026-10-24T14:00:00+00:00' ELSE '2026-10-24T18:00:00+05:30' END;").unwrap();
-        let approved = list_import_rows(&connection, Some(&CorporateActionImportListInput {
-            review_status: Some("APPROVED".into()), action_types: None, search_query: None,
-            exclude_approved: None, limit: Some(50), offset: None,
-        })).unwrap();
+        let approved = list_import_rows(
+            &connection,
+            Some(&CorporateActionImportListInput {
+                review_status: Some("APPROVED".into()),
+                action_types: None,
+                search_query: None,
+                exclude_approved: None,
+                limit: Some(50),
+                offset: None,
+            }),
+        )
+        .unwrap();
         assert_eq!(approved[0].symbol.as_deref(), Some("OLDER"));
-        let next = list_import_rows(&connection, Some(&CorporateActionImportListInput {
-            review_status: Some("APPROVED".into()), action_types: None, search_query: None,
-            exclude_approved: None, limit: Some(50), offset: Some(1),
-        })).unwrap();
+        let next = list_import_rows(
+            &connection,
+            Some(&CorporateActionImportListInput {
+                review_status: Some("APPROVED".into()),
+                action_types: None,
+                search_query: None,
+                exclude_approved: None,
+                limit: Some(50),
+                offset: Some(1),
+            }),
+        )
+        .unwrap();
         assert_eq!(next.len(), 1);
         assert_eq!(next[0].symbol.as_deref(), Some("NEWER"));
     }
@@ -13353,9 +13827,9 @@ mod tests {
         );
     }
 
-
     #[test]
-    fn exact_active_nse_symbol_with_historical_isin_ambiguous_inactive_matches_preserves_source_symbol() {
+    fn exact_active_nse_symbol_with_historical_isin_ambiguous_inactive_matches_preserves_source_symbol(
+    ) {
         let connection = Connection::open_in_memory().unwrap();
         create_nse_resolution_tables(&connection);
 
@@ -13423,7 +13897,6 @@ mod tests {
             .unwrap_or_default()
             .contains("historical ISIN drift"));
     }
-
 
     #[test]
     fn exact_active_nse_symbol_with_historical_isin_ambiguous_active_matches_remains_unresolved() {
@@ -14145,10 +14618,11 @@ mod tests {
         assert_eq!(result.import_record.symbol, row.symbol);
         assert_eq!(result.import_record.isin, row.isin);
         assert_eq!(result.import_record.approved_corporate_action_id, None);
-        assert!(
-            !identity_recheck::machine_identity_is_unproven(&connection, &result.import_record)
-                .unwrap()
-        );
+        assert!(!identity_recheck::machine_identity_is_unproven(
+            &connection,
+            &result.import_record
+        )
+        .unwrap());
         assert_eq!(
             connection
                 .query_row(
@@ -14201,7 +14675,8 @@ mod tests {
         let connection = Connection::open_in_memory().unwrap();
         let candidate = create_auto_id1_verified_rename_pair(&connection);
         let row = get_import_row(&connection, candidate.import_id).unwrap();
-        let mut suggestions = list_resolution_suggestions_for_import_row(&connection, &row).unwrap();
+        let mut suggestions =
+            list_resolution_suggestions_for_import_row(&connection, &row).unwrap();
         let mut extra = suggestions.iter().find(|s| !s.is_active).unwrap().clone();
         extra.symbol = "UNRELATED".to_string();
         connection.execute("INSERT INTO instrument_isin_history(exchange,symbol,isin,effective_date) VALUES (?,'UNRELATED',?,?)",
@@ -14223,7 +14698,8 @@ mod tests {
         let connection = Connection::open_in_memory().unwrap();
         let candidate = create_auto_id1_verified_event_fixture(&connection);
         let import_row = get_import_row(&connection, candidate.import_id).unwrap();
-        let suggestions = list_resolution_suggestions_for_import_row(&connection, &import_row).unwrap();
+        let suggestions =
+            list_resolution_suggestions_for_import_row(&connection, &import_row).unwrap();
         let active = suggestions
             .iter()
             .filter(|row| row.is_active)
@@ -14234,7 +14710,10 @@ mod tests {
         let hint = build_resolution_hint_for_import_row(&connection, &import_row).unwrap();
         assert_eq!(hint.status, "ONE_ACTIVE");
         assert!(hint.quick_resolvable);
-        assert_eq!(hint.top_suggestion_symbol.as_deref(), Some(candidate.raw_symbol.as_str()));
+        assert_eq!(
+            hint.top_suggestion_symbol.as_deref(),
+            Some(candidate.raw_symbol.as_str())
+        );
         assert!(hint.message.contains("persisted V1.14D.1"));
     }
 
@@ -14250,7 +14729,10 @@ mod tests {
         )
         .unwrap();
 
-        assert_eq!(result.import_record.symbol.as_deref(), Some(candidate.raw_symbol.as_str()));
+        assert_eq!(
+            result.import_record.symbol.as_deref(),
+            Some(candidate.raw_symbol.as_str())
+        );
         assert_eq!(result.import_record.isin, candidate.raw_isin);
         assert_eq!(result.import_record.review_status, "PENDING");
         assert!(result.message.contains("persisted V1.14D.1"));
@@ -14429,10 +14911,19 @@ mod tests {
     #[test]
     fn historical_isin_transition_hint_accepts_strict_pretransition_dividend() {
         let connection = Connection::open_in_memory().unwrap();
-        create_historical_isin_transition_fixture(&connection, "2012-07-26", "DIVIDEND", "UNRESOLVED");
+        create_historical_isin_transition_fixture(
+            &connection,
+            "2012-07-26",
+            "DIVIDEND",
+            "UNRESOLVED",
+        );
         let import_row = get_import_row(&connection, 1).unwrap();
-        let suggestions = list_resolution_suggestions_for_import_row(&connection, &import_row).unwrap();
-        let active = suggestions.iter().filter(|row| row.is_active).collect::<Vec<_>>();
+        let suggestions =
+            list_resolution_suggestions_for_import_row(&connection, &import_row).unwrap();
+        let active = suggestions
+            .iter()
+            .filter(|row| row.is_active)
+            .collect::<Vec<_>>();
         assert_eq!(active.len(), 1);
         assert_eq!(active[0].symbol, "20MICRONS");
         assert!(!active[0].has_event_date_isin_evidence);
@@ -14480,10 +14971,7 @@ mod tests {
 
     #[test]
     fn mismatch_without_verified_pretransition_proof_stays_blocked() {
-        for (event_date, action_type) in [
-            ("2014-07-26", "DIVIDEND"),
-            ("2012-07-26", "RIGHTS"),
-        ] {
+        for (event_date, action_type) in [("2014-07-26", "DIVIDEND"), ("2012-07-26", "RIGHTS")] {
             let connection = Connection::open_in_memory().unwrap();
             create_historical_isin_transition_fixture(
                 &connection,
@@ -14522,22 +15010,37 @@ mod tests {
     fn historical_isin_transition_resolves_proven_inactive_split_bonus_without_reactivation() {
         for action in ["SPLIT", "BONUS"] {
             let c = Connection::open_in_memory().unwrap();
-            create_historical_isin_transition_fixture(&c,"2012-07-26",action,"UNRESOLVED");
-            c.execute("UPDATE instruments SET is_active=0",[]).unwrap();
-            let hint = build_resolution_hint_for_import_row(&c,&get_import_row(&c,1).unwrap()).unwrap();
-            assert_eq!(hint.status,"ONE_HISTORICAL");
+            create_historical_isin_transition_fixture(&c, "2012-07-26", action, "UNRESOLVED");
+            c.execute("UPDATE instruments SET is_active=0", []).unwrap();
+            let hint =
+                build_resolution_hint_for_import_row(&c, &get_import_row(&c, 1).unwrap()).unwrap();
+            assert_eq!(hint.status, "ONE_HISTORICAL");
             assert!(hint.quick_resolvable);
-            let result = quick_resolve_corporate_action_import_internal(&c,&CorporateActionImportQuickResolveInput{import_id:1}).unwrap();
-            assert_eq!(result.import_record.review_status,"PENDING");
+            let result = quick_resolve_corporate_action_import_internal(
+                &c,
+                &CorporateActionImportQuickResolveInput { import_id: 1 },
+            )
+            .unwrap();
+            assert_eq!(result.import_record.review_status, "PENDING");
             assert!(result.import_record.approved_corporate_action_id.is_none());
-            assert_eq!(c.query_row("SELECT max(is_active) FROM instruments",[],|r|r.get::<_,i64>(0)).unwrap(),0);
+            assert_eq!(
+                c.query_row("SELECT max(is_active) FROM instruments", [], |r| r
+                    .get::<_, i64>(0))
+                    .unwrap(),
+                0
+            );
         }
     }
 
     #[test]
     fn historical_isin_transition_quick_resolve_sets_pending_and_audits_without_approval() {
         let connection = Connection::open_in_memory().unwrap();
-        create_historical_isin_transition_fixture(&connection, "2010-08-12", "DIVIDEND", "UNRESOLVED");
+        create_historical_isin_transition_fixture(
+            &connection,
+            "2010-08-12",
+            "DIVIDEND",
+            "UNRESOLVED",
+        );
 
         let result = quick_resolve_corporate_action_import_internal(
             &connection,
@@ -14576,14 +15079,21 @@ mod tests {
     #[test]
     fn historical_isin_transition_exact_transition_date_remains_existing_exact_date_proof() {
         let connection = Connection::open_in_memory().unwrap();
-        create_historical_isin_transition_fixture(&connection, "2013-01-28", "DIVIDEND", "UNRESOLVED");
+        create_historical_isin_transition_fixture(
+            &connection,
+            "2013-01-28",
+            "DIVIDEND",
+            "UNRESOLVED",
+        );
 
         let result = quick_resolve_corporate_action_import_internal(
             &connection,
             &CorporateActionImportQuickResolveInput { import_id: 1 },
         )
         .unwrap();
-        assert!(result.message.contains("exact event-date historical ISIN evidence"));
+        assert!(result
+            .message
+            .contains("exact event-date historical ISIN evidence"));
         let decision_type: String = connection
             .query_row(
                 "SELECT decision_type FROM corporate_action_import_decisions WHERE import_id=1",
@@ -14597,7 +15107,12 @@ mod tests {
     #[test]
     fn historical_isin_transition_rejects_posttransition_stale_isin() {
         let connection = Connection::open_in_memory().unwrap();
-        create_historical_isin_transition_fixture(&connection, "2017-12-05", "DIVIDEND", "UNRESOLVED");
+        create_historical_isin_transition_fixture(
+            &connection,
+            "2017-12-05",
+            "DIVIDEND",
+            "UNRESOLVED",
+        );
         let import_row = get_import_row(&connection, 1).unwrap();
         let hint = build_resolution_hint_for_import_row(&connection, &import_row).unwrap();
         assert!(!hint.quick_resolvable);
@@ -14612,28 +15127,49 @@ mod tests {
     #[test]
     fn historical_isin_transition_requires_approved_split_link() {
         let connection = Connection::open_in_memory().unwrap();
-        create_historical_isin_transition_fixture(&connection, "2011-08-04", "DIVIDEND", "UNRESOLVED");
+        create_historical_isin_transition_fixture(
+            &connection,
+            "2011-08-04",
+            "DIVIDEND",
+            "UNRESOLVED",
+        );
         connection
             .execute(
                 "UPDATE corporate_action_imports SET review_status='UNRESOLVED', approved_corporate_action_id=NULL WHERE id=2",
                 [],
             )
             .unwrap();
-        let hint = build_resolution_hint_for_import_row(&connection, &get_import_row(&connection, 1).unwrap()).unwrap();
+        let hint = build_resolution_hint_for_import_row(
+            &connection,
+            &get_import_row(&connection, 1).unwrap(),
+        )
+        .unwrap();
         assert!(!hint.quick_resolvable);
     }
 
     #[test]
     fn historical_isin_transition_requires_bootstrap_and_verified_quick_decisions() {
         let connection = Connection::open_in_memory().unwrap();
-        create_historical_isin_transition_fixture(&connection, "2011-08-04", "DIVIDEND", "UNRESOLVED");
+        create_historical_isin_transition_fixture(
+            &connection,
+            "2011-08-04",
+            "DIVIDEND",
+            "UNRESOLVED",
+        );
         connection
             .execute(
                 "DELETE FROM corporate_action_import_decisions WHERE import_id=2 AND decision_type='HISTORICAL_ISIN_BOOTSTRAP_V1_9_2'",
                 [],
             )
             .unwrap();
-        assert!(!build_resolution_hint_for_import_row(&connection, &get_import_row(&connection, 1).unwrap()).unwrap().quick_resolvable);
+        assert!(
+            !build_resolution_hint_for_import_row(
+                &connection,
+                &get_import_row(&connection, 1).unwrap()
+            )
+            .unwrap()
+            .quick_resolvable
+        );
 
         connection.execute(
             "INSERT INTO corporate_action_import_decisions (import_id, decision_type, previous_symbol, previous_exchange, previous_isin, resolved_symbol, resolved_exchange, resolved_isin, reason) VALUES (2, 'HISTORICAL_ISIN_BOOTSTRAP_V1_9_2', '20MICRONS', 'NSE', 'INE144J01019', '20MICRONS', 'NSE', 'INE144J01019', 'V1.9.2 exact-date historical ISIN evidence bootstrap; tuple=NSE:20MICRONS:2013-01-28:INE144J01019->INE144J01027;')",
@@ -14645,33 +15181,74 @@ mod tests {
                 [],
             )
             .unwrap();
-        assert!(!build_resolution_hint_for_import_row(&connection, &get_import_row(&connection, 1).unwrap()).unwrap().quick_resolvable);
+        assert!(
+            !build_resolution_hint_for_import_row(
+                &connection,
+                &get_import_row(&connection, 1).unwrap()
+            )
+            .unwrap()
+            .quick_resolvable
+        );
     }
 
     #[test]
     fn historical_isin_transition_requires_exact_transition_history_and_current_isin_match() {
         let connection = Connection::open_in_memory().unwrap();
-        create_historical_isin_transition_fixture(&connection, "2012-07-26", "DIVIDEND", "UNRESOLVED");
+        create_historical_isin_transition_fixture(
+            &connection,
+            "2012-07-26",
+            "DIVIDEND",
+            "UNRESOLVED",
+        );
         connection
-            .execute("DELETE FROM instrument_isin_history WHERE symbol='20MICRONS'", [])
+            .execute(
+                "DELETE FROM instrument_isin_history WHERE symbol='20MICRONS'",
+                [],
+            )
             .unwrap();
-        assert!(!build_resolution_hint_for_import_row(&connection, &get_import_row(&connection, 1).unwrap()).unwrap().quick_resolvable);
+        assert!(
+            !build_resolution_hint_for_import_row(
+                &connection,
+                &get_import_row(&connection, 1).unwrap()
+            )
+            .unwrap()
+            .quick_resolvable
+        );
 
         connection.execute(
             "INSERT INTO instrument_isin_history (exchange,symbol,isin,effective_date) VALUES ('NSE','20MICRONS','INE144J01019','2013-01-28')",
             [],
         ).unwrap();
         connection
-            .execute("UPDATE corporate_actions SET isin='INE144J01099' WHERE id=100", [])
+            .execute(
+                "UPDATE corporate_actions SET isin='INE144J01099' WHERE id=100",
+                [],
+            )
             .unwrap();
-        assert!(!build_resolution_hint_for_import_row(&connection, &get_import_row(&connection, 1).unwrap()).unwrap().quick_resolvable);
+        assert!(
+            !build_resolution_hint_for_import_row(
+                &connection,
+                &get_import_row(&connection, 1).unwrap()
+            )
+            .unwrap()
+            .quick_resolvable
+        );
     }
 
     #[test]
     fn historical_isin_transition_does_not_bypass_unproven_isin_mismatch_or_other_action() {
         let connection = Connection::open_in_memory().unwrap();
-        create_historical_isin_transition_fixture(&connection, "2017-12-05", "DIVIDEND", "PENDING_ISIN_MISMATCH");
-        let hint = build_resolution_hint_for_import_row(&connection, &get_import_row(&connection, 1).unwrap()).unwrap();
+        create_historical_isin_transition_fixture(
+            &connection,
+            "2017-12-05",
+            "DIVIDEND",
+            "PENDING_ISIN_MISMATCH",
+        );
+        let hint = build_resolution_hint_for_import_row(
+            &connection,
+            &get_import_row(&connection, 1).unwrap(),
+        )
+        .unwrap();
         assert!(!hint.quick_resolvable);
         let error = quick_resolve_corporate_action_import_internal(
             &connection,
@@ -14686,21 +15263,40 @@ mod tests {
                 [],
             )
             .unwrap();
-        assert!(!build_resolution_hint_for_import_row(&connection, &get_import_row(&connection, 1).unwrap()).unwrap().quick_resolvable);
+        assert!(
+            !build_resolution_hint_for_import_row(
+                &connection,
+                &get_import_row(&connection, 1).unwrap()
+            )
+            .unwrap()
+            .quick_resolvable
+        );
     }
 
     #[test]
     fn historical_isin_transition_requires_same_symbol_current_target() {
         let connection = Connection::open_in_memory().unwrap();
-        create_historical_isin_transition_fixture(&connection, "2012-07-26", "DIVIDEND", "UNRESOLVED");
+        create_historical_isin_transition_fixture(
+            &connection,
+            "2012-07-26",
+            "DIVIDEND",
+            "UNRESOLVED",
+        );
         connection
-            .execute("UPDATE corporate_action_imports SET symbol='OLD20' WHERE id=1", [])
+            .execute(
+                "UPDATE corporate_action_imports SET symbol='OLD20' WHERE id=1",
+                [],
+            )
             .unwrap();
         connection.execute(
             "INSERT INTO instrument_identity_history (exchange, isin, current_symbol, current_name, old_symbol, new_symbol, effective_date, change_type) VALUES ('NSE','INE144J01019','20MICRONS','20 Microns Limited','OLD20','20MICRONS','2013-01-28','SYMBOL_CHANGE')",
             [],
         ).unwrap();
-        let hint = build_resolution_hint_for_import_row(&connection, &get_import_row(&connection, 1).unwrap()).unwrap();
+        let hint = build_resolution_hint_for_import_row(
+            &connection,
+            &get_import_row(&connection, 1).unwrap(),
+        )
+        .unwrap();
         assert_eq!(hint.active_suggestion_count, 1);
         assert!(!hint.quick_resolvable);
     }
@@ -14708,7 +15304,12 @@ mod tests {
     #[test]
     fn historical_isin_transition_fails_closed_on_multiple_verified_transitions() {
         let connection = Connection::open_in_memory().unwrap();
-        create_historical_isin_transition_fixture(&connection, "2010-08-12", "DIVIDEND", "UNRESOLVED");
+        create_historical_isin_transition_fixture(
+            &connection,
+            "2010-08-12",
+            "DIVIDEND",
+            "UNRESOLVED",
+        );
         connection.execute_batch(
             "
             INSERT INTO corporate_actions (id,symbol,exchange,isin,effective_date,action_type)
@@ -14739,7 +15340,11 @@ mod tests {
         )
         .unwrap();
         assert!(!hint.quick_resolvable);
-        assert!(quick_resolve_corporate_action_import_internal(&connection,&CorporateActionImportQuickResolveInput{import_id:1}).is_err());
+        assert!(quick_resolve_corporate_action_import_internal(
+            &connection,
+            &CorporateActionImportQuickResolveInput { import_id: 1 }
+        )
+        .is_err());
     }
 
     #[test]
@@ -16259,8 +16864,9 @@ mod tests {
     #[test]
     fn ca_normal_targeted_eod_scan_includes_dividends_and_rights_without_factors() {
         let connection = Connection::open_in_memory().unwrap();
-        connection.execute_batch(
-            "CREATE TABLE corporate_action_imports (
+        connection
+            .execute_batch(
+                "CREATE TABLE corporate_action_imports (
                id INTEGER PRIMARY KEY, symbol TEXT, exchange TEXT, ex_date TEXT,
                factor REAL, action_type TEXT, parse_status TEXT
              );
@@ -16268,7 +16874,8 @@ mod tests {
                (1,'SPLIT_A','NSE','2026-08-14',2,'SPLIT','PARSED'),
                (2,'DIV_A','NSE','2026-08-14',NULL,'DIVIDEND','PARSED'),
                (3,'RIGHT_A','NSE','2026-08-14',NULL,'RIGHTS','PARSED');",
-        ).unwrap();
+            )
+            .unwrap();
         let targeted = load_scan_candidates(&connection, Some(&[2, 3])).unwrap();
         assert_eq!(targeted.len(), 2);
         assert!(targeted.iter().all(|candidate| candidate.factor.is_none()));
@@ -16308,9 +16915,11 @@ mod tests {
             (5, "NEEDS_REVIEW", None),
         ] {
             let candidate = ScanCandidate {
-                import_id: id, symbol: Some(if id == 5 { "LEGACY" } else { "TEST" }.into()),
+                import_id: id,
+                symbol: Some(if id == 5 { "LEGACY" } else { "TEST" }.into()),
                 exchange: "NSE".into(),
-                ex_date: Some("2022-07-14".into()), factor,
+                ex_date: Some("2022-07-14".into()),
+                factor,
             };
             let scan = scan_candidate(&connection, folder.path(), 1, &candidate).unwrap();
             assert_eq!(scan.scan_status, "REVIEW");
@@ -16319,16 +16928,26 @@ mod tests {
                 assert_eq!(scan.expected_factor, None);
                 assert_eq!(scan.message.as_deref(), Some(DEMERGER_AUTHORITY_REQUIRED));
             } else if id == 5 {
-                assert!(scan.message.as_deref().unwrap().contains("Verify the historical ISIN"));
+                assert!(scan
+                    .message
+                    .as_deref()
+                    .unwrap()
+                    .contains("Verify the historical ISIN"));
             }
             let row = get_import_row(&connection, id).unwrap();
             assert_eq!(row.review_status, status);
             assert_eq!(row.factor, factor);
         }
-        for (identity_exception, price_exception) in [(false, false), (true, false), (false, true)] {
+        for (identity_exception, price_exception) in [(false, false), (true, false), (false, true)]
+        {
             let error = approve_corporate_action_import_without_transaction(
-                &connection, folder.path(), 3, identity_exception, price_exception,
-            ).unwrap_err();
+                &connection,
+                folder.path(),
+                3,
+                identity_exception,
+                price_exception,
+            )
+            .unwrap_err();
             assert_eq!(error, DEMERGER_AUTHORITY_REQUIRED);
         }
         assert_eq!(phase6e_total_changes(&connection), changes);
@@ -16339,8 +16958,13 @@ mod tests {
         ).unwrap();
         let changes = phase6e_total_changes(&connection);
         let result = approve_corporate_action_import_without_transaction(
-            &connection, folder.path(), 3, false, false,
-        ).unwrap();
+            &connection,
+            folder.path(),
+            3,
+            false,
+            false,
+        )
+        .unwrap();
         assert_eq!(result.import_record.approved_corporate_action_id, Some(42));
         assert!(result.approved_record.is_none());
         assert_eq!(phase6e_total_changes(&connection), changes);
@@ -16350,8 +16974,9 @@ mod tests {
     fn rights_safety_stale_eod_factors_cannot_scan_or_approve_without_terms() {
         let connection = Connection::open_in_memory().unwrap();
         create_nse_resolution_tables(&connection);
-        connection.execute_batch(
-            "INSERT INTO corporate_action_imports
+        connection
+            .execute_batch(
+                "INSERT INTO corporate_action_imports
              (id, dedupe_key, source, symbol, purpose_raw, ex_date, action_type,
               ratio_num, ratio_den, factor, price_factor, parse_status, review_status)
              VALUES (1, 'rights-safety', 'NSE_API', 'RIGHT_A', 'Rights 1:4',
@@ -16359,20 +16984,30 @@ mod tests {
              CREATE TABLE eod_prices (symbol TEXT, exchange TEXT, date TEXT, open REAL, close REAL);
              INSERT INTO eod_prices VALUES
                ('RIGHT_A', 'NSE', '2026-08-13', 100, 100),
-               ('RIGHT_A', 'NSE', '2026-08-14', 80, 80);"
-        ).unwrap();
+               ('RIGHT_A', 'NSE', '2026-08-14', 80, 80);",
+            )
+            .unwrap();
         let candidate = ScanCandidate {
-            import_id: 1, symbol: Some("RIGHT_A".into()), exchange: "NSE".into(),
-            ex_date: Some("2026-08-14".into()), factor: Some(1.15),
+            import_id: 1,
+            symbol: Some("RIGHT_A".into()),
+            exchange: "NSE".into(),
+            ex_date: Some("2026-08-14".into()),
+            factor: Some(1.15),
         };
         let changes = phase6e_total_changes(&connection);
         let scan = scan_candidate(&connection, Path::new("."), 1, &candidate).unwrap();
         assert_eq!(scan.scan_status, "REVIEW");
         assert!(scan.message.unwrap().contains("Awaiting official Rights"));
-        for (identity_exception, price_exception) in [(false, false), (true, false), (false, true)] {
+        for (identity_exception, price_exception) in [(false, false), (true, false), (false, true)]
+        {
             let error = approve_corporate_action_import_without_transaction(
-                &connection, Path::new("."), 1, identity_exception, price_exception,
-            ).unwrap_err();
+                &connection,
+                Path::new("."),
+                1,
+                identity_exception,
+                price_exception,
+            )
+            .unwrap_err();
             assert!(error.contains("Awaiting official Rights"), "{error}");
         }
         assert_eq!(phase6e_total_changes(&connection), changes);
@@ -16388,8 +17023,13 @@ mod tests {
         ).unwrap();
         let changes = phase6e_total_changes(&connection);
         let result = approve_corporate_action_import_without_transaction(
-            &connection, Path::new("."), 1, false, false,
-        ).unwrap();
+            &connection,
+            Path::new("."),
+            1,
+            false,
+            false,
+        )
+        .unwrap();
         assert!(result.approved_record.is_none());
         assert_eq!(result.import_record.approved_corporate_action_id, Some(42));
         assert_eq!(result.import_record.factor, Some(1.15));
@@ -16468,24 +17108,33 @@ mod tests {
     #[test]
     fn ca_financial_integrity_binary_only_scan_rejects_orphan_sqlite_prices() {
         let connection = Connection::open_in_memory().unwrap();
-        connection.execute_batch(
-            "CREATE TABLE settings (key TEXT PRIMARY KEY, value TEXT NOT NULL);
+        connection
+            .execute_batch(
+                "CREATE TABLE settings (key TEXT PRIMARY KEY, value TEXT NOT NULL);
              INSERT INTO settings(key, value) VALUES ('price_storage_mode', 'binary');
              CREATE TABLE eod_prices (symbol TEXT, exchange TEXT, date TEXT, open REAL, close REAL);
              INSERT INTO eod_prices VALUES
                ('CA_BINARY_ONLY', 'NSE', '2026-08-13', 100, 100),
                ('CA_BINARY_ONLY', 'NSE', '2026-08-14', 50, 50);",
-        ).unwrap();
+            )
+            .unwrap();
         let folder = std::env::temp_dir();
-        assert!(load_trade_window(
-            &connection, &folder, "CA_BINARY_ONLY", "NSE", "2026-08-14"
-        ).unwrap().is_none());
-        connection.execute(
-            "UPDATE settings SET value='hybrid' WHERE key='price_storage_mode'", [],
-        ).unwrap();
-        assert!(load_trade_window(
-            &connection, &folder, "CA_BINARY_ONLY", "NSE", "2026-08-14"
-        ).unwrap().is_some());
+        assert!(
+            load_trade_window(&connection, &folder, "CA_BINARY_ONLY", "NSE", "2026-08-14")
+                .unwrap()
+                .is_none()
+        );
+        connection
+            .execute(
+                "UPDATE settings SET value='hybrid' WHERE key='price_storage_mode'",
+                [],
+            )
+            .unwrap();
+        assert!(
+            load_trade_window(&connection, &folder, "CA_BINARY_ONLY", "NSE", "2026-08-14")
+                .unwrap()
+                .is_some()
+        );
     }
 
     #[test]
@@ -16931,27 +17580,57 @@ mod tests {
             ).unwrap();
         }
         connection.execute("INSERT INTO corporate_action_import_evidence(import_id,source_code,source_locator,captured_at,note) VALUES (3,'NSE','fixture-only','2026-09-01','test evidence')", []).unwrap();
-        connection.pragma_update(None,"query_only",true).unwrap();
-        let before: i64 = connection.query_row("SELECT total_changes()",[],|r|r.get(0)).unwrap();
-        let schema_before: i64 = connection.query_row("PRAGMA schema_version",[],|r|r.get(0)).unwrap();
-        let result = read_import_rows_by_ids(&connection, &[3,1]).unwrap();
-        assert_eq!(result.iter().map(|r|r.id).collect::<Vec<_>>(), vec![3,1]);
-        assert_eq!(result[0].evidence_count,1);
-        assert_eq!(result[0].evidence_sources,vec!["NSE"]);
-        assert_eq!(result[0].latest_evidence_source_locator.as_deref(),Some("fixture-only"));
-        assert_eq!(result[0].latest_evidence_note.as_deref(),Some("test evidence"));
-        let original = get_import_row(&connection,3).unwrap();
-        assert_eq!(serde_json::to_value(&result[0]).unwrap(),serde_json::to_value(&original).unwrap());
-        assert_eq!(connection.query_row("SELECT total_changes()",[],|r|r.get::<_,i64>(0)).unwrap(),before);
-        assert_eq!(connection.query_row("PRAGMA schema_version",[],|r|r.get::<_,i64>(0)).unwrap(),schema_before);
+        connection.pragma_update(None, "query_only", true).unwrap();
+        let before: i64 = connection
+            .query_row("SELECT total_changes()", [], |r| r.get(0))
+            .unwrap();
+        let schema_before: i64 = connection
+            .query_row("PRAGMA schema_version", [], |r| r.get(0))
+            .unwrap();
+        let result = read_import_rows_by_ids(&connection, &[3, 1]).unwrap();
+        assert_eq!(result.iter().map(|r| r.id).collect::<Vec<_>>(), vec![3, 1]);
+        assert_eq!(result[0].evidence_count, 1);
+        assert_eq!(result[0].evidence_sources, vec!["NSE"]);
+        assert_eq!(
+            result[0].latest_evidence_source_locator.as_deref(),
+            Some("fixture-only")
+        );
+        assert_eq!(
+            result[0].latest_evidence_note.as_deref(),
+            Some("test evidence")
+        );
+        let original = get_import_row(&connection, 3).unwrap();
+        assert_eq!(
+            serde_json::to_value(&result[0]).unwrap(),
+            serde_json::to_value(&original).unwrap()
+        );
+        assert_eq!(
+            connection
+                .query_row("SELECT total_changes()", [], |r| r.get::<_, i64>(0))
+                .unwrap(),
+            before
+        );
+        assert_eq!(
+            connection
+                .query_row("PRAGMA schema_version", [], |r| r.get::<_, i64>(0))
+                .unwrap(),
+            schema_before
+        );
     }
 
     #[test]
     fn ca_ux_fix2_exact_lookup_invalid_ids_fail_before_any_query() {
         let connection = Connection::open_in_memory().unwrap(); // Deliberately no schema.
-        for ids in [vec![],vec![0],vec![-1],vec![1,1],vec![9_007_199_254_740_992_i64],(1_i64..=101).collect()] {
-            let message=read_import_rows_by_ids(&connection,&ids).unwrap_err();
-            assert!(message.contains("Exact import lookup"),"{message}");
+        for ids in [
+            vec![],
+            vec![0],
+            vec![-1],
+            vec![1, 1],
+            vec![9_007_199_254_740_992_i64],
+            (1_i64..=101).collect(),
+        ] {
+            let message = read_import_rows_by_ids(&connection, &ids).unwrap_err();
+            assert!(message.contains("Exact import lookup"), "{message}");
             assert!(!message.contains("no such table"));
         }
         assert!(validate_exact_import_lookup_ids(&(1_i64..=100).collect::<Vec<_>>()).is_ok());
@@ -16961,9 +17640,16 @@ mod tests {
     fn ca_ux_fix2_exact_lookup_missing_id_fails_closed() {
         let connection = Connection::open_in_memory().unwrap();
         create_nse_resolution_tables(&connection);
-        connection.pragma_update(None,"query_only",true).unwrap();
-        assert!(read_import_rows_by_ids(&connection,&[999]).unwrap_err().contains("missing"));
-        assert_eq!(connection.query_row("SELECT total_changes()",[],|r|r.get::<_,i64>(0)).unwrap(),0);
+        connection.pragma_update(None, "query_only", true).unwrap();
+        assert!(read_import_rows_by_ids(&connection, &[999])
+            .unwrap_err()
+            .contains("missing"));
+        assert_eq!(
+            connection
+                .query_row("SELECT total_changes()", [], |r| r.get::<_, i64>(0))
+                .unwrap(),
+            0
+        );
     }
 
     #[test]
@@ -16971,34 +17657,49 @@ mod tests {
         let connection = Connection::open_in_memory().unwrap();
         create_nse_resolution_tables(&connection);
         connection.execute("INSERT INTO corporate_action_imports(id,dedupe_key,source,symbol,purpose_raw,review_status,approved_corporate_action_id) VALUES (1,'one','OFFICIAL','ONE','Dividend','APPROVED',42)",[]).unwrap();
-        connection.pragma_update(None,"query_only",true).unwrap();
-        let result=read_import_rows_by_ids(&connection,&[1]).unwrap();
-        assert_eq!(result[0].review_status,"APPROVED");
-        assert_eq!(result[0].approved_corporate_action_id,Some(42));
+        connection.pragma_update(None, "query_only", true).unwrap();
+        let result = read_import_rows_by_ids(&connection, &[1]).unwrap();
+        assert_eq!(result[0].review_status, "APPROVED");
+        assert_eq!(result[0].approved_corporate_action_id, Some(42));
     }
 
     #[test]
     fn ca_ux_fix2_other_filter_includes_other_and_demerger_without_reclassification() {
         let connection = Connection::open_in_memory().unwrap();
         create_nse_resolution_tables(&connection);
-        for (id,action) in [(1_i64,"OTHER"),(2,"DEMERGER"),(3,"DIVIDEND")] {
+        for (id, action) in [(1_i64, "OTHER"), (2, "DEMERGER"), (3, "DIVIDEND")] {
             connection.execute("INSERT INTO corporate_action_imports(id,dedupe_key,source,purpose_raw,action_type) VALUES (?1,?2,'OFFICIAL','fixture',?3)",params![id,format!("key{id}"),action]).unwrap();
         }
-        let input=CorporateActionImportListInput{ review_status:None,action_types:Some(vec!["OTHER".to_string(),"DEMERGER".to_string()]), search_query:None,exclude_approved:Some(true),limit:Some(100),offset:None };
-        let mut types=list_import_rows(&connection,Some(&input)).unwrap().into_iter().map(|r|r.action_type).collect::<Vec<_>>();
-        types.sort();assert_eq!(types,vec!["DEMERGER","OTHER"]);
+        let input = CorporateActionImportListInput {
+            review_status: None,
+            action_types: Some(vec!["OTHER".to_string(), "DEMERGER".to_string()]),
+            search_query: None,
+            exclude_approved: Some(true),
+            limit: Some(100),
+            offset: None,
+        };
+        let mut types = list_import_rows(&connection, Some(&input))
+            .unwrap()
+            .into_iter()
+            .map(|r| r.action_type)
+            .collect::<Vec<_>>();
+        types.sort();
+        assert_eq!(types, vec!["DEMERGER", "OTHER"]);
     }
 
     #[test]
     fn ca_ux_fix2_lookup_database_context_is_pinned() {
-        let active=tempfile::tempdir().unwrap();
-        let different=tempfile::tempdir().unwrap();
-        assert!(verify_import_lookup_database(active.path(),active.path().to_str().unwrap()).is_ok());
-        assert!(verify_import_lookup_database(active.path(),different.path().to_str().unwrap()).is_err());
-        assert!(verify_import_lookup_database(active.path(),"").is_err());
+        let active = tempfile::tempdir().unwrap();
+        let different = tempfile::tempdir().unwrap();
+        assert!(
+            verify_import_lookup_database(active.path(), active.path().to_str().unwrap()).is_ok()
+        );
+        assert!(
+            verify_import_lookup_database(active.path(), different.path().to_str().unwrap())
+                .is_err()
+        );
+        assert!(verify_import_lookup_database(active.path(), "").is_err());
     }
-
-
 
     fn create_r1b1_existing_event_fixture(connection: &Connection) {
         create_nse_resolution_tables(connection);
@@ -17089,15 +17790,21 @@ mod tests {
         let connection = Connection::open_in_memory().unwrap();
         create_r1b1_existing_event_fixture(&connection);
         let before_actions: i64 = connection
-            .query_row("SELECT COUNT(*) FROM corporate_actions", [], |row| row.get(0))
+            .query_row("SELECT COUNT(*) FROM corporate_actions", [], |row| {
+                row.get(0)
+            })
             .unwrap();
         let result = reconcile_existing_corporate_action_import_internal(&connection, 1).unwrap();
         assert_eq!(result.import_record.review_status, "APPROVED");
         assert_eq!(result.import_record.approved_corporate_action_id, Some(235));
         assert!(result.approved_record.is_none());
-        assert!(result.message.contains("strict existing-event identity reconciliation"));
+        assert!(result
+            .message
+            .contains("strict existing-event identity reconciliation"));
         let after_actions: i64 = connection
-            .query_row("SELECT COUNT(*) FROM corporate_actions", [], |row| row.get(0))
+            .query_row("SELECT COUNT(*) FROM corporate_actions", [], |row| {
+                row.get(0)
+            })
             .unwrap();
         assert_eq!(after_actions, before_actions);
         let (raw_isin, decision_type): (Option<String>, String) = connection
@@ -17146,47 +17853,72 @@ mod tests {
             ) VALUES ('NSE','INE884A01035','ALTGLOBAL','Alternate Global','VAIBHAVGEM','ALTGLOBAL','2013-01-01','BOTH');
             "
         ).unwrap();
-        let error = reconcile_existing_corporate_action_import_internal(&connection, 1).unwrap_err();
-        assert!(error.contains("exactly one active current identity target"), "{error}");
-        assert_eq!(get_import_row(&connection, 1).unwrap().review_status, "UNRESOLVED");
+        let error =
+            reconcile_existing_corporate_action_import_internal(&connection, 1).unwrap_err();
+        assert!(
+            error.contains("exactly one active current identity target"),
+            "{error}"
+        );
+        assert_eq!(
+            get_import_row(&connection, 1).unwrap().review_status,
+            "UNRESOLVED"
+        );
     }
 
     #[test]
     fn r1b1_requires_one_direct_predecessor_edge_with_old_isin() {
         let connection = Connection::open_in_memory().unwrap();
         create_r1b1_existing_event_fixture(&connection);
-        connection.execute("DELETE FROM instrument_identity_history", []).unwrap();
-        let error = reconcile_existing_corporate_action_import_internal(&connection, 1).unwrap_err();
-        assert!(error.contains("direct predecessor identity edge"), "{error}");
+        connection
+            .execute("DELETE FROM instrument_identity_history", [])
+            .unwrap();
+        let error =
+            reconcile_existing_corporate_action_import_internal(&connection, 1).unwrap_err();
+        assert!(
+            error.contains("direct predecessor identity edge"),
+            "{error}"
+        );
     }
 
     #[test]
     fn r1b1_rejects_transition_after_event_date() {
         let connection = Connection::open_in_memory().unwrap();
         create_r1b1_existing_event_fixture(&connection);
-        connection.execute(
-            "UPDATE instrument_identity_history SET effective_date='2022-01-01'",
-            [],
-        ).unwrap();
-        let error = reconcile_existing_corporate_action_import_internal(&connection, 1).unwrap_err();
-        assert!(error.contains("on or before the Corporate Action ex-date"), "{error}");
+        connection
+            .execute(
+                "UPDATE instrument_identity_history SET effective_date='2022-01-01'",
+                [],
+            )
+            .unwrap();
+        let error =
+            reconcile_existing_corporate_action_import_internal(&connection, 1).unwrap_err();
+        assert!(
+            error.contains("on or before the Corporate Action ex-date"),
+            "{error}"
+        );
     }
 
     #[test]
     fn r1b1_requires_exactly_one_same_symbol_date_canonical_candidate() {
         let connection = Connection::open_in_memory().unwrap();
         create_r1b1_existing_event_fixture(&connection);
-        connection.execute(
-            "INSERT INTO corporate_actions (
+        connection
+            .execute(
+                "INSERT INTO corporate_actions (
                symbol,exchange,isin,effective_date,record_date,action_type,factor,
                old_face_value,new_face_value,adjust_volume,note,source
              ) SELECT symbol,exchange,isin,effective_date,record_date,action_type,factor,
                       old_face_value,new_face_value,adjust_volume,note,source
                FROM corporate_actions WHERE id=235",
-            [],
-        ).unwrap();
-        let error = reconcile_existing_corporate_action_import_internal(&connection, 1).unwrap_err();
-        assert!(error.contains("exactly one same-symbol/date canonical candidate"), "{error}");
+                [],
+            )
+            .unwrap();
+        let error =
+            reconcile_existing_corporate_action_import_internal(&connection, 1).unwrap_err();
+        assert!(
+            error.contains("exactly one same-symbol/date canonical candidate"),
+            "{error}"
+        );
     }
 
     #[test]
@@ -17199,8 +17931,12 @@ mod tests {
             let connection = Connection::open_in_memory().unwrap();
             create_r1b1_existing_event_fixture(&connection);
             connection.execute(sql, []).unwrap();
-            let error = reconcile_existing_corporate_action_import_internal(&connection, 1).unwrap_err();
-            assert!(error.contains("canonical event semantics do not match"), "{error}");
+            let error =
+                reconcile_existing_corporate_action_import_internal(&connection, 1).unwrap_err();
+            assert!(
+                error.contains("canonical event semantics do not match"),
+                "{error}"
+            );
         }
     }
 
@@ -17212,8 +17948,12 @@ mod tests {
             "UPDATE corporate_action_scan_results SET scan_status='REVIEW' WHERE corporate_action_import_id=1",
             [],
         ).unwrap();
-        let error = reconcile_existing_corporate_action_import_internal(&connection, 1).unwrap_err();
-        assert!(error.contains("Split/Bonus price validation is REVIEW"), "{error}");
+        let error =
+            reconcile_existing_corporate_action_import_internal(&connection, 1).unwrap_err();
+        assert!(
+            error.contains("Split/Bonus price validation is REVIEW"),
+            "{error}"
+        );
     }
 
     #[test]
@@ -17224,31 +17964,46 @@ mod tests {
             "UPDATE corporate_action_imports SET review_status='PENDING_ISIN_MISMATCH' WHERE id=1",
             [],
         ).unwrap();
-        let error = reconcile_existing_corporate_action_import_internal(&connection, 1).unwrap_err();
-        assert!(error.contains("unresolved parsed NSE Split/Bonus"), "{error}");
+        let error =
+            reconcile_existing_corporate_action_import_internal(&connection, 1).unwrap_err();
+        assert!(
+            error.contains("unresolved parsed NSE Split/Bonus"),
+            "{error}"
+        );
 
         let connection = Connection::open_in_memory().unwrap();
         create_r1b1_existing_event_fixture(&connection);
-        connection.execute(
-            "UPDATE corporate_action_imports SET action_type='DIVIDEND' WHERE id=1",
-            [],
-        ).unwrap();
-        let error = reconcile_existing_corporate_action_import_internal(&connection, 1).unwrap_err();
-        assert!(error.contains("unresolved parsed NSE Split/Bonus"), "{error}");
+        connection
+            .execute(
+                "UPDATE corporate_action_imports SET action_type='DIVIDEND' WHERE id=1",
+                [],
+            )
+            .unwrap();
+        let error =
+            reconcile_existing_corporate_action_import_internal(&connection, 1).unwrap_err();
+        assert!(
+            error.contains("unresolved parsed NSE Split/Bonus"),
+            "{error}"
+        );
     }
 
     #[test]
     fn r1b1_requires_stale_raw_isin_to_match_exactly_one_inactive_predecessor() {
         let connection = Connection::open_in_memory().unwrap();
         create_r1b1_existing_event_fixture(&connection);
-        connection.execute(
-            "UPDATE corporate_action_imports SET isin='INE884A01027' WHERE id=1",
-            [],
-        ).unwrap();
-        let error = reconcile_existing_corporate_action_import_internal(&connection, 1).unwrap_err();
-        assert!(error.contains("exactly one inactive predecessor carrying the raw ISIN"), "{error}");
+        connection
+            .execute(
+                "UPDATE corporate_action_imports SET isin='INE884A01027' WHERE id=1",
+                [],
+            )
+            .unwrap();
+        let error =
+            reconcile_existing_corporate_action_import_internal(&connection, 1).unwrap_err();
+        assert!(
+            error.contains("exactly one inactive predecessor carrying the raw ISIN"),
+            "{error}"
+        );
     }
-
 
     fn r1b2_create_canonical_table(connection: &Connection) {
         connection
@@ -17345,7 +18100,9 @@ mod tests {
             "Face Value Split From Rs 10/- To Re 1/-",
         );
         let before_actions: i64 = connection
-            .query_row("SELECT COUNT(*) FROM corporate_actions", [], |row| row.get(0))
+            .query_row("SELECT COUNT(*) FROM corporate_actions", [], |row| {
+                row.get(0)
+            })
             .unwrap();
 
         let result = reconcile_existing_corporate_action_import_internal(&connection, 1).unwrap();
@@ -17354,7 +18111,10 @@ mod tests {
         assert_eq!(result.import_record.approved_corporate_action_id, Some(42));
         assert!(result.approved_record.is_none());
         assert_eq!(
-            connection.query_row("SELECT COUNT(*) FROM corporate_actions", [], |row| row.get::<_, i64>(0)).unwrap(),
+            connection
+                .query_row("SELECT COUNT(*) FROM corporate_actions", [], |row| row
+                    .get::<_, i64>(0))
+                .unwrap(),
             before_actions
         );
         let decision: String = connection
@@ -17419,7 +18179,13 @@ mod tests {
         assert_eq!(second.import_record.approved_corporate_action_id, Some(42));
         assert_eq!(changes_after_replay, changes_before_replay);
         assert_eq!(
-            connection.query_row("SELECT COUNT(*) FROM corporate_action_import_decisions WHERE import_id=1", [], |row| row.get::<_, i64>(0)).unwrap(),
+            connection
+                .query_row(
+                    "SELECT COUNT(*) FROM corporate_action_import_decisions WHERE import_id=1",
+                    [],
+                    |row| row.get::<_, i64>(0)
+                )
+                .unwrap(),
             1
         );
     }
@@ -17443,8 +18209,12 @@ mod tests {
                 [],
             )
             .unwrap();
-        let error = reconcile_existing_corporate_action_import_internal(&connection, 1).unwrap_err();
-        assert!(error.contains("exactly one inactive current-symbol identity target"), "{error}");
+        let error =
+            reconcile_existing_corporate_action_import_internal(&connection, 1).unwrap_err();
+        assert!(
+            error.contains("exactly one inactive current-symbol identity target"),
+            "{error}"
+        );
     }
 
     #[test]
@@ -17460,11 +18230,16 @@ mod tests {
             Some(1.0),
             "Face Value Split From Rs 10/- To Re 1/-",
         );
-        connection.execute("DELETE FROM instrument_identity_history", []).unwrap();
-        let error = reconcile_existing_corporate_action_import_internal(&connection, 1).unwrap_err();
-        assert!(error.contains("direct predecessor identity edge"), "{error}");
+        connection
+            .execute("DELETE FROM instrument_identity_history", [])
+            .unwrap();
+        let error =
+            reconcile_existing_corporate_action_import_internal(&connection, 1).unwrap_err();
+        assert!(
+            error.contains("direct predecessor identity edge"),
+            "{error}"
+        );
     }
-
 
     fn r1b3a1_create_price_identity_tables(connection: &Connection) {
         connection
@@ -17545,9 +18320,31 @@ mod tests {
     fn r1b3a1_current_symbol_window_remains_first_authority() {
         let connection = Connection::open_in_memory().unwrap();
         r1b3a1_create_price_identity_tables(&connection);
-        r1b3a1_insert_transition(&connection, "SONAMLTD", "SONAMCLOCK", "SONAMLTD", "2023-11-15");
-        r1b3a1_insert_window(&connection, "SONAMLTD", "2022-07-13", 200.0, "2022-07-14", 100.0, 101.0);
-        r1b3a1_insert_window(&connection, "SONAMCLOCK", "2022-07-13", 88.55, "2022-07-14", 42.0, 45.1);
+        r1b3a1_insert_transition(
+            &connection,
+            "SONAMLTD",
+            "SONAMCLOCK",
+            "SONAMLTD",
+            "2023-11-15",
+        );
+        r1b3a1_insert_window(
+            &connection,
+            "SONAMLTD",
+            "2022-07-13",
+            200.0,
+            "2022-07-14",
+            100.0,
+            101.0,
+        );
+        r1b3a1_insert_window(
+            &connection,
+            "SONAMCLOCK",
+            "2022-07-13",
+            88.55,
+            "2022-07-14",
+            42.0,
+            45.1,
+        );
         let folder = tempfile::tempdir().unwrap();
 
         let window = load_trade_window(&connection, folder.path(), "SONAMLTD", "NSE", "2022-07-14")
@@ -17564,8 +18361,22 @@ mod tests {
     fn r1b3a1_unique_pretransition_historical_symbol_supplies_missing_window() {
         let connection = Connection::open_in_memory().unwrap();
         r1b3a1_create_price_identity_tables(&connection);
-        r1b3a1_insert_transition(&connection, "SONAMLTD", "SONAMCLOCK", "SONAMLTD", "2023-11-15");
-        r1b3a1_insert_window(&connection, "SONAMCLOCK", "2022-07-13", 88.55, "2022-07-14", 42.0, 45.1);
+        r1b3a1_insert_transition(
+            &connection,
+            "SONAMLTD",
+            "SONAMCLOCK",
+            "SONAMLTD",
+            "2023-11-15",
+        );
+        r1b3a1_insert_window(
+            &connection,
+            "SONAMCLOCK",
+            "2022-07-13",
+            88.55,
+            "2022-07-14",
+            42.0,
+            45.1,
+        );
         let folder = tempfile::tempdir().unwrap();
 
         let window = load_trade_window(&connection, folder.path(), "SONAMLTD", "NSE", "2022-07-14")
@@ -17582,8 +18393,22 @@ mod tests {
     fn r1b3a1_scan_candidate_uses_strict_historical_window_and_matches_factor() {
         let connection = Connection::open_in_memory().unwrap();
         r1b3a1_create_price_identity_tables(&connection);
-        r1b3a1_insert_transition(&connection, "SONAMLTD", "SONAMCLOCK", "SONAMLTD", "2023-11-15");
-        r1b3a1_insert_window(&connection, "SONAMCLOCK", "2022-07-13", 88.55, "2022-07-14", 42.0, 45.1);
+        r1b3a1_insert_transition(
+            &connection,
+            "SONAMLTD",
+            "SONAMCLOCK",
+            "SONAMLTD",
+            "2023-11-15",
+        );
+        r1b3a1_insert_window(
+            &connection,
+            "SONAMCLOCK",
+            "2022-07-13",
+            88.55,
+            "2022-07-14",
+            42.0,
+            45.1,
+        );
         let folder = tempfile::tempdir().unwrap();
         let candidate = ScanCandidate {
             import_id: 3494,
@@ -17609,12 +18434,22 @@ mod tests {
         r1b3a1_create_price_identity_tables(&connection);
         r1b3a1_insert_transition(&connection, "CURR", "MID", "CURR", "2023-01-01");
         r1b3a1_insert_transition(&connection, "CURR", "OLD", "MID", "2020-01-01");
-        r1b3a1_insert_window(&connection, "OLD", "2019-06-13", 120.0, "2019-06-14", 60.0, 61.0);
+        r1b3a1_insert_window(
+            &connection,
+            "OLD",
+            "2019-06-13",
+            120.0,
+            "2019-06-14",
+            60.0,
+            61.0,
+        );
         let folder = tempfile::tempdir().unwrap();
 
         let window = load_trade_window(&connection, folder.path(), "CURR", "NSE", "2019-06-14")
             .unwrap()
-            .expect("event predating both transitions should use the oldest uniquely proven symbol");
+            .expect(
+                "event predating both transitions should use the oldest uniquely proven symbol",
+            );
 
         assert_eq!(window.0.close, 120.0);
         assert_eq!(window.1.open, 60.0);
@@ -17626,7 +18461,15 @@ mod tests {
         r1b3a1_create_price_identity_tables(&connection);
         r1b3a1_insert_transition(&connection, "CURR", "MID", "CURR", "2023-01-01");
         r1b3a1_insert_transition(&connection, "CURR", "OLD", "MID", "2020-01-01");
-        r1b3a1_insert_window(&connection, "MID", "2022-06-13", 150.0, "2022-06-14", 75.0, 76.0);
+        r1b3a1_insert_window(
+            &connection,
+            "MID",
+            "2022-06-13",
+            150.0,
+            "2022-06-14",
+            75.0,
+            76.0,
+        );
         let folder = tempfile::tempdir().unwrap();
 
         let window = load_trade_window(&connection, folder.path(), "CURR", "NSE", "2022-06-14")
@@ -17642,12 +18485,24 @@ mod tests {
         let connection = Connection::open_in_memory().unwrap();
         r1b3a1_create_price_identity_tables(&connection);
         r1b3a1_insert_transition(&connection, "CURR", "OLD", "CURR", "2023-01-23");
-        r1b3a1_insert_window(&connection, "OLD", "2023-01-20", 120.0, "2023-01-23", 60.0, 61.0);
+        r1b3a1_insert_window(
+            &connection,
+            "OLD",
+            "2023-01-20",
+            120.0,
+            "2023-01-23",
+            60.0,
+            61.0,
+        );
         let folder = tempfile::tempdir().unwrap();
 
-        let window = load_trade_window(&connection, folder.path(), "CURR", "NSE", "2023-01-23").unwrap();
+        let window =
+            load_trade_window(&connection, folder.path(), "CURR", "NSE", "2023-01-23").unwrap();
 
-        assert!(window.is_none(), "exact transition date must retain current/new-symbol authority");
+        assert!(
+            window.is_none(),
+            "exact transition date must retain current/new-symbol authority"
+        );
     }
 
     #[test]
@@ -17656,12 +18511,24 @@ mod tests {
         r1b3a1_create_price_identity_tables(&connection);
         r1b3a1_insert_transition(&connection, "CURR", "OLD_A", "CURR", "2023-01-01");
         r1b3a1_insert_transition(&connection, "CURR", "OLD_B", "CURR", "2023-01-01");
-        r1b3a1_insert_window(&connection, "OLD_A", "2022-06-13", 100.0, "2022-06-14", 50.0, 51.0);
+        r1b3a1_insert_window(
+            &connection,
+            "OLD_A",
+            "2022-06-13",
+            100.0,
+            "2022-06-14",
+            50.0,
+            51.0,
+        );
         let folder = tempfile::tempdir().unwrap();
 
-        let window = load_trade_window(&connection, folder.path(), "CURR", "NSE", "2022-06-14").unwrap();
+        let window =
+            load_trade_window(&connection, folder.path(), "CURR", "NSE", "2022-06-14").unwrap();
 
-        assert!(window.is_none(), "ambiguous historical predecessors must fail closed");
+        assert!(
+            window.is_none(),
+            "ambiguous historical predecessors must fail closed"
+        );
     }
 
     #[test]
@@ -17670,12 +18537,24 @@ mod tests {
         r1b3a1_create_price_identity_tables(&connection);
         r1b3a1_insert_transition(&connection, "CURR", "MID", "CURR", "2023-01-01");
         r1b3a1_insert_transition(&connection, "CURR", "CURR", "MID", "2024-01-01");
-        r1b3a1_insert_window(&connection, "MID", "2022-06-13", 100.0, "2022-06-14", 50.0, 51.0);
+        r1b3a1_insert_window(
+            &connection,
+            "MID",
+            "2022-06-13",
+            100.0,
+            "2022-06-14",
+            50.0,
+            51.0,
+        );
         let folder = tempfile::tempdir().unwrap();
 
-        let window = load_trade_window(&connection, folder.path(), "CURR", "NSE", "2022-06-14").unwrap();
+        let window =
+            load_trade_window(&connection, folder.path(), "CURR", "NSE", "2022-06-14").unwrap();
 
-        assert!(window.is_none(), "cyclic historical lineage must fail closed");
+        assert!(
+            window.is_none(),
+            "cyclic historical lineage must fail closed"
+        );
     }
 
     #[test]
@@ -17691,9 +18570,13 @@ mod tests {
             .unwrap();
         let folder = tempfile::tempdir().unwrap();
 
-        let window = load_trade_window(&connection, folder.path(), "CURR", "NSE", "2022-06-14").unwrap();
+        let window =
+            load_trade_window(&connection, folder.path(), "CURR", "NSE", "2022-06-14").unwrap();
 
-        assert!(window.is_none(), "an incomplete historical window must remain unavailable");
+        assert!(
+            window.is_none(),
+            "an incomplete historical window must remain unavailable"
+        );
     }
 
     #[test]
@@ -17714,11 +18597,14 @@ mod tests {
             .unwrap();
         let folder = tempfile::tempdir().unwrap();
 
-        let window = load_trade_window(&connection, folder.path(), "CURR", "NSE", "2022-06-14").unwrap();
+        let window =
+            load_trade_window(&connection, folder.path(), "CURR", "NSE", "2022-06-14").unwrap();
 
-        assert!(window.is_none(), "fixtures without identity-history schema must preserve current no-window behavior");
+        assert!(
+            window.is_none(),
+            "fixtures without identity-history schema must preserve current no-window behavior"
+        );
     }
-
 }
 
 // R1-A command wrapper only: the dedicated coordinator owns its read transaction.
@@ -17739,13 +18625,20 @@ mod normal_ca_ex_date_readiness_tests {
         NaiveDate::parse_from_str(value, "%Y-%m-%d").unwrap()
     }
     fn bar(value: &str, close: f64) -> ScannedBar {
-        ScannedBar { date: value.to_string(), open: close, close }
+        ScannedBar {
+            date: value.to_string(),
+            open: close,
+            close,
+        }
     }
 
     #[test]
     fn upcoming_ex_date_blocks_before_any_price_approval() {
-        assert!(ensure_import_ex_date_reached("2026-10-20", "DIVIDEND", date("2026-10-17"))
-            .unwrap_err().contains("Scheduled / Upcoming"));
+        assert!(
+            ensure_import_ex_date_reached("2026-10-20", "DIVIDEND", date("2026-10-17"))
+                .unwrap_err()
+                .contains("Scheduled / Upcoming")
+        );
         assert!(ensure_import_ex_date_reached("2026-10-17", "SPLIT", date("2026-10-17")).is_ok());
         assert!(ensure_import_ex_date_reached("2026-02-30", "BONUS", date("2026-10-17")).is_err());
     }
@@ -17771,11 +18664,23 @@ mod ca_rights_and_issues_tests {
 
     #[test]
     fn ca_rights_and_issues_attested_rights_abbreviations_classify_as_rights() {
-        for purpose in ["Rhts 1:5 @ Premium Rs 40/-", "Rght Issue", "Rgts 1:3", "Rigths Issue Of Equity"] {
-            assert_eq!(parse_corporate_action_purpose(purpose).action_type, "RIGHTS", "{purpose}");
+        for purpose in [
+            "Rhts 1:5 @ Premium Rs 40/-",
+            "Rght Issue",
+            "Rgts 1:3",
+            "Rigths Issue Of Equity",
+        ] {
+            assert_eq!(
+                parse_corporate_action_purpose(purpose).action_type,
+                "RIGHTS",
+                "{purpose}"
+            );
         }
         // Ordinary words containing the letters are not tokens.
-        assert_ne!(parse_corporate_action_purpose("Annual General Meeting").action_type, "RIGHTS");
+        assert_ne!(
+            parse_corporate_action_purpose("Annual General Meeting").action_type,
+            "RIGHTS"
+        );
     }
 
     #[test]

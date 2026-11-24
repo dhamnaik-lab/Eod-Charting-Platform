@@ -1,11 +1,10 @@
 use crate::bhavcopy_recovery::{
-    check_recovery_sqlite_binding,
-    checkpoint_buffered_append_newest_files, create_prepared_session, handle_from_loaded,
-    load_pending_sessions, publish_recovery_binary_state, remove_checkpointed_session,
-    restore_buffered_binary_baselines, update_session_state, LoadedRecoverySession,
-    RecoveryBinaryBaseline, RecoveryBinaryBaselineKind, RecoveryJobSummary, RecoveryJournalRow,
-    RecoverySessionHandle, RecoverySessionSpec, RecoverySessionState,
-    MAX_BUFFERED_CHECKPOINT_WORKERS,
+    check_recovery_sqlite_binding, checkpoint_buffered_append_newest_files,
+    create_prepared_session, handle_from_loaded, load_pending_sessions,
+    publish_recovery_binary_state, remove_checkpointed_session, restore_buffered_binary_baselines,
+    update_session_state, LoadedRecoverySession, RecoveryBinaryBaseline,
+    RecoveryBinaryBaselineKind, RecoveryJobSummary, RecoveryJournalRow, RecoverySessionHandle,
+    RecoverySessionSpec, RecoverySessionState, MAX_BUFFERED_CHECKPOINT_WORKERS,
 };
 use crate::database::binary_eod::{
     date_to_u32, BinaryAppendMergeStats, BinaryAppendNewestHint, BinaryEodFile,
@@ -84,7 +83,12 @@ pub(crate) struct BhavcopyStateShadowStats {
 }
 
 impl BhavcopyStateShadowStats {
-    pub(crate) fn record(&mut self, exchange: &str, symbol: &str, comparison: BhavcopyStateShadowComparison) {
+    pub(crate) fn record(
+        &mut self,
+        exchange: &str,
+        symbol: &str,
+        comparison: BhavcopyStateShadowComparison,
+    ) {
         match comparison {
             BhavcopyStateShadowComparison::Matched => {
                 self.compared += 1;
@@ -430,7 +434,6 @@ pub(crate) fn classify_recovery_state_shadow(
     }
 }
 
-
 pub(crate) struct BhavcopyInsertTiming {
     pub(crate) parsed_jobs: usize,
     pub(crate) parsed_rows: usize,
@@ -708,9 +711,15 @@ pub(crate) fn import_staged_download(
             // ones: report that work truthfully instead of "Imported 0 records".
             let written = parsed.rows_inserted + parsed.rows_replaced;
             let summary = if written == 0 {
-                format!("Imported staged 0 records ({} parsed rows)", parsed.rows_inserted)
+                format!(
+                    "Imported staged 0 records ({} parsed rows)",
+                    parsed.rows_inserted
+                )
             } else if parsed.rows_inserted == 0 {
-                format!("Replaced {} existing records (repair re-import)", parsed.rows_replaced)
+                format!(
+                    "Replaced {} existing records (repair re-import)",
+                    parsed.rows_replaced
+                )
             } else if parsed.rows_replaced == 0 {
                 format!("Imported staged {} records", parsed.rows_inserted)
             } else {
@@ -1233,7 +1242,10 @@ pub(crate) fn build_bhavcopy_append_newest_fast_hints(
     (hints, stats)
 }
 
-pub(crate) fn recovery_row_from_parsed(exchange: &str, row: &ParsedBhavcopyRow) -> RecoveryJournalRow {
+pub(crate) fn recovery_row_from_parsed(
+    exchange: &str,
+    row: &ParsedBhavcopyRow,
+) -> RecoveryJournalRow {
     RecoveryJournalRow {
         exchange: exchange.to_string(),
         trade_date: row.trade_date.clone(),
@@ -1375,7 +1387,10 @@ pub(crate) fn checkpoint_pending_buffered_sessions_background(
         }
 
         check_recovery_sqlite_binding(&session, database_file_path)?;
-        super::security_admission::require_replay_safe(database_file_path, &parsed_files_from_recovery_session(&session)?)?;
+        super::security_admission::require_replay_safe(
+            database_file_path,
+            &parsed_files_from_recovery_session(&session)?,
+        )?;
         let mut handle = handle_from_loaded(&session);
         let resumed_from_state = format!("{:?}", session.manifest.state);
         let buffered_append_files = session
@@ -1516,7 +1531,10 @@ pub(crate) fn recover_pending_bhavcopy_sessions(
             ));
         }
 
-        super::security_admission::require_replay_safe(database_file_path, &parsed_files_from_recovery_session(&session)?)?;
+        super::security_admission::require_replay_safe(
+            database_file_path,
+            &parsed_files_from_recovery_session(&session)?,
+        )?;
         let mut handle = handle_from_loaded(&session);
         let has_buffered_append_baselines = session
             .manifest
@@ -1625,14 +1643,11 @@ pub(crate) fn recover_pending_bhavcopy_sessions(
             }
         }
 
-        if can_resume_buffered_checkpoint(&session.manifest.state)
-            && !has_buffered_append_baselines
+        if can_resume_buffered_checkpoint(&session.manifest.state) && !has_buffered_append_baselines
         {
             update_session_state(&mut handle, RecoverySessionState::Checkpointing, None)?;
-            match publish_recovery_binary_state(
-                database_folder,
-                &session.manifest.binary_baselines,
-            ) {
+            match publish_recovery_binary_state(database_folder, &session.manifest.binary_baselines)
+            {
                 Ok(published_rows) => {
                     update_session_state(&mut handle, RecoverySessionState::Checkpointed, None)?;
                     log_runtime_event(
@@ -1674,7 +1689,8 @@ pub(crate) fn recover_pending_bhavcopy_sessions(
                 &session.manifest.binary_baselines,
                 &session.rows,
             )?;
-            let outcomes = super::index_fallback::guard_additive(database_file_path, &mut parsed_files)?;
+            let outcomes =
+                super::index_fallback::guard_additive(database_file_path, &mut parsed_files)?;
             if outcomes.values().any(|o| o.conflicts > 0 || o.invalid > 0) {
                 return Err("NSE index recovery conflict: existing quotations preserved; operator review required.".into());
             }
@@ -1692,9 +1708,15 @@ pub(crate) fn recover_pending_bhavcopy_sessions(
 
             let connection = open_database_connection(database_file_path)?;
             for (parsed, parsed_result) in parsed_files.iter().zip(parsed_results) {
-                let journal_row_count = session.manifest.jobs.iter()
-                    .find(|job| job.exchange == parsed.exchange && job.trade_date == parsed.trade_date)
-                    .map(|job| job.row_count).unwrap_or(parsed.rows.len());
+                let journal_row_count = session
+                    .manifest
+                    .jobs
+                    .iter()
+                    .find(|job| {
+                        job.exchange == parsed.exchange && job.trade_date == parsed.trade_date
+                    })
+                    .map(|job| job.row_count)
+                    .unwrap_or(parsed.rows.len());
                 let log_result = DownloadResult {
                     success: true,
                     trade_date: parsed.trade_date.clone(),
@@ -1712,10 +1734,7 @@ pub(crate) fn recover_pending_bhavcopy_sessions(
 
             // Immediate recovery writes are already durable. Publish their exact
             // canonical state before the recovery session can become CHECKPOINTED.
-            publish_recovery_binary_state(
-                database_folder,
-                &session.manifest.binary_baselines,
-            )?;
+            publish_recovery_binary_state(database_folder, &session.manifest.binary_baselines)?;
             Ok(())
         })();
 
@@ -1819,33 +1838,50 @@ pub(super) fn import_staged_csv_downloads(
     let security_admission = super::security_admission::admit(database_file_path, &parsed_files)?;
     let mut security_reports = HashMap::<_, super::security_admission::AdmissionReport>::new();
     for (file, report) in parsed_files.iter().zip(&security_admission.reports) {
-        let combined = security_reports.entry((file.exchange.clone(), file.trade_date.clone())).or_default();
+        let combined = security_reports
+            .entry((file.exchange.clone(), file.trade_date.clone()))
+            .or_default();
         combined.separated += report.separated;
         combined.market_rows += report.market_rows;
         combined.conflicted += report.conflicted;
         combined.duplicates += report.duplicates;
-        if report.evidence.is_some() { combined.evidence = report.evidence.clone(); }
+        if report.evidence.is_some() {
+            combined.evidence = report.evidence.clone();
+        }
     }
     parsed_files = super::security_admission::filter_files(&parsed_files, &security_admission);
     parsed_files.retain(|file| {
-        if !file.rows.is_empty() || file.exchange != "NSE" { return true; }
+        if !file.rows.is_empty() || file.exchange != "NSE" {
+            return true;
+        }
         let report = &security_reports[&(file.exchange.clone(), file.trade_date.clone())];
-        results.push(DownloadResult { success:report.conflicted == 0, exchange:file.exchange.clone(),trade_date:file.trade_date.clone(),rows_inserted:0,max_volume:0,
-            message:report.describe_result("No admitted daily security rows".into()) });
+        results.push(DownloadResult {
+            success: report.conflicted == 0,
+            exchange: file.exchange.clone(),
+            trade_date: file.trade_date.clone(),
+            rows_inserted: 0,
+            max_volume: 0,
+            message: report.describe_result("No admitted daily security rows".into()),
+        });
         false
     });
-    let index_outcomes = super::index_fallback::guard_additive(database_file_path, &mut parsed_files)?;
+    let index_outcomes =
+        super::index_fallback::guard_additive(database_file_path, &mut parsed_files)?;
     if !index_outcomes.is_empty() {
         let evidence = serde_json::to_vec_pretty(&serde_json::json!({
             "createdAt": chrono::Utc::now().to_rfc3339(),
             "status": "PRE_WRITE_ADDITIVE_CHECK", "outcomes": index_outcomes,
-        })).map_err(|e| e.to_string())?;
+        }))
+        .map_err(|e| e.to_string())?;
         super::index_fallback::save_evidence(database_file_path, "additive-check", &evidence)?;
         // Consolidate archive and fallback rows for the same date into one job.
         let mut combined = Vec::<ParsedBhavcopyFile>::new();
         for parsed in parsed_files {
             if parsed.exchange == "NSE_INDEX" {
-                if let Some(existing) = combined.iter_mut().find(|f| f.exchange == parsed.exchange && f.trade_date == parsed.trade_date) {
+                if let Some(existing) = combined
+                    .iter_mut()
+                    .find(|f| f.exchange == parsed.exchange && f.trade_date == parsed.trade_date)
+                {
                     existing.max_volume = existing.max_volume.max(parsed.max_volume);
                     existing.rows.extend(parsed.rows);
                     continue;
@@ -2148,12 +2184,16 @@ pub(super) fn import_staged_csv_downloads(
                         parsed_result.rows_inserted, parsed_result.rows_replaced
                     )
                 };
-                let security_report = security_reports.get(&(parsed.exchange.clone(), parsed.trade_date.clone()));
+                let security_report =
+                    security_reports.get(&(parsed.exchange.clone(), parsed.trade_date.clone()));
                 let mut success = security_report.map_or(true, |report| report.conflicted == 0);
                 if let Some(report) = security_report {
                     message = report.describe_result(message);
                 }
-                if let Some(outcome) = index_outcomes.get(&parsed.trade_date).filter(|_| parsed.exchange == "NSE_INDEX") {
+                if let Some(outcome) = index_outcomes
+                    .get(&parsed.trade_date)
+                    .filter(|_| parsed.exchange == "NSE_INDEX")
+                {
                     success = outcome.conflicts == 0 && outcome.invalid == 0;
                     message = format!("NSE index subset: inserted {}, identical existing {}, conflicting existing {}, invalid {}; other indices/dates may remain unresolved. {}",
                         parsed_result.rows_inserted, outcome.identical, outcome.conflicts, outcome.invalid, outcome.details.join("; "));
@@ -2290,7 +2330,8 @@ pub(super) fn import_staged_csv_downloads(
         let evidence = serde_json::to_vec_pretty(&serde_json::json!({
             "createdAt": chrono::Utc::now().to_rfc3339(), "status": "IMPORT_COMPLETED",
             "results": results.iter().filter(|r| r.exchange == "NSE_INDEX").collect::<Vec<_>>(),
-        })).map_err(|e| e.to_string())?;
+        }))
+        .map_err(|e| e.to_string())?;
         super::index_fallback::save_evidence(database_file_path, "import-result", &evidence)?;
     }
 
@@ -2441,7 +2482,14 @@ fn insert_admitted_bhavcopy_files(
             rows_inserted: 0,
             binary_errors: 0,
             rows_replaced: 0,
-            max_volume: parsed.rows.iter().zip(&admission.masks[i]).filter(|(_,keep)| **keep).map(|(row,_)| row.volume.max(0) as u64).max().unwrap_or(0),
+            max_volume: parsed
+                .rows
+                .iter()
+                .zip(&admission.masks[i])
+                .filter(|(_, keep)| **keep)
+                .map(|(row, _)| row.volume.max(0) as u64)
+                .max()
+                .unwrap_or(0),
             debug: None,
         })
         .collect::<Vec<_>>();
@@ -2517,7 +2565,9 @@ fn insert_admitted_bhavcopy_files(
 
     for (file_index, parsed) in parsed_files.iter().enumerate() {
         for (row_index, row) in parsed.rows.iter().enumerate() {
-            if !admission.masks[file_index][row_index] { continue; }
+            if !admission.masks[file_index][row_index] {
+                continue;
+            }
             insert_instrument
                 .execute(params![
                     &row.symbol,
@@ -2770,7 +2820,9 @@ pub(crate) fn write_bhavcopy_binary_records_parallel(
         match worker {
             Ok(handle) => handles.push(handle),
             Err(error) => {
-                spawn_error = Some(format!("Could not start Bhavcopy binary write worker: {error}"));
+                spawn_error = Some(format!(
+                    "Could not start Bhavcopy binary write worker: {error}"
+                ));
                 break;
             }
         }
@@ -2878,7 +2930,11 @@ pub(crate) fn count_changed_rows_by_file(
         return Vec::new();
     }
 
-    let changed_dates = stats.changed_existing_dates.iter().copied().collect::<HashSet<_>>();
+    let changed_dates = stats
+        .changed_existing_dates
+        .iter()
+        .copied()
+        .collect::<HashSet<_>>();
     let mut changed_rows_by_file = HashMap::<usize, usize>::new();
     for record in records {
         if changed_dates.contains(&record.record.date) {
@@ -3266,7 +3322,10 @@ pub(crate) fn bhavcopy_prefilter_worker_count(file_count: usize) -> usize {
     }
 }
 
-pub(crate) fn binary_file_contained_dates(path: &Path, target_dates: &[u32]) -> AppResult<Vec<u32>> {
+pub(crate) fn binary_file_contained_dates(
+    path: &Path,
+    target_dates: &[u32],
+) -> AppResult<Vec<u32>> {
     let mut file = fs::File::open(path).map_err(|error| error.to_string())?;
     let mut header = [0_u8; HEADER_SIZE];
     file.read_exact(&mut header)
@@ -3505,7 +3564,10 @@ pub(crate) fn should_write_download_log(result: &DownloadResult) -> bool {
     !(result.success && result.rows_inserted == 0)
 }
 
-pub(crate) fn upsert_download_log_entry(connection: &Connection, result: &DownloadResult) -> AppResult<()> {
+pub(crate) fn upsert_download_log_entry(
+    connection: &Connection,
+    result: &DownloadResult,
+) -> AppResult<()> {
     super::batch_runtime::retry_busy(|| upsert_download_log_entry_once(connection, result, false))
 }
 

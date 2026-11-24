@@ -126,7 +126,11 @@ impl PendingMutations {
         let key = lease.sqlite.as_ref().map(|sqlite| sqlite.key.as_str());
         if !self.interrupted() {
             self.sqlite_key = key.map(str::to_owned);
-        } else if self.sqlite_key.as_deref().is_some_and(|prior| Some(prior) != key) {
+        } else if self
+            .sqlite_key
+            .as_deref()
+            .is_some_and(|prior| Some(prior) != key)
+        {
             return Err("CANONICAL_PRICE_STORE_INTERRUPTED: The pending operation belongs to a different SQLite file.".into());
         }
         Ok(())
@@ -172,7 +176,10 @@ pub(crate) struct CanonicalAccess {
 
 impl CanonicalAccess {
     pub(crate) fn sqlite_key_for_file(sqlite_file: &Path) -> AppResult<String> {
-        Ok(format!("{:x}", Sha256::digest(folder_identity(sqlite_file)?)))
+        Ok(format!(
+            "{:x}",
+            Sha256::digest(folder_identity(sqlite_file)?)
+        ))
     }
 
     pub(in crate::database) fn has_file_reparse_point(sqlite_file: &Path) -> AppResult<bool> {
@@ -188,7 +195,11 @@ impl CanonicalAccess {
         Self::in_namespace_for_file(folder, sqlite_file, namespace)
     }
 
-    fn in_namespace_for_file(folder: &Path, sqlite_file: PathBuf, namespace: &Path) -> AppResult<Self> {
+    fn in_namespace_for_file(
+        folder: &Path,
+        sqlite_file: PathBuf,
+        namespace: &Path,
+    ) -> AppResult<Self> {
         let canonical = fs::canonicalize(folder)
             .map_err(|error| format!("Unable to resolve the canonical price store: {error}"))?;
         if !canonical.is_dir() {
@@ -238,7 +249,9 @@ impl CanonicalAccess {
     }
 
     fn bhavcopy_access(sqlite_file: &Path) -> AppResult<Self> {
-        let folder = sqlite_file.parent().ok_or("Bhavcopy database file has no parent folder.")?;
+        let folder = sqlite_file
+            .parent()
+            .ok_or("Bhavcopy database file has no parent folder.")?;
         #[cfg(test)]
         let namespace = folder.to_owned();
         #[cfg(not(test))]
@@ -262,7 +275,9 @@ impl CanonicalAccess {
         Self::writer_access(folder)?.lock_writer(false)
     }
 
-    pub(in crate::database) fn lock_binary_migration(folder: &Path) -> AppResult<CanonicalWriterLease> {
+    pub(in crate::database) fn lock_binary_migration(
+        folder: &Path,
+    ) -> AppResult<CanonicalWriterLease> {
         Self::writer_access(folder)?.lock_writer(true)
     }
 
@@ -357,7 +372,10 @@ impl CanonicalAccess {
             }
             let pending = Self::load_marker(&entry.path())?;
             if pending.interrupted()
-                && pending.sqlite_key.as_deref().is_none_or(|key| key == sqlite_key)
+                && pending
+                    .sqlite_key
+                    .as_deref()
+                    .is_none_or(|key| key == sqlite_key)
             {
                 return Err("CANONICAL_PRICE_STORE_INTERRUPTED".into());
             }
@@ -365,22 +383,33 @@ impl CanonicalAccess {
         Ok(())
     }
 
-    fn other_participants<'a>(&'a self, lock: &'a CanonicalLease) -> impl Iterator<Item = &'a SqliteParticipant> {
-        lock.sqlite.iter().flat_map(|sqlite| &sqlite.participants).filter(|participant| {
-            self.marker.file_name().is_some_and(|name| name != participant.marker.as_str())
-        })
+    fn other_participants<'a>(
+        &'a self,
+        lock: &'a CanonicalLease,
+    ) -> impl Iterator<Item = &'a SqliteParticipant> {
+        lock.sqlite
+            .iter()
+            .flat_map(|sqlite| &sqlite.participants)
+            .filter(|participant| {
+                self.marker
+                    .file_name()
+                    .is_some_and(|name| name != participant.marker.as_str())
+            })
     }
 
     fn require_other_migrations_complete(&self, lock: &CanonicalLease) -> AppResult<()> {
         for participant in self.other_participants(lock) {
-            Self::load_marker(&self.namespace.join(&participant.marker))?.require_completed_migration()?;
+            Self::load_marker(&self.namespace.join(&participant.marker))?
+                .require_completed_migration()?;
         }
         Ok(())
     }
 
     fn require_bhavcopy_checkpoint(&self, lock: &CanonicalLease) -> AppResult<()> {
-        let folders = std::iter::once(self.folder.as_path())
-            .chain(self.other_participants(lock).map(|participant| participant.folder.as_path()));
+        let folders = std::iter::once(self.folder.as_path()).chain(
+            self.other_participants(lock)
+                .map(|participant| participant.folder.as_path()),
+        );
         for folder in folders {
             if !crate::bhavcopy_recovery::has_pending_sessions(folder)? {
                 continue;
@@ -393,7 +422,10 @@ impl CanonicalAccess {
     fn acquire(&self, exclusive: bool) -> AppResult<CanonicalLease> {
         let folder = acquire_lock(&self.namespace, &self.lock_name, exclusive)?;
         let sqlite = self.acquire_sqlite(exclusive)?;
-        Ok(CanonicalLease { sqlite, _folder: folder })
+        Ok(CanonicalLease {
+            sqlite,
+            _folder: folder,
+        })
     }
 
     fn acquire_sqlite(&self, exclusive: bool) -> AppResult<Option<SqliteLease>> {
@@ -584,7 +616,9 @@ impl BulkQuoteDeletionLease {
 #[serde(deny_unknown_fields)]
 pub(crate) enum CanonicalWriterIntent {
     ManualCsv,
-    ManualUndo { session_id: String },
+    ManualUndo {
+        session_id: String,
+    },
     BinaryMigration,
     SymbolMerge {
         source_symbol: String,

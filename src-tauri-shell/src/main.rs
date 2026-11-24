@@ -6,21 +6,21 @@ mod bhavcopy_recovery;
 mod database;
 mod imports;
 mod manual_import_recovery;
+#[allow(dead_code)]
+mod native_scanner;
 mod nifty_history;
 mod plugin_data;
 mod runtime;
-#[allow(dead_code)]
-mod scanner_contract;
 #[allow(dead_code)]
 mod scanner_breakaway_gap;
 #[allow(dead_code)]
 mod scanner_common_gap;
 #[allow(dead_code)]
-mod scanner_runaway_gap;
+mod scanner_contract;
 #[allow(dead_code)]
 mod scanner_exhaustion_gap;
 #[allow(dead_code)]
-mod native_scanner;
+mod scanner_runaway_gap;
 #[cfg(all(windows, feature = "wp02-acceptance"))]
 mod wp02_acceptance;
 
@@ -273,7 +273,12 @@ fn validate_safe_external_url(raw_url: &str) -> Result<reqwest::Url, String> {
             parsed.scheme()
         ));
     }
-    if parsed.host_str().map(str::trim).filter(|h| !h.is_empty()).is_none() {
+    if parsed
+        .host_str()
+        .map(str::trim)
+        .filter(|h| !h.is_empty())
+        .is_none()
+    {
         return Err("External URL must include a valid host.".to_string());
     }
     Ok(parsed)
@@ -473,7 +478,10 @@ fn fetch_official_watchlist_source(
     let body = response.text().map_err(|error| error.to_string())?;
     let trimmed_lower = body.trim_start().to_ascii_lowercase();
     if trimmed_lower.starts_with("<!doctype html") || trimmed_lower.starts_with("<html") {
-        return Err("Official watchlist source returned an HTML challenge/error page instead of CSV.".to_string());
+        return Err(
+            "Official watchlist source returned an HTML challenge/error page instead of CSV."
+                .to_string(),
+        );
     }
     Ok(body)
 }
@@ -807,12 +815,18 @@ fn main() {
         std::process::exit(1);
     }
 
-    let _maintenance_database_use = if args.iter().any(|arg| arg.to_str().is_some_and(|arg| arg.starts_with("--maintenance-corporate-action-"))) {
+    let _maintenance_database_use = if args.iter().any(|arg| {
+        arg.to_str()
+            .is_some_and(|arg| arg.starts_with("--maintenance-corporate-action-"))
+    }) {
         match database::database_use::acquire_use() {
             Ok(permit) => {
                 for pair in args.windows(2).filter(|pair| pair[0] == "--database-file") {
                     let path = std::path::Path::new(&pair[1]);
-                    let folder = path.parent().filter(|p| !p.as_os_str().is_empty()).unwrap_or_else(|| std::path::Path::new("."));
+                    let folder = path
+                        .parent()
+                        .filter(|p| !p.as_os_str().is_empty())
+                        .unwrap_or_else(|| std::path::Path::new("."));
                     if let Err(error) = database::require_database_not_marked(folder) {
                         eprintln!("{error}");
                         std::process::exit(1);
@@ -906,10 +920,14 @@ fn main() {
             if let WindowEvent::CloseRequested { .. } = event {
                 // Finalize native scan jobs before the process exits so no run can emit a
                 // late event and the database-use permit is released deterministically.
-                let native_state = window.app_handle().state::<native_scanner::ipc::NativeScanState>();
+                let native_state = window
+                    .app_handle()
+                    .state::<native_scanner::ipc::NativeScanState>();
                 let cancelled = native_scanner::ipc::finalize_all_runs(&native_state);
                 native_scanner::numeric_history::shutdown(
-                    &window.app_handle().state::<native_scanner::numeric_history::NumericHistoryState>(),
+                    &window
+                        .app_handle()
+                        .state::<native_scanner::numeric_history::NumericHistoryState>(),
                 );
                 if cancelled > 0 {
                     log_runtime_event(

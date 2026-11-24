@@ -245,7 +245,11 @@ fn retain_capture(folder: &Path, scope: &Scope, bytes: &[u8], transport: &str) -
         .map_err(|e| e.to_string())?
         .as_nanos();
     let stem = format!("{}_{}_{}_{}", scope.from, scope.to, stamp, &hash[..16]);
-    let extension = if scope.is_identity_master() { "csv" } else { "json" };
+    let extension = if scope.is_identity_master() {
+        "csv"
+    } else {
+        "json"
+    };
     let body_path = folder.join(format!("{stem}.{extension}"));
     let manifest_path = folder.join(format!("{stem}.manifest.json"));
     let manifest = serde_json::json!({
@@ -415,8 +419,13 @@ mod tests {
                 crate::database::prepare_database_connection(&connection)?;
                 // Match the normal user workflow: missing instrument codes are
                 // collected by Fetch itself, before its CA date windows.
-                connection.execute("INSERT INTO instruments(symbol,exchange,isin,name)
-                    VALUES('GPTHEALTH','BSE','INE486R01017','GPT Healthcare Ltd')",[]).map_err(|e|e.to_string())?;
+                connection
+                    .execute(
+                        "INSERT INTO instruments(symbol,exchange,isin,name)
+                    VALUES('GPTHEALTH','BSE','INE486R01017','GPT Healthcare Ltd')",
+                        [],
+                    )
+                    .map_err(|e| e.to_string())?;
                 let run = |from: &str, to: &str| -> AppResult<super::super::CorporateActionOfficialFetchResult> {
                     let guard = FetchGuard::start()?;
                     let mut session = BseSession::new(guard.0.clone())?;
@@ -429,7 +438,10 @@ mod tests {
                 let recent = run("2026-10-15", "2026-10-24")?;
                 let mapped_code: Option<String> = connection.query_row("SELECT bse_security_code FROM instruments WHERE exchange='BSE' AND symbol='GPTHEALTH'",[],|r|r.get(0)).map_err(|e|e.to_string())?;
                 if mapped_code.as_deref() != Some("544131") {
-                    return Err(format!("Official identity mapping failed: {mapped_code:?}; {:?}",recent.errors));
+                    return Err(format!(
+                        "Official identity mapping failed: {mapped_code:?}; {:?}",
+                        recent.errors
+                    ));
                 }
                 let identity_mappings = 1;
                 if recent.fetched_ranges != 2 || recent.fetched_days != 10 || recent.rows_read == 0

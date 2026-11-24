@@ -892,9 +892,10 @@ fn bse_2011_evidenced_holiday_is_readable_but_never_blocks_a_download() {
             create_calendar_skip_result(&conn, exchange, "2011-01-26", chrono::Weekday::Wed)
                 .is_none()
         );
-        let holiday = super::super::calendar::get_exchange_holiday_name(&conn, exchange, "2011-01-26")
-            .unwrap()
-            .unwrap_or_default();
+        let holiday =
+            super::super::calendar::get_exchange_holiday_name(&conn, exchange, "2011-01-26")
+                .unwrap()
+                .unwrap_or_default();
         assert!(holiday.contains("20101122-22"), "{exchange}: {holiday}");
         assert!(
             create_calendar_skip_result(&conn, exchange, "2011-01-25", chrono::Weekday::Tue)

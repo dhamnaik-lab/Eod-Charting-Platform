@@ -1,7 +1,7 @@
+use super::database_use::{CanonicalAccess, CanonicalWriterIntent};
 use crate::database::{
     path_to_string, resolve_active_database_folder, with_active_connection, AppResult,
 };
-use super::database_use::{CanonicalAccess, CanonicalWriterIntent};
 use rusqlite::params;
 use serde::Serialize;
 use std::fs::{self, File};
@@ -303,10 +303,14 @@ impl ForwardBinaryRecords {
             return Ok(None);
         }
         let mut buffer = [0; RECORD_SIZE];
-        self.reader.read_exact(&mut buffer).map_err(|error| error.to_string())?;
+        self.reader
+            .read_exact(&mut buffer)
+            .map_err(|error| error.to_string())?;
         let record = decode_record(&buffer);
         if self.last_date.is_some_and(|last| record.date <= last) {
-            return Err("Canonical binary history contains a duplicate or out-of-order date.".into());
+            return Err(
+                "Canonical binary history contains a duplicate or out-of-order date.".into(),
+            );
         }
         self.last_date = Some(record.date);
         self.remaining -= 1;
@@ -322,7 +326,8 @@ impl BinaryEodFile {
         if file.metadata().map_err(|error| error.to_string())?.len() != expected {
             return Err("Canonical binary history length disagrees with its header.".into());
         }
-        file.seek(SeekFrom::Start(HEADER_SIZE as u64)).map_err(|error| error.to_string())?;
+        file.seek(SeekFrom::Start(HEADER_SIZE as u64))
+            .map_err(|error| error.to_string())?;
         Ok(ForwardBinaryRecords {
             reader: std::io::BufReader::new(file),
             remaining: count,
@@ -597,13 +602,8 @@ impl BinaryEodFile {
         price_scale: u32,
         records: &mut [EodRecord],
     ) -> Result<Self, String> {
-        let (file, _) = Self::write_all_with_sync_timing(
-            path,
-            symbol,
-            exchange,
-            price_scale,
-            records,
-        )?;
+        let (file, _) =
+            Self::write_all_with_sync_timing(path, symbol, exchange, price_scale, records)?;
         Ok(file)
     }
 
@@ -892,12 +892,7 @@ impl BinaryEodFile {
             let mut result = if incoming.len() == 1 {
                 Self::upsert_single_record_by_date(file, existing, price_scale, incoming[0])?
             } else {
-                Self::rewrite_from_first_incoming_record(
-                    file,
-                    existing,
-                    price_scale,
-                    &incoming,
-                )?
+                Self::rewrite_from_first_incoming_record(file, existing, price_scale, &incoming)?
             };
             result.diagnostics.add_prefix(&diagnostics);
             result.diagnostics.total_us = total_started.elapsed().as_micros();
@@ -1536,8 +1531,12 @@ pub fn get_all_binary_stats(base_path: &Path) -> Vec<BinarySymbolStats> {
 
     for exchange_entry in exchanges.flatten() {
         let exchange_name = exchange_entry.file_name();
-        let Some(exchange) = exchange_name.to_str() else { continue };
-        let Ok(exchange_path) = super::storage_paths::eod_directory(base_path, exchange) else { continue };
+        let Some(exchange) = exchange_name.to_str() else {
+            continue;
+        };
+        let Ok(exchange_path) = super::storage_paths::eod_directory(base_path, exchange) else {
+            continue;
+        };
         if !exchange_path.is_dir() {
             continue;
         }
@@ -1733,18 +1732,20 @@ fn validate_symbol_parity(
     // 2. Load Binary metadata
     let path = match super::storage_paths::eod_path(base_path, exchange, symbol) {
         Ok(path) => path,
-        Err(message) => return Some(ParityIssue {
-            symbol: symbol.to_string(),
-            exchange: exchange.to_string(),
-            issue_type: ParityIssueType::FileCorrupt,
-            sqlite_count,
-            binary_count: 0,
-            sqlite_first_date: sqlite_min,
-            sqlite_last_date: sqlite_max,
-            binary_first_date: None,
-            binary_last_date: None,
-            message,
-        }),
+        Err(message) => {
+            return Some(ParityIssue {
+                symbol: symbol.to_string(),
+                exchange: exchange.to_string(),
+                issue_type: ParityIssueType::FileCorrupt,
+                sqlite_count,
+                binary_count: 0,
+                sqlite_first_date: sqlite_min,
+                sqlite_last_date: sqlite_max,
+                binary_first_date: None,
+                binary_last_date: None,
+                message,
+            })
+        }
     };
 
     if !path.exists() {
@@ -1848,7 +1849,9 @@ fn migrate_database_to_binary(folder: &Path) -> AppResult<MigrationReport> {
         .prepare("SELECT DISTINCT symbol, exchange FROM eod_prices")
         .map_err(|error| error.to_string())?;
     let pairs = statement
-        .query_map([], |row| Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?)))
+        .query_map([], |row| {
+            Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
+        })
         .map_err(|error| error.to_string())?
         .collect::<Result<Vec<_>, _>>()
         .map_err(|error| error.to_string())?;
@@ -1997,24 +2000,41 @@ mod tests {
 
         let access = CanonicalAccess::in_namespace(folder, folder).unwrap();
         let read = access.begin_read().unwrap();
-        assert_eq!(migrate_database_to_binary(folder).unwrap_err(), "CANONICAL_PRICE_STORE_BUSY");
+        assert_eq!(
+            migrate_database_to_binary(folder).unwrap_err(),
+            "CANONICAL_PRICE_STORE_BUSY"
+        );
         assert!(!folder.join("eod_data/NSE/AAA.eod").exists());
         drop(read);
 
         let partial = migrate_database_to_binary(folder).unwrap();
         assert_eq!((partial.symbols_written, partial.errors.len()), (1, 1));
-        assert_eq!(access.begin_read().unwrap_err(), "CANONICAL_PRICE_STORE_INTERRUPTED");
-        let blocked = CanonicalAccess::lock_writer_for_database(folder).err().unwrap();
+        assert_eq!(
+            access.begin_read().unwrap_err(),
+            "CANONICAL_PRICE_STORE_INTERRUPTED"
+        );
+        let blocked = CanonicalAccess::lock_writer_for_database(folder)
+            .err()
+            .unwrap();
         assert!(blocked.contains("Pending binary migration"));
 
         fs::remove_dir(&invalid_file).unwrap();
         let completed = migrate_database_to_binary(folder).unwrap();
-        assert_eq!((completed.symbols_written, completed.records_written), (2, 2));
+        assert_eq!(
+            (completed.symbols_written, completed.records_written),
+            (2, 2)
+        );
         assert!(completed.errors.is_empty());
         assert!(access.begin_read().is_ok());
-        let bbb = BinaryEodFile::open(invalid_file).unwrap().read_all().unwrap();
+        let bbb = BinaryEodFile::open(invalid_file)
+            .unwrap()
+            .read_all()
+            .unwrap();
         assert_eq!(bbb[0].close, 20 * i64::from(DEFAULT_SCALE));
-        assert_eq!(super::super::get_price_storage_mode(&connection), super::super::PriceStorageMode::Hybrid);
+        assert_eq!(
+            super::super::get_price_storage_mode(&connection),
+            super::super::PriceStorageMode::Hybrid
+        );
     }
 
     fn mock_record(date: u32, close: i64) -> EodRecord {
@@ -2926,5 +2946,4 @@ mod tests {
             "a new-file write cannot rely on the deferred APPEND_NEWEST checkpoint and must be durably synced before return"
         );
     }
-
 }

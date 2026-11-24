@@ -12,9 +12,10 @@ use crate::database::{
     PriceStorageMode, PriceStoreOperationKind, SnapshotOptions,
 };
 use crate::runtime::log_runtime_event;
-pub use chrono::{Datelike, Local};
+use batch_runtime::{BatchCancellation, BatchStop};
 #[cfg(test)]
 use chrono::NaiveDate;
+pub use chrono::{Datelike, Local};
 use reqwest::blocking::Client;
 pub use rusqlite::params;
 use rusqlite::{Connection, OptionalExtension};
@@ -25,11 +26,10 @@ use std::path::Path;
 use std::sync::{mpsc, Arc, Mutex};
 use std::time::Instant;
 use tauri::{ipc::Channel, AppHandle};
-use batch_runtime::{BatchCancellation, BatchStop};
 
 pub mod types;
-pub use types::*;
 pub use types::AppResult;
+pub use types::*;
 pub mod transport;
 pub use transport::*;
 pub mod calendar;
@@ -40,8 +40,8 @@ pub mod sources;
 pub use sources::*;
 pub mod parsers;
 pub use parsers::*;
-pub(crate) mod security_admission;
 pub mod ingestion;
+pub(crate) mod security_admission;
 pub use ingestion::*;
 pub mod settings;
 pub use settings::*;
@@ -185,7 +185,8 @@ pub async fn run_tracked_bhavcopy_batch(
     let run = TRACKED_BATCH.start(run_id)?;
     started.send(()).map_err(|error| error.to_string())?;
     tauri::async_runtime::spawn_blocking(move || {
-        let results = run_bhavcopy_batch(app.clone(), database_file_path.clone(), config, &run.stop);
+        let results =
+            run_bhavcopy_batch(app.clone(), database_file_path.clone(), config, &run.stop);
         let cancelled = run.finish();
         finish_batch_progress(&app, &database_file_path, results, cancelled)
     })
@@ -201,7 +202,12 @@ pub async fn download_bhavcopy_batch(
     let database_file_path = get_active_database_file_path(&app)?
         .ok_or_else(|| "Open a database before downloading bhavcopy data.".to_string())?;
     tauri::async_runtime::spawn_blocking(move || {
-        let results = run_bhavcopy_batch(app.clone(), database_file_path.clone(), config, &BatchStop::default());
+        let results = run_bhavcopy_batch(
+            app.clone(),
+            database_file_path.clone(),
+            config,
+            &BatchStop::default(),
+        );
         Ok(finish_batch_progress(&app, &database_file_path, results, false)?.results)
     })
     .await
@@ -277,11 +283,7 @@ fn run_bhavcopy_batch(
             format!("Source categories: {source_categories}"),
         );
     }
-    emit_progress(
-        &app_handle,
-        0,
-        format!("Download jobs: {}", tasks.len()),
-    );
+    emit_progress(&app_handle, 0, format!("Download jobs: {}", tasks.len()));
     for result in &calendar_skip_results {
         emit_download_result(&app_handle, result);
     }
@@ -336,8 +338,11 @@ fn run_bhavcopy_batch(
     let mut staged_downloads = Vec::<StagedDownload>::new();
     let mut completed = 0_usize;
     let total_tasks = tasks.len();
-    let index_dates = tasks.iter().filter(|task| task.exchange == "NSE_INDEX")
-        .map(|task| task.trade_date.clone()).collect();
+    let index_dates = tasks
+        .iter()
+        .filter(|task| task.exchange == "NSE_INDEX")
+        .map(|task| task.trade_date.clone())
+        .collect();
     let task_queue = Arc::new(Mutex::new(VecDeque::from(tasks)));
     let write_lock = Arc::new(Mutex::new(()));
     let (result_tx, result_rx) = mpsc::channel::<StagedDownloadOutcome>();
@@ -356,14 +361,24 @@ fn run_bhavcopy_batch(
         let task_queue = Arc::clone(&task_queue);
         let result_tx = result_tx.clone();
         download_workers.spawn(move |stop| loop {
-            if stop.load(std::sync::atomic::Ordering::SeqCst) { return; }
+            if stop.load(std::sync::atomic::Ordering::SeqCst) {
+                return;
+            }
             let Some(task) = user_stop.next_task(&task_queue) else {
                 return;
             };
-            if stop.load(std::sync::atomic::Ordering::SeqCst) { return; }
+            if stop.load(std::sync::atomic::Ordering::SeqCst) {
+                return;
+            }
             let result = match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
                 stage_download_task(
-                    &app, &client, &database_file_path, &task, &browser_fallback, stop.clone(), &user_stop,
+                    &app,
+                    &client,
+                    &database_file_path,
+                    &task,
+                    &browser_fallback,
+                    stop.clone(),
+                    &user_stop,
                 )
             })) {
                 Ok(Ok(result)) => result,
@@ -438,26 +453,39 @@ fn run_bhavcopy_batch(
     }
 
     if get_active_database_file_path(&app_handle)?.as_ref() != Some(&database_file_path) {
-        return Err("Active database changed during download; staged prices were not imported.".into());
+        return Err(
+            "Active database changed during download; staged prices were not imported.".into(),
+        );
     }
     if !stop.is_requested() {
         let prior_result_count = results.len();
         let fallback = index_fallback::stage_fallback(
-            &app_handle, &client, &database_file_path, &normalized_config, &index_dates,
-            &mut staged_downloads, &mut results, stop.flag(),
+            &app_handle,
+            &client,
+            &database_file_path,
+            &normalized_config,
+            &index_dates,
+            &mut staged_downloads,
+            &mut results,
+            stop.flag(),
         );
         match fallback {
             Err(error) if stop.is_requested() && error == "Index fallback cancelled" => {}
             outcome => outcome?,
         }
-        if stop.is_requested() && results.len() > prior_result_count
-            && results.last().is_some_and(|result| result.message == "Historical source failure: Index fallback cancelled")
+        if stop.is_requested()
+            && results.len() > prior_result_count
+            && results.last().is_some_and(|result| {
+                result.message == "Historical source failure: Index fallback cancelled"
+            })
         {
             results.pop();
         }
     }
     if get_active_database_file_path(&app_handle)?.as_ref() != Some(&database_file_path) {
-        return Err("Active database changed during download; staged prices were not imported.".into());
+        return Err(
+            "Active database changed during download; staged prices were not imported.".into(),
+        );
     }
 
     staged_downloads.sort_by(|left, right| compare_download_task(&left.task, &right.task));
@@ -642,7 +670,10 @@ fn finish_batch_progress(
 ) -> AppResult<TrackedBhavcopyBatchResult> {
     let results = results?;
     if !cancelled {
-        let calendar_skips = results.iter().filter(|result| is_calendar_skip_result(result)).count();
+        let calendar_skips = results
+            .iter()
+            .filter(|result| is_calendar_skip_result(result))
+            .count();
         let jobs = results.len() - calendar_skips;
         let rows: usize = results.iter().map(|result| result.rows_inserted).sum();
         emit_progress(app, 100, format!(
@@ -680,7 +711,10 @@ fn no_data_annotation_line(
     let mut holiday = Vec::new();
     let mut gap = Vec::new();
     for (exchange, date) in &pairs {
-        match get_exchange_holiday_name(&connection, exchange, calendar_date_key(date)).ok().flatten() {
+        match get_exchange_holiday_name(&connection, exchange, calendar_date_key(date))
+            .ok()
+            .flatten()
+        {
             Some(name) => holiday.push(format!("{date} {exchange} = holiday ({name})")),
             None => gap.push(format!("{date} {exchange}")),
         }
@@ -707,7 +741,11 @@ fn build_batch_plan(connection: &Connection, config: &BatchDownloadConfig) -> Ap
 
     for exchange in selected_exchanges(&config.exchanges) {
         if exchange == "NSE_INDEX" {
-            let supported = index_fallback::SUPPORTED.iter().map(|index| index.name).collect::<Vec<_>>().join(", ");
+            let supported = index_fallback::SUPPORTED
+                .iter()
+                .map(|index| index.name)
+                .collect::<Vec<_>>()
+                .join(", ");
             info_messages.push(format!("[NSE Index] Daily archives first; missing supported indices use historical fallback in chunks up to 366 days. Supported subset: {supported}. Other indices and unavailable dates remain unresolved; no full-history certification. Existing prices are preserved."));
         }
         let Some((start_date, end_date)) = resolve_exchange_date_window(
@@ -731,7 +769,10 @@ fn build_batch_plan(connection: &Connection, config: &BatchDownloadConfig) -> Ap
 
         // PHASE-1: make a missing official calendar explicit rather than letting
         // an unverified built-in seed silently stand in for it.
-        let start_year: i32 = start_date.get(..4).and_then(|v| v.parse().ok()).unwrap_or(0);
+        let start_year: i32 = start_date
+            .get(..4)
+            .and_then(|v| v.parse().ok())
+            .unwrap_or(0);
         let end_year: i32 = end_date.get(..4).and_then(|v| v.parse().ok()).unwrap_or(0);
         for year in start_year..=end_year {
             if year > 0 && !has_official_holiday_snapshot(connection, &exchange, year)? {
@@ -891,8 +932,6 @@ fn build_batch_plan(connection: &Connection, config: &BatchDownloadConfig) -> Ap
     })
 }
 
-
-
 fn stage_download_task(
     app: &AppHandle,
     client: &Client,
@@ -950,15 +989,17 @@ fn stage_download_task(
         }
         match recovered {
             Ok(Some(staged)) => return Ok(StagedDownloadOutcome::Ready(staged)),
-            Ok(None) => {},
+            Ok(None) => {}
             Err(error) => {
                 let primary = match &normal {
                     Err(error) => error.as_str(),
                     Ok(StagedDownloadOutcome::Result(result)) => result.message.as_str(),
                     _ => "Official source unavailable",
                 };
-                return Err(format!("{primary}; automatic BSE browser fallback: {error}"));
-            },
+                return Err(format!(
+                    "{primary}; automatic BSE browser fallback: {error}"
+                ));
+            }
         }
     }
     normal
@@ -1058,11 +1099,13 @@ fn stage_single_download(
                     String::from_utf8_lossy(&csv_bytes).into_owned()
                 };
                 if is_html_response(&csv_content) {
-                    last_hard_error = Some("Official source returned HTML instead of Bhavcopy data.".into());
+                    last_hard_error =
+                        Some("Official source returned HTML instead of Bhavcopy data.".into());
                     continue;
                 }
                 if task.exchange == "NSE_INDEX" || task.exchange == "NSE" {
-                    let validation = parse_bhavcopy_csv(&csv_content, &task.exchange, &task.trade_date, &[]);
+                    let validation =
+                        parse_bhavcopy_csv(&csv_content, &task.exchange, &task.trade_date, &[]);
                     let error = match validation {
                         Ok(parsed) => parsed.debug,
                         Err(error) => Some(error),
@@ -1133,7 +1176,6 @@ fn stage_single_download(
             .unwrap_or_else(|| "Download failed".to_string()),
     }))
 }
-
 
 fn process_download_task(
     client: &Client,
@@ -1272,7 +1314,6 @@ fn process_nse_index_history_task(
     })
 }
 
-
 fn download_single(
     client: &Client,
     database_file_path: &Path,
@@ -1339,7 +1380,9 @@ fn download_single(
                     exchange: exchange.to_string(),
                     rows_inserted: parsed.rows_inserted,
                     max_volume: parsed.max_volume,
-                    message: parsed.admission.describe_result(format!("Downloaded {} records", parsed.rows_inserted)),
+                    message: parsed
+                        .admission
+                        .describe_result(format!("Downloaded {} records", parsed.rows_inserted)),
                 });
             }
             Ok(None) => {
@@ -1381,11 +1424,11 @@ fn download_single(
         exchange: exchange.to_string(),
         rows_inserted: 0,
         max_volume: 0,
-        message: primary_hard_error.or(last_hard_error).unwrap_or_else(|| "Download failed".to_string()),
+        message: primary_hard_error
+            .or(last_hard_error)
+            .unwrap_or_else(|| "Download failed".to_string()),
     })
 }
-
-
 
 fn compare_download_results(left: &DownloadResult, right: &DownloadResult) -> std::cmp::Ordering {
     left.trade_date.cmp(&right.trade_date).then_with(|| {

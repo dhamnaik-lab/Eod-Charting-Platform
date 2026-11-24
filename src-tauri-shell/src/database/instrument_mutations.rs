@@ -117,7 +117,9 @@ fn merge_symbols_internal(
     let source_bin_path = super::storage_paths::eod_path(folder, &source_exchange, &source_symbol)?;
     let target_bin_path =
         super::storage_paths::eod_write_path(folder, &target_exchange, &target_symbol)?;
-    let source_has_binary = source_bin_path.try_exists().map_err(|error| error.to_string())?;
+    let source_has_binary = source_bin_path
+        .try_exists()
+        .map_err(|error| error.to_string())?;
     let source_instrument =
         find_instrument_record(connection, &source_symbol, &source_exchange)?
             .ok_or_else(|| "Source symbol was not found in the current database.".to_string())?;
@@ -413,7 +415,10 @@ fn merge_symbol_binary_files(
     delete_source: bool,
 ) -> AppResult<()> {
     let mut records = BinaryEodFile::open(source)?.read_all()?;
-    if !records.is_empty() && !overwrite_duplicates && target.try_exists().map_err(|e| e.to_string())? {
+    if !records.is_empty()
+        && !overwrite_duplicates
+        && target.try_exists().map_err(|e| e.to_string())?
+    {
         let target_dates: HashSet<_> = BinaryEodFile::open(target)?
             .read_all()?
             .into_iter()
@@ -449,7 +454,10 @@ pub(super) fn apply_corporate_action_internal(
 }
 
 fn is_price_adjustment_type(action_type: &str) -> bool {
-    matches!(action_type, "SPLIT" | "BONUS" | "DIVIDEND" | "RIGHTS" | "DEMERGER")
+    matches!(
+        action_type,
+        "SPLIT" | "BONUS" | "DIVIDEND" | "RIGHTS" | "DEMERGER"
+    )
 }
 
 fn record_price_adjustment_action(
@@ -458,46 +466,95 @@ fn record_price_adjustment_action(
     action_type: &str,
     base_path: Option<&Path>,
 ) -> AppResult<CorporateActionResult> {
-    record_price_adjustment_action_with_basis(connection,input,action_type,base_path,None)
+    record_price_adjustment_action_with_basis(connection, input, action_type, base_path, None)
 }
 
 // Called only from the ordinary guarded official-import writer, never from IPC
 // or manual numeric overrides. Independently rebuild the route inside its txn.
 pub(super) fn apply_official_import_price_adjustment(
-    connection: &Connection, input: &CorporateActionInputPayload, folder: &Path,
+    connection: &Connection,
+    input: &CorporateActionInputPayload,
+    folder: &Path,
     import: &super::CorporateActionImportRow,
 ) -> AppResult<CorporateActionResult> {
-    let target = super::corporate_action_imports::split_bonus_symbol_chain::verified(connection,folder,import)?;
-    let expected_symbol = target.as_ref().map(|proof| proof.target.as_str()).or(import.symbol.as_deref());
-    if input.symbol.as_deref() != expected_symbol || input.exchange != import.exchange || Some(&input.effective_date) != import.ex_date.as_ref()
-        || input.action_type != import.action_type || input.cash_amount != import.cash_amount {
+    let target = super::corporate_action_imports::split_bonus_symbol_chain::verified(
+        connection, folder, import,
+    )?;
+    let expected_symbol = target
+        .as_ref()
+        .map(|proof| proof.target.as_str())
+        .or(import.symbol.as_deref());
+    if input.symbol.as_deref() != expected_symbol
+        || input.exchange != import.exchange
+        || Some(&input.effective_date) != import.ex_date.as_ref()
+        || input.action_type != import.action_type
+        || input.cash_amount != import.cash_amount
+    {
         return Err("Official adjustment context changed.".into());
     }
     if let Some(proof) = target {
-        if input.isin != import.isin || input.record_date != import.record_date
-            || (input.ratio_num,input.ratio_den,input.old_face_value,input.new_face_value)
-                != (import.ratio_num,import.ratio_den,import.old_face_value,import.new_face_value) {
+        if input.isin != import.isin
+            || input.record_date != import.record_date
+            || (
+                input.ratio_num,
+                input.ratio_den,
+                input.old_face_value,
+                input.new_face_value,
+            ) != (
+                import.ratio_num,
+                import.ratio_den,
+                import.old_face_value,
+                import.new_face_value,
+            )
+        {
             return Err("Verified rename adjustment terms changed.".into());
         }
         let mut bound = input.clone();
-        bound.note = Some(format!("{}\n[splitBonusSymbolChainR1={}]",input.note.as_deref().unwrap_or_default(),proof.fingerprint()?));
-        return record_price_adjustment_action_with_basis(connection,&bound,&bound.action_type,Some(folder),Some(proof.previous()));
+        bound.note = Some(format!(
+            "{}\n[splitBonusSymbolChainR1={}]",
+            input.note.as_deref().unwrap_or_default(),
+            proof.fingerprint()?
+        ));
+        return record_price_adjustment_action_with_basis(
+            connection,
+            &bound,
+            &bound.action_type,
+            Some(folder),
+            Some(proof.previous()),
+        );
     }
-    if !matches!(input.action_type.as_str(), "DIVIDEND"|"SPLIT"|"BONUS"|"RIGHTS"|"DEMERGER") {
-        return apply_corporate_action_internal(connection,input,Some(folder));
+    if !matches!(
+        input.action_type.as_str(),
+        "DIVIDEND" | "SPLIT" | "BONUS" | "RIGHTS" | "DEMERGER"
+    ) {
+        return apply_corporate_action_internal(connection, input, Some(folder));
     }
-    let route = super::corporate_action_imports::event_price_route::resolve(connection,folder,import)?;
-    let previous = route.as_ref().map(|route|route.previous());
+    let route =
+        super::corporate_action_imports::event_price_route::resolve(connection, folder, import)?;
+    let previous = route.as_ref().map(|route| route.previous());
     let mut bound = input.clone();
     if let Some(route) = &route {
-        bound.note = Some(format!("{}\n[eventPriceRouteR1={}]",input.note.as_deref().unwrap_or_default(),route.fingerprint()));
+        bound.note = Some(format!(
+            "{}\n[eventPriceRouteR1={}]",
+            input.note.as_deref().unwrap_or_default(),
+            route.fingerprint()
+        ));
     }
-    record_price_adjustment_action_with_basis(connection,&bound,&bound.action_type,Some(folder),previous)
+    record_price_adjustment_action_with_basis(
+        connection,
+        &bound,
+        &bound.action_type,
+        Some(folder),
+        previous,
+    )
 }
 
 fn record_price_adjustment_action_with_basis(
-    connection: &Connection, input: &CorporateActionInputPayload, action_type: &str,
-    base_path: Option<&Path>, verified_previous: Option<(&str,f64)>,
+    connection: &Connection,
+    input: &CorporateActionInputPayload,
+    action_type: &str,
+    base_path: Option<&Path>,
+    verified_previous: Option<(&str, f64)>,
 ) -> AppResult<CorporateActionResult> {
     let exchange = normalize_exchange(&input.exchange)?;
     let requested_symbol = normalize_symbol(
@@ -515,28 +572,48 @@ fn record_price_adjustment_action_with_basis(
             "The selected instrument was not found in the active database.".to_string()
         })?;
 
-    let factor = if let Some((previous_date,previous_close)) = verified_previous {
+    let factor = if let Some((previous_date, previous_close)) = verified_previous {
         if action_type == "DIVIDEND" {
-            compute_dividend_adjustment_basis_from_values(previous_date.to_string(),previous_close,
-                require_positive_adjustment_number(input.cash_amount,"Dividend cash amount per share")?)?.computed_factor
+            compute_dividend_adjustment_basis_from_values(
+                previous_date.to_string(),
+                previous_close,
+                require_positive_adjustment_number(
+                    input.cash_amount,
+                    "Dividend cash amount per share",
+                )?,
+            )?
+            .computed_factor
         } else if action_type == "RIGHTS"
             && input.ratio_num.is_some()
             && input.ratio_den.is_some()
             && input.cash_amount.is_some()
         {
-            compute_rights_adjustment_factor(previous_close,
-                require_positive_adjustment_number(input.ratio_num,"Rights ratio numerator")?,
-                require_positive_adjustment_number(input.ratio_den,"Rights ratio denominator")?,
-                require_positive_adjustment_number(input.cash_amount,"Rights issue price")?)?
-        } else { compute_adjustment_factor(connection,base_path,&context,&effective_date,action_type,input)? }
-    } else { compute_adjustment_factor(
-        connection,
-        base_path,
-        &context,
-        &effective_date,
-        action_type,
-        input,
-    )? };
+            compute_rights_adjustment_factor(
+                previous_close,
+                require_positive_adjustment_number(input.ratio_num, "Rights ratio numerator")?,
+                require_positive_adjustment_number(input.ratio_den, "Rights ratio denominator")?,
+                require_positive_adjustment_number(input.cash_amount, "Rights issue price")?,
+            )?
+        } else {
+            compute_adjustment_factor(
+                connection,
+                base_path,
+                &context,
+                &effective_date,
+                action_type,
+                input,
+            )?
+        }
+    } else {
+        compute_adjustment_factor(
+            connection,
+            base_path,
+            &context,
+            &effective_date,
+            action_type,
+            input,
+        )?
+    };
     if !factor.is_finite() || factor <= 0.0 || (factor - 1.0).abs() < f64::EPSILON {
         return Err("The selected action needs valid adjustment inputs.".to_string());
     }
@@ -598,7 +675,10 @@ fn record_price_adjustment_action_with_basis(
     // The same economic Split/Bonus/Dividend/Rights/Demerger can arrive with different
     // raw term columns, but must not create two independent adjustment
     // multipliers for the same event/date.
-    if matches!(action_type, "SPLIT" | "BONUS" | "DIVIDEND" | "RIGHTS" | "DEMERGER") {
+    if matches!(
+        action_type,
+        "SPLIT" | "BONUS" | "DIVIDEND" | "RIGHTS" | "DEMERGER"
+    ) {
         let mut statement = connection
             .prepare(
                 "SELECT id, factor FROM corporate_actions
@@ -623,8 +703,8 @@ fn record_price_adjustment_action_with_basis(
             .map_err(|error| error.to_string())?;
         if let Some((id, _)) = prior.into_iter().find(|(_, stored_factor)| {
             stored_factor.is_finite()
-                && (stored_factor - factor).abs() <=
-                    1e-9_f64 * stored_factor.abs().max(factor.abs()).max(1.0)
+                && (stored_factor - factor).abs()
+                    <= 1e-9_f64 * stored_factor.abs().max(factor.abs()).max(1.0)
         }) {
             return Err(format!(
                 "An economically equivalent {action_type} corporate action already exists (id {id}); a second adjustment is blocked."
@@ -1517,9 +1597,8 @@ fn normalize_optional_number(value: Option<f64>) -> Option<f64> {
 fn normalize_corporate_action_type(value: &str) -> AppResult<String> {
     let normalized = value.trim().to_uppercase();
     match normalized.as_str() {
-        "SPLIT" | "BONUS" | "DIVIDEND" | "RIGHTS" | "DEMERGER" | "NAME_CHANGE" | "SYMBOL_CHANGE" | "BOTH" => {
-            Ok(normalized)
-        }
+        "SPLIT" | "BONUS" | "DIVIDEND" | "RIGHTS" | "DEMERGER" | "NAME_CHANGE"
+        | "SYMBOL_CHANGE" | "BOTH" => Ok(normalized),
         _ => Err(format!("Unsupported action type: {value}")),
     }
 }
@@ -1589,9 +1668,11 @@ fn compute_adjustment_factor(
     if let Some(factor) = factor_from_face_value {
         if input.ratio_num.is_some() || input.ratio_den.is_some() {
             let num = require_positive_adjustment_number(input.ratio_num, "Split ratio numerator")?;
-            let den = require_positive_adjustment_number(input.ratio_den, "Split ratio denominator")?;
+            let den =
+                require_positive_adjustment_number(input.ratio_den, "Split ratio denominator")?;
             let ratio_factor = num / den;
-            if !ratio_factor.is_finite() || ratio_factor <= 0.0
+            if !ratio_factor.is_finite()
+                || ratio_factor <= 0.0
                 || (factor - ratio_factor).abs() > 1e-9 * factor.abs().max(ratio_factor.abs())
             {
                 return Err("Split ratio and face values imply different adjustment factors. Correct the terms or supply only one form.".to_string());
@@ -1755,7 +1836,9 @@ fn load_previous_trade_close_basis(
     effective_date: &str,
 ) -> AppResult<PreviousTradeCloseBasis> {
     let today_ist = chrono::Utc::now()
-        .with_timezone(&chrono::FixedOffset::east_opt(5 * 3600 + 30 * 60).expect("valid IST offset"))
+        .with_timezone(
+            &chrono::FixedOffset::east_opt(5 * 3600 + 30 * 60).expect("valid IST offset"),
+        )
         .format("%Y-%m-%d")
         .to_string();
     if effective_date > today_ist.as_str() {
@@ -1830,31 +1913,41 @@ mod tests {
         let access = CanonicalAccess::in_namespace(folder, folder).unwrap();
         let read = access.begin_read().unwrap();
         assert_eq!(
-            merge_symbols_internal(&connection, &input, folder).err().unwrap(),
+            merge_symbols_internal(&connection, &input, folder)
+                .err()
+                .unwrap(),
             "CANONICAL_PRICE_STORE_BUSY"
         );
         drop(read);
         let result = merge_symbols_internal(&connection, &input, folder).unwrap();
         assert_eq!(result.merged_rows, 1);
         assert!(source.is_file());
-        assert_eq!(access.begin_read().unwrap_err(), "CANONICAL_PRICE_STORE_INTERRUPTED");
+        assert_eq!(
+            access.begin_read().unwrap_err(),
+            "CANONICAL_PRICE_STORE_INTERRUPTED"
+        );
 
         BinaryEodFile::write_all(&source, "OLD", "NSE", DEFAULT_SCALE, &mut []).unwrap();
         merge_symbols_internal(&connection, &input, folder).unwrap();
         assert!(!source.exists());
-        assert_eq!(access.begin_read().unwrap_err(), "CANONICAL_PRICE_STORE_INTERRUPTED");
+        assert_eq!(
+            access.begin_read().unwrap_err(),
+            "CANONICAL_PRICE_STORE_INTERRUPTED"
+        );
     }
     use crate::database::prepare_database_connection;
-
 
     #[test]
     fn ca_financial_integrity_equivalent_split_ratio_and_face_value_cannot_double_adjust() {
         let connection = Connection::open_in_memory().unwrap();
         prepare_database_connection(&connection).unwrap();
-        connection.execute(
-            "INSERT INTO instruments (symbol, exchange, isin, name, is_active, series)
-             VALUES ('EQUIV', 'NSE', 'INE000A00011', 'Equivalent Test', 1, 'EQ')", [],
-        ).unwrap();
+        connection
+            .execute(
+                "INSERT INTO instruments (symbol, exchange, isin, name, is_active, series)
+             VALUES ('EQUIV', 'NSE', 'INE000A00011', 'Equivalent Test', 1, 'EQ')",
+                [],
+            )
+            .unwrap();
         let mut input = CorporateActionInputPayload {
             action_type: "SPLIT".to_string(),
             exchange: "NSE".to_string(),
@@ -1884,7 +1977,10 @@ mod tests {
         assert!(error.contains("Split ratio and face values imply different"));
         input.action_type = "DEMERGER".to_string();
         let error = apply_corporate_action_internal(&connection, &input, None).unwrap_err();
-        assert_eq!(error, super::super::corporate_action_imports::DEMERGER_AUTHORITY_REQUIRED);
+        assert_eq!(
+            error,
+            super::super::corporate_action_imports::DEMERGER_AUTHORITY_REQUIRED
+        );
         input.action_type = "SPLIT".to_string();
         input.new_face_value = Some(5.0);
         apply_corporate_action_internal(&connection, &input, None).unwrap();
@@ -1894,9 +1990,13 @@ mod tests {
         input.new_face_value = Some(5.0);
         let error = apply_corporate_action_internal(&connection, &input, None).unwrap_err();
         assert!(error.contains("economically equivalent"), "{error}");
-        let count: i64 = connection.query_row(
-            "SELECT COUNT(*) FROM corporate_actions WHERE symbol='EQUIV'", [], |row| row.get(0),
-        ).unwrap();
+        let count: i64 = connection
+            .query_row(
+                "SELECT COUNT(*) FROM corporate_actions WHERE symbol='EQUIV'",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
         assert_eq!(count, 1);
     }
 
@@ -1904,29 +2004,48 @@ mod tests {
     fn ca_m1_bonus_factor_uses_ratio_and_rejects_face_values() {
         let connection = Connection::open_in_memory().unwrap();
         prepare_database_connection(&connection).unwrap();
-        connection.execute(
-            "INSERT INTO instruments (symbol, exchange, isin, name, is_active, series)
-             VALUES ('BONUSFV', 'NSE', 'INE000A00044', 'Bonus FV Test', 1, 'EQ')", [],
-        ).unwrap();
+        connection
+            .execute(
+                "INSERT INTO instruments (symbol, exchange, isin, name, is_active, series)
+             VALUES ('BONUSFV', 'NSE', 'INE000A00044', 'Bonus FV Test', 1, 'EQ')",
+                [],
+            )
+            .unwrap();
         let mut input = CorporateActionInputPayload {
-            action_type: "BONUS".to_string(), exchange: "NSE".to_string(),
-            effective_date: "2026-06-12".to_string(), symbol: Some("BONUSFV".to_string()),
-            isin: Some("INE000A00044".to_string()), record_date: None,
-            ratio_num: Some(1.0), ratio_den: Some(1.0),
-            old_face_value: Some(10.0), new_face_value: Some(1.0),
-            cash_amount: None, adjust_volume: Some(true),
-            old_symbol: None, old_name: None, new_symbol: None, new_name: None,
-            current_symbol: Some("BONUSFV".to_string()), current_name: None,
-            note: None, source: Some("MANUAL".to_string()), source_ref: None,
+            action_type: "BONUS".to_string(),
+            exchange: "NSE".to_string(),
+            effective_date: "2026-06-12".to_string(),
+            symbol: Some("BONUSFV".to_string()),
+            isin: Some("INE000A00044".to_string()),
+            record_date: None,
+            ratio_num: Some(1.0),
+            ratio_den: Some(1.0),
+            old_face_value: Some(10.0),
+            new_face_value: Some(1.0),
+            cash_amount: None,
+            adjust_volume: Some(true),
+            old_symbol: None,
+            old_name: None,
+            new_symbol: None,
+            new_name: None,
+            current_symbol: Some("BONUSFV".to_string()),
+            current_name: None,
+            note: None,
+            source: Some("MANUAL".to_string()),
+            source_ref: None,
         };
         // Audit M1 repro: the dialog previews 2.0, but face values used to store 10.0.
         let error = apply_corporate_action_internal(&connection, &input, None).unwrap_err();
         assert!(error.contains("entitlement ratio"), "{error}");
         input.new_face_value = None;
         assert!(apply_corporate_action_internal(&connection, &input, None).is_err());
-        let count: i64 = connection.query_row(
-            "SELECT COUNT(*) FROM corporate_actions WHERE symbol='BONUSFV'", [], |row| row.get(0),
-        ).unwrap();
+        let count: i64 = connection
+            .query_row(
+                "SELECT COUNT(*) FROM corporate_actions WHERE symbol='BONUSFV'",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
         assert_eq!(count, 0);
 
         input.old_face_value = None;
@@ -1948,32 +2067,55 @@ mod tests {
     fn ca_financial_integrity_manual_action_and_isin_evidence_roll_back_together() {
         let connection = Connection::open_in_memory().unwrap();
         prepare_database_connection(&connection).unwrap();
-        connection.execute(
-            "INSERT INTO instruments (symbol, exchange, isin, name, is_active, series)
-             VALUES ('TXCA', 'NSE', 'INE000A00022', 'Rollback Test', 1, 'EQ')", [],
-        ).unwrap();
-        connection.execute_batch(
-            "CREATE TRIGGER ca_fail_isin_proof BEFORE INSERT ON instrument_isin_history
+        connection
+            .execute(
+                "INSERT INTO instruments (symbol, exchange, isin, name, is_active, series)
+             VALUES ('TXCA', 'NSE', 'INE000A00022', 'Rollback Test', 1, 'EQ')",
+                [],
+            )
+            .unwrap();
+        connection
+            .execute_batch(
+                "CREATE TRIGGER ca_fail_isin_proof BEFORE INSERT ON instrument_isin_history
              WHEN NEW.symbol='TXCA'
              BEGIN SELECT RAISE(FAIL, 'injected CA ISIN evidence error'); END;",
-        ).unwrap();
+            )
+            .unwrap();
         let input = CorporateActionInputPayload {
-            action_type: "BONUS".to_string(), exchange: "NSE".to_string(),
-            effective_date: "2026-06-12".to_string(), symbol: Some("TXCA".to_string()),
-            isin: Some("INE000A00022".to_string()), record_date: None,
-            ratio_num: Some(1.0), ratio_den: Some(2.0), old_face_value: None,
-            new_face_value: None, cash_amount: None, adjust_volume: Some(true),
-            old_symbol: None, old_name: None, new_symbol: None, new_name: None,
-            current_symbol: Some("TXCA".to_string()), current_name: None,
-            note: None, source: Some("MANUAL".to_string()), source_ref: None,
+            action_type: "BONUS".to_string(),
+            exchange: "NSE".to_string(),
+            effective_date: "2026-06-12".to_string(),
+            symbol: Some("TXCA".to_string()),
+            isin: Some("INE000A00022".to_string()),
+            record_date: None,
+            ratio_num: Some(1.0),
+            ratio_den: Some(2.0),
+            old_face_value: None,
+            new_face_value: None,
+            cash_amount: None,
+            adjust_volume: Some(true),
+            old_symbol: None,
+            old_name: None,
+            new_symbol: None,
+            new_name: None,
+            current_symbol: Some("TXCA".to_string()),
+            current_name: None,
+            note: None,
+            source: Some("MANUAL".to_string()),
+            source_ref: None,
         };
         let error = run_connection_transaction(&connection, |connection| {
             apply_corporate_action_internal(connection, &input, None)
-        }).unwrap_err();
+        })
+        .unwrap_err();
         assert!(error.contains("injected CA ISIN evidence error"), "{error}");
-        let count: i64 = connection.query_row(
-            "SELECT COUNT(*) FROM corporate_actions WHERE symbol='TXCA'", [], |row| row.get(0),
-        ).unwrap();
+        let count: i64 = connection
+            .query_row(
+                "SELECT COUNT(*) FROM corporate_actions WHERE symbol='TXCA'",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
         assert_eq!(count, 0);
     }
 
@@ -2113,23 +2255,37 @@ mod tests {
             .expect_err("standalone identity failure must roll back its history insert");
         assert!(error.contains("i4 injected identity instrument failure"));
         let history_after_failure: i64 = connection
-            .query_row("SELECT COUNT(*) FROM instrument_identity_history", [], |row| row.get(0))
+            .query_row(
+                "SELECT COUNT(*) FROM instrument_identity_history",
+                [],
+                |row| row.get(0),
+            )
             .unwrap();
         assert_eq!(history_after_failure, 0);
 
         connection
             .execute_batch("DROP TRIGGER i4_fail_identity_instrument_upsert")
             .unwrap();
-        connection.execute_batch("BEGIN IMMEDIATE TRANSACTION").unwrap();
+        connection
+            .execute_batch("BEGIN IMMEDIATE TRANSACTION")
+            .unwrap();
         apply_corporate_action_internal(&connection, &payload, None).unwrap();
         let history_inside_outer: i64 = connection
-            .query_row("SELECT COUNT(*) FROM instrument_identity_history", [], |row| row.get(0))
+            .query_row(
+                "SELECT COUNT(*) FROM instrument_identity_history",
+                [],
+                |row| row.get(0),
+            )
             .unwrap();
         assert_eq!(history_inside_outer, 1);
         connection.execute_batch("ROLLBACK").unwrap();
 
         let history_after_outer_rollback: i64 = connection
-            .query_row("SELECT COUNT(*) FROM instrument_identity_history", [], |row| row.get(0))
+            .query_row(
+                "SELECT COUNT(*) FROM instrument_identity_history",
+                [],
+                |row| row.get(0),
+            )
             .unwrap();
         let new_symbol_rows: i64 = connection
             .query_row(
@@ -2586,7 +2742,8 @@ mod tests {
     }
 
     #[test]
-    fn phase_r2_manual_price_adjustment_blocks_future_effective_date_and_equivalent_rights_factor() {
+    fn phase_r2_manual_price_adjustment_blocks_future_effective_date_and_equivalent_rights_factor()
+    {
         let connection = Connection::open_in_memory().unwrap();
         prepare_database_connection(&connection).unwrap();
         connection
@@ -2641,18 +2798,30 @@ mod tests {
 
         // A legacy price-drop factor must never fill in missing Rights terms,
         // including on the manual adjustment path. Keep the approved TERP row.
-        connection.execute(
-            "INSERT INTO corporate_action_imports
+        connection
+            .execute(
+                "INSERT INTO corporate_action_imports
              (dedupe_key, exchange, source, symbol, purpose_raw, ex_date, action_type,
               factor, price_factor, parse_status, review_status)
              VALUES ('rights-safety', 'NSE', 'NSE_API', 'R2TEST', 'Rights issue',
-                     '2026-06-12', 'RIGHTS', 1.15, 1.0/1.15, 'PARSED', 'PENDING')", [],
-        ).unwrap();
+                     '2026-06-12', 'RIGHTS', 1.15, 1.0/1.15, 'PARSED', 'PENDING')",
+                [],
+            )
+            .unwrap();
         rights_input.cash_amount = None;
         let missing_terms = compute_adjustment_factor(
-            &connection, None, &context, "2026-06-12", "RIGHTS", &rights_input,
-        ).unwrap_err();
-        assert!(missing_terms.contains("Rights issue price"), "{missing_terms}");
+            &connection,
+            None,
+            &context,
+            "2026-06-12",
+            "RIGHTS",
+            &rights_input,
+        )
+        .unwrap_err();
+        assert!(
+            missing_terms.contains("Rights issue price"),
+            "{missing_terms}"
+        );
         rights_input.cash_amount = Some(80.0);
 
         rights_input.ratio_num = Some(2.0);

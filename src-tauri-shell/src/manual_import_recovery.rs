@@ -276,8 +276,16 @@ pub fn prepare_binary_import_session(
                 ));
             }
             planned_record_count += 1;
-            min_date = Some(min_date.map(|value| value.min(record.date)).unwrap_or(record.date));
-            max_date = Some(max_date.map(|value| value.max(record.date)).unwrap_or(record.date));
+            min_date = Some(
+                min_date
+                    .map(|value| value.min(record.date))
+                    .unwrap_or(record.date),
+            );
+            max_date = Some(
+                max_date
+                    .map(|value| value.max(record.date))
+                    .unwrap_or(record.date),
+            );
             let after = ManualImportRecoveryRecord::from(*record);
             match existing.get(&record.date) {
                 None => changes.push(ManualImportRecoveryChange {
@@ -304,7 +312,10 @@ pub fn prepare_binary_import_session(
     }
 
     let session_id = next_session_id();
-    let directory = directory(database_folder, &[RECOVERY_ROOT, RECOVERY_SESSIONS, &session_id])?;
+    let directory = directory(
+        database_folder,
+        &[RECOVERY_ROOT, RECOVERY_SESSIONS, &session_id],
+    )?;
     fs::create_dir_all(&directory).map_err(|error| error.to_string())?;
     let journal_temp_path = file(&directory, JOURNAL_TEMP_FILE)?;
     let journal_path = file(&directory, JOURNAL_FILE)?;
@@ -342,7 +353,10 @@ pub fn prepare_binary_import_session(
     };
     write_manifest_atomic(&directory, &manifest)?;
 
-    Ok(Some(ManualImportRecoveryHandle { directory, manifest }))
+    Ok(Some(ManualImportRecoveryHandle {
+        directory,
+        manifest,
+    }))
 }
 
 pub fn update_session_state(
@@ -385,7 +399,9 @@ pub fn list_session_summaries(
         let entry = entry.map_err(|error| error.to_string())?;
         let name = entry.file_name();
         let Some(name) = name.to_str() else { continue };
-        let Ok(directory) = directory(&root, &[name]) else { continue };
+        let Ok(directory) = directory(&root, &[name]) else {
+            continue;
+        };
         if !directory.is_dir() {
             continue;
         }
@@ -437,9 +453,14 @@ where
     let mut grouped = BTreeMap::<String, Vec<ManualImportRecoveryChange>>::new();
     for change in std::mem::take(&mut session.changes) {
         if change.exchange != session.manifest.exchange {
-            return Err("Manual Import recovery row exchange does not match its manifest.".to_string());
+            return Err(
+                "Manual Import recovery row exchange does not match its manifest.".to_string(),
+            );
         }
-        grouped.entry(change.symbol.clone()).or_default().push(change);
+        grouped
+            .entry(change.symbol.clone())
+            .or_default()
+            .push(change);
     }
     for symbol in grouped.keys() {
         let path = eod_path(database_folder, &session.manifest.exchange, symbol)?;
@@ -685,7 +706,10 @@ fn has_sqlite_prices(connection: &Connection, symbol: &str, exchange: &str) -> A
         .map_err(|error| error.to_string())
 }
 
-fn load_symbol_reference_set(connection: &Connection, exchange: &str) -> AppResult<HashSet<String>> {
+fn load_symbol_reference_set(
+    connection: &Connection,
+    exchange: &str,
+) -> AppResult<HashSet<String>> {
     let mut table_statement = connection
         .prepare(
             "SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%' ORDER BY name",
@@ -746,14 +770,24 @@ fn load_symbol_reference_set(connection: &Connection, exchange: &str) -> AppResu
                     .query_map(params![exchange], |row| row.get::<_, String>(0))
                     .map_err(|error| error.to_string())?;
                 for value in values {
-                    references.insert(value.map_err(|error| error.to_string())?.trim().to_uppercase());
+                    references.insert(
+                        value
+                            .map_err(|error| error.to_string())?
+                            .trim()
+                            .to_uppercase(),
+                    );
                 }
             } else {
                 let values = statement
                     .query_map([], |row| row.get::<_, String>(0))
                     .map_err(|error| error.to_string())?;
                 for value in values {
-                    references.insert(value.map_err(|error| error.to_string())?.trim().to_uppercase());
+                    references.insert(
+                        value
+                            .map_err(|error| error.to_string())?
+                            .trim()
+                            .to_uppercase(),
+                    );
                 }
             }
         }
@@ -770,10 +804,19 @@ fn quote_identifier(value: &str) -> String {
     format!("\"{}\"", value.replace('"', "\"\""))
 }
 
-fn load_session(database_folder: &Path, session_id: &str) -> AppResult<LoadedManualImportRecoverySession> {
-    let directory = directory(database_folder, &[RECOVERY_ROOT, RECOVERY_SESSIONS, session_id])?;
+fn load_session(
+    database_folder: &Path,
+    session_id: &str,
+) -> AppResult<LoadedManualImportRecoverySession> {
+    let directory = directory(
+        database_folder,
+        &[RECOVERY_ROOT, RECOVERY_SESSIONS, session_id],
+    )?;
     if !directory.exists() {
-        return Err(format!("Manual Import recovery session {} was not found.", session_id));
+        return Err(format!(
+            "Manual Import recovery session {} was not found.",
+            session_id
+        ));
     }
     let manifest = read_manifest_with_backup(&directory)?;
     if manifest.schema_version != MANUAL_IMPORT_RECOVERY_SCHEMA_VERSION {
@@ -790,7 +833,10 @@ fn load_session(database_folder: &Path, session_id: &str) -> AppResult<LoadedMan
         ));
     }
     if manifest.session_id != session_id || manifest.journal_file != JOURNAL_FILE {
-        return Err("Manual Import recovery manifest does not match the session or journal filename.".to_string());
+        return Err(
+            "Manual Import recovery manifest does not match the session or journal filename."
+                .to_string(),
+        );
     }
     let journal_path = file(&directory, JOURNAL_FILE)?;
     let metadata = fs::metadata(&journal_path).map_err(|error| error.to_string())?;
@@ -821,7 +867,9 @@ fn load_session(database_folder: &Path, session_id: &str) -> AppResult<LoadedMan
     })
 }
 
-fn load_normalized_records_by_date(path: &Path) -> AppResult<BTreeMap<u32, ManualImportRecoveryRecord>> {
+fn load_normalized_records_by_date(
+    path: &Path,
+) -> AppResult<BTreeMap<u32, ManualImportRecoveryRecord>> {
     if !path.exists() {
         return Ok(BTreeMap::new());
     }
@@ -844,8 +892,7 @@ fn normalize_record(record: EodRecord, source_scale: u32) -> ManualImportRecover
     let source = source_scale.max(1) as i128;
     let target = DEFAULT_SCALE as i128;
     let scale_value = |value: i64| -> i64 {
-        ((value as i128 * target) / source)
-            .clamp(i64::MIN as i128, i64::MAX as i128) as i64
+        ((value as i128 * target) / source).clamp(i64::MIN as i128, i64::MAX as i128) as i64
     };
     ManualImportRecoveryRecord {
         date: record.date,
@@ -940,7 +987,9 @@ fn repair_interrupted_replace(path: &Path, session_id: &str) -> AppResult<()> {
 fn backup_path(path: &Path, session_id: &str) -> PathBuf {
     path.with_file_name(format!(
         "{}.{}.manual-import-undo.bak",
-        path.file_name().and_then(|value| value.to_str()).unwrap_or("quotes.eod"),
+        path.file_name()
+            .and_then(|value| value.to_str())
+            .unwrap_or("quotes.eod"),
         sanitize_session_id(session_id)
     ))
 }
@@ -948,7 +997,9 @@ fn backup_path(path: &Path, session_id: &str) -> PathBuf {
 fn staged_path(path: &Path, session_id: &str) -> PathBuf {
     path.with_file_name(format!(
         "{}.{}.manual-import-undo.new",
-        path.file_name().and_then(|value| value.to_str()).unwrap_or("quotes.eod"),
+        path.file_name()
+            .and_then(|value| value.to_str())
+            .unwrap_or("quotes.eod"),
         sanitize_session_id(session_id)
     ))
 }
@@ -956,11 +1007,20 @@ fn staged_path(path: &Path, session_id: &str) -> PathBuf {
 fn sanitize_session_id(session_id: &str) -> String {
     session_id
         .chars()
-        .map(|value| if value.is_ascii_alphanumeric() { value } else { '_' })
+        .map(|value| {
+            if value.is_ascii_alphanumeric() {
+                value
+            } else {
+                '_'
+            }
+        })
         .collect()
 }
 
-fn write_journal_file(path: &Path, rows: &[ManualImportRecoveryChange]) -> AppResult<(u64, String)> {
+fn write_journal_file(
+    path: &Path,
+    rows: &[ManualImportRecoveryChange],
+) -> AppResult<(u64, String)> {
     let file = File::create(path).map_err(|error| error.to_string())?;
     let mut writer = BufWriter::new(file);
     let mut hasher = Sha256::new();
@@ -973,7 +1033,10 @@ fn write_journal_file(path: &Path, rows: &[ManualImportRecoveryChange]) -> AppRe
         length += line.len() as u64;
     }
     writer.flush().map_err(|error| error.to_string())?;
-    writer.get_ref().sync_all().map_err(|error| error.to_string())?;
+    writer
+        .get_ref()
+        .sync_all()
+        .map_err(|error| error.to_string())?;
     Ok((length, format!("{:x}", hasher.finalize())))
 }
 
@@ -991,7 +1054,10 @@ fn read_journal_file(path: &Path) -> AppResult<Vec<ManualImportRecoveryChange>> 
     Ok(rows)
 }
 
-fn write_manifest_atomic(directory: &Path, manifest: &ManualImportRecoveryManifest) -> AppResult<()> {
+fn write_manifest_atomic(
+    directory: &Path,
+    manifest: &ManualImportRecoveryManifest,
+) -> AppResult<()> {
     fs::create_dir_all(directory).map_err(|error| error.to_string())?;
     let manifest_path = file(directory, MANIFEST_FILE)?;
     let backup_path = file(directory, MANIFEST_BACKUP_FILE)?;
@@ -1010,11 +1076,13 @@ fn write_manifest_atomic(directory: &Path, manifest: &ManualImportRecoveryManife
             .write(true)
             .open(&backup_path)
             .and_then(|file| file.sync_all())
-            .map_err(|error| format!(
-                "Unable to durably flush Manual Import recovery manifest backup {}: {}",
-                backup_path.display(),
-                error
-            ))?;
+            .map_err(|error| {
+                format!(
+                    "Unable to durably flush Manual Import recovery manifest backup {}: {}",
+                    backup_path.display(),
+                    error
+                )
+            })?;
         fs::remove_file(&manifest_path).map_err(|error| error.to_string())?;
     }
     fs::rename(&temp_path, &manifest_path).map_err(|error| error.to_string())?;
@@ -1025,12 +1093,14 @@ fn read_manifest_with_backup(directory: &Path) -> AppResult<ManualImportRecovery
     let primary = file(directory, MANIFEST_FILE)?;
     match read_manifest(&primary) {
         Ok(value) => Ok(value),
-        Err(primary_error) => file(directory, MANIFEST_BACKUP_FILE).and_then(|backup| read_manifest(&backup)).map_err(|backup_error| {
-            format!(
-                "Unable to read Manual Import recovery manifest: primary {}, backup {}",
-                primary_error, backup_error
-            )
-        }),
+        Err(primary_error) => file(directory, MANIFEST_BACKUP_FILE)
+            .and_then(|backup| read_manifest(&backup))
+            .map_err(|backup_error| {
+                format!(
+                    "Unable to read Manual Import recovery manifest: primary {}, backup {}",
+                    primary_error, backup_error
+                )
+            }),
     }
 }
 
@@ -1180,15 +1250,27 @@ mod tests {
             0,
             &HashSet::from(["M&M".to_string()]),
             &HashMap::from([("M&M".to_string(), vec![record(20240102, 1000)])]),
-        ).unwrap().unwrap();
-        update_session_state(&mut handle, ManualImportRecoveryState::Applied, Some(1), Some(0), None).unwrap();
+        )
+        .unwrap()
+        .unwrap();
+        update_session_state(
+            &mut handle,
+            ManualImportRecoveryState::Applied,
+            Some(1),
+            Some(0),
+            None,
+        )
+        .unwrap();
         handle.manifest.journal_file = "alternate.ndjson".to_string();
         write_manifest_atomic(&handle.directory, &handle.manifest).unwrap();
 
         let session_id = &handle.manifest.session_id;
         let error = undo_session(&db_path, &connection, session_id, |_, _, _| {}).unwrap_err();
         assert!(error.contains("does not match the session or journal filename"));
-        assert_eq!(read_manifest_with_backup(&handle.directory).unwrap().state, ManualImportRecoveryState::Applied);
+        assert_eq!(
+            read_manifest_with_backup(&handle.directory).unwrap().state,
+            ManualImportRecoveryState::Applied
+        );
     }
 
     #[test]
@@ -1197,7 +1279,11 @@ mod tests {
         let db_path = dir.path().join("data.db");
         let connection = setup_connection(&db_path);
         let source = dir.path().join("source.csv");
-        fs::write(&source, "SYMBOL,DATE,OPEN,HIGH,LOW,CLOSE,VOLUME\nNEW,20240102,1,1,1,1,1\n").unwrap();
+        fs::write(
+            &source,
+            "SYMBOL,DATE,OPEN,HIGH,LOW,CLOSE,VOLUME\nNEW,20240102,1,1,1,1,1\n",
+        )
+        .unwrap();
         let mut records = HashMap::new();
         records.insert("NEW".to_string(), vec![record(20240102, 1000)]);
 
@@ -1223,10 +1309,30 @@ mod tests {
         let bin_dir = dir.path().join("eod_data").join("NSE");
         fs::create_dir_all(&bin_dir).unwrap();
         let mut values = vec![record(20240102, 1000)];
-        BinaryEodFile::write_all(bin_dir.join("NEW.eod"), "NEW", "NSE", DEFAULT_SCALE, &mut values).unwrap();
-        update_session_state(&mut handle, ManualImportRecoveryState::Applied, Some(1), Some(0), None).unwrap();
+        BinaryEodFile::write_all(
+            bin_dir.join("NEW.eod"),
+            "NEW",
+            "NSE",
+            DEFAULT_SCALE,
+            &mut values,
+        )
+        .unwrap();
+        update_session_state(
+            &mut handle,
+            ManualImportRecoveryState::Applied,
+            Some(1),
+            Some(0),
+            None,
+        )
+        .unwrap();
 
-        let result = undo_session(&db_path, &connection, &handle.manifest.session_id, |_, _, _| {}).unwrap();
+        let result = undo_session(
+            &db_path,
+            &connection,
+            &handle.manifest.session_id,
+            |_, _, _| {},
+        )
+        .unwrap();
         assert!(result.success);
         assert_eq!(result.reverted_inserted_rows, 1);
         assert_eq!(result.removed_instruments, 1);
@@ -1240,7 +1346,11 @@ mod tests {
         let connection = setup_connection(&db_path);
         connection.execute("INSERT INTO instruments (symbol, exchange, name, series) VALUES ('KEEP','NSE','KEEP','EQ')", []).unwrap();
         let source = dir.path().join("source.csv");
-        fs::write(&source, "SYMBOL,DATE,OPEN,HIGH,LOW,CLOSE,VOLUME\nKEEP,20240102,1,1,1,1,1\n").unwrap();
+        fs::write(
+            &source,
+            "SYMBOL,DATE,OPEN,HIGH,LOW,CLOSE,VOLUME\nKEEP,20240102,1,1,1,1,1\n",
+        )
+        .unwrap();
         let mut records = HashMap::new();
         records.insert("KEEP".to_string(), vec![record(20240102, 1000)]);
         let mut handle = prepare_binary_import_session(
@@ -1259,13 +1369,36 @@ mod tests {
         let bin_dir = dir.path().join("eod_data").join("NSE");
         fs::create_dir_all(&bin_dir).unwrap();
         let mut changed = vec![record(20240102, 2000)];
-        BinaryEodFile::write_all(bin_dir.join("KEEP.eod"), "KEEP", "NSE", DEFAULT_SCALE, &mut changed).unwrap();
-        update_session_state(&mut handle, ManualImportRecoveryState::Applied, Some(1), Some(0), None).unwrap();
+        BinaryEodFile::write_all(
+            bin_dir.join("KEEP.eod"),
+            "KEEP",
+            "NSE",
+            DEFAULT_SCALE,
+            &mut changed,
+        )
+        .unwrap();
+        update_session_state(
+            &mut handle,
+            ManualImportRecoveryState::Applied,
+            Some(1),
+            Some(0),
+            None,
+        )
+        .unwrap();
 
-        let result = undo_session(&db_path, &connection, &handle.manifest.session_id, |_, _, _| {}).unwrap();
+        let result = undo_session(
+            &db_path,
+            &connection,
+            &handle.manifest.session_id,
+            |_, _, _| {},
+        )
+        .unwrap();
         assert!(!result.success);
         assert_eq!(result.conflicts, 1);
-        let current = BinaryEodFile::open(bin_dir.join("KEEP.eod")).unwrap().read_all().unwrap();
+        let current = BinaryEodFile::open(bin_dir.join("KEEP.eod"))
+            .unwrap()
+            .read_all()
+            .unwrap();
         assert_eq!(current[0].close, 2000);
     }
     #[test]
@@ -1565,5 +1698,4 @@ mod tests {
         assert!(result.success);
         assert_eq!(result.removed_instruments, 1);
     }
-
 }

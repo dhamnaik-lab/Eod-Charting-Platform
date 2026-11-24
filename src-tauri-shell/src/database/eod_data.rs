@@ -6,19 +6,19 @@ use tauri::AppHandle;
 use super::binary_eod::{date_to_u32, u32_to_date, BinaryEodFile, EodRecord};
 use super::connection_registry::{resolve_active_database_folder, with_connection_for_folder};
 use super::index_aliases::nse_index_alias_family;
-mod index_alias_history;
 mod bse_code_history;
 pub(super) mod forward_cursor;
-use index_alias_history::{
-    augment_index_alias_context, guard_index_previous_close, resolve_index_alias_context,
-    validate_index_alias_rows,
-};
+mod index_alias_history;
 use super::{
     get_price_storage_mode, map_identity_history_row, normalize_exchange,
     normalize_optional_trade_date, normalize_symbol, question_marks, round_price,
-    trim_numeric_string, AppResult, ChartEventRecord, CorporateActionRow,
-    EodDataInputPayload, EodDataResult, EodRow, InstrumentRecord, InstrumentSummary, PriceRow,
-    PriceStorageMode, ResolvedInstrumentContext, SymbolTransition,
+    trim_numeric_string, AppResult, ChartEventRecord, CorporateActionRow, EodDataInputPayload,
+    EodDataResult, EodRow, InstrumentRecord, InstrumentSummary, PriceRow, PriceStorageMode,
+    ResolvedInstrumentContext, SymbolTransition,
+};
+use index_alias_history::{
+    augment_index_alias_context, guard_index_previous_close, resolve_index_alias_context,
+    validate_index_alias_rows,
 };
 
 #[derive(Clone, Debug, serde::Serialize)]
@@ -45,8 +45,16 @@ fn encode_b64_bytes(input: &[u8]) -> String {
         let n = (b0 << 16) | (b1 << 8) | b2;
         out.push(TABLE[((n >> 18) & 63) as usize] as char);
         out.push(TABLE[((n >> 12) & 63) as usize] as char);
-        out.push(if chunk.len() > 1 { TABLE[((n >> 6) & 63) as usize] as char } else { '=' });
-        out.push(if chunk.len() > 2 { TABLE[(n & 63) as usize] as char } else { '=' });
+        out.push(if chunk.len() > 1 {
+            TABLE[((n >> 6) & 63) as usize] as char
+        } else {
+            '='
+        });
+        out.push(if chunk.len() > 2 {
+            TABLE[(n & 63) as usize] as char
+        } else {
+            '='
+        });
     }
     out
 }
@@ -70,7 +78,10 @@ pub fn encode_eod_rows_binary_b64(rows: &[EodRow]) -> String {
 }
 
 #[tauri::command]
-pub async fn get_eod_data_binary(app: AppHandle, input: EodDataInputPayload) -> AppResult<EodDataBinaryResult> {
+pub async fn get_eod_data_binary(
+    app: AppHandle,
+    input: EodDataInputPayload,
+) -> AppResult<EodDataBinaryResult> {
     let res = get_eod_data(app, input).await?;
     let bar_count = res.bars.len();
     let bars_b64 = encode_eod_rows_binary_b64(&res.bars);
@@ -257,9 +268,8 @@ pub fn read_scan_bars_for_folder(
     };
     let from = "1900-01-01";
     let to = match as_of_date {
-        Some(value) => normalize_optional_trade_date(Some(value))?.ok_or_else(|| {
-            format!("Invalid as-of date for {exchange}:{symbol}.")
-        })?,
+        Some(value) => normalize_optional_trade_date(Some(value))?
+            .ok_or_else(|| format!("Invalid as-of date for {exchange}:{symbol}."))?,
         None => "2100-12-31".to_string(),
     };
 
@@ -321,10 +331,7 @@ pub fn read_scan_bars_for_folder(
 fn scan_price_bar_from_row(row: &PriceRow) -> AppResult<ScanPriceBar> {
     let date = date_to_u32(&row.date);
     if date == 0 {
-        return Err(format!(
-            "Invalid price row date for {}.",
-            row.symbol
-        ));
+        return Err(format!("Invalid price row date for {}.", row.symbol));
     }
     let finite = |value: f64, label: &str| -> AppResult<f64> {
         if !value.is_finite() {
@@ -566,9 +573,8 @@ pub(super) fn resolve_instrument_context(
             .map_err(|error| error.to_string())?
     };
 
-    identity_history.retain(|row| {
-        history_matches_chart_settlement(exchange, requested_symbol, row)
-    });
+    identity_history
+        .retain(|row| history_matches_chart_settlement(exchange, requested_symbol, row));
 
     // Current ISIN lookup does not reach predecessors whose ISIN changed later.
     // Follow persisted ticker edges backwards without inferring any ISIN period.
@@ -577,13 +583,23 @@ pub(super) fn resolve_instrument_context(
             identity_history.push(predecessor);
         }
     }
-    identity_history.sort_by(|a, b| a.effective_date.cmp(&b.effective_date).then(a.id.cmp(&b.id)));
+    identity_history.sort_by(|a, b| {
+        a.effective_date
+            .cmp(&b.effective_date)
+            .then(a.id.cmp(&b.id))
+    });
     let mut seen_rename_rows = HashSet::new();
     identity_history.retain(|row| {
-        !matches!(row.change_type.as_str(), "SYMBOL_CHANGE" | "BOTH") ||
-            seen_rename_rows.insert((row.exchange.clone(), row.isin.clone(),
-                row.current_symbol.clone(), row.old_symbol.clone(), row.new_symbol.clone(),
-                row.effective_date.clone(), row.change_type.clone()))
+        !matches!(row.change_type.as_str(), "SYMBOL_CHANGE" | "BOTH")
+            || seen_rename_rows.insert((
+                row.exchange.clone(),
+                row.isin.clone(),
+                row.current_symbol.clone(),
+                row.old_symbol.clone(),
+                row.new_symbol.clone(),
+                row.effective_date.clone(),
+                row.change_type.clone(),
+            ))
     });
 
     let mut related_symbols = HashSet::from([requested_symbol.to_string(), current_symbol.clone()]);
@@ -680,9 +696,11 @@ fn load_chart_predecessor_history(
          ORDER BY effective_date, MIN(id) LIMIT 2"
     ).map_err(|error| error.to_string())?;
     loop {
-        let edges = statement.query_map(params![exchange, symbol], map_identity_history_row)
+        let edges = statement
+            .query_map(params![exchange, symbol], map_identity_history_row)
             .map_err(|error| error.to_string())?
-            .collect::<Result<Vec<_>, _>>().map_err(|error| error.to_string())?
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(|error| error.to_string())?
             .into_iter()
             .filter(|row| history_matches_chart_settlement(exchange, current_symbol, row))
             .collect::<Vec<_>>();
@@ -690,19 +708,29 @@ fn load_chart_predecessor_history(
             return Ok(history);
         }
         if edges.len() != 1 {
-            return Err(format!("Ambiguous chart predecessor history for {exchange}:{symbol}."));
+            return Err(format!(
+                "Ambiguous chart predecessor history for {exchange}:{symbol}."
+            ));
         }
         if history.len() == 32 {
             return Err("Chart predecessor history exceeds 32 transitions.".to_string());
         }
         let edge = edges.into_iter().next().unwrap();
-        let predecessor = edge.old_symbol.as_deref().filter(|value| !value.trim().is_empty())
+        let predecessor = edge
+            .old_symbol
+            .as_deref()
+            .filter(|value| !value.trim().is_empty())
             .ok_or_else(|| "Chart predecessor history has no old symbol.".to_string())?;
         if !visited.insert(predecessor.to_string()) {
             return Err("Chart predecessor history contains a cycle.".to_string());
         }
-        if later_date.as_deref().is_some_and(|date| edge.effective_date.as_str() >= date) {
-            return Err("Chart predecessor dates must increase along the rename chain.".to_string());
+        if later_date
+            .as_deref()
+            .is_some_and(|date| edge.effective_date.as_str() >= date)
+        {
+            return Err(
+                "Chart predecessor dates must increase along the rename chain.".to_string(),
+            );
         }
         symbol = predecessor.to_string();
         later_date = Some(edge.effective_date.clone());
@@ -942,10 +970,15 @@ pub(super) fn load_unified_price_rows_with_mode(
         let bin_path = super::storage_paths::eod_path(folder_path, &context.exchange, symbol)?;
         if bin_path.exists() {
             let bin_file = BinaryEodFile::open(&bin_path)?;
-            if context.exchange == "BSE" && bse_code_history::is_security_code(symbol)
-                && (bin_file.header.symbol != *symbol || bin_file.header.exchange != "BSE" || bin_file.header.price_scale == 0)
+            if context.exchange == "BSE"
+                && bse_code_history::is_security_code(symbol)
+                && (bin_file.header.symbol != *symbol
+                    || bin_file.header.exchange != "BSE"
+                    || bin_file.header.price_scale == 0)
             {
-                return Err(format!("BSE security-code file identity/scale mismatch: {symbol}"));
+                return Err(format!(
+                    "BSE security-code file identity/scale mismatch: {symbol}"
+                ));
             }
             let records = bin_file.read_range(from_u32, to_u32)?;
             for r in records {
@@ -1206,8 +1239,11 @@ fn build_readable_adjustment_actions(
             total_price_reduction += 1.0 - 1.0 / action.factor;
             Ok(total + cash)
         })?;
-        if !total_cash.is_finite() || !total_price_reduction.is_finite()
-            || total_price_reduction <= 0.0 || total_price_reduction >= 1.0 {
+        if !total_cash.is_finite()
+            || !total_price_reduction.is_finite()
+            || total_price_reduction <= 0.0
+            || total_price_reduction >= 1.0
+        {
             return Err(format!(
                 "Combined dividend cash on {effective_date} must be positive and smaller than the local previous close."
             ));
@@ -1440,22 +1476,33 @@ mod tests {
                 (8,'UNLISTED','NSE','','2026-06-01','DEMERGER');"
         ).unwrap();
         let ids = |symbols: &[&str], isin: Option<&str>, exchange: &str| {
-            load_corporate_actions(&connection, exchange,
-                &symbols.iter().map(|s| s.to_string()).collect::<Vec<_>>(), isin)
-                .unwrap().into_iter().map(|action| action.id).collect::<Vec<_>>()
+            load_corporate_actions(
+                &connection,
+                exchange,
+                &symbols.iter().map(|s| s.to_string()).collect::<Vec<_>>(),
+                isin,
+            )
+            .unwrap()
+            .into_iter()
+            .map(|action| action.id)
+            .collect::<Vec<_>>()
         };
-        assert_eq!(ids(&["NEW","ALIAS","NEW"],Some("MATCH"),"NSE"),vec![7,1,2,3]);
-        assert_eq!(ids(&["ALIAS"],None,"NSE"),vec![3]);
-        assert_eq!(ids(&[],Some("MATCH"),"NSE"),vec![7,1,2]);
-        assert!(ids(&[],None,"NSE").is_empty());
-        assert_eq!(ids(&["NEW"],Some("MATCH"),"BSE"),vec![4]);
-        assert_eq!(ids(&[],Some(""),"NSE"),vec![8]);
+        assert_eq!(
+            ids(&["NEW", "ALIAS", "NEW"], Some("MATCH"), "NSE"),
+            vec![7, 1, 2, 3]
+        );
+        assert_eq!(ids(&["ALIAS"], None, "NSE"), vec![3]);
+        assert_eq!(ids(&[], Some("MATCH"), "NSE"), vec![7, 1, 2]);
+        assert!(ids(&[], None, "NSE").is_empty());
+        assert_eq!(ids(&["NEW"], Some("MATCH"), "BSE"), vec![4]);
+        assert_eq!(ids(&[], Some(""), "NSE"), vec![8]);
     }
 
     fn chart_rename_chain_db() -> Connection {
         let connection = setup_test_db();
-        connection.execute_batch(
-            "ALTER TABLE instruments ADD COLUMN isin TEXT;
+        connection
+            .execute_batch(
+                "ALTER TABLE instruments ADD COLUMN isin TEXT;
              ALTER TABLE instruments ADD COLUMN series TEXT;
              ALTER TABLE instruments ADD COLUMN is_active INTEGER;
              ALTER TABLE instruments ADD COLUMN sector TEXT;
@@ -1476,22 +1523,25 @@ mod tests {
                (id,exchange,isin,current_symbol,old_symbol,new_symbol,effective_date,change_type)
              VALUES (1,'NSE',NULL,'EBIXFOREX','WEIZFOREX','EBIXFOREX','2020-03-20','SYMBOL_CHANGE'),
                (2,'NSE','NEWISIN','DELPHIFX','EBIXFOREX','DELPHIFX','2021-09-01','BOTH'),
-               (3,'BSE',NULL,'WEIZFOREX','UNRELATED','WEIZFOREX','2010-01-01','SYMBOL_CHANGE');"
-        ).unwrap();
+               (3,'BSE',NULL,'WEIZFOREX','UNRELATED','WEIZFOREX','2010-01-01','SYMBOL_CHANGE');",
+            )
+            .unwrap();
         connection
     }
 
     fn bse_settlement_db() -> Connection {
         let connection = chart_rename_chain_db();
-        connection.execute_batch(
-            "INSERT INTO instruments(symbol,exchange,isin,is_active) VALUES
+        connection
+            .execute_batch(
+                "INSERT INTO instruments(symbol,exchange,isin,is_active) VALUES
                ('OLDTCS','BSE','TCSISIN',0), ('TCS','BSE','TCSISIN',1),
                ('OLDTCS#','BSE','TCSISIN',0), ('TCS#','BSE','TCSISIN',1);
              INSERT INTO instrument_identity_history
                (id,exchange,isin,current_symbol,old_symbol,new_symbol,effective_date,change_type)
              VALUES (10,'BSE','TCSISIN','TCS','OLDTCS','TCS','2025-08-01','SYMBOL_CHANGE'),
-               (11,'BSE','TCSISIN','TCS#','OLDTCS#','TCS#','2025-08-01','SYMBOL_CHANGE');"
-        ).unwrap();
+               (11,'BSE','TCSISIN','TCS#','OLDTCS#','TCS#','2025-08-01','SYMBOL_CHANGE');",
+            )
+            .unwrap();
         connection
     }
 
@@ -1503,38 +1553,79 @@ mod tests {
         fs::create_dir_all(&binary_dir).unwrap();
         for (symbol, data) in [
             ("OLDTCS", vec![(20250731, 3100.0, 100)]),
-            ("TCS", vec![(20250811, 3040.35, 82049), (20261023, 2528.0, 200)]),
+            (
+                "TCS",
+                vec![(20250811, 3040.35, 82049), (20261023, 2528.0, 200)],
+            ),
             ("OLDTCS#", vec![(20250731, 3090.0, 1)]),
             ("TCS#", vec![(20250811, 3040.35, 1), (20250812, 3050.0, 2)]),
         ] {
-            let mut records = data.into_iter().map(|(date, close, volume)| EodRecord {
-                date, flags: 0, open: (close * 10000.0) as i64,
-                high: (close * 10000.0) as i64, low: (close * 10000.0) as i64,
-                close: (close * 10000.0) as i64, prev_close: 0, volume, oi: 0,
-            }).collect::<Vec<_>>();
+            let mut records = data
+                .into_iter()
+                .map(|(date, close, volume)| EodRecord {
+                    date,
+                    flags: 0,
+                    open: (close * 10000.0) as i64,
+                    high: (close * 10000.0) as i64,
+                    low: (close * 10000.0) as i64,
+                    close: (close * 10000.0) as i64,
+                    prev_close: 0,
+                    volume,
+                    oi: 0,
+                })
+                .collect::<Vec<_>>();
             BinaryEodFile::write_all(
-                binary_dir.join(format!("{symbol}.eod")), symbol, "BSE", 10000, &mut records,
-            ).unwrap();
+                binary_dir.join(format!("{symbol}.eod")),
+                symbol,
+                "BSE",
+                10000,
+                &mut records,
+            )
+            .unwrap();
         }
         for mode in [PriceStorageMode::Binary, PriceStorageMode::Hybrid] {
             set_price_storage_mode(&connection, mode).unwrap();
             for (symbol, expected_symbols, expected_dates, expected_volumes) in [
-                ("TCS", vec!["OLDTCS", "TCS"],
-                 vec!["2025-07-31", "2025-08-11", "2026-10-23"], vec![100, 82049, 200]),
-                ("TCS#", vec!["OLDTCS#", "TCS#"],
-                 vec!["2025-07-31", "2025-08-11", "2025-08-12"], vec![1, 1, 2]),
+                (
+                    "TCS",
+                    vec!["OLDTCS", "TCS"],
+                    vec!["2025-07-31", "2025-08-11", "2026-10-23"],
+                    vec![100, 82049, 200],
+                ),
+                (
+                    "TCS#",
+                    vec!["OLDTCS#", "TCS#"],
+                    vec!["2025-07-31", "2025-08-11", "2025-08-12"],
+                    vec![1, 1, 2],
+                ),
             ] {
-                let context = resolve_instrument_context(&connection, symbol, "BSE").unwrap().unwrap();
+                let context = resolve_instrument_context(&connection, symbol, "BSE")
+                    .unwrap()
+                    .unwrap();
                 let mut related = context.related_symbols.clone();
                 related.sort();
                 assert_eq!(related, expected_symbols);
                 assert_eq!(context.symbol_transitions.len(), 1);
-                assert_eq!(get_expected_symbol_for_date(&context, "2025-07-31"), expected_symbols[0]);
+                assert_eq!(
+                    get_expected_symbol_for_date(&context, "2025-07-31"),
+                    expected_symbols[0]
+                );
                 let rows = load_unified_price_rows(
-                    dir.path(), &connection, &context, "1900-01-01", "2100-01-01",
-                ).unwrap();
-                assert_eq!(rows.iter().map(|row| row.date.as_str()).collect::<Vec<_>>(), expected_dates);
-                assert_eq!(rows.iter().map(|row| row.volume).collect::<Vec<_>>(), expected_volumes);
+                    dir.path(),
+                    &connection,
+                    &context,
+                    "1900-01-01",
+                    "2100-01-01",
+                )
+                .unwrap();
+                assert_eq!(
+                    rows.iter().map(|row| row.date.as_str()).collect::<Vec<_>>(),
+                    expected_dates
+                );
+                assert_eq!(
+                    rows.iter().map(|row| row.volume).collect::<Vec<_>>(),
+                    expected_volumes
+                );
             }
         }
     }
@@ -1543,21 +1634,30 @@ mod tests {
     fn bse_settlement_hybrid_loader_filters_opposite_cycle_in_supplied_context() {
         let connection = bse_settlement_db();
         set_price_storage_mode(&connection, PriceStorageMode::Hybrid).unwrap();
-        connection.execute_batch(
-            "INSERT INTO eod_prices(symbol,exchange,date,open,high,low,close,volume) VALUES
+        connection
+            .execute_batch(
+                "INSERT INTO eod_prices(symbol,exchange,date,open,high,low,close,volume) VALUES
                ('TCS','BSE','2026-10-23',2500,2530,2490,2528,82049),
-               ('TCS#','BSE','2025-08-11',3040,3040,3040,3040.35,1);"
-        ).unwrap();
+               ('TCS#','BSE','2025-08-11',3040,3040,3040,3040.35,1);",
+            )
+            .unwrap();
         let dir = tempdir().unwrap();
         for (symbol, opposite, expected_date, expected_volume) in [
             ("TCS", "TCS#", "2026-10-23", 82049),
             ("TCS#", "TCS", "2025-08-11", 1),
         ] {
-            let mut context = resolve_instrument_context(&connection, symbol, "BSE").unwrap().unwrap();
+            let mut context = resolve_instrument_context(&connection, symbol, "BSE")
+                .unwrap()
+                .unwrap();
             context.related_symbols.push(opposite.to_string());
             let rows = load_unified_price_rows(
-                dir.path(), &connection, &context, "1900-01-01", "2100-01-01",
-            ).unwrap();
+                dir.path(),
+                &connection,
+                &context,
+                "1900-01-01",
+                "2100-01-01",
+            )
+            .unwrap();
             assert_eq!(rows.len(), 1);
             assert_eq!(rows[0].date, expected_date);
             assert_eq!(rows[0].volume, expected_volume);
@@ -1567,18 +1667,23 @@ mod tests {
     #[test]
     fn bse_settlement_cross_cycle_history_is_not_a_ticker_rename() {
         let connection = bse_settlement_db();
-        connection.execute_batch(
-            "INSERT INTO instrument_identity_history
+        connection
+            .execute_batch(
+                "INSERT INTO instrument_identity_history
                (id,exchange,isin,current_symbol,old_symbol,new_symbol,effective_date,change_type)
-             VALUES (12,'BSE','TCSISIN','TCS#','TCS','TCS#','2026-01-01','SYMBOL_CHANGE');"
-        ).unwrap();
+             VALUES (12,'BSE','TCSISIN','TCS#','TCS','TCS#','2026-01-01','SYMBOL_CHANGE');",
+            )
+            .unwrap();
         for symbol in ["TCS", "TCS#"] {
-            let context = resolve_instrument_context(&connection, symbol, "BSE").unwrap().unwrap();
+            let context = resolve_instrument_context(&connection, symbol, "BSE")
+                .unwrap()
+                .unwrap();
             assert_eq!(context.current_symbol, symbol);
             assert!(context.identity_history.iter().all(|row| row.id != 12));
-            assert!(context.related_symbols.iter().all(|related| {
-                related.ends_with('#') == symbol.ends_with('#')
-            }));
+            assert!(context
+                .related_symbols
+                .iter()
+                .all(|related| { related.ends_with('#') == symbol.ends_with('#') }));
         }
     }
 
@@ -1593,60 +1698,105 @@ mod tests {
             (7991, "2018-07-30", "2018-07-27", 538.8, 1.0),
         ];
         for (id, date, previous, close, cash) in events {
-            connection.execute(
-                "INSERT INTO corporate_actions(id,symbol,exchange,isin,effective_date,
+            connection
+                .execute(
+                    "INSERT INTO corporate_actions(id,symbol,exchange,isin,effective_date,
                  action_type,factor,adjust_volume,cash_amount,source)
                  VALUES (?,'EBIXFOREX','NSE','OLDISIN',?,'DIVIDEND',?,0,?,'NSE_API')",
-                params![id, date, close / (close - cash), cash],
-            ).unwrap();
+                    params![id, date, close / (close - cash), cash],
+                )
+                .unwrap();
             for trade_date in [previous, date] {
-                connection.execute(
-                    "INSERT INTO eod_prices(symbol,exchange,date,open,high,low,close,volume)
+                connection
+                    .execute(
+                        "INSERT INTO eod_prices(symbol,exchange,date,open,high,low,close,volume)
                      VALUES ('WEIZFOREX','NSE',?,?,?,?,?,100)",
-                    params![trade_date, close, close, close, close],
-                ).unwrap();
+                        params![trade_date, close, close, close, close],
+                    )
+                    .unwrap();
             }
         }
-        let context = resolve_instrument_context(&connection, "DELPHIFX", "NSE").unwrap().unwrap();
+        let context = resolve_instrument_context(&connection, "DELPHIFX", "NSE")
+            .unwrap()
+            .unwrap();
         assert_eq!(context.current_symbol, "DELPHIFX");
         assert_eq!(context.isin.as_deref(), Some("NEWISIN"));
         let mut symbols = context.related_symbols.clone();
         symbols.sort();
         assert_eq!(symbols, vec!["DELPHIFX", "EBIXFOREX", "WEIZFOREX"]);
         assert_eq!(context.symbol_transitions.len(), 2);
-        assert_eq!(get_expected_symbol_for_date(&context, "2015-09-03"), "WEIZFOREX");
-        assert_eq!(get_expected_symbol_for_date(&context, "2020-03-20"), "EBIXFOREX");
-        assert_eq!(get_expected_symbol_for_date(&context, "2021-09-01"), "DELPHIFX");
+        assert_eq!(
+            get_expected_symbol_for_date(&context, "2015-09-03"),
+            "WEIZFOREX"
+        );
+        assert_eq!(
+            get_expected_symbol_for_date(&context, "2020-03-20"),
+            "EBIXFOREX"
+        );
+        assert_eq!(
+            get_expected_symbol_for_date(&context, "2021-09-01"),
+            "DELPHIFX"
+        );
         assert_eq!(context.corporate_actions.len(), 4);
         let dir = tempdir().unwrap();
-        let rows = load_unified_price_rows(dir.path(), &connection, &context, "1900-01-01", "2100-01-01").unwrap();
+        let rows = load_unified_price_rows(
+            dir.path(),
+            &connection,
+            &context,
+            "1900-01-01",
+            "2100-01-01",
+        )
+        .unwrap();
         assert_eq!(rows.len(), 8);
         let binary_dir = dir.path().join("eod_data").join("NSE");
         fs::create_dir_all(&binary_dir).unwrap();
         let path = binary_dir.join("WEIZFOREX.eod");
-        let mut records = rows.iter().map(|row| EodRecord {
-            date: date_to_u32(&row.date), flags: 0,
-            open: (row.open * 10000.0).round() as i64,
-            high: (row.high * 10000.0).round() as i64,
-            low: (row.low * 10000.0).round() as i64,
-            close: (row.close * 10000.0).round() as i64,
-            prev_close: 0, volume: row.volume as u64, oi: 0,
-        }).collect::<Vec<_>>();
+        let mut records = rows
+            .iter()
+            .map(|row| EodRecord {
+                date: date_to_u32(&row.date),
+                flags: 0,
+                open: (row.open * 10000.0).round() as i64,
+                high: (row.high * 10000.0).round() as i64,
+                low: (row.low * 10000.0).round() as i64,
+                close: (row.close * 10000.0).round() as i64,
+                prev_close: 0,
+                volume: row.volume as u64,
+                oi: 0,
+            })
+            .collect::<Vec<_>>();
         BinaryEodFile::write_all(&path, "WEIZFOREX", "NSE", 10000, &mut records).unwrap();
         let original_bytes = fs::read(&path).unwrap();
         set_price_storage_mode(&connection, PriceStorageMode::Binary).unwrap();
-        let rows = load_unified_price_rows(dir.path(), &connection, &context, "1900-01-01", "2100-01-01").unwrap();
+        let rows = load_unified_price_rows(
+            dir.path(),
+            &connection,
+            &context,
+            "1900-01-01",
+            "2100-01-01",
+        )
+        .unwrap();
         assert_eq!(rows.len(), 8);
-        let adjusted = apply_corporate_adjustments(rows.clone(), &context.corporate_actions, true, false).unwrap();
+        let adjusted =
+            apply_corporate_adjustments(rows.clone(), &context.corporate_actions, true, false)
+                .unwrap();
         for (raw, actual) in rows.iter().zip(&adjusted) {
-            let product: f64 = context.corporate_actions.iter()
-                .filter(|action| raw.date < action.effective_date).map(|action| action.factor).product();
+            let product: f64 = context
+                .corporate_actions
+                .iter()
+                .filter(|action| raw.date < action.effective_date)
+                .map(|action| action.factor)
+                .product();
             assert_eq!(actual.close, round_price(raw.close / product));
             assert_eq!(actual.volume, raw.volume);
         }
-        let disabled = apply_corporate_adjustments(rows.clone(), &context.corporate_actions, false, false).unwrap();
+        let disabled =
+            apply_corporate_adjustments(rows.clone(), &context.corporate_actions, false, false)
+                .unwrap();
         assert_eq!(disabled[0].close, rows[0].close);
-        let exact = resolve_exact_instrument_context(&connection, "DELPHIFX", "NSE").unwrap().unwrap();
+        let exact = resolve_exact_instrument_context(&connection, "DELPHIFX", "NSE")
+            .unwrap()
+            .unwrap();
         assert_eq!(exact.related_symbols, vec!["DELPHIFX"]);
         assert!(exact.corporate_actions.is_empty());
         assert_eq!(fs::read(path).unwrap(), original_bytes);
@@ -1677,18 +1827,41 @@ mod tests {
         // Repeated ingestion may enrich descriptive names without changing the ticker edge.
         connection.execute("UPDATE instrument_identity_history SET old_name='Enriched company name' WHERE id=5", []).unwrap();
         connection.execute_batch("PRAGMA query_only=ON").unwrap();
-        let context = resolve_instrument_context(&connection, "DELPHIFX", "NSE").unwrap().unwrap();
+        let context = resolve_instrument_context(&connection, "DELPHIFX", "NSE")
+            .unwrap()
+            .unwrap();
         assert_eq!(context.symbol_transitions.len(), 2);
         assert_eq!(context.identity_history.len(), 2);
-        assert_eq!(connection.query_row("SELECT COUNT(*) FROM instrument_identity_history", [],
-            |r| r.get::<_, i64>(0)).unwrap(), 6);
+        assert_eq!(
+            connection
+                .query_row(
+                    "SELECT COUNT(*) FROM instrument_identity_history",
+                    [],
+                    |r| r.get::<_, i64>(0)
+                )
+                .unwrap(),
+            6
+        );
         connection.execute_batch("PRAGMA query_only=OFF").unwrap();
         // A later contradictory observation must not be hidden by LIMIT 2 duplicates.
-        for mutation in ["old_symbol='OTHER'", "effective_date='2021-09-02'", "isin='OTHER'"] {
-            connection.execute(&format!("UPDATE instrument_identity_history SET {mutation} WHERE id=6"), []).unwrap();
-            let error = load_chart_predecessor_history(&connection, "NSE", "DELPHIFX").err().unwrap();
+        for mutation in [
+            "old_symbol='OTHER'",
+            "effective_date='2021-09-02'",
+            "isin='OTHER'",
+        ] {
+            connection
+                .execute(
+                    &format!("UPDATE instrument_identity_history SET {mutation} WHERE id=6"),
+                    [],
+                )
+                .unwrap();
+            let error = load_chart_predecessor_history(&connection, "NSE", "DELPHIFX")
+                .err()
+                .unwrap();
             assert!(error.contains("Ambiguous"), "{error}");
-            connection.execute("DELETE FROM instrument_identity_history WHERE id=6", []).unwrap();
+            connection
+                .execute("DELETE FROM instrument_identity_history WHERE id=6", [])
+                .unwrap();
             connection.execute("INSERT INTO instrument_identity_history SELECT 6,exchange,isin,current_symbol,current_name,old_symbol,old_name,new_symbol,new_name,effective_date,change_type FROM instrument_identity_history WHERE id=2", []).unwrap();
         }
     }
@@ -1698,15 +1871,33 @@ mod tests {
     fn chart_rename_chain_chembondch_copy_acceptance() {
         let folder = std::path::PathBuf::from(std::env::var("CA_DUPLICATE_EDGE_AUDIT").unwrap());
         assert!(folder.is_absolute());
-        assert_eq!(folder.file_name().unwrap(), "ca-duplicate-chart-edges-20261024");
-        let connection = Connection::open_with_flags(folder.join("market-data.sqlite3"),
-            rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY).unwrap();
+        assert_eq!(
+            folder.file_name().unwrap(),
+            "ca-duplicate-chart-edges-20261024"
+        );
+        let connection = Connection::open_with_flags(
+            folder.join("market-data.sqlite3"),
+            rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY,
+        )
+        .unwrap();
         connection.execute_batch("PRAGMA query_only=ON").unwrap();
-        let count = || connection.query_row("SELECT COUNT(*) FROM instrument_identity_history WHERE exchange='NSE' AND old_symbol='CHEMBONDIN' AND new_symbol='CHEMBONDCH'", [], |r| r.get::<_, i64>(0)).unwrap();
+        let count = || {
+            connection.query_row("SELECT COUNT(*) FROM instrument_identity_history WHERE exchange='NSE' AND old_symbol='CHEMBONDIN' AND new_symbol='CHEMBONDCH'", [], |r| r.get::<_, i64>(0)).unwrap()
+        };
         assert_eq!(count(), 2);
-        let context = resolve_instrument_context(&connection, "CHEMBONDCH", "NSE").unwrap().unwrap();
+        let context = resolve_instrument_context(&connection, "CHEMBONDCH", "NSE")
+            .unwrap()
+            .unwrap();
         assert!(context.related_symbols.iter().any(|s| s == "CHEMBONDIN"));
-        assert_eq!(context.symbol_transitions.iter().filter(|e| e.old_symbol.as_deref()==Some("CHEMBONDIN") && e.new_symbol.as_deref()==Some("CHEMBONDCH")).count(), 1);
+        assert_eq!(
+            context
+                .symbol_transitions
+                .iter()
+                .filter(|e| e.old_symbol.as_deref() == Some("CHEMBONDIN")
+                    && e.new_symbol.as_deref() == Some("CHEMBONDCH"))
+                .count(),
+            1
+        );
         assert_eq!(count(), 2);
         println!("PASS CHEMBONDCH: two retained evidence rows, one logical chart transition; read-only resolution succeeds.");
     }
@@ -1714,18 +1905,33 @@ mod tests {
     #[test]
     fn chart_rename_chain_enforces_depth_bound() {
         let connection = chart_rename_chain_db();
-        connection.execute("DELETE FROM instrument_identity_history", []).unwrap();
+        connection
+            .execute("DELETE FROM instrument_identity_history", [])
+            .unwrap();
         for index in 0..33 {
-            connection.execute(
-                "INSERT INTO instrument_identity_history
+            connection
+                .execute(
+                    "INSERT INTO instrument_identity_history
                  (exchange,old_symbol,new_symbol,effective_date,change_type)
                  VALUES ('NSE',?,?,?,'SYMBOL_CHANGE')",
-                params![format!("S{index}"), format!("S{}", index + 1), format!("{:04}-01-01", 1900 + index)],
-            ).unwrap();
+                    params![
+                        format!("S{index}"),
+                        format!("S{}", index + 1),
+                        format!("{:04}-01-01", 1900 + index)
+                    ],
+                )
+                .unwrap();
         }
         assert!(load_chart_predecessor_history(&connection, "NSE", "S33")
-            .err().unwrap().contains("32 transitions"));
-        assert_eq!(load_chart_predecessor_history(&connection, "NSE", "S32").unwrap().len(), 32);
+            .err()
+            .unwrap()
+            .contains("32 transitions"));
+        assert_eq!(
+            load_chart_predecessor_history(&connection, "NSE", "S32")
+                .unwrap()
+                .len(),
+            32
+        );
     }
 
     fn setup_test_db() -> Connection {
@@ -1797,7 +2003,8 @@ mod tests {
         ];
         let actions = vec![phase5a_dividend_action(1, 5.0, 100.0 / 95.0)];
         let full = apply_corporate_adjustments(rows.clone(), &actions, true, false).unwrap();
-        let historical = apply_corporate_adjustments(vec![rows[0].clone()], &actions, true, false).unwrap();
+        let historical =
+            apply_corporate_adjustments(vec![rows[0].clone()], &actions, true, false).unwrap();
         assert_eq!(historical[0].close, 85.5);
         assert_eq!(historical[0].close, full[0].close);
         assert_eq!(historical[0].volume, rows[0].volume);
@@ -1806,7 +2013,8 @@ mod tests {
             phase5a_dividend_action(1, 3.0, 100.0 / 97.0),
             phase5a_dividend_action(2, 2.0, 100.0 / 98.0),
         ];
-        let combined = apply_corporate_adjustments(vec![rows[0].clone()], &components, true, false).unwrap();
+        let combined =
+            apply_corporate_adjustments(vec![rows[0].clone()], &components, true, false).unwrap();
         assert_eq!(combined[0].close, full[0].close);
         let raw = apply_corporate_adjustments(rows.clone(), &actions, false, false).unwrap();
         assert_eq!(raw[0].close, 90.0);

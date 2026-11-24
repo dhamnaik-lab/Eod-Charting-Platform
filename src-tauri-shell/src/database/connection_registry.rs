@@ -8,12 +8,15 @@ use std::time::UNIX_EPOCH;
 use tauri::{AppHandle, Manager};
 
 use super::watchlists::load_watchlists;
-use super::{database_deletion, database_use::{self, DatabasePath}};
 use super::{
     configure_database_connection, emit_database_changed, load_db_stats, now_iso, path_to_string,
     prepare_database_connection, set_price_storage_mode, AppResult, AppSnapshot, DbStats,
     KnownDatabase, PathInput, PriceStorageMode, SnapshotOptions, DATABASE_FILE_NAME,
     DATABASE_MANIFEST_FILE, DATABASE_REGISTRY_FILE,
+};
+use super::{
+    database_deletion,
+    database_use::{self, DatabasePath},
 };
 
 #[cfg(all(windows, feature = "wp02-acceptance"))]
@@ -55,7 +58,6 @@ struct DatabaseManifest {
     created_at: String,
 }
 
-
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) struct NativeScanSelection {
     pub(crate) folder: PathBuf,
@@ -70,10 +72,15 @@ impl NativeScanSelection {
     pub(crate) fn fixture(folder: &Path, revision: u64) -> AppResult<Self> {
         let path = path_to_string(folder);
         native_selection_from_registry(&DatabaseRegistryFile {
-            recent: vec![KnownDatabase { path: path.clone(), label: "Fixture".into(), last_opened_at: String::new() }],
+            recent: vec![KnownDatabase {
+                path: path.clone(),
+                label: "Fixture".into(),
+                last_opened_at: String::new(),
+            }],
             last_active_path: Some(path),
             active_selection_revision: revision,
-        })?.ok_or_else(|| "Fixture database selection is unavailable.".into())
+        })?
+        .ok_or_else(|| "Fixture database selection is unavailable.".into())
     }
 }
 
@@ -81,7 +88,9 @@ fn advance_selection_revision(registry: &mut DatabaseRegistryFile) -> AppResult<
     registry.active_selection_revision = registry
         .active_selection_revision
         .checked_add(1)
-        .ok_or_else(|| "Database selection revision exhausted; refusing to reuse a scan identity.".to_string())?;
+        .ok_or_else(|| {
+            "Database selection revision exhausted; refusing to reuse a scan identity.".to_string()
+        })?;
     Ok(())
 }
 
@@ -129,7 +138,9 @@ fn native_selection_from_registry(
 
 /// Serialize this read-only snapshot with existing DB-use / registry locks.
 /// Never initializes or rewrites an existing user profile.
-pub(crate) fn read_native_scan_selection(app: &AppHandle) -> AppResult<Option<NativeScanSelection>> {
+pub(crate) fn read_native_scan_selection(
+    app: &AppHandle,
+) -> AppResult<Option<NativeScanSelection>> {
     with_native_scan_selection(app, Ok)
 }
 
@@ -418,48 +429,74 @@ pub async fn delete_database(app: AppHandle, input: PathInput) -> AppResult<AppS
         #[cfg(not(windows))]
         {
             let _ = (app, input);
-            Err(database_deletion::refuse("Handle-bound database deletion requires Windows NTFS."))
+            Err(database_deletion::refuse(
+                "Handle-bound database deletion requires Windows NTFS.",
+            ))
         }
     })
     .await
-    .map_err(|error| format!("{}: Deletion worker ended unexpectedly: {error}", database_deletion::PARTIAL))?
+    .map_err(|error| {
+        format!(
+            "{}: Deletion worker ended unexpectedly: {error}",
+            database_deletion::PARTIAL
+        )
+    })?
 }
 
 #[cfg(windows)]
 fn delete_database_locked(app: &AppHandle, input: &str) -> AppResult<AppSnapshot> {
-    use super::price_store_operation_lock::{try_acquire_price_store_operation, PriceStoreOperationKind};
+    use super::price_store_operation_lock::{
+        try_acquire_price_store_operation, PriceStoreOperationKind,
+    };
     use database_deletion::{identity, refuse, PinnedTree};
 
     let state_dir = database_use::state_dir()?;
     let use_permit = database_use::acquire_deletion(&state_dir)?;
-    let price_permit = try_acquire_price_store_operation(PriceStoreOperationKind::DatabaseDeletion)?;
+    let price_permit =
+        try_acquire_price_store_operation(PriceStoreOperationKind::DatabaseDeletion)?;
     let _registry_lock = database_use::lock_registry()?;
     let requested = database_deletion::validate_path(input)?;
     let tree = PinnedTree::open(requested).map_err(preflight_failure)?;
     let canonical = requested.canonicalize().map_err(refuse)?;
     if identity(&canonical).map_err(refuse)? != tree.id {
-        return Err(refuse("The requested directory changed during verification."));
+        return Err(refuse(
+            "The requested directory changed during verification.",
+        ));
     }
     database_deletion::require_unblocked(&canonical)?;
 
     let runtime = resolve_runtime_context(app)?;
     let working_directory = std::env::current_dir().map_err(refuse)?;
     let profile = get_registry_path(app)?;
-    let profile_dir = profile.parent().ok_or_else(|| refuse("The app profile has no directory."))?;
+    let profile_dir = profile
+        .parent()
+        .ok_or_else(|| refuse("The app profile has no directory."))?;
     let default_profile = crate::app_profile::get_default_app_profile_directory(app)?;
     for protected in [&working_directory, &runtime.executable_dir] {
         if contains_identity(protected, tree.id)? {
-            return Err(refuse("The target contains a protected application directory."));
+            return Err(refuse(
+                "The target contains a protected application directory.",
+            ));
         }
     }
     for protected in [
-        runtime.data_dir.as_path(), runtime.state_dir.as_path(), runtime.log_dir.as_path(),
-        profile_dir, default_profile.as_path(), state_dir.as_path(),
+        runtime.data_dir.as_path(),
+        runtime.state_dir.as_path(),
+        runtime.log_dir.as_path(),
+        profile_dir,
+        default_profile.as_path(),
+        state_dir.as_path(),
     ] {
-        if contains_identity(protected, tree.id)? || protected.canonicalize().ok().is_some_and(|protected| {
-            identity(&protected).ok().is_some_and(|id| contains_identity(&canonical, id).unwrap_or(true))
-        }) {
-            return Err(refuse("The target overlaps a protected application directory."));
+        if contains_identity(protected, tree.id)?
+            || protected.canonicalize().ok().is_some_and(|protected| {
+                identity(&protected)
+                    .ok()
+                    .is_some_and(|id| contains_identity(&canonical, id).unwrap_or(true))
+            })
+        {
+            return Err(refuse(
+                "The target overlaps a protected application directory.",
+            ));
         }
     }
     let safety_store = PinnedTree::pin_marker_store(&state_dir).map_err(preflight_failure)?;
@@ -471,10 +508,20 @@ fn delete_database_locked(app: &AppHandle, input: &str) -> AppResult<AppSnapshot
     let cache_closed = close_matching_cached_connection(app, tree.id)?;
     let (database, database_id, evidence) = verify_deletion_ownership(&tree.path, true)?;
     tree.preflight(&database).map_err(preflight_failure)?;
-    let pinned_database = tree.pin_database(&database, database_id).map_err(preflight_failure)?;
+    let pinned_database = tree
+        .pin_database(&database, database_id)
+        .map_err(preflight_failure)?;
     drop(evidence);
-    let deletion = VerifiedDeletion { tree, canonical, database, pinned_database, matching_recents, active_matches };
-    let outcome = complete_verified_deletion(&state_dir, &profile, &mut registry, deletion, |_| Ok(()));
+    let deletion = VerifiedDeletion {
+        tree,
+        canonical,
+        database,
+        pinned_database,
+        matching_recents,
+        active_matches,
+    };
+    let outcome =
+        complete_verified_deletion(&state_dir, &profile, &mut registry, deletion, |_| Ok(()));
     // The registry remains serialized while publishing. Renderer listeners
     // can now acquire a shared use permit for their follow-up snapshot.
     drop(safety_store);
@@ -512,7 +559,9 @@ fn registry_deletion_matches(
         matching_recents.push(matched);
     }
     if !verified_registration {
-        return Err(refuse("No recent database registration could be verified without redirection."));
+        return Err(refuse(
+            "No recent database registration could be verified without redirection.",
+        ));
     }
 
     let active_matches = if let Some(path) = registry.last_active_path.as_deref() {
@@ -547,10 +596,20 @@ fn complete_verified_deletion(
     before_entry: impl FnMut(&Path) -> std::io::Result<()>,
 ) -> AppResult<()> {
     use database_deletion::{Marker, FAILED, FAILED_MARKED, PARTIAL, REGISTRY_FAILED};
-    let VerifiedDeletion { tree, canonical, database, pinned_database, matching_recents, active_matches } = deletion;
+    let VerifiedDeletion {
+        tree,
+        canonical,
+        database,
+        pinned_database,
+        matching_recents,
+        active_matches,
+    } = deletion;
     let mut markers = database_deletion::read_markers(state_dir)?;
     let id = tree.id;
-    markers.push(Marker { id, path: canonical.clone() });
+    markers.push(Marker {
+        id,
+        path: canonical.clone(),
+    });
     database_deletion::write_markers(state_dir, &markers)
         .map_err(|error| format!("{FAILED}: Could not persist the safety marker: {error}"))?;
     if active_matches {
@@ -558,20 +617,30 @@ fn complete_verified_deletion(
         registry.last_active_path = None;
         if let Err(error) = write_registry_at(profile, registry) {
             let detail = clear_deletion_marker(state_dir, &mut markers, id).err();
-            return Err(format!("{FAILED}: Could not clear the active database pointer: {error}{}",
-                detail.map_or_else(String::new, |detail| format!(". Safety marker retained: {detail}"))));
+            return Err(format!(
+                "{FAILED}: Could not clear the active database pointer: {error}{}",
+                detail.map_or_else(String::new, |detail| format!(
+                    ". Safety marker retained: {detail}"
+                ))
+            ));
         }
     }
 
     if let Err(failure) = tree.remove((&database, pinned_database), before_entry) {
         // After the destructive phase begins, any unconfirmed outcome retains the marker.
-        let reason = if failure.removed == 0 { FAILED_MARKED } else { PARTIAL };
+        let reason = if failure.removed == 0 {
+            FAILED_MARKED
+        } else {
+            PARTIAL
+        };
         return Err(format!("{reason}: Removed {} entries from {}. The safety marker was retained. Windows reported: {}",
             failure.removed, canonical.display(), failure.error));
     }
 
     let mut matches = matching_recents.into_iter();
-    registry.recent.retain(|_| !matches.next().expect("one match for each recent entry"));
+    registry
+        .recent
+        .retain(|_| !matches.next().expect("one match for each recent entry"));
     if let Err(error) = write_registry_at(profile, registry) {
         return Err(format!("{REGISTRY_FAILED}: The directory was removed but the registry could not be saved: {error}"));
     }
@@ -613,26 +682,36 @@ fn contains_identity(path: &Path, target: database_deletion::Identity) -> AppRes
 }
 
 #[cfg(windows)]
-pub(super) fn verify_deletion_ownership(folder: &Path, deny_writes: bool) -> AppResult<(PathBuf, database_deletion::Identity, Vec<fs::File>)> {
+pub(super) fn verify_deletion_ownership(
+    folder: &Path,
+    deny_writes: bool,
+) -> AppResult<(PathBuf, database_deletion::Identity, Vec<fs::File>)> {
     use database_deletion::{refuse, safe_component, verify_file};
     let manifest_path = folder.join(DATABASE_MANIFEST_FILE);
     let mut evidence = Vec::new();
     let name = match fs::symlink_metadata(&manifest_path) {
         Ok(_) => {
-            let (manifest_handle, _) = verify_file(&manifest_path, deny_writes).map_err(preflight_failure)?;
+            let (manifest_handle, _) =
+                verify_file(&manifest_path, deny_writes).map_err(preflight_failure)?;
             if manifest_handle.metadata().map_err(refuse)?.len() > 1_048_576 {
                 return Err(refuse("The database manifest is too large."));
             }
-            let manifest: DatabaseManifest = serde_json::from_reader(&manifest_handle).map_err(refuse)?;
-            if manifest.format != "eod-chart-db" || manifest.version != 1 ||
-                !safe_component(std::ffi::OsStr::new(&manifest.db_file))
+            let manifest: DatabaseManifest =
+                serde_json::from_reader(&manifest_handle).map_err(refuse)?;
+            if manifest.format != "eod-chart-db"
+                || manifest.version != 1
+                || !safe_component(std::ffi::OsStr::new(&manifest.db_file))
             {
-                return Err(refuse("The database manifest has an invalid format or database filename."));
+                return Err(refuse(
+                    "The database manifest has an invalid format or database filename.",
+                ));
             }
             evidence.push(manifest_handle);
             manifest.db_file
         }
-        Err(error) if error.kind() == std::io::ErrorKind::NotFound => DATABASE_FILE_NAME.to_string(),
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+            DATABASE_FILE_NAME.to_string()
+        }
         Err(error) => return Err(refuse(error)),
     };
     let database = folder.join(&name);
@@ -641,19 +720,28 @@ pub(super) fn verify_deletion_ownership(folder: &Path, deny_writes: bool) -> App
     for suffix in ["-wal", "-shm", "-journal"] {
         let path = folder.join(format!("{name}{suffix}"));
         match fs::symlink_metadata(&path) {
-            Ok(_) => evidence.push(verify_file(&path, deny_writes).map_err(preflight_failure)?.0),
+            Ok(_) => evidence.push(
+                verify_file(&path, deny_writes)
+                    .map_err(preflight_failure)?
+                    .0,
+            ),
             Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
             Err(error) => return Err(refuse(error)),
         }
     }
-    let connection = Connection::open_with_flags(&database, OpenFlags::SQLITE_OPEN_READ_ONLY | OpenFlags::SQLITE_OPEN_NO_MUTEX)
-        .map_err(refuse)?;
+    let connection = Connection::open_with_flags(
+        &database,
+        OpenFlags::SQLITE_OPEN_READ_ONLY | OpenFlags::SQLITE_OPEN_NO_MUTEX,
+    )
+    .map_err(refuse)?;
     let trusted_tables: i64 = connection.query_row(
         "SELECT count(*) FROM sqlite_master WHERE type = 'table' AND name IN ('instruments', 'eod_prices', 'download_log')",
         [], |row| row.get(0),
     ).map_err(refuse)?;
     if trusted_tables != 3 {
-        return Err(refuse("The SQLite file does not have the EOD Chart database schema."));
+        return Err(refuse(
+            "The SQLite file does not have the EOD Chart database schema.",
+        ));
     }
     for sql in [
         "SELECT symbol, exchange, isin FROM instruments LIMIT 0",
@@ -666,23 +754,39 @@ pub(super) fn verify_deletion_ownership(folder: &Path, deny_writes: bool) -> App
 }
 
 #[cfg(windows)]
-fn close_matching_cached_connection(app: &AppHandle, id: database_deletion::Identity) -> AppResult<bool> {
+fn close_matching_cached_connection(
+    app: &AppHandle,
+    id: database_deletion::Identity,
+) -> AppResult<bool> {
     let state = app.state::<ActiveDatabaseConnectionState>();
-    let mut cached = state.cached.lock().map_err(|_| "Unable to lock the active database connection.")?;
-    if !cached.as_ref().is_some_and(|entry| database_deletion::identity(&entry.folder_path).is_ok_and(|cached_id| cached_id == id)) {
+    let mut cached = state
+        .cached
+        .lock()
+        .map_err(|_| "Unable to lock the active database connection.")?;
+    if !cached.as_ref().is_some_and(|entry| {
+        database_deletion::identity(&entry.folder_path).is_ok_and(|cached_id| cached_id == id)
+    }) {
         return Ok(false);
     }
     let entry = cached.take().expect("a matching cached connection");
     if let Err((connection, error)) = entry.connection.close() {
-        *cached = Some(CachedDatabaseConnection { connection, ..entry });
-        return Err(format!("{}: Unable to close the database connection: {error}", database_deletion::FAILED));
+        *cached = Some(CachedDatabaseConnection {
+            connection,
+            ..entry
+        });
+        return Err(format!(
+            "{}: Unable to close the database connection: {error}",
+            database_deletion::FAILED
+        ));
     }
     Ok(true)
 }
 
 #[cfg(windows)]
 fn publish_deletion_snapshot(app: &AppHandle, registry: &DatabaseRegistryFile) -> AppSnapshot {
-    let active_database_path = registry.last_active_path.as_ref()
+    let active_database_path = registry
+        .last_active_path
+        .as_ref()
         .filter(|path| database_deletion::blocked(Path::new(path)).is_ok_and(|blocked| !blocked))
         .cloned();
     let theme = if active_database_path.is_some() {
@@ -690,7 +794,13 @@ fn publish_deletion_snapshot(app: &AppHandle, registry: &DatabaseRegistryFile) -
     } else {
         "dark".to_string()
     };
-    let snapshot = AppSnapshot { active_database_path, known_databases: registry.recent.clone(), db_stats: None, watchlists: Vec::new(), theme };
+    let snapshot = AppSnapshot {
+        active_database_path,
+        known_databases: registry.recent.clone(),
+        db_stats: None,
+        watchlists: Vec::new(),
+        theme,
+    };
     if let Err(error) = emit_database_changed(app, &snapshot) {
         log_runtime_event(app, "WARN", "delete-database-snapshot", Some(&error));
     }
@@ -784,7 +894,11 @@ pub(crate) fn get_app_snapshot_internal(
     snapshot_locked(app, options, registry_guard)
 }
 
-fn snapshot_locked(app: &AppHandle, options: Option<&SnapshotOptions>, registry_guard: fs::File) -> AppResult<AppSnapshot> {
+fn snapshot_locked(
+    app: &AppHandle,
+    options: Option<&SnapshotOptions>,
+    registry_guard: fs::File,
+) -> AppResult<AppSnapshot> {
     let registry = read_registry(app)?;
     let active_database_folder = resolve_active_folder_locked(app, &registry)?;
     // Theme initialization can read legacy settings through with_active_connection.
@@ -849,7 +963,10 @@ pub(crate) fn resolve_active_database_folder(app: &AppHandle) -> AppResult<Optio
     Ok(resolve_active_folder_locked(app, &registry)?.map(|path| DatabasePath::new(path, permit)))
 }
 
-fn resolve_active_folder_locked(app: &AppHandle, registry: &DatabaseRegistryFile) -> AppResult<Option<PathBuf>> {
+fn resolve_active_folder_locked(
+    app: &AppHandle,
+    registry: &DatabaseRegistryFile,
+) -> AppResult<Option<PathBuf>> {
     let Some(active_path) = registry.last_active_path.clone() else {
         clear_cached_connection(app)?;
         return Ok(None);
@@ -1398,10 +1515,16 @@ fn get_or_load_cached_db_stats(app: &AppHandle, folder_path: &Path) -> AppResult
 }
 
 // R1-A: no registry read/repair, connection initialization or cache mutation.
-pub(crate) fn peek_active_database_folder_read_only(app: &AppHandle) -> AppResult<Option<DatabasePath>> {
-    let Some(state) = app.try_state::<ActiveDatabaseConnectionState>() else { return Ok(None); };
+pub(crate) fn peek_active_database_folder_read_only(
+    app: &AppHandle,
+) -> AppResult<Option<DatabasePath>> {
+    let Some(state) = app.try_state::<ActiveDatabaseConnectionState>() else {
+        return Ok(None);
+    };
     let permit = database_use::acquire_use()?;
-    let Some(path) = peek_cached_folder_only(&state)? else { return Ok(None); };
+    let Some(path) = peek_cached_folder_only(&state)? else {
+        return Ok(None);
+    };
     if database_deletion::blocked(&path)? {
         return Ok(None);
     }
@@ -1409,10 +1532,12 @@ pub(crate) fn peek_active_database_folder_read_only(app: &AppHandle) -> AppResul
 }
 
 fn peek_cached_folder_only(state: &ActiveDatabaseConnectionState) -> AppResult<Option<PathBuf>> {
-    let cached = state.cached.lock().map_err(|_| "Cached database context lock is poisoned.".to_string())?;
+    let cached = state
+        .cached
+        .lock()
+        .map_err(|_| "Cached database context lock is poisoned.".to_string())?;
     Ok(cached.as_ref().map(|entry| entry.folder_path.clone()))
 }
-
 
 #[cfg(test)]
 mod native_selection_revision_tests {
@@ -1466,20 +1591,29 @@ mod native_selection_revision_tests {
         assert_eq!(original.database_identity, format!("{path_a}#1"));
         advance_selection_revision(&mut registry).unwrap();
         registry.last_active_path = Some(path_b);
-        assert_ne!(native_selection_from_registry(&registry).unwrap(), Some(original.clone()));
+        assert_ne!(
+            native_selection_from_registry(&registry).unwrap(),
+            Some(original.clone())
+        );
         advance_selection_revision(&mut registry).unwrap();
         registry.last_active_path = Some(path_a.clone());
         let returned = native_selection_from_registry(&registry).unwrap().unwrap();
         assert_ne!(returned, original);
         assert_eq!(returned.canonical_folder, original.canonical_folder);
-        assert_eq!(returned.physical_file_identity, original.physical_file_identity);
+        assert_eq!(
+            returned.physical_file_identity,
+            original.physical_file_identity
+        );
 
         let sqlite = a.join(DATABASE_FILE_NAME);
         fs::rename(&sqlite, a.join("previous.sqlite3")).unwrap();
         drop(Connection::open(&sqlite).unwrap());
         let replaced = native_selection_from_registry(&registry).unwrap().unwrap();
         assert_eq!(replaced.database_identity, returned.database_identity);
-        assert_ne!(replaced.physical_file_identity, returned.physical_file_identity);
+        assert_ne!(
+            replaced.physical_file_identity,
+            returned.physical_file_identity
+        );
         assert_ne!(replaced, returned);
 
         registry.last_active_path = None;
@@ -1498,8 +1632,12 @@ mod native_selection_revision_tests {
         fs::create_dir(&b).unwrap();
         let sqlite = a.join(DATABASE_FILE_NAME);
         let connection = Connection::open(&sqlite).unwrap();
-        connection.execute_batch("CREATE TABLE witness(value INTEGER);
-                                  INSERT INTO witness VALUES(0);").unwrap();
+        connection
+            .execute_batch(
+                "CREATE TABLE witness(value INTEGER);
+                                  INSERT INTO witness VALUES(0);",
+            )
+            .unwrap();
         let manifest = DatabaseManifest {
             format: "eod-chart-db".into(),
             version: 1,
@@ -1507,7 +1645,11 @@ mod native_selection_revision_tests {
             db_file: sqlite.to_string_lossy().into_owned(),
             created_at: String::new(),
         };
-        fs::write(b.join(DATABASE_MANIFEST_FILE), serde_json::to_vec(&manifest).unwrap()).unwrap();
+        fs::write(
+            b.join(DATABASE_MANIFEST_FILE),
+            serde_json::to_vec(&manifest).unwrap(),
+        )
+        .unwrap();
         assert_eq!(load_database_file_info(&b).unwrap().1, sqlite);
 
         let first = database_use::CanonicalAccess::in_namespace(&a, fixture.path()).unwrap();
@@ -1515,7 +1657,8 @@ mod native_selection_revision_tests {
         let independent = fixture.path().join("independent");
         fs::create_dir(&independent).unwrap();
         drop(Connection::open(independent.join(DATABASE_FILE_NAME)).unwrap());
-        let third = database_use::CanonicalAccess::in_namespace(&independent, fixture.path()).unwrap();
+        let third =
+            database_use::CanonicalAccess::in_namespace(&independent, fixture.path()).unwrap();
         let read = first.begin_read().unwrap();
         assert_eq!(
             first.run_schema_preparation(|| Ok(()), Ok).unwrap_err(),
@@ -1532,16 +1675,28 @@ mod native_selection_revision_tests {
             second.run_schema_preparation(open, update).unwrap_err(),
             "CANONICAL_PRICE_STORE_BUSY"
         );
-        let value = || connection.query_row("SELECT value FROM witness", [], |row| row.get::<_, i64>(0)).unwrap();
+        let value = || {
+            connection
+                .query_row("SELECT value FROM witness", [], |row| row.get::<_, i64>(0))
+                .unwrap()
+        };
         assert_eq!(value(), 0);
         third.run_schema_preparation(|| Ok(()), Ok).unwrap();
         drop(read);
-        assert_eq!(second.run_schema_preparation(open, |alias| {
-            update(alias)?;
-            Err::<(), _>("simulated failure after SQLite changed".into())
-        }).unwrap_err(), "simulated failure after SQLite changed");
+        assert_eq!(
+            second
+                .run_schema_preparation(open, |alias| {
+                    update(alias)?;
+                    Err::<(), _>("simulated failure after SQLite changed".into())
+                })
+                .unwrap_err(),
+            "simulated failure after SQLite changed"
+        );
         assert_eq!(value(), 1);
-        assert_eq!(first.begin_read().unwrap_err(), "CANONICAL_PRICE_STORE_INTERRUPTED");
+        assert_eq!(
+            first.begin_read().unwrap_err(),
+            "CANONICAL_PRICE_STORE_INTERRUPTED"
+        );
         assert!(third.begin_read().is_ok());
         second.run_schema_preparation(open, update).unwrap();
         first.begin_read().unwrap();
@@ -1576,7 +1731,9 @@ mod deletion_registry_tests {
 
     impl Fixture {
         fn new() -> Self {
-            let parent = Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap()
+            let parent = Path::new(env!("CARGO_MANIFEST_DIR"))
+                .parent()
+                .unwrap()
                 .join("tmp/fixtures/db-safe-01");
             fs::create_dir_all(&parent).unwrap();
             let workspace = tempfile::tempdir_in(parent).unwrap();
@@ -1587,13 +1744,22 @@ mod deletion_registry_tests {
             fs::create_dir(&folder).unwrap();
             let connection = Connection::open(folder.join(DATABASE_FILE_NAME)).unwrap();
             prepare_database_connection(&connection).unwrap();
-            Self { _workspace: workspace, state, registry_path, folder }
+            Self {
+                _workspace: workspace,
+                state,
+                registry_path,
+                folder,
+            }
         }
 
         fn registry(&self, active: bool) -> DatabaseRegistryFile {
             let path = path_to_string(&self.folder);
             let registry = DatabaseRegistryFile {
-                recent: vec![KnownDatabase { path: path.clone(), label: "fixture".into(), last_opened_at: "".into() }],
+                recent: vec![KnownDatabase {
+                    path: path.clone(),
+                    label: "fixture".into(),
+                    last_opened_at: "".into(),
+                }],
                 last_active_path: active.then_some(path),
                 active_selection_revision: 0,
             };
@@ -1603,13 +1769,21 @@ mod deletion_registry_tests {
 
         fn preflight(&self, registry: &DatabaseRegistryFile) -> VerifiedDeletion {
             let tree = PinnedTree::open(&self.folder).unwrap();
-            let (matching_recents, active_matches) = registry_deletion_matches(registry, tree.id).unwrap();
+            let (matching_recents, active_matches) =
+                registry_deletion_matches(registry, tree.id).unwrap();
             let canonical = self.folder.canonicalize().unwrap();
             let (database, id, evidence) = verify_deletion_ownership(&tree.path, true).unwrap();
             tree.preflight(&database).unwrap();
             let pinned_database = tree.pin_database(&database, id).unwrap();
             drop(evidence);
-            VerifiedDeletion { tree, canonical, database, pinned_database, matching_recents, active_matches }
+            VerifiedDeletion {
+                tree,
+                canonical,
+                database,
+                pinned_database,
+                matching_recents,
+                active_matches,
+            }
         }
     }
 
@@ -1628,15 +1802,36 @@ mod deletion_registry_tests {
         let deletion = fixture.preflight(&registry);
         assert_eq!(deletion.matching_recents, [true, true]);
         assert!(deletion.active_matches);
-        complete_verified_deletion(&fixture.state, &fixture.registry_path, &mut registry, deletion, |_| {
-            assert!(read_existing_registry(&fixture.registry_path).unwrap().last_active_path.is_none());
-            assert_eq!(read_existing_registry(&fixture.registry_path).unwrap().recent.len(), 2);
-            assert!(blocked_in(&fixture.state, &fixture.folder).unwrap());
-            Ok(())
-        }).unwrap();
+        complete_verified_deletion(
+            &fixture.state,
+            &fixture.registry_path,
+            &mut registry,
+            deletion,
+            |_| {
+                assert!(read_existing_registry(&fixture.registry_path)
+                    .unwrap()
+                    .last_active_path
+                    .is_none());
+                assert_eq!(
+                    read_existing_registry(&fixture.registry_path)
+                        .unwrap()
+                        .recent
+                        .len(),
+                    2
+                );
+                assert!(blocked_in(&fixture.state, &fixture.folder).unwrap());
+                Ok(())
+            },
+        )
+        .unwrap();
         assert!(!fixture.folder.exists());
-        assert!(read_existing_registry(&fixture.registry_path).unwrap().recent.is_empty());
-        assert!(database_deletion::read_markers(&fixture.state).unwrap().is_empty());
+        assert!(read_existing_registry(&fixture.registry_path)
+            .unwrap()
+            .recent
+            .is_empty());
+        assert!(database_deletion::read_markers(&fixture.state)
+            .unwrap()
+            .is_empty());
     }
 
     #[test]
@@ -1663,7 +1858,10 @@ mod deletion_registry_tests {
         .unwrap_err();
 
         assert!(error.starts_with(FAILED), "{error}");
-        assert!(error.contains("Could not persist the safety marker"), "{error}");
+        assert!(
+            error.contains("Could not persist the safety marker"),
+            "{error}"
+        );
         assert!(fixture.folder.join(DATABASE_FILE_NAME).is_file());
         let persisted = read_existing_registry(&fixture.registry_path).unwrap();
         assert_eq!(persisted.last_active_path, registry.last_active_path);
@@ -1680,19 +1878,29 @@ mod deletion_registry_tests {
         fs::create_dir_all(fixture.folder.join("eod_data/NSE")).unwrap();
         fs::write(fixture.folder.join("eod_data/NSE/one.eod"), b"fixture").unwrap();
         let deletion = fixture.preflight(&registry);
-        let error = complete_verified_deletion(&fixture.state, &fixture.registry_path, &mut registry, deletion, |entry| {
-            if entry.ends_with(DATABASE_FILE_NAME) {
-                return Err(std::io::Error::other("injected before SQLite removal"));
-            }
-            Ok(())
-        }).unwrap_err();
+        let error = complete_verified_deletion(
+            &fixture.state,
+            &fixture.registry_path,
+            &mut registry,
+            deletion,
+            |entry| {
+                if entry.ends_with(DATABASE_FILE_NAME) {
+                    return Err(std::io::Error::other("injected before SQLite removal"));
+                }
+                Ok(())
+            },
+        )
+        .unwrap_err();
         assert!(error.starts_with(PARTIAL), "{error}");
         let persisted = read_existing_registry(&fixture.registry_path).unwrap();
         assert!(persisted.last_active_path.is_none());
         assert_eq!(persisted.recent.len(), 1);
         assert!(fixture.folder.join(DATABASE_FILE_NAME).is_file());
         assert!(!fixture.folder.join("eod_data/NSE/one.eod").exists());
-        let active = read_existing_registry(&stale_profile).unwrap().last_active_path.unwrap();
+        let active = read_existing_registry(&stale_profile)
+            .unwrap()
+            .last_active_path
+            .unwrap();
         assert!(blocked_in(&fixture.state, Path::new(&active)).unwrap());
     }
 
@@ -1702,13 +1910,37 @@ mod deletion_registry_tests {
             let fixture = Fixture::new();
             let mut registry = fixture.registry(active);
             let deletion = fixture.preflight(&registry);
-            let _read_lock = fs::OpenOptions::new().read(true).share_mode(3)
-                .open(&fixture.registry_path).unwrap();
-            let error = complete_verified_deletion(&fixture.state, &fixture.registry_path, &mut registry, deletion, |_| Ok(())).unwrap_err();
-            assert!(error.starts_with(if active { FAILED } else { REGISTRY_FAILED }), "{error}");
+            let _read_lock = fs::OpenOptions::new()
+                .read(true)
+                .share_mode(3)
+                .open(&fixture.registry_path)
+                .unwrap();
+            let error = complete_verified_deletion(
+                &fixture.state,
+                &fixture.registry_path,
+                &mut registry,
+                deletion,
+                |_| Ok(()),
+            )
+            .unwrap_err();
+            assert!(
+                error.starts_with(if active { FAILED } else { REGISTRY_FAILED }),
+                "{error}"
+            );
             assert_eq!(fixture.folder.exists(), active);
-            assert_eq!(read_existing_registry(&fixture.registry_path).unwrap().recent.len(), 1);
-            assert_eq!(database_deletion::read_markers(&fixture.state).unwrap().is_empty(), active);
+            assert_eq!(
+                read_existing_registry(&fixture.registry_path)
+                    .unwrap()
+                    .recent
+                    .len(),
+                1
+            );
+            assert_eq!(
+                database_deletion::read_markers(&fixture.state)
+                    .unwrap()
+                    .is_empty(),
+                active
+            );
         }
     }
 }
@@ -1751,7 +1983,10 @@ mod r1a_context_tests {
         assert_eq!(busy.unwrap_err(), "CANONICAL_PRICE_STORE_BUSY");
         drop(reader);
         assert!(access
-            .run_schema_preparation(|| Ok(()), |_| Err::<(), _>("interrupted preparation".into()))
+            .run_schema_preparation(
+                || Ok(()),
+                |_| Err::<(), _>("interrupted preparation".into())
+            )
             .is_err());
         assert_eq!(
             access.begin_read().unwrap_err(),
@@ -1780,8 +2015,24 @@ mod r1a_context_tests {
     #[test]
     fn r1a_context_peek_preserves_cached_connection_and_folder() {
         let connection = Connection::open_in_memory().unwrap();
-        let state = ActiveDatabaseConnectionState { cached: Mutex::new(Some(CachedDatabaseConnection { folder_path: PathBuf::from("E:/TEST"), connection, db_stats_cache: None })) };
-        assert_eq!(peek_cached_folder_only(&state).unwrap(),Some(PathBuf::from("E:/TEST")));
-        assert!(state.cached.lock().unwrap().as_ref().unwrap().connection.is_autocommit());
+        let state = ActiveDatabaseConnectionState {
+            cached: Mutex::new(Some(CachedDatabaseConnection {
+                folder_path: PathBuf::from("E:/TEST"),
+                connection,
+                db_stats_cache: None,
+            })),
+        };
+        assert_eq!(
+            peek_cached_folder_only(&state).unwrap(),
+            Some(PathBuf::from("E:/TEST"))
+        );
+        assert!(state
+            .cached
+            .lock()
+            .unwrap()
+            .as_ref()
+            .unwrap()
+            .connection
+            .is_autocommit());
     }
 }

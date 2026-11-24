@@ -1,28 +1,35 @@
+pub(crate) use self::connection_registry::{
+    peek_active_database_folder_read_only, read_native_scan_selection,
+    require_native_history_wal_family, with_native_scan_selection, NativeScanSelection,
+};
 #[allow(unused_imports)]
-pub use self::corporate_action_imports::{preview_split_bonus_reconciliation, CorporateActionReconciliationPreflightInput, CorporateActionReconciliationPreflightResult, CorporateActionReconciliationPreflightRow, CorporateActionReconciliationBlocker};
-pub(crate) use self::connection_registry::{peek_active_database_folder_read_only, read_native_scan_selection, require_native_history_wal_family, with_native_scan_selection, NativeScanSelection};
+pub use self::corporate_action_imports::{
+    preview_split_bonus_reconciliation, CorporateActionReconciliationBlocker,
+    CorporateActionReconciliationPreflightInput, CorporateActionReconciliationPreflightResult,
+    CorporateActionReconciliationPreflightRow,
+};
 pub mod binary_eod;
-pub(crate) mod storage_paths;
 mod bootstrap;
 #[cfg(test)]
 mod bse_history_repair_acceptance;
 mod bse_identity_imports;
 mod connection_registry;
+pub(crate) mod storage_paths;
 #[cfg(all(windows, feature = "wp02-acceptance"))]
 pub(crate) use self::connection_registry::wp02_acceptance::{AcceptanceRegistry, AcceptanceSlot};
 mod database_deletion;
 pub(crate) use self::database_deletion::require_unblocked as require_database_not_marked;
-pub(crate) mod database_use;
 mod corporate_action_history;
 mod corporate_action_imports;
 mod daily_market_snapshot;
+pub(crate) mod database_use;
 mod dnn_research_export;
 pub mod eod_binary_state;
 mod eod_data;
 pub(crate) use eod_data::forward_cursor::ForwardSource;
+pub(crate) mod identity_evidence_resolver;
 pub(crate) mod index_aliases;
 mod instrument_mutations;
-pub(crate) mod identity_evidence_resolver;
 mod nse_identity_imports;
 mod official_source_candidate_review;
 mod official_source_candidate_validation;
@@ -52,43 +59,43 @@ pub(crate) use self::bootstrap::{
     configure_database_connection, load_db_stats, prepare_database_connection,
 };
 pub use self::bse_identity_imports::{
-    apply_bse_current_universe_sync, download_bse_current_universe_master,
-    preview_bse_current_universe_sync, list_bse_identity_apply_history,
-    refresh_bse_name_history, preview_bse_name_history, apply_bse_name_history,
-    list_bse_name_history_runs, get_bse_name_history_report,
+    apply_bse_current_universe_sync, apply_bse_name_history, download_bse_current_universe_master,
+    get_bse_name_history_report, list_bse_identity_apply_history, list_bse_name_history_runs,
+    preview_bse_current_universe_sync, preview_bse_name_history, refresh_bse_name_history,
 };
 pub use self::connection_registry::{
     activate_database_path, close_database, create_database_interactive, delete_database,
     get_app_snapshot, get_db_stats, open_database_interactive, remove_recent_database,
     ActiveDatabaseConnectionState,
 };
-pub use self::corporate_action_history::{
-    list_corporate_action_activity_runs, list_corporate_action_validation_report_items,
-    save_corporate_action_validation_report,
-};
 pub(crate) use self::connection_registry::{
     ensure_registry_initialized, get_active_database_file_path, get_app_snapshot_internal,
     invalidate_cached_db_stats, open_connection_for_folder, open_read_only_connection_for_folder,
     resolve_active_database_folder, with_active_connection,
+};
+pub use self::corporate_action_history::{
+    list_corporate_action_activity_runs, list_corporate_action_validation_report_items,
+    save_corporate_action_validation_report,
 };
 pub use self::corporate_action_imports::{
     approve_corporate_action_import, approve_corporate_action_import_with_isin_mismatch,
     approve_corporate_action_import_with_price_validation_exception,
     approve_corporate_action_imports, approve_recommended_corporate_action_isin_mismatches,
     auto_approve_corporate_action_imports, backfill_historical_capital_actions_batch,
-    backfill_historical_capital_actions_for_symbol, evaluate_simple_cash_dividend_prepared_scope,
-    execute_simple_cash_dividend_write_stage, fetch_official_corporate_actions,
-    cancel_official_corporate_action_fetch,
-    get_corporate_action_imports_by_ids, refresh_corporate_action_import_classifications, import_corporate_actions_csv,
-    list_corporate_action_event_identities, list_corporate_action_import_resolution_hints,
+    backfill_historical_capital_actions_for_symbol, cancel_official_corporate_action_fetch,
+    evaluate_simple_cash_dividend_prepared_scope, execute_simple_cash_dividend_write_stage,
+    fetch_official_corporate_actions, get_corporate_action_imports_by_ids,
+    import_corporate_actions_csv, list_corporate_action_event_identities,
+    list_corporate_action_import_resolution_hints,
     list_corporate_action_import_resolution_suggestions, list_corporate_action_imports,
     list_corporate_action_scan_results, list_historical_capital_action_alias_candidates,
     list_historical_capital_action_backfill_runs,
     list_historical_capital_action_major_liquid_candidates,
     list_historical_capital_action_sparse_candidates, preview_corporate_action_repairs,
     quick_resolve_corporate_action_import, recheck_corporate_action_imports,
-    reopen_corporate_action_informational_closure, resolve_corporate_action_import,
-    run_corporate_action_scan, sync_corporate_action_informational_closures,
+    refresh_corporate_action_import_classifications, reopen_corporate_action_informational_closure,
+    resolve_corporate_action_import, run_corporate_action_scan,
+    sync_corporate_action_informational_closures,
 };
 pub(crate) use self::corporate_action_imports::{
     try_run_controlled_identity_repair_maintenance, try_run_event_identity_resolution_maintenance,
@@ -97,16 +104,18 @@ pub(crate) use self::corporate_action_imports::{
 };
 pub use self::daily_market_snapshot::{cancel_daily_market_snapshot, get_daily_market_snapshot};
 pub use self::dnn_research_export::export_dnn_research_dataset;
-pub use self::eod_data::{get_eod_data, get_eod_data_binary};
 pub use self::eod_data::read_scan_bars_for_folder;
 #[allow(unused_imports)]
 pub use self::eod_data::ScanPriceBar;
 use self::eod_data::{find_instrument_record, resolve_instrument_context};
+pub use self::eod_data::{get_eod_data, get_eod_data_binary};
 pub use self::instrument_mutations::{apply_corporate_action, merge_symbols};
 pub use self::nse_identity_imports::{
-    apply_nse_current_universe_sync, apply_nse_historical_identity_archive, list_nse_identity_apply_history, list_nse_historical_identity_apply_history, get_nse_historical_identity_apply_report,
+    apply_nse_current_universe_sync, apply_nse_historical_identity_archive,
     download_nse_current_universe_master, download_nse_delisted_workbook,
-    preview_nse_current_universe_sync, preview_nse_historical_identity_archive,
+    get_nse_historical_identity_apply_report, list_nse_historical_identity_apply_history,
+    list_nse_identity_apply_history, preview_nse_current_universe_sync,
+    preview_nse_historical_identity_archive,
 };
 #[allow(unused_imports)]
 pub use self::official_source_candidate_review::{
@@ -124,8 +133,7 @@ pub use self::official_source_candidate_review::{
 };
 #[allow(unused_imports)]
 pub use self::official_source_health::{
-    assess_identity_official_source_health, OfficialSourceHealthReport,
-    OfficialSourceHealthResult,
+    assess_identity_official_source_health, OfficialSourceHealthReport, OfficialSourceHealthResult,
 };
 #[allow(unused_imports)]
 pub use self::official_source_version_history::{
@@ -988,11 +996,14 @@ pub struct IdentityApplyProgress {
 }
 
 fn check_identity_reviewed_database_path(folder: &Path, expected: &str) -> AppResult<()> {
-    let expected = std::fs::canonicalize(expected)
-        .map_err(|_| "IDENTITY_REVIEWED_DATABASE_STALE: Preview the active database again.".to_string())?;
+    let expected = std::fs::canonicalize(expected).map_err(|_| {
+        "IDENTITY_REVIEWED_DATABASE_STALE: Preview the active database again.".to_string()
+    })?;
     let actual = std::fs::canonicalize(folder).map_err(|error| error.to_string())?;
     if actual != expected {
-        return Err("IDENTITY_REVIEWED_DATABASE_STALE: Active database changed; preview again.".into());
+        return Err(
+            "IDENTITY_REVIEWED_DATABASE_STALE: Active database changed; preview again.".into(),
+        );
     }
     Ok(())
 }
@@ -1003,7 +1014,12 @@ pub struct NseHistoricalIdentityResult {
     pub run_id: Option<String>,
     pub completed_at: Option<String>,
     pub refresh_warning: Option<String>,
-    pub category_evidence: Option<std::collections::BTreeMap<String, nse_identity_imports::historical_categories::CategoryEvidence>>,
+    pub category_evidence: Option<
+        std::collections::BTreeMap<
+            String,
+            nse_identity_imports::historical_categories::CategoryEvidence,
+        >,
+    >,
     pub archive_root_path: String,
     pub applied: bool,
     pub can_apply: bool,

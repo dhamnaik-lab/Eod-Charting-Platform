@@ -233,15 +233,24 @@ mod tests {
             "SELECT symbol,exchange,bse_security_code FROM instruments ORDER BY exchange,symbol"
         ).unwrap().query_map([], |r| Ok((r.get(0)?,r.get(1)?,r.get(2)?)))
           .unwrap().collect::<Result<_, _>>().unwrap();
-        assert_eq!(rows, vec![
-            ("532540".into(), "BSE".into(), None),
-            ("TCS".into(), "BSE".into(), Some("532540".into())),
-            ("TCS#".into(), "BSE".into(), None),
-            ("TCS".into(), "NSE".into(), None),
-        ]);
-        assert_eq!(c.query_row(
-            "SELECT count(*) FROM instruments WHERE exchange='BSE' AND isin='INE467B01029'",
-            [], |r| r.get::<_, i64>(0)).unwrap(), 2);
+        assert_eq!(
+            rows,
+            vec![
+                ("532540".into(), "BSE".into(), None),
+                ("TCS".into(), "BSE".into(), Some("532540".into())),
+                ("TCS#".into(), "BSE".into(), None),
+                ("TCS".into(), "NSE".into(), None),
+            ]
+        );
+        assert_eq!(
+            c.query_row(
+                "SELECT count(*) FROM instruments WHERE exchange='BSE' AND isin='INE467B01029'",
+                [],
+                |r| r.get::<_, i64>(0)
+            )
+            .unwrap(),
+            2
+        );
     }
 
     #[test]
@@ -257,21 +266,40 @@ mod tests {
                 INSERT INTO instruments VALUES ('TCS','BSE','INE467B01029',NULL),
                     ('TCS#','BSE','INE467B01029',NULL), {other};")).unwrap();
             assert_eq!(fill_missing_codes(&c, csv).unwrap(), 0);
-            assert!(c.query_row("SELECT bse_security_code IS NULL FROM instruments WHERE symbol='TCS'",
-                [], |r| r.get::<_, bool>(0)).unwrap());
+            assert!(c
+                .query_row(
+                    "SELECT bse_security_code IS NULL FROM instruments WHERE symbol='TCS'",
+                    [],
+                    |r| r.get::<_, bool>(0)
+                )
+                .unwrap());
         }
     }
 
     #[test]
     fn bse_mapping_never_backfills_settlement_variant_as_normal_code_owner() {
         let c = Connection::open_in_memory().unwrap();
-        c.execute_batch("CREATE TABLE instruments(symbol TEXT,exchange TEXT,isin TEXT,bse_security_code TEXT);
-            INSERT INTO instruments VALUES ('TCS#','BSE','INE467B01029',NULL);").unwrap();
-        assert_eq!(fill_missing_codes(
-            &c, b"Security Code,Security Id,ISIN\n532540,TCS#,INE467B01029\n"
-        ).unwrap(), 0);
-        assert_eq!(c.query_row("SELECT bse_security_code FROM instruments WHERE symbol='TCS#'",
-            [], |r| r.get::<_, Option<String>>(0)).unwrap(), None);
+        c.execute_batch(
+            "CREATE TABLE instruments(symbol TEXT,exchange TEXT,isin TEXT,bse_security_code TEXT);
+            INSERT INTO instruments VALUES ('TCS#','BSE','INE467B01029',NULL);",
+        )
+        .unwrap();
+        assert_eq!(
+            fill_missing_codes(
+                &c,
+                b"Security Code,Security Id,ISIN\n532540,TCS#,INE467B01029\n"
+            )
+            .unwrap(),
+            0
+        );
+        assert_eq!(
+            c.query_row(
+                "SELECT bse_security_code FROM instruments WHERE symbol='TCS#'",
+                [],
+                |r| r.get::<_, Option<String>>(0)
+            )
+            .unwrap(),
+            None
+        );
     }
-
 }

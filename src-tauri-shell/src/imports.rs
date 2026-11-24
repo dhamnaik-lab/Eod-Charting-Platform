@@ -566,28 +566,32 @@ pub async fn import_csv(app: AppHandle, input: ImportOptionsInput) -> AppResult<
     .map_err(|error| error.to_string())?
 }
 
-pub(crate) fn notify_import_result(app_handle: &AppHandle, database_file_path: &Path, result: &ImportResult) -> AppResult<()> {
-        let changed_state = result.rows_inserted > 0
-            || result
-                .recovery_session
-                .as_ref()
-                .map(|session| session.created_instruments > 0)
-                .unwrap_or(false);
-        if changed_state {
-            if let Some(folder_path) = database_file_path.parent() {
-                invalidate_cached_db_stats(&app_handle, folder_path)?;
-            }
-            let snapshot = get_app_snapshot_internal(
-                &app_handle,
-                Some(&SnapshotOptions {
-                    include_stats: Some(false),
-                    include_watchlists: Some(false),
-                }),
-            )?;
-            emit_database_changed(&app_handle, &snapshot)?;
+pub(crate) fn notify_import_result(
+    app_handle: &AppHandle,
+    database_file_path: &Path,
+    result: &ImportResult,
+) -> AppResult<()> {
+    let changed_state = result.rows_inserted > 0
+        || result
+            .recovery_session
+            .as_ref()
+            .map(|session| session.created_instruments > 0)
+            .unwrap_or(false);
+    if changed_state {
+        if let Some(folder_path) = database_file_path.parent() {
+            invalidate_cached_db_stats(&app_handle, folder_path)?;
         }
+        let snapshot = get_app_snapshot_internal(
+            &app_handle,
+            Some(&SnapshotOptions {
+                include_stats: Some(false),
+                include_watchlists: Some(false),
+            }),
+        )?;
+        emit_database_changed(&app_handle, &snapshot)?;
+    }
 
-        Ok(())
+    Ok(())
 }
 
 #[tauri::command]
@@ -630,7 +634,8 @@ pub async fn undo_manual_import_recovery(
         let _manual_import_guard = MANUAL_IMPORT_MUTATION_LOCK
             .lock()
             .map_err(|_| "Manual Import mutation lock was poisoned.".to_string())?;
-        let connection = Connection::open(&database_file_path).map_err(|error| error.to_string())?;
+        let connection =
+            Connection::open(&database_file_path).map_err(|error| error.to_string())?;
         configure_database_connection(&connection)?;
         let result = undo_session(
             &database_file_path,
@@ -640,7 +645,9 @@ pub async fn undo_manual_import_recovery(
                 let progress = if total == 0 {
                     100
                 } else {
-                    ((completed as f64 / total as f64) * 100.0).round().clamp(0.0, 100.0) as u32
+                    ((completed as f64 / total as f64) * 100.0)
+                        .round()
+                        .clamp(0.0, 100.0) as u32
                 };
                 let _ = app_handle.emit(
                     "manual-import-undo:progress",
@@ -649,7 +656,10 @@ pub async fn undo_manual_import_recovery(
                         message: if total == 0 {
                             "Undoing Manual Import".to_string()
                         } else {
-                            format!("Undoing Manual Import {}/{} symbols ({})", completed, total, symbol)
+                            format!(
+                                "Undoing Manual Import {}/{} symbols ({})",
+                                completed, total, symbol
+                            )
                         },
                     },
                 );
@@ -690,17 +700,43 @@ where
 }
 
 fn reject_unreviewed_nifty(path: &Path, options: &ImportOptionsInput) -> AppResult<()> {
-    let first = read_first_non_empty_lines(path, 1)?.first().cloned().unwrap_or_default();
-    let delimiter = options.delimiter.as_deref().and_then(|v|v.chars().next()).unwrap_or_else(||detect_delimiter(&first));
+    let first = read_first_non_empty_lines(path, 1)?
+        .first()
+        .cloned()
+        .unwrap_or_default();
+    let delimiter = options
+        .delimiter
+        .as_deref()
+        .and_then(|v| v.chars().next())
+        .unwrap_or_else(|| detect_delimiter(&first));
     let headers = split_delimited_line(&first, delimiter);
-    let index_name = headers.iter().position(|h| normalize_header(h) == "indexname");
-    if index_name.is_some() || options.exchange.as_deref().is_some_and(|e| e.trim().eq_ignore_ascii_case("NSE_INDEX")) {
-        let mut map = if options.has_header.unwrap_or_else(||detect_header(&headers)) { build_header_map(&headers) } else { default_header_map() };
-        if let Some(index) = index_name { map.symbol = index; }
-        let reader = BufReader::new(File::open(path).map_err(|e|e.to_string())?);
+    let index_name = headers
+        .iter()
+        .position(|h| normalize_header(h) == "indexname");
+    if index_name.is_some()
+        || options
+            .exchange
+            .as_deref()
+            .is_some_and(|e| e.trim().eq_ignore_ascii_case("NSE_INDEX"))
+    {
+        let mut map = if options
+            .has_header
+            .unwrap_or_else(|| detect_header(&headers))
+        {
+            build_header_map(&headers)
+        } else {
+            default_header_map()
+        };
+        if let Some(index) = index_name {
+            map.symbol = index;
+        }
+        let reader = BufReader::new(File::open(path).map_err(|e| e.to_string())?);
         for line in reader.lines() {
-            let fields = split_delimited_line(&line.map_err(|e|e.to_string())?,delimiter);
-            if fields.get(map.symbol).is_some_and(|s|crate::bhavcopy::map_index_symbol(s) == "NIFTY") {
+            let fields = split_delimited_line(&line.map_err(|e| e.to_string())?, delimiter);
+            if fields
+                .get(map.symbol)
+                .is_some_and(|s| crate::bhavcopy::map_index_symbol(s) == "NIFTY")
+            {
                 return Err("NIFTY CSV imports require Historical Review and official verification. Existing bars cannot be overwritten through this route.".into());
             }
         }
@@ -715,7 +751,8 @@ pub(crate) fn import_csv_internal_reviewed_nifty<F>(
     options: &ImportOptionsInput,
     on_progress: F,
 ) -> AppResult<ImportResult>
-where F: Fn(u32, String),
+where
+    F: Fn(u32, String),
 {
     let started_at = std::time::Instant::now();
     let normalized_file_paths = options
@@ -754,9 +791,16 @@ where F: Fn(u32, String),
 
     if import_exchange == "NSE" {
         for path in &normalized_file_paths {
-            let first = read_first_non_empty_lines(path, 1)?.into_iter().next().unwrap_or_default();
-            let delimiter = options.delimiter.as_deref().and_then(|s|s.chars().next())
-                .filter(|c|[',', '\t', ';'].contains(c)).unwrap_or_else(||detect_delimiter(&first));
+            let first = read_first_non_empty_lines(path, 1)?
+                .into_iter()
+                .next()
+                .unwrap_or_default();
+            let delimiter = options
+                .delimiter
+                .as_deref()
+                .and_then(|s| s.chars().next())
+                .filter(|c| [',', '\t', ';'].contains(c))
+                .unwrap_or_else(|| detect_delimiter(&first));
             require_manual_security_headers_safe(&first, delimiter)?;
         }
     }
@@ -1076,7 +1120,10 @@ where F: Fn(u32, String),
             if aggregate_rows_error == 0 {
                 None
             } else {
-                Some(format!("Manual Import completed with {} binary error(s).", aggregate_rows_error))
+                Some(format!(
+                    "Manual Import completed with {} binary error(s).",
+                    aggregate_rows_error
+                ))
             },
         )?;
     }
@@ -1398,7 +1445,9 @@ fn insert_binary_import_instruments<'a, I>(
 where
     I: IntoIterator<Item = &'a String>,
 {
-    let transaction = connection.transaction().map_err(|error| error.to_string())?;
+    let transaction = connection
+        .transaction()
+        .map_err(|error| error.to_string())?;
     {
         let mut statement = transaction
             .prepare(
@@ -1423,7 +1472,10 @@ where
 fn detect_source_exchange_hint(file_paths: &[PathBuf]) -> Option<String> {
     let mut hints = HashSet::<String>::new();
     for file_path in file_paths {
-        let normalized = file_path.to_string_lossy().replace('\\', "/").to_uppercase();
+        let normalized = file_path
+            .to_string_lossy()
+            .replace('\\', "/")
+            .to_uppercase();
         if normalized.contains("/BSE/") {
             hints.insert("BSE".to_string());
         }
@@ -1585,12 +1637,14 @@ fn filter_binary_records_for_symbol(
 ) -> BinaryFilterResult {
     let bin_path = match crate::database::storage_paths::eod_path(folder_path, exchange, &symbol) {
         Ok(path) => path,
-        Err(error) => return BinaryFilterResult {
-            symbol,
-            records: Vec::new(),
-            skipped_rows: 0,
-            error: Some(error),
-        },
+        Err(error) => {
+            return BinaryFilterResult {
+                symbol,
+                records: Vec::new(),
+                skipped_rows: 0,
+                error: Some(error),
+            }
+        }
     };
 
     if !bin_path.exists() {
@@ -1757,15 +1811,18 @@ fn write_binary_records_for_symbol(
     symbol: String,
     records: Vec<EodRecord>,
 ) -> BinaryWriteResult {
-    let bin_path = match crate::database::storage_paths::eod_write_path(folder_path, exchange, &symbol) {
-        Ok(path) => path,
-        Err(error) => return BinaryWriteResult {
-            symbol,
-            error: Some(error),
-            stats: BinaryAppendMergeStats::default(),
-            diagnostics: BinaryWriteDiagnostics::default(),
-        },
-    };
+    let bin_path =
+        match crate::database::storage_paths::eod_write_path(folder_path, exchange, &symbol) {
+            Ok(path) => path,
+            Err(error) => {
+                return BinaryWriteResult {
+                    symbol,
+                    error: Some(error),
+                    stats: BinaryAppendMergeStats::default(),
+                    diagnostics: BinaryWriteDiagnostics::default(),
+                }
+            }
+        };
     let write_started = std::time::Instant::now();
 
     match BinaryEodFile::append_or_merge_records_with_stats(
@@ -1888,8 +1945,14 @@ fn default_header_map() -> HeaderMap {
 }
 
 fn require_manual_security_headers_safe(first: &str, delimiter: char) -> AppResult<()> {
-    let fields: Vec<_> = first.split(delimiter).map(|s| normalize_header(s.trim_matches('"'))).collect();
-    if fields.iter().any(|s| matches!(s.as_str(), "series" | "sctysrs" | "securityseries")) {
+    let fields: Vec<_> = first
+        .split(delimiter)
+        .map(|s| normalize_header(s.trim_matches('"')))
+        .collect();
+    if fields
+        .iter()
+        .any(|s| matches!(s.as_str(), "series" | "sctysrs" | "securityseries"))
+    {
         return Err("NSE series-bearing files require Bhavcopy security admission. Use Bhavcopy Date Range; generic Manual Import cannot preserve the security identity.".into());
     }
     Ok(())
@@ -2239,10 +2302,30 @@ mod tests {
         let c = setup_test_db(&db);
         set_price_storage_mode(&c, PriceStorageMode::Binary).unwrap();
         let file = dir.path().join("history.csv");
-        fs::write(&file,"symbol,date,open,high,low,close,volume\nCNX Nifty,2024-01-02,100,110,90,105,0\n").unwrap();
-        let options = ImportOptionsInput { file_paths:vec![file.to_string_lossy().into()],exchange:Some("NSE_INDEX".into()),has_header:Some(true),date_format:None,delimiter:None,on_duplicate:Some("overwrite".into()),trim_whitespace:Some(true),allow_exchange_mismatch:None };
-        assert!(import_csv_internal(&db,&options,|_,_|{}).unwrap_err().contains("Historical Review"));
-        assert_eq!(c.query_row("SELECT COUNT(*) FROM instruments",[],|r|r.get::<_,i64>(0)).unwrap(),0);
+        fs::write(
+            &file,
+            "symbol,date,open,high,low,close,volume\nCNX Nifty,2024-01-02,100,110,90,105,0\n",
+        )
+        .unwrap();
+        let options = ImportOptionsInput {
+            file_paths: vec![file.to_string_lossy().into()],
+            exchange: Some("NSE_INDEX".into()),
+            has_header: Some(true),
+            date_format: None,
+            delimiter: None,
+            on_duplicate: Some("overwrite".into()),
+            trim_whitespace: Some(true),
+            allow_exchange_mismatch: None,
+        };
+        assert!(import_csv_internal(&db, &options, |_, _| {})
+            .unwrap_err()
+            .contains("Historical Review"));
+        assert_eq!(
+            c.query_row("SELECT COUNT(*) FROM instruments", [], |r| r
+                .get::<_, i64>(0))
+                .unwrap(),
+            0
+        );
         assert!(!dir.path().join("eod_data").exists());
     }
 
@@ -2253,7 +2336,11 @@ mod tests {
         let connection = setup_test_db(&db);
         set_price_storage_mode(&connection, PriceStorageMode::Binary).unwrap();
         let file = dir.path().join("history.csv");
-        fs::write(&file, "Symbol,Date,Open,High,Low,Close\nCNX Nifty,2024-01-02,100,110,90,105\n").unwrap();
+        fs::write(
+            &file,
+            "Symbol,Date,Open,High,Low,Close\nCNX Nifty,2024-01-02,100,110,90,105\n",
+        )
+        .unwrap();
         let before = fs::read(&db).unwrap();
         let mut options = ImportOptionsInput {
             file_paths: vec![file.to_string_lossy().into()],
@@ -2271,9 +2358,11 @@ mod tests {
             assert!(error.contains("Historical Review"), "{exchange:?}: {error}");
         }
         for table in ["instruments", "eod_prices"] {
-            let count: i64 = connection.query_row(
-                &format!("SELECT COUNT(*) FROM {table}"), [], |row| row.get(0),
-            ).unwrap();
+            let count: i64 = connection
+                .query_row(&format!("SELECT COUNT(*) FROM {table}"), [], |row| {
+                    row.get(0)
+                })
+                .unwrap();
             assert_eq!(count, 0, "Preflight must not change {table}");
         }
         assert_eq!(fs::read(&db).unwrap(), before);
@@ -2282,34 +2371,65 @@ mod tests {
         options.exchange = Some("NSE".into());
         assert!(reject_unreviewed_nifty(&file, &options).is_ok());
         options.exchange = Some(" NSE_INDEX ".into());
-        fs::write(&file, "Symbol,Date,Open,High,Low,Close\nNIFTY BANK,2024-01-02,100,110,90,105\n").unwrap();
+        fs::write(
+            &file,
+            "Symbol,Date,Open,High,Low,Close\nNIFTY BANK,2024-01-02,100,110,90,105\n",
+        )
+        .unwrap();
         assert!(reject_unreviewed_nifty(&file, &options).is_ok());
     }
 
     #[test]
     fn security_admission_manual_import_rejects_series_headers() {
-        assert!(require_manual_security_headers_safe("TradDt;TckrSymb;SctySrs;ClsPric", ';').is_err());
-        assert!(require_manual_security_headers_safe("Symbol,Date,Open,High,Low,Close,Volume", ',').is_ok());
-        let folder = Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap()
+        assert!(
+            require_manual_security_headers_safe("TradDt;TckrSymb;SctySrs;ClsPric", ';').is_err()
+        );
+        assert!(require_manual_security_headers_safe(
+            "Symbol,Date,Open,High,Low,Close,Volume",
+            ','
+        )
+        .is_ok());
+        let folder = Path::new(env!("CARGO_MANIFEST_DIR"))
+            .parent()
+            .unwrap()
             .join("tmp/fixtures/ca-series-admission-tests")
-            .join(format!("manual-{}-{}", std::process::id(), chrono::Utc::now().timestamp_nanos_opt().unwrap()));
+            .join(format!(
+                "manual-{}-{}",
+                std::process::id(),
+                chrono::Utc::now().timestamp_nanos_opt().unwrap()
+            ));
         fs::create_dir_all(&folder).unwrap();
         let database = folder.join("market-data.sqlite3");
         let connection = setup_test_db(&database);
         let good = folder.join("a-quotes.csv");
         let unsafe_file = folder.join("z-series.csv");
-        fs::write(&good, "Symbol,Date,Open,High,Low,Close,Volume\nSAFE,2014-11-20,100,110,90,105,200\n").unwrap();
+        fs::write(
+            &good,
+            "Symbol,Date,Open,High,Low,Close,Volume\nSAFE,2014-11-20,100,110,90,105,200\n",
+        )
+        .unwrap();
         fs::write(&unsafe_file, "SYMBOL,SERIES,OPEN,HIGH,LOW,CLOSE,TIMESTAMP\nSBIN,N5,11300,11319.99,11295,11300.78,20-NOV-2014\n").unwrap();
         let options = ImportOptionsInput {
-            file_paths: vec![good.to_string_lossy().into_owned(), unsafe_file.to_string_lossy().into_owned()],
-            exchange: Some("NSE".into()), has_header: Some(false), date_format: None,
-            delimiter: Some(",".into()), on_duplicate: Some("overwrite".into()),
-            trim_whitespace: None, allow_exchange_mismatch: Some(true),
+            file_paths: vec![
+                good.to_string_lossy().into_owned(),
+                unsafe_file.to_string_lossy().into_owned(),
+            ],
+            exchange: Some("NSE".into()),
+            has_header: Some(false),
+            date_format: None,
+            delimiter: Some(",".into()),
+            on_duplicate: Some("overwrite".into()),
+            trim_whitespace: None,
+            allow_exchange_mismatch: Some(true),
         };
         let error = import_csv_internal(&database, &options, |_, _| {}).unwrap_err();
         assert!(error.contains("Bhavcopy security admission"));
-        let instruments: i64 = connection.query_row("SELECT count(*) FROM instruments", [], |r| r.get(0)).unwrap();
-        let prices: i64 = connection.query_row("SELECT count(*) FROM eod_prices", [], |r| r.get(0)).unwrap();
+        let instruments: i64 = connection
+            .query_row("SELECT count(*) FROM instruments", [], |r| r.get(0))
+            .unwrap();
+        let prices: i64 = connection
+            .query_row("SELECT count(*) FROM eod_prices", [], |r| r.get(0))
+            .unwrap();
         assert_eq!((instruments, prices), (0, 0));
         assert!(!folder.join("eod_data").exists());
     }
@@ -2645,7 +2765,9 @@ mod tests {
             PathBuf::from(r"E:\data\BSE\EQ\one.csv"),
             PathBuf::from(r"E:\data\NSE\EQ\two.csv"),
         ];
-        assert_eq!(detect_source_exchange_hint(&files).as_deref(), Some("MIXED"));
+        assert_eq!(
+            detect_source_exchange_hint(&files).as_deref(),
+            Some("MIXED")
+        );
     }
-
 }

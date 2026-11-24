@@ -131,12 +131,10 @@ fn security_admission_pre_isin_eq_plus_auxiliary_keeps_the_equity_bar() {
         assert_eq!(results[0].admission.conflicted, 0, "{series}");
         assert_eq!(results[0].admission.market_rows, 1, "{series}");
         assert_eq!(results[0].rows_inserted, 1, "{series}");
-        let stored = BinaryEodFile::open(
-            path.parent().unwrap().join("eod_data/NSE/SBIN.eod"),
-        )
-        .unwrap()
-        .read_all()
-        .unwrap();
+        let stored = BinaryEodFile::open(path.parent().unwrap().join("eod_data/NSE/SBIN.eod"))
+            .unwrap()
+            .read_all()
+            .unwrap();
         assert_eq!(stored.len(), 1, "{series}");
         assert_eq!(stored[0].close, 6_428_500, "{series}");
     }
@@ -159,8 +157,10 @@ fn security_admission_pre_isin_eq_plus_legacy_bucket_keeps_the_equity_bar() {
 
     // A standalone E1 row is still written as equity (no regression).
     let solo = db();
-    let file = parse("ONLY,E1,100,105,95,102,99,5000,20-NOV-2014,
-");
+    let file = parse(
+        "ONLY,E1,100,105,95,102,99,5000,20-NOV-2014,
+",
+    );
     let (results, _) = insert_parsed_bhavcopy_files(&solo, &[file]).unwrap();
     assert_eq!(results[0].rows_inserted, 1);
     assert_eq!(results[0].admission.market_rows, 0);
@@ -189,8 +189,10 @@ fn security_admission_buyback_bo_never_replaces_equity_ohlcv() {
 
     // BO only: no canonical daily price is fabricated.
     let solo = db();
-    let file = parse("ONLY,BO,299.00,299.00,299.00,299.00,297.10,5000,20-NOV-2014,INE062A01012
-");
+    let file = parse(
+        "ONLY,BO,299.00,299.00,299.00,299.00,297.10,5000,20-NOV-2014,INE062A01012
+",
+    );
     let (results, _) = insert_parsed_bhavcopy_files(&solo, &[file]).unwrap();
     assert_eq!(results[0].rows_inserted, 0);
     assert_eq!(results[0].admission.market_rows, 1);

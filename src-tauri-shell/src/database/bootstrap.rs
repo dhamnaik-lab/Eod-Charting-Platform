@@ -1115,7 +1115,6 @@ fn seed_defaults(connection: &Connection) -> AppResult<()> {
             .map_err(|error| error.to_string())?;
     }
 
-
     // HOL-04: No yearly BUILTIN holiday seeding. Existing database rows stay intact.
     Ok(())
 }
@@ -1267,16 +1266,16 @@ mod tests {
     fn hol04_new_database_has_no_hardcoded_holiday_rows() {
         let conn = setup_test_db();
         seed_defaults(&conn).unwrap();
-        let count: i64 = conn.query_row(
-            "SELECT COUNT(*) FROM market_holidays", [], |row| row.get(0)
-        ).unwrap();
+        let count: i64 = conn
+            .query_row("SELECT COUNT(*) FROM market_holidays", [], |row| row.get(0))
+            .unwrap();
         assert_eq!(count, 0);
         // Re-running defaults must not turn a calendar-less database into a
         // pre-filled calendar, even after explicit removal of all holidays.
         seed_defaults(&conn).unwrap();
-        let again: i64 = conn.query_row(
-            "SELECT COUNT(*) FROM market_holidays", [], |row| row.get(0)
-        ).unwrap();
+        let again: i64 = conn
+            .query_row("SELECT COUNT(*) FROM market_holidays", [], |row| row.get(0))
+            .unwrap();
         assert_eq!(again, 0);
     }
 
@@ -1291,14 +1290,24 @@ mod tests {
         ).unwrap();
         seed_defaults(&conn).unwrap();
         seed_defaults(&conn).unwrap();
-        let rows: Vec<(String,String,String)> = conn.prepare(
-            "SELECT date, name, source FROM market_holidays ORDER BY date"
-        ).unwrap().query_map([], |row| Ok((row.get(0)?,row.get(1)?,row.get(2)?)))
-         .unwrap().map(|row| row.unwrap()).collect();
-        assert_eq!(rows, vec![
-            ("2026-03-03".into(), "Historical built-in fixture".into(), "BUILTIN".into()),
-            ("2026-05-02".into(), "Manual fixture".into(), "USER".into()),
-        ]);
+        let rows: Vec<(String, String, String)> = conn
+            .prepare("SELECT date, name, source FROM market_holidays ORDER BY date")
+            .unwrap()
+            .query_map([], |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)))
+            .unwrap()
+            .map(|row| row.unwrap())
+            .collect();
+        assert_eq!(
+            rows,
+            vec![
+                (
+                    "2026-03-03".into(),
+                    "Historical built-in fixture".into(),
+                    "BUILTIN".into()
+                ),
+                ("2026-05-02".into(), "Manual fixture".into(), "USER".into()),
+            ]
+        );
     }
 
     #[test]

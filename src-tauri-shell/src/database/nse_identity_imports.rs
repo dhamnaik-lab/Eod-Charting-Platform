@@ -1,12 +1,13 @@
-mod historical_reporting;
 pub(crate) mod historical_categories;
-pub use historical_reporting::{list_nse_historical_identity_apply_history, get_nse_historical_identity_apply_report};
+mod historical_reporting;
+pub use historical_reporting::{
+    get_nse_historical_identity_apply_report, list_nse_historical_identity_apply_history,
+};
+mod apply_reporting;
 mod historical_reconciliation;
 #[cfg(test)]
 mod historical_repair_tests;
-mod apply_reporting;
 pub use apply_reporting::list_nse_identity_apply_history;
-use tauri::Emitter;
 use chrono::NaiveDate;
 use csv::StringRecord;
 #[cfg(not(test))]
@@ -20,21 +21,19 @@ use std::io::{Cursor, Read};
 use std::path::{Path, PathBuf};
 use std::time::{Duration, SystemTime};
 use tauri::AppHandle;
+use tauri::Emitter;
 use zip::ZipArchive;
 
 use super::identity_evidence_resolver::{
-    resolve_identity, IdentityResolverAuthorityClass,
-    IdentityResolverEvaluationError, IdentityResolverEvidence, IdentityResolverEvidenceKind,
-    IdentityResolverInput, IdentityResolverLocalIdentity, IdentityResolverOfficialIdentity,
-    IdentityResolverResult, IdentityResolverRuleId, IdentityResolverSourceAvailability,
-    IdentityResolverStatus,
+    resolve_identity, IdentityResolverAuthorityClass, IdentityResolverEvaluationError,
+    IdentityResolverEvidence, IdentityResolverEvidenceKind, IdentityResolverInput,
+    IdentityResolverLocalIdentity, IdentityResolverOfficialIdentity, IdentityResolverResult,
+    IdentityResolverRuleId, IdentityResolverSourceAvailability, IdentityResolverStatus,
 };
 use super::instrument_mutations::apply_corporate_action_internal;
 use super::official_source_urls::{load_official_source_urls, OfficialSourceUrls};
 #[cfg(not(test))]
-use super::official_source_urls::{
-    nse_official_redirect_policy, validate_nse_official_source_url,
-};
+use super::official_source_urls::{nse_official_redirect_policy, validate_nse_official_source_url};
 use super::{
     emit_database_changed, get_app_snapshot_internal, invalidate_cached_db_stats,
     normalize_optional_text, normalize_symbol, open_connection_for_folder,
@@ -271,36 +270,50 @@ pub async fn apply_nse_current_universe_sync(
         let folder_path = resolve_active_database_folder(&app_handle)?.ok_or_else(|| {
             "Open a database before applying the NSE current-symbol sync.".to_string()
         })?;
-        super::check_identity_reviewed_database_path(&folder_path, expected_database_path.as_deref().unwrap_or(""))?;
+        super::check_identity_reviewed_database_path(
+            &folder_path,
+            expected_database_path.as_deref().unwrap_or(""),
+        )?;
         let connection = open_connection_for_folder(&folder_path, false)?;
 
         let managed_root = resolve_managed_nse_identity_root(&folder_path);
         let report = |progress: apply_reporting::IdentityApplyProgress| {
             if let Some(id) = &operation_id {
-                let _ = app_handle.emit("identity:apply-progress", serde_json::json!({
-                    "operationId": id, "databasePath": folder_path, "progress": progress
-                }));
+                let _ = app_handle.emit(
+                    "identity:apply-progress",
+                    serde_json::json!({
+                        "operationId": id, "databasePath": folder_path, "progress": progress
+                    }),
+                );
             }
         };
         let mut result = {
-            let _canonical = super::database_use::CanonicalAccess::lock_writer_for_database(&folder_path)?;
+            let _canonical =
+                super::database_use::CanonicalAccess::lock_writer_for_database(&folder_path)?;
             apply_reporting::apply_reviewed(&connection, &input, Some(&managed_root), &report)?
         };
-        report(apply_reporting::IdentityApplyProgress { stage: "refreshing", processed: 0, total: 0, percent: Some(100) });
+        report(apply_reporting::IdentityApplyProgress {
+            stage: "refreshing",
+            processed: 0,
+            total: 0,
+            percent: Some(100),
+        });
         // A refresh error after commit must not be reported as a failed apply.
         let refresh = (|| -> AppResult<()> {
-        invalidate_cached_db_stats(&app_handle, &folder_path)?;
-        let snapshot = get_app_snapshot_internal(
-            &app_handle,
-            Some(&SnapshotOptions {
-                include_stats: Some(false),
-                include_watchlists: Some(false),
-            }),
-        )?;
-        emit_database_changed(&app_handle, &snapshot)?;
-        Ok(())
+            invalidate_cached_db_stats(&app_handle, &folder_path)?;
+            let snapshot = get_app_snapshot_internal(
+                &app_handle,
+                Some(&SnapshotOptions {
+                    include_stats: Some(false),
+                    include_watchlists: Some(false),
+                }),
+            )?;
+            emit_database_changed(&app_handle, &snapshot)?;
+            Ok(())
         })();
-        if let Err(error) = refresh { result.refresh_warning = Some(error); }
+        if let Err(error) = refresh {
+            result.refresh_warning = Some(error);
+        }
         Ok::<NseCurrentUniverseSyncResult, String>(result)
     })
     .await
@@ -359,12 +372,12 @@ fn load_nse_historical_identity_source_snapshot(
         ensure_current_universe_master_file_is_fresh(path)?;
     }
 
-    let securities_available_bytes = std::fs::read(&files.securities_available_path)
-        .map_err(|error| error.to_string())?;
+    let securities_available_bytes =
+        std::fs::read(&files.securities_available_path).map_err(|error| error.to_string())?;
     let symbol_changes_bytes =
         std::fs::read(&files.symbol_changes_path).map_err(|error| error.to_string())?;
-    let company_name_changes_bytes = std::fs::read(&files.company_name_changes_path)
-        .map_err(|error| error.to_string())?;
+    let company_name_changes_bytes =
+        std::fs::read(&files.company_name_changes_path).map_err(|error| error.to_string())?;
 
     let historical_allowed = HashSet::from(["EQ".to_string()]);
     let master_rows = load_security_master_rows_from_bytes(
@@ -454,16 +467,21 @@ fn record_historical_identity_payload(
 ) -> HistoricalIdentityPayloadOutcome {
     match historical_reconciliation::reconcile(connection, payload) {
         Ok(Some(outcome)) => return outcome,
-        Ok(None) => {},
+        Ok(None) => {}
         Err(error) => return HistoricalIdentityPayloadOutcome::Error(error),
     }
     // A historical event proves metadata at its date, not a current listing.
     // Preserve activity (new targets default inactive); the master phase below
     // remains authoritative for activating currently listed symbols.
-    let target_symbol = payload.new_symbol.clone().or_else(|| payload.current_symbol.clone()).or_else(|| payload.symbol.clone());
+    let target_symbol = payload
+        .new_symbol
+        .clone()
+        .or_else(|| payload.current_symbol.clone())
+        .or_else(|| payload.symbol.clone());
     let target_was_active = match connection.query_row(
         "SELECT COALESCE((SELECT is_active FROM instruments WHERE exchange='NSE' AND symbol=?),0)",
-        params![target_symbol], |row| row.get::<_, bool>(0),
+        params![target_symbol],
+        |row| row.get::<_, bool>(0),
     ) {
         Ok(active) => active,
         Err(error) => return HistoricalIdentityPayloadOutcome::Error(error.to_string()),
@@ -479,7 +497,11 @@ fn record_historical_identity_payload(
             // the current-master sync can still reactivate a listed/reused symbol.
             let lifecycle = (|| -> AppResult<()> {
                 if !target_was_active {
-                    connection.execute("UPDATE instruments SET is_active=0 WHERE exchange='NSE' AND symbol=?", params![target_symbol])
+                    connection
+                        .execute(
+                            "UPDATE instruments SET is_active=0 WHERE exchange='NSE' AND symbol=?",
+                            params![target_symbol],
+                        )
                         .map_err(|error| error.to_string())?;
                 }
                 if matches!(payload.action_type.as_str(), "SYMBOL_CHANGE" | "BOTH") {
@@ -494,21 +516,26 @@ fn record_historical_identity_payload(
                 Ok(()) => HistoricalIdentityPayloadOutcome::New,
                 Err(error) => HistoricalIdentityPayloadOutcome::Error(error),
             }
-        },
-        Err(error) if error.contains("already exists") => HistoricalIdentityPayloadOutcome::Duplicate,
+        }
+        Err(error) if error.contains("already exists") => {
+            HistoricalIdentityPayloadOutcome::Duplicate
+        }
         Err(error) => HistoricalIdentityPayloadOutcome::Error(error),
     };
 
     match &outcome {
         HistoricalIdentityPayloadOutcome::New | HistoricalIdentityPayloadOutcome::Duplicate => {
-            if let Err(error) = connection.execute_batch("RELEASE SAVEPOINT i4_historical_identity_row") {
+            if let Err(error) =
+                connection.execute_batch("RELEASE SAVEPOINT i4_historical_identity_row")
+            {
                 let _ = connection.execute_batch(
                     "ROLLBACK TO SAVEPOINT i4_historical_identity_row; RELEASE SAVEPOINT i4_historical_identity_row",
                 );
                 return HistoricalIdentityPayloadOutcome::Error(error.to_string());
             }
         }
-        HistoricalIdentityPayloadOutcome::Error(_) | HistoricalIdentityPayloadOutcome::Skipped(_) => {
+        HistoricalIdentityPayloadOutcome::Error(_)
+        | HistoricalIdentityPayloadOutcome::Skipped(_) => {
             let _ = connection.execute_batch(
                 "ROLLBACK TO SAVEPOINT i4_historical_identity_row; RELEASE SAVEPOINT i4_historical_identity_row",
             );
@@ -532,26 +559,37 @@ fn apply_historical_identity_outcome(
                 "BOTH" => result.new_combined_changes += 1,
                 _ => {}
             }
-            result.history_rows.push(historical_preview_row_from_payload(
-                payload,
-                "NEW",
-                source_file,
-                "Will insert this NSE historical identity change.".to_string(),
-            ));
+            result
+                .history_rows
+                .push(historical_preview_row_from_payload(
+                    payload,
+                    "NEW",
+                    source_file,
+                    "Will insert this NSE historical identity change.".to_string(),
+                ));
         }
         HistoricalIdentityPayloadOutcome::Duplicate => {
             result.duplicate_rows += 1;
-            result.history_rows.push(historical_preview_row_from_payload(
-                payload,
-                "DUPLICATE",
-                source_file,
-                "This identity change already exists; no new historical row is required."
-                    .to_string(),
-            ));
+            result
+                .history_rows
+                .push(historical_preview_row_from_payload(
+                    payload,
+                    "DUPLICATE",
+                    source_file,
+                    "This identity change already exists; no new historical row is required."
+                        .to_string(),
+                ));
         }
         HistoricalIdentityPayloadOutcome::Skipped(detail) => {
             result.skipped_rows += 1;
-            result.history_rows.push(historical_preview_row_from_payload(payload, "SKIPPED", source_file, detail));
+            result
+                .history_rows
+                .push(historical_preview_row_from_payload(
+                    payload,
+                    "SKIPPED",
+                    source_file,
+                    detail,
+                ));
         }
         HistoricalIdentityPayloadOutcome::Error(error) => {
             result.error_rows += 1;
@@ -564,12 +602,14 @@ fn apply_historical_identity_outcome(
             result
                 .errors
                 .push(format!("{} {}: {}", payload.action_type, label, error));
-            result.history_rows.push(historical_preview_row_from_payload(
-                payload,
-                "ERROR",
-                source_file,
-                error,
-            ));
+            result
+                .history_rows
+                .push(historical_preview_row_from_payload(
+                    payload,
+                    "ERROR",
+                    source_file,
+                    error,
+                ));
         }
     }
 }
@@ -588,8 +628,9 @@ fn skipped_symbol_change_preview_row(
         old_name: None,
         new_name: row.company_name.clone(),
         source_file: source_file.to_string(),
-        detail: "Outside the included NSE identity symbol chain for the current database/source set."
-            .to_string(),
+        detail:
+            "Outside the included NSE identity symbol chain for the current database/source set."
+                .to_string(),
     }
 }
 
@@ -607,8 +648,9 @@ fn skipped_name_change_preview_row(
         old_name: Some(row.old_name.clone()),
         new_name: Some(row.new_name.clone()),
         source_file: source_file.to_string(),
-        detail: "Outside the included NSE identity symbol chain for the current database/source set."
-            .to_string(),
+        detail:
+            "Outside the included NSE identity symbol chain for the current database/source set."
+                .to_string(),
     }
 }
 
@@ -620,13 +662,23 @@ fn execute_nse_historical_identity_plan(
 }
 
 fn execute_nse_historical_identity_plan_with_progress(
-    connection: &Connection, snapshot: &NseHistoricalIdentitySourceSnapshot, report: &dyn Fn(usize,usize),
+    connection: &Connection,
+    snapshot: &NseHistoricalIdentitySourceSnapshot,
+    report: &dyn Fn(usize, usize),
 ) -> AppResult<NseHistoricalIdentityResult> {
     let mut processed = 0usize;
     let total = snapshot.symbol_change_rows.len() + snapshot.name_change_rows.len();
-    let mut advance = |count: usize| { processed += count; if processed % 25 == 0 || processed >= total { report(processed, total); } };
+    let mut advance = |count: usize| {
+        processed += count;
+        if processed % 25 == 0 || processed >= total {
+            report(processed, total);
+        }
+    };
     let mut result = NseHistoricalIdentityResult {
-        run_id: None, completed_at: None, refresh_warning: None, category_evidence: None,
+        run_id: None,
+        completed_at: None,
+        refresh_warning: None,
+        category_evidence: None,
         archive_root_path: snapshot.archive_root_path.clone(),
         applied: false,
         can_apply: false,
@@ -677,7 +729,12 @@ fn execute_nse_historical_identity_plan_with_progress(
     });
     for row in included_name_rows {
         if should_include_name_change(&included_symbols, &row) {
-            if name_rows_by_key.insert(name_change_key(&row.symbol, &row.effective_date), row).is_some() { advance(1); }
+            if name_rows_by_key
+                .insert(name_change_key(&row.symbol, &row.effective_date), row)
+                .is_some()
+            {
+                advance(1);
+            }
         } else {
             advance(1);
             result.skipped_rows += 1;
@@ -851,8 +908,6 @@ fn execute_nse_historical_identity_plan_with_progress(
 fn rollback_nse_historical_identity_transaction(connection: &Connection) {
     let _ = connection.execute_batch("ROLLBACK");
 }
-
-
 
 // ER2-C2: private NSE I4 historical post-rollback shadow evidence adapter.
 // These values are deliberately in-memory only; they are not serialized,
@@ -1258,20 +1313,17 @@ fn reconstruct_nse_i4_er2_historical_evidence(
                 "ER2C2_INVALID_I4_PREVIEW_ROW_SHAPE:NEW_NAME",
             )?;
             let symbol_key = er2c2_symbol_change_key(&old_symbol, &new_symbol, &effective_date);
-            let name_key = er2c2_name_change_key(&new_symbol, &old_name, &new_name, &effective_date);
+            let name_key =
+                er2c2_name_change_key(&new_symbol, &old_name, &new_name, &effective_date);
             let symbol_rows = indexes.symbol_changes_by_exact_key.get(&symbol_key);
             let name_rows = indexes.name_changes_by_exact_key.get(&name_key);
             let symbol_count = symbol_rows.map(Vec::len).unwrap_or(0);
             let name_count = name_rows.map(Vec::len).unwrap_or(0);
             if symbol_count == 0 || name_count == 0 {
-                return Err(er2c2_adapter_error(
-                    "ER2C2_SOURCE_EVIDENCE_NOT_FOUND:BOTH",
-                ));
+                return Err(er2c2_adapter_error("ER2C2_SOURCE_EVIDENCE_NOT_FOUND:BOTH"));
             }
             if symbol_count != 1 || name_count != 1 {
-                return Err(er2c2_adapter_error(
-                    "ER2C2_AMBIGUOUS_SOURCE_EVIDENCE:BOTH",
-                ));
+                return Err(er2c2_adapter_error("ER2C2_AMBIGUOUS_SOURCE_EVIDENCE:BOTH"));
             }
             Ok(NseI4Er2HistoricalEvidenceMatch {
                 symbol_change: symbol_rows.and_then(|values| values.first()).cloned(),
@@ -1535,7 +1587,10 @@ fn build_nse_i4_er2_input(
         .map(str::trim)
         .filter(|value| !value.is_empty())
     {
-        if let Some(peers) = indexes.current_master_by_isin.get(&er2c2_normalize_code(isin)) {
+        if let Some(peers) = indexes
+            .current_master_by_isin
+            .get(&er2c2_normalize_code(isin))
+        {
             for peer in peers {
                 er2c2_insert_evidence(
                     &mut evidence_by_id,
@@ -1608,9 +1663,7 @@ fn classify_nse_i4_er2_resolver_outcome(
     }
 }
 
-fn nse_i4_er2_shadow_relationship(
-    state: &NseI4Er2ShadowState,
-) -> NseI4Er2ShadowRelationship {
+fn nse_i4_er2_shadow_relationship(state: &NseI4Er2ShadowState) -> NseI4Er2ShadowRelationship {
     match state {
         NseI4Er2ShadowState::Evaluated(result) => match result.status {
             IdentityResolverStatus::Confirmed => {
@@ -1693,12 +1746,7 @@ fn evaluate_nse_i4_er2_shadow_row(
         .as_ref()
         .map(|identity| identity.symbol.clone());
     let state = classify_nse_i4_er2_resolver_outcome(resolve_identity(&resolver_input));
-    nse_i4_er2_shadow_evaluation_from_state(
-        preview,
-        local_symbol,
-        official_symbol,
-        state,
-    )
+    nse_i4_er2_shadow_evaluation_from_state(preview, local_symbol, official_symbol, state)
 }
 
 fn nse_i4_er2_uniform_shadow_evaluations(
@@ -1708,20 +1756,11 @@ fn nse_i4_er2_uniform_shadow_evaluations(
     result
         .history_rows
         .iter()
-        .map(|preview| {
-            nse_i4_er2_shadow_evaluation_from_state(
-                preview,
-                None,
-                None,
-                state.clone(),
-            )
-        })
+        .map(|preview| nse_i4_er2_shadow_evaluation_from_state(preview, None, None, state.clone()))
         .collect()
 }
 
-fn summarize_nse_i4_er2_shadow(
-    evaluations: &[NseI4Er2ShadowEvaluation],
-) -> NseI4Er2ShadowSummary {
+fn summarize_nse_i4_er2_shadow(evaluations: &[NseI4Er2ShadowEvaluation]) -> NseI4Er2ShadowSummary {
     let mut summary = NseI4Er2ShadowSummary {
         history_rows: evaluations.len(),
         ..NseI4Er2ShadowSummary::default()
@@ -1852,20 +1891,37 @@ fn apply_nse_historical_identity_archive_internal(
 }
 
 fn apply_nse_historical_identity_archive_with_progress(
-    connection: &Connection, input: &NseHistoricalIdentityApplyInput, report: &dyn Fn(apply_reporting::IdentityApplyProgress),
+    connection: &Connection,
+    input: &NseHistoricalIdentityApplyInput,
+    report: &dyn Fn(apply_reporting::IdentityApplyProgress),
 ) -> AppResult<NseHistoricalIdentityResult> {
-    report(historical_reporting::progress("checking",0,0));
-    let snapshot = load_nse_historical_identity_source_snapshot(&NseHistoricalIdentityPreviewInput {
-        archive_root_path: input.archive_root_path.clone(),
-    })?;
+    report(historical_reporting::progress("checking", 0, 0));
+    let snapshot =
+        load_nse_historical_identity_source_snapshot(&NseHistoricalIdentityPreviewInput {
+            archive_root_path: input.archive_root_path.clone(),
+        })?;
     connection
         .execute_batch("BEGIN IMMEDIATE TRANSACTION")
         .map_err(|error| error.to_string())?;
 
-    let prior_id: i64 = match connection.query_row("SELECT COALESCE(MAX(id),0) FROM instrument_identity_history", [], |r| r.get(0)) { Ok(id) => id, Err(e) => { rollback_nse_historical_identity_transaction(connection); return Err(e.to_string()); } };
+    let prior_id: i64 = match connection.query_row(
+        "SELECT COALESCE(MAX(id),0) FROM instrument_identity_history",
+        [],
+        |r| r.get(0),
+    ) {
+        Ok(id) => id,
+        Err(e) => {
+            rollback_nse_historical_identity_transaction(connection);
+            return Err(e.to_string());
+        }
+    };
     let total = snapshot.symbol_change_rows.len() + snapshot.name_change_rows.len();
-    report(historical_reporting::progress("applying",0,total));
-    let execution = execute_nse_historical_identity_plan_with_progress(connection, &snapshot, &|done,total| report(historical_reporting::progress("applying",done,total)));
+    report(historical_reporting::progress("applying", 0, total));
+    let execution = execute_nse_historical_identity_plan_with_progress(
+        connection,
+        &snapshot,
+        &|done, total| report(historical_reporting::progress("applying", done, total)),
+    );
     let mut result = match execution {
         Ok(result) => result,
         Err(error) => {
@@ -1896,16 +1952,20 @@ fn apply_nse_historical_identity_archive_with_progress(
         rollback_nse_historical_identity_transaction(connection);
         return Err("No historical identity changes to apply. Create a new preview.".into());
     }
-    result.category_evidence = Some(historical_categories::build(&snapshot, &result.history_rows));
+    result.category_evidence = Some(historical_categories::build(
+        &snapshot,
+        &result.history_rows,
+    ));
     if let Err(error) = historical_reporting::save_receipt(connection, &mut result, prior_id) {
-        rollback_nse_historical_identity_transaction(connection); return Err(error);
+        rollback_nse_historical_identity_transaction(connection);
+        return Err(error);
     }
-    report(historical_reporting::progress("committing",total,total));
+    report(historical_reporting::progress("committing", total, total));
     if let Err(error) = connection.execute_batch("COMMIT") {
         rollback_nse_historical_identity_transaction(connection);
         return Err(error.to_string());
     }
-    report(historical_reporting::progress("committed",total,total));
+    report(historical_reporting::progress("committed", total, total));
     Ok(result)
 }
 
@@ -1948,8 +2008,7 @@ pub(super) fn validate_nse_equity_master_bytes_for_health(
         .iter()
         .map(|value| (*value).to_string())
         .collect::<HashSet<_>>();
-    load_security_master_rows_from_bytes(bytes, source_label, Some(&allowed))
-        .map(|rows| rows.len())
+    load_security_master_rows_from_bytes(bytes, source_label, Some(&allowed)).map(|rows| rows.len())
 }
 
 pub(super) fn validate_nse_sme_master_bytes_for_health(
@@ -1960,8 +2019,7 @@ pub(super) fn validate_nse_sme_master_bytes_for_health(
         .iter()
         .map(|value| (*value).to_string())
         .collect::<HashSet<_>>();
-    load_security_master_rows_from_bytes(bytes, source_label, Some(&allowed))
-        .map(|rows| rows.len())
+    load_security_master_rows_from_bytes(bytes, source_label, Some(&allowed)).map(|rows| rows.len())
 }
 
 pub(super) fn validate_nse_symbol_change_bytes_for_health(
@@ -2016,13 +2074,22 @@ fn apply_nse_current_universe_sync_plan_in_open_transaction(
 }
 
 fn apply_nse_current_universe_sync_plan_with_progress(
-    connection: &Connection, plan: &NseCurrentUniverseSyncPlan, report: &dyn Fn(usize),
+    connection: &Connection,
+    plan: &NseCurrentUniverseSyncPlan,
+    report: &dyn Fn(usize),
 ) -> AppResult<()> {
     let mut processed = 0;
-    if plan.deactivate_symbols.iter().any(|symbol| !matches!(
-        plan.deactivate_lifecycle_by_symbol.get(symbol).map(String::as_str), Some("OLD_SYMBOL" | "DELISTED")
-    )) {
-        return Err("NSE deactivation plan lacks explicit lifecycle evidence. Preview again.".to_string());
+    if plan.deactivate_symbols.iter().any(|symbol| {
+        !matches!(
+            plan.deactivate_lifecycle_by_symbol
+                .get(symbol)
+                .map(String::as_str),
+            Some("OLD_SYMBOL" | "DELISTED")
+        )
+    }) {
+        return Err(
+            "NSE deactivation plan lacks explicit lifecycle evidence. Preview again.".to_string(),
+        );
     }
 
     for row in &plan.current_rows {
@@ -2227,10 +2294,7 @@ fn nse_current_universe_plan_sha256(plan: &NseCurrentUniverseSyncPlan) -> String
 
 fn nse_historical_identity_plan_sha256(result: &NseHistoricalIdentityResult) -> String {
     let mut hasher = Sha256::new();
-    hash_plan_string(
-        &mut hasher,
-        NSE_HISTORICAL_IDENTITY_PLAN_HASH_VERSION,
-    );
+    hash_plan_string(&mut hasher, NSE_HISTORICAL_IDENTITY_PLAN_HASH_VERSION);
     hash_plan_string(&mut hasher, &result.archive_root_path);
     hash_plan_string(&mut hasher, &result.securities_available_sha256);
     hash_plan_string(&mut hasher, &result.symbol_changes_sha256);
@@ -2247,10 +2311,7 @@ fn nse_historical_identity_plan_sha256(result: &NseHistoricalIdentityResult) -> 
     hash_plan_u32(&mut hasher, result.duplicate_rows);
     hash_plan_u32(&mut hasher, result.skipped_rows);
     hash_plan_u32(&mut hasher, result.error_rows);
-    hash_plan_optional_string(
-        &mut hasher,
-        result.current_universe_plan_sha256.as_deref(),
-    );
+    hash_plan_optional_string(&mut hasher, result.current_universe_plan_sha256.as_deref());
     hash_plan_u32(&mut hasher, result.active_sync_activate_count);
     hash_plan_u32(&mut hasher, result.active_sync_update_count);
     hash_plan_u32(&mut hasher, result.active_sync_deactivate_count);
@@ -2320,7 +2381,11 @@ fn plan_into_result(
     applied: bool,
     plan_sha256: String,
 ) -> NseCurrentUniverseSyncResult {
-    let held_active = plan.preview_rows.iter().filter(|row| matches!(row.action.as_str(), "REVIEW_REQUIRED" | "OUTSIDE_COVERAGE")).count();
+    let held_active = plan
+        .preview_rows
+        .iter()
+        .filter(|row| matches!(row.action.as_str(), "REVIEW_REQUIRED" | "OUTSIDE_COVERAGE"))
+        .count();
     let message = if applied {
         format!(
             "Applied NSE current-universe sync. Active {}/{} current official symbols. Activated {}, updated {}, deactivated {}, unchanged {}, official delisted {}. Held active for coverage/evidence review {}.",
@@ -2463,7 +2528,10 @@ fn plan_nse_current_universe_sync_from_rows(
     for row in &existing_rows {
         if row.is_active && !current_symbols.contains(&row.symbol) {
             let lifecycle_status = classify_nse_inactive_lifecycle(
-                row, &history_hints, &official_delisted_symbols, &current_symbols,
+                row,
+                &history_hints,
+                &official_delisted_symbols,
+                &current_symbols,
             );
             let can_deactivate = matches!(lifecycle_status.as_str(), "OLD_SYMBOL" | "DELISTED");
             if can_deactivate {
@@ -2477,7 +2545,11 @@ fn plan_nse_current_universe_sync_from_rows(
                 series: row.series.clone(),
                 isin: row.isin.clone(),
                 current_status: "ACTIVE".to_string(),
-                proposed_status: if can_deactivate { lifecycle_status.clone() } else { "ACTIVE".to_string() },
+                proposed_status: if can_deactivate {
+                    lifecycle_status.clone()
+                } else {
+                    "ACTIVE".to_string()
+                },
                 matched_symbol: None,
                 reason: nse_inactive_lifecycle_reason(&lifecycle_status),
             });
@@ -2511,8 +2583,6 @@ fn plan_nse_current_universe_sync_from_rows(
         deactivate_lifecycle_by_symbol,
     }
 }
-
-
 
 // ER2-C1: private NSE I3 shadow evidence adapter. These values are deliberately
 // in-memory only; they are not serialized, persisted, logged, or used by Apply.
@@ -2754,10 +2824,7 @@ fn capture_nse_i3_er2_shadow_source_snapshot(
         let rows = if bytes.iter().all(|byte| byte.is_ascii_whitespace()) {
             Vec::new()
         } else {
-            load_symbol_change_rows_from_bytes(
-                &bytes,
-                &symbol_changes_path.display().to_string(),
-            )?
+            load_symbol_change_rows_from_bytes(&bytes, &symbol_changes_path.display().to_string())?
         };
         (rows, Some(sha256))
     } else {
@@ -2775,10 +2842,7 @@ fn capture_nse_i3_er2_shadow_source_snapshot(
         let rows = if bytes.iter().all(|byte| byte.is_ascii_whitespace()) {
             Vec::new()
         } else {
-            load_name_change_rows_from_bytes(
-                &bytes,
-                &name_changes_path.display().to_string(),
-            )?
+            load_name_change_rows_from_bytes(&bytes, &name_changes_path.display().to_string())?
         };
         (rows, Some(sha256))
     } else {
@@ -2857,8 +2921,7 @@ fn build_nse_i3_er2_shadow_indexes_from_rows(
         });
     }
 
-    let mut symbol_changes_by_pair =
-        HashMap::<(String, String), Vec<NseSymbolChangeRow>>::new();
+    let mut symbol_changes_by_pair = HashMap::<(String, String), Vec<NseSymbolChangeRow>>::new();
     for row in &snapshot.symbol_change_rows {
         symbol_changes_by_pair
             .entry((
@@ -3119,10 +3182,8 @@ fn build_nse_i3_er2_input(
         ));
     };
 
-    let current_evidence = build_nse_i3_er2_current_master_evidence(
-        current,
-        &indexes.observed_at_ist,
-    );
+    let current_evidence =
+        build_nse_i3_er2_current_master_evidence(current, &indexes.observed_at_ist);
     let current_evidence_id = current_evidence.evidence_id.clone();
     let mut evidence_by_id = HashMap::<String, IdentityResolverEvidence>::new();
     er2c1_insert_evidence(&mut evidence_by_id, current_evidence);
@@ -3229,9 +3290,7 @@ fn classify_nse_i3_er2_resolver_outcome(
     }
 }
 
-fn nse_i3_er2_shadow_relationship(
-    state: &NseI3Er2ShadowState,
-) -> NseI3Er2ShadowRelationship {
+fn nse_i3_er2_shadow_relationship(state: &NseI3Er2ShadowState) -> NseI3Er2ShadowRelationship {
     match state {
         NseI3Er2ShadowState::Evaluated(result) => match result.status {
             IdentityResolverStatus::Confirmed => {
@@ -3279,9 +3338,7 @@ fn nse_i3_er2_uniform_shadow_evaluations(
         .collect()
 }
 
-fn summarize_nse_i3_er2_shadow(
-    evaluations: &[NseI3Er2ShadowEvaluation],
-) -> NseI3Er2ShadowSummary {
+fn summarize_nse_i3_er2_shadow(evaluations: &[NseI3Er2ShadowEvaluation]) -> NseI3Er2ShadowSummary {
     let mut summary = NseI3Er2ShadowSummary {
         legacy_preview_rows: evaluations.len(),
         ..NseI3Er2ShadowSummary::default()
@@ -3307,9 +3364,7 @@ fn summarize_nse_i3_er2_shadow(
     summary.eligible_rows = summary
         .legacy_preview_rows
         .saturating_sub(summary.not_evaluated_rows);
-    summary.evaluated_rows = summary
-        .eligible_rows
-        .saturating_sub(summary.adapter_errors);
+    summary.evaluated_rows = summary.eligible_rows.saturating_sub(summary.adapter_errors);
     summary
 }
 
@@ -3324,9 +3379,7 @@ fn evaluate_nse_i3_er2_shadow(
     if er2c1_has_manual_archive_override(input) {
         return nse_i3_er2_uniform_shadow_evaluations(
             plan,
-            NseI3Er2ShadowState::NotEvaluated(
-                NseI3Er2ShadowReason::NonManagedSourceProvenance,
-            ),
+            NseI3Er2ShadowState::NotEvaluated(NseI3Er2ShadowReason::NonManagedSourceProvenance),
         );
     }
 
@@ -3534,7 +3587,6 @@ fn resolve_archive_files(root: &Path) -> AppResult<NseIdentityArchiveFiles> {
         company_name_changes_path,
     })
 }
-
 
 fn load_existing_exchange_symbols(
     connection: &Connection,
@@ -3843,8 +3895,26 @@ fn load_name_change_rows_from_bytes(
         &headers,
         &[
             ("symbol", &["nchsymbol", "symbol"]),
-            ("oldname", &["nchprevname", "oldname", "previousname", "oldcompanyname", "previouscompanyname", "oldnameofthecompany"]),
-            ("newname", &["nchnewname", "newname", "newcompanyname", "newnameofthecompany"]),
+            (
+                "oldname",
+                &[
+                    "nchprevname",
+                    "oldname",
+                    "previousname",
+                    "oldcompanyname",
+                    "previouscompanyname",
+                    "oldnameofthecompany",
+                ],
+            ),
+            (
+                "newname",
+                &[
+                    "nchnewname",
+                    "newname",
+                    "newcompanyname",
+                    "newnameofthecompany",
+                ],
+            ),
             ("date", &["nchdt", "date", "effectivedate"]),
         ],
         "company-name-change",
@@ -3856,7 +3926,9 @@ fn load_name_change_rows_from_bytes(
         ("date", "name change date"),
     ] {
         if !header_map.contains_key(key) {
-            return Err(format!("Missing {label} column in {source_label}; CSV headers: {headers:?}"));
+            return Err(format!(
+                "Missing {label} column in {source_label}; CSV headers: {headers:?}"
+            ));
         }
     }
     let mut rows = Vec::new();
@@ -3883,19 +3955,18 @@ fn load_name_change_rows_from_bytes(
                 effective_date,
             })
         })();
-        rows.push(parsed.map_err(|error| format!(
-            "{error}; CSV headers: {headers:?}; record position: {:?}; values: {record:?}",
-            record.position()
-        ))?);
+        rows.push(parsed.map_err(|error| {
+            format!(
+                "{error}; CSV headers: {headers:?}; record position: {:?}; values: {record:?}",
+                record.position()
+            )
+        })?);
     }
 
     Ok(rows)
 }
 
-fn validate_nse_company_name_change_download(
-    bytes: &[u8],
-    source_label: &str,
-) -> AppResult<u32> {
+fn validate_nse_company_name_change_download(bytes: &[u8], source_label: &str) -> AppResult<u32> {
     let rows = load_name_change_rows_from_bytes(bytes, source_label)?;
     Ok(rows.len() as u32)
 }
@@ -3977,7 +4048,10 @@ fn load_identity_history_hints(
     for (current_symbol, old_symbol, new_symbol, isin, effective_date, change_type) in &rows {
         if matches!(change_type.as_str(), "SYMBOL_CHANGE" | "BOTH") {
             if let (Some(old), Some(new)) = (old_symbol, new_symbol) {
-                transition_edges.entry(old.clone()).or_default().insert((new.clone(), effective_date.clone()));
+                transition_edges
+                    .entry(old.clone())
+                    .or_default()
+                    .insert((new.clone(), effective_date.clone()));
             }
         }
         let canonical_symbol = current_symbol.clone().or_else(|| new_symbol.clone());
@@ -4135,13 +4209,20 @@ fn validated_current_successor(
     let today = chrono::Local::now().date_naive();
     for _ in 0..32 {
         let edges = history_hints.transition_edges.get(&at)?;
-        if edges.len() != 1 { return None; }
-        let (successor, effective_date) = edges.iter().next()?;
-        let date = NaiveDate::parse_from_str(effective_date, "%Y-%m-%d").ok()?;
-        if date > today || previous_date.is_some_and(|previous| date <= previous) || !seen.insert(successor.clone()) {
+        if edges.len() != 1 {
             return None;
         }
-        if current_symbols.contains(successor) { return Some(successor.clone()); }
+        let (successor, effective_date) = edges.iter().next()?;
+        let date = NaiveDate::parse_from_str(effective_date, "%Y-%m-%d").ok()?;
+        if date > today
+            || previous_date.is_some_and(|previous| date <= previous)
+            || !seen.insert(successor.clone())
+        {
+            return None;
+        }
+        if current_symbols.contains(successor) {
+            return Some(successor.clone());
+        }
         at = successor.clone();
         previous_date = Some(date);
     }
@@ -4154,7 +4235,11 @@ fn classify_nse_inactive_lifecycle(
     official_delisted_symbols: &HashSet<String>,
     current_symbols: &HashSet<String>,
 ) -> String {
-    if !row.series.as_deref().is_some_and(|series| CURRENT_UNIVERSE_SUPPORTED_SERIES.contains(&series)) {
+    if !row
+        .series
+        .as_deref()
+        .is_some_and(|series| CURRENT_UNIVERSE_SUPPORTED_SERIES.contains(&series))
+    {
         return "OUTSIDE_COVERAGE".to_string();
     }
     if validated_current_successor(&row.symbol, history_hints, current_symbols).is_some() {
@@ -4216,8 +4301,7 @@ fn download_nse_current_universe_master_internal(
         .join("CompanyNameChanges");
     std::fs::create_dir_all(&securities_target_dir).map_err(|error| error.to_string())?;
     std::fs::create_dir_all(&symbol_changes_target_dir).map_err(|error| error.to_string())?;
-    std::fs::create_dir_all(&company_name_changes_target_dir)
-        .map_err(|error| error.to_string())?;
+    std::fs::create_dir_all(&company_name_changes_target_dir).map_err(|error| error.to_string())?;
 
     let equity_bytes = fetch_nse_security_master_csv(
         &urls.nse_equity_master_url,
@@ -4231,17 +4315,26 @@ fn download_nse_current_universe_master_internal(
         &urls.nse_symbol_change_url,
         &urls.nse_securities_available_page_url,
     )?;
-    let (company_name_change_bytes, company_final_url, company_http_status) = fetch_nse_security_master_response(
-        &urls.nse_company_name_change_url,
-        &urls.nse_securities_available_page_url,
-    )?;
+    let (company_name_change_bytes, company_final_url, company_http_status) =
+        fetch_nse_security_master_response(
+            &urls.nse_company_name_change_url,
+            &urls.nse_securities_available_page_url,
+        )?;
     let company_name_change_rows_read = validate_company_name_response(
-        &company_name_change_bytes, &urls.nse_company_name_change_url, company_http_status,
-    ).map_err(|error| company_name_failure_diagnostic(
-        Some(archive_root), &company_name_change_bytes,
-        &urls.nse_company_name_change_url, Some(&company_final_url),
-        Some(company_http_status), &error,
-    ))?;
+        &company_name_change_bytes,
+        &urls.nse_company_name_change_url,
+        company_http_status,
+    )
+    .map_err(|error| {
+        company_name_failure_diagnostic(
+            Some(archive_root),
+            &company_name_change_bytes,
+            &urls.nse_company_name_change_url,
+            Some(&company_final_url),
+            Some(company_http_status),
+            &error,
+        )
+    })?;
     let allowed = CURRENT_UNIVERSE_SUPPORTED_SERIES
         .iter()
         .map(|value| (*value).to_string())
@@ -4297,12 +4390,15 @@ mod company_name_diagnostic_tests {
 
     #[test]
     fn missing_column_and_blank_record_have_distinct_context() {
-        let missing = load_name_change_rows_from_bytes(b"SYMBOL,NEW NAME,DATE\n", "fixture").unwrap_err();
+        let missing =
+            load_name_change_rows_from_bytes(b"SYMBOL,NEW NAME,DATE\n", "fixture").unwrap_err();
         assert!(missing.contains("Missing old company name column"));
         assert!(missing.contains("CSV headers:"));
         let blank = load_name_change_rows_from_bytes(
-            b"SYMBOL,OLD NAME,NEW NAME,DATE\nABC,,New Limited,01-Jan-2026\n", "fixture",
-        ).unwrap_err();
+            b"SYMBOL,OLD NAME,NEW NAME,DATE\nABC,,New Limited,01-Jan-2026\n",
+            "fixture",
+        )
+        .unwrap_err();
         assert!(blank.contains("Missing old company name in"));
         assert!(blank.contains("record position:"));
         assert!(blank.contains("ABC"));
@@ -4312,22 +4408,33 @@ mod company_name_diagnostic_tests {
     #[test]
     fn captures_exact_bytes_without_replacing_saved_source() {
         let root = tempfile::tempdir().unwrap();
-        let saved = root.path().join("NSE/Identity/CompanyNameChanges/nse_identity_company_name_changes.csv");
+        let saved = root
+            .path()
+            .join("NSE/Identity/CompanyNameChanges/nse_identity_company_name_changes.csv");
         std::fs::create_dir_all(saved.parent().unwrap()).unwrap();
         std::fs::write(&saved, b"last valid source").unwrap();
         let bytes = b"SYMBOL,NEW NAME,DATE\r\nABC,New,01-Jan-2026\r\n";
         let mut paths = Vec::new();
         for _ in 0..2 {
-            let result = company_name_failure_diagnostic(Some(root.path()), bytes,
-                "https://nsearchives.nseindia.com/namechange.csv", Some("https://nsearchives.nseindia.com/namechange.csv"),
-                Some(200), "missing old-name column");
+            let result = company_name_failure_diagnostic(
+                Some(root.path()),
+                bytes,
+                "https://nsearchives.nseindia.com/namechange.csv",
+                Some("https://nsearchives.nseindia.com/namechange.csv"),
+                Some(200),
+                "missing old-name column",
+            );
             let receipt: serde_json::Value = serde_json::from_str(&result).unwrap();
             let path = PathBuf::from(receipt["retainedDiagnosticPath"].as_str().unwrap());
-            let disk: serde_json::Value = serde_json::from_slice(&std::fs::read(&path).unwrap()).unwrap();
+            let disk: serde_json::Value =
+                serde_json::from_slice(&std::fs::read(&path).unwrap()).unwrap();
             assert_eq!(disk["contentSha256"], sha256_hex_bytes(bytes));
             assert_eq!(disk["httpStatus"], 200);
             assert_eq!(disk["csvHeaders"][0], "SYMBOL");
-            assert_eq!(std::fs::read(path.parent().unwrap().join("response.bin")).unwrap(), bytes);
+            assert_eq!(
+                std::fs::read(path.parent().unwrap().join("response.bin")).unwrap(),
+                bytes
+            );
             paths.push(path);
         }
         assert_ne!(paths[0], paths[1]);
@@ -4339,7 +4446,14 @@ mod company_name_diagnostic_tests {
         let root = tempfile::tempdir().unwrap();
         let blocked = root.path().join("file");
         std::fs::write(&blocked, b"unchanged").unwrap();
-        let result = company_name_failure_diagnostic(Some(&blocked), b"bad", "fixture", None, None, "parser failed");
+        let result = company_name_failure_diagnostic(
+            Some(&blocked),
+            b"bad",
+            "fixture",
+            None,
+            None,
+            "parser failed",
+        );
         let receipt: serde_json::Value = serde_json::from_str(&result).unwrap();
         assert_eq!(receipt["reason"], "parser failed");
         assert!(receipt["retentionError"].is_string());
@@ -4349,8 +4463,11 @@ mod company_name_diagnostic_tests {
 
     #[test]
     fn non_success_response_never_passes_csv_validation() {
-        assert!(validate_company_name_response(b"SYMBOL,OLD NAME,NEW NAME,DATE\n", "fixture", 403)
-            .unwrap_err().contains("HTTP 403"));
+        assert!(
+            validate_company_name_response(b"SYMBOL,OLD NAME,NEW NAME,DATE\n", "fixture", 403)
+                .unwrap_err()
+                .contains("HTTP 403")
+        );
     }
 }
 
@@ -4395,15 +4512,21 @@ pub(crate) fn company_name_failure_diagnostic(
             }
             let parent = root.join("NSE").join("Identity").join("Diagnostics");
             std::fs::create_dir_all(&parent).map_err(|error| error.to_string())?;
-            let nonce = SystemTime::now().duration_since(SystemTime::UNIX_EPOCH)
-                .map_err(|error| error.to_string())?.as_nanos();
+            let nonce = SystemTime::now()
+                .duration_since(SystemTime::UNIX_EPOCH)
+                .map_err(|error| error.to_string())?
+                .as_nanos();
             let directory = parent.join(format!("company-name-{nonce}-{}", std::process::id()));
             // A collision fails rather than overwriting an earlier capture.
             std::fs::create_dir(&directory).map_err(|error| error.to_string())?;
-            std::fs::write(directory.join("response.bin"), bytes).map_err(|error| error.to_string())?;
+            std::fs::write(directory.join("response.bin"), bytes)
+                .map_err(|error| error.to_string())?;
             let receipt_path = directory.join("diagnostic.json");
-            std::fs::write(&receipt_path, serde_json::to_vec_pretty(&diagnostic)
-                .map_err(|error| error.to_string())?).map_err(|error| error.to_string())?;
+            std::fs::write(
+                &receipt_path,
+                serde_json::to_vec_pretty(&diagnostic).map_err(|error| error.to_string())?,
+            )
+            .map_err(|error| error.to_string())?;
             Ok(receipt_path)
         })();
         match retained {
@@ -4426,16 +4549,24 @@ fn write_validated_download(path: &Path, bytes: &[u8]) -> AppResult<()> {
 fn fetch_nse_security_master_csv(url: &str, referer_url: &str) -> AppResult<Vec<u8>> {
     let (bytes, _, status) = fetch_nse_security_master_response(url, referer_url)?;
     if !(200..300).contains(&status) {
-        return Err(format!("NSE current master CSV download failed: HTTP {status}"));
+        return Err(format!(
+            "NSE current master CSV download failed: HTTP {status}"
+        ));
     }
-    if String::from_utf8_lossy(&bytes).trim_start().starts_with('<') {
+    if String::from_utf8_lossy(&bytes)
+        .trim_start()
+        .starts_with('<')
+    {
         return Err("NSE current master download returned HTML instead of CSV.".to_string());
     }
     Ok(bytes)
 }
 
 #[cfg(not(test))]
-fn fetch_nse_security_master_response(url: &str, referer_url: &str) -> AppResult<(Vec<u8>, String, u16)> {
+fn fetch_nse_security_master_response(
+    url: &str,
+    referer_url: &str,
+) -> AppResult<(Vec<u8>, String, u16)> {
     validate_nse_official_source_url(url)?;
     validate_nse_official_source_url(referer_url)?;
 
@@ -4479,13 +4610,18 @@ fn fetch_nse_security_master_response(url: &str, referer_url: &str) -> AppResult
 
     let final_url = response.url().to_string();
     let http_status = response.status().as_u16();
-    let bytes = response.bytes().map(|bytes| bytes.to_vec())
+    let bytes = response
+        .bytes()
+        .map(|bytes| bytes.to_vec())
         .map_err(|error| format!("Could not read NSE current master CSV: {error}"))?;
     Ok((bytes, final_url, http_status))
 }
 
 #[cfg(test)]
-fn fetch_nse_security_master_response(_url: &str, _referer_url: &str) -> AppResult<(Vec<u8>, String, u16)> {
+fn fetch_nse_security_master_response(
+    _url: &str,
+    _referer_url: &str,
+) -> AppResult<(Vec<u8>, String, u16)> {
     Err("NSE current master CSV download is not available in tests.".to_string())
 }
 
@@ -4904,30 +5040,62 @@ mod lifecycle_coverage_tests {
     use super::*;
 
     fn existing(symbol: &str, series: Option<&str>) -> ExistingNseInstrumentRow {
-        ExistingNseInstrumentRow { symbol: symbol.into(), isin: Some("SAMEISIN".into()), name: Some(symbol.into()),
-            series: series.map(str::to_string), is_active: true }
+        ExistingNseInstrumentRow {
+            symbol: symbol.into(),
+            isin: Some("SAMEISIN".into()),
+            name: Some(symbol.into()),
+            series: series.map(str::to_string),
+            is_active: true,
+        }
     }
     fn current() -> Vec<NseSecurityMasterRow> {
-        vec![NseSecurityMasterRow { symbol: "CURR".into(), company_name: Some("CURR".into()),
-            isin: Some("SAMEISIN".into()), series: Some("EQ".into()) }]
+        vec![NseSecurityMasterRow {
+            symbol: "CURR".into(),
+            company_name: Some("CURR".into()),
+            isin: Some("SAMEISIN".into()),
+            series: Some("EQ".into()),
+        }]
     }
     fn hints(edges: &[(&str, &str, &str)]) -> NseIdentityHistoryHints {
         let mut result = NseIdentityHistoryHints::default();
         for (old, new, date) in edges {
-            result.transition_edges.entry((*old).into()).or_default().insert(((*new).into(), (*date).into()));
+            result
+                .transition_edges
+                .entry((*old).into())
+                .or_default()
+                .insert(((*new).into(), (*date).into()));
         }
         result
     }
-    fn plan(rows: Vec<ExistingNseInstrumentRow>, hints: NseIdentityHistoryHints, delisted: HashSet<String>) -> NseCurrentUniverseSyncPlan {
-        plan_nse_current_universe_sync_from_rows("fixture".into(), 1, current(), rows, hints, delisted)
+    fn plan(
+        rows: Vec<ExistingNseInstrumentRow>,
+        hints: NseIdentityHistoryHints,
+        delisted: HashSet<String>,
+    ) -> NseCurrentUniverseSyncPlan {
+        plan_nse_current_universe_sync_from_rows(
+            "fixture".into(),
+            1,
+            current(),
+            rows,
+            hints,
+            delisted,
+        )
     }
 
     #[test]
     fn absent_uncovered_series_remain_active_even_with_delisting_or_rename_hints() {
         for series in [Some("SG"), Some("TB"), Some("N1"), Some("SF"), None] {
-            let p = plan(vec![existing("ABSENT", series)], hints(&[("ABSENT", "CURR", "2020-01-01")]), HashSet::from(["ABSENT".into()]));
+            let p = plan(
+                vec![existing("ABSENT", series)],
+                hints(&[("ABSENT", "CURR", "2020-01-01")]),
+                HashSet::from(["ABSENT".into()]),
+            );
             assert!(p.deactivate_symbols.is_empty());
-            let row = p.preview_rows.iter().find(|r| r.symbol == "ABSENT").unwrap();
+            let row = p
+                .preview_rows
+                .iter()
+                .find(|r| r.symbol == "ABSENT")
+                .unwrap();
             assert_eq!(row.action, "OUTSIDE_COVERAGE");
             assert_eq!(row.proposed_status, "ACTIVE");
         }
@@ -4940,7 +5108,11 @@ mod lifecycle_coverage_tests {
             h.symbol_to_current.insert("ABSENT".into(), "ABSENT".into());
             let p = plan(vec![existing("ABSENT", Some(series))], h, HashSet::new());
             assert!(p.deactivate_symbols.is_empty());
-            let row = p.preview_rows.iter().find(|r| r.symbol == "ABSENT").unwrap();
+            let row = p
+                .preview_rows
+                .iter()
+                .find(|r| r.symbol == "ABSENT")
+                .unwrap();
             assert_eq!(row.action, "REVIEW_REQUIRED");
             assert_eq!(row.proposed_status, "ACTIVE");
         }
@@ -4949,15 +5121,30 @@ mod lifecycle_coverage_tests {
     #[test]
     fn dated_path_requires_unique_increasing_past_edges_and_a_live_successor() {
         let live = HashSet::from(["CURR".into()]);
-        assert_eq!(validated_current_successor("OLD", &hints(&[("OLD", "MID", "2019-01-01"), ("MID", "CURR", "2020-01-01")]), &live), Some("CURR".into()));
+        assert_eq!(
+            validated_current_successor(
+                "OLD",
+                &hints(&[("OLD", "MID", "2019-01-01"), ("MID", "CURR", "2020-01-01")]),
+                &live
+            ),
+            Some("CURR".into())
+        );
         for edges in [
             vec![("OLD", "CURR", "2999-01-01")],
             vec![("OLD", "CURR", "invalid")],
             vec![("OLD", "MISSING", "2020-01-01")],
-            vec![("OLD", "CURR", "2020-01-01"), ("OLD", "OTHER", "2021-01-01")],
+            vec![
+                ("OLD", "CURR", "2020-01-01"),
+                ("OLD", "OTHER", "2021-01-01"),
+            ],
             vec![("OLD", "MID", "2020-01-01"), ("MID", "CURR", "2020-01-01")],
             vec![("OLD", "MID", "2021-01-01"), ("MID", "OLD", "2022-01-01")],
-        ] { assert_eq!(validated_current_successor("OLD", &hints(&edges), &live), None); }
+        ] {
+            assert_eq!(
+                validated_current_successor("OLD", &hints(&edges), &live),
+                None
+            );
+        }
     }
 
     #[test]
@@ -4966,7 +5153,10 @@ mod lifecycle_coverage_tests {
         c.execute_batch("CREATE TABLE instrument_identity_history(current_symbol TEXT,old_symbol TEXT,new_symbol TEXT,isin TEXT,effective_date TEXT,change_type TEXT,exchange TEXT);
             INSERT INTO instrument_identity_history VALUES('CURR','ABSENT','CURR','SAMEISIN','2020-01-01','NAME_CHANGE','NSE');").unwrap();
         let h = load_identity_history_hints(&c, "NSE").unwrap();
-        assert_eq!(h.symbol_to_current.get("ABSENT").map(String::as_str), Some("CURR"));
+        assert_eq!(
+            h.symbol_to_current.get("ABSENT").map(String::as_str),
+            Some("CURR")
+        );
         assert!(h.transition_edges.is_empty());
         let p = plan(vec![existing("ABSENT", Some("EQ"))], h, HashSet::new());
         assert!(p.deactivate_symbols.is_empty());
@@ -4980,45 +5170,117 @@ mod lifecycle_coverage_tests {
             INSERT INTO instruments VALUES('DEBT','NSE','SAMEISIN','DEBT','N1',1,'CURRENT','original');
             INSERT INTO instruments VALUES('OLD','NSE','SAMEISIN','OLD','EQ',1,'CURRENT','original');
             INSERT INTO instruments VALUES('DELIST','NSE','SAMEISIN','DELIST','BE',1,'CURRENT','original');").unwrap();
-        let p = plan(vec![existing("HELD", Some("EQ")), existing("DEBT", Some("N1")), existing("OLD", Some("EQ")), existing("DELIST", Some("BE"))],
-            hints(&[("OLD", "CURR", "2020-01-01")]), HashSet::from(["DELIST".into()]));
+        let p = plan(
+            vec![
+                existing("HELD", Some("EQ")),
+                existing("DEBT", Some("N1")),
+                existing("OLD", Some("EQ")),
+                existing("DELIST", Some("BE")),
+            ],
+            hints(&[("OLD", "CURR", "2020-01-01")]),
+            HashSet::from(["DELIST".into()]),
+        );
         assert_eq!(p.deactivate_count, 2);
         apply_nse_current_universe_sync_plan(&c, &p).unwrap();
         for symbol in ["HELD", "DEBT"] {
-            let state: (i64, String, String) = c.query_row("SELECT is_active,lifecycle_status,updated_at FROM instruments WHERE symbol=?", [symbol], |r| Ok((r.get(0)?,r.get(1)?,r.get(2)?))).unwrap();
+            let state: (i64, String, String) = c
+                .query_row(
+                    "SELECT is_active,lifecycle_status,updated_at FROM instruments WHERE symbol=?",
+                    [symbol],
+                    |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)),
+                )
+                .unwrap();
             assert_eq!(state, (1, "CURRENT".into(), "original".into()));
         }
         for (symbol, status) in [("OLD", "OLD_SYMBOL"), ("DELIST", "DELISTED")] {
-            assert_eq!(c.query_row("SELECT lifecycle_status FROM instruments WHERE symbol=? AND is_active=0", [symbol], |r| r.get::<_, String>(0)).unwrap(), status);
+            assert_eq!(
+                c.query_row(
+                    "SELECT lifecycle_status FROM instruments WHERE symbol=? AND is_active=0",
+                    [symbol],
+                    |r| r.get::<_, String>(0)
+                )
+                .unwrap(),
+                status
+            );
         }
     }
 
     #[test]
     fn incomplete_write_plan_is_rejected_before_any_changes() {
         let c = Connection::open_in_memory().unwrap();
-        let mut p = plan(Vec::new(), NseIdentityHistoryHints::default(), HashSet::new());
+        let mut p = plan(
+            Vec::new(),
+            NseIdentityHistoryHints::default(),
+            HashSet::new(),
+        );
         p.deactivate_symbols.push("HELD".into());
-        assert!(apply_nse_current_universe_sync_plan_in_open_transaction(&c, &p).unwrap_err().contains("explicit lifecycle evidence"));
-        assert_eq!(c.query_row("SELECT total_changes()", [], |r| r.get::<_, i64>(0)).unwrap(), 0);
+        assert!(
+            apply_nse_current_universe_sync_plan_in_open_transaction(&c, &p)
+                .unwrap_err()
+                .contains("explicit lifecycle evidence")
+        );
+        assert_eq!(
+            c.query_row("SELECT total_changes()", [], |r| r.get::<_, i64>(0))
+                .unwrap(),
+            0
+        );
     }
 
     #[test]
     #[ignore = "Requires the pinned read-only audit copy; no live database access"]
     fn guarded_copy_current_plan_holds_the_1052_audited_absences() {
-        let folder = Path::new("E:/TA Projects/EOD Charting Platform/tmp/ca-nse-lifecycle-coverage-20261029");
-        assert_eq!(std::fs::read_to_string(folder.join("READ_ONLY_PLAN_ONLY.txt")).unwrap().trim(), "READ_ONLY_PLAN_ONLY");
-        let c = Connection::open_with_flags(folder.join("proof.sqlite3"), rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY).unwrap();
+        let folder = Path::new(
+            "E:/TA Projects/EOD Charting Platform/tmp/ca-nse-lifecycle-coverage-20261029",
+        );
+        assert_eq!(
+            std::fs::read_to_string(folder.join("READ_ONLY_PLAN_ONLY.txt"))
+                .unwrap()
+                .trim(),
+            "READ_ONLY_PLAN_ONLY"
+        );
+        let c = Connection::open_with_flags(
+            folder.join("proof.sqlite3"),
+            rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY,
+        )
+        .unwrap();
         c.execute_batch("PRAGMA query_only=ON; BEGIN").unwrap();
         let root = Path::new("E:/TA Projects/EOD Charting Platform/EOD DATABASE/reference-data");
-        let p = build_nse_current_universe_sync_plan(&c, &NseCurrentUniverseSyncInput { archive_root_path: None }, Some(root)).unwrap();
+        let p = build_nse_current_universe_sync_plan(
+            &c,
+            &NseCurrentUniverseSyncInput {
+                archive_root_path: None,
+            },
+            Some(root),
+        )
+        .unwrap();
         assert_eq!(p.current_universe_symbols, 3200);
         assert_eq!(p.activate_count, 29);
         assert_eq!(p.update_count, 259);
         assert_eq!(p.deactivate_count, 0);
-        assert_eq!(p.preview_rows.iter().filter(|r| r.action == "OUTSIDE_COVERAGE").count(), 990);
-        assert_eq!(p.preview_rows.iter().filter(|r| r.action == "REVIEW_REQUIRED").count(), 62);
-        assert!(p.preview_rows.iter().filter(|r| matches!(r.action.as_str(), "OUTSIDE_COVERAGE" | "REVIEW_REQUIRED")).all(|r| r.proposed_status == "ACTIVE"));
-        assert_eq!(c.query_row("SELECT total_changes()", [], |r| r.get::<_, i64>(0)).unwrap(), 0);
+        assert_eq!(
+            p.preview_rows
+                .iter()
+                .filter(|r| r.action == "OUTSIDE_COVERAGE")
+                .count(),
+            990
+        );
+        assert_eq!(
+            p.preview_rows
+                .iter()
+                .filter(|r| r.action == "REVIEW_REQUIRED")
+                .count(),
+            62
+        );
+        assert!(p
+            .preview_rows
+            .iter()
+            .filter(|r| matches!(r.action.as_str(), "OUTSIDE_COVERAGE" | "REVIEW_REQUIRED"))
+            .all(|r| r.proposed_status == "ACTIVE"));
+        assert_eq!(
+            c.query_row("SELECT total_changes()", [], |r| r.get::<_, i64>(0))
+                .unwrap(),
+            0
+        );
         c.execute_batch("ROLLBACK").unwrap();
     }
 }
@@ -5069,9 +5331,15 @@ fn normalize_header(value: &str) -> String {
 
 fn looks_like_symbol_change_header(record: &StringRecord) -> bool {
     let normalized = record.iter().map(normalize_header).collect::<Vec<_>>();
-    normalized.iter().any(|value| matches!(value.as_str(), "old" | "oldsymbol"))
-        && normalized.iter().any(|value| matches!(value.as_str(), "new" | "newsymbol"))
-        && normalized.iter().any(|value| matches!(value.as_str(), "date" | "effectivedate"))
+    normalized
+        .iter()
+        .any(|value| matches!(value.as_str(), "old" | "oldsymbol"))
+        && normalized
+            .iter()
+            .any(|value| matches!(value.as_str(), "new" | "newsymbol"))
+        && normalized
+            .iter()
+            .any(|value| matches!(value.as_str(), "date" | "effectivedate"))
 }
 
 // Health, saved-source preview and CA evidence must agree on header semantics.
@@ -5084,7 +5352,9 @@ fn identity_change_header_map(
     let normalized = headers.iter().map(normalize_header).collect::<Vec<_>>();
     let mut map = build_header_map(headers);
     for (key, names) in aliases {
-        let mut matches = normalized.iter().enumerate()
+        let mut matches = normalized
+            .iter()
+            .enumerate()
             .filter(|(_, name)| names.contains(&name.as_str()));
         if let Some((index, _)) = matches.next() {
             if matches.next().is_some() {
@@ -5126,7 +5396,10 @@ mod identity_change_csv_compatibility_tests {
             canonical.push(*byte);
         }
         let bytes = canonical.as_slice();
-        assert_eq!(sha256_hex_bytes(bytes), "ca456bf37b8d8e715708f1df04089fe09f7418275764d105351c5d9742cfac9f");
+        assert_eq!(
+            sha256_hex_bytes(bytes),
+            "ca456bf37b8d8e715708f1df04089fe09f7418275764d105351c5d9742cfac9f"
+        );
         let rows = load_name_change_rows_from_bytes(bytes, "retained official response").unwrap();
         assert_eq!(rows.len(), 2332);
         assert_eq!(rows[0].symbol, "1IADD");
@@ -5136,13 +5409,16 @@ mod identity_change_csv_compatibility_tests {
     #[test]
     fn official_company_name_aliases_still_reject_ambiguity_and_bad_values() {
         let duplicate = b"SYMBOL,OLD NAME OF THE COMPANY,OLD NAME,NEW NAME OF THE COMPANY,EFFECTIVE DATE\nABC,Old,Other,New,01-Jan-2026\n";
-        assert!(load_name_change_rows_from_bytes(duplicate, "fixture").unwrap_err().contains("Ambiguous"));
+        assert!(load_name_change_rows_from_bytes(duplicate, "fixture")
+            .unwrap_err()
+            .contains("Ambiguous"));
         let blank = b"SYMBOL,OLD NAME OF THE COMPANY,NEW NAME OF THE COMPANY,EFFECTIVE DATE\nABC,,New,01-Jan-2026\n";
-        assert!(load_name_change_rows_from_bytes(blank, "fixture").unwrap_err().contains("Missing old company name"));
+        assert!(load_name_change_rows_from_bytes(blank, "fixture")
+            .unwrap_err()
+            .contains("Missing old company name"));
         let bad_date = b"SYMBOL,OLD NAME OF THE COMPANY,NEW NAME OF THE COMPANY,EFFECTIVE DATE\nABC,Old,New,invalid\n";
         assert!(load_name_change_rows_from_bytes(bad_date, "fixture").is_err());
     }
-
 
     #[test]
     fn official_symbol_headers_agree_across_identity_health_and_ca() {
@@ -5156,7 +5432,10 @@ mod identity_change_csv_compatibility_tests {
         assert_eq!(identity[0].effective_date, "2026-01-01");
         assert_eq!(identity[0].effective_date, ca[0].2);
         assert_eq!(ca[0].3, 2);
-        assert_eq!(validate_nse_symbol_change_bytes_for_health(bytes, "fixture").unwrap(), 1);
+        assert_eq!(
+            validate_nse_symbol_change_bytes_for_health(bytes, "fixture").unwrap(),
+            1
+        );
     }
 
     #[test]
@@ -5173,7 +5452,12 @@ mod identity_change_csv_compatibility_tests {
             assert_eq!(ca[0].1, "NEW");
         }
         let headerless = b"Example Limited,OLD,NEW,01-Jan-2026\n";
-        assert_eq!(load_symbol_change_rows_from_bytes(headerless, "fixture").unwrap().len(), 1);
+        assert_eq!(
+            load_symbol_change_rows_from_bytes(headerless, "fixture")
+                .unwrap()
+                .len(),
+            1
+        );
         assert!(parse_ca_symbol_change_source(headerless).is_err());
     }
 
@@ -5181,10 +5465,15 @@ mod identity_change_csv_compatibility_tests {
     fn competing_or_duplicate_symbol_columns_fail_closed() {
         for bytes in [
             b"OLD,OLD SYMBOL,NEW SYMBOL,EFFECTIVE DATE\nOLD,OTHER,NEW,01-Jan-2026\n".as_slice(),
-            b"OLD SYMBOL,old_symbol,NEW SYMBOL,EFFECTIVE DATE\nOLD,OTHER,NEW,01-Jan-2026\n".as_slice(),
+            b"OLD SYMBOL,old_symbol,NEW SYMBOL,EFFECTIVE DATE\nOLD,OTHER,NEW,01-Jan-2026\n"
+                .as_slice(),
         ] {
-            assert!(load_symbol_change_rows_from_bytes(bytes, "fixture").unwrap_err().contains("Ambiguous"));
-            assert!(parse_ca_symbol_change_source(bytes).unwrap_err().contains("Ambiguous"));
+            assert!(load_symbol_change_rows_from_bytes(bytes, "fixture")
+                .unwrap_err()
+                .contains("Ambiguous"));
+            assert!(parse_ca_symbol_change_source(bytes)
+                .unwrap_err()
+                .contains("Ambiguous"));
         }
     }
 
@@ -5208,20 +5497,32 @@ mod identity_change_csv_compatibility_tests {
     #[test]
     fn name_change_rejects_competing_aliases_and_missing_columns_even_when_empty() {
         let duplicate = b"SYMBOL,NCH_SYMBOL,OLD NAME,NEW NAME,EFFECTIVE DATE\nEXAMPLE,OTHER,Previous Limited,Current Limited,01-Jan-2026\n";
-        assert!(load_name_change_rows_from_bytes(duplicate, "fixture").unwrap_err().contains("Ambiguous"));
+        assert!(load_name_change_rows_from_bytes(duplicate, "fixture")
+            .unwrap_err()
+            .contains("Ambiguous"));
         let missing = b"SYMBOL,OLD NAME,EFFECTIVE DATE\n";
-        assert!(load_name_change_rows_from_bytes(missing, "fixture").unwrap_err().contains("Missing new company name"));
-        let master = b"SYMBOL,NAME OF COMPANY,SERIES,ISIN NUMBER\nEXAMPLE,Current Limited,EQ,INE000000001\n";
-        assert!(load_name_change_rows_from_bytes(master, "fixture").unwrap_err().contains("Missing old company name"));
+        assert!(load_name_change_rows_from_bytes(missing, "fixture")
+            .unwrap_err()
+            .contains("Missing new company name"));
+        let master =
+            b"SYMBOL,NAME OF COMPANY,SERIES,ISIN NUMBER\nEXAMPLE,Current Limited,EQ,INE000000001\n";
+        assert!(load_name_change_rows_from_bytes(master, "fixture")
+            .unwrap_err()
+            .contains("Missing old company name"));
     }
 
     #[test]
     fn malformed_dates_and_missing_name_values_remain_errors() {
         let symbol = b"OLD SYMBOL,NEW SYMBOL,EFFECTIVE DATE\nOLD,NEW,31-Feb-2026\n";
-        assert!(load_symbol_change_rows_from_bytes(symbol, "fixture").unwrap_err().contains("Invalid NSE identity date"));
+        assert!(load_symbol_change_rows_from_bytes(symbol, "fixture")
+            .unwrap_err()
+            .contains("Invalid NSE identity date"));
         assert!(parse_ca_symbol_change_source(symbol).is_err());
-        let name = b"SYMBOL,OLD NAME,NEW NAME,EFFECTIVE DATE\nEXAMPLE,,Current Limited,01-Jan-2026\n";
-        assert!(load_name_change_rows_from_bytes(name, "fixture").unwrap_err().contains("Missing old company name"));
+        let name =
+            b"SYMBOL,OLD NAME,NEW NAME,EFFECTIVE DATE\nEXAMPLE,,Current Limited,01-Jan-2026\n";
+        assert!(load_name_change_rows_from_bytes(name, "fixture")
+            .unwrap_err()
+            .contains("Missing old company name"));
     }
 }
 
@@ -5337,7 +5638,8 @@ mod tests {
                 List of Companies Delisted from NSE
             </a>
         "#;
-        let fallback = "https://nsearchives.nseindia.com/fallback/List%20of%20delisted%20Companies.xlsx";
+        let fallback =
+            "https://nsearchives.nseindia.com/fallback/List%20of%20delisted%20Companies.xlsx";
 
         let discovered = discover_nse_delisted_workbook_url(page_html, fallback);
 
@@ -5355,13 +5657,13 @@ mod tests {
                 List of Companies Proposed to be Delisted
             </a>
         "#;
-        let fallback = "https://nsearchives.nseindia.com/fallback/List%20of%20delisted%20Companies.xlsx";
+        let fallback =
+            "https://nsearchives.nseindia.com/fallback/List%20of%20delisted%20Companies.xlsx";
 
         let discovered = discover_nse_delisted_workbook_url(page_html, fallback);
 
         assert_eq!(
-            discovered,
-            fallback,
+            discovered, fallback,
             "proposed-delisting workbook must never be promoted as actual-delisted authority"
         );
     }
@@ -5376,13 +5678,13 @@ mod tests {
                 List of Companies Delisted from NSE
             </a>
         "#;
-        let fallback = "https://nsearchives.nseindia.com/fallback/List%20of%20delisted%20Companies.xlsx";
+        let fallback =
+            "https://nsearchives.nseindia.com/fallback/List%20of%20delisted%20Companies.xlsx";
 
         let discovered = discover_nse_delisted_workbook_url(page_html, fallback);
 
         assert_eq!(
-            discovered,
-            "https://nsearchives.nseindia.com/web/mediaattachment/987654.xlsx",
+            discovered, "https://nsearchives.nseindia.com/web/mediaattachment/987654.xlsx",
             "actual-delisted anchor semantics must authorize an opaque official workbook URL"
         );
     }
@@ -5397,13 +5699,13 @@ mod tests {
                 List of Companies Delisted from NSE
             </a>
         "#;
-        let fallback = "https://nsearchives.nseindia.com/fallback/List%20of%20delisted%20Companies.xlsx";
+        let fallback =
+            "https://nsearchives.nseindia.com/fallback/List%20of%20delisted%20Companies.xlsx";
 
         let discovered = discover_nse_delisted_workbook_url(page_html, fallback);
 
         assert_eq!(
-            discovered,
-            "https://nsearchives.nseindia.com/delisted/List of delisted Companies.xlsx",
+            discovered, "https://nsearchives.nseindia.com/delisted/List of delisted Companies.xlsx",
             "processing-status workbook must not outrank actual-delisted authority"
         );
     }
@@ -5612,7 +5914,10 @@ mod tests {
         ];
         let history_hints = NseIdentityHistoryHints {
             symbol_to_current: HashMap::from([("OLDCO".to_string(), "NEWCO".to_string())]),
-            transition_edges: HashMap::from([("OLDCO".to_string(), HashSet::from([("NEWCO".to_string(), "2020-01-01".to_string())]))]),
+            transition_edges: HashMap::from([(
+                "OLDCO".to_string(),
+                HashSet::from([("NEWCO".to_string(), "2020-01-01".to_string())]),
+            )]),
             isin_to_current: HashMap::new(),
             row_count: 1,
         };
@@ -5703,7 +6008,10 @@ mod tests {
     #[test]
     fn i3_reviewed_matching_fingerprint_applies_plan() {
         let root = create_temp_archive_root();
-        write_i3_current_master(&root, "SYMBOL,NAME OF COMPANY,SERIES,ISIN NUMBER\nCURR,Current Limited,EQ,INECURR1\n");
+        write_i3_current_master(
+            &root,
+            "SYMBOL,NAME OF COMPANY,SERIES,ISIN NUMBER\nCURR,Current Limited,EQ,INECURR1\n",
+        );
         let connection = create_phase5c_identity_import_connection();
         let sync_input = NseCurrentUniverseSyncInput {
             archive_root_path: Some(root.display().to_string()),
@@ -5740,7 +6048,10 @@ mod tests {
         assert_eq!(result.plan_sha256, preview.plan_sha256);
         assert_eq!(old_is_active, 1);
         assert_eq!(result.deactivate_count, 0);
-        assert!(result.preview_rows.iter().any(|row| row.symbol == "OLDCO" && row.action == "REVIEW_REQUIRED"));
+        assert!(result
+            .preview_rows
+            .iter()
+            .any(|row| row.symbol == "OLDCO" && row.action == "REVIEW_REQUIRED"));
         assert_eq!(current_is_active, 1);
 
         let _ = fs::remove_dir_all(root);
@@ -5749,7 +6060,10 @@ mod tests {
     #[test]
     fn i3_reviewed_source_change_rejects_before_any_write() {
         let root = create_temp_archive_root();
-        write_i3_current_master(&root, "SYMBOL,NAME OF COMPANY,SERIES,ISIN NUMBER\nCURR,Current Limited,EQ,INECURR1\n");
+        write_i3_current_master(
+            &root,
+            "SYMBOL,NAME OF COMPANY,SERIES,ISIN NUMBER\nCURR,Current Limited,EQ,INECURR1\n",
+        );
         let connection = create_phase5c_identity_import_connection();
         let sync_input = NseCurrentUniverseSyncInput {
             archive_root_path: Some(root.display().to_string()),
@@ -5782,7 +6096,10 @@ mod tests {
     #[test]
     fn i3_reviewed_database_change_rejects_before_any_write() {
         let root = create_temp_archive_root();
-        write_i3_current_master(&root, "SYMBOL,NAME OF COMPANY,SERIES,ISIN NUMBER\nCURR,Current Limited,EQ,INECURR1\n");
+        write_i3_current_master(
+            &root,
+            "SYMBOL,NAME OF COMPANY,SERIES,ISIN NUMBER\nCURR,Current Limited,EQ,INECURR1\n",
+        );
         let connection = create_phase5c_identity_import_connection();
         let sync_input = NseCurrentUniverseSyncInput {
             archive_root_path: Some(root.display().to_string()),
@@ -5817,7 +6134,10 @@ mod tests {
     #[test]
     fn i3_reviewed_malformed_fingerprint_rejects_before_any_write() {
         let root = create_temp_archive_root();
-        write_i3_current_master(&root, "SYMBOL,NAME OF COMPANY,SERIES,ISIN NUMBER\nCURR,Current Limited,EQ,INECURR1\n");
+        write_i3_current_master(
+            &root,
+            "SYMBOL,NAME OF COMPANY,SERIES,ISIN NUMBER\nCURR,Current Limited,EQ,INECURR1\n",
+        );
         let connection = create_phase5c_identity_import_connection();
         let before = read_i3_instrument_state(&connection);
 
@@ -5956,7 +6276,11 @@ mod tests {
         .unwrap();
 
         let history_count: i64 = connection
-            .query_row("SELECT COUNT(*) FROM instrument_identity_history", [], |row| row.get(0))
+            .query_row(
+                "SELECT COUNT(*) FROM instrument_identity_history",
+                [],
+                |row| row.get(0),
+            )
             .unwrap();
         let current_is_active: i64 = connection
             .query_row(
@@ -5978,105 +6302,219 @@ mod tests {
     #[test]
     fn i4_historical_reporting_receipt_and_progress_share_commit_boundary() {
         let root = create_temp_archive_root();
-        write_i4_historical_sources(&root,
+        write_i4_historical_sources(
+            &root,
             "SYMBOL,NAME OF COMPANY,SERIES,ISIN NUMBER\nCURR,Current Limited,EQ,INECURR1\n",
             "old,new,date,company\nOLDCO,CURR,2026-01-01,Current Limited\n",
-            "NCH_SYMBOL,NCH_PREV_NAME,NCH_NEW_NAME,NCH_DT\n");
+            "NCH_SYMBOL,NCH_PREV_NAME,NCH_NEW_NAME,NCH_DT\n",
+        );
         let connection = create_phase5c_identity_import_connection();
         let archive = Some(root.display().to_string());
-        let preview = preview_nse_historical_identity_archive_internal(&connection, &NseHistoricalIdentityPreviewInput { archive_root_path: archive.clone() }).unwrap();
+        let preview = preview_nse_historical_identity_archive_internal(
+            &connection,
+            &NseHistoricalIdentityPreviewInput {
+                archive_root_path: archive.clone(),
+            },
+        )
+        .unwrap();
         assert!(preview.can_apply);
         assert!(!connection.query_row("SELECT EXISTS(SELECT 1 FROM sqlite_master WHERE name='historical_identity_apply_runs')",[],|r|r.get::<_,bool>(0)).unwrap());
         let events = std::cell::RefCell::new(Vec::new());
-        let result = apply_nse_historical_identity_archive_with_progress(&connection,
-            &NseHistoricalIdentityApplyInput { archive_root_path: archive, expected_plan_sha256: preview.plan_sha256 }, &|event| events.borrow_mut().push(event)).unwrap();
-        assert!(result.applied); assert!(result.run_id.is_some()); assert!(result.completed_at.is_some());
+        let result = apply_nse_historical_identity_archive_with_progress(
+            &connection,
+            &NseHistoricalIdentityApplyInput {
+                archive_root_path: archive,
+                expected_plan_sha256: preview.plan_sha256,
+            },
+            &|event| events.borrow_mut().push(event),
+        )
+        .unwrap();
+        assert!(result.applied);
+        assert!(result.run_id.is_some());
+        assert!(result.completed_at.is_some());
         let history = historical_reporting::read_history(&connection).unwrap();
-        assert_eq!(history["runs"].as_array().unwrap().len(),1);
+        assert_eq!(history["runs"].as_array().unwrap().len(), 1);
         assert!(history["runs"][0].get("historyRows").is_none());
-        let before_read:i64=connection.query_row("SELECT total_changes()",[],|r|r.get(0)).unwrap();
-        let saved=historical_reporting::read_report(&connection,result.run_id.as_deref().unwrap()).unwrap();
-        assert_eq!(saved["applied"],true); assert!(!saved["historyRows"].as_array().unwrap().is_empty());
-        assert!(historical_reporting::read_report(&connection,"' OR 1=1 --").is_err());
-        assert_eq!(before_read,connection.query_row("SELECT total_changes()",[],|r|r.get::<_,i64>(0)).unwrap());
+        let before_read: i64 = connection
+            .query_row("SELECT total_changes()", [], |r| r.get(0))
+            .unwrap();
+        let saved =
+            historical_reporting::read_report(&connection, result.run_id.as_deref().unwrap())
+                .unwrap();
+        assert_eq!(saved["applied"], true);
+        assert!(!saved["historyRows"].as_array().unwrap().is_empty());
+        assert!(historical_reporting::read_report(&connection, "' OR 1=1 --").is_err());
+        assert_eq!(
+            before_read,
+            connection
+                .query_row("SELECT total_changes()", [], |r| r.get::<_, i64>(0))
+                .unwrap()
+        );
         assert!(history["legacyRows"].as_array().unwrap().is_empty());
-        let events=events.borrow(); assert_eq!(events.last().unwrap().stage,"committed");
-        assert_eq!(events.last().unwrap().percent,Some(100));
-        assert!(events[..events.len()-1].iter().all(|e|e.percent.is_none_or(|p|p<100)));
+        let events = events.borrow();
+        assert_eq!(events.last().unwrap().stage, "committed");
+        assert_eq!(events.last().unwrap().percent, Some(100));
+        assert!(events[..events.len() - 1]
+            .iter()
+            .all(|e| e.percent.is_none_or(|p| p < 100)));
         assert!(connection.is_autocommit());
-        let _=fs::remove_dir_all(root);
+        let _ = fs::remove_dir_all(root);
     }
 
     #[test]
     fn i4_historical_reporting_receipt_failure_rolls_back_every_identity_change() {
-        let root=create_temp_archive_root();
-        write_i4_historical_sources(&root,
+        let root = create_temp_archive_root();
+        write_i4_historical_sources(
+            &root,
             "SYMBOL,NAME OF COMPANY,SERIES,ISIN NUMBER\nCURR,Current Limited,EQ,INECURR1\n",
             "old,new,date,company\nOLDCO,CURR,2026-01-01,Current Limited\n",
-            "NCH_SYMBOL,NCH_PREV_NAME,NCH_NEW_NAME,NCH_DT\n");
-        let connection=create_phase5c_identity_import_connection();
+            "NCH_SYMBOL,NCH_PREV_NAME,NCH_NEW_NAME,NCH_DT\n",
+        );
+        let connection = create_phase5c_identity_import_connection();
         connection.execute_batch("CREATE TABLE historical_identity_apply_runs(run_id TEXT PRIMARY KEY,completed_at TEXT,result_json TEXT);
             CREATE TRIGGER fail_historical_receipt BEFORE INSERT ON historical_identity_apply_runs BEGIN SELECT RAISE(FAIL,'injected receipt failure'); END;").unwrap();
-        let archive=Some(root.display().to_string());
-        let preview=preview_nse_historical_identity_archive_internal(&connection,&NseHistoricalIdentityPreviewInput{archive_root_path:archive.clone()}).unwrap();
-        let before=read_i4_database_state(&connection);
-        let events=std::cell::RefCell::new(Vec::new());
-        let error=apply_nse_historical_identity_archive_with_progress(&connection,&NseHistoricalIdentityApplyInput{archive_root_path:archive,expected_plan_sha256:preview.plan_sha256},&|e|events.borrow_mut().push(e)).unwrap_err();
-        assert!(error.contains("injected receipt failure")); assert_eq!(before,read_i4_database_state(&connection));
-        assert!(events.borrow().iter().all(|e|e.stage!="committed")); assert!(connection.is_autocommit());
-        assert_eq!(connection.query_row("SELECT COUNT(*) FROM historical_identity_apply_runs",[],|r|r.get::<_,i64>(0)).unwrap(),0);
-        let _=fs::remove_dir_all(root);
+        let archive = Some(root.display().to_string());
+        let preview = preview_nse_historical_identity_archive_internal(
+            &connection,
+            &NseHistoricalIdentityPreviewInput {
+                archive_root_path: archive.clone(),
+            },
+        )
+        .unwrap();
+        let before = read_i4_database_state(&connection);
+        let events = std::cell::RefCell::new(Vec::new());
+        let error = apply_nse_historical_identity_archive_with_progress(
+            &connection,
+            &NseHistoricalIdentityApplyInput {
+                archive_root_path: archive,
+                expected_plan_sha256: preview.plan_sha256,
+            },
+            &|e| events.borrow_mut().push(e),
+        )
+        .unwrap_err();
+        assert!(error.contains("injected receipt failure"));
+        assert_eq!(before, read_i4_database_state(&connection));
+        assert!(events.borrow().iter().all(|e| e.stage != "committed"));
+        assert!(connection.is_autocommit());
+        assert_eq!(
+            connection
+                .query_row(
+                    "SELECT COUNT(*) FROM historical_identity_apply_runs",
+                    [],
+                    |r| r.get::<_, i64>(0)
+                )
+                .unwrap(),
+            0
+        );
+        let _ = fs::remove_dir_all(root);
     }
 
     #[test]
     fn i4_historical_reporting_legacy_read_is_not_a_synthetic_run() {
-        let connection=create_phase5c_identity_import_connection();
+        let connection = create_phase5c_identity_import_connection();
         connection.execute("INSERT INTO instrument_identity_history(exchange,old_symbol,new_symbol,effective_date,change_type,source,created_at) VALUES ('NSE','OLD','NEW','2026-01-01','SYMBOL_CHANGE','NSE_IDENTITY','2026-10-29 15:57:57')",[]).unwrap();
-        let before:i64=connection.query_row("SELECT total_changes()",[],|r|r.get(0)).unwrap();
-        let history=historical_reporting::read_history(&connection).unwrap();
-        assert!(history["runs"].as_array().unwrap().is_empty()); assert_eq!(history["legacyRows"].as_array().unwrap().len(),1);
-        assert_eq!(before,connection.query_row("SELECT total_changes()",[],|r|r.get::<_,i64>(0)).unwrap());
+        let before: i64 = connection
+            .query_row("SELECT total_changes()", [], |r| r.get(0))
+            .unwrap();
+        let history = historical_reporting::read_history(&connection).unwrap();
+        assert!(history["runs"].as_array().unwrap().is_empty());
+        assert_eq!(history["legacyRows"].as_array().unwrap().len(), 1);
+        assert_eq!(
+            before,
+            connection
+                .query_row("SELECT total_changes()", [], |r| r.get::<_, i64>(0))
+                .unwrap()
+        );
         assert!(!connection.query_row("SELECT EXISTS(SELECT 1 FROM sqlite_master WHERE name='historical_identity_apply_runs')",[],|r|r.get::<_,bool>(0)).unwrap());
     }
 
     #[test]
     fn i4_historical_reporting_zero_change_apply_rejects_without_receipt() {
-        let root=create_temp_archive_root();
-        write_i4_historical_sources(&root,
+        let root = create_temp_archive_root();
+        write_i4_historical_sources(
+            &root,
             "SYMBOL,NAME OF COMPANY,SERIES,ISIN NUMBER\nOLDCO,Old Company,EQ,INEOLD1\n",
-            "old,new,date,company\n", "NCH_SYMBOL,NCH_PREV_NAME,NCH_NEW_NAME,NCH_DT\n");
-        let connection=create_phase5c_identity_import_connection(); let archive=Some(root.display().to_string());
-        let preview=preview_nse_historical_identity_archive_internal(&connection,&NseHistoricalIdentityPreviewInput{archive_root_path:archive.clone()}).unwrap();
-        assert!(preview.can_apply); assert!(!historical_reporting::actionable(&preview));
-        let before=read_i4_database_state(&connection);
-        let error=apply_nse_historical_identity_archive_internal(&connection,&NseHistoricalIdentityApplyInput{archive_root_path:archive,expected_plan_sha256:preview.plan_sha256}).unwrap_err();
-        assert!(error.contains("No historical identity changes")); assert_eq!(before,read_i4_database_state(&connection));
+            "old,new,date,company\n",
+            "NCH_SYMBOL,NCH_PREV_NAME,NCH_NEW_NAME,NCH_DT\n",
+        );
+        let connection = create_phase5c_identity_import_connection();
+        let archive = Some(root.display().to_string());
+        let preview = preview_nse_historical_identity_archive_internal(
+            &connection,
+            &NseHistoricalIdentityPreviewInput {
+                archive_root_path: archive.clone(),
+            },
+        )
+        .unwrap();
+        assert!(preview.can_apply);
+        assert!(!historical_reporting::actionable(&preview));
+        let before = read_i4_database_state(&connection);
+        let error = apply_nse_historical_identity_archive_internal(
+            &connection,
+            &NseHistoricalIdentityApplyInput {
+                archive_root_path: archive,
+                expected_plan_sha256: preview.plan_sha256,
+            },
+        )
+        .unwrap_err();
+        assert!(error.contains("No historical identity changes"));
+        assert_eq!(before, read_i4_database_state(&connection));
         assert!(!connection.query_row("SELECT EXISTS(SELECT 1 FROM sqlite_master WHERE name='historical_identity_apply_runs')",[],|r|r.get::<_,bool>(0)).unwrap());
-        let _=fs::remove_dir_all(root);
+        let _ = fs::remove_dir_all(root);
     }
 
     #[test]
     fn i4_historical_reporting_commit_failure_never_emits_completed() {
-        let root=create_temp_archive_root();
-        write_i4_historical_sources(&root,
+        let root = create_temp_archive_root();
+        write_i4_historical_sources(
+            &root,
             "SYMBOL,NAME OF COMPANY,SERIES,ISIN NUMBER\nCURR,Current Limited,EQ,INECURR1\n",
             "old,new,date,company\nOLDCO,CURR,2026-01-01,Current Limited\n",
-            "NCH_SYMBOL,NCH_PREV_NAME,NCH_NEW_NAME,NCH_DT\n");
-        let connection=create_phase5c_identity_import_connection();
+            "NCH_SYMBOL,NCH_PREV_NAME,NCH_NEW_NAME,NCH_DT\n",
+        );
+        let connection = create_phase5c_identity_import_connection();
         connection.execute_batch("PRAGMA foreign_keys=ON;
             CREATE TABLE receipt_parent(id INTEGER PRIMARY KEY);
             CREATE TABLE receipt_child(id INTEGER REFERENCES receipt_parent(id) DEFERRABLE INITIALLY DEFERRED);
             CREATE TABLE historical_identity_apply_runs(run_id TEXT PRIMARY KEY,completed_at TEXT,result_json TEXT);
             CREATE TRIGGER fail_historical_commit AFTER INSERT ON historical_identity_apply_runs BEGIN INSERT INTO receipt_child VALUES(999); END;").unwrap();
-        let archive=Some(root.display().to_string());
-        let preview=preview_nse_historical_identity_archive_internal(&connection,&NseHistoricalIdentityPreviewInput{archive_root_path:archive.clone()}).unwrap();
-        let before=read_i4_database_state(&connection); let events=std::cell::RefCell::new(Vec::new());
-        let error=apply_nse_historical_identity_archive_with_progress(&connection,&NseHistoricalIdentityApplyInput{archive_root_path:archive,expected_plan_sha256:preview.plan_sha256},&|e|events.borrow_mut().push(e)).unwrap_err();
-        assert!(error.contains("FOREIGN KEY")); assert_eq!(before,read_i4_database_state(&connection));
-        assert!(events.borrow().iter().all(|e|e.percent.is_none_or(|p|p<100)));
+        let archive = Some(root.display().to_string());
+        let preview = preview_nse_historical_identity_archive_internal(
+            &connection,
+            &NseHistoricalIdentityPreviewInput {
+                archive_root_path: archive.clone(),
+            },
+        )
+        .unwrap();
+        let before = read_i4_database_state(&connection);
+        let events = std::cell::RefCell::new(Vec::new());
+        let error = apply_nse_historical_identity_archive_with_progress(
+            &connection,
+            &NseHistoricalIdentityApplyInput {
+                archive_root_path: archive,
+                expected_plan_sha256: preview.plan_sha256,
+            },
+            &|e| events.borrow_mut().push(e),
+        )
+        .unwrap_err();
+        assert!(error.contains("FOREIGN KEY"));
+        assert_eq!(before, read_i4_database_state(&connection));
+        assert!(events
+            .borrow()
+            .iter()
+            .all(|e| e.percent.is_none_or(|p| p < 100)));
         assert!(connection.is_autocommit());
-        assert_eq!(connection.query_row("SELECT COUNT(*) FROM historical_identity_apply_runs",[],|r|r.get::<_,i64>(0)).unwrap(),0);
-        let _=fs::remove_dir_all(root);
+        assert_eq!(
+            connection
+                .query_row(
+                    "SELECT COUNT(*) FROM historical_identity_apply_runs",
+                    [],
+                    |r| r.get::<_, i64>(0)
+                )
+                .unwrap(),
+            0
+        );
+        let _ = fs::remove_dir_all(root);
     }
 
     #[test]
@@ -6087,45 +6525,94 @@ mod tests {
             "old,new,date,company\n",
             "NCH_SYMBOL,NCH_PREV_NAME,NCH_NEW_NAME,NCH_DT\nOLDCO,Old Company,Old Company Revised,2020-01-01\n");
         let connection = create_phase5c_identity_import_connection();
-        connection.execute("UPDATE instruments SET is_active=0 WHERE symbol='OLDCO' AND exchange='NSE'", []).unwrap();
-        connection.execute_batch("CREATE TABLE corporate_actions (
+        connection
+            .execute(
+                "UPDATE instruments SET is_active=0 WHERE symbol='OLDCO' AND exchange='NSE'",
+                [],
+            )
+            .unwrap();
+        connection
+            .execute_batch(
+                "CREATE TABLE corporate_actions (
             id INTEGER PRIMARY KEY, symbol TEXT, exchange TEXT, isin TEXT,
             effective_date TEXT, action_type TEXT, factor REAL, adjust_volume INTEGER,
             ratio_num REAL, ratio_den REAL, old_face_value REAL, new_face_value REAL,
-            cash_amount REAL, source TEXT);").unwrap();
+            cash_amount REAL, source TEXT);",
+            )
+            .unwrap();
         let archive = Some(root.display().to_string());
         let before = read_i4_database_state(&connection);
-        let preview = preview_nse_historical_identity_archive_internal(&connection,
-            &NseHistoricalIdentityPreviewInput { archive_root_path: archive.clone() }).unwrap();
-        assert!(preview.can_apply, "{:?}", preview.errors); assert_eq!(preview.new_name_changes, 1);
+        let preview = preview_nse_historical_identity_archive_internal(
+            &connection,
+            &NseHistoricalIdentityPreviewInput {
+                archive_root_path: archive.clone(),
+            },
+        )
+        .unwrap();
+        assert!(preview.can_apply, "{:?}", preview.errors);
+        assert_eq!(preview.new_name_changes, 1);
         assert_eq!(before, read_i4_database_state(&connection));
-        let result = apply_nse_historical_identity_archive_internal(&connection,
-            &NseHistoricalIdentityApplyInput { archive_root_path: archive, expected_plan_sha256: preview.plan_sha256 }).unwrap();
+        let result = apply_nse_historical_identity_archive_internal(
+            &connection,
+            &NseHistoricalIdentityApplyInput {
+                archive_root_path: archive,
+                expected_plan_sha256: preview.plan_sha256,
+            },
+        )
+        .unwrap();
         assert!(result.applied);
-        let old: (i64, String) = connection.query_row("SELECT is_active,name FROM instruments WHERE symbol='OLDCO' AND exchange='NSE'", [], |r| Ok((r.get(0)?,r.get(1)?))).unwrap();
+        let old: (i64, String) = connection
+            .query_row(
+                "SELECT is_active,name FROM instruments WHERE symbol='OLDCO' AND exchange='NSE'",
+                [],
+                |r| Ok((r.get(0)?, r.get(1)?)),
+            )
+            .unwrap();
         assert_eq!(old, (0, "Old Company Revised".to_string()));
-        assert_eq!(connection.query_row("SELECT is_active FROM instruments WHERE symbol='CURR' AND exchange='NSE'", [], |r| r.get::<_, i64>(0)).unwrap(), 1);
+        assert_eq!(
+            connection
+                .query_row(
+                    "SELECT is_active FROM instruments WHERE symbol='CURR' AND exchange='NSE'",
+                    [],
+                    |r| r.get::<_, i64>(0)
+                )
+                .unwrap(),
+            1
+        );
         let _ = fs::remove_dir_all(root);
     }
 
     #[test]
     fn i4_historical_lifecycle_failure_rolls_back_the_accepted_identity_row() {
         let root = create_temp_archive_root();
-        write_i4_historical_sources(&root,
+        write_i4_historical_sources(
+            &root,
             "SYMBOL,NAME OF COMPANY,SERIES,ISIN NUMBER\nCURR,Current Limited,EQ,INECURR1\n",
             "old,new,date,company\nOLDCO,CURR,2026-01-01,Current Limited\n",
-            "NCH_SYMBOL,NCH_PREV_NAME,NCH_NEW_NAME,NCH_DT\n");
+            "NCH_SYMBOL,NCH_PREV_NAME,NCH_NEW_NAME,NCH_DT\n",
+        );
         let connection = create_phase5c_identity_import_connection();
         let archive = Some(root.display().to_string());
-        let preview = preview_nse_historical_identity_archive_internal(&connection,
-            &NseHistoricalIdentityPreviewInput { archive_root_path: archive.clone() }).unwrap();
+        let preview = preview_nse_historical_identity_archive_internal(
+            &connection,
+            &NseHistoricalIdentityPreviewInput {
+                archive_root_path: archive.clone(),
+            },
+        )
+        .unwrap();
         assert!(preview.can_apply);
         connection.execute_batch("CREATE TRIGGER fail_identity_lifecycle BEFORE UPDATE OF lifecycle_status ON instruments
             WHEN NEW.symbol='OLDCO' AND NEW.lifecycle_status='OLD_SYMBOL'
             BEGIN SELECT RAISE(FAIL,'injected identity lifecycle failure'); END;").unwrap();
         let before = read_i4_database_state(&connection);
-        let error = apply_nse_historical_identity_archive_internal(&connection,
-            &NseHistoricalIdentityApplyInput { archive_root_path: archive, expected_plan_sha256: preview.plan_sha256 }).unwrap_err();
+        let error = apply_nse_historical_identity_archive_internal(
+            &connection,
+            &NseHistoricalIdentityApplyInput {
+                archive_root_path: archive,
+                expected_plan_sha256: preview.plan_sha256,
+            },
+        )
+        .unwrap_err();
         assert_eq!(error, NSE_HISTORICAL_PREVIEW_ERRORS);
         assert_eq!(before, read_i4_database_state(&connection));
         assert_eq!(connection.query_row("SELECT lifecycle_status FROM instruments WHERE symbol='OLDCO' AND exchange='NSE'", [], |r| r.get::<_, String>(0)).unwrap(), "CURRENT");
@@ -6241,9 +6728,18 @@ mod tests {
         {
             use std::io::Write;
             let mut workbook = zip::ZipWriter::new(Cursor::new(Vec::new()));
-            workbook.start_file("xl/sharedStrings.xml", zip::write::FileOptions::default()).unwrap();
-            workbook.write_all(b"<sst><si><t>Symbol</t></si><si><t>EXTRA</t></si></sst>").unwrap();
-            workbook.start_file("xl/worksheets/sheet1.xml", zip::write::FileOptions::default()).unwrap();
+            workbook
+                .start_file("xl/sharedStrings.xml", zip::write::FileOptions::default())
+                .unwrap();
+            workbook
+                .write_all(b"<sst><si><t>Symbol</t></si><si><t>EXTRA</t></si></sst>")
+                .unwrap();
+            workbook
+                .start_file(
+                    "xl/worksheets/sheet1.xml",
+                    zip::write::FileOptions::default(),
+                )
+                .unwrap();
             workbook.write_all(b"<worksheet><sheetData><row><c r=\"A1\" t=\"s\"><v>0</v></c></row><row><c r=\"A2\" t=\"s\"><v>1</v></c></row></sheetData></worksheet>").unwrap();
             let bytes = workbook.finish().unwrap().into_inner();
             let folder = root.join("NSE/Identity/Delisted");
@@ -6520,7 +7016,12 @@ mod tests {
         assert!(result.applied);
         assert_eq!(result.active_sync_deactivate_count, 0);
         assert_eq!(old_is_active, 1);
-        assert!(result.current_universe_preview_rows.iter().any(|row| row.symbol == "OLDCO" && row.action == "REVIEW_REQUIRED" && row.proposed_status == "ACTIVE"));
+        assert!(result
+            .current_universe_preview_rows
+            .iter()
+            .any(|row| row.symbol == "OLDCO"
+                && row.action == "REVIEW_REQUIRED"
+                && row.proposed_status == "ACTIVE"));
         assert_eq!(current_is_active, 1);
 
         let _ = fs::remove_dir_all(root);
@@ -6902,9 +7403,8 @@ mod f2_r2_official_historical_consumption_tests {
             archive_root_path: None,
         };
 
-        let resolved =
-            resolve_nse_historical_identity_archive_root(&input, Some(&managed_root))
-                .expect("official historical preview/apply should use the managed root");
+        let resolved = resolve_nse_historical_identity_archive_root(&input, Some(&managed_root))
+            .expect("official historical preview/apply should use the managed root");
 
         assert_eq!(resolved, managed_root);
     }
@@ -6917,9 +7417,8 @@ mod f2_r2_official_historical_consumption_tests {
             archive_root_path: Some(manual_root.display().to_string()),
         };
 
-        let resolved =
-            resolve_nse_historical_identity_archive_root(&input, Some(&managed_root))
-                .expect("manual historical archive root should remain authoritative");
+        let resolved = resolve_nse_historical_identity_archive_root(&input, Some(&managed_root))
+            .expect("manual historical archive root should remain authoritative");
 
         assert_eq!(resolved, manual_root);
     }
@@ -6985,9 +7484,7 @@ EXAMPLE,Example Industries Limited,01-Jan-2026\n";
 
     #[test]
     fn f2_download_result_exposes_company_name_change_accounting() {
-        fn fields(
-            result: &NseCurrentUniverseMasterDownloadResult,
-        ) -> (&str, u32) {
+        fn fields(result: &NseCurrentUniverseMasterDownloadResult) -> (&str, u32) {
             (
                 result.company_name_change_file_path.as_str(),
                 result.company_name_change_rows_read,
@@ -6997,7 +7494,6 @@ EXAMPLE,Example Industries Limited,01-Jan-2026\n";
         let _ = fields;
     }
 }
-
 
 #[cfg(test)]
 mod er2c1_shadow_tests {
@@ -7065,14 +7561,8 @@ mod er2c1_shadow_tests {
                 .join("SecuritiesAvailable"),
         )
         .unwrap();
-        fs::create_dir_all(root.join("NSE").join("Identity").join("SymbolChanges"))
-            .unwrap();
-        fs::create_dir_all(
-            root.join("NSE")
-                .join("Identity")
-                .join("CompanyNameChanges"),
-        )
-        .unwrap();
+        fs::create_dir_all(root.join("NSE").join("Identity").join("SymbolChanges")).unwrap();
+        fs::create_dir_all(root.join("NSE").join("Identity").join("CompanyNameChanges")).unwrap();
         fs::write(
             root.join("NSE")
                 .join("Identity")
@@ -7203,22 +7693,17 @@ mod er2c1_shadow_tests {
         name_changes: Vec<NseNameChangeRow>,
     ) -> IdentityResolverInput {
         let symbol = current_rows[0].row.symbol.clone();
-        let mut snapshot = er2c1_test_snapshot(
-            "2026-09-12T18:30:00+05:30",
-            current_rows,
-        );
+        let mut snapshot = er2c1_test_snapshot("2026-09-12T18:30:00+05:30", current_rows);
         if !symbol_changes.is_empty() {
             snapshot.symbol_change_rows = symbol_changes;
             snapshot.symbol_changes_sha256 = Some(
-                "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB"
-                    .to_string(),
+                "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB".to_string(),
             );
         }
         if !name_changes.is_empty() {
             snapshot.name_change_rows = name_changes;
             snapshot.name_changes_sha256 = Some(
-                "CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC"
-                    .to_string(),
+                "CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC".to_string(),
             );
         }
         let indexes = build_nse_i3_er2_shadow_indexes_from_rows(vec![local], &snapshot);
@@ -7244,10 +7729,8 @@ mod er2c1_shadow_tests {
     #[test]
     fn er2c1_t0_relationship_taxonomy_reconciles_summary_counts() {
         let current = er2c1_test_current("ABC", "ABC Limited", "EQ", "INE000A01001");
-        let current_evidence = build_nse_i3_er2_current_master_evidence(
-            &current,
-            "2026-09-12T18:30:00+05:30",
-        );
+        let current_evidence =
+            build_nse_i3_er2_current_master_evidence(&current, "2026-09-12T18:30:00+05:30");
         let input = IdentityResolverInput {
             local_identity: IdentityResolverLocalIdentity {
                 exchange: "NSE".to_string(),
@@ -7363,13 +7846,7 @@ mod er2c1_shadow_tests {
 
     #[test]
     fn er2c1_t3_local_mapping_preserves_fields_without_invented_dates() {
-        let local = er2c1_test_existing(
-            "ABC",
-            "ABC Limited",
-            "BE",
-            "INE000A01001",
-            false,
-        );
+        let local = er2c1_test_existing("ABC", "ABC Limited", "BE", "INE000A01001", false);
         let mapped = build_nse_i3_er2_local_identity(&local);
         assert_eq!(mapped.exchange, "NSE");
         assert_eq!(mapped.symbol, "ABC");
@@ -7384,14 +7861,8 @@ mod er2c1_shadow_tests {
     #[test]
     fn er2c1_t3_current_evidence_id_ignores_observation_time() {
         let current = er2c1_test_current("ABC", "ABC Limited", "EQ", "INE000A01001");
-        let a = build_nse_i3_er2_current_master_evidence(
-            &current,
-            "2026-09-12T18:30:00+05:30",
-        );
-        let b = build_nse_i3_er2_current_master_evidence(
-            &current,
-            "2026-09-12T19:30:00+05:30",
-        );
+        let a = build_nse_i3_er2_current_master_evidence(&current, "2026-09-12T18:30:00+05:30");
+        let b = build_nse_i3_er2_current_master_evidence(&current, "2026-09-12T19:30:00+05:30");
         assert_eq!(a.evidence_id, b.evidence_id);
         assert_ne!(a.retrieved_at_ist, b.retrieved_at_ist);
         assert_eq!(a.source_id, ER2C1_NSE_EQUITY_MASTER);
@@ -7401,10 +7872,7 @@ mod er2c1_shadow_tests {
     #[test]
     fn er2c1_t3_eligibility_matrix_is_closed() {
         let current = er2c1_test_current("ABC", "ABC Limited", "EQ", "INE000A01001");
-        let snapshot = er2c1_test_snapshot(
-            "2026-09-12T18:30:00+05:30",
-            vec![current],
-        );
+        let snapshot = er2c1_test_snapshot("2026-09-12T18:30:00+05:30", vec![current]);
         let indexes = build_nse_i3_er2_shadow_indexes_from_rows(
             vec![er2c1_test_existing(
                 "ABC",
@@ -7431,23 +7899,15 @@ mod er2c1_shadow_tests {
         )
         .is_ok());
         assert_eq!(
-            build_nse_i3_er2_input(
-                &er2c1_test_preview("INSERT", "ABC", None),
-                &indexes,
-            )
-            .unwrap_err(),
+            build_nse_i3_er2_input(&er2c1_test_preview("INSERT", "ABC", None), &indexes,)
+                .unwrap_err(),
             NseI3Er2ShadowState::NotEvaluated(NseI3Er2ShadowReason::NoLocalIdentity),
         );
         for action in ["OLD_SYMBOL", "DELISTED", "UNKNOWN_INACTIVE"] {
             assert_eq!(
-                build_nse_i3_er2_input(
-                    &er2c1_test_preview(action, "ABC", None),
-                    &indexes,
-                )
-                .unwrap_err(),
-                NseI3Er2ShadowState::NotEvaluated(
-                    NseI3Er2ShadowReason::NoOfficialCurrentIdentity,
-                ),
+                build_nse_i3_er2_input(&er2c1_test_preview(action, "ABC", None), &indexes,)
+                    .unwrap_err(),
+                NseI3Er2ShadowState::NotEvaluated(NseI3Er2ShadowReason::NoOfficialCurrentIdentity,),
             );
         }
     }
@@ -7464,18 +7924,15 @@ mod er2c1_shadow_tests {
             "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB",
             "2026-09-12T18:30:00+05:30",
         );
-        assert_eq!(evidence.evidence_kind, IdentityResolverEvidenceKind::SymbolChange);
+        assert_eq!(
+            evidence.evidence_kind,
+            IdentityResolverEvidenceKind::SymbolChange
+        );
         assert_eq!(evidence.isin, None);
         assert_eq!(evidence.series, None);
 
         let input = er2c1_test_input(
-            er2c1_test_existing(
-                "OLDABC",
-                "ABC Limited",
-                "EQ",
-                "INE000A01001",
-                true,
-            ),
+            er2c1_test_existing("OLDABC", "ABC Limited", "EQ", "INE000A01001", true),
             vec![er2c1_test_current(
                 "NEWABC",
                 "ABC Limited",
@@ -7512,18 +7969,15 @@ mod er2c1_shadow_tests {
             "CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC",
             "2026-09-12T18:30:00+05:30",
         );
-        assert_eq!(evidence.evidence_kind, IdentityResolverEvidenceKind::NameChange);
+        assert_eq!(
+            evidence.evidence_kind,
+            IdentityResolverEvidenceKind::NameChange
+        );
         assert_eq!(evidence.isin, None);
         assert_eq!(evidence.series, None);
 
         let input = er2c1_test_input(
-            er2c1_test_existing(
-                "ABC",
-                "Old ABC Limited",
-                "EQ",
-                "INE000A01001",
-                true,
-            ),
+            er2c1_test_existing("ABC", "Old ABC Limited", "EQ", "INE000A01001", true),
             vec![er2c1_test_current(
                 "ABC",
                 "ABC Limited",
@@ -7556,13 +8010,7 @@ mod er2c1_shadow_tests {
 
     #[test]
     fn er2c1_t6_same_isin_current_peers_enable_rule_e_conflict() {
-        let local = er2c1_test_existing(
-            "ABC",
-            "ABC Limited",
-            "EQ",
-            "INE000A01001",
-            true,
-        );
+        let local = er2c1_test_existing("ABC", "ABC Limited", "EQ", "INE000A01001", true);
         let rows = vec![
             er2c1_test_current("ABC", "ABC Updated Limited", "EQ", "INE000A01001"),
             er2c1_test_current("XYZ", "XYZ Limited", "EQ", "INE000A01001"),
@@ -7579,13 +8027,7 @@ mod er2c1_shadow_tests {
     #[test]
     fn er2c1_t7_rule_d_conflict_is_characterized_without_changing_legacy_action() {
         let input = er2c1_test_input(
-            er2c1_test_existing(
-                "ABC",
-                "ABC Limited",
-                "EQ",
-                "INEOLD01001",
-                true,
-            ),
+            er2c1_test_existing("ABC", "ABC Limited", "EQ", "INEOLD01001", true),
             vec![er2c1_test_current(
                 "ABC",
                 "ABC Limited",
@@ -7615,13 +8057,7 @@ mod er2c1_shadow_tests {
     #[test]
     fn er2c1_t8_rule_h_without_series_evidence_remains_rule_i() {
         let input = er2c1_test_input(
-            er2c1_test_existing(
-                "ABC",
-                "ABC Limited",
-                "BE",
-                "INE000A01001",
-                true,
-            ),
+            er2c1_test_existing("ABC", "ABC Limited", "BE", "INE000A01001", true),
             vec![er2c1_test_current(
                 "ABC",
                 "ABC Limited",
@@ -7633,7 +8069,8 @@ mod er2c1_shadow_tests {
             Vec::new(),
             Vec::new(),
         );
-        let result = resolve_identity(&input).expect("missing series evidence should return Rule I");
+        let result =
+            resolve_identity(&input).expect("missing series evidence should return Rule I");
         assert_eq!(result.status, IdentityResolverStatus::InsufficientEvidence);
         assert_eq!(
             result.rule_id,
@@ -7648,13 +8085,7 @@ mod er2c1_shadow_tests {
     #[test]
     fn er2c1_t8_reactivation_gap_remains_rule_i() {
         let input = er2c1_test_input(
-            er2c1_test_existing(
-                "ABC",
-                "ABC Limited",
-                "EQ",
-                "INE000A01001",
-                false,
-            ),
+            er2c1_test_existing("ABC", "ABC Limited", "EQ", "INE000A01001", false),
             vec![er2c1_test_current(
                 "ABC",
                 "ABC Limited",
@@ -7677,13 +8108,7 @@ mod er2c1_shadow_tests {
     #[test]
     fn er2c1_t8_normalization_only_difference_is_no_material_mismatch() {
         let input = er2c1_test_input(
-            er2c1_test_existing(
-                "ABC",
-                "ABC    Limited",
-                "EQ",
-                "INE000A01001",
-                true,
-            ),
+            er2c1_test_existing("ABC", "ABC    Limited", "EQ", "INE000A01001", true),
             vec![er2c1_test_current(
                 "ABC",
                 " abc limited ",
@@ -7732,25 +8157,21 @@ mod er2c1_shadow_tests {
 
     #[test]
     fn er2c1_t9_evidence_order_and_observation_time_do_not_change_resolver_semantics() {
-        let local = er2c1_test_existing(
-            "ABC",
-            "ABC Limited",
-            "EQ",
-            "INEOLD01001",
-            true,
-        );
+        let local = er2c1_test_existing("ABC", "ABC Limited", "EQ", "INEOLD01001", true);
         let current_a = er2c1_test_current("ABC", "ABC Limited", "EQ", "INENEW01001");
         let peer_a = er2c1_test_current("XYZ", "XYZ Limited", "EQ", "INENEW01001");
         let mut snapshot_a = er2c1_test_snapshot(
             "2026-09-12T18:30:00+05:30",
             vec![current_a.clone(), peer_a.clone()],
         );
-        let mut snapshot_b = er2c1_test_snapshot(
-            "2026-09-12T20:30:00+05:30",
-            vec![peer_a, current_a],
-        );
-        snapshot_a.current_rows.sort_by(|left, right| left.row.symbol.cmp(&right.row.symbol));
-        snapshot_b.current_rows.sort_by(|left, right| left.row.symbol.cmp(&right.row.symbol));
+        let mut snapshot_b =
+            er2c1_test_snapshot("2026-09-12T20:30:00+05:30", vec![peer_a, current_a]);
+        snapshot_a
+            .current_rows
+            .sort_by(|left, right| left.row.symbol.cmp(&right.row.symbol));
+        snapshot_b
+            .current_rows
+            .sort_by(|left, right| left.row.symbol.cmp(&right.row.symbol));
         let indexes_a = build_nse_i3_er2_shadow_indexes_from_rows(vec![local.clone()], &snapshot_a);
         let indexes_b = build_nse_i3_er2_shadow_indexes_from_rows(vec![local], &snapshot_b);
         let preview = er2c1_test_preview("UPDATE", "ABC", Some("ABC"));
@@ -7789,22 +8210,14 @@ mod er2c1_shadow_tests {
         let input = NseCurrentUniverseSyncInput {
             archive_root_path: None,
         };
-        let legacy_plan = build_nse_current_universe_sync_plan(
-            &connection,
-            &input,
-            Some(&root),
-        )
-        .unwrap();
+        let legacy_plan =
+            build_nse_current_universe_sync_plan(&connection, &input, Some(&root)).unwrap();
         let legacy_sha = nse_current_universe_plan_sha256(&legacy_plan);
         let expected = plan_into_result(legacy_plan, false, legacy_sha);
 
         er2c1_shadow_test_reset_call_count();
-        let actual = preview_nse_current_universe_sync_internal(
-            &connection,
-            &input,
-            Some(&root),
-        )
-        .unwrap();
+        let actual =
+            preview_nse_current_universe_sync_internal(&connection, &input, Some(&root)).unwrap();
         assert_eq!(er2c1_shadow_test_call_count(), 1);
         assert_eq!(
             serde_json::to_value(actual).unwrap(),
@@ -7849,10 +8262,8 @@ mod er2c1_shadow_tests {
     fn er2c1_t11_fixture_characterization_summary_is_aggregate_only() {
         let preview = er2c1_test_preview("UPDATE", "FIXTURE", Some("FIXTURE"));
         let current = er2c1_test_current("FIXTURE", "Fixture Limited", "EQ", "INE000A01001");
-        let current_evidence = build_nse_i3_er2_current_master_evidence(
-            &current,
-            "2026-09-12T18:30:00+05:30",
-        );
+        let current_evidence =
+            build_nse_i3_er2_current_master_evidence(&current, "2026-09-12T18:30:00+05:30");
         let conflict_result = IdentityResolverResult {
             status: IdentityResolverStatus::Conflict,
             conclusion: super::super::identity_evidence_resolver::IdentityResolverConclusion::ConflictingIdentity,
@@ -7952,12 +8363,7 @@ mod er2c2_shadow_tests {
         )
         .unwrap();
         fs::create_dir_all(root.join("NSE").join("Identity").join("SymbolChanges")).unwrap();
-        fs::create_dir_all(
-            root.join("NSE")
-                .join("Identity")
-                .join("CompanyNameChanges"),
-        )
-        .unwrap();
+        fs::create_dir_all(root.join("NSE").join("Identity").join("CompanyNameChanges")).unwrap();
         root
     }
 
@@ -8086,7 +8492,12 @@ mod er2c2_shadow_tests {
         }
     }
 
-    fn er2c2_name_change(symbol: &str, old_name: &str, new_name: &str, date: &str) -> NseNameChangeRow {
+    fn er2c2_name_change(
+        symbol: &str,
+        old_name: &str,
+        new_name: &str,
+        date: &str,
+    ) -> NseNameChangeRow {
         NseNameChangeRow {
             symbol: symbol.to_string(),
             old_name: old_name.to_string(),
@@ -8106,9 +8517,12 @@ mod er2c2_shadow_tests {
             archive_root_path: archive_root.to_string(),
             symbol_changes_path: format!("{archive_root}/symbol.csv"),
             company_name_changes_path: format!("{archive_root}/name.csv"),
-            securities_available_sha256: "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA".to_string(),
-            symbol_changes_sha256: "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB".to_string(),
-            company_name_changes_sha256: "CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC".to_string(),
+            securities_available_sha256:
+                "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA".to_string(),
+            symbol_changes_sha256:
+                "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB".to_string(),
+            company_name_changes_sha256:
+                "CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC".to_string(),
             current_universe_master_rows_read: current_universe_rows.len() as u32,
             master_rows,
             current_universe_rows,
@@ -8146,11 +8560,7 @@ mod er2c2_shadow_tests {
         snapshot: &NseHistoricalIdentitySourceSnapshot,
         observed_at_ist: &str,
     ) -> NseI4Er2ShadowIndexes {
-        build_nse_i4_er2_shadow_indexes_from_rows(
-            existing,
-            snapshot,
-            observed_at_ist.to_string(),
-        )
+        build_nse_i4_er2_shadow_indexes_from_rows(existing, snapshot, observed_at_ist.to_string())
     }
 
     fn er2c2_legacy_preview_without_shadow(
@@ -8185,7 +8595,12 @@ mod er2c2_shadow_tests {
             vec![er2c2_master("ABC", "ABC Limited", "EQ", "INE000A01001")],
             Vec::new(),
             Vec::new(),
-            vec![er2c2_name_change("ABC", "ABC Limited", "ABC Limited", "2026-01-01")],
+            vec![er2c2_name_change(
+                "ABC",
+                "ABC Limited",
+                "ABC Limited",
+                "2026-01-01",
+            )],
         );
         let indexes = er2c2_indexes(vec![local], &snapshot, "2026-09-13T01:00:00+05:30");
         let preview = er2c2_history_row(
@@ -8244,7 +8659,8 @@ mod er2c2_shadow_tests {
 
         let empty_snapshot = er2c2_snapshot("B", Vec::new(), Vec::new(), Vec::new(), Vec::new());
         let empty_indexes = er2c2_indexes(Vec::new(), &empty_snapshot, "2026-09-13T01:00:00+05:30");
-        let missing = reconstruct_nse_i4_er2_historical_evidence(&preview, &empty_indexes).unwrap_err();
+        let missing =
+            reconstruct_nse_i4_er2_historical_evidence(&preview, &empty_indexes).unwrap_err();
         assert_eq!(
             missing,
             NseI4Er2ShadowState::AdapterError(
@@ -8259,8 +8675,10 @@ mod er2c2_shadow_tests {
             vec![row.clone(), row],
             Vec::new(),
         );
-        let duplicate_indexes = er2c2_indexes(Vec::new(), &duplicate_snapshot, "2026-09-13T01:00:00+05:30");
-        let ambiguous = reconstruct_nse_i4_er2_historical_evidence(&preview, &duplicate_indexes).unwrap_err();
+        let duplicate_indexes =
+            er2c2_indexes(Vec::new(), &duplicate_snapshot, "2026-09-13T01:00:00+05:30");
+        let ambiguous =
+            reconstruct_nse_i4_er2_historical_evidence(&preview, &duplicate_indexes).unwrap_err();
         assert_eq!(
             ambiguous,
             NseI4Er2ShadowState::AdapterError(
@@ -8294,8 +8712,10 @@ mod er2c2_shadow_tests {
             Vec::new(),
             vec![row.clone(), row],
         );
-        let duplicate_indexes = er2c2_indexes(Vec::new(), &duplicate_snapshot, "2026-09-13T01:00:00+05:30");
-        let ambiguous = reconstruct_nse_i4_er2_historical_evidence(&preview, &duplicate_indexes).unwrap_err();
+        let duplicate_indexes =
+            er2c2_indexes(Vec::new(), &duplicate_snapshot, "2026-09-13T01:00:00+05:30");
+        let ambiguous =
+            reconstruct_nse_i4_er2_historical_evidence(&preview, &duplicate_indexes).unwrap_err();
         assert_eq!(
             ambiguous,
             NseI4Er2ShadowState::AdapterError(
@@ -8311,7 +8731,12 @@ mod er2c2_shadow_tests {
             Vec::new(),
             Vec::new(),
             vec![er2c2_symbol_change("OLD", "NEW", "2026-01-01")],
-            vec![er2c2_name_change("NEW", "Old Limited", "New Limited", "2026-01-01")],
+            vec![er2c2_name_change(
+                "NEW",
+                "Old Limited",
+                "New Limited",
+                "2026-01-01",
+            )],
         );
         let indexes = er2c2_indexes(Vec::new(), &snapshot, "2026-09-13T01:00:00+05:30");
         let preview = er2c2_history_row(
@@ -8339,7 +8764,13 @@ mod er2c2_shadow_tests {
             Vec::new(),
         );
         let indexes = er2c2_indexes(
-            vec![er2c2_existing("OLD", "New Limited", "EQ", "INE000A01001", false)],
+            vec![er2c2_existing(
+                "OLD",
+                "New Limited",
+                "EQ",
+                "INE000A01001",
+                false,
+            )],
             &snapshot,
             "2026-09-13T01:00:00+05:30",
         );
@@ -8355,7 +8786,10 @@ mod er2c2_shadow_tests {
         );
         let input = build_nse_i4_er2_input(&preview, &indexes).unwrap();
         assert_eq!(input.local_identity.symbol, "OLD");
-        assert_eq!(input.local_identity.lifecycle_state.as_deref(), Some("INACTIVE"));
+        assert_eq!(
+            input.local_identity.lifecycle_state.as_deref(),
+            Some("INACTIVE")
+        );
         assert_eq!(input.local_identity.effective_from, None);
         assert_eq!(input.local_identity.effective_to, None);
     }
@@ -8397,7 +8831,13 @@ mod er2c2_shadow_tests {
             Vec::new(),
         );
         let indexes = er2c2_indexes(
-            vec![er2c2_existing("OLD", "SME Only", "SM", "INESME000001", true)],
+            vec![er2c2_existing(
+                "OLD",
+                "SME Only",
+                "SM",
+                "INESME000001",
+                true,
+            )],
             &snapshot,
             "2026-09-13T01:00:00+05:30",
         );
@@ -8413,36 +8853,34 @@ mod er2c2_shadow_tests {
         );
         assert_eq!(
             build_nse_i4_er2_input(&preview, &indexes).unwrap_err(),
-            NseI4Er2ShadowState::NotEvaluated(
-                NseI4Er2ShadowReason::NoOfficialCurrentIdentity,
-            ),
+            NseI4Er2ShadowState::NotEvaluated(NseI4Er2ShadowReason::NoOfficialCurrentIdentity,),
         );
     }
 
     #[test]
     fn er2c2_t4_symbol_change_evidence_never_borrows_isin_or_series() {
         let row = er2c2_symbol_change("OLD", "NEW", "2026-01-01");
-        let evidence = build_nse_i4_er2_symbol_change_evidence(
-            &row,
-            "BBBB",
-            "2026-09-13T01:00:00+05:30",
-        );
+        let evidence =
+            build_nse_i4_er2_symbol_change_evidence(&row, "BBBB", "2026-09-13T01:00:00+05:30");
         assert_eq!(evidence.isin, None);
         assert_eq!(evidence.series, None);
-        assert_eq!(evidence.evidence_kind, IdentityResolverEvidenceKind::SymbolChange);
+        assert_eq!(
+            evidence.evidence_kind,
+            IdentityResolverEvidenceKind::SymbolChange
+        );
     }
 
     #[test]
     fn er2c2_t5_name_change_evidence_never_borrows_isin_or_series() {
         let row = er2c2_name_change("ABC", "Old Limited", "New Limited", "2026-01-01");
-        let evidence = build_nse_i4_er2_name_change_evidence(
-            &row,
-            "CCCC",
-            "2026-09-13T01:00:00+05:30",
-        );
+        let evidence =
+            build_nse_i4_er2_name_change_evidence(&row, "CCCC", "2026-09-13T01:00:00+05:30");
         assert_eq!(evidence.isin, None);
         assert_eq!(evidence.series, None);
-        assert_eq!(evidence.evidence_kind, IdentityResolverEvidenceKind::NameChange);
+        assert_eq!(
+            evidence.evidence_kind,
+            IdentityResolverEvidenceKind::NameChange
+        );
     }
 
     #[test]
@@ -8452,7 +8890,12 @@ mod er2c2_shadow_tests {
             vec![er2c2_master("NEW", "New Limited", "EQ", "INE000A01001")],
             Vec::new(),
             vec![er2c2_symbol_change("OLD", "NEW", "2026-01-01")],
-            vec![er2c2_name_change("NEW", "Old Limited", "New Limited", "2026-01-01")],
+            vec![er2c2_name_change(
+                "NEW",
+                "Old Limited",
+                "New Limited",
+                "2026-01-01",
+            )],
         );
         let preview = er2c2_history_row(
             "NEW",
@@ -8465,12 +8908,24 @@ mod er2c2_shadow_tests {
             "2026-01-01",
         );
         let indexes_a = er2c2_indexes(
-            vec![er2c2_existing("OLD", "Old Limited", "EQ", "INE000A01001", true)],
+            vec![er2c2_existing(
+                "OLD",
+                "Old Limited",
+                "EQ",
+                "INE000A01001",
+                true,
+            )],
             &snapshot,
             "2026-09-13T01:00:00+05:30",
         );
         let indexes_b = er2c2_indexes(
-            vec![er2c2_existing("OLD", "Old Limited", "EQ", "INE000A01001", true)],
+            vec![er2c2_existing(
+                "OLD",
+                "Old Limited",
+                "EQ",
+                "INE000A01001",
+                true,
+            )],
             &snapshot,
             "2026-09-13T02:00:00+05:30",
         );
@@ -8511,7 +8966,13 @@ mod er2c2_shadow_tests {
             Vec::new(),
         );
         let indexes = er2c2_indexes(
-            vec![er2c2_existing("OLD", "New Limited", "EQ", "INE000A01001", true)],
+            vec![er2c2_existing(
+                "OLD",
+                "New Limited",
+                "EQ",
+                "INE000A01001",
+                true,
+            )],
             &snapshot,
             "2026-09-13T01:00:00+05:30",
         );
@@ -8544,7 +9005,13 @@ mod er2c2_shadow_tests {
             Vec::new(),
         );
         let indexes = er2c2_indexes(
-            vec![er2c2_existing("OLD", "New Limited", "EQ", "INE000A01001", true)],
+            vec![er2c2_existing(
+                "OLD",
+                "New Limited",
+                "EQ",
+                "INE000A01001",
+                true,
+            )],
             &snapshot,
             "2026-09-13T01:00:00+05:30",
         );
@@ -8585,7 +9052,13 @@ mod er2c2_shadow_tests {
             Vec::new(),
         );
         let indexes = er2c2_indexes(
-            vec![er2c2_existing("OLD", "New Limited", "EQ", "INEOLD01001", true)],
+            vec![er2c2_existing(
+                "OLD",
+                "New Limited",
+                "EQ",
+                "INEOLD01001",
+                true,
+            )],
             &snapshot,
             "2026-09-13T01:00:00+05:30",
         );
@@ -8599,7 +9072,8 @@ mod er2c2_shadow_tests {
             None,
             "2026-01-01",
         );
-        let result = resolve_identity(&build_nse_i4_er2_input(&preview, &indexes).unwrap()).unwrap();
+        let result =
+            resolve_identity(&build_nse_i4_er2_input(&preview, &indexes).unwrap()).unwrap();
         assert_eq!(result.status, IdentityResolverStatus::Conflict);
         assert_eq!(
             result.rule_id,
@@ -8614,10 +9088,21 @@ mod er2c2_shadow_tests {
             vec![er2c2_master("ABC", "New Limited", "EQ", "INE000A01001")],
             Vec::new(),
             Vec::new(),
-            vec![er2c2_name_change("ABC", "Old Limited", "New Limited", "2026-01-01")],
+            vec![er2c2_name_change(
+                "ABC",
+                "Old Limited",
+                "New Limited",
+                "2026-01-01",
+            )],
         );
         let indexes = er2c2_indexes(
-            vec![er2c2_existing("ABC", "Old Limited", "EQ", "INE000A01001", true)],
+            vec![er2c2_existing(
+                "ABC",
+                "Old Limited",
+                "EQ",
+                "INE000A01001",
+                true,
+            )],
             &snapshot,
             "2026-09-13T01:00:00+05:30",
         );
@@ -8631,7 +9116,8 @@ mod er2c2_shadow_tests {
             Some("New Limited"),
             "2026-01-01",
         );
-        let result = resolve_identity(&build_nse_i4_er2_input(&preview, &indexes).unwrap()).unwrap();
+        let result =
+            resolve_identity(&build_nse_i4_er2_input(&preview, &indexes).unwrap()).unwrap();
         assert_eq!(result.status, IdentityResolverStatus::InsufficientEvidence);
         assert_eq!(
             result.rule_id,
@@ -8649,7 +9135,13 @@ mod er2c2_shadow_tests {
             Vec::new(),
         );
         let indexes = er2c2_indexes(
-            vec![er2c2_existing("OLD", "New Limited", "EQ", "INE000A01001", true)],
+            vec![er2c2_existing(
+                "OLD",
+                "New Limited",
+                "EQ",
+                "INE000A01001",
+                true,
+            )],
             &snapshot,
             "2026-09-13T01:00:00+05:30",
         );
@@ -8697,8 +9189,14 @@ mod er2c2_shadow_tests {
         let duplicate_eval = evaluate_nse_i4_er2_shadow_row(&duplicate_row, &indexes);
         let skipped_eval = evaluate_nse_i4_er2_shadow_row(&skipped_row, &indexes);
         let error_eval = evaluate_nse_i4_er2_shadow_row(&error_row, &indexes);
-        assert_eq!(new_eval.relationship, NseI4Er2ShadowRelationship::ResolverNeedsMoreEvidence);
-        assert_eq!(duplicate_eval.relationship, NseI4Er2ShadowRelationship::ResolverNeedsMoreEvidence);
+        assert_eq!(
+            new_eval.relationship,
+            NseI4Er2ShadowRelationship::ResolverNeedsMoreEvidence
+        );
+        assert_eq!(
+            duplicate_eval.relationship,
+            NseI4Er2ShadowRelationship::ResolverNeedsMoreEvidence
+        );
         assert_eq!(
             skipped_eval.state,
             NseI4Er2ShadowState::NotEvaluated(NseI4Er2ShadowReason::I4RowSkipped),
@@ -8707,7 +9205,8 @@ mod er2c2_shadow_tests {
             error_eval.state,
             NseI4Er2ShadowState::NotEvaluated(NseI4Er2ShadowReason::I4RowError),
         );
-        let summary = summarize_nse_i4_er2_shadow(&[new_eval, duplicate_eval, skipped_eval, error_eval]);
+        let summary =
+            summarize_nse_i4_er2_shadow(&[new_eval, duplicate_eval, skipped_eval, error_eval]);
         assert_eq!(summary.history_rows, 4);
         assert_eq!(summary.evaluated_rows, 2);
         assert_eq!(summary.not_evaluated_rows, 2);
@@ -8736,7 +9235,11 @@ mod er2c2_shadow_tests {
         let snapshot_a = load_nse_historical_identity_source_snapshot(&input_a).unwrap();
         let snapshot_b = load_nse_historical_identity_source_snapshot(&input_b).unwrap();
         let existing = er2c2_existing("OLD", "New Limited", "EQ", "INE000A01001", true);
-        let indexes_a = er2c2_indexes(vec![existing.clone()], &snapshot_a, "2026-09-13T01:00:00+05:30");
+        let indexes_a = er2c2_indexes(
+            vec![existing.clone()],
+            &snapshot_a,
+            "2026-09-13T01:00:00+05:30",
+        );
         let indexes_b = er2c2_indexes(vec![existing], &snapshot_b, "2026-09-13T01:00:00+05:30");
         let preview = er2c2_history_row(
             "NEW",
@@ -8748,8 +9251,10 @@ mod er2c2_shadow_tests {
             None,
             "2026-01-01",
         );
-        let result_a = resolve_identity(&build_nse_i4_er2_input(&preview, &indexes_a).unwrap()).unwrap();
-        let result_b = resolve_identity(&build_nse_i4_er2_input(&preview, &indexes_b).unwrap()).unwrap();
+        let result_a =
+            resolve_identity(&build_nse_i4_er2_input(&preview, &indexes_a).unwrap()).unwrap();
+        let result_b =
+            resolve_identity(&build_nse_i4_er2_input(&preview, &indexes_b).unwrap()).unwrap();
         assert_eq!(result_a.status, result_b.status);
         assert_eq!(result_a.conclusion, result_b.conclusion);
         assert_eq!(result_a.rule_id, result_b.rule_id);
@@ -8777,7 +9282,11 @@ mod er2c2_shadow_tests {
             Vec::new(),
         );
         let existing = er2c2_existing("OLD", "New Limited", "EQ", "INE000A01001", true);
-        let indexes_a = er2c2_indexes(vec![existing.clone()], &snapshot_a, "2026-09-13T01:00:00+05:30");
+        let indexes_a = er2c2_indexes(
+            vec![existing.clone()],
+            &snapshot_a,
+            "2026-09-13T01:00:00+05:30",
+        );
         let indexes_b = er2c2_indexes(vec![existing], &snapshot_b, "2026-09-13T02:00:00+05:30");
         let preview = er2c2_history_row(
             "NEW",
@@ -8789,8 +9298,10 @@ mod er2c2_shadow_tests {
             None,
             "2026-01-01",
         );
-        let result_a = resolve_identity(&build_nse_i4_er2_input(&preview, &indexes_a).unwrap()).unwrap();
-        let result_b = resolve_identity(&build_nse_i4_er2_input(&preview, &indexes_b).unwrap()).unwrap();
+        let result_a =
+            resolve_identity(&build_nse_i4_er2_input(&preview, &indexes_a).unwrap()).unwrap();
+        let result_b =
+            resolve_identity(&build_nse_i4_er2_input(&preview, &indexes_b).unwrap()).unwrap();
         assert_eq!(result_a.status, result_b.status);
         assert_eq!(result_a.conclusion, result_b.conclusion);
         assert_eq!(result_a.rule_id, result_b.rule_id);
@@ -8807,7 +9318,14 @@ mod er2c2_shadow_tests {
             "NCH_SYMBOL,NCH_PREV_NAME,NCH_NEW_NAME,NCH_DT\n",
         );
         let connection = er2c2_test_connection();
-        er2c2_insert_local(&connection, "OLDCO", "Current Limited", "EQ", "INEOLD1", true);
+        er2c2_insert_local(
+            &connection,
+            "OLDCO",
+            "Current Limited",
+            "EQ",
+            "INEOLD1",
+            true,
+        );
         let input = NseHistoricalIdentityPreviewInput {
             archive_root_path: Some(root.display().to_string()),
         };
@@ -8818,7 +9336,11 @@ mod er2c2_shadow_tests {
         assert!(er2c2_shadow_test_entry_autocommit());
         assert_eq!(er2c2_shadow_test_history_rows_at_entry(), 0);
         let persisted_history = connection
-            .query_row("SELECT COUNT(*) FROM instrument_identity_history", [], |row| row.get::<_, i64>(0))
+            .query_row(
+                "SELECT COUNT(*) FROM instrument_identity_history",
+                [],
+                |row| row.get::<_, i64>(0),
+            )
             .unwrap();
         assert_eq!(persisted_history, 0);
         fs::remove_dir_all(root).unwrap();
@@ -8839,7 +9361,8 @@ mod er2c2_shadow_tests {
             archive_root_path: Some(root.display().to_string()),
         };
         er2c2_shadow_test_reset();
-        let error = preview_nse_historical_identity_archive_internal(&connection, &input).unwrap_err();
+        let error =
+            preview_nse_historical_identity_archive_internal(&connection, &input).unwrap_err();
         assert!(error.to_ascii_lowercase().contains("no such table"));
         assert!(error.to_ascii_lowercase().contains("instruments"));
         assert_eq!(er2c2_shadow_test_call_count(), 0);
@@ -8856,7 +9379,14 @@ mod er2c2_shadow_tests {
             "NCH_SYMBOL,NCH_PREV_NAME,NCH_NEW_NAME,NCH_DT\n",
         );
         let connection = er2c2_test_connection();
-        er2c2_insert_local(&connection, "OLDCO", "Current Limited", "EQ", "INEOLD1", true);
+        er2c2_insert_local(
+            &connection,
+            "OLDCO",
+            "Current Limited",
+            "EQ",
+            "INEOLD1",
+            true,
+        );
         let input = NseHistoricalIdentityPreviewInput {
             archive_root_path: Some(root.display().to_string()),
         };
@@ -8868,7 +9398,14 @@ mod er2c2_shadow_tests {
         );
         let snapshot = load_nse_historical_identity_source_snapshot(&input).unwrap();
         let shadow = evaluate_nse_i4_er2_shadow(&connection, &snapshot, &expected);
-        assert!(shadow.iter().any(|row| row.relationship == NseI4Er2ShadowRelationship::ResolverConflict), "preview errors: {:?}; shadow: {:?}", expected.errors, shadow);
+        assert!(
+            shadow
+                .iter()
+                .any(|row| row.relationship == NseI4Er2ShadowRelationship::ResolverConflict),
+            "preview errors: {:?}; shadow: {:?}",
+            expected.errors,
+            shadow
+        );
         fs::remove_dir_all(root).unwrap();
     }
 
@@ -8882,7 +9419,14 @@ mod er2c2_shadow_tests {
             "NCH_SYMBOL,NCH_PREV_NAME,NCH_NEW_NAME,NCH_DT\n",
         );
         let connection = er2c2_test_connection();
-        er2c2_insert_local(&connection, "OLDCO", "Current Limited", "EQ", "INEOLD1", true);
+        er2c2_insert_local(
+            &connection,
+            "OLDCO",
+            "Current Limited",
+            "EQ",
+            "INEOLD1",
+            true,
+        );
         let input = NseHistoricalIdentityPreviewInput {
             archive_root_path: Some(root.display().to_string()),
         };
@@ -8894,7 +9438,9 @@ mod er2c2_shadow_tests {
         );
         let snapshot = load_nse_historical_identity_source_snapshot(&input).unwrap();
         let shadow = evaluate_nse_i4_er2_shadow(&connection, &snapshot, &expected);
-        assert!(shadow.iter().any(|row| row.relationship == NseI4Er2ShadowRelationship::AdapterError));
+        assert!(shadow
+            .iter()
+            .any(|row| row.relationship == NseI4Er2ShadowRelationship::AdapterError));
         fs::remove_dir_all(root).unwrap();
     }
 
@@ -8908,7 +9454,14 @@ mod er2c2_shadow_tests {
             "NCH_SYMBOL,NCH_PREV_NAME,NCH_NEW_NAME,NCH_DT\n",
         );
         let connection = er2c2_test_connection();
-        er2c2_insert_local(&connection, "OLDCO", "Current Limited", "EQ", "INEOLD1", true);
+        er2c2_insert_local(
+            &connection,
+            "OLDCO",
+            "Current Limited",
+            "EQ",
+            "INEOLD1",
+            true,
+        );
         connection
             .execute_batch(
                 "CREATE TRIGGER er2c2_fail_identity_two BEFORE INSERT ON instrument_identity_history BEGIN SELECT RAISE(FAIL, 'er2c2 injected failure two'); END;",
@@ -8930,7 +9483,10 @@ mod er2c2_shadow_tests {
         assert_eq!(er2c2_shadow_test_call_count(), 1);
         let snapshot = load_nse_historical_identity_source_snapshot(&input).unwrap();
         let shadow = evaluate_nse_i4_er2_shadow(&connection, &snapshot, &actual);
-        assert!(shadow.iter().any(|row| row.state == NseI4Er2ShadowState::NotEvaluated(NseI4Er2ShadowReason::I4RowError)));
+        assert!(shadow
+            .iter()
+            .any(|row| row.state
+                == NseI4Er2ShadowState::NotEvaluated(NseI4Er2ShadowReason::I4RowError)));
         fs::remove_dir_all(root).unwrap();
     }
 
@@ -8944,11 +9500,19 @@ mod er2c2_shadow_tests {
             "NCH_SYMBOL,NCH_PREV_NAME,NCH_NEW_NAME,NCH_DT\n",
         );
         let connection = er2c2_test_connection();
-        er2c2_insert_local(&connection, "OLDCO", "Current Limited", "EQ", "INEOLD1", true);
+        er2c2_insert_local(
+            &connection,
+            "OLDCO",
+            "Current Limited",
+            "EQ",
+            "INEOLD1",
+            true,
+        );
         let preview_input = NseHistoricalIdentityPreviewInput {
             archive_root_path: Some(root.display().to_string()),
         };
-        let preview = preview_nse_historical_identity_archive_internal(&connection, &preview_input).unwrap();
+        let preview =
+            preview_nse_historical_identity_archive_internal(&connection, &preview_input).unwrap();
         er2c2_shadow_test_reset();
         let applied = apply_nse_historical_identity_archive_internal(
             &connection,
@@ -9031,4 +9595,3 @@ mod er2c2_shadow_tests {
         );
     }
 }
-

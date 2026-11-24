@@ -1,8 +1,8 @@
+use crate::database::binary_eod::{BinaryEodFile, DEFAULT_SCALE, HEADER_SIZE, RECORD_SIZE};
+use crate::database::eod_binary_state::{BinaryStateIndex, BinaryStateKey};
 use chrono::Utc;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
-use crate::database::binary_eod::{BinaryEodFile, DEFAULT_SCALE, HEADER_SIZE, RECORD_SIZE};
-use crate::database::eod_binary_state::{BinaryStateIndex, BinaryStateKey};
 use std::collections::{HashMap, VecDeque};
 use std::fs::{self, File, OpenOptions};
 use std::io::{BufRead, BufReader, BufWriter, Read, Seek, SeekFrom, Write};
@@ -189,9 +189,9 @@ pub fn create_prepared_session(
 
     let journal_temp_path = directory.join(JOURNAL_TEMP_FILE);
     let journal_path = directory.join(JOURNAL_FILE);
-    let (journal_byte_length, journal_sha256) =
-        write_journal_file(&journal_temp_path, &spec.rows)?;
-    retry_recovery_fs(|| fs::rename(&journal_temp_path, &journal_path)).map_err(|error| error.to_string())?;
+    let (journal_byte_length, journal_sha256) = write_journal_file(&journal_temp_path, &spec.rows)?;
+    retry_recovery_fs(|| fs::rename(&journal_temp_path, &journal_path))
+        .map_err(|error| error.to_string())?;
 
     let binary_baselines_sha256 = sha256_json(&spec.binary_baselines)?;
     let now = now_iso();
@@ -262,7 +262,11 @@ fn recovery_session_directories(database_folder: &Path) -> AppResult<Vec<PathBuf
     let mut directories = Vec::new();
     for entry in entries {
         let entry = entry.map_err(|error| error.to_string())?;
-        if entry.metadata().map_err(|error| error.to_string())?.is_dir() {
+        if entry
+            .metadata()
+            .map_err(|error| error.to_string())?
+            .is_dir()
+        {
             directories.push(entry.path());
         }
     }
@@ -277,7 +281,10 @@ fn load_session_manifest(
         Ok(manifest) => manifest,
         Err(error) => {
             let exists = |name| {
-                directory.join(name).try_exists().map_err(|error| error.to_string())
+                directory
+                    .join(name)
+                    .try_exists()
+                    .map_err(|error| error.to_string())
             };
             if !exists(MANIFEST_FILE)? && !exists(MANIFEST_BACKUP_FILE)? {
                 // The operation cannot apply prices before publishing PREPARED.
@@ -411,7 +418,8 @@ pub(crate) fn check_recovery_sqlite_binding(
     sqlite_file: &Path,
 ) -> AppResult<()> {
     if let Some(expected) = &session.manifest.sqlite_key {
-        let actual = crate::database::database_use::CanonicalAccess::sqlite_key_for_file(sqlite_file)?;
+        let actual =
+            crate::database::database_use::CanonicalAccess::sqlite_key_for_file(sqlite_file)?;
         if *expected != actual {
             return Err(format!(
                 "Bhavcopy session {} belongs to a different SQLite file. Review recovery before replay.",
@@ -575,9 +583,7 @@ pub fn publish_recovery_binary_state(
 
     let mut keys = baselines
         .iter()
-        .map(|baseline| {
-            BinaryStateKey::new(baseline.exchange.clone(), baseline.symbol.clone())
-        })
+        .map(|baseline| BinaryStateKey::new(baseline.exchange.clone(), baseline.symbol.clone()))
         .collect::<Vec<_>>();
     keys.sort_by(|left, right| {
         left.exchange
@@ -634,21 +640,22 @@ fn sync_verified_checkpoint_paths(paths: Vec<PathBuf>) -> AppResult<CheckpointSy
                 return;
             };
 
-            let file = match retry_recovery_fs(|| OpenOptions::new().read(true).write(true).open(&path)) {
-                Ok(file) => file,
-                Err(error) => {
-                    if let Ok(mut slot) = worker_error.lock() {
-                        if slot.is_none() {
-                            *slot = Some(format!(
-                                "Buffered APPEND_NEWEST checkpoint open failed for {}: {}",
-                                path.display(),
-                                error
-                            ));
+            let file =
+                match retry_recovery_fs(|| OpenOptions::new().read(true).write(true).open(&path)) {
+                    Ok(file) => file,
+                    Err(error) => {
+                        if let Ok(mut slot) = worker_error.lock() {
+                            if slot.is_none() {
+                                *slot = Some(format!(
+                                    "Buffered APPEND_NEWEST checkpoint open failed for {}: {}",
+                                    path.display(),
+                                    error
+                                ));
+                            }
                         }
+                        return;
                     }
-                    return;
-                }
-            };
+                };
 
             let sync_started = Instant::now();
             if let Err(error) = file.sync_data() {
@@ -679,7 +686,9 @@ fn sync_verified_checkpoint_paths(paths: Vec<PathBuf>) -> AppResult<CheckpointSy
             Ok(handle) => workers.push(handle),
             Err(error) => {
                 if let Ok(mut slot) = first_error.lock() {
-                    *slot = Some(format!("Could not start Bhavcopy checkpoint worker: {error}"));
+                    *slot = Some(format!(
+                        "Could not start Bhavcopy checkpoint worker: {error}"
+                    ));
                 }
                 break;
             }
@@ -690,9 +699,8 @@ fn sync_verified_checkpoint_paths(paths: Vec<PathBuf>) -> AppResult<CheckpointSy
         if worker.join().is_err() {
             if let Ok(mut slot) = first_error.lock() {
                 if slot.is_none() {
-                    *slot = Some(
-                        "Bhavcopy buffered checkpoint worker thread panicked.".to_string(),
-                    );
+                    *slot =
+                        Some("Bhavcopy buffered checkpoint worker thread panicked.".to_string());
                 }
             }
         }
@@ -815,7 +823,8 @@ fn restore_append_newest_baseline(
         .map_err(|error| error.to_string())?;
 
     let mut prefix = [0_u8; 8];
-    file.read_exact(&mut prefix).map_err(|error| error.to_string())?;
+    file.read_exact(&mut prefix)
+        .map_err(|error| error.to_string())?;
     if &prefix[0..4] != b"EOD1" {
         return Err(format!(
             "Cannot restore APPEND_NEWEST recovery baseline for {}:{} because the binary magic is invalid.",
@@ -831,10 +840,7 @@ fn restore_append_newest_baseline(
         )
     })?;
 
-    let complete_records = metadata
-        .len()
-        .saturating_sub(HEADER_SIZE as u64)
-        / RECORD_SIZE as u64;
+    let complete_records = metadata.len().saturating_sub(HEADER_SIZE as u64) / RECORD_SIZE as u64;
     if complete_records > baseline.record_count as u64 {
         let tail_count = (complete_records - baseline.record_count as u64) as usize;
         if tail_count > expected_rows.len() {
@@ -877,10 +883,7 @@ fn restore_append_newest_baseline(
     Ok(())
 }
 
-fn record_bytes_match_journal_row(
-    bytes: &[u8; RECORD_SIZE],
-    row: &RecoveryJournalRow,
-) -> bool {
+fn record_bytes_match_journal_row(bytes: &[u8; RECORD_SIZE], row: &RecoveryJournalRow) -> bool {
     u32::from_le_bytes(bytes[0..4].try_into().unwrap()) == row.binary_date
         && u32::from_le_bytes(bytes[4..8].try_into().unwrap()) == row.binary_flags
         && i64::from_le_bytes(bytes[8..16].try_into().unwrap()) == row.binary_open
@@ -1020,7 +1023,8 @@ fn write_manifest_atomic(directory: &Path, manifest: &RecoverySessionManifest) -
 
     {
         let mut file = File::create(&temp_path).map_err(|error| error.to_string())?;
-        file.write_all(&serialized).map_err(|error| error.to_string())?;
+        file.write_all(&serialized)
+            .map_err(|error| error.to_string())?;
         file.flush().map_err(|error| error.to_string())?;
         file.sync_all().map_err(|error| error.to_string())?;
     }
@@ -1029,7 +1033,8 @@ fn write_manifest_atomic(directory: &Path, manifest: &RecoverySessionManifest) -
         retry_recovery_fs(|| fs::remove_file(&backup_path)).map_err(|error| error.to_string())?;
     }
     if manifest_path.exists() {
-        retry_recovery_fs(|| fs::rename(&manifest_path, &backup_path)).map_err(|error| error.to_string())?;
+        retry_recovery_fs(|| fs::rename(&manifest_path, &backup_path))
+            .map_err(|error| error.to_string())?;
     }
     if let Err(error) = retry_recovery_fs(|| fs::rename(&temp_path, &manifest_path)) {
         if backup_path.exists() && !manifest_path.exists() {
@@ -1122,8 +1127,8 @@ mod tests {
     #[test]
     fn prepared_session_round_trips_and_validates_sha256() {
         let dir = tempdir().unwrap();
-        let handle = create_prepared_session(dir.path(), sample_spec(vec![sample_row(20260807)]))
-            .unwrap();
+        let handle =
+            create_prepared_session(dir.path(), sample_spec(vec![sample_row(20260807)])).unwrap();
         assert_eq!(handle.manifest.state, RecoverySessionState::Prepared);
         let loaded = load_pending_sessions(dir.path()).unwrap();
         assert_eq!(loaded.len(), 1);
@@ -1146,7 +1151,8 @@ mod tests {
         let sessions = load_pending_sessions(fixture.path()).unwrap();
         check_recovery_sqlite_binding(&sessions[0], &original).unwrap();
         assert!(check_recovery_sqlite_binding(&sessions[0], &other)
-            .unwrap_err().contains("different SQLite file"));
+            .unwrap_err()
+            .contains("different SQLite file"));
     }
 
     #[test]
@@ -1191,7 +1197,9 @@ mod tests {
             assert!(has_pending_sessions(folder).unwrap());
         }
         drop(lease);
-        let blocked = CanonicalAccess::lock_writer_for_database(folder).err().unwrap();
+        let blocked = CanonicalAccess::lock_writer_for_database(folder)
+            .err()
+            .unwrap();
         assert!(blocked.starts_with("CANONICAL_PRICE_STORE_INTERRUPTED"));
         let lease = CanonicalAccess::lock_bhavcopy_recovery(&sqlite_file).unwrap();
         update_session_state(&mut handle, RecoverySessionState::Checkpointed, None).unwrap();
@@ -1206,8 +1214,8 @@ mod tests {
     #[test]
     fn corrupted_journal_is_rejected() {
         let dir = tempdir().unwrap();
-        let handle = create_prepared_session(dir.path(), sample_spec(vec![sample_row(20260807)]))
-            .unwrap();
+        let handle =
+            create_prepared_session(dir.path(), sample_spec(vec![sample_row(20260807)])).unwrap();
         fs::write(handle.directory.join(JOURNAL_FILE), b"corrupt\n").unwrap();
         let error = load_pending_sessions(dir.path()).unwrap_err();
         assert!(error.contains("length mismatch") || error.contains("SHA-256 mismatch"));
@@ -1217,11 +1225,8 @@ mod tests {
     fn session_bound_to_other_database_is_rejected() {
         let first = tempdir().unwrap();
         let second = tempdir().unwrap();
-        let handle = create_prepared_session(
-            first.path(),
-            sample_spec(vec![sample_row(20260807)]),
-        )
-        .unwrap();
+        let handle =
+            create_prepared_session(first.path(), sample_spec(vec![sample_row(20260807)])).unwrap();
         let destination = recovery_sessions_root(second.path()).join(&handle.manifest.session_id);
         fs::create_dir_all(destination.parent().unwrap()).unwrap();
         fs::rename(&handle.directory, &destination).unwrap();
@@ -1247,7 +1252,11 @@ mod tests {
         let manifest_path = handle.directory.join(MANIFEST_FILE);
         let mut manifest = read_manifest(&manifest_path).unwrap();
         manifest.binary_baselines[0].record_count = 2;
-        fs::write(&manifest_path, serde_json::to_vec_pretty(&manifest).unwrap()).unwrap();
+        fs::write(
+            &manifest_path,
+            serde_json::to_vec_pretty(&manifest).unwrap(),
+        )
+        .unwrap();
         let error = load_pending_sessions(dir.path()).unwrap_err();
         assert!(error.contains("binary-baseline SHA-256 mismatch"));
     }
@@ -1301,11 +1310,15 @@ mod tests {
         )
         .unwrap();
 
-        restore_buffered_binary_baselines(dir.path(), &[baseline], &[sample_row(20260807)]).unwrap();
+        restore_buffered_binary_baselines(dir.path(), &[baseline], &[sample_row(20260807)])
+            .unwrap();
         let restored = BinaryEodFile::open(&path).unwrap();
         assert_eq!(restored.header.record_count, 1);
         assert_eq!(restored.read_all().unwrap(), original);
-        assert_eq!(fs::metadata(&path).unwrap().len(), (HEADER_SIZE + RECORD_SIZE) as u64);
+        assert_eq!(
+            fs::metadata(&path).unwrap().len(),
+            (HEADER_SIZE + RECORD_SIZE) as u64
+        );
     }
 
     #[test]
@@ -1357,11 +1370,11 @@ mod tests {
         )
         .unwrap();
 
-        let error = restore_buffered_binary_baselines(dir.path(), &[baseline], &[sample_row(20260807)]).unwrap_err();
+        let error =
+            restore_buffered_binary_baselines(dir.path(), &[baseline], &[sample_row(20260807)])
+                .unwrap_err();
         assert!(error.contains("no longer matches the recovery journal"));
     }
-
-
 
     #[test]
     fn append_newest_baseline_refuses_changed_journal_tail_record() {
@@ -1412,12 +1425,9 @@ mod tests {
         )
         .unwrap();
 
-        let error = restore_buffered_binary_baselines(
-            dir.path(),
-            &[baseline],
-            &[sample_row(20260807)],
-        )
-        .unwrap_err();
+        let error =
+            restore_buffered_binary_baselines(dir.path(), &[baseline], &[sample_row(20260807)])
+                .unwrap_err();
         assert!(error.contains("no longer matches the recovery journal"));
     }
 
@@ -1615,7 +1625,6 @@ mod tests {
         assert_eq!(restored.header.record_count, 1);
         assert_eq!(restored.read_all().unwrap(), original);
     }
-
 }
 
 #[cfg(test)]
@@ -1723,12 +1732,8 @@ mod v16_state_publication_tests {
     fn v16_checkpoint_publishes_fresh_verified_state_without_generation_bump() {
         let (dir, baseline, row) = setup_indexed_append_newest_fixture();
 
-        let checkpointed = checkpoint_buffered_append_newest_files(
-            dir.path(),
-            &[baseline],
-            &[row],
-        )
-        .unwrap();
+        let checkpointed =
+            checkpoint_buffered_append_newest_files(dir.path(), &[baseline], &[row]).unwrap();
         assert_eq!(checkpointed.files, 1);
 
         let index = BinaryStateIndex::open_existing_read_only(dir.path()).unwrap();
@@ -1748,12 +1753,8 @@ mod v16_state_publication_tests {
         let sidecar = BinaryStateIndex::sidecar_path_for(dir.path());
         fs::write(&sidecar, b"not-a-sqlite-database").unwrap();
 
-        let error = checkpoint_buffered_append_newest_files(
-            dir.path(),
-            &[baseline],
-            &[row],
-        )
-        .unwrap_err();
+        let error =
+            checkpoint_buffered_append_newest_files(dir.path(), &[baseline], &[row]).unwrap_err();
         assert!(
             error.contains("EOD binary state")
                 || error.contains("database")
@@ -1772,12 +1773,8 @@ mod v16_state_publication_tests {
             &[row.clone()],
         )
         .unwrap();
-        let second = checkpoint_buffered_append_newest_files(
-            dir.path(),
-            &[baseline],
-            &[row],
-        )
-        .unwrap();
+        let second =
+            checkpoint_buffered_append_newest_files(dir.path(), &[baseline], &[row]).unwrap();
 
         assert_eq!(first.files, 1);
         assert_eq!(second.files, 1);
@@ -1797,12 +1794,8 @@ mod v16_state_publication_tests {
     fn v17a_checkpoint_phase_telemetry_reports_durability_costs() {
         let (dir, baseline, row) = setup_indexed_append_newest_fixture();
 
-        let telemetry = checkpoint_buffered_append_newest_files(
-            dir.path(),
-            &[baseline],
-            &[row],
-        )
-        .unwrap();
+        let telemetry =
+            checkpoint_buffered_append_newest_files(dir.path(), &[baseline], &[row]).unwrap();
 
         assert_eq!(telemetry.files, 1);
         assert_eq!(telemetry.workers, 1);
@@ -1815,5 +1808,4 @@ mod v16_state_publication_tests {
         assert!(telemetry.sync_p50_us <= telemetry.sync_p95_us);
         assert!(telemetry.sync_p95_us <= telemetry.sync_max_us);
     }
-
 }

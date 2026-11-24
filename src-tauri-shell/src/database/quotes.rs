@@ -77,11 +77,14 @@ fn collect_binary_delete_targets(
     requested_symbols: Option<&Vec<String>>,
 ) -> AppResult<Vec<PathBuf>> {
     if let Some(symbols) = requested_symbols {
-        return symbols.iter().map(|symbol| {
-            let path = eod_file(exchange_path, symbol)?;
-            check_sibling(&path.with_extension("tmp"))?;
-            Ok(path)
-        }).collect();
+        return symbols
+            .iter()
+            .map(|symbol| {
+                let path = eod_file(exchange_path, symbol)?;
+                check_sibling(&path.with_extension("tmp"))?;
+                Ok(path)
+            })
+            .collect();
     }
 
     let paths = fs::read_dir(exchange_path)
@@ -192,7 +195,9 @@ fn delete_binary_records_across_paths(
                 .map_err(|_| "Binary quote delete worker panicked.".to_string())?;
             let mut worker_result = worker_result?;
             result.deleted += worker_result.deleted;
-            result.mutated_symbols.append(&mut worker_result.mutated_symbols);
+            result
+                .mutated_symbols
+                .append(&mut worker_result.mutated_symbols);
         }
         result.mutated_symbols.sort();
         result.mutated_symbols.dedup();
@@ -755,7 +760,6 @@ fn read_sqlite_quote(
         .map_err(|error| error.to_string())
 }
 
-
 const QUOTE_EDITOR_DOWNLOAD_LOG_INVALIDATION_NOTE: &str =
     "Quote Editor deletion invalidated imported quote coverage.";
 
@@ -1148,9 +1152,13 @@ pub(super) fn delete_quote_date_internal(
         })
         .transpose()?;
 
-    let exchange_path = base_path.map(|folder| eod_directory(folder, &exchange)).transpose()?;
+    let exchange_path = base_path
+        .map(|folder| eod_directory(folder, &exchange))
+        .transpose()?;
     let target_paths = match exchange_path.as_deref() {
-        Some(path) if path.exists() => collect_binary_delete_targets(path, requested_symbols.as_ref())?,
+        Some(path) if path.exists() => {
+            collect_binary_delete_targets(path, requested_symbols.as_ref())?
+        }
         _ => Vec::new(),
     };
     let affected_symbols = if let Some(symbols) = requested_symbols.clone() {
@@ -1177,7 +1185,8 @@ pub(super) fn delete_quote_date_internal(
         if !rows.is_empty() {
             rows
         } else {
-            target_paths.iter()
+            target_paths
+                .iter()
                 .filter_map(|path| path.file_stem()?.to_str().map(str::to_owned))
                 .collect()
         }
@@ -1300,7 +1309,12 @@ pub(super) fn delete_quote_date_scope_internal(
         .symbols
         .as_ref()
         .filter(|symbols| !symbols.is_empty())
-        .map(|symbols| symbols.iter().map(|symbol| normalize_symbol(symbol)).collect::<AppResult<Vec<_>>>())
+        .map(|symbols| {
+            symbols
+                .iter()
+                .map(|symbol| normalize_symbol(symbol))
+                .collect::<AppResult<Vec<_>>>()
+        })
         .transpose()?;
 
     let target_file_counts = if let Some(folder_path) = base_path {
@@ -1513,7 +1527,9 @@ mod tests {
         };
         let error = delete_quote_internal(&conn, &input, Some(root.path())).unwrap_err();
         assert!(error.contains("Unexpected storage path type"));
-        let count: i64 = conn.query_row("SELECT COUNT(*) FROM eod_prices", [], |row| row.get(0)).unwrap();
+        let count: i64 = conn
+            .query_row("SELECT COUNT(*) FROM eod_prices", [], |row| row.get(0))
+            .unwrap();
         assert_eq!(count, 1);
     }
 
@@ -2687,7 +2703,6 @@ mod tests {
         );
     }
 
-
     #[test]
     fn v15_quote_delete_metadata_preserves_download_history_fields() {
         let conn = setup_test_db();
@@ -2761,7 +2776,11 @@ mod tests {
         assert_eq!(state.0, "invalidated");
         assert_eq!(state.1, 321);
         assert_eq!(state.2, 987654);
-        assert!(state.3.as_deref().unwrap_or("").contains("prior audit note"));
+        assert!(state
+            .3
+            .as_deref()
+            .unwrap_or("")
+            .contains("prior audit note"));
         assert!(state.3.as_deref().unwrap_or("").contains("Quote Editor"));
         assert_eq!(state.4, "2024-05-16 10:11:12");
     }
@@ -2819,12 +2838,16 @@ mod tests {
         .unwrap();
 
         assert_eq!(result.result.deleted, 2);
-        assert_eq!(v15_download_log_state(&conn, "2024-05-16", "NSE").0, "invalidated");
-        assert_eq!(v15_download_log_state(&conn, "2024-05-16", "BSE").0, "invalidated");
+        assert_eq!(
+            v15_download_log_state(&conn, "2024-05-16", "NSE").0,
+            "invalidated"
+        );
+        assert_eq!(
+            v15_download_log_state(&conn, "2024-05-16", "BSE").0,
+            "invalidated"
+        );
     }
-
 }
-
 
 #[cfg(test)]
 mod v16_localized_state_invalidation_tests {

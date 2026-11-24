@@ -12,8 +12,10 @@ mod apply_reporting;
 mod master_transport;
 mod name_history;
 pub use apply_reporting::list_bse_identity_apply_history;
-pub use name_history::{refresh_bse_name_history, preview_bse_name_history, apply_bse_name_history,
-    list_bse_name_history_runs, get_bse_name_history_report};
+pub use name_history::{
+    apply_bse_name_history, get_bse_name_history_report, list_bse_name_history_runs,
+    preview_bse_name_history, refresh_bse_name_history,
+};
 
 use super::official_source_urls::{load_official_source_urls, OfficialSourceUrls};
 use super::{

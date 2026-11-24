@@ -154,7 +154,6 @@ fn write_saved_layouts(connection: &Connection, layouts: &[SavedLayoutRecord]) -
     write_setting_value(connection, LAYOUTS_SETTING_KEY, &serialized)
 }
 
-
 #[cfg(test)]
 mod er4b_settings_tests {
     use super::*;
@@ -162,8 +161,10 @@ mod er4b_settings_tests {
     #[test]
     fn er4b_generic_official_source_setting_write_is_rejected_before_write() {
         assert_eq!(
-            validate_setting_write_key(super::super::official_source_urls::OFFICIAL_SOURCE_URLS_SETTING_KEY)
-                .unwrap_err(),
+            validate_setting_write_key(
+                super::super::official_source_urls::OFFICIAL_SOURCE_URLS_SETTING_KEY
+            )
+            .unwrap_err(),
             "OFFICIAL_SOURCE_URLS_REQUIRES_REVIEWED_SAVE"
         );
         assert!(validate_setting_write_key("unrelated.setting").is_ok());
