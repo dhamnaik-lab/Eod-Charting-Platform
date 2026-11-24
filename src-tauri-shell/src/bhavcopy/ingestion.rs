@@ -824,6 +824,7 @@ fn prepare_recovery_session(
     let mut symbols = HashSet::<(String, String)>::new();
     let mut rows = Vec::<RecoveryJournalRow>::new();
     let mut jobs = Vec::<RecoveryJobSummary>::new();
+    let mut binary_records = HashMap::<String, HashMap<String, Vec<BhavcopyBinaryRecord>>>::new();
     for parsed in parsed_files {
         jobs.push(RecoveryJobSummary {
             exchange: parsed.exchange.clone(),
@@ -833,7 +834,30 @@ fn prepare_recovery_session(
         });
         for row in &parsed.rows {
             symbols.insert((parsed.exchange.clone(), row.symbol.clone()));
+            // Keep the original journal order and SQL-facing source fields. The
+            // index here identifies a journal row rather than a parsed file.
+            binary_records
+                .entry(parsed.exchange.clone())
+                .or_default()
+                .entry(row.symbol.clone())
+                .or_default()
+                .push(BhavcopyBinaryRecord {
+                    file_index: rows.len(),
+                    record: row.binary_record,
+                });
             rows.push(recovery_row_from_parsed(&parsed.exchange, row));
+        }
+    }
+
+    // Use exactly the same stable per-symbol sorting and previous-close
+    // normalization as the binary writer, before persisting the journal.
+    // Only the encoded binary value changes; source/SQLite prev_close stays
+    // untouched. Do not weaken the subsequent exact byte comparisons.
+    for symbol_records in sort_bhavcopy_binary_records(binary_records).into_values() {
+        for records in symbol_records.into_values() {
+            for record in records {
+                rows[record.file_index].binary_prev_close = record.record.prev_close;
+            }
         }
     }
 
@@ -1934,8 +1958,14 @@ pub(super) fn import_staged_csv_downloads(
     // After journal preparation begins, finish the entire symbol-batched
     // import and its recovery transitions before observing another stop.
     if !parsed_files.is_empty() && !stop.is_requested() {
+        // The final admission pass was previously performed inside the writer.
+        // Run it before preparing the journal, then reuse its exact masks for
+        // the write so a later re-admission cannot change the journal row set.
+        let write_admission = super::security_admission::admit(database_file_path, &parsed_files)?;
+        let journal_files =
+            super::security_admission::filter_files(&parsed_files, &write_admission);
         let (mut recovery_session, state_shadow_stats, baseline_fast_path_stats) =
-            prepare_bhavcopy_recovery_session(database_file_path, config, &parsed_files)?;
+            prepare_bhavcopy_recovery_session(database_file_path, config, &journal_files)?;
         emit_progress(
             app_handle,
             71,
@@ -2005,13 +2035,13 @@ pub(super) fn import_staged_csv_downloads(
         let mut deferred_append_syncs = 0_usize;
         let protected_import = (|| -> AppResult<()> {
             let _write_guard = lock_bhavcopy_write(write_lock)?;
-            let (parsed_results, insert_timing) =
-                insert_parsed_bhavcopy_files_with_durability_and_recovery_baselines(
-                    database_file_path,
-                    &parsed_files,
-                    BinaryWriteDurability::RecoveryJournalBuffered,
-                    Some(&recovery_session.manifest.binary_baselines),
-                )?;
+            let (parsed_results, insert_timing) = insert_admitted_bhavcopy_files(
+                database_file_path,
+                &parsed_files,
+                BinaryWriteDurability::RecoveryJournalBuffered,
+                Some(&recovery_session.manifest.binary_baselines),
+                write_admission,
+            )?;
             deferred_append_syncs = insert_timing.binary_diagnostics.deferred_sync_calls;
             if insert_timing.binary_errors > 0 {
                 return Err(format!(
@@ -2189,7 +2219,7 @@ pub(super) fn import_staged_csv_downloads(
             let connection = open_database_connection(database_file_path)?;
             let log_write_started = Instant::now();
             let mut log_entries_written = 0_usize;
-            for (parsed, parsed_result) in parsed_files.iter().zip(parsed_results) {
+            for (parsed, parsed_result) in journal_files.iter().zip(parsed_results) {
                 let records_written = parsed_result.rows_inserted + parsed_result.rows_replaced;
                 let mut message = if records_written == 0 && !parsed.rows.is_empty() {
                     format!(

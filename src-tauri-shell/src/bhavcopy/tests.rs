@@ -1127,6 +1127,123 @@ fn db_safe_03_bhavcopy_journal_replay_write_preserves_delivery() {
 }
 
 #[test]
+fn bhav_recovery01a_journal_matches_buffered_multi_day_binary_records() {
+    assert_recovery01a_checkpoint_matches(false);
+}
+
+#[test]
+fn bhav_recovery01a_journal_preserves_supplied_previous_close() {
+    assert_recovery01a_checkpoint_matches(true);
+}
+
+fn assert_recovery01a_checkpoint_matches(supply_previous_close: bool) {
+    let (temp_dir, db_path) = create_temp_bhavcopy_db();
+    let conn = open_prepared_fixture_connection(&db_path).unwrap();
+    set_price_storage_mode(&conn, PriceStorageMode::Binary).unwrap();
+    drop(conn);
+
+    let parse = |date: &str, stamp: &str, close: u32| {
+        let csv = format!(
+            "SYMBOL,SERIES,OPEN,HIGH,LOW,CLOSE,TOTTRDQTY,TIMESTAMP\nRECOVERYCO,EQ,{close},{close},{close},{close},1000,{stamp}"
+        );
+        parse_bhavcopy_csv(&csv, "NSE", date, &[]).unwrap()
+    };
+    let initial = parse("2026-11-09", "09-NOV-2026", 100);
+    insert_parsed_bhavcopy_files(&db_path, &[initial]).unwrap();
+    // Deliberately unsorted, and retain the supplied previous-close value.
+    let mut batch = vec![
+        parse("2026-11-13", "13-NOV-2026", 130),
+        parse("2026-11-11", "11-NOV-2026", 110),
+        parse("2026-11-12", "12-NOV-2026", 120),
+    ];
+    let supplied = 109 * i64::from(DEFAULT_SCALE);
+    if supply_previous_close {
+        batch[2].rows[0].binary_record.prev_close = supplied;
+        batch[2].rows[0].prev_close = Some(109.0);
+    }
+    let expected_middle = if supply_previous_close {
+        supplied
+    } else {
+        batch[1].rows[0].binary_record.close
+    };
+    let config = BatchDownloadConfig {
+        mode: DownloadMode::Range,
+        exchanges: ExchangeSelection {
+            nse: true,
+            bse: false,
+            nse_index: false,
+            bse_index: false,
+        },
+        start_date: "2026-11-11".into(),
+        end_date: "2026-11-13".into(),
+        workers: 1,
+        excluded_series: Vec::new(),
+        nse_equity_url_override: None,
+        nse_index_url_override: None,
+        bse_equity_url_override: None,
+        bse_index_url_override: None,
+        force_redownload: false,
+    };
+    let (session, _, _) = prepare_bhavcopy_recovery_session(&db_path, &config, &batch).unwrap();
+    let sessions = crate::bhavcopy_recovery::load_pending_sessions(temp_dir.path()).unwrap();
+    assert_eq!(sessions.len(), 1);
+    let loaded = &sessions[0];
+    assert_eq!(loaded.rows.len(), 3);
+    // The journal retains source/file ordering even though normalization sorts
+    // by the binary date. The SQLite-facing missing value stays unchanged.
+    assert_eq!(loaded.rows[0].binary_date, 20261113);
+    assert_eq!(
+        loaded.rows[0].binary_prev_close,
+        batch[2].rows[0].binary_record.close
+    );
+    assert_eq!(loaded.rows[0].prev_close, batch[0].rows[0].prev_close);
+    assert_eq!(loaded.rows[1].binary_prev_close, 0);
+    assert_eq!(loaded.rows[2].binary_prev_close, expected_middle);
+    let (_, timing) = insert_parsed_bhavcopy_files_with_durability_and_recovery_baselines(
+        &db_path,
+        &batch,
+        BinaryWriteDurability::RecoveryJournalBuffered,
+        Some(&session.manifest.binary_baselines),
+    )
+    .unwrap();
+    assert_eq!(timing.binary_errors, 0);
+    assert_eq!(timing.binary_diagnostics.deferred_sync_calls, 1);
+    for _ in 0..2 {
+        let checkpoint = crate::bhavcopy_recovery::checkpoint_buffered_append_newest_files(
+            temp_dir.path(),
+            &loaded.manifest.binary_baselines,
+            &loaded.rows,
+        )
+        .unwrap();
+        assert_eq!(checkpoint.files, 1);
+    }
+    let path = temp_dir
+        .path()
+        .join("eod_data")
+        .join("NSE")
+        .join("RECOVERYCO.eod");
+    let records = BinaryEodFile::open(&path).unwrap().read_all().unwrap();
+    assert_eq!(records.len(), 4);
+    assert_eq!(records[1].prev_close, 0);
+    assert_eq!(records[2].prev_close, expected_middle);
+    assert_eq!(records[3].prev_close, records[2].close);
+    crate::bhavcopy_recovery::restore_buffered_binary_baselines(
+        temp_dir.path(),
+        &loaded.manifest.binary_baselines,
+        &loaded.rows,
+    )
+    .unwrap();
+    assert_eq!(
+        BinaryEodFile::open(&path)
+            .unwrap()
+            .read_all()
+            .unwrap()
+            .len(),
+        1
+    );
+}
+
+#[test]
 fn test_insert_parsed_bhavcopy_files_batches_binary_records_by_symbol() {
     let (temp_dir, db_path) = create_temp_bhavcopy_db();
     let conn = open_prepared_fixture_connection(&db_path).unwrap();
