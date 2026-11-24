@@ -26,8 +26,8 @@ Charting workspaces, instruments and identity resolution, `.eod` binary price fi
 | [FILE_INVENTORY.md](FILE_INVENTORY.md) | Short source navigation map |
 | [PROJECT_STATE_EOD_CHARTING_PLATFORM.md](PROJECT_STATE_EOD_CHARTING_PLATFORM.md) | Dated snapshot audit baseline, findings and check results |
 | [Native scanner retirement readiness](docs/plans/2026-11-21_NATIVE_SCANNER_RETIREMENT_READINESS.md) | Current native/TypeScript routing, bounded Windows parity evidence and open migration gates |
-| [WP-04 signal and formula parity](docs/plans/2026-11-24_WP04_SIGNAL_AND_FORMULA_PARITY.md) | Windows portable acceptance for the built-in presets and bounded custom signals |
+| [WP-04 signal and formula parity](docs/plans/2026-11-24_WP04_SIGNAL_AND_FORMULA_PARITY.md) | Windows portable acceptance for built-in presets, bounded custom signals and Custom Formula |
 | [HANDOFF.md](HANDOFF.md) | Immediate resume/checkpoint instructions |
-| [NEXT_THREAD_PROMPT_EOD_CHARTING_PLATFORM.md](NEXT_THREAD_PROMPT_EOD_CHARTING_PLATFORM.md) | User-confirmed running/completed/next phase states only |
+| [Start or resume work](NEXT_THREAD_PROMPT_EOD_CHARTING_PLATFORM.md#start-from-github-or-powershell) | Current phase, completed work and GitHub or PowerShell handoff |
 
-**Source scope.** The [4 Nov 2026 ZIP audit](PROJECT_STATE_EOD_CHARTING_PLATFORM.md#snapshot-authority) is historical. The [living scanner roadmap](docs/plans/2026-11-21_NATIVE_SCANNER_RETIREMENT_READINESS.md) tracks current routing and migration gates. WP-02 and WP-03 have Windows acceptance records. The [WP-04 V1 preset pilot](docs/plans/2026-11-24_WP04_SIGNAL_AND_FORMULA_PARITY.md#windows-portable-acceptance--24-november-2026-ist) passed Windows desktop parity on the normal portable using actual EOD data.
+**Source scope.** The [4 Nov 2026 ZIP audit](PROJECT_STATE_EOD_CHARTING_PLATFORM.md#snapshot-authority) is historical. Main includes the accepted WP-02, WP-03 and WP-04 Scanner work, including [Custom Formula Windows acceptance](docs/plans/2026-11-24_WP04_SIGNAL_AND_FORMULA_PARITY.md#windows-portable-acceptance-for-custom-formula--24-november-2026-ist). The [remaining work table](docs/plans/2026-11-21_NATIVE_SCANNER_RETIREMENT_READINESS.md#remaining-work) tracks the next scope and retirement gates.

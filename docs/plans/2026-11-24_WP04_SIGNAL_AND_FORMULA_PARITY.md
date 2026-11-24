@@ -181,7 +181,7 @@ The main SQLite catalog, database manifest and NTPC history SHA-256 values match
 
 ## Formula contract
 
-The first Custom Formula Scanner workflow on `codex/wp04-custom-formula` passed actual-data Windows portable acceptance. The branch is based on published `main@096044a`.
+The standalone TypeScript Custom Formula Scanner passed actual-data Windows portable acceptance at `0551ef6` and is now on `main`. The supported workflow is latest-bar, exact raw EOD evaluation with one explicitly selected boolean series.
 
 The chart formula editor evaluates assignment programs and uses numeric assignments as plots. Before this workflow, the unused batch helper chose the first nonzero numeric plot. For example, FIRST = close could produce a hit even when RULE = close > 200 evaluated false. The Scanner now requires explicit selection and validates one named boolean series. The chart evaluator retains numeric plot output. [Formula evaluation](../../src/modules/formulaEngine/customFormulaEngine.ts)
 
