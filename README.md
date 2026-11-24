@@ -25,8 +25,9 @@ Charting workspaces, instruments and identity resolution, `.eod` binary price fi
 | [Git main synchronization](docs/changes/2026-11-06_MAIN_SYNCHRONIZATION.md) | Dated sync baseline, local work preservation and rollback evidence |
 | [FILE_INVENTORY.md](FILE_INVENTORY.md) | Short source navigation map |
 | [PROJECT_STATE_EOD_CHARTING_PLATFORM.md](PROJECT_STATE_EOD_CHARTING_PLATFORM.md) | Dated snapshot audit baseline, findings and check results |
-| [Native scanner retirement readiness](docs/plans/2026-11-21_NATIVE_SCANNER_RETIREMENT_READINESS.md) | Current 22 Nov 2026 source-confirmed native/TypeScript coverage, open migration gates and Windows acceptance HOLD |
+| [Native scanner retirement readiness](docs/plans/2026-11-21_NATIVE_SCANNER_RETIREMENT_READINESS.md) | Current native/TypeScript routing, bounded Windows parity evidence and open migration gates |
+| [WP-04 signal and formula parity](docs/plans/2026-11-24_WP04_SIGNAL_AND_FORMULA_PARITY.md) | Windows portable acceptance for the built-in presets and bounded custom signals |
 | [HANDOFF.md](HANDOFF.md) | Immediate resume/checkpoint instructions |
 | [NEXT_THREAD_PROMPT_EOD_CHARTING_PLATFORM.md](NEXT_THREAD_PROMPT_EOD_CHARTING_PLATFORM.md) | User-confirmed running/completed/next phase states only |
 
-**Source scope:** This repository's older documentation includes a [dated 4 Nov 2026 ZIP-only snapshot audit](PROJECT_STATE_EOD_CHARTING_PLATFORM.md#snapshot-authority); its historical statements are not current behavior claims. The [native scanner retirement plan](docs/plans/2026-11-21_NATIVE_SCANNER_RETIREMENT_READINESS.md) tracks the later verified GitHub `main@09d329813706e3948820cc663507b197b5b07dd5` and reported local fast-forward. GitHub/source CI does **not** replace Windows portable/registered-DB acceptance. Other documents retain their stated evidence scopes.
+**Source scope.** The [4 Nov 2026 ZIP audit](PROJECT_STATE_EOD_CHARTING_PLATFORM.md#snapshot-authority) is historical. The [living scanner roadmap](docs/plans/2026-11-21_NATIVE_SCANNER_RETIREMENT_READINESS.md) tracks current routing and migration gates. WP-02 and WP-03 have Windows acceptance records. The [WP-04 V1 preset pilot](docs/plans/2026-11-24_WP04_SIGNAL_AND_FORMULA_PARITY.md#windows-portable-acceptance--24-november-2026-ist) passed Windows desktop parity on the normal portable using actual EOD data.

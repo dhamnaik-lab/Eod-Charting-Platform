@@ -114,7 +114,7 @@ Active Custom Signal Rules go through the same TypeScript signal engine, with a 
 
 #### TypeScript custom-signal baseline · 24 November 2026 IST
 
-The Scanner Results table now includes the configured `rule_id` in the React key for an Active Custom Signal Rules result. Matches that share the same symbol, date and displayed rule label retain distinct row identities when their order changes. [Results table](../../src/components/ScannerWindow.tsx) · [Row identity regression test](../../src/components/__tests__/ScannerResultsPagination.test.tsx)
+The Scanner Results table now includes the configured `rule_id` in the React key for an Active Custom Signal Rules result. Matches that share the same symbol, date and displayed rule label retain distinct row identities when their order changes. [Results table](../../src/components/ScannerWindow.tsx) · [Local pagination and row identity evidence](../changes/2026-11-23_0003_IST_SCAN_PERF_01_SCANNER_RESULTS_RESPONSIVENESS.md)
 
 The baseline covers explicit RSI plot selection and series trigger prices, indicator warm-up, OHLC fallback when a plot or indicator is unavailable, the previous-bar equality and strict latest-bar comparison used by `greater_than` and `less_than`, marker-derived direction, disabled rules, the latest endpoint, and multiple matches in configured order. The result payload carries the original rule ID under the existing scanner ID. [TypeScript baseline tests](../../src/plugins/scanner/__tests__/signalScanners.test.ts)
 
@@ -180,6 +180,8 @@ Eight Scanner UI runs matched the reference decoded from the raw NTPC binary. Co
 The main SQLite catalog, database manifest and NTPC history SHA-256 values matched before activation and after close. The WAL retained its hash and 1,306,072-byte size. The SHM changed during activation and retained its 32,768-byte size. Both sidecar files remained on disk. The acceptance app closed normally. The built-in preset and bounded custom-signal routes have passed their scoped Windows portable acceptance. Production formula scanning remains open and requires its own match contract. Acceptance documentation backup `backups/pre_opencode_changes_20261124_123745_wp04-custom-signal-acceptance/`.
 
 ## Formula contract
+
+The first Custom Formula Scanner workflow has a preserved local implementation. Actual-data Windows portable acceptance and source publication are pending.
 
 The chart formula editor evaluates assignment programs and uses the numeric assignments as plots. The existing Scanner batch helper evaluates the same programs and reports the first numeric plot whose latest value is nonzero. No application caller for that helper was found in the current source. The probe confirms that `RULE = close > 0` produces a boolean output with zero numeric plots, while `FIRST = close` followed by `RULE = close > 200` exposes the first nonzero plot. Before exposing native formula scans, decide whether Scanner should explicitly select a boolean predicate or adopt the numeric plot contract. Keep chart formula behavior in its existing engine. [Scanner helper](../../src/plugins/scanner/scannerRunner.ts#L201) · [Formula evaluation](../../src/modules/formulaEngine/customFormulaEngine.ts#L138)
 
