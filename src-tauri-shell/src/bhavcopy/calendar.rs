@@ -7,7 +7,8 @@ use tauri::AppHandle;
 use super::storage_mode_get_latest_imported_trade_date;
 use crate::bhavcopy::transport::normalize_exchange_key;
 use crate::bhavcopy::types::{
-    AppResult, DownloadMode, DownloadResult, DownloadTask, ExchangeSelection, MarketHoliday,
+    AppResult, DownloadMode, DownloadOutcome, DownloadResult, DownloadTask, ExchangeSelection,
+    MarketHoliday,
 };
 
 pub const NSE_FULL_HISTORY_START: &str = "1994-11-03";
@@ -133,6 +134,9 @@ pub fn skipped_download_result(
     message: impl Into<String>,
 ) -> DownloadResult {
     DownloadResult {
+        outcome: DownloadOutcome::CalendarSkip,
+        diagnostic: false,
+        follow_up_warning: None,
         success: true,
         trade_date: trade_date.to_string(),
         exchange: exchange.to_string(),
@@ -148,6 +152,9 @@ pub fn failed_download_result(
     message: impl Into<String>,
 ) -> DownloadResult {
     DownloadResult {
+        outcome: DownloadOutcome::WorkerError,
+        diagnostic: false,
+        follow_up_warning: None,
         success: false,
         trade_date: trade_date.to_string(),
         exchange: exchange.to_string(),
@@ -181,31 +188,9 @@ pub fn create_weekend_skip_result(
     )
 }
 
-/// A failed download that lands on a calendar holiday is not a failure: the
-/// exchange published no file because it was closed. The download is still
-/// attempted (the calendar never blocks), but the outcome is reclassified as an
-/// expected skip so a holiday is never reported as an error.
-/// Index results carry a decorated date (`2026-01-15 archive`), so the calendar
-/// lookup must use the bare date or every index holiday looks like a gap.
+/// Index diagnostics can carry a suffix; calendar lookup uses the bare date.
 pub fn calendar_date_key(trade_date: &str) -> &str {
     trade_date.split_whitespace().next().unwrap_or(trade_date)
-}
-
-pub fn reconcile_holiday_failure(
-    connection: &Connection,
-    result: DownloadResult,
-) -> DownloadResult {
-    if result.success {
-        return result;
-    }
-    match get_exchange_holiday_name(connection, &result.exchange, calendar_date_key(&result.trade_date)) {
-        Ok(Some(holiday_name)) => skipped_download_result(
-            &result.exchange,
-            &result.trade_date,
-            format!("Exchange holiday ({holiday_name}); no source file published"),
-        ),
-        _ => result,
-    }
 }
 
 pub fn create_calendar_skip_result(
@@ -246,20 +231,14 @@ pub fn create_calendar_skip_result(
 }
 
 pub fn is_calendar_skip_result(result: &DownloadResult) -> bool {
-    result.success
-        && result.rows_inserted == 0
-        && (result.message.starts_with("Exchange holiday")
-            || result.message.starts_with("Weekend ("))
+    result.outcome == DownloadOutcome::CalendarSkip
 }
 
 /// PHASE-1 guard: stored evidence outranks the calendar. A date about to be
 /// skipped as a holiday or weekend must not already hold bars, because a
 /// calendar row can be wrong (the `2023-09-28` Id-E-Milad row suppressed a real
 /// NSE and BSE session) while stored bars are observed market data.
-pub fn is_calendar_skip_contradicted(
-    skip_result: &DownloadResult,
-    has_stored_bars: bool,
-) -> bool {
+pub fn is_calendar_skip_contradicted(skip_result: &DownloadResult, has_stored_bars: bool) -> bool {
     has_stored_bars && is_calendar_skip_result(skip_result)
 }
 
@@ -274,10 +253,15 @@ pub fn get_exchange_holiday_name(
     {
         // BSE notice 20101122-22 (22 Nov 2010), Trading Holidays for 2011.
         // An evidenced calendar omission, independent of download/HTML failures.
-        if matches!(normalized_exchange.as_str(), "BSE" | "BSEINDEX") && trade_date == "2011-01-26" {
+        if matches!(normalized_exchange.as_str(), "BSE" | "BSEINDEX") && trade_date == "2011-01-26"
+        {
             return Ok(Some("Republic Day (BSE notice 20101122-22)".into()));
         }
-        let official_exchange = if normalized_exchange.starts_with("NSE") { "NSE" } else { "BSE" };
+        let official_exchange = if normalized_exchange.starts_with("NSE") {
+            "NSE"
+        } else {
+            "BSE"
+        };
         // Legacy in-memory fixtures may not have run the new additive schema.
         // Keep the pre-HOL03 lookup in that case; production databases use
         // bootstrap migrations before any Bhavcopy calendar lookup.
@@ -285,7 +269,9 @@ pub fn get_exchange_holiday_name(
             "SELECT EXISTS(SELECT 1 FROM sqlite_master WHERE type='table' AND name='official_exchange_holiday_snapshots')",
             [], |row| row.get(0)
         ).map_err(|e| e.to_string())?;
-        if !has_official_schema { return load_holiday_name_for_date(connection, trade_date); }
+        if !has_official_schema {
+            return load_holiday_name_for_date(connection, trade_date);
+        }
         let year = trade_date.get(..4).and_then(|v| v.parse::<i32>().ok());
         if let Some(year) = year {
             let has_accepted: bool = connection.query_row(
@@ -302,20 +288,28 @@ pub fn get_exchange_holiday_name(
                     "SELECT EXISTS(SELECT 1 FROM official_exchange_holiday_snapshots WHERE exchange='NSE' AND year=?1)",
                     params![year], |row| row.get(0)
                 ).map_err(|e| e.to_string())?;
-                if has_calendar { calendar_exchange = "NSE"; }
+                if has_calendar {
+                    calendar_exchange = "NSE";
+                }
             }
             if has_calendar {
                 let official: Option<String> = connection.query_row(
                     "SELECT name FROM official_exchange_holidays WHERE exchange=?1 AND year=?2 AND date=?3",
                     params![calendar_exchange,year,trade_date], |row| row.get(0)
                 ).optional().map_err(|e| e.to_string())?;
-                if official.is_some() { return Ok(official); }
+                if official.is_some() {
+                    return Ok(official);
+                }
                 // Preserve every user-created global holiday, but suppress
                 // unverified BUILTIN dates for an accepted exchange/year.
-                return connection.query_row(
-                    "SELECT name FROM market_holidays WHERE date=?1 AND source='USER' LIMIT 1",
-                    params![trade_date], |row| row.get(0)
-                ).optional().map_err(|e| e.to_string());
+                return connection
+                    .query_row(
+                        "SELECT name FROM market_holidays WHERE date=?1 AND source='USER' LIMIT 1",
+                        params![trade_date],
+                        |row| row.get(0),
+                    )
+                    .optional()
+                    .map_err(|e| e.to_string());
             }
         }
         // PHASE-1 (11 November 2026): a year without an accepted official
@@ -403,7 +397,11 @@ pub fn has_official_holiday_snapshot(
     year: i32,
 ) -> AppResult<bool> {
     let normalized_exchange = normalize_exchange_key(exchange);
-    let official_exchange = if normalized_exchange.starts_with("NSE") { "NSE" } else { "BSE" };
+    let official_exchange = if normalized_exchange.starts_with("NSE") {
+        "NSE"
+    } else {
+        "BSE"
+    };
     let has_schema: bool = connection
         .query_row(
             "SELECT EXISTS(SELECT 1 FROM sqlite_master WHERE type='table' AND name='official_exchange_holiday_snapshots')",
@@ -655,8 +653,13 @@ mod hol04_tests {
         let db = test_calendar();
         accept(&db, "NSE", "2026-10-02", "Verified NSE holiday");
         for exchange in ["NSE", "NSE_INDEX", "BSE", "BSE_INDEX"] {
-            assert_eq!(get_exchange_holiday_name(&db, exchange, "2026-10-02").unwrap().as_deref(),
-                Some("Verified NSE holiday"), "exchange {exchange}");
+            assert_eq!(
+                get_exchange_holiday_name(&db, exchange, "2026-10-02")
+                    .unwrap()
+                    .as_deref(),
+                Some("Verified NSE holiday"),
+                "exchange {exchange}"
+            );
         }
     }
 
@@ -665,9 +668,22 @@ mod hol04_tests {
         let db = test_calendar();
         accept(&db, "NSE", "2026-10-02", "NSE holiday");
         accept(&db, "BSE", "2026-10-05", "BSE-specific holiday");
-        assert_eq!(get_exchange_holiday_name(&db, "BSE", "2026-10-02").unwrap(), None);
-        assert_eq!(get_exchange_holiday_name(&db, "BSE_INDEX", "2026-10-05").unwrap().as_deref(), Some("BSE-specific holiday"));
-        assert_eq!(get_exchange_holiday_name(&db, "NSE", "2026-10-02").unwrap().as_deref(), Some("NSE holiday"));
+        assert_eq!(
+            get_exchange_holiday_name(&db, "BSE", "2026-10-02").unwrap(),
+            None
+        );
+        assert_eq!(
+            get_exchange_holiday_name(&db, "BSE_INDEX", "2026-10-05")
+                .unwrap()
+                .as_deref(),
+            Some("BSE-specific holiday")
+        );
+        assert_eq!(
+            get_exchange_holiday_name(&db, "NSE", "2026-10-02")
+                .unwrap()
+                .as_deref(),
+            Some("NSE holiday")
+        );
     }
 
     #[test]
@@ -676,8 +692,16 @@ mod hol04_tests {
         accept(&db, "NSE", "2026-10-02", "NSE holiday");
         db.execute("INSERT INTO market_holidays (date,name,source) VALUES ('2026-03-03','Unverified old data','BUILTIN')", []).unwrap();
         db.execute("INSERT INTO market_holidays (date,name,source) VALUES ('2026-05-02','Manual exception','USER')", []).unwrap();
-        assert_eq!(get_exchange_holiday_name(&db, "BSE", "2026-03-03").unwrap(), None);
-        assert_eq!(get_exchange_holiday_name(&db, "BSE", "2026-05-02").unwrap().as_deref(), Some("Manual exception"));
+        assert_eq!(
+            get_exchange_holiday_name(&db, "BSE", "2026-03-03").unwrap(),
+            None
+        );
+        assert_eq!(
+            get_exchange_holiday_name(&db, "BSE", "2026-05-02")
+                .unwrap()
+                .as_deref(),
+            Some("Manual exception")
+        );
     }
 
     #[test]
@@ -686,12 +710,28 @@ mod hol04_tests {
         db.execute("INSERT INTO market_holidays (date,name,source) VALUES ('2026-10-02','Historical preserved','BUILTIN')", []).unwrap();
         // PHASE-1: a year without an accepted official snapshot has no calendar
         // authority, so an unverified built-in row no longer suppresses a session.
-        assert_eq!(get_exchange_holiday_name(&db, "BSE", "2026-10-02").unwrap(), None);
-        assert_eq!(get_exchange_holiday_name(&db, "NSE", "2026-10-02").unwrap(), None);
+        assert_eq!(
+            get_exchange_holiday_name(&db, "BSE", "2026-10-02").unwrap(),
+            None
+        );
+        assert_eq!(
+            get_exchange_holiday_name(&db, "NSE", "2026-10-02").unwrap(),
+            None
+        );
         // Manual holidays stay authoritative and attributable.
         db.execute("INSERT INTO market_holidays (date,name,source) VALUES ('2026-10-05','Manual closure','USER')", []).unwrap();
-        assert_eq!(get_exchange_holiday_name(&db, "NSE", "2026-10-05").unwrap().as_deref(), Some("Manual closure"));
-        assert_eq!(get_exchange_holiday_name(&db, "BSE_INDEX", "2026-10-05").unwrap().as_deref(), Some("Manual closure"));
+        assert_eq!(
+            get_exchange_holiday_name(&db, "NSE", "2026-10-05")
+                .unwrap()
+                .as_deref(),
+            Some("Manual closure")
+        );
+        assert_eq!(
+            get_exchange_holiday_name(&db, "BSE_INDEX", "2026-10-05")
+                .unwrap()
+                .as_deref(),
+            Some("Manual closure")
+        );
     }
 
     #[test]
@@ -700,27 +740,12 @@ mod hol04_tests {
         db.execute("INSERT INTO market_holidays (date,name,source) VALUES ('2026-01-15','Election','USER')", []).unwrap();
         // Index results carry "<date> archive"; the lookup must use the bare date.
         assert_eq!(calendar_date_key("2026-01-15 archive"), "2026-01-15");
-        let failed = failed_download_result("NSE_INDEX", "2026-01-15 archive", "no data available");
-        let reconciled = reconcile_holiday_failure(&db, failed);
-        assert!(reconciled.success, "an index holiday must not count as a failure");
-        assert!(reconciled.message.starts_with("Exchange holiday (Election)"));
-    }
-
-    #[test]
-    fn holiday_failure_is_reclassified_as_an_expected_skip() {
-        let db = test_calendar();
-        db.execute("INSERT INTO market_holidays (date,name,source) VALUES ('2026-06-26','Muharram','USER')", []).unwrap();
-        let failed = failed_download_result("NSE", "2026-06-26", "no data available for this date");
-        let reconciled = reconcile_holiday_failure(&db, failed);
-        assert!(reconciled.success, "a closed day must not count as a failure");
-        assert_eq!(reconciled.rows_inserted, 0);
-        assert!(reconciled.message.starts_with("Exchange holiday (Muharram)"));
-        assert!(is_calendar_skip_result(&reconciled));
-        // A failure on a normal trading day stays a failure.
-        let genuine = failed_download_result("NSE", "2026-06-25", "no data available for this date");
-        let kept = reconcile_holiday_failure(&db, genuine);
-        assert!(!kept.success);
-        assert!(kept.message.starts_with("no data available"));
+        assert_eq!(
+            get_exchange_holiday_name(&db, "NSE_INDEX", calendar_date_key("2026-01-15 archive"))
+                .unwrap()
+                .as_deref(),
+            Some("Election")
+        );
     }
 
     #[test]
@@ -732,11 +757,14 @@ mod hol04_tests {
         assert!(create_calendar_skip_result(&db, "NSE", "2023-09-28", Weekday::Thu).is_none());
         // The row is still readable, so a no-data result can be explained.
         assert_eq!(
-            get_exchange_holiday_name(&db, "NSE", "2023-09-28").unwrap().as_deref(),
+            get_exchange_holiday_name(&db, "NSE", "2023-09-28")
+                .unwrap()
+                .as_deref(),
             Some("Id-E-Milad")
         );
         // Weekends keep skipping (structural), with the holiday name attached.
-        let weekend_skip = create_calendar_skip_result(&db, "NSE", "2023-09-30", Weekday::Sat).unwrap();
+        let weekend_skip =
+            create_calendar_skip_result(&db, "NSE", "2023-09-30", Weekday::Sat).unwrap();
         assert!(weekend_skip.message.starts_with("Weekend ("));
         assert!(is_calendar_skip_contradicted(&weekend_skip, true));
         assert!(!is_calendar_skip_contradicted(&weekend_skip, false));
@@ -761,7 +789,10 @@ mod hol04_tests {
     fn hol04_special_trading_day_overrides_both_nse_and_bse_snapshots() {
         let db = test_calendar();
         accept(&db, "NSE", "2026-11-08", "Official Muhurat entry");
-        assert_eq!(get_exchange_holiday_name(&db, "BSE", "2026-11-08").unwrap(), None);
+        assert_eq!(
+            get_exchange_holiday_name(&db, "BSE", "2026-11-08").unwrap(),
+            None
+        );
         assert!(create_calendar_skip_result(&db, "BSE", "2026-11-08", Weekday::Sun).is_none());
         assert!(create_calendar_skip_result(&db, "NSE", "2026-11-08", Weekday::Sun).is_none());
     }

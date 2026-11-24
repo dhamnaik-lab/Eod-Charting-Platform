@@ -17,7 +17,7 @@ describe('archive and fallback outcomes', () => {
     report(imported);
     report(imported);
     const state = useBhavcopyStore.getState();
-    expect(state.runSummary).toEqual({ successCount: 2, skippedCount: 0, failedCount: 1, partialCount: 0, totalRowsInserted: 1, completedCount: 3 });
+    expect(state.runSummary).toEqual({ successCount: 2, skippedCount: 0, failedCount: 1, partialCount: 0, totalRowsInserted: 1, completedCount: 3, calendarSkipCount: 0 });
     expect(state.logs).toHaveLength(3);
     expect(state.logs.some((log) => log.message.includes('Archive date mismatch'))).toBe(true);
     expect(state.logs.some((log) => log.message.includes('other indices unresolved'))).toBe(true);
@@ -45,4 +45,21 @@ describe('archive and fallback outcomes', () => {
     expect(useBhavcopyStore.getState().runSummary).toMatchObject({ successCount: 1, partialCount: 0, failedCount: 0 });
   });
 
+  it('counts terminal jobs once, never source diagnostics or refresh warnings', () => {
+    const state = useBhavcopyStore.getState();
+    const archive = { exchange: 'NSE_INDEX', tradeDate: '2011-01-03 archive', success: false,
+      rowsInserted: 0, message: 'HTTP 403', diagnostic: true, outcome: 'sourceError' as const };
+    const final = { exchange: 'NSE_INDEX', tradeDate: '2011-01-03', success: true,
+      rowsInserted: 1, message: 'Supported subset', outcome: 'partialCoverage' as const };
+    const warning = { exchange: 'BHAVCOPY', tradeDate: 'chart-refresh', success: true,
+      rowsInserted: 0, message: 'Prices retained; chart refresh failed', diagnostic: true, outcome: 'reportingWarning' as const };
+    const calendar = { exchange: 'NSE', tradeDate: '2011-01-02', success: true,
+      rowsInserted: 0, message: 'Weekend', outcome: 'calendarSkip' as const };
+    [archive, final, final, warning, calendar].forEach(state.reportDownloadResult);
+    expect(state.reconcileFinalResults([archive, final, warning, calendar])).toEqual({
+      successCount: 0, skippedCount: 0, failedCount: 0, partialCount: 1,
+      totalRowsInserted: 1, completedCount: 1, calendarSkipCount: 1,
+    });
+    expect(useBhavcopyStore.getState().logs.some((log) => log.level === 'warning' && log.message.includes('chart refresh failed'))).toBe(true);
+  });
 });

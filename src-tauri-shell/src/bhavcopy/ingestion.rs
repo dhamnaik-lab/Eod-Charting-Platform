@@ -698,6 +698,9 @@ pub(crate) fn import_staged_download(
             if parsed.rows_inserted == 0 {
                 if let Some(debug) = parsed.debug {
                     return Ok(DownloadResult {
+                        outcome: DownloadOutcome::ImportError,
+                        diagnostic: false,
+                        follow_up_warning: None,
                         success: false,
                         trade_date: staged.task.trade_date,
                         exchange: staged.task.exchange,
@@ -729,6 +732,13 @@ pub(crate) fn import_staged_download(
                 )
             };
             let result = DownloadResult {
+                outcome: if parsed.admission.conflicted == 0 {
+                    DownloadOutcome::Imported
+                } else {
+                    DownloadOutcome::PartialCoverage
+                },
+                diagnostic: false,
+                follow_up_warning: None,
                 success: parsed.admission.conflicted == 0,
                 trade_date: staged.task.trade_date,
                 exchange: staged.task.exchange,
@@ -739,7 +749,7 @@ pub(crate) fn import_staged_download(
             if should_write_download_log(&result) {
                 let _write_guard = lock_bhavcopy_write(write_lock)?;
                 let connection = super::batch_runtime::open_staging_connection(database_file_path)?;
-                upsert_download_log_entry(&connection, &result)?;
+                upsert_batch_download_log_entry(&connection, &result)?;
             }
             Ok(result)
         }
@@ -769,6 +779,9 @@ pub(crate) fn import_staged_download(
             };
 
             Ok(DownloadResult {
+                outcome: DownloadOutcome::Imported,
+                diagnostic: false,
+                follow_up_warning: None,
                 success: true,
                 trade_date: staged.task.trade_date,
                 exchange: staged.task.exchange,
@@ -1718,6 +1731,9 @@ pub(crate) fn recover_pending_bhavcopy_sessions(
                     .map(|job| job.row_count)
                     .unwrap_or(parsed.rows.len());
                 let log_result = DownloadResult {
+                    outcome: DownloadOutcome::Imported,
+                    diagnostic: false,
+                    follow_up_warning: None,
                     success: true,
                     trade_date: parsed.trade_date.clone(),
                     exchange: parsed.exchange.clone(),
@@ -1805,6 +1821,9 @@ pub(super) fn import_staged_csv_downloads(
             Ok(parsed) => {
                 if let Some(debug) = parsed.debug.as_ref() {
                     results.push(DownloadResult {
+                        outcome: DownloadOutcome::ImportError,
+                        diagnostic: false,
+                        follow_up_warning: None,
                         success: false,
                         trade_date: staged.task.trade_date,
                         exchange: staged.task.exchange,
@@ -1818,11 +1837,10 @@ pub(super) fn import_staged_csv_downloads(
                 }
             }
             Err(error) => {
-                results.push(failed_download_result(
-                    &staged.task.exchange,
-                    &staged.task.trade_date,
-                    error,
-                ));
+                results.push(
+                    failed_download_result(&staged.task.exchange, &staged.task.trade_date, error)
+                        .with_outcome(DownloadOutcome::ImportError),
+                );
             }
         }
     }
@@ -1856,6 +1874,13 @@ pub(super) fn import_staged_csv_downloads(
         }
         let report = &security_reports[&(file.exchange.clone(), file.trade_date.clone())];
         results.push(DownloadResult {
+            outcome: if report.conflicted == 0 {
+                DownloadOutcome::AlreadyPresent
+            } else {
+                DownloadOutcome::PartialCoverage
+            },
+            diagnostic: false,
+            follow_up_warning: None,
             success: report.conflicted == 0,
             exchange: file.exchange.clone(),
             trade_date: file.trade_date.clone(),
@@ -1894,6 +1919,9 @@ pub(super) fn import_staged_csv_downloads(
             if file.exchange != "NSE_INDEX" || !file.rows.is_empty() { return true; }
             let outcome = &index_outcomes[&file.trade_date];
             results.push(DownloadResult {
+                outcome: DownloadOutcome::PartialCoverage,
+                diagnostic: false,
+                follow_up_warning: None,
                 success: outcome.conflicts == 0 && outcome.invalid == 0,
                 exchange: file.exchange.clone(), trade_date: file.trade_date.clone(),
                 rows_inserted: 0, max_volume: 0,
@@ -2199,6 +2227,13 @@ pub(super) fn import_staged_csv_downloads(
                         parsed_result.rows_inserted, outcome.identical, outcome.conflicts, outcome.invalid, outcome.details.join("; "));
                 }
                 let result = DownloadResult {
+                    outcome: if !success || parsed.exchange == "NSE_INDEX" {
+                        DownloadOutcome::PartialCoverage
+                    } else {
+                        DownloadOutcome::Imported
+                    },
+                    diagnostic: false,
+                    follow_up_warning: None,
                     success,
                     trade_date: parsed.trade_date.clone(),
                     exchange: parsed.exchange.clone(),
@@ -3553,11 +3588,36 @@ pub(crate) fn has_stale_zero_volume_rows_for_date(
     Ok(row_count > 0 && max_volume == 0)
 }
 
-pub(crate) fn clear_download_log_entry(connection: &Connection, id: i64) -> AppResult<()> {
-    connection
-        .execute("DELETE FROM download_log WHERE id = ?", params![id])
-        .map_err(|error| error.to_string())?;
-    Ok(())
+/// Latest terminal attempts are separate from historical coverage evidence.
+/// Never write decorated archive/request diagnostics or pre-planning skips.
+pub(super) fn record_latest_attempts(
+    connection: &Connection,
+    results: &[DownloadResult],
+) -> AppResult<()> {
+    super::batch_runtime::retry_busy(|| {
+        let transaction = connection.unchecked_transaction()?;
+        for result in results {
+            if result.diagnostic
+                || matches!(
+                    result.outcome,
+                    DownloadOutcome::CalendarSkip
+                        | DownloadOutcome::AlreadyPresent
+                        | DownloadOutcome::ReportingWarning
+                )
+            {
+                continue;
+            }
+            transaction.execute(
+                "INSERT INTO bhavcopy_download_attempts (trade_date, exchange, outcome, rows_written, message)
+                 VALUES (?1, ?2, ?3, ?4, ?5)
+                 ON CONFLICT(trade_date, exchange) DO UPDATE SET
+                    outcome=excluded.outcome, rows_written=excluded.rows_written,
+                    message=excluded.message, attempted_at=datetime('now')",
+                params![&result.trade_date, &result.exchange, result.outcome.as_str(), result.rows_inserted as i64, &result.message],
+            )?;
+        }
+        transaction.commit()
+    })
 }
 
 pub(crate) fn should_write_download_log(result: &DownloadResult) -> bool {

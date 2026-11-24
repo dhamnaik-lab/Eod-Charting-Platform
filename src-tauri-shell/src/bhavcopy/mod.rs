@@ -18,7 +18,7 @@ use chrono::NaiveDate;
 pub use chrono::{Datelike, Local};
 use reqwest::blocking::Client;
 pub use rusqlite::params;
-use rusqlite::{Connection, OptionalExtension};
+use rusqlite::Connection;
 use std::collections::{HashSet, VecDeque};
 #[cfg(test)]
 use std::fs;
@@ -108,7 +108,7 @@ pub async fn download_bhavcopy(app: AppHandle, date: Option<String>) -> AppResul
             nse_index_history: None,
         };
         let write_lock = Mutex::new(());
-        let result = process_download_task(
+        let mut result = process_download_task(
             &client,
             &database_file_path,
             &task,
@@ -117,17 +117,12 @@ pub async fn download_bhavcopy(app: AppHandle, date: Option<String>) -> AppResul
         )?;
 
         if result.rows_inserted > 0 {
-            if let Some(folder_path) = database_file_path.parent() {
-                invalidate_cached_db_stats(&app_handle, folder_path)?;
+            if let Err(error) = refresh_after_import(&app_handle, &database_file_path) {
+                append_follow_up_warning(&mut result, format!("Prices retained; chart refresh failed: {error}"));
             }
-            let snapshot = get_app_snapshot_internal(
-                &app_handle,
-                Some(&SnapshotOptions {
-                    include_stats: Some(false),
-                    include_watchlists: Some(false),
-                }),
-            )?;
-            emit_database_changed(&app_handle, &snapshot)?;
+        }
+        if let Some(warning) = &result.follow_up_warning {
+            log_runtime_event(&app_handle, "WARN", "bhavcopy-follow-up-warning", Some(warning));
         }
 
         log_runtime_event(
@@ -338,6 +333,11 @@ fn run_bhavcopy_batch(
     let mut staged_downloads = Vec::<StagedDownload>::new();
     let mut completed = 0_usize;
     let total_tasks = tasks.len();
+    let planned_jobs = tasks
+        .iter()
+        .map(|task| (task.exchange.clone(), task.trade_date.clone()))
+        .collect::<HashSet<_>>();
+    let mut staged_jobs = HashSet::new();
     let index_dates = tasks
         .iter()
         .filter(|task| task.exchange == "NSE_INDEX")
@@ -420,20 +420,19 @@ fn run_bhavcopy_batch(
                         staged.task.exchange, staged.task.trade_date
                     ),
                 );
+                staged_jobs.insert((staged.task.exchange.clone(), staged.task.trade_date.clone()));
                 staged_downloads.push(staged);
             }
             StagedDownloadOutcome::Result(mut result) => {
                 if result.exchange == "NSE_INDEX" {
                     // Keep archive diagnostics distinct from the date's import result.
                     result.trade_date = format!("{} archive", result.trade_date);
+                    result.diagnostic = true;
                 }
                 if should_write_download_log(&result) {
                     let _write_guard = lock_bhavcopy_write(&write_lock)?;
                     upsert_batch_download_log_entry(&connection, &result)?;
                 }
-                // Attempted, but the exchange was closed: reclassify so a holiday
-                // never surfaces as a failed download job.
-                let result = reconcile_holiday_failure(&connection, result);
                 emit_progress(
                     &app_handle,
                     progress,
@@ -488,6 +487,11 @@ fn run_bhavcopy_batch(
         );
     }
 
+    staged_jobs.extend(
+        staged_downloads
+            .iter()
+            .map(|staged| (staged.task.exchange.clone(), staged.task.trade_date.clone())),
+    );
     staged_downloads.sort_by(|left, right| compare_download_task(&left.task, &right.task));
     let staged_total = staged_downloads.len();
     if staged_total > 0 && !stop.is_requested() {
@@ -528,14 +532,19 @@ fn run_bhavcopy_batch(
             )
         })) {
             Ok(Ok(results)) => results,
-            Ok(Err(error)) => vec![failed_download_result("BHAVCOPY", "staged-csv", error)],
+            Ok(Err(error)) => vec![failed_download_result("BHAVCOPY", "staged-csv", error)
+                .with_outcome(DownloadOutcome::ImportError)],
             Err(_) => vec![failed_download_result(
                 "BHAVCOPY",
                 "staged-csv",
                 "Bhavcopy staged CSV import worker thread panicked.",
-            )],
+            )
+            .with_outcome(DownloadOutcome::ImportError)],
         };
-        for result in csv_results {
+        for mut result in csv_results {
+            if result.exchange == "BHAVCOPY" {
+                result.diagnostic = true;
+            }
             emit_download_result(&app_handle, &result);
             results.push(result);
         }
@@ -575,12 +584,14 @@ fn run_bhavcopy_batch(
         };
         let result = match import {
             Ok(Ok(result)) => result,
-            Ok(Err(error)) => failed_download_result(&exchange, &trade_date, error),
+            Ok(Err(error)) => failed_download_result(&exchange, &trade_date, error)
+                .with_outcome(DownloadOutcome::ImportError),
             Err(_) => failed_download_result(
                 &exchange,
                 &trade_date,
                 "Bhavcopy import worker thread panicked.",
-            ),
+            )
+            .with_outcome(DownloadOutcome::ImportError),
         };
         if !result.success && should_write_download_log(&result) {
             let _write_guard = lock_bhavcopy_write(&write_lock)?;
@@ -590,12 +601,22 @@ fn run_bhavcopy_batch(
         results.push(result);
     }
 
+    finalize_planned_jobs(
+        &planned_jobs,
+        &staged_jobs,
+        &mut results,
+        stop.is_requested(),
+    );
     let mut combined_results = calendar_skip_results;
     combined_results.extend(results);
     combined_results.sort_by(compare_download_results);
     let completed_download_jobs = combined_results
         .iter()
-        .filter(|result| !is_calendar_skip_result(result))
+        .filter(|result| {
+            !result.diagnostic
+                && !is_calendar_skip_result(result)
+                && result.outcome != DownloadOutcome::Cancelled
+        })
         .count();
     let non_trading_calendar_days = combined_results
         .iter()
@@ -611,37 +632,24 @@ fn run_bhavcopy_batch(
         spawn_background_bhavcopy_checkpoint(app_handle.clone(), database_file_path.clone());
     }
 
-    if combined_results.iter().any(|r| r.rows_inserted > 0) {
-        let invalidate_stats_started = Instant::now();
-        if let Some(folder_path) = database_file_path.parent() {
-            invalidate_cached_db_stats(&app_handle, folder_path)?;
-        }
-        let invalidate_stats_ms = invalidate_stats_started.elapsed().as_millis();
-
-        let snapshot_started = Instant::now();
-        let snapshot = get_app_snapshot_internal(
+    let attempt_report = record_latest_attempts(&connection, &combined_results);
+    if let Err(error) = attempt_report {
+        push_reporting_warning(
             &app_handle,
-            Some(&SnapshotOptions {
-                include_stats: Some(false),
-                include_watchlists: Some(false),
-            }),
-        )?;
-        let snapshot_ms = snapshot_started.elapsed().as_millis();
-
-        let emit_database_changed_started = Instant::now();
-        emit_database_changed(&app_handle, &snapshot)?;
-        let emit_database_changed_ms = emit_database_changed_started.elapsed().as_millis();
-
-        emit_progress(
-            &app_handle,
-            99,
-            format!(
-                "Bhavcopy refresh timings: invalidate stats {} ms; snapshot {} ms; emit change {} ms",
-                invalidate_stats_ms,
-                snapshot_ms,
-                emit_database_changed_ms
-            ),
+            &mut combined_results,
+            "attempt-log",
+            format!("Latest-attempt records could not be saved: {error}"),
         );
+    }
+    if imported_rows > 0 {
+        if let Err(error) = refresh_after_import(&app_handle, &database_file_path) {
+            push_reporting_warning(
+                &app_handle,
+                &mut combined_results,
+                "chart-refresh",
+                format!("Prices retained; chart refresh failed: {error}"),
+            );
+        }
     }
 
     log_runtime_event(
@@ -662,6 +670,158 @@ fn run_bhavcopy_batch(
     Ok(combined_results)
 }
 
+fn finalize_planned_jobs(
+    planned: &HashSet<(String, String)>,
+    staged: &HashSet<(String, String)>,
+    results: &mut Vec<DownloadResult>,
+    cancelled: bool,
+) {
+    let aggregate_import_failed = results.iter().any(|result| {
+        result.exchange == "BHAVCOPY" && result.outcome == DownloadOutcome::ImportError
+    });
+    let mut terminal = HashSet::new();
+    let mut archive = std::collections::HashMap::new();
+    // The last terminal result owns each job (e.g. a valid fallback import
+    // after a parse diagnostic). Retain superseded results as diagnostics.
+    for result in results.iter_mut().rev() {
+        let key = (result.exchange.clone(), result.trade_date.clone());
+        if result.diagnostic {
+            if let Some(date) = result.trade_date.strip_suffix(" archive") {
+                archive.insert((result.exchange.clone(), date.to_string()), result.clone());
+            }
+            continue;
+        }
+        if !planned.contains(&key) || !terminal.insert(key) {
+            result.diagnostic = true;
+        }
+    }
+    let mut superseded_rows = std::collections::HashMap::<(String, String), usize>::new();
+    for result in results
+        .iter_mut()
+        .filter(|result| result.diagnostic && result.rows_inserted > 0)
+    {
+        let key = (result.exchange.clone(), result.trade_date.clone());
+        if terminal.contains(&key) {
+            *superseded_rows.entry(key).or_default() += result.rows_inserted;
+            result.rows_inserted = 0;
+        }
+    }
+    for result in results.iter_mut().filter(|result| !result.diagnostic) {
+        if let Some(rows) =
+            superseded_rows.remove(&(result.exchange.clone(), result.trade_date.clone()))
+        {
+            result.rows_inserted += rows;
+        }
+    }
+    for (exchange, date) in planned {
+        let key = (exchange.clone(), date.clone());
+        if terminal.contains(&key) {
+            continue;
+        }
+        if cancelled && !staged.contains(&key) && !archive.contains_key(&key) {
+            continue;
+        }
+        let archive_failure = archive.get(&key).filter(|result| !result.success);
+        let result = if cancelled && staged.contains(&key) && aggregate_import_failed {
+            failed_download_result(
+                exchange,
+                date,
+                "Import failed before final result; inspect recovery evidence before retrying",
+            )
+            .with_outcome(DownloadOutcome::ImportError)
+        } else if cancelled && !staged.contains(&key) && archive_failure.is_some() {
+            let source = archive_failure.expect("archive failure checked");
+            failed_download_result(
+                exchange,
+                date,
+                format!("{}; fallback cancelled", source.message),
+            )
+            .with_outcome(source.outcome)
+        } else if cancelled {
+            failed_download_result(exchange, date, "Cancelled before import completed")
+                .with_outcome(DownloadOutcome::Cancelled)
+        } else if staged.contains(&key) {
+            failed_download_result(
+                exchange,
+                date,
+                "Import result unavailable; inspect recovery evidence before retrying",
+            )
+            .with_outcome(DownloadOutcome::ImportError)
+        } else if let Some(source) = archive.get(&key) {
+            let outcome = if source.outcome == DownloadOutcome::ConfirmedAbsent {
+                DownloadOutcome::PartialCoverage
+            } else {
+                source.outcome
+            };
+            failed_download_result(
+                exchange,
+                date,
+                format!(
+                    "{}; no final NSE index import reported; coverage unresolved",
+                    source.message
+                ),
+            )
+            .with_outcome(outcome)
+        } else {
+            failed_download_result(exchange, date, "No final result returned for planned job")
+        };
+        results.push(result);
+    }
+}
+
+fn append_follow_up_warning(result: &mut DownloadResult, warning: String) {
+    result.follow_up_warning = Some(match result.follow_up_warning.take() {
+        Some(previous) => format!("{previous}; {warning}"),
+        None => warning,
+    });
+}
+
+fn push_reporting_warning(
+    app: &AppHandle,
+    results: &mut Vec<DownloadResult>,
+    scope: &str,
+    warning: String,
+) {
+    log_runtime_event(app, "WARN", "bhavcopy-follow-up-warning", Some(&warning));
+    let result = DownloadResult {
+        outcome: DownloadOutcome::ReportingWarning,
+        diagnostic: true,
+        follow_up_warning: None,
+        success: true,
+        exchange: "BHAVCOPY".into(),
+        trade_date: scope.into(),
+        rows_inserted: 0,
+        max_volume: 0,
+        message: warning,
+    };
+    emit_download_result(app, &result);
+    results.push(result);
+}
+
+fn refresh_after_import(app: &AppHandle, database_file_path: &Path) -> AppResult<()> {
+    let started = Instant::now();
+    if let Some(folder_path) = database_file_path.parent() {
+        invalidate_cached_db_stats(app, folder_path)
+            .map_err(|error| format!("statistics invalidation: {error}"))?;
+    }
+    let invalidate_ms = started.elapsed().as_millis();
+    let started = Instant::now();
+    let snapshot = get_app_snapshot_internal(
+        app,
+        Some(&SnapshotOptions {
+            include_stats: Some(false),
+            include_watchlists: Some(false),
+        }),
+    )
+    .map_err(|error| format!("snapshot retrieval: {error}"))?;
+    let snapshot_ms = started.elapsed().as_millis();
+    let started = Instant::now();
+    emit_database_changed(app, &snapshot)
+        .map_err(|error| format!("database change notification: {error}"))?;
+    emit_progress(app, 99, format!("Bhavcopy refresh timings: invalidate stats {invalidate_ms} ms; snapshot {snapshot_ms} ms; emit change {} ms", started.elapsed().as_millis()));
+    Ok(())
+}
+
 fn finish_batch_progress(
     app: &AppHandle,
     database_file_path: &Path,
@@ -674,7 +834,14 @@ fn finish_batch_progress(
             .iter()
             .filter(|result| is_calendar_skip_result(result))
             .count();
-        let jobs = results.len() - calendar_skips;
+        let jobs = results
+            .iter()
+            .filter(|result| {
+                !result.diagnostic
+                    && !is_calendar_skip_result(result)
+                    && result.outcome != DownloadOutcome::Cancelled
+            })
+            .count();
         let rows: usize = results.iter().map(|result| result.rows_inserted).sum();
         emit_progress(app, 100, format!(
             "Completed download jobs: {jobs}; non-trading calendar days: {calendar_skips}; imported rows: {rows}"
@@ -686,20 +853,15 @@ fn finish_batch_progress(
     Ok(TrackedBhavcopyBatchResult { cancelled, results })
 }
 
-/// Explain every "no data" date using the calendar.
-///
-/// This is the calendar's only job in the planner now: a holiday row must never
-/// block a download, but it must tell the operator whether an empty weekday was
-/// a genuine exchange closure or a source gap. A wrong calendar row can therefore
-/// never suppress data - it can only mislabel a miss, which this line makes
-/// visible.
+/// Annotate only explicit source-absence outcomes with saved calendar context.
+/// Calendar records are informational, not proof of exchange closure or coverage.
 fn no_data_annotation_line(
     database_file_path: &Path,
     results: &[DownloadResult],
 ) -> Option<String> {
     let mut pairs: Vec<(String, String)> = results
         .iter()
-        .filter(|result| result.message.starts_with("No data available"))
+        .filter(|result| result.outcome == DownloadOutcome::ConfirmedAbsent && !result.diagnostic)
         .map(|result| (result.exchange.clone(), result.trade_date.clone()))
         .collect();
     if pairs.is_empty() {
@@ -715,12 +877,12 @@ fn no_data_annotation_line(
             .ok()
             .flatten()
         {
-            Some(name) => holiday.push(format!("{date} {exchange} = holiday ({name})")),
+            Some(name) => holiday.push(format!("{date} {exchange} = saved calendar annotation ({name}; not independent proof of closure)")),
             None => gap.push(format!("{date} {exchange}")),
         }
     }
     let mut line = format!(
-        "No-data review: {} date/exchange pairs - {} on a calendar holiday, {} not on any calendar holiday (source gaps)",
+        "No-data review: {} date/exchange pairs - {} with a saved calendar annotation, {} without a calendar annotation",
         pairs.len(),
         holiday.len(),
         gap.len()
@@ -960,6 +1122,9 @@ fn stage_download_task(
 
     if has_imported_rows && !has_stale_zero_volume_rows && task.mode != DownloadMode::Range {
         return Ok(StagedDownloadOutcome::Result(DownloadResult {
+            outcome: DownloadOutcome::AlreadyPresent,
+            diagnostic: false,
+            follow_up_warning: None,
             success: true,
             trade_date: task.trade_date.clone(),
             exchange: task.exchange.clone(),
@@ -996,8 +1161,13 @@ fn stage_download_task(
                     Ok(StagedDownloadOutcome::Result(result)) => result.message.as_str(),
                     _ => "Official source unavailable",
                 };
-                return Err(format!(
-                    "{primary}; automatic BSE browser fallback: {error}"
+                return Ok(StagedDownloadOutcome::Result(
+                    failed_download_result(
+                        &task.exchange,
+                        &task.trade_date,
+                        format!("{primary}; automatic BSE browser fallback: {error}"),
+                    )
+                    .with_outcome(DownloadOutcome::SourceError),
                 ));
             }
         }
@@ -1018,25 +1188,33 @@ fn stage_nse_index_history_task(
         .map_err(|error| format!("NSE historical index API JSON parse failed: {error}"))?;
 
     if parsed.error.unwrap_or(false) {
-        return Ok(StagedDownloadOutcome::Result(skipped_download_result(
-            &task.exchange,
-            &task.trade_date,
-            parsed
-                .show_message
-                .unwrap_or_else(|| "NSE historical index API returned an error".to_string()),
-        )));
+        return Ok(StagedDownloadOutcome::Result(
+            failed_download_result(
+                &task.exchange,
+                &task.trade_date,
+                parsed
+                    .show_message
+                    .unwrap_or_else(|| "NSE historical index API returned an error".to_string()),
+            )
+            .with_outcome(DownloadOutcome::SourceError),
+        ));
     }
 
-    let rows = parsed.data.unwrap_or_default();
+    let rows = parsed
+        .data
+        .ok_or_else(|| "NSE historical index API missing data array".to_string())?;
     if rows.is_empty() {
-        return Ok(StagedDownloadOutcome::Result(skipped_download_result(
-            &task.exchange,
-            &task.trade_date,
-            format!(
-                "No NSE historical index API rows for {} {} to {}",
-                history_task.index_type, history_task.from_date, history_task.to_date
-            ),
-        )));
+        return Ok(StagedDownloadOutcome::Result(
+            skipped_download_result(
+                &task.exchange,
+                &task.trade_date,
+                format!(
+                    "No NSE historical index API rows for {} {} to {}",
+                    history_task.index_type, history_task.from_date, history_task.to_date
+                ),
+            )
+            .with_outcome(DownloadOutcome::ConfirmedAbsent),
+        ));
     }
 
     let normalized =
@@ -1048,89 +1226,84 @@ fn stage_nse_index_history_task(
 }
 
 fn candidate_scan_should_skip(
-    exchange: &str,
     candidate_count: usize,
-    soft_mismatch_count: usize,
-    bse_api_reported_no_file: bool,
-    has_hard_error: bool,
+    absent_count: usize,
+    has_error: bool,
 ) -> bool {
-    !has_hard_error
-        && (soft_mismatch_count == candidate_count
-            || (is_bse_exchange(exchange) && bse_api_reported_no_file))
+    !has_error && candidate_count > 0 && absent_count == candidate_count
 }
+
+/// Decode and validate a candidate before any storage mutation. Only an
+/// explicit empty archive response may return None; malformed content is rejected.
+fn decode_candidate_csv(
+    candidate: &Candidate,
+    bytes: Vec<u8>,
+    exchange: &str,
+    trade_date: &str,
+) -> AppResult<Option<String>> {
+    let csv = if candidate.bse_index_archive_json {
+        let Some(csv) = normalize_bse_index_archive_json(&bytes, trade_date)? else {
+            return Ok(None);
+        };
+        csv
+    } else {
+        let bytes = if candidate.zipped || bytes.starts_with(b"PK\x03\x04") {
+            extract_first_csv_from_zip(&bytes)?
+                .ok_or_else(|| "ZIP did not contain readable CSV/TXT data.".to_string())?
+        } else {
+            bytes
+        };
+        String::from_utf8_lossy(&bytes).into_owned()
+    };
+    let parsed = parse_bhavcopy_csv(&csv, exchange, trade_date, &[])?;
+    if let Some(debug) = parsed.debug {
+        return Err(debug);
+    }
+    if parsed.rows.is_empty() {
+        return Err("Candidate CSV contains no usable rows.".into());
+    }
+    Ok(Some(csv))
+}
+
 fn stage_single_download(
     client: &Client,
     task: &DownloadTask,
     stop: &BatchStop,
 ) -> AppResult<StagedDownloadOutcome> {
     let mut last_hard_error: Option<String> = None;
-    let mut last_date_rejection: Option<String> = None;
     let mut primary_hard_error: Option<String> = None;
+    let mut last_rejection: Option<String> = None;
     let mut not_found_count = 0_usize;
     let referer = bhavcopy_referer_for_exchange(&task.exchange);
-    let mut bse_api_reported_no_file = false;
 
     for (candidate_idx, candidate) in task.candidates.iter().enumerate() {
         if stop.is_requested() {
             return Ok(StagedDownloadOutcome::Cancelled);
         }
-        match fetch_candidate_content_bytes(client, candidate, referer, 3) {
+        match fetch_candidate_content_bytes(client, candidate, referer, 3, &task.trade_date) {
             Ok(Some(bytes)) => {
-                let csv_content = if candidate.bse_index_archive_json {
-                    match normalize_bse_index_archive_json(&bytes, &task.trade_date)? {
-                        Some(content) => content,
-                        None => {
-                            not_found_count += 1;
-                            continue;
-                        }
-                    }
-                } else {
-                    let csv_bytes = if candidate.zipped {
-                        match extract_first_csv_from_zip(&bytes)? {
-                            Some(extracted) => extracted,
-                            None => {
-                                not_found_count += 1;
-                                continue;
-                            }
-                        }
-                    } else {
-                        bytes
-                    };
-                    String::from_utf8_lossy(&csv_bytes).into_owned()
-                };
-                if is_html_response(&csv_content) {
-                    last_hard_error =
-                        Some("Official source returned HTML instead of Bhavcopy data.".into());
-                    continue;
-                }
-                if task.exchange == "NSE_INDEX" || task.exchange == "NSE" {
-                    let validation =
-                        parse_bhavcopy_csv(&csv_content, &task.exchange, &task.trade_date, &[]);
-                    let error = match validation {
-                        Ok(parsed) => parsed.debug,
-                        Err(error) => Some(error),
-                    };
-                    if let Some(error) = error {
-                        if task.exchange == "NSE_INDEX" {
-                            last_hard_error = Some(format!("Index archive integrity: {error}"));
-                        } else {
-                            // An NSE file that carries another session's rows is a
-                            // soft miss: the next candidate may still hold this date.
-                            last_date_rejection = Some(format!("Archive integrity: {error}"));
-                            not_found_count += 1;
-                        }
+                let csv_content = match decode_candidate_csv(
+                    candidate,
+                    bytes,
+                    &task.exchange,
+                    &task.trade_date,
+                ) {
+                    Ok(Some(csv)) => csv,
+                    Ok(None) => {
+                        not_found_count += 1;
                         continue;
                     }
-                }
+                    Err(error) => {
+                        last_rejection = Some(format!("Candidate rejected: {error}"));
+                        continue;
+                    }
+                };
                 return Ok(StagedDownloadOutcome::Ready(StagedDownload {
                     task: task.clone(),
                     content: StagedDownloadContent::Csv(csv_content),
                 }));
             }
             Ok(None) => {
-                if is_bse_exchange(&task.exchange) && candidate.bse_response_key.is_some() {
-                    bse_api_reported_no_file = true;
-                }
                 not_found_count += 1;
             }
             Err(error) => {
@@ -1143,28 +1316,32 @@ fn stage_single_download(
     }
 
     if candidate_scan_should_skip(
-        &task.exchange,
         task.candidates.len(),
         not_found_count,
-        bse_api_reported_no_file,
-        last_hard_error.is_some(),
+        last_hard_error.is_some() || last_rejection.is_some(),
     ) {
         let message = if is_bse_exchange(&task.exchange) {
             format!(
-                "No downloadable BSE source found after trying {} candidates (unavailable archive or source mismatch)",
+                "No downloadable BSE source found after trying {} candidates (all reported absence)",
                 task.candidates.len()
             )
         } else {
-            "No data available for this date (source unavailable or missing)".to_string()
+            "No data available for this date (all candidates reported absence)".to_string()
         };
-        return Ok(StagedDownloadOutcome::Result(skipped_download_result(
-            &task.exchange,
-            &task.trade_date,
-            message,
-        )));
+        return Ok(StagedDownloadOutcome::Result(
+            skipped_download_result(&task.exchange, &task.trade_date, message)
+                .with_outcome(DownloadOutcome::ConfirmedAbsent),
+        ));
     }
 
     Ok(StagedDownloadOutcome::Result(DownloadResult {
+        outcome: if last_hard_error.is_some() || last_rejection.is_none() {
+            DownloadOutcome::SourceError
+        } else {
+            DownloadOutcome::SourceRejected
+        },
+        diagnostic: false,
+        follow_up_warning: None,
         success: false,
         trade_date: task.trade_date.clone(),
         exchange: task.exchange.clone(),
@@ -1172,7 +1349,7 @@ fn stage_single_download(
         max_volume: 0,
         message: primary_hard_error
             .or(last_hard_error)
-            .or(last_date_rejection)
+            .or(last_rejection)
             .unwrap_or_else(|| "Download failed".to_string()),
     }))
 }
@@ -1195,19 +1372,6 @@ fn process_download_task(
     }
 
     let connection = open_database_connection(database_file_path)?;
-    let existing_log_id = connection
-        .query_row(
-            "
-              SELECT id
-              FROM download_log
-              WHERE trade_date = ? AND exchange = ? AND status = 'ok'
-              LIMIT 1
-            ",
-            params![&task.trade_date, &task.exchange],
-            |row| row.get::<_, i64>(0),
-        )
-        .optional()
-        .map_err(|error| error.to_string())?;
     // Coverage is answered from the price store (binary index or eod_prices),
     // not from download_log; the log remains only notes/status.
     let has_imported_rows =
@@ -1220,6 +1384,9 @@ fn process_download_task(
 
     if has_imported_rows && !has_stale_zero_volume_rows && task.mode != DownloadMode::Range {
         return Ok(DownloadResult {
+            outcome: DownloadOutcome::AlreadyPresent,
+            diagnostic: false,
+            follow_up_warning: None,
             success: true,
             trade_date: task.trade_date.clone(),
             exchange: task.exchange.clone(),
@@ -1228,14 +1395,7 @@ fn process_download_task(
             message: "Already downloaded".to_string(),
         });
     }
-    if let Some(log_id) = existing_log_id {
-        {
-            let _write_guard = lock_bhavcopy_write(write_lock)?;
-            let _ = clear_download_log_entry(&connection, log_id);
-        }
-    }
-
-    let result = download_single(
+    let mut result = download_single(
         client,
         database_file_path,
         &task.exchange,
@@ -1243,13 +1403,25 @@ fn process_download_task(
         &task.candidates,
         excluded_series,
         write_lock,
-    )?;
+    )
+    .unwrap_or_else(|error| {
+        failed_download_result(&task.exchange, &task.trade_date, error)
+            .with_outcome(DownloadOutcome::ImportError)
+    });
 
-    if should_write_download_log(&result) {
+    let report = (|| -> AppResult<()> {
         let _write_guard = lock_bhavcopy_write(write_lock)?;
-        upsert_download_log_entry(&connection, &result)?;
+        if should_write_download_log(&result) {
+            upsert_batch_download_log_entry(&connection, &result)?;
+        }
+        record_latest_attempts(&connection, std::slice::from_ref(&result))
+    })();
+    if let Err(error) = report {
+        append_follow_up_warning(
+            &mut result,
+            format!("Download metadata update failed: {error}"),
+        );
     }
-
     Ok(result)
 }
 
@@ -1268,16 +1440,19 @@ fn process_nse_index_history_task(
         .map_err(|error| format!("NSE historical index API JSON parse failed: {error}"))?;
 
     if parsed.error.unwrap_or(false) {
-        return Ok(skipped_download_result(
+        return Ok(failed_download_result(
             &task.exchange,
             &task.trade_date,
             parsed
                 .show_message
                 .unwrap_or_else(|| "NSE historical index API returned an error".to_string()),
-        ));
+        )
+        .with_outcome(DownloadOutcome::SourceError));
     }
 
-    let rows = parsed.data.unwrap_or_default();
+    let rows = parsed
+        .data
+        .ok_or_else(|| "NSE historical index API missing data array".to_string())?;
     if rows.is_empty() {
         return Ok(skipped_download_result(
             &task.exchange,
@@ -1286,7 +1461,8 @@ fn process_nse_index_history_task(
                 "No NSE historical index API rows for {} {} to {}",
                 history_task.index_type, history_task.from_date, history_task.to_date
             ),
-        ));
+        )
+        .with_outcome(DownloadOutcome::ConfirmedAbsent));
     }
 
     let parsed_rows =
@@ -1305,6 +1481,9 @@ fn process_nse_index_history_task(
     );
 
     Ok(DownloadResult {
+        outcome: DownloadOutcome::Imported,
+        diagnostic: false,
+        follow_up_warning: None,
         success: true,
         trade_date: task.trade_date.clone(),
         exchange: task.exchange.clone(),
@@ -1325,39 +1504,25 @@ fn download_single(
 ) -> AppResult<DownloadResult> {
     let mut last_hard_error: Option<String> = None;
     let mut primary_hard_error: Option<String> = None;
+    let mut last_rejection: Option<String> = None;
     let mut not_found_count = 0_usize;
     let referer = bhavcopy_referer_for_exchange(exchange);
-    let mut bse_api_reported_no_file = false;
 
     for (candidate_idx, candidate) in candidates.iter().enumerate() {
-        match fetch_candidate_content_bytes(client, candidate, referer, 3) {
+        match fetch_candidate_content_bytes(client, candidate, referer, 3, trade_date) {
             Ok(Some(bytes)) => {
-                let csv_content = if candidate.bse_index_archive_json {
-                    match normalize_bse_index_archive_json(&bytes, trade_date)? {
-                        Some(content) => content,
-                        None => {
-                            not_found_count += 1;
-                            continue;
-                        }
+                let csv_content = match decode_candidate_csv(candidate, bytes, exchange, trade_date)
+                {
+                    Ok(Some(csv)) => csv,
+                    Ok(None) => {
+                        not_found_count += 1;
+                        continue;
                     }
-                } else {
-                    let csv_bytes = if candidate.zipped {
-                        match extract_first_csv_from_zip(&bytes)? {
-                            Some(extracted) => extracted,
-                            None => {
-                                not_found_count += 1;
-                                continue;
-                            }
-                        }
-                    } else {
-                        bytes
-                    };
-                    String::from_utf8_lossy(&csv_bytes).into_owned()
+                    Err(error) => {
+                        last_rejection = Some(format!("Candidate rejected: {error}"));
+                        continue;
+                    }
                 };
-                if is_html_response(&csv_content) {
-                    not_found_count += 1;
-                    continue;
-                }
                 let parsed = {
                     let _write_guard = lock_bhavcopy_write(write_lock)?;
                     parse_and_insert(
@@ -1368,27 +1533,30 @@ fn download_single(
                         excluded_series,
                     )?
                 };
-                if parsed.rows_inserted == 0 {
-                    if let Some(debug) = parsed.debug {
-                        last_hard_error = Some(debug);
-                        continue;
-                    }
+                if let Some(debug) = parsed.debug {
+                    return Ok(failed_download_result(exchange, trade_date, debug)
+                        .with_outcome(DownloadOutcome::ImportError));
                 }
+                let written = parsed.rows_inserted + parsed.rows_replaced;
                 return Ok(DownloadResult {
+                    outcome: if parsed.admission.conflicted == 0 {
+                        DownloadOutcome::Imported
+                    } else {
+                        DownloadOutcome::PartialCoverage
+                    },
+                    diagnostic: false,
+                    follow_up_warning: None,
                     success: parsed.admission.conflicted == 0,
                     trade_date: trade_date.to_string(),
                     exchange: exchange.to_string(),
-                    rows_inserted: parsed.rows_inserted,
+                    rows_inserted: written,
                     max_volume: parsed.max_volume,
                     message: parsed
                         .admission
-                        .describe_result(format!("Downloaded {} records", parsed.rows_inserted)),
+                        .describe_result(format!("Downloaded {written} records (new or replaced)")),
                 });
             }
             Ok(None) => {
-                if is_bse_exchange(exchange) && candidate.bse_response_key.is_some() {
-                    bse_api_reported_no_file = true;
-                }
                 not_found_count += 1;
             }
             Err(error) => {
@@ -1401,24 +1569,30 @@ fn download_single(
     }
 
     if candidate_scan_should_skip(
-        exchange,
         candidates.len(),
         not_found_count,
-        bse_api_reported_no_file,
-        last_hard_error.is_some(),
+        last_hard_error.is_some() || last_rejection.is_some(),
     ) {
         let message = if is_bse_exchange(exchange) {
             format!(
-                "No downloadable BSE source found after trying {} candidates (unavailable archive or source mismatch)",
+                "No downloadable BSE source found after trying {} candidates (all reported absence)",
                 candidates.len()
             )
         } else {
-            "No data available for this date (source unavailable or missing)".to_string()
+            "No data available for this date (all candidates reported absence)".to_string()
         };
-        return Ok(skipped_download_result(exchange, trade_date, message));
+        return Ok(skipped_download_result(exchange, trade_date, message)
+            .with_outcome(DownloadOutcome::ConfirmedAbsent));
     }
 
     Ok(DownloadResult {
+        outcome: if last_hard_error.is_some() || last_rejection.is_none() {
+            DownloadOutcome::SourceError
+        } else {
+            DownloadOutcome::SourceRejected
+        },
+        diagnostic: false,
+        follow_up_warning: None,
         success: false,
         trade_date: trade_date.to_string(),
         exchange: exchange.to_string(),
@@ -1426,6 +1600,7 @@ fn download_single(
         max_volume: 0,
         message: primary_hard_error
             .or(last_hard_error)
+            .or(last_rejection)
             .unwrap_or_else(|| "Download failed".to_string()),
     })
 }

@@ -1,17 +1,19 @@
-use std::thread;
-use std::time::Duration as StdDuration;
+use super::types::*;
 use reqwest::blocking::Client;
 use reqwest::header::{HeaderMap, HeaderValue, ACCEPT, ACCEPT_LANGUAGE, REFERER, USER_AGENT};
-use super::types::*;
+use std::thread;
+use std::time::Duration as StdDuration;
 
 pub const NSE_BASE_URL: &str = "https://www.nseindia.com";
 pub const NSE_INDEX_HISTORY_PAGE_URL: &str =
     "https://www.nseindia.com/reports-indices-historical-index-data";
-pub const NSE_INDEX_HISTORY_API_URL: &str = "https://www.nseindia.com/api/historicalOR/indicesHistory";
+pub const NSE_INDEX_HISTORY_API_URL: &str =
+    "https://www.nseindia.com/api/historicalOR/indicesHistory";
 pub const BSE_BASE_URL: &str = "https://www.bseindia.com";
 pub const BSE_INDEX_ARCHIVE_API_URL: &str =
     "https://api.bseindia.com/BseIndiaAPI/api/IndexArchDailyAllPar/w";
-pub const BSE_INDEX_ARCHIVE_PAGE_URL: &str = "https://www.bseindia.com/indices/IndexArchiveData.html";
+pub const BSE_INDEX_ARCHIVE_PAGE_URL: &str =
+    "https://www.bseindia.com/indices/IndexArchiveData.html";
 
 pub fn create_http_client() -> Result<Client, String> {
     let mut headers = HeaderMap::new();
@@ -163,6 +165,7 @@ pub fn fetch_candidate_content_bytes(
     candidate: &Candidate,
     referer: &str,
     retries: usize,
+    trade_date: &str,
 ) -> Result<Option<Vec<u8>>, String> {
     let Some(download_base) = candidate.bse_download_base else {
         return fetch_candidate_bytes(client, &candidate.url, referer, retries);
@@ -171,25 +174,88 @@ pub fn fetch_candidate_content_bytes(
         .bse_response_key
         .ok_or_else(|| "BSE candidate missing response key".to_string())?;
     let Some(api_bytes) = fetch_candidate_bytes(client, &candidate.url, referer, retries)? else {
+        return Err("BSE filename discovery endpoint returned HTTP 404.".into());
+    };
+    let Some(filename) = parse_bse_api_filename(&api_bytes, response_key)? else {
         return Ok(None);
     };
-    let content = String::from_utf8_lossy(&api_bytes);
+    let (download_url, _) =
+        validated_bse_filename_url(download_base, response_key, &filename, trade_date)?;
+    fetch_candidate_bytes(client, &download_url, referer, retries)?
+        .map(Some)
+        .ok_or_else(|| "BSE API referenced a file that returned HTTP 404.".to_string())
+}
+
+/// Only an explicitly empty array under the expected key establishes absence.
+pub(super) fn parse_bse_api_filename(
+    bytes: &[u8],
+    response_key: &str,
+) -> AppResult<Option<String>> {
+    let content = String::from_utf8_lossy(bytes);
     if is_html_response(&content) {
-        return Ok(None);
+        return Err("BSE bhavcopy API returned HTML instead of JSON.".into());
     }
-    let value = serde_json::from_str::<serde_json::Value>(&content)
+    let value: serde_json::Value = serde_json::from_str(&content)
         .map_err(|error| format!("BSE bhavcopy API JSON parse failed: {error}"))?;
-    let Some(filename) = value
+    if value.get("error").and_then(|flag| flag.as_bool()) == Some(true) {
+        return Err("BSE bhavcopy API reported an error.".into());
+    }
+    let items = value
         .get(response_key)
         .and_then(|value| value.as_array())
-        .and_then(|items| items.first())
-        .and_then(|item| item.get("filename"))
-        .and_then(|value| value.as_str())
-        .filter(|value| !value.trim().is_empty())
-    else {
+        .ok_or_else(|| format!("BSE bhavcopy API missing expected array: {response_key}"))?;
+    if items.is_empty() {
         return Ok(None);
+    }
+    let filename = items[0]
+        .get("filename")
+        .and_then(|value| value.as_str())
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .ok_or_else(|| "BSE bhavcopy API returned a row without a filename.".to_string())?;
+    Ok(Some(filename.to_string()))
+}
+
+pub(super) fn validated_bse_filename_url(
+    base: &str,
+    key: &str,
+    name: &str,
+    trade_date: &str,
+) -> Result<(String, bool), String> {
+    let filename = normalize_bse_api_filename(key, name.trim());
+    if filename.is_empty()
+        || !filename
+            .bytes()
+            .all(|c| c.is_ascii_alphanumeric() || matches!(c, b'_' | b'-' | b'.'))
+        || filename.contains("..")
+    {
+        return Err("BSE API returned an unsafe filename.".into());
+    }
+    let lower = filename.to_ascii_lowercase();
+    let date = super::calendar::parse_trade_date(trade_date)?;
+    if ![
+        date.format("%Y%m%d").to_string(),
+        date.format("%d%m%Y").to_string(),
+        date.format("%d%m%y").to_string(),
+    ]
+    .iter()
+    .any(|token| filename.contains(token))
+    {
+        return Err("BSE API filename does not match the requested trading date.".into());
+    }
+    let zipped = if lower.ends_with(".zip") {
+        true
+    } else if lower.ends_with(".csv") {
+        false
+    } else {
+        return Err("BSE API filename is not a CSV/ZIP source.".into());
     };
-    let filename = normalize_bse_api_filename(response_key, filename.trim());
-    let download_url = format!("{}{}", download_base, filename);
-    fetch_candidate_bytes(client, &download_url, referer, retries)
+    if !matches!(
+        base,
+        "https://www.bseindia.com/download/BhavCopy/Equity/"
+            | "https://www.bseindia.com/bsedata/Index_Bhavcopy/"
+    ) {
+        return Err("Unapproved BSE download base.".into());
+    }
+    Ok((format!("{base}{filename}"), zipped))
 }

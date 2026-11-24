@@ -556,6 +556,7 @@ pub(super) fn stage_fallback(
         };
         let message;
         let success;
+        let outcome;
         match normalized {
             Ok(normalized) => {
                 consecutive_failures = 0;
@@ -565,6 +566,11 @@ pub(super) fn stage_fallback(
                     .len()
                     .saturating_sub(acquired + normalized.held.len());
                 success = missing == 0 && normalized.held.is_empty();
+                outcome = if success {
+                    DownloadOutcome::SourceAcquired
+                } else {
+                    DownloadOutcome::PartialCoverage
+                };
                 message = format!("Historical subset: acquired {acquired}, held {}, missing/unsupported {missing}, identical duplicates {}; volume absent/zero remains unknown; other indices unresolved", normalized.held.len(), normalized.identical_duplicates);
                 let evidence = serde_json::to_vec_pretty(&serde_json::json!({
                         "url": url, "symbol": index.symbol, "requestedDates": request.dates,
@@ -582,12 +588,16 @@ pub(super) fn stage_fallback(
                 circuit_open |=
                     error.contains("403") || error.contains("429") || consecutive_failures >= 3;
                 success = false;
+                outcome = DownloadOutcome::SourceError;
                 message = format!("Historical source failure: {error}");
                 let evidence = serde_json::to_vec_pretty(&serde_json::json!({"url": url, "requestedDates": request.dates, "rawResponse": raw_path, "error": error, "createdAt": chrono::Utc::now().to_rfc3339()})).map_err(|e| e.to_string())?;
                 save_evidence(database, "request-failed", &evidence)?;
             }
         }
         results.push(DownloadResult {
+            outcome,
+            diagnostic: true,
+            follow_up_warning: None,
             success,
             exchange: "NSE_INDEX".into(),
             trade_date: scope,

@@ -19,6 +19,7 @@ export interface RunSummary {
   partialCount: number;
   totalRowsInserted: number;
   completedCount: number;
+  calendarSkipCount: number;
 }
 
 export interface DownloadProgress {
@@ -54,6 +55,7 @@ interface BhavcopyStoreState {
   addLog: (level: LogEntry['level'], message: string) => void;
   clearLogs: () => void;
   reportDownloadResult: (result: DownloadResult) => void;
+  reconcileFinalResults: (results: DownloadResult[]) => RunSummary;
   setDownloadProgress: (progress: number, message: string) => void;
   
   // Initialization of global listeners
@@ -68,18 +70,21 @@ const EMPTY_RUN_SUMMARY: RunSummary = {
   partialCount: 0,
   totalRowsInserted: 0,
   completedCount: 0,
+  calendarSkipCount: 0,
 };
 
 function getDownloadResultKey(result: DownloadResult): string {
-  return `${result.exchange}::${result.tradeDate}`;
+  return `${result.diagnostic ? "diagnostic::" : ""}${result.exchange}::${result.tradeDate}`;
 }
 
 export function isPartialCoverageResult(result: DownloadResult): boolean {
+  if (result.outcome) return result.outcome === 'partialCoverage';
   return !result.success && ((result.exchange === 'NSE_INDEX' && result.message.startsWith('Historical subset:'))
     || (result.exchange === 'NSE' && result.message.startsWith('Security subset:')));
 }
 
 export function isSkippedResult(result: DownloadResult): boolean {
+  if (result.outcome) return result.outcome === 'alreadyPresent' || result.outcome === 'confirmedAbsent' || result.outcome === 'calendarSkip';
   return result.success && result.rowsInserted === 0 && !result.message.startsWith('Historical subset:');
 }
 
@@ -111,6 +116,11 @@ function mergeRunSummary(
 ): RunSummary {
   const summary = { ...currentSummary };
   const applyContribution = (result: DownloadResult, direction: 1 | -1) => {
+    if (result.diagnostic || result.outcome === 'cancelled' || result.outcome === 'reportingWarning') return;
+    if (result.outcome === 'calendarSkip') {
+      summary.calendarSkipCount += direction;
+      return;
+    }
     if (isPartialCoverageResult(result)) {
       summary.partialCount += direction;
     } else if (isSkippedResult(result)) {
@@ -214,8 +224,12 @@ export const useBhavcopyStore = create<BhavcopyStoreState>((set, get) => ({
   reportDownloadResult: (result) => {
     const key = getDownloadResultKey(result);
     const { reportedDownloadResults, resultIndex, runSummary } = get();
-
-    if (reportedDownloadResults.has(key)) {
+    const previousResult = resultIndex.get(key);
+    if (previousResult && previousResult.success === result.success
+      && previousResult.rowsInserted === result.rowsInserted
+      && previousResult.message === result.message
+      && previousResult.outcome === result.outcome
+      && previousResult.followUpWarning === result.followUpWarning) {
       return;
     }
 
@@ -223,7 +237,6 @@ export const useBhavcopyStore = create<BhavcopyStoreState>((set, get) => ({
     nextReported.add(key);
 
     const nextIndex = new Map(resultIndex);
-    const previousResult = nextIndex.get(key);
     nextIndex.set(key, result);
 
     const nextSummary = mergeRunSummary(runSummary, previousResult, result);
@@ -235,7 +248,11 @@ export const useBhavcopyStore = create<BhavcopyStoreState>((set, get) => ({
     });
 
     const exchangeLabel = formatExchangeLabel(result.exchange);
-    if (isPartialCoverageResult(result)) {
+    if (result.outcome === 'sourceAcquired') {
+      get().addLog('info', `[${exchangeLabel}] ${result.tradeDate}: ${result.message}`);
+    } else if (result.outcome === 'reportingWarning' || result.outcome === 'cancelled') {
+      get().addLog('warning', `[${exchangeLabel}] ${result.tradeDate}: ${result.message}`);
+    } else if (isPartialCoverageResult(result)) {
       get().addLog(result.exchange === 'NSE' ? 'incomplete' : 'warning', `[${exchangeLabel}] ${result.tradeDate}: ${result.message}`);
     } else if (result.success) {
       if (result.rowsInserted === 0 && result.message) {
@@ -246,6 +263,20 @@ export const useBhavcopyStore = create<BhavcopyStoreState>((set, get) => ({
     } else {
       get().addLog('error', `[${exchangeLabel}] ${result.tradeDate}: ${result.message}`);
     }
+    if (result.followUpWarning) {
+      get().addLog('warning', `[${exchangeLabel}] ${result.tradeDate}: ${result.followUpWarning}`);
+    }
+  },
+
+  reconcileFinalResults: (results) => {
+    // Events are provisional; the returned terminal result set owns the summary.
+    const resultIndex = new Map(results.map((result) => [getDownloadResultKey(result), result]));
+    let runSummary = { ...EMPTY_RUN_SUMMARY };
+    for (const result of resultIndex.values()) {
+      runSummary = mergeRunSummary(runSummary, undefined, result);
+    }
+    set({ resultIndex, runSummary });
+    return runSummary;
   },
 
   setDownloadProgress: (progress, message) => set({ downloadProgress: { progress, message } }),

@@ -5,7 +5,7 @@ use super::{ParsedBhavcopyFile, ParsedBhavcopyRow};
 use crate::bhavcopy::calendar::parse_trade_date;
 use crate::bhavcopy::transport::is_html_response;
 use crate::bhavcopy::types::AppResult;
-use crate::database::binary_eod::{date_to_u32, DEFAULT_SCALE, EodRecord};
+use crate::database::binary_eod::{date_to_u32, EodRecord, DEFAULT_SCALE};
 
 pub fn parse_bhavcopy_csv(
     csv_content: &str,
@@ -191,9 +191,8 @@ pub fn parse_bhavcopy_csv(
     // NSE equity archives carry a per-row trade date. The block below only
     // resolves the file date from the first populated row; a mixed-date archive
     // would otherwise be stored entirely under the requested date.
-    let validate_row_dates = date_idx.is_some()
-        && !is_index_data
-        && exchange.eq_ignore_ascii_case("NSE");
+    let validate_row_dates =
+        date_idx.is_some() && !is_index_data && exchange.eq_ignore_ascii_case("NSE");
 
     let mut resolved_trade_date = trade_date.to_string();
     if let Some(date_idx) = date_idx {

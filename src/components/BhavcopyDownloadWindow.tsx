@@ -13,7 +13,7 @@ import type {
   HolidaySourceRow,
   OfficialHolidaySyncPreview,
 } from '@/types/desktop';
-import { isPartialCoverageResult, isSkippedResult, useBhavcopyStore, type LogEntry } from '@/store/bhavcopyStore';
+import { useBhavcopyStore, type LogEntry } from '@/store/bhavcopyStore';
 import { useChartStore } from '@/store/chartStore';
 import { useUiStore } from '@/store/uiStore';
 import { useWindowStore } from '@/store/windowStore';
@@ -1160,15 +1160,15 @@ export function BhavcopyDownloadWindow({ onClose }: BhavcopyDownloadWindowProps)
       // Deduplicate against the current run, including results delivered as events.
       result.forEach(reportDownloadResult);
 
-      const successCount = result.filter((r) => r.success && !isSkippedResult(r)).length;
-      const skippedCount = result.filter((r) => isSkippedResult(r)).length;
-      const partialCount = result.filter(isPartialCoverageResult).length;
-      const failCount = result.length - successCount - skippedCount - partialCount;
+      const { successCount, skippedCount, partialCount, failedCount: failCount,
+        totalRowsInserted: importedRows, calendarSkipCount } = batch.reconcileFinalResults(result);
       if (failCount > 0) failure = `${failCount} download jobs failed.`;
-      const importedRows = result.reduce((total, entry) => total + entry.rowsInserted, 0);
+      if (!failure && result.some((entry) => entry.diagnostic && entry.exchange === 'BHAVCOPY' && !entry.success)) {
+        failure = 'An import operation failed; inspect the recovery evidence and log.';
+      }
       addLog(
         'info',
-        `${cancelled ? 'Download cancelled' : 'Download complete'}: ${successCount} success, ${skippedCount} skipped, ${partialCount} incomplete, ${failCount} failed, imported rows: ${importedRows}`,
+        `${cancelled ? 'Download cancelled' : 'Download complete'}: ${successCount} success, ${skippedCount} skipped, ${partialCount} incomplete, ${failCount} failed, ${calendarSkipCount} calendar skips, imported rows: ${importedRows}`,
       );
     } catch (error) {
       failure = getErrorMessage(error);
@@ -1185,7 +1185,7 @@ export function BhavcopyDownloadWindow({ onClose }: BhavcopyDownloadWindowProps)
     }
   };
   const selectedExchangesCount = Object.values(config.exchanges).filter(Boolean).length;
-  const { skippedCount, successCount, failedCount, partialCount, totalRowsInserted, completedCount } = runSummary;
+  const { skippedCount, successCount, failedCount, partialCount, totalRowsInserted, completedCount, calendarSkipCount } = runSummary;
   const runStatus = stopping ? 'Stopping...' : requestingStop ? 'Requesting stop...'
     : isDownloading ? 'Running' : batchOutcome === 'cancelled' ? 'Cancelled'
     : batchOutcome === 'failed' ? 'Stopped With Errors' : batchOutcome === 'completed'
@@ -1510,13 +1510,14 @@ export function BhavcopyDownloadWindow({ onClose }: BhavcopyDownloadWindowProps)
                 </div>
                 <span style={{ color: 'var(--text-dim)', fontSize: 12 }}>{downloadProgress.progress}%</span>
               </div>
-            ) : completedCount > 0 ? (
+            ) : completedCount > 0 || calendarSkipCount > 0 ? (
               <>
                 <span style={{ color: 'var(--green-text)' }}>
                   Imported {successCount + partialCount}
                   {partialCount > 0 ? ` (${partialCount} partial)` : ''}
                 </span>
                 <span style={{ color: 'var(--text-dim)' }}>Skipped {skippedCount}</span>
+                {calendarSkipCount > 0 && <span style={{ color: 'var(--text-dim)' }}>Calendar skips {calendarSkipCount}</span>}
                 <span style={{ color: 'var(--red-text)' }}>
                   Fail {failedCount}
                 </span>

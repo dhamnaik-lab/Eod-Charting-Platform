@@ -206,17 +206,26 @@ export function createChartRuntimeController(
     }));
 
     try {
-      await api.downloadBhavcopy();
+      const result = await api.downloadBhavcopy();
+      let message = result.message;
+      if (result.followUpWarning) message += `; ${result.followUpWarning}`;
+      if (result.rowsInserted > 0) {
+        try {
+          await refreshSnapshot({ refreshSymbolBrowser: true, refreshDbStats: true });
+        } catch (error) {
+          deps.setState({ isSymbolBrowserLoading: false });
+          message += `; Prices retained; chart refresh failed: ${error instanceof Error ? error.message : String(error)}`;
+        }
+      }
       deps.setState((state) => ({
         downloadProgress: {
           ...state.downloadProgress,
           running: false,
           progress: 100,
-          message: 'Bhavcopy download complete',
-          error: null,
+          message,
+          error: !result.success && result.outcome !== 'partialCoverage' ? result.message : null,
         },
       }));
-      await refreshSnapshot({ refreshSymbolBrowser: true, refreshDbStats: true });
     } catch (error) {
       deps.setState((state) => ({
         downloadProgress: {

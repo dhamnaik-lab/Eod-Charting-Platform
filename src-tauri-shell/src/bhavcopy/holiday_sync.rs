@@ -18,8 +18,10 @@ use tauri::AppHandle;
 use crate::bhavcopy::types::AppResult;
 
 const NSE_URL: &str = "https://www.nseindia.com/api/holiday-master?type=trading";
-const BSE_2026_BASE: &str = "https://www.bseindia.com/markets/MarketInfo/DispNewNoticesCirculars.aspx?page=20251212-8";
-const BSE_2026_AMEND: &str = "https://www.bseindia.com/markets/MarketInfo/DispNewNoticesCirculars.aspx?page=20260112-8";
+const BSE_2026_BASE: &str =
+    "https://www.bseindia.com/markets/MarketInfo/DispNewNoticesCirculars.aspx?page=20251212-8";
+const BSE_2026_AMEND: &str =
+    "https://www.bseindia.com/markets/MarketInfo/DispNewNoticesCirculars.aspx?page=20260112-8";
 const MAX_SOURCE_BYTES: usize = 512 * 1024;
 const PREVIEW_TTL: StdDuration = StdDuration::from_secs(600);
 
@@ -64,20 +66,46 @@ pub struct OfficialHolidayAcceptedSnapshot {
 }
 
 #[tauri::command]
-pub fn list_official_exchange_holiday_snapshots(app: AppHandle, year: i32) -> AppResult<Vec<OfficialHolidayAcceptedSnapshot>> {
+pub fn list_official_exchange_holiday_snapshots(
+    app: AppHandle,
+    year: i32,
+) -> AppResult<Vec<OfficialHolidayAcceptedSnapshot>> {
     let folder = active_folder(&app)?;
     let db = crate::database::open_read_only_connection_for_folder(&folder)?;
     let mut stmt = db.prepare("SELECT exchange,year,accepted_at,record_count,source_urls,source_sha256 FROM official_exchange_holiday_snapshots WHERE year=?1 ORDER BY exchange")
         .map_err(|e|e.to_string())?;
-    let rows = stmt.query_map(params![year], |row| {
-        let urls: String = row.get(4)?;
-        Ok((row.get(0)?,row.get(1)?,row.get(2)?,row.get(3)?,urls,row.get(5)?))
-    }).map_err(|e|e.to_string())?;
-    let mut snapshots=Vec::new();
+    let rows = stmt
+        .query_map(params![year], |row| {
+            let urls: String = row.get(4)?;
+            Ok((
+                row.get(0)?,
+                row.get(1)?,
+                row.get(2)?,
+                row.get(3)?,
+                urls,
+                row.get(5)?,
+            ))
+        })
+        .map_err(|e| e.to_string())?;
+    let mut snapshots = Vec::new();
     for row in rows {
-        let (exchange,year,accepted_at,record_count,urls,source_sha256): (String,i32,String,i64,String,String) = row.map_err(|e|e.to_string())?;
-        let source_urls:Vec<String> = serde_json::from_str(&urls).map_err(|e|e.to_string())?;
-        snapshots.push(OfficialHolidayAcceptedSnapshot{exchange,year,accepted_at,record_count,source_urls,source_sha256});
+        let (exchange, year, accepted_at, record_count, urls, source_sha256): (
+            String,
+            i32,
+            String,
+            i64,
+            String,
+            String,
+        ) = row.map_err(|e| e.to_string())?;
+        let source_urls: Vec<String> = serde_json::from_str(&urls).map_err(|e| e.to_string())?;
+        snapshots.push(OfficialHolidayAcceptedSnapshot {
+            exchange,
+            year,
+            accepted_at,
+            record_count,
+            source_urls,
+            source_sha256,
+        });
     }
     Ok(snapshots)
 }
@@ -136,8 +164,11 @@ pub struct HolidaySourceRow {
 
 /// Hosts permitted as a holiday source. HTTPS is required and the URL may not
 /// carry a redirect parameter, so an edited URL cannot become an open fetch.
-const ALLOWED_HOLIDAY_SOURCE_HOSTS: &[&str] =
-    &["www.nseindia.com", "www.bseindia.com", "nsearchives.nseindia.com"];
+const ALLOWED_HOLIDAY_SOURCE_HOSTS: &[&str] = &[
+    "www.nseindia.com",
+    "www.bseindia.com",
+    "nsearchives.nseindia.com",
+];
 
 fn validate_holiday_source_url(url: &str) -> AppResult<()> {
     let parsed = reqwest::Url::parse(url)
@@ -213,7 +244,8 @@ pub fn list_official_exchange_holidays(
             })
         })
         .map_err(|e| e.to_string())?;
-    rows.collect::<Result<Vec<_>, _>>().map_err(|e| e.to_string())
+    rows.collect::<Result<Vec<_>, _>>()
+        .map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -231,7 +263,8 @@ pub fn list_holiday_source_registry(
     let rows = statement
         .query_map(params![year], read_source_row)
         .map_err(|e| e.to_string())?;
-    rows.collect::<Result<Vec<_>, _>>().map_err(|e| e.to_string())
+    rows.collect::<Result<Vec<_>, _>>()
+        .map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -293,7 +326,8 @@ fn registry_documents(
     let rows = statement
         .query_map(params![exchange, year], read_source_row)
         .map_err(|e| e.to_string())?;
-    rows.collect::<Result<Vec<_>, _>>().map_err(|e| e.to_string())
+    rows.collect::<Result<Vec<_>, _>>()
+        .map_err(|e| e.to_string())
 }
 
 fn bse_month_number(month: &str) -> Option<u32> {
@@ -343,7 +377,10 @@ fn parse_bse_notice(
 ) -> AppResult<Vec<OfficialHolidayRow>> {
     let raw = std::str::from_utf8(html).map_err(|_| "BSE notice is not UTF-8.".to_string())?;
     let text = html_visible_text(raw);
-    if required.iter().any(|fragment| !text.contains(fragment.as_str())) {
+    if required
+        .iter()
+        .any(|fragment| !text.contains(fragment.as_str()))
+    {
         return Err(format!(
             "BSE response is not the registered equity holiday notice for {year}."
         ));
@@ -485,19 +522,26 @@ fn fetch_official(client: &Client, url: &str) -> AppResult<Vec<u8>> {
     // Callers pass a registry URL. Validate scheme/host here as well so an edited
     // URL can never turn into an open fetch, and never follow a redirect.
     validate_holiday_source_url(url)?;
-    let response = client.get(url)
+    let response = client
+        .get(url)
         .header(ACCEPT, "application/json,text/html;q=0.9,*/*;q=0.8")
         .header(ACCEPT_LANGUAGE, "en-US,en;q=0.9")
-        .send().map_err(|e| format!("Official source unavailable: {e}"))?;
+        .send()
+        .map_err(|e| format!("Official source unavailable: {e}"))?;
     if !response.status().is_success() {
-        return Err(format!("Official source returned HTTP {}", response.status()));
+        return Err(format!(
+            "Official source returned HTTP {}",
+            response.status()
+        ));
     }
     if response.url().as_str() != url {
         return Err("Official source redirected; refusing unverified response.".into());
     }
     let mut bytes = Vec::new();
-    response.take((MAX_SOURCE_BYTES + 1) as u64)
-        .read_to_end(&mut bytes).map_err(|e| format!("Official source read failed: {e}"))?;
+    response
+        .take((MAX_SOURCE_BYTES + 1) as u64)
+        .read_to_end(&mut bytes)
+        .map_err(|e| format!("Official source read failed: {e}"))?;
     if bytes.is_empty() || bytes.len() > MAX_SOURCE_BYTES {
         return Err("Official source body empty or over size limit.".into());
     }
@@ -525,23 +569,36 @@ fn validate_rows(rows: Vec<OfficialHolidayRow>, year: i32) -> AppResult<Vec<Offi
 fn parse_nse_cash_market(bytes: &[u8], year: i32) -> AppResult<Vec<OfficialHolidayRow>> {
     let json: serde_json::Value = serde_json::from_slice(bytes)
         .map_err(|_| "NSE holiday response is not valid JSON.".to_string())?;
-    let cm = json.get("CM").and_then(|v| v.as_array())
+    let cm = json
+        .get("CM")
+        .and_then(|v| v.as_array())
         .ok_or_else(|| "NSE response lacks an equity cash-market (CM) array.".to_string())?;
     let mut rows = Vec::new();
     for value in cm {
-        let date_str = value.get("tradingDate").and_then(|v| v.as_str())
+        let date_str = value
+            .get("tradingDate")
+            .and_then(|v| v.as_str())
             .ok_or_else(|| "NSE CM row lacks tradingDate.".to_string())?;
         let date = NaiveDate::parse_from_str(date_str, "%d-%b-%Y")
             .map_err(|_| "NSE CM date format unrecognized.".to_string())?;
-        if date.year() != year { continue; }
-        let name = value.get("description").and_then(|v| v.as_str())
+        if date.year() != year {
+            continue;
+        }
+        let name = value
+            .get("description")
+            .and_then(|v| v.as_str())
             .ok_or_else(|| "NSE CM row lacks a description.".to_string())?;
-        let weekday = value.get("weekDay").and_then(|v| v.as_str())
+        let weekday = value
+            .get("weekDay")
+            .and_then(|v| v.as_str())
             .ok_or_else(|| "NSE CM weekday absent.".to_string())?;
         if super::calendar::weekday_name(date.weekday()) != weekday {
             return Err(format!("NSE CM weekday mismatch: {date_str}"));
         }
-        rows.push(OfficialHolidayRow {date: date.format("%Y-%m-%d").to_string(),name:name.trim().to_string()});
+        rows.push(OfficialHolidayRow {
+            date: date.format("%Y-%m-%d").to_string(),
+            name: name.trim().to_string(),
+        });
     }
     validate_rows(rows, year)
 }
@@ -555,70 +612,140 @@ fn html_visible_text(html: &str) -> String {
     let mut tag = String::new();
     let mut ignored: Option<String> = None;
     for ch in html.chars() {
-        if ch == '<' { in_tag = true; tag.clear(); text.push(' '); continue; }
+        if ch == '<' {
+            in_tag = true;
+            tag.clear();
+            text.push(' ');
+            continue;
+        }
         if in_tag {
             if ch == '>' {
                 in_tag = false;
                 let t = tag.trim().to_ascii_lowercase();
-                if t.starts_with("script") || t.starts_with("style") { ignored = Some(t.split_whitespace().next().unwrap_or("").to_string()); }
-                if t.starts_with("/script") || t.starts_with("/style") { ignored = None; }
-            } else { tag.push(ch); }
+                if t.starts_with("script") || t.starts_with("style") {
+                    ignored = Some(t.split_whitespace().next().unwrap_or("").to_string());
+                }
+                if t.starts_with("/script") || t.starts_with("/style") {
+                    ignored = None;
+                }
+            } else {
+                tag.push(ch);
+            }
             continue;
         }
-        if ignored.is_none() { text.push(ch); }
+        if ignored.is_none() {
+            text.push(ch);
+        }
     }
-    text.replace("&nbsp;", " ").replace("&#160;", " ").replace("&amp;", "&")
-        .replace("&quot;", "\"").replace("&#10;", " ").replace("&lt;", "<")
-        .replace("&gt;", ">").split_whitespace().collect::<Vec<_>>().join(" ")
+    text.replace("&nbsp;", " ")
+        .replace("&#160;", " ")
+        .replace("&amp;", "&")
+        .replace("&quot;", "\"")
+        .replace("&#10;", " ")
+        .replace("&lt;", "<")
+        .replace("&gt;", ">")
+        .split_whitespace()
+        .collect::<Vec<_>>()
+        .join(" ")
 }
 fn parse_bse_base(html: &[u8], year: i32) -> AppResult<Vec<OfficialHolidayRow>> {
-    if year != 2026 { return Err("BSE official circular source for this year has not been verified.".into()); }
+    if year != 2026 {
+        return Err("BSE official circular source for this year has not been verified.".into());
+    }
     let raw = std::str::from_utf8(html).map_err(|_| "BSE notice is not UTF-8.".to_string())?;
     let text = html_visible_text(raw);
-    let required = ["Notice No. 20251212-8", "Trading Holidays for the Calendar Year 2026", "Equity and Equity Derivatives Segments", "Following Holidays are Falling on Saturday / Sunday", "Muhurat Trading"];
+    let required = [
+        "Notice No. 20251212-8",
+        "Trading Holidays for the Calendar Year 2026",
+        "Equity and Equity Derivatives Segments",
+        "Following Holidays are Falling on Saturday / Sunday",
+        "Muhurat Trading",
+    ];
     if required.iter().any(|fragment| !text.contains(fragment)) {
         return Err("BSE response is not the verified 2026 equity holiday circular.".into());
     }
-    let start = text.find("Trading Members are hereby informed")
+    let start = text
+        .find("Trading Members are hereby informed")
         .ok_or_else(|| "BSE circular content not found.".to_string())?;
     let content = &text[start..];
     let tokens: Vec<&str> = content.split_whitespace().collect();
     let mut rows = Vec::new();
     for i in 1..tokens.len().saturating_sub(1) {
-        let Ok(date) = NaiveDate::parse_from_str(tokens[i], "%d-%b-%y") else {continue};
-        if date.year() != year { continue; }
+        let Ok(date) = NaiveDate::parse_from_str(tokens[i], "%d-%b-%y") else {
+            continue;
+        };
+        if date.year() != year {
+            continue;
+        }
         let weekday = super::calendar::weekday_name(date.weekday());
-        if tokens[i + 1] != weekday { return Err("BSE circular weekday mismatch.".into()); }
-        let row_number = (i.saturating_sub(18)..i).rev().find(|&j| {
-            tokens[j].parse::<usize>().ok().is_some_and(|n| n > 0 && n <= 25)
-        }).ok_or_else(|| "BSE circular row number missing.".to_string())?;
+        if tokens[i + 1] != weekday {
+            return Err("BSE circular weekday mismatch.".into());
+        }
+        let row_number = (i.saturating_sub(18)..i)
+            .rev()
+            .find(|&j| {
+                tokens[j]
+                    .parse::<usize>()
+                    .ok()
+                    .is_some_and(|n| n > 0 && n <= 25)
+            })
+            .ok_or_else(|| "BSE circular row number missing.".to_string())?;
         let name = tokens[row_number + 1..i].join(" ");
-        if name.is_empty() || name.len() > 160 {return Err("BSE circular holiday name invalid.".into());}
-        rows.push(OfficialHolidayRow {date: date.format("%Y-%m-%d").to_string(), name});
+        if name.is_empty() || name.len() > 160 {
+            return Err("BSE circular holiday name invalid.".into());
+        }
+        rows.push(OfficialHolidayRow {
+            date: date.format("%Y-%m-%d").to_string(),
+            name,
+        });
     }
-    if rows.len() != 19 {return Err(format!("BSE base circular expected 19 dated rows, found {}", rows.len()));}
+    if rows.len() != 19 {
+        return Err(format!(
+            "BSE base circular expected 19 dated rows, found {}",
+            rows.len()
+        ));
+    }
     validate_rows(rows, year)
 }
 fn validate_bse_2026_amendment(html: &[u8]) -> AppResult<OfficialHolidayRow> {
     let raw = std::str::from_utf8(html).map_err(|_| "BSE amendment is not UTF-8.".to_string())?;
     let text = html_visible_text(raw);
     if !text.contains("Notice No. 20260112-8")
-        || !text.contains("Trading Holiday on account of Municipal Corporation Elections in Maharashtra 2026")
+        || !text.contains(
+            "Trading Holiday on account of Municipal Corporation Elections in Maharashtra 2026",
+        )
         || !text.contains("January 15, 2026")
-        || !text.contains("Equity Segment") {
-        return Err("BSE 15 January amendment could not be authenticated from its official text.".into());
+        || !text.contains("Equity Segment")
+    {
+        return Err(
+            "BSE 15 January amendment could not be authenticated from its official text.".into(),
+        );
     }
-    Ok(OfficialHolidayRow {date:"2026-01-15".into(), name:"Municipal Corporation Elections in Maharashtra".into()})
+    Ok(OfficialHolidayRow {
+        date: "2026-01-15".into(),
+        name: "Municipal Corporation Elections in Maharashtra".into(),
+    })
 }
 #[allow(dead_code)] // strict 2026 reference path, kept for regression comparison
-fn fetch_nse(client: &Client, year: i32) -> AppResult<(Vec<OfficialHolidayRow>, Vec<String>, String)> {
+fn fetch_nse(
+    client: &Client,
+    year: i32,
+) -> AppResult<(Vec<OfficialHolidayRow>, Vec<String>, String)> {
     let body = fetch_official(client, NSE_URL)?;
     let rows = parse_nse_cash_market(&body, year)?;
     Ok((rows, vec![NSE_URL.into()], hex_sha(&body)))
 }
 #[allow(dead_code)] // strict 2026 reference path, kept for regression comparison
-fn fetch_bse(client: &Client, year: i32) -> AppResult<(Vec<OfficialHolidayRow>, Vec<String>, String)> {
-    if year != 2026 { return Err("BSE official equity calendar for this year is not yet supported. No changes applied.".into()); }
+fn fetch_bse(
+    client: &Client,
+    year: i32,
+) -> AppResult<(Vec<OfficialHolidayRow>, Vec<String>, String)> {
+    if year != 2026 {
+        return Err(
+            "BSE official equity calendar for this year is not yet supported. No changes applied."
+                .into(),
+        );
+    }
     let base = fetch_official(client, BSE_2026_BASE)?;
     let amendment = fetch_official(client, BSE_2026_AMEND)?;
     let mut rows = parse_bse_base(&base, year)?;
@@ -626,27 +753,58 @@ fn fetch_bse(client: &Client, year: i32) -> AppResult<(Vec<OfficialHolidayRow>, 
     let rows = validate_rows(rows, year)?;
     let mut concat = base;
     concat.extend_from_slice(&amendment);
-    Ok((rows, vec![BSE_2026_BASE.into(), BSE_2026_AMEND.into()], hex_sha(&concat)))
+    Ok((
+        rows,
+        vec![BSE_2026_BASE.into(), BSE_2026_AMEND.into()],
+        hex_sha(&concat),
+    ))
 }
 fn legacy_hash(connection: &Connection) -> AppResult<String> {
-    let mut stmt = connection.prepare("SELECT date, name, source FROM market_holidays ORDER BY date")
+    let mut stmt = connection
+        .prepare("SELECT date, name, source FROM market_holidays ORDER BY date")
         .map_err(|e| e.to_string())?;
-    let rows = stmt.query_map([], |row| Ok(format!("{}|{}|{}\n", row.get::<_, String>(0)?, row.get::<_, String>(1)?, row.get::<_, String>(2)?)))
+    let rows = stmt
+        .query_map([], |row| {
+            Ok(format!(
+                "{}|{}|{}\n",
+                row.get::<_, String>(0)?,
+                row.get::<_, String>(1)?,
+                row.get::<_, String>(2)?
+            ))
+        })
         .map_err(|e| e.to_string())?;
     let mut text = String::new();
-    for row in rows {text.push_str(&row.map_err(|e| e.to_string())?);}
+    for row in rows {
+        text.push_str(&row.map_err(|e| e.to_string())?);
+    }
     Ok(hex_sha(text.as_bytes()))
 }
 fn snapshot_hash(connection: &Connection) -> AppResult<String> {
     let mut stmt = connection.prepare("SELECT exchange,year,source_sha256,accepted_at FROM official_exchange_holiday_snapshots ORDER BY exchange,year")
         .map_err(|e| e.to_string())?;
-    let rows = stmt.query_map([], |row| Ok(format!("{}|{}|{}|{}\n", row.get::<_, String>(0)?, row.get::<_, i32>(1)?, row.get::<_, String>(2)?, row.get::<_, String>(3)?)))
+    let rows = stmt
+        .query_map([], |row| {
+            Ok(format!(
+                "{}|{}|{}|{}\n",
+                row.get::<_, String>(0)?,
+                row.get::<_, i32>(1)?,
+                row.get::<_, String>(2)?,
+                row.get::<_, String>(3)?
+            ))
+        })
         .map_err(|e| e.to_string())?;
     let mut text = String::new();
-    for row in rows {text.push_str(&row.map_err(|e| e.to_string())?);}
+    for row in rows {
+        text.push_str(&row.map_err(|e| e.to_string())?);
+    }
     Ok(hex_sha(text.as_bytes()))
 }
-fn local_comparison(connection: &Connection, year: i32, exchange: &str, official: &[OfficialHolidayRow]) -> AppResult<(Vec<String>,Vec<String>,Vec<String>)> {
+fn local_comparison(
+    connection: &Connection,
+    year: i32,
+    exchange: &str,
+    official: &[OfficialHolidayRow],
+) -> AppResult<(Vec<String>, Vec<String>, Vec<String>)> {
     let exists: bool = connection.query_row("SELECT EXISTS(SELECT 1 FROM official_exchange_holiday_snapshots WHERE exchange=?1 AND year=?2)",params![exchange,year], |r| r.get(0)).map_err(|e| e.to_string())?;
     let sql = if exists {
         "SELECT date, name FROM official_exchange_holidays WHERE exchange=?1 AND year=?2 ORDER BY date"
@@ -654,20 +812,40 @@ fn local_comparison(connection: &Connection, year: i32, exchange: &str, official
         "SELECT date, name FROM market_holidays WHERE date >= (?2 || '-01-01') AND date <= (?2 || '-12-31') ORDER BY date"
     };
     let mut stmt = connection.prepare(sql).map_err(|e| e.to_string())?;
-    let local: BTreeMap<String,String> = stmt
-        .query_map(params![exchange,year], |r| Ok((r.get(0)?,r.get(1)?)))
+    let local: BTreeMap<String, String> = stmt
+        .query_map(params![exchange, year], |r| Ok((r.get(0)?, r.get(1)?)))
         .map_err(|e| e.to_string())?
-        .collect::<Result<BTreeMap<_,_>,_>>().map_err(|e| e.to_string())?;
-    let wanted: BTreeMap<_,_> = official.iter().map(|r| (r.date.clone(),r.name.clone())).collect();
-    let new_dates = wanted.keys().filter(|d| !local.contains_key(*d)).cloned().collect();
-    let legacy_only = local.keys().filter(|d| !wanted.contains_key(*d)).cloned().collect();
-    let changed = wanted.iter().filter(|(d,n)| local.get(*d).is_some_and(|current| current != *n))
-        .map(|(d,_)|d.clone()).collect();
-    Ok((new_dates,legacy_only,changed))
+        .collect::<Result<BTreeMap<_, _>, _>>()
+        .map_err(|e| e.to_string())?;
+    let wanted: BTreeMap<_, _> = official
+        .iter()
+        .map(|r| (r.date.clone(), r.name.clone()))
+        .collect();
+    let new_dates = wanted
+        .keys()
+        .filter(|d| !local.contains_key(*d))
+        .cloned()
+        .collect();
+    let legacy_only = local
+        .keys()
+        .filter(|d| !wanted.contains_key(*d))
+        .cloned()
+        .collect();
+    let changed = wanted
+        .iter()
+        .filter(|(d, n)| local.get(*d).is_some_and(|current| current != *n))
+        .map(|(d, _)| d.clone())
+        .collect();
+    Ok((new_dates, legacy_only, changed))
 }
 #[tauri::command]
-pub async fn preview_official_exchange_holidays(app: AppHandle, year: i32) -> AppResult<OfficialHolidaySyncPreview> {
-    if !(1990..=2100).contains(&year) { return Err("Choose a supported official holiday calendar year.".into()); }
+pub async fn preview_official_exchange_holidays(
+    app: AppHandle,
+    year: i32,
+) -> AppResult<OfficialHolidaySyncPreview> {
+    if !(1990..=2100).contains(&year) {
+        return Err("Choose a supported official holiday calendar year.".into());
+    }
     tauri::async_runtime::spawn_blocking(move || {
         let folder = active_folder(&app)?;
         let db = crate::database::open_read_only_connection_for_folder(&folder)?;
@@ -720,53 +898,88 @@ fn write_verified_exchange_snapshot(
     tx.execute(
         "DELETE FROM official_exchange_holidays WHERE exchange=?1 AND year=?2",
         params![preview.exchange, year],
-    ).map_err(|e| e.to_string())?;
+    )
+    .map_err(|e| e.to_string())?;
     for row in &preview.holidays {
         tx.execute(
             "INSERT INTO official_exchange_holidays(exchange,year,date,name) VALUES (?1,?2,?3,?4)",
             params![preview.exchange, year, row.date, row.name],
-        ).map_err(|e| e.to_string())?;
+        )
+        .map_err(|e| e.to_string())?;
     }
     Ok(preview.holidays.len())
 }
 
 #[tauri::command]
-pub fn apply_official_exchange_holidays(app:AppHandle, token:String, exchanges:Vec<String>) -> AppResult<OfficialHolidaySyncResult> {
-    if exchanges.is_empty() || exchanges.len()>2 {return Err("Select one or both verified exchanges.".into());}
-    let selected:HashSet<&str> = exchanges.iter().map(String::as_str).collect();
-    if selected.len()!=exchanges.len() || !selected.iter().all(|x| matches!(*x,"NSE"|"BSE")) {
+pub fn apply_official_exchange_holidays(
+    app: AppHandle,
+    token: String,
+    exchanges: Vec<String>,
+) -> AppResult<OfficialHolidaySyncResult> {
+    if exchanges.is_empty() || exchanges.len() > 2 {
+        return Err("Select one or both verified exchanges.".into());
+    }
+    let selected: HashSet<&str> = exchanges.iter().map(String::as_str).collect();
+    if selected.len() != exchanges.len() || !selected.iter().all(|x| matches!(*x, "NSE" | "BSE")) {
         return Err("Invalid exchange selection.".into());
     }
-    let mut slot = preview_slot().lock().map_err(|_|"Holiday preview lock unavailable".to_string())?;
-    let pending = slot.as_ref().ok_or_else(||"Preview expired; fetch official calendars again.".to_string())?;
-    if pending.data.token != token || pending.created.elapsed() > PREVIEW_TTL {return Err("Official preview token expired or mismatched.".into());}
+    let mut slot = preview_slot()
+        .lock()
+        .map_err(|_| "Holiday preview lock unavailable".to_string())?;
+    let pending = slot
+        .as_ref()
+        .ok_or_else(|| "Preview expired; fetch official calendars again.".to_string())?;
+    if pending.data.token != token || pending.created.elapsed() > PREVIEW_TTL {
+        return Err("Official preview token expired or mismatched.".into());
+    }
     let active = active_folder(&app)?;
-    if active.as_ref() != pending.db_folder.as_path() {return Err("Active database changed; preview invalidated.".into());}
-    let mut db = crate::database::open_connection_for_folder(&active,false)?;
-    if legacy_hash(&db)? != pending.legacy_hash || snapshot_hash(&db)? != pending.original_snapshot_hash {
+    if active.as_ref() != pending.db_folder.as_path() {
+        return Err("Active database changed; preview invalidated.".into());
+    }
+    let mut db = crate::database::open_connection_for_folder(&active, false)?;
+    if legacy_hash(&db)? != pending.legacy_hash
+        || snapshot_hash(&db)? != pending.original_snapshot_hash
+    {
         return Err("Holiday records changed since preview; refresh before accepting.".into());
     }
     for exchange in &selected {
-        if !pending.data.exchanges.iter().any(|p|p.exchange == *exchange && p.verified && p.source_sha256.is_some()) {
-            return Err(format!("{exchange} did not return a verified official calendar."));
+        if !pending
+            .data
+            .exchanges
+            .iter()
+            .any(|p| p.exchange == *exchange && p.verified && p.source_sha256.is_some())
+        {
+            return Err(format!(
+                "{exchange} did not return a verified official calendar."
+            ));
         }
     }
-    let tx = db.transaction().map_err(|e|e.to_string())?;
+    let tx = db.transaction().map_err(|e| e.to_string())?;
     let mut records = 0;
     for exchange in &exchanges {
-        let preview = pending.data.exchanges.iter().find(|p| &p.exchange == exchange)
+        let preview = pending
+            .data
+            .exchanges
+            .iter()
+            .find(|p| &p.exchange == exchange)
             .ok_or_else(|| "Exchange missing from approved preview.".to_string())?;
         records += write_verified_exchange_snapshot(&tx, preview, pending.data.year)?;
     }
     // If the active database changes during the transaction, drop the
     // uncommitted transaction rather than publish to the previous profile.
     if active_folder(&app)? != active {
-        return Err("Active database changed during holiday acceptance; transaction rolled back.".into());
+        return Err(
+            "Active database changed during holiday acceptance; transaction rolled back.".into(),
+        );
     }
-    tx.commit().map_err(|e|e.to_string())?;
+    tx.commit().map_err(|e| e.to_string())?;
     let year = pending.data.year;
     *slot = None; // one-shot approval; no replay
-    Ok(OfficialHolidaySyncResult {year,accepted:exchanges,records})
+    Ok(OfficialHolidaySyncResult {
+        year,
+        accepted: exchanges,
+        records,
+    })
 }
 
 #[cfg(test)]
@@ -782,77 +995,148 @@ mod tests {
     }
     #[test]
     fn hol03_nse_accepts_only_cm_and_validated_year() {
-        assert_eq!(parse_nse_cash_market(&fixture_nse(),2026).unwrap().len(),16);
-        assert!(parse_nse_cash_market(&fixture_nse(),2027).is_err());
-        assert!(parse_nse_cash_market(br#"{"CD":[]}"#,2026).is_err());
+        assert_eq!(
+            parse_nse_cash_market(&fixture_nse(), 2026).unwrap().len(),
+            16
+        );
+        assert!(parse_nse_cash_market(&fixture_nse(), 2027).is_err());
+        assert!(parse_nse_cash_market(br#"{"CD":[]}"#, 2026).is_err());
     }
     #[test]
     fn hol03_bse_parses_2026_equity_circular_dates_and_amendment() {
         let weekdays = [
-            ("26-Jan-26", "Monday"),("03-Mar-26","Tuesday"),("26-Mar-26","Thursday"),
-            ("31-Mar-26","Tuesday"),("03-Apr-26","Friday"),("14-Apr-26","Tuesday"),
-            ("01-May-26","Friday"),("28-May-26","Thursday"),("26-Jun-26","Friday"),
-            ("14-Sep-26","Monday"),("02-Oct-26","Friday"),("20-Oct-26","Tuesday"),
-            ("10-Nov-26","Tuesday"),("24-Nov-26","Tuesday"),("25-Dec-26","Friday")
+            ("26-Jan-26", "Monday"),
+            ("03-Mar-26", "Tuesday"),
+            ("26-Mar-26", "Thursday"),
+            ("31-Mar-26", "Tuesday"),
+            ("03-Apr-26", "Friday"),
+            ("14-Apr-26", "Tuesday"),
+            ("01-May-26", "Friday"),
+            ("28-May-26", "Thursday"),
+            ("26-Jun-26", "Friday"),
+            ("14-Sep-26", "Monday"),
+            ("02-Oct-26", "Friday"),
+            ("20-Oct-26", "Tuesday"),
+            ("10-Nov-26", "Tuesday"),
+            ("24-Nov-26", "Tuesday"),
+            ("25-Dec-26", "Friday"),
         ];
-        let weekends = [("15-Feb-26","Sunday"),("21-Mar-26","Saturday"),
-            ("15-Aug-26","Saturday"),("08-Nov-26","Sunday")];
+        let weekends = [
+            ("15-Feb-26", "Sunday"),
+            ("21-Mar-26", "Saturday"),
+            ("15-Aug-26", "Saturday"),
+            ("08-Nov-26", "Sunday"),
+        ];
         let mut html=String::from("<html>Notice No. 20251212-8 Subject Trading Holidays for the Calendar Year 2026 for Equity and Equity Derivatives Segments Trading Members are hereby informed Sr.No. Holidays Date Day ");
-        for (i,(date,weekday)) in weekdays.iter().enumerate() {
-            html.push_str(&format!("<tr><td>{}</td><td>Fixture Holiday</td><td>{date}</td><td>{weekday}</td></tr>",i+1));
+        for (i, (date, weekday)) in weekdays.iter().enumerate() {
+            html.push_str(&format!(
+                "<tr><td>{}</td><td>Fixture Holiday</td><td>{date}</td><td>{weekday}</td></tr>",
+                i + 1
+            ));
         }
-        html.push_str(" Following Holidays are Falling on Saturday / Sunday Sr.No. Holidays Date Day ");
-        for (i,(date,weekday)) in weekends.iter().enumerate() {
-            html.push_str(&format!("<tr><td>{}</td><td>Fixture Holiday</td><td>{date}</td><td>{weekday}</td></tr>",i+1));
+        html.push_str(
+            " Following Holidays are Falling on Saturday / Sunday Sr.No. Holidays Date Day ",
+        );
+        for (i, (date, weekday)) in weekends.iter().enumerate() {
+            html.push_str(&format!(
+                "<tr><td>{}</td><td>Fixture Holiday</td><td>{date}</td><td>{weekday}</td></tr>",
+                i + 1
+            ));
         }
         html.push_str(" Muhurat Trading</html>");
-        let base=parse_bse_base(html.as_bytes(),2026).unwrap();
-        assert_eq!(base.len(),19);
+        let base = parse_bse_base(html.as_bytes(), 2026).unwrap();
+        assert_eq!(base.len(), 19);
         let amended = b"Notice No. 20260112-8 Subject Trading Holiday on account of Municipal Corporation Elections in Maharashtra 2026 January 15, 2026 Equity Segment";
-        let extra=validate_bse_2026_amendment(amended).unwrap();
-        assert_eq!(extra.date,"2026-01-15");
-        let mut rows=base;
+        let extra = validate_bse_2026_amendment(amended).unwrap();
+        assert_eq!(extra.date, "2026-01-15");
+        let mut rows = base;
         rows.push(extra);
-        assert_eq!(validate_rows(rows,2026).unwrap().len(),20);
+        assert_eq!(validate_rows(rows, 2026).unwrap().len(), 20);
     }
 
     #[test]
     fn hol03_bse_wrong_notice_and_amendment_fail_closed() {
-        assert!(parse_bse_base(b"a third-party holiday page",2026).is_err());
+        assert!(parse_bse_base(b"a third-party holiday page", 2026).is_err());
         assert!(validate_bse_2026_amendment(b"An HTML error page").is_err());
-        assert!(parse_bse_base(b"test",2027).is_err());
+        assert!(parse_bse_base(b"test", 2027).is_err());
     }
     #[test]
     fn hol03_snapshot_schema_and_lookup_is_exchange_scoped() {
-        let db=Connection::open_in_memory().unwrap();
+        let db = Connection::open_in_memory().unwrap();
         db.execute_batch("CREATE TABLE market_holidays(date TEXT NOT NULL UNIQUE,name TEXT NOT NULL,source TEXT NOT NULL); CREATE TABLE official_exchange_holiday_snapshots(exchange TEXT,year INTEGER,source_urls TEXT,source_sha256 TEXT,accepted_at TEXT,record_count INTEGER,PRIMARY KEY(exchange,year)); CREATE TABLE official_exchange_holidays(exchange TEXT,year INTEGER,date TEXT,name TEXT,PRIMARY KEY(exchange,year,date));").unwrap();
-        db.execute("INSERT INTO market_holidays VALUES('2026-01-15','Legacy','BUILTIN')",[]).unwrap();
-        db.execute("INSERT INTO official_exchange_holiday_snapshots VALUES ('NSE',2026,'u','h','t',1)",[]).unwrap();
+        db.execute(
+            "INSERT INTO market_holidays VALUES('2026-01-15','Legacy','BUILTIN')",
+            [],
+        )
+        .unwrap();
+        db.execute(
+            "INSERT INTO official_exchange_holiday_snapshots VALUES ('NSE',2026,'u','h','t',1)",
+            [],
+        )
+        .unwrap();
         db.execute("INSERT INTO official_exchange_holidays VALUES ('NSE',2026,'2026-01-15','NSE official')",[]).unwrap();
-        assert_eq!(super::super::calendar::get_exchange_holiday_name(&db,"NSE", "2026-01-15").unwrap(),Some("NSE official".into()));
-        assert_eq!(super::super::calendar::get_exchange_holiday_name(&db,"BSE", "2026-01-15").unwrap(),Some("NSE official".into()));
-        assert_eq!(super::super::calendar::get_exchange_holiday_name(&db,"NSE_INDEX", "2026-01-15").unwrap(),Some("NSE official".into()));
-        db.execute("INSERT INTO market_holidays VALUES('2026-01-16','User global','USER')",[]).unwrap();
-        assert_eq!(super::super::calendar::get_exchange_holiday_name(&db,"NSE", "2026-01-16").unwrap(),Some("User global".into()));
-        db.execute("INSERT INTO market_holidays VALUES('2027-01-15','Legacy next year','BUILTIN')",[]).unwrap();
+        assert_eq!(
+            super::super::calendar::get_exchange_holiday_name(&db, "NSE", "2026-01-15").unwrap(),
+            Some("NSE official".into())
+        );
+        assert_eq!(
+            super::super::calendar::get_exchange_holiday_name(&db, "BSE", "2026-01-15").unwrap(),
+            Some("NSE official".into())
+        );
+        assert_eq!(
+            super::super::calendar::get_exchange_holiday_name(&db, "NSE_INDEX", "2026-01-15")
+                .unwrap(),
+            Some("NSE official".into())
+        );
+        db.execute(
+            "INSERT INTO market_holidays VALUES('2026-01-16','User global','USER')",
+            [],
+        )
+        .unwrap();
+        assert_eq!(
+            super::super::calendar::get_exchange_holiday_name(&db, "NSE", "2026-01-16").unwrap(),
+            Some("User global".into())
+        );
+        db.execute(
+            "INSERT INTO market_holidays VALUES('2027-01-15','Legacy next year','BUILTIN')",
+            [],
+        )
+        .unwrap();
         // PHASE-1: a year without an accepted official snapshot no longer reads
         // unverified BUILTIN seed rows; only manual USER rows apply.
-        assert_eq!(super::super::calendar::get_exchange_holiday_name(&db,"NSE", "2027-01-15").unwrap(),None);
+        assert_eq!(
+            super::super::calendar::get_exchange_holiday_name(&db, "NSE", "2027-01-15").unwrap(),
+            None
+        );
         db.execute("INSERT INTO official_exchange_holidays VALUES ('NSE',2026,'2026-11-08','Muhurat holiday')",[]).unwrap();
-        assert_eq!(super::super::calendar::get_exchange_holiday_name(&db,"NSE", "2026-11-08").unwrap(),None);
+        assert_eq!(
+            super::super::calendar::get_exchange_holiday_name(&db, "NSE", "2026-11-08").unwrap(),
+            None
+        );
     }
     #[test]
     fn hol03_fk_parent_first_acceptance_and_idempotent_reaccept() {
         let mut db = Connection::open_in_memory().unwrap();
         db.execute_batch("PRAGMA foreign_keys=ON; CREATE TABLE official_exchange_holiday_snapshots (exchange TEXT NOT NULL CHECK(exchange IN ('NSE','BSE')), year INTEGER NOT NULL, source_urls TEXT NOT NULL, source_sha256 TEXT NOT NULL, accepted_at TEXT NOT NULL, record_count INTEGER NOT NULL, PRIMARY KEY(exchange,year)); CREATE TABLE official_exchange_holidays (exchange TEXT NOT NULL CHECK(exchange IN ('NSE','BSE')), year INTEGER NOT NULL, date TEXT NOT NULL, name TEXT NOT NULL, PRIMARY KEY(exchange,year,date), FOREIGN KEY(exchange,year) REFERENCES official_exchange_holiday_snapshots(exchange,year));").unwrap();
         let make_preview = |name: &str| OfficialHolidayExchangePreview {
-            exchange: "NSE".into(), verified: true, message: String::new(),
-            source_urls: vec![NSE_URL.into()], source_sha256: Some("fixture-sha".into()),
-            holidays: vec![OfficialHolidayRow {date:"2026-01-15".into(),name:name.into()}],
-            new_dates: vec![], legacy_only_dates: vec![],changed_names: vec![],
+            exchange: "NSE".into(),
+            verified: true,
+            message: String::new(),
+            source_urls: vec![NSE_URL.into()],
+            source_sha256: Some("fixture-sha".into()),
+            holidays: vec![OfficialHolidayRow {
+                date: "2026-01-15".into(),
+                name: name.into(),
+            }],
+            new_dates: vec![],
+            legacy_only_dates: vec![],
+            changed_names: vec![],
         };
         let tx = db.transaction().unwrap();
-        assert_eq!(write_verified_exchange_snapshot(&tx, &make_preview("Fixture A"), 2026).unwrap(),1);
+        assert_eq!(
+            write_verified_exchange_snapshot(&tx, &make_preview("Fixture A"), 2026).unwrap(),
+            1
+        );
         tx.commit().unwrap();
         let mut fk_check = db.prepare("PRAGMA foreign_key_check").unwrap();
         let mut violations = fk_check.query([]).unwrap();
@@ -860,15 +1144,24 @@ mod tests {
         drop(violations);
         drop(fk_check);
         let tx = db.transaction().unwrap();
-        assert_eq!(write_verified_exchange_snapshot(&tx, &make_preview("Fixture B"), 2026).unwrap(),1);
+        assert_eq!(
+            write_verified_exchange_snapshot(&tx, &make_preview("Fixture B"), 2026).unwrap(),
+            1
+        );
         tx.commit().unwrap();
         let rows: i64 = db.query_row("SELECT COUNT(*) FROM official_exchange_holidays WHERE exchange='NSE' AND year=2026",[],|row|row.get(0)).unwrap();
-        let name: String = db.query_row("SELECT name FROM official_exchange_holidays WHERE exchange='NSE' AND year=2026",[],|row|row.get(0)).unwrap();
-        assert_eq!((rows,name),(1,"Fixture B".into()));
+        let name: String = db
+            .query_row(
+                "SELECT name FROM official_exchange_holidays WHERE exchange='NSE' AND year=2026",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!((rows, name), (1, "Fixture B".into()));
         let mut invalid = make_preview("bad");
-        invalid.verified=false;
+        invalid.verified = false;
         let tx = db.transaction().unwrap();
-        assert!(write_verified_exchange_snapshot(&tx,&invalid,2026).is_err());
+        assert!(write_verified_exchange_snapshot(&tx, &invalid, 2026).is_err());
         tx.rollback().unwrap();
     }
 
@@ -878,7 +1171,7 @@ mod tests {
         crate::database::prepare_database_connection(&db).unwrap();
         crate::database::prepare_database_connection(&db).unwrap();
         let count: i64 = db.query_row("SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name IN ('market_holidays','official_exchange_holiday_snapshots','official_exchange_holidays')",[],|r|r.get(0)).unwrap();
-        assert_eq!(count,3);
+        assert_eq!(count, 3);
     }
 }
 
@@ -950,9 +1243,15 @@ mod hol06_tests {
         crate::database::prepare_database_connection(&db).unwrap();
         let client = source_client().unwrap();
         let error = fetch_exchange_from_registry(&client, &db, "NSE", 2023).unwrap_err();
-        assert!(error.contains("No official holiday source is registered"), "{error}");
+        assert!(
+            error.contains("No official holiday source is registered"),
+            "{error}"
+        );
         let error = fetch_exchange_from_registry(&client, &db, "BSE", 2025).unwrap_err();
-        assert!(error.contains("No official holiday source is registered"), "{error}");
+        assert!(
+            error.contains("No official holiday source is registered"),
+            "{error}"
+        );
         // 2026 is registered for both exchanges, so it must not fail on registry.
         assert!(registry_documents(&db, "NSE", 2026).unwrap().len() == 1);
         assert!(registry_documents(&db, "BSE", 2026).unwrap().len() == 2);
@@ -969,7 +1268,7 @@ mod hol06_bse_date_formats {
             let date = NaiveDate::parse_from_str(iso, "%Y-%m-%d").unwrap();
             let weekday = super::super::calendar::weekday_name(date.weekday());
             body.push_str(&format!(
-                "{} Holiday {} {:02},{} {} ",  // N Holiday <MonthName> <DD>,<YYYY> <Weekday>
+                "{} Holiday {} {:02},{} {} ", // N Holiday <MonthName> <DD>,<YYYY> <Weekday>
                 index + 1,
                 date.format("%B"),
                 date.day(),
@@ -981,9 +1280,21 @@ mod hol06_bse_date_formats {
     }
 
     const Y2023: &[&str] = &[
-        "2023-01-26", "2023-03-07", "2023-03-30", "2023-04-04", "2023-04-07", "2023-04-14",
-        "2023-05-01", "2023-06-29", "2023-08-15", "2023-09-19", "2023-10-02", "2023-10-24",
-        "2023-11-14", "2023-11-27", "2023-12-25",
+        "2023-01-26",
+        "2023-03-07",
+        "2023-03-30",
+        "2023-04-04",
+        "2023-04-07",
+        "2023-04-14",
+        "2023-05-01",
+        "2023-06-29",
+        "2023-08-15",
+        "2023-09-19",
+        "2023-10-02",
+        "2023-10-24",
+        "2023-11-14",
+        "2023-11-27",
+        "2023-12-25",
     ];
 
     #[test]
@@ -1091,16 +1402,27 @@ fn parse_official_holiday_csv(text: &str) -> AppResult<Vec<ImportedHoliday>> {
     let mut seen = HashSet::<(String, String)>::new();
     for (line, record) in reader.records().enumerate() {
         let record = record.map_err(|e| format!("CSV line {}: {e}", line + 2))?;
-        let field = |at: Option<usize>| at.and_then(|i| record.get(i)).unwrap_or("").trim().to_string();
+        let field = |at: Option<usize>| {
+            at.and_then(|i| record.get(i))
+                .unwrap_or("")
+                .trim()
+                .to_string()
+        };
         let exchange = field(Some(exchange_at)).to_uppercase();
         if exchange != "NSE" && exchange != "BSE" {
-            return Err(format!("CSV line {}: exchange must be NSE or BSE.", line + 2));
+            return Err(format!(
+                "CSV line {}: exchange must be NSE or BSE.",
+                line + 2
+            ));
         }
         let year: i32 = field(Some(year_at))
             .parse()
             .map_err(|_| format!("CSV line {}: year is not a number.", line + 2))?;
         if !(1990..=2100).contains(&year) {
-            return Err(format!("CSV line {}: year {year} is out of range.", line + 2));
+            return Err(format!(
+                "CSV line {}: year {year} is out of range.",
+                line + 2
+            ));
         }
         let date = field(Some(date_at));
         let parsed = NaiveDate::parse_from_str(&date, "%Y-%m-%d")
@@ -1148,7 +1470,10 @@ fn parse_official_holiday_csv(text: &str) -> AppResult<Vec<ImportedHoliday>> {
 }
 
 #[tauri::command]
-pub fn preview_official_holiday_csv(app: AppHandle, csv_text: String) -> AppResult<OfficialHolidayCsvPreview> {
+pub fn preview_official_holiday_csv(
+    app: AppHandle,
+    csv_text: String,
+) -> AppResult<OfficialHolidayCsvPreview> {
     if csv_text.len() > 2 * 1024 * 1024 {
         return Err("Official holiday CSV is too large.".into());
     }
@@ -1156,12 +1481,12 @@ pub fn preview_official_holiday_csv(app: AppHandle, csv_text: String) -> AppResu
     let folder = active_folder(&app)?;
     let db = crate::database::open_read_only_connection_for_folder(&folder)?;
     let mut groups: Vec<OfficialHolidayCsvGroup> = Vec::new();
-    for ((exchange, year), count) in rows
-        .iter()
-        .fold(BTreeMap::<(String, i32), usize>::new(), |mut acc, row| {
-            *acc.entry((row.exchange.clone(), row.year)).or_insert(0) += 1;
-            acc
-        })
+    for ((exchange, year), count) in
+        rows.iter()
+            .fold(BTreeMap::<(String, i32), usize>::new(), |mut acc, row| {
+                *acc.entry((row.exchange.clone(), row.year)).or_insert(0) += 1;
+                acc
+            })
     {
         let existing: i64 = db
             .query_row(
@@ -1201,7 +1526,10 @@ pub fn apply_official_holiday_csv(
     let tx = db.transaction().map_err(|e| e.to_string())?;
     let mut touched = BTreeMap::<(String, i32), Vec<&ImportedHoliday>>::new();
     for row in &rows {
-        touched.entry((row.exchange.clone(), row.year)).or_default().push(row);
+        touched
+            .entry((row.exchange.clone(), row.year))
+            .or_default()
+            .push(row);
     }
     let mut years = Vec::new();
     for ((exchange, year), group) in &touched {
@@ -1222,7 +1550,14 @@ pub fn apply_official_holiday_csv(
             "INSERT OR REPLACE INTO official_exchange_holiday_snapshots
                (exchange,year,source_urls,source_sha256,accepted_at,record_count)
              VALUES (?1,?2,?3,?4,?5,?6)",
-            params![exchange, year, urls, source_sha, accepted_at, group.len() as i64],
+            params![
+                exchange,
+                year,
+                urls,
+                source_sha,
+                accepted_at,
+                group.len() as i64
+            ],
         )
         .map_err(|e| e.to_string())?;
         for row in group {
@@ -1289,8 +1624,10 @@ mod hol06_csv_import {
     use super::*;
 
     fn csv_of(exchange: &str, year: i32, count: usize) -> String {
-        let mut text = String::from("exchange,year,date,name,source_urls,source_sha256
-");
+        let mut text = String::from(
+            "exchange,year,date,name,source_urls,source_sha256
+",
+        );
         for day in 1..=count {
             text.push_str(&format!(
                 "{exchange},{year},{year}-01-{day:02},Holiday {day},https://example.org/n,ABC
@@ -1306,7 +1643,10 @@ mod hol06_csv_import {
         assert_eq!(rows.len(), 12);
         assert_eq!(rows[0].exchange, "BSE");
         assert_eq!(rows[0].year, 2027);
-        assert_eq!(rows[0].source_urls.as_deref(), Some("https://example.org/n"));
+        assert_eq!(
+            rows[0].source_urls.as_deref(),
+            Some("https://example.org/n")
+        );
     }
 
     #[test]
@@ -1328,14 +1668,20 @@ mod hol06_csv_import {
 
     #[test]
     fn rejects_missing_columns_and_implausible_counts() {
-        assert!(parse_official_holiday_csv("date,name
+        assert!(parse_official_holiday_csv(
+            "date,name
 2027-01-01,Holi
-").is_err());
+"
+        )
+        .is_err());
         // too few rows for an annual calendar
         assert!(parse_official_holiday_csv(&csv_of("NSE", 2027, 5)).is_err());
         // empty file
-        assert!(parse_official_holiday_csv("exchange,year,date,name
-").is_err());
+        assert!(parse_official_holiday_csv(
+            "exchange,year,date,name
+"
+        )
+        .is_err());
     }
 }
 
@@ -1433,5 +1779,6 @@ fn registry_documents_for_year(
     let rows = statement
         .query_map(params![year], read_source_row)
         .map_err(|e| e.to_string())?;
-    rows.collect::<Result<Vec<_>, _>>().map_err(|e| e.to_string())
+    rows.collect::<Result<Vec<_>, _>>()
+        .map_err(|e| e.to_string())
 }

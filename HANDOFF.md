@@ -1,3 +1,5 @@
+**BHAV-01 candidate — 24 November 2026, 18:34 IST (unpublished; Windows validation HOLD).** Candidate branch `fix/bhav-01-download-integrity-20261124` starts at `eaaea26d86f66e6ae3f08cac89282bae2e7a569e`. Source/download outcomes, successful-log preservation, separate latest-attempt metadata, terminal summary and post-import reporting drafted against a verified snapshot. No live DB/download, Rustfmt/Cargo/Vitest/renderer build or portable acceptance. Before publishing, validate exact candidate and update documentation with actual evidence; do not begin BHAV-02 until this phase closes. [Change record](docs/changes/2026-11-24_1834_IST_BHAV01_DOWNLOAD_OUTCOME_INTEGRITY.md). Existing scanner and other workstream handoffs remain unchanged.
+
 **CURRENT HANDOFF — WP-04 Custom Formula merged, WP-05 scoping next (24 November 2026).** Main includes accepted gated numeric history V2, Daily Market corrections, bounded native preset and custom-signal routes, and standalone TypeScript Custom Formula. Native remains opt-in and production V2 stays disabled. Start with the read-only alert parity scope in the phase tracker. [Start here](NEXT_THREAD_PROMPT_EOD_CHARTING_PLATFORM.md#start-from-github-or-powershell) · [Remaining work](docs/plans/2026-11-21_NATIVE_SCANNER_RETIREMENT_READINESS.md#remaining-work)
 
 Publication checks passed with `rustfmt --edition 2021 --check --config skip_children=true` across 44 changed Rust paths and the Scanner CI file set of 26 paths. Standard recursion reported pre-existing differences in 51 files outside the publication. The isolated source candidate passed renderer typechecking and 67 focused signal tests.
@@ -522,3 +524,10 @@ Copy exactly these eight root Markdown outputs together: [README](README.md), [R
 - [Project state](PROJECT_STATE_EOD_CHARTING_PLATFORM.md) for dated findings and checks; [Phase tracker](NEXT_THREAD_PROMPT_EOD_CHARTING_PLATFORM.md) for phase status only.
 
 **Current documentation-only task:** source reconstruction prepared from the supplied ZIP. Native Git/PowerShell validation and reconciliation with the live checkout are **pending**, not reported as passed. No feature rollout, phase acceptance, Git operation, runtime database operation or portable build was performed.
+
+
+## BHAV-01 Windows validation resume point — 2026-11-24 IST
+
+- Base `eaaea26d86f66e6ae3f08cac89282bae2e7a569e`; candidate `fix/bhav-01-download-integrity-20261124`.
+- Automated Windows gates PASS on the exact 26-file inventory: canonical Rustfmt, Git whitespace, focused Rust 12/12, Bhavcopy Rust 180 passed / 4 ignored, renderer 47/47, TypeScript and renderer build. Two unrelated local files preserved. Full evidence and limitations: `docs/changes/2026-11-24_1834_IST_BHAV01_DOWNLOAD_OUTCOME_INTEGRITY.md`.
+- Formatter backup `backups/pre_opencode_changes_20261124_195250_572_bhav01-rustfmt`. Publication is approved for candidate branch only; check actual remote receipt before claiming published. Native portable build and owner acceptance remain pending; no merge or production database access authorized. Keep BHAV-02 (calendar) and BHAV-03 (retry/coverage) on hold.
