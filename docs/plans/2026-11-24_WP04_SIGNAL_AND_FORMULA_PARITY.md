@@ -181,7 +181,7 @@ The main SQLite catalog, database manifest and NTPC history SHA-256 values match
 
 ## Formula contract
 
-The first Custom Formula Scanner workflow is available on `codex/wp04-custom-formula`. The branch is based on published `main@096044a`. Actual-data Windows portable acceptance is pending.
+The first Custom Formula Scanner workflow on `codex/wp04-custom-formula` passed actual-data Windows portable acceptance. The branch is based on published `main@096044a`.
 
 The chart formula editor evaluates assignment programs and uses numeric assignments as plots. Before this workflow, the unused batch helper chose the first nonzero numeric plot. For example, FIRST = close could produce a hit even when RULE = close > 200 evaluated false. The Scanner now requires explicit selection and validates one named boolean series. The chart evaluator retains numeric plot output. [Formula evaluation](../../src/modules/formulaEngine/customFormulaEngine.ts)
 
@@ -192,6 +192,23 @@ Open Scanner → Run → Custom Formula. Check the formula, select one named boo
 The branch passed renderer typechecking, 194 focused tests and a browser run with mocked desktop reads. The browser run covered explicit selection and edit invalidation, draft retention across minimize and restore, cutoff and target limits, outcome counts, cancellation and a database switch away and back. These checks used the published Scanner Results table. [Formula tests](../../src/plugins/scanner/__tests__/formulaScanner.test.ts)
 
 Windows acceptance uses the normal operator-built portable from this branch with separately authorized actual EOD data. Check a true comparison, a false comparison, and a known crossover or warm-up case at a common symbol, cutoff and lookback. Record the selected predicate, result date and outcome counts.
+
+#### Windows portable acceptance for Custom Formula · 24 November 2026 IST
+
+**PASS.** The operator-built portable from `0551ef6` completed in 3m 46s. Build `20261124.155331` staged the executable SHA-256 `D8B8A07277A604D1DAB3FFBE625B0FB8AAE17095D6ED35AAFFBB8140DDC5D6B3`. The app ran on the normal Windows desktop with WebView2 `157.0.0.0` and an isolated profile with zero alert rules. The operator authorized normal read-write activation of the actual EOD database. The app snapshot confirmed the selection and production V2 reported disabled.
+
+The independent raw NTPC binary reference decoded closes of 322.70 on 2026-11-08 and 328.75 on 2026-11-09. Each UI run used `NSE:NTPC`, inclusive cutoff `2026-11-09`, an 800-bar lookback, and explicitly selected `RULE` after checking the formula.
+
+| Case | Program | Matched | False | Unavailable | Failed |
+| --- | --- | ---: | ---: | ---: | ---: |
+| True | `RULE = close > 325` | 1 | 0 | 0 | 0 |
+| False with a numeric assignment | `FIRST = close` then `RULE = close > 350` | 0 | 1 | 0 | 0 |
+| Crossover | `RULE = CROSSOVER(close, 325)` | 1 | 0 | 0 | 0 |
+| Warm-up | `RULE = close > SMA(close, 801)` | 0 | 0 | 1 | 0 |
+
+Both match rows showed `NSE:NTPC`, `neutral`, the actual 2026-11-09 bar date, and `predicate: RULE`. The two zero-match runs displayed the empty result with their respective false or unavailable counts. The app closed normally with exit code 0. The scoped catalog, database manifest, binary-state catalog, NTPC .eod file, WAL and SHM hashes matched before activation and after close.
+
+Evidence is retained in the primary checkout under `tmp/fixtures/wp04-formula-portable-20261124_155731/desktop-result-1795516336037.json`. Report SHA-256 `16FA4AABB6E1E8AB77B95095C163B54AEFCC8978465D42DA34079CD450DC2C10`.
 
 ## Checkpoint
 
