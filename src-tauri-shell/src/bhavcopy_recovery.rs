@@ -116,6 +116,7 @@ pub struct RecoveryBinaryBaseline {
 
 #[derive(Clone, Debug)]
 pub struct RecoverySessionSpec {
+    pub sqlite_key: Option<String>,
     pub mode: String,
     pub requested_start_date: String,
     pub requested_end_date: String,
@@ -132,6 +133,8 @@ pub struct RecoverySessionSpec {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct RecoverySessionManifest {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub sqlite_key: Option<String>,
     pub schema_version: String,
     pub session_id: String,
     pub created_at: String,
@@ -193,6 +196,7 @@ pub fn create_prepared_session(
     let binary_baselines_sha256 = sha256_json(&spec.binary_baselines)?;
     let now = now_iso();
     let manifest = RecoverySessionManifest {
+        sqlite_key: spec.sqlite_key,
         schema_version: RECOVERY_SCHEMA_VERSION.to_string(),
         session_id,
         created_at: now.clone(),
@@ -248,48 +252,87 @@ pub fn remove_checkpointed_session(handle: &RecoverySessionHandle) -> AppResult<
     Ok(())
 }
 
-pub fn load_pending_sessions(database_folder: &Path) -> AppResult<Vec<LoadedRecoverySession>> {
+fn recovery_session_directories(database_folder: &Path) -> AppResult<Vec<PathBuf>> {
     let root = recovery_sessions_root(database_folder);
-    if !root.exists() {
+    let entries = match fs::read_dir(root) {
+        Ok(entries) => entries,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(Vec::new()),
+        Err(error) => return Err(error.to_string()),
+    };
+    let mut directories = Vec::new();
+    for entry in entries {
+        let entry = entry.map_err(|error| error.to_string())?;
+        if entry.metadata().map_err(|error| error.to_string())?.is_dir() {
+            directories.push(entry.path());
+        }
+    }
+    Ok(directories)
+}
+
+fn load_session_manifest(
+    directory: &Path,
+    canonical_database: &str,
+) -> AppResult<Option<RecoverySessionManifest>> {
+    let manifest = match read_manifest_with_backup(directory) {
+        Ok(manifest) => manifest,
+        Err(error) => {
+            let exists = |name| {
+                directory.join(name).try_exists().map_err(|error| error.to_string())
+            };
+            if !exists(MANIFEST_FILE)? && !exists(MANIFEST_BACKUP_FILE)? {
+                // The operation cannot apply prices before publishing PREPARED.
+                return Ok(None);
+            }
+            return Err(format!(
+                "Bhavcopy recovery session at {} has an unreadable manifest: {}",
+                directory.display(),
+                error
+            ));
+        }
+    };
+    if manifest.schema_version != RECOVERY_SCHEMA_VERSION {
+        return Err(format!(
+            "Unsupported Bhavcopy recovery schema '{}' in session {}.",
+            manifest.schema_version, manifest.session_id
+        ));
+    }
+    if manifest.database_folder != canonical_database {
+        return Err(format!(
+            "Bhavcopy recovery session {} is bound to a different database folder.",
+            manifest.session_id
+        ));
+    }
+    Ok(Some(manifest))
+}
+
+// Called under the canonical lease. Only recovery may remove completed sessions.
+pub(crate) fn has_pending_sessions(database_folder: &Path) -> AppResult<bool> {
+    let directories = recovery_session_directories(database_folder)?;
+    if directories.is_empty() {
+        return Ok(false);
+    }
+    let canonical_database = canonical_database_folder(database_folder)?;
+    for directory in directories {
+        if load_session_manifest(&directory, &canonical_database)?
+            .is_some_and(|manifest| manifest.state != RecoverySessionState::Checkpointed)
+        {
+            return Ok(true);
+        }
+    }
+    Ok(false)
+}
+
+pub fn load_pending_sessions(database_folder: &Path) -> AppResult<Vec<LoadedRecoverySession>> {
+    let directories = recovery_session_directories(database_folder)?;
+    if directories.is_empty() {
         return Ok(Vec::new());
     }
     let canonical_database = canonical_database_folder(database_folder)?;
     let mut sessions = Vec::new();
-
-    for entry in fs::read_dir(&root).map_err(|error| error.to_string())? {
-        let entry = entry.map_err(|error| error.to_string())?;
-        let directory = entry.path();
-        if !directory.is_dir() {
+    for directory in directories {
+        let Some(manifest) = load_session_manifest(&directory, &canonical_database)? else {
             continue;
-        }
-
-        let manifest = match read_manifest_with_backup(&directory) {
-            Ok(manifest) => manifest,
-            Err(error) => {
-                if directory.join(MANIFEST_FILE).exists()
-                    || directory.join(MANIFEST_BACKUP_FILE).exists()
-                {
-                    return Err(format!(
-                        "Bhavcopy recovery session at {} has an unreadable manifest: {}",
-                        directory.display(),
-                        error
-                    ));
-                }
-                continue;
-            }
         };
-        if manifest.schema_version != RECOVERY_SCHEMA_VERSION {
-            return Err(format!(
-                "Unsupported Bhavcopy recovery schema '{}' in session {}.",
-                manifest.schema_version, manifest.session_id
-            ));
-        }
-        if manifest.database_folder != canonical_database {
-            return Err(format!(
-                "Bhavcopy recovery session {} is bound to a different database folder.",
-                manifest.session_id
-            ));
-        }
         if !manifest.binary_baselines.is_empty() {
             if manifest.binary_baselines_sha256.is_empty() {
                 return Err(format!(
@@ -361,6 +404,22 @@ pub fn handle_from_loaded(session: &LoadedRecoverySession) -> RecoverySessionHan
         directory: session.directory.clone(),
         manifest: session.manifest.clone(),
     }
+}
+
+pub(crate) fn check_recovery_sqlite_binding(
+    session: &LoadedRecoverySession,
+    sqlite_file: &Path,
+) -> AppResult<()> {
+    if let Some(expected) = &session.manifest.sqlite_key {
+        let actual = crate::database::database_use::CanonicalAccess::sqlite_key_for_file(sqlite_file)?;
+        if *expected != actual {
+            return Err(format!(
+                "Bhavcopy session {} belongs to a different SQLite file. Review recovery before replay.",
+                session.manifest.session_id
+            ));
+        }
+    }
+    Ok(())
 }
 
 pub fn restore_buffered_binary_baselines(
@@ -550,10 +609,10 @@ fn sync_verified_checkpoint_paths(paths: Vec<PathBuf>) -> AppResult<CheckpointSy
 
     for _ in 0..worker_count {
         let queue = Arc::clone(&queue);
-        let first_error = Arc::clone(&first_error);
+        let worker_error = Arc::clone(&first_error);
         let sync_samples_us = Arc::clone(&sync_samples_us);
-        workers.push(thread::spawn(move || loop {
-            if first_error
+        let worker = thread::Builder::new().spawn(move || loop {
+            if worker_error
                 .lock()
                 .map(|slot| slot.is_some())
                 .unwrap_or(true)
@@ -563,7 +622,7 @@ fn sync_verified_checkpoint_paths(paths: Vec<PathBuf>) -> AppResult<CheckpointSy
             let path = match queue.lock() {
                 Ok(mut queue) => queue.pop_front(),
                 Err(_) => {
-                    if let Ok(mut slot) = first_error.lock() {
+                    if let Ok(mut slot) = worker_error.lock() {
                         *slot = Some(
                             "Bhavcopy buffered checkpoint queue lock was poisoned.".to_string(),
                         );
@@ -578,7 +637,7 @@ fn sync_verified_checkpoint_paths(paths: Vec<PathBuf>) -> AppResult<CheckpointSy
             let file = match retry_recovery_fs(|| OpenOptions::new().read(true).write(true).open(&path)) {
                 Ok(file) => file,
                 Err(error) => {
-                    if let Ok(mut slot) = first_error.lock() {
+                    if let Ok(mut slot) = worker_error.lock() {
                         if slot.is_none() {
                             *slot = Some(format!(
                                 "Buffered APPEND_NEWEST checkpoint open failed for {}: {}",
@@ -593,7 +652,7 @@ fn sync_verified_checkpoint_paths(paths: Vec<PathBuf>) -> AppResult<CheckpointSy
 
             let sync_started = Instant::now();
             if let Err(error) = file.sync_data() {
-                if let Ok(mut slot) = first_error.lock() {
+                if let Ok(mut slot) = worker_error.lock() {
                     if slot.is_none() {
                         *slot = Some(format!(
                             "Buffered APPEND_NEWEST checkpoint sync failed for {}: {}",
@@ -607,7 +666,7 @@ fn sync_verified_checkpoint_paths(paths: Vec<PathBuf>) -> AppResult<CheckpointSy
             let sample_us = sync_started.elapsed().as_micros().max(1);
             if let Ok(mut samples) = sync_samples_us.lock() {
                 samples.push(sample_us);
-            } else if let Ok(mut slot) = first_error.lock() {
+            } else if let Ok(mut slot) = worker_error.lock() {
                 if slot.is_none() {
                     *slot = Some(
                         "Bhavcopy buffered checkpoint telemetry lock was poisoned.".to_string(),
@@ -615,7 +674,16 @@ fn sync_verified_checkpoint_paths(paths: Vec<PathBuf>) -> AppResult<CheckpointSy
                 }
                 return;
             }
-        }));
+        });
+        match worker {
+            Ok(handle) => workers.push(handle),
+            Err(error) => {
+                if let Ok(mut slot) = first_error.lock() {
+                    *slot = Some(format!("Could not start Bhavcopy checkpoint worker: {error}"));
+                }
+                break;
+            }
+        }
     }
 
     for worker in workers {
@@ -1031,6 +1099,7 @@ mod tests {
 
     fn sample_spec(rows: Vec<RecoveryJournalRow>) -> RecoverySessionSpec {
         RecoverySessionSpec {
+            sqlite_key: None,
             mode: "Range".to_string(),
             requested_start_date: "2026-08-07".to_string(),
             requested_end_date: "2026-08-07".to_string(),
@@ -1063,6 +1132,24 @@ mod tests {
     }
 
     #[test]
+    fn nsr7_bhavcopy_recovery_rejects_a_different_sqlite_file_after_reopen() {
+        use crate::database::database_use::CanonicalAccess;
+
+        let fixture = tempdir().unwrap();
+        let original = fixture.path().join("original.sqlite3");
+        let other = fixture.path().join("other.sqlite3");
+        drop(rusqlite::Connection::open(&original).unwrap());
+        drop(rusqlite::Connection::open(&other).unwrap());
+        let mut spec = sample_spec(vec![sample_row(20260807)]);
+        spec.sqlite_key = Some(CanonicalAccess::sqlite_key_for_file(&original).unwrap());
+        create_prepared_session(fixture.path(), spec).unwrap();
+        let sessions = load_pending_sessions(fixture.path()).unwrap();
+        check_recovery_sqlite_binding(&sessions[0], &original).unwrap();
+        assert!(check_recovery_sqlite_binding(&sessions[0], &other)
+            .unwrap_err().contains("different SQLite file"));
+    }
+
+    #[test]
     fn state_updates_are_persisted_and_checkpointed_sessions_are_cleaned() {
         let dir = tempdir().unwrap();
         let mut handle =
@@ -1075,6 +1162,45 @@ mod tests {
         let loaded = load_pending_sessions(dir.path()).unwrap();
         assert!(loaded.is_empty());
         assert!(!handle.directory.exists());
+    }
+
+    #[test]
+    fn nsr7_pending_admission_permits_only_checkpointed_sessions_without_cleanup() {
+        use crate::database::database_use::CanonicalAccess;
+
+        let dir = tempdir().unwrap();
+        let folder = dir.path();
+        let sqlite_file = folder.join("market-data.sqlite3");
+        drop(rusqlite::Connection::open(&sqlite_file).unwrap());
+        let lease = CanonicalAccess::lock_writer_for_database(folder).unwrap();
+        assert_eq!(
+            CanonicalAccess::lock_bhavcopy_recovery(&sqlite_file).unwrap_err(),
+            "CANONICAL_PRICE_STORE_BUSY"
+        );
+        let mut handle =
+            create_prepared_session(folder, sample_spec(vec![sample_row(20260807)])).unwrap();
+        for state in [
+            RecoverySessionState::Prepared,
+            RecoverySessionState::Applying,
+            RecoverySessionState::Failed,
+            RecoverySessionState::RecoveryError,
+            RecoverySessionState::Applied,
+            RecoverySessionState::Checkpointing,
+        ] {
+            update_session_state(&mut handle, state, None).unwrap();
+            assert!(has_pending_sessions(folder).unwrap());
+        }
+        drop(lease);
+        let blocked = CanonicalAccess::lock_writer_for_database(folder).err().unwrap();
+        assert!(blocked.starts_with("CANONICAL_PRICE_STORE_INTERRUPTED"));
+        let lease = CanonicalAccess::lock_bhavcopy_recovery(&sqlite_file).unwrap();
+        update_session_state(&mut handle, RecoverySessionState::Checkpointed, None).unwrap();
+        assert!(!has_pending_sessions(folder).unwrap());
+        assert!(handle.directory.is_dir());
+        assert!(load_pending_sessions(folder).unwrap().is_empty());
+        assert!(!handle.directory.exists());
+        drop(lease);
+        assert!(CanonicalAccess::lock_writer_for_database(folder).is_ok());
     }
 
     #[test]

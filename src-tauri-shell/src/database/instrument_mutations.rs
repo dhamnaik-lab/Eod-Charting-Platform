@@ -3,6 +3,7 @@ use std::collections::HashSet;
 use tauri::AppHandle;
 
 use super::binary_eod::{BinaryEodFile, DEFAULT_SCALE};
+use super::database_use::{CanonicalAccess, CanonicalWriterIntent};
 use super::{
     emit_database_changed, find_instrument_record, get_app_snapshot_internal, normalize_exchange,
     normalize_optional_text, normalize_optional_trade_date, normalize_symbol, question_marks,
@@ -27,7 +28,7 @@ pub async fn merge_symbols(
             super::connection_registry::open_connection_for_folder(&folder_path, false)?;
 
         // 2. Perform the heavy merge (SQLite + Binary EOD)
-        let result = merge_symbols_internal(&connection, &input, Some(&folder_path))?;
+        let result = merge_symbols_internal(&connection, &input, &folder_path)?;
 
         // 3. Invalidate the stats cache since we just modified data
         super::connection_registry::invalidate_cached_db_stats(&app_handle, &folder_path)?;
@@ -64,9 +65,17 @@ pub async fn apply_corporate_action(
             super::connection_registry::open_connection_for_folder(&folder_path, false)?;
 
         // 2. Perform the heavy SQLite work
-        let result = run_connection_transaction(&connection, |connection| {
-            apply_corporate_action_internal(connection, &input, Some(&folder_path))
-        })?;
+        let result = {
+            let action_type = normalize_corporate_action_type(&input.action_type)?;
+            let _canonical = if is_price_adjustment_type(&action_type) {
+                None
+            } else {
+                Some(CanonicalAccess::lock_writer_for_database(&folder_path)?)
+            };
+            run_connection_transaction(&connection, |connection| {
+                apply_corporate_action_internal(connection, &input, Some(&folder_path))
+            })?
+        };
 
         // 3. Invalidate the stats cache since we just modified data
         super::connection_registry::invalidate_cached_db_stats(&app_handle, &folder_path)?;
@@ -90,20 +99,12 @@ pub async fn apply_corporate_action(
 fn merge_symbols_internal(
     connection: &Connection,
     input: &MergeSymbolsInput,
-    base_path: Option<&Path>,
+    folder: &Path,
 ) -> AppResult<MergeSymbolsResult> {
     let source_symbol = normalize_symbol(&input.source_symbol)?;
     let source_exchange = normalize_exchange(&input.source_exchange)?;
     let target_symbol = normalize_symbol(&input.target_symbol)?;
     let target_exchange = normalize_exchange(&input.target_exchange)?;
-    let binary_paths = base_path
-        .map(|folder| -> AppResult<_> {
-            Ok((
-                super::storage_paths::eod_path(folder, &source_exchange, &source_symbol)?,
-                super::storage_paths::eod_write_path(folder, &target_exchange, &target_symbol)?,
-            ))
-        })
-        .transpose()?;
     let target_name = normalize_optional_text(input.target_name.as_deref());
     let overwrite_duplicates = input.overwrite_duplicates.unwrap_or(true);
     let delete_source_after_merge = input.delete_source_after_merge.unwrap_or(true);
@@ -112,6 +113,11 @@ fn merge_symbols_internal(
         return Err("Source and target symbols must be different.".to_string());
     }
 
+    let canonical = CanonicalAccess::lock_writer_for_database(folder)?;
+    let source_bin_path = super::storage_paths::eod_path(folder, &source_exchange, &source_symbol)?;
+    let target_bin_path =
+        super::storage_paths::eod_write_path(folder, &target_exchange, &target_symbol)?;
+    let source_has_binary = source_bin_path.try_exists().map_err(|error| error.to_string())?;
     let source_instrument =
         find_instrument_record(connection, &source_symbol, &source_exchange)?
             .ok_or_else(|| "Source symbol was not found in the current database.".to_string())?;
@@ -169,6 +175,12 @@ fn merge_symbols_internal(
         .and_then(|instrument| instrument.industry.clone())
         .or_else(|| source_instrument.industry.clone());
 
+    let apply = canonical.begin_apply(CanonicalWriterIntent::SymbolMerge {
+        source_symbol: source_symbol.clone(),
+        source_exchange: source_exchange.clone(),
+        target_symbol: target_symbol.clone(),
+        target_exchange: target_exchange.clone(),
+    })?;
     run_connection_transaction(connection, |connection| {
         connection
             .execute(
@@ -365,92 +377,23 @@ fn merge_symbols_internal(
         Ok(())
     })?;
 
-    if let Some((source_bin_path, target_bin_path)) = binary_paths {
-        if source_bin_path.exists() {
-            let mut can_delete = false;
-            match BinaryEodFile::open(&source_bin_path) {
-                Ok(source_bin) => {
-                    match source_bin.read_all() {
-                        Ok(source_records) => {
-                            if source_records.is_empty() {
-                                can_delete = true;
-                            } else {
-                                let mut final_source_records = source_records;
-                                let mut skip_binary_merge = false;
-
-                                if !overwrite_duplicates && target_bin_path.exists() {
-                                    match BinaryEodFile::open(&target_bin_path) {
-                                        Ok(target_bin) => match target_bin.read_all() {
-                                            Ok(target_records) => {
-                                                let target_dates: HashSet<u32> = target_records
-                                                    .into_iter()
-                                                    .map(|r| r.date)
-                                                    .collect();
-                                                final_source_records
-                                                    .retain(|r| !target_dates.contains(&r.date));
-                                            }
-                                            Err(e) => {
-                                                eprintln!("Binary EOD target read failure for {} at {:?}: {}", target_symbol, target_bin_path, e);
-                                                skip_binary_merge = true;
-                                            }
-                                        },
-                                        Err(e) => {
-                                            eprintln!(
-                                                "Binary EOD target open failure for {} at {:?}: {}",
-                                                target_symbol, target_bin_path, e
-                                            );
-                                            skip_binary_merge = true;
-                                        }
-                                    }
-                                }
-
-                                if !skip_binary_merge {
-                                    if final_source_records.is_empty() {
-                                        // Rule 5: Successful no-op (all records were duplicates)
-                                        can_delete = true;
-                                    } else {
-                                        match BinaryEodFile::append_or_merge_records(
-                                            &target_bin_path,
-                                            &target_symbol,
-                                            &target_exchange,
-                                            DEFAULT_SCALE,
-                                            final_source_records,
-                                        ) {
-                                            Ok(_) => can_delete = true,
-                                            Err(e) => {
-                                                eprintln!(
-                                                    "Binary EOD merge failure for {}: {}",
-                                                    target_symbol, e
-                                                );
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                        Err(e) => {
-                            eprintln!(
-                                "Binary EOD source read failure for {}: {}",
-                                source_symbol, e
-                            )
-                        }
-                    }
-                }
-                Err(e) => eprintln!(
-                    "Binary EOD source open failure for {}: {}",
-                    source_symbol, e
-                ),
-            }
-
-            if delete_source_after_merge && can_delete {
-                if let Err(e) = std::fs::remove_file(&source_bin_path) {
-                    eprintln!(
-                        "Binary EOD merge delete failure for {}: {}",
-                        source_symbol, e
-                    );
-                }
-            }
-        }
+    let binary_result = if source_has_binary {
+        merge_symbol_binary_files(
+            &source_bin_path,
+            &target_bin_path,
+            &target_symbol,
+            &target_exchange,
+            overwrite_duplicates,
+            delete_source_after_merge,
+        )
+    } else {
+        Ok(())
+    };
+    match binary_result {
+        Ok(()) => apply.finish_known_consistent()?,
+        Err(error) => eprintln!(
+            "Binary EOD merge failed from {source_exchange}:{source_symbol} to {target_exchange}:{target_symbol}: {error}"
+        ),
     }
 
     Ok(MergeSymbolsResult {
@@ -461,19 +404,52 @@ fn merge_symbols_internal(
     })
 }
 
+fn merge_symbol_binary_files(
+    source: &Path,
+    target: &Path,
+    target_symbol: &str,
+    target_exchange: &str,
+    overwrite_duplicates: bool,
+    delete_source: bool,
+) -> AppResult<()> {
+    let mut records = BinaryEodFile::open(source)?.read_all()?;
+    if !records.is_empty() && !overwrite_duplicates && target.try_exists().map_err(|e| e.to_string())? {
+        let target_dates: HashSet<_> = BinaryEodFile::open(target)?
+            .read_all()?
+            .into_iter()
+            .map(|record| record.date)
+            .collect();
+        records.retain(|record| !target_dates.contains(&record.date));
+    }
+    if !records.is_empty() {
+        BinaryEodFile::append_or_merge_records(
+            target,
+            target_symbol,
+            target_exchange,
+            DEFAULT_SCALE,
+            records,
+        )?;
+    }
+    if delete_source {
+        std::fs::remove_file(source).map_err(|error| error.to_string())?;
+    }
+    Ok(())
+}
+
 pub(super) fn apply_corporate_action_internal(
     connection: &Connection,
     input: &CorporateActionInputPayload,
     base_path: Option<&Path>,
 ) -> AppResult<CorporateActionResult> {
     let action_type = normalize_corporate_action_type(&input.action_type)?;
-    if matches!(
-        action_type.as_str(),
-        "SPLIT" | "BONUS" | "DIVIDEND" | "RIGHTS" | "DEMERGER"
-    ) {
+    if is_price_adjustment_type(&action_type) {
         return record_price_adjustment_action(connection, input, &action_type, base_path);
     }
     record_identity_change(connection, input, &action_type)
+}
+
+fn is_price_adjustment_type(action_type: &str) -> bool {
+    matches!(action_type, "SPLIT" | "BONUS" | "DIVIDEND" | "RIGHTS" | "DEMERGER")
 }
 
 fn record_price_adjustment_action(
@@ -1825,6 +1801,49 @@ fn load_previous_trade_close(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn nsr7_symbol_merge_retains_intent_after_binary_failure_and_retry() {
+        let fixture = tempfile::tempdir().unwrap();
+        let folder = fixture.path();
+        let connection = Connection::open_in_memory().unwrap();
+        super::super::prepare_database_connection(&connection).unwrap();
+        connection
+            .execute_batch(
+                "INSERT INTO instruments(symbol,exchange,is_active) VALUES ('OLD','NSE',1);
+                 INSERT INTO eod_prices(symbol,exchange,date,open,high,low,close,volume)
+                 VALUES ('OLD','NSE','2026-11-20',10,11,9,10,1);",
+            )
+            .unwrap();
+        let source = folder.join("eod_data/NSE/OLD.eod");
+        std::fs::create_dir_all(source.parent().unwrap()).unwrap();
+        std::fs::write(&source, b"unreadable").unwrap();
+        let input = MergeSymbolsInput {
+            source_symbol: "OLD".into(),
+            source_exchange: "NSE".into(),
+            target_symbol: "NEW".into(),
+            target_exchange: "NSE".into(),
+            target_name: None,
+            overwrite_duplicates: None,
+            delete_source_after_merge: None,
+        };
+        let access = CanonicalAccess::in_namespace(folder, folder).unwrap();
+        let read = access.begin_read().unwrap();
+        assert_eq!(
+            merge_symbols_internal(&connection, &input, folder).err().unwrap(),
+            "CANONICAL_PRICE_STORE_BUSY"
+        );
+        drop(read);
+        let result = merge_symbols_internal(&connection, &input, folder).unwrap();
+        assert_eq!(result.merged_rows, 1);
+        assert!(source.is_file());
+        assert_eq!(access.begin_read().unwrap_err(), "CANONICAL_PRICE_STORE_INTERRUPTED");
+
+        BinaryEodFile::write_all(&source, "OLD", "NSE", DEFAULT_SCALE, &mut []).unwrap();
+        merge_symbols_internal(&connection, &input, folder).unwrap();
+        assert!(!source.exists());
+        assert_eq!(access.begin_read().unwrap_err(), "CANONICAL_PRICE_STORE_INTERRUPTED");
+    }
     use crate::database::prepare_database_connection;
 
 

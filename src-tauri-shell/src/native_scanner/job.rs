@@ -17,7 +17,8 @@
 
 use super::ast::{NativeScanRequestV1, UniverseV1};
 use super::scan::{
-    execute_scan, ScanCounts, ScanDataSource, ScanExecutionOptions, ScanProgress, ScanTarget,
+    execute_scan, NumericHistoryCoverage, ScanCounts, ScanDataSource, ScanExecutionOptions,
+    ScanProgress, ScanReport, ScanTarget,
 };
 use super::universe::enumerate_targets;
 use rusqlite::Connection;
@@ -225,6 +226,9 @@ pub struct ScanCompleteEventV1 {
     /// P1-08: workers the run actually used, not the requested count.
     pub workers_used: usize,
     pub diagnostics: Vec<ScanDiagnosticV1>,
+    /// Optional bounded coverage for completed numeric history evaluations.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub numeric_history_coverage: Vec<NumericHistoryCoverage>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -666,25 +670,38 @@ impl<'a, S: EventSink + ?Sized> EventEmitter<'a, S> {
         }
     }
 
-    pub fn finalize_complete(
-        mut self,
-        cancelled: bool,
-        duration_ms: u128,
-        counts: ScanCounts,
-        workers_used: usize,
-        diagnostics: Vec<ScanDiagnosticV1>,
-    ) {
+    pub fn finalize_complete(mut self, report: ScanReport, duration_ms: u128) {
         self.flush_matches();
+        let numeric_history_coverage = if report.cancelled {
+            Vec::new()
+        } else {
+            report
+                .outcomes
+                .into_iter()
+                .filter_map(|outcome| outcome.numeric_history_coverage)
+                .collect()
+        };
+        let diagnostics = report
+            .diagnostics
+            .into_iter()
+            .map(|diagnostic| ScanDiagnosticV1 {
+                code: diagnostic.code,
+                message: diagnostic.message,
+                target: diagnostic.target.as_ref().map(ScanTargetRefV1::from),
+                rule_id: diagnostic.rule_id,
+            })
+            .collect();
         let event = ScanCompleteEventV1 {
             event_version: NATIVE_SCAN_EVENT_VERSION,
             run_id: self.run_id.clone(),
             sequence: self.next_sequence(),
             database_identity: self.database_identity.clone(),
-            cancelled,
+            cancelled: report.cancelled,
             duration_ms: duration_ms as u64,
-            counts: counts.into(),
-            workers_used,
+            counts: report.counts.into(),
+            workers_used: report.workers_used,
             diagnostics,
+            numeric_history_coverage,
         };
         self.sink.emit_complete(&event);
     }
@@ -792,26 +809,9 @@ where
         |progress| emitter.on_progress(progress, false),
     );
 
-    let diagnostics: Vec<ScanDiagnosticV1> = report
-        .diagnostics
-        .iter()
-        .map(|diagnostic| ScanDiagnosticV1 {
-            code: diagnostic.code.clone(),
-            message: diagnostic.message.clone(),
-            target: diagnostic.target.as_ref().map(ScanTargetRefV1::from),
-            rule_id: diagnostic.rule_id.clone(),
-        })
-        .collect();
-
     // Cancelled and completed runs share one finalization path, so exactly one
     // terminal event is published and the registry entry is always released.
-    emitter.finalize_complete(
-        report.cancelled,
-        started.elapsed().as_millis(),
-        report.counts,
-        report.workers_used,
-        diagnostics,
-    );
+    emitter.finalize_complete(report, started.elapsed().as_millis());
     registry.unregister(&request.requested_run_id);
     Ok(ack)
 }
@@ -973,6 +973,10 @@ mod tests {
         assert!(!complete.cancelled);
         assert_eq!(complete.counts.matched, 1);
         assert_eq!(complete.counts.no_match, 1);
+        let legacy_json = serde_json::to_value(complete).unwrap();
+        assert!(legacy_json.get("numericHistoryCoverage").is_none());
+        let decoded: ScanCompleteEventV1 = serde_json::from_value(legacy_json).unwrap();
+        assert_eq!(&decoded, complete);
         assert_eq!(registry.active_run_count(), 0, "run must be unregistered");
         assert!(sink
             .matches
@@ -980,6 +984,85 @@ mod tests {
             .unwrap()
             .iter()
             .any(|batch| !batch.matches.is_empty()));
+    }
+
+    #[test]
+    fn nsr7_numeric_history_coverage_is_additive_in_the_v1_completion() {
+        let registry = NativeScanJobRegistry::new();
+        let sink = RecordingSink::default();
+        let source = fixture_source();
+        let mut req = request("numeric-history");
+        req.evaluation.evaluate_history = true;
+        req.evaluation.lookback_bars = Some(2);
+        run_job(
+            &registry,
+            &source,
+            &sink,
+            &req,
+            &universe(),
+            vec![target("A"), target("MISSING")],
+            ScanExecutionOptions::default(),
+            100,
+            0,
+        )
+        .expect("start");
+
+        let events = sink.complete.lock().unwrap();
+        assert_eq!(events.len(), 1);
+        let complete = &events[0];
+        assert_eq!(complete.counts.targets, 2);
+        assert_eq!(complete.counts.matched, 1);
+        assert_eq!(complete.counts.skipped, 1);
+        let payload = serde_json::to_value(complete).unwrap();
+        assert_eq!(payload["eventVersion"], 1);
+        assert_eq!(
+            payload["numericHistoryCoverage"],
+            serde_json::json!([{
+                "exchange": "NSE",
+                "symbol": "A",
+                "inputFirstDate": "2024-01-01",
+                "inputLastDate": "2024-01-02",
+                "inputBarCount": 2,
+                "olderInputUnknown": true,
+                "rules": [{
+                    "ruleId": "always",
+                    "firstEvaluatedDate": "2024-01-01",
+                    "lastEvaluatedDate": "2024-01-02",
+                    "evaluatedEndpointCount": 2,
+                    "omittedEligibleEndpointCount": 0
+                }]
+            }]),
+        );
+        let decoded: ScanCompleteEventV1 = serde_json::from_value(payload).unwrap();
+        assert_eq!(&decoded, complete);
+
+        // Cancellation must omit coverage even if one or more targets finished before it.
+        let mut report = execute_scan(
+            &source,
+            &req,
+            &[target("A")],
+            &AtomicBool::new(false),
+            ScanExecutionOptions::default(),
+            |_| {},
+        );
+        assert!(report.outcomes[0].numeric_history_coverage.is_some());
+        report.cancelled = true;
+        let cancelled_sink = RecordingSink::default();
+        let emitter = EventEmitter::new(
+            &cancelled_sink,
+            "numeric-history-cancelled",
+            "db#1",
+            Arc::new(AtomicU64::new(0)),
+        );
+        emitter.finalize_complete(report, 1);
+        let cancelled_events = cancelled_sink.complete.lock().unwrap();
+        let cancelled = &cancelled_events[0];
+        assert!(cancelled.cancelled);
+        assert_eq!(cancelled.counts.matched, 1);
+        assert!(serde_json::to_value(cancelled)
+            .unwrap()
+            .get("numericHistoryCoverage")
+            .is_none());
     }
 
     #[test]

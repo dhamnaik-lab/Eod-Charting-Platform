@@ -1,4 +1,5 @@
 use crate::bhavcopy_recovery::{
+    check_recovery_sqlite_binding,
     checkpoint_buffered_append_newest_files, create_prepared_session, handle_from_loaded,
     load_pending_sessions, publish_recovery_binary_state, remove_checkpointed_session,
     restore_buffered_binary_baselines, update_session_state, LoadedRecoverySession,
@@ -11,13 +12,12 @@ use crate::database::binary_eod::{
     BinaryWriteDiagnostics, BinaryWriteDurability, BinaryWritePath, EodRecord, DEFAULT_SCALE,
     HEADER_SIZE, RECORD_SIZE,
 };
+use crate::database::database_use::CanonicalAccess;
 use crate::database::eod_binary_state::{
     modified_time_ns as eod_binary_state_modified_time_ns, BinaryStateIndex, BinaryStateKey,
     VerifiedBinaryState,
 };
-use crate::database::{
-    get_price_storage_mode, prepare_database_connection, PriceStorageMode,
-};
+use crate::database::{configure_database_connection, get_price_storage_mode, PriceStorageMode};
 use crate::runtime::log_runtime_event;
 use rusqlite::{params, Connection, OpenFlags, OptionalExtension};
 use std::collections::{HashMap, HashSet, VecDeque};
@@ -780,6 +780,18 @@ pub(crate) fn prepare_bhavcopy_recovery_session(
     BhavcopyStateShadowStats,
     BhavcopyBaselineFastPathStats,
 )> {
+    prepare_recovery_session(database_file_path, Some(config), parsed_files)
+}
+
+fn prepare_recovery_session(
+    database_file_path: &Path,
+    batch_config: Option<&BatchDownloadConfig>,
+    parsed_files: &[ParsedBhavcopyFile],
+) -> AppResult<(
+    RecoverySessionHandle,
+    BhavcopyStateShadowStats,
+    BhavcopyBaselineFastPathStats,
+)> {
     let database_folder = database_file_path
         .parent()
         .ok_or_else(|| "Active database file has no parent folder.".to_string())?;
@@ -810,29 +822,59 @@ pub(crate) fn prepare_bhavcopy_recovery_session(
     };
     let (binary_baselines, state_shadow_stats, baseline_fast_path_stats) =
         capture_recovery_binary_baselines(database_folder, parsed_files)?;
-    let mut selected_exchanges = Vec::<String>::new();
-    if config.exchanges.nse {
-        selected_exchanges.push("NSE".to_string());
-    }
-    if config.exchanges.bse {
-        selected_exchanges.push("BSE".to_string());
-    }
-    if config.exchanges.nse_index {
-        selected_exchanges.push("NSE_INDEX".to_string());
-    }
-    if config.exchanges.bse_index {
-        selected_exchanges.push("BSE_INDEX".to_string());
-    }
+    let (
+        mode,
+        requested_start_date,
+        requested_end_date,
+        selected_exchanges,
+        excluded_series,
+        download_workers,
+    ) = match batch_config {
+        Some(config) => {
+            let selected_exchanges = [
+                (config.exchanges.nse, "NSE"),
+                (config.exchanges.bse, "BSE"),
+                (config.exchanges.nse_index, "NSE_INDEX"),
+                (config.exchanges.bse_index, "BSE_INDEX"),
+            ]
+            .into_iter()
+            .filter(|(selected, _)| *selected)
+            .map(|(_, exchange)| exchange.to_string())
+            .collect();
+            (
+                format!("{:?}", config.mode),
+                config.start_date.clone(),
+                config.end_date.clone(),
+                selected_exchanges,
+                config.excluded_series.clone(),
+                config.workers,
+            )
+        }
+        None => {
+            let parsed = parsed_files
+                .first()
+                .ok_or_else(|| "Cannot prepare an empty Bhavcopy recovery journal.".to_string())?;
+            (
+                "Single".into(),
+                parsed.trade_date.clone(),
+                parsed.trade_date.clone(),
+                vec![parsed.exchange.clone()],
+                Vec::new(),
+                1,
+            )
+        }
+    };
 
     let session = create_prepared_session(
         database_folder,
         RecoverySessionSpec {
-            mode: format!("{:?}", config.mode),
-            requested_start_date: config.start_date.clone(),
-            requested_end_date: config.end_date.clone(),
+            sqlite_key: Some(CanonicalAccess::sqlite_key_for_file(database_file_path)?),
+            mode,
+            requested_start_date,
+            requested_end_date,
             selected_exchanges,
-            excluded_series: config.excluded_series.clone(),
-            download_workers: config.workers,
+            excluded_series,
+            download_workers,
             binary_workers,
             price_storage_mode: storage_mode.as_str().to_string(),
             jobs,
@@ -1316,6 +1358,7 @@ pub(crate) fn checkpoint_pending_buffered_sessions_background(
     let database_folder = database_file_path
         .parent()
         .ok_or_else(|| "Active database file has no parent folder.".to_string())?;
+    let _canonical = CanonicalAccess::lock_bhavcopy_recovery(database_file_path)?;
     let sessions = load_pending_sessions(database_folder)?;
     let mut completed_sessions = 0_usize;
 
@@ -1331,6 +1374,7 @@ pub(crate) fn checkpoint_pending_buffered_sessions_background(
             continue;
         }
 
+        check_recovery_sqlite_binding(&session, database_file_path)?;
         super::security_admission::require_replay_safe(database_file_path, &parsed_files_from_recovery_session(&session)?)?;
         let mut handle = handle_from_loaded(&session);
         let resumed_from_state = format!("{:?}", session.manifest.state);
@@ -1448,6 +1492,7 @@ pub(crate) fn recover_pending_bhavcopy_sessions(
     let database_folder = database_file_path
         .parent()
         .ok_or_else(|| "Active database file has no parent folder.".to_string())?;
+    let _canonical = CanonicalAccess::lock_bhavcopy_recovery(database_file_path)?;
     let sessions = load_pending_sessions(database_folder)?;
     if sessions.is_empty() {
         return Ok(());
@@ -1463,6 +1508,7 @@ pub(crate) fn recover_pending_bhavcopy_sessions(
     );
 
     for session in sessions {
+        check_recovery_sqlite_binding(&session, database_file_path)?;
         if session.manifest.state == RecoverySessionState::RecoveryError {
             return Err(format!(
                 "Bhavcopy recovery session {} requires operator review.",
@@ -1764,6 +1810,12 @@ pub(super) fn import_staged_csv_downloads(
 
     let parse_ms = parse_started.elapsed().as_millis();
 
+    // Admission and baseline capture must see the same store the workers mutate.
+    let _canonical = if parsed_files.is_empty() {
+        None
+    } else {
+        Some(CanonicalAccess::lock_bhavcopy_apply(database_file_path)?)
+    };
     let security_admission = super::security_admission::admit(database_file_path, &parsed_files)?;
     let mut security_reports = HashMap::<_, super::security_admission::AdmissionReport>::new();
     for (file, report) in parsed_files.iter().zip(&security_admission.reports) {
@@ -2281,8 +2333,28 @@ pub(crate) fn parse_and_insert(
         });
     }
 
-    let parsed_files = vec![parsed];
-    let (mut results, timing) = insert_parsed_bhavcopy_files(database_file_path, &parsed_files)?;
+    let database_folder = database_file_path
+        .parent()
+        .ok_or_else(|| "Active database file has no parent folder.".to_string())?;
+    let _canonical = CanonicalAccess::lock_bhavcopy_apply(database_file_path)?;
+    let parsed_files = [parsed];
+    let admission = super::security_admission::admit(database_file_path, &parsed_files)?;
+    let journal_files = super::security_admission::filter_files(&parsed_files, &admission);
+    let recovery = if journal_files[0].rows.is_empty() {
+        None
+    } else {
+        let (mut recovery, _, _) =
+            prepare_recovery_session(database_file_path, None, &journal_files)?;
+        update_session_state(&mut recovery, RecoverySessionState::Applying, None)?;
+        Some(recovery)
+    };
+    let (mut results, timing) = insert_admitted_bhavcopy_files(
+        database_file_path,
+        &parsed_files,
+        BinaryWriteDurability::Immediate,
+        None,
+        admission,
+    )?;
     let mut result = results.remove(0);
     result.binary_errors = timing.binary_errors;
     if timing.binary_errors > 0 {
@@ -2293,9 +2365,17 @@ pub(crate) fn parse_and_insert(
             timing.binary_errors
         ));
     }
+    if let Some(mut recovery) = recovery {
+        update_session_state(&mut recovery, RecoverySessionState::Applied, None)?;
+        update_session_state(&mut recovery, RecoverySessionState::Checkpointing, None)?;
+        publish_recovery_binary_state(database_folder, &recovery.manifest.binary_baselines)?;
+        update_session_state(&mut recovery, RecoverySessionState::Checkpointed, None)?;
+        remove_checkpointed_session(&recovery)?;
+    }
     Ok(result)
 }
 
+#[cfg(test)]
 pub(crate) fn insert_parsed_bhavcopy_files(
     database_file_path: &Path,
     parsed_files: &[ParsedBhavcopyFile],
@@ -2326,11 +2406,27 @@ pub(crate) fn insert_parsed_bhavcopy_files_with_durability_and_recovery_baseline
     append_durability: BinaryWriteDurability,
     recovery_baselines: Option<&[RecoveryBinaryBaseline]>,
 ) -> AppResult<(Vec<ParseInsertResult>, BhavcopyInsertTiming)> {
+    let admission = super::security_admission::admit(database_file_path, parsed_files)?;
+    insert_admitted_bhavcopy_files(
+        database_file_path,
+        parsed_files,
+        append_durability,
+        recovery_baselines,
+        admission,
+    )
+}
+
+fn insert_admitted_bhavcopy_files(
+    database_file_path: &Path,
+    parsed_files: &[ParsedBhavcopyFile],
+    append_durability: BinaryWriteDurability,
+    recovery_baselines: Option<&[RecoveryBinaryBaseline]>,
+    admission: super::security_admission::Admission,
+) -> AppResult<(Vec<ParseInsertResult>, BhavcopyInsertTiming)> {
     let mut connection = open_database_connection(database_file_path)?;
     let storage_mode = get_price_storage_mode(&connection);
     let binary_only = storage_mode == PriceStorageMode::Binary;
     let parsed_jobs = parsed_files.len();
-    let admission = super::security_admission::admit(database_file_path, parsed_files)?;
     let parsed_rows = parsed_files
         .iter()
         .map(|parsed| parsed.rows.len())
@@ -2638,6 +2734,7 @@ pub(crate) fn write_bhavcopy_binary_records_parallel(
     let folder_path = folder_path.to_path_buf();
     let (result_tx, result_rx) = mpsc::channel::<BhavcopyBinaryWriteResult>();
     let mut handles = Vec::with_capacity(worker_count);
+    let mut spawn_error = None;
 
     for _ in 0..worker_count {
         let queue = Arc::clone(&queue);
@@ -2645,7 +2742,7 @@ pub(crate) fn write_bhavcopy_binary_records_parallel(
         let folder_path = folder_path.clone();
         let append_newest_hints = Arc::clone(&append_newest_hints);
         let append_durability = append_durability;
-        handles.push(thread::spawn(move || loop {
+        let worker = thread::Builder::new().spawn(move || loop {
             let next_item = {
                 let mut queue = queue.lock().expect("bhavcopy binary write queue poisoned");
                 queue.pop_front()
@@ -2669,22 +2766,28 @@ pub(crate) fn write_bhavcopy_binary_records_parallel(
             if result_tx.send(result).is_err() {
                 break;
             }
-        }));
+        });
+        match worker {
+            Ok(handle) => handles.push(handle),
+            Err(error) => {
+                spawn_error = Some(format!("Could not start Bhavcopy binary write worker: {error}"));
+                break;
+            }
+        }
     }
     drop(result_tx);
 
-    let mut results = Vec::with_capacity(total_symbols);
-    for _ in 0..total_symbols {
-        let result = result_rx
-            .recv()
-            .map_err(|error| format!("Bhavcopy binary write worker failure: {}", error))?;
-        results.push(result);
-    }
-
+    let results: Vec<_> = result_rx.into_iter().collect();
+    let mut worker_panicked = false;
     for handle in handles {
-        handle
-            .join()
-            .map_err(|_| "Bhavcopy binary write worker panicked".to_string())?;
+        worker_panicked |= handle.join().is_err();
+    }
+    // The owner must retain the canonical lease until every started worker exits.
+    if let Some(error) = spawn_error {
+        return Err(error);
+    }
+    if worker_panicked || results.len() != total_symbols {
+        return Err("Bhavcopy binary write workers did not complete all symbol files.".into());
     }
 
     Ok(results)
@@ -2789,8 +2892,18 @@ pub(crate) fn count_changed_rows_by_file(
 }
 
 pub(crate) fn open_database_connection(database_file_path: &Path) -> AppResult<Connection> {
+    let connection = Connection::open_with_flags(
+        database_file_path,
+        rusqlite::OpenFlags::SQLITE_OPEN_READ_WRITE | rusqlite::OpenFlags::SQLITE_OPEN_NO_MUTEX,
+    )
+    .map_err(|error| error.to_string())?;
+    configure_database_connection(&connection)?;
+    Ok(connection)
+}
+#[cfg(test)]
+pub(crate) fn open_prepared_fixture_connection(database_file_path: &Path) -> AppResult<Connection> {
     let connection = Connection::open(database_file_path).map_err(|error| error.to_string())?;
-    prepare_database_connection(&connection)?;
+    crate::database::prepare_database_connection(&connection)?;
     Ok(connection)
 }
 

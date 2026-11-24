@@ -348,6 +348,26 @@ export interface NativeScanMatchBatchEventV1 {
   matches: NativeScanMatchV1[];
 }
 
+export interface NativeNumericRuleHistoryCoverageV1 {
+  ruleId: string;
+  firstEvaluatedDate: string;
+  lastEvaluatedDate: string;
+  evaluatedEndpointCount: number;
+  /** Eligible endpoints omitted by the numeric cap within the loaded input. */
+  omittedEligibleEndpointCount: number;
+}
+
+export interface NativeNumericHistoryCoverageV1 {
+  exchange: string;
+  symbol: string;
+  inputFirstDate: string;
+  inputLastDate: string;
+  inputBarCount: number;
+  /** The input filled the requested read window. Older bars may exist. */
+  olderInputUnknown: boolean;
+  rules: NativeNumericRuleHistoryCoverageV1[];
+}
+
 export interface NativeScanCompleteEventV1 {
   eventVersion: typeof NATIVE_SCAN_EVENT_VERSION;
   runId: string;
@@ -359,6 +379,8 @@ export interface NativeScanCompleteEventV1 {
   /** Workers the run actually used, not the requested count (P1-08). */
   workersUsed?: number;
   diagnostics: NativeScanDiagnosticV1[];
+  /** Present only for targets with completed numeric history in an uncancelled run. */
+  numericHistoryCoverage?: NativeNumericHistoryCoverageV1[];
 }
 
 export interface NativeScanErrorEventV1 {

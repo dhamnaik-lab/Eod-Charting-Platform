@@ -21,6 +21,7 @@ pub mod core_results;
 pub mod database_source;
 pub mod ipc;
 pub mod job;
+pub mod numeric_history;
 pub mod patterns;
 pub mod reader;
 pub mod scan;

@@ -1,6 +1,7 @@
 use crate::database::{
     path_to_string, resolve_active_database_folder, with_active_connection, AppResult,
 };
+use super::database_use::{CanonicalAccess, CanonicalWriterIntent};
 use rusqlite::params;
 use serde::Serialize;
 use std::fs::{self, File};
@@ -290,7 +291,45 @@ pub struct BinaryEodFile {
     pub header: EodHeader,
 }
 
+pub(super) struct ForwardBinaryRecords {
+    reader: std::io::BufReader<File>,
+    remaining: u32,
+    last_date: Option<u32>,
+}
+
+impl ForwardBinaryRecords {
+    pub(super) fn next_record(&mut self) -> AppResult<Option<EodRecord>> {
+        if self.remaining == 0 {
+            return Ok(None);
+        }
+        let mut buffer = [0; RECORD_SIZE];
+        self.reader.read_exact(&mut buffer).map_err(|error| error.to_string())?;
+        let record = decode_record(&buffer);
+        if self.last_date.is_some_and(|last| record.date <= last) {
+            return Err("Canonical binary history contains a duplicate or out-of-order date.".into());
+        }
+        self.last_date = Some(record.date);
+        self.remaining -= 1;
+        Ok(Some(record))
+    }
+}
+
 impl BinaryEodFile {
+    pub(super) fn forward_records(&self) -> AppResult<ForwardBinaryRecords> {
+        let mut file = open_ro_with_retry(&self.path).map_err(|error| error.to_string())?;
+        let count = self.header.record_count;
+        let expected = HEADER_SIZE as u64 + u64::from(count) * RECORD_SIZE as u64;
+        if file.metadata().map_err(|error| error.to_string())?.len() != expected {
+            return Err("Canonical binary history length disagrees with its header.".into());
+        }
+        file.seek(SeekFrom::Start(HEADER_SIZE as u64)).map_err(|error| error.to_string())?;
+        Ok(ForwardBinaryRecords {
+            reader: std::io::BufReader::new(file),
+            remaining: count,
+            last_date: None,
+        })
+    }
+
     /// Opens an existing binary EOD file.
     pub fn open<P: AsRef<Path>>(path: P) -> Result<Self, String> {
         let mut file = open_ro_with_retry(&path).map_err(|e| e.to_string())?;
@@ -1796,62 +1835,50 @@ pub async fn migrate_to_binary_eod(app: AppHandle) -> AppResult<MigrationReport>
     tauri::async_runtime::spawn_blocking(move || {
         let folder_path = resolve_active_database_folder(&app)?
             .ok_or_else(|| "Open a database before migrating.".to_string())?;
-
-        let mut report = MigrationReport {
-            success: true,
-            symbols_processed: 0,
-            symbols_written: 0,
-            records_written: 0,
-            symbols_skipped: 0,
-            errors: Vec::new(),
-            output_folder: path_to_string(&folder_path),
-        };
-
-        let result = with_active_connection(&app, |conn| {
-            let mut stmt = conn
-                .prepare("SELECT DISTINCT symbol, exchange FROM eod_prices")
-                .map_err(|e| e.to_string())?;
-            let pairs = stmt
-                .query_map([], |row| {
-                    Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
-                })
-                .map_err(|e| e.to_string())?
-                .collect::<Result<Vec<_>, _>>()
-                .map_err(|e| e.to_string())?;
-
-            report.symbols_processed = pairs.len() as u32;
-
-            for (symbol, exchange) in pairs {
-                match migrate_symbol_to_binary(conn, &folder_path, &symbol, &exchange) {
-                    Ok(count) => {
-                        report.symbols_written += 1;
-                        report.records_written += count;
-                    }
-                    Err(e) => {
-                        report
-                            .errors
-                            .push(format!("{}:{}: {}", exchange, symbol, e));
-                    }
-                }
-            }
-            Ok(())
-        })?;
-
-        if result.is_none() {
-            report.success = false;
-            report
-                .errors
-                .push("Database connection lost during migration.".to_string());
-        }
-
-        if !report.errors.is_empty() && report.symbols_written == 0 {
-            report.success = false;
-        }
-
-        Ok(report)
+        migrate_database_to_binary(&folder_path)
     })
     .await
     .map_err(|e| e.to_string())?
+}
+
+fn migrate_database_to_binary(folder: &Path) -> AppResult<MigrationReport> {
+    let canonical = CanonicalAccess::lock_binary_migration(folder)?;
+    let connection = super::connection_registry::open_read_only_connection_for_folder(folder)?;
+    let mut statement = connection
+        .prepare("SELECT DISTINCT symbol, exchange FROM eod_prices")
+        .map_err(|error| error.to_string())?;
+    let pairs = statement
+        .query_map([], |row| Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?)))
+        .map_err(|error| error.to_string())?
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|error| error.to_string())?;
+    let apply = canonical.begin_apply(CanonicalWriterIntent::BinaryMigration)?;
+    let mut report = MigrationReport {
+        success: true,
+        symbols_processed: pairs.len() as u32,
+        symbols_written: 0,
+        records_written: 0,
+        symbols_skipped: 0,
+        errors: Vec::new(),
+        output_folder: path_to_string(folder),
+    };
+
+    for (symbol, exchange) in pairs {
+        match migrate_symbol_to_binary(&connection, folder, &symbol, &exchange) {
+            Ok(count) => {
+                report.symbols_written += 1;
+                report.records_written += count;
+            }
+            Err(error) => report.errors.push(format!("{exchange}:{symbol}: {error}")),
+        }
+    }
+
+    if report.errors.is_empty() {
+        apply.finish_known_consistent()?;
+    } else if report.symbols_written == 0 {
+        report.success = false;
+    }
+    Ok(report)
 }
 
 fn migrate_symbol_to_binary(
@@ -1951,6 +1978,44 @@ mod tests {
     use super::*;
     use rusqlite::Connection;
     use std::env;
+
+    #[test]
+    fn nsr7_binary_migration_retries_partial_work_on_the_pinned_database() {
+        let fixture = tempfile::tempdir().unwrap();
+        let folder = fixture.path();
+        let connection = Connection::open(folder.join(super::super::DATABASE_FILE_NAME)).unwrap();
+        super::super::prepare_database_connection(&connection).unwrap();
+        connection
+            .execute_batch(
+                "INSERT INTO eod_prices(symbol,exchange,date,open,high,low,close,volume)
+                 VALUES ('AAA','NSE','2026-11-20',10,11,9,10,1),
+                        ('BBB','NSE','2026-11-20',20,21,19,20,2);",
+            )
+            .unwrap();
+        let invalid_file = folder.join("eod_data/NSE/BBB.eod");
+        fs::create_dir_all(&invalid_file).unwrap();
+
+        let access = CanonicalAccess::in_namespace(folder, folder).unwrap();
+        let read = access.begin_read().unwrap();
+        assert_eq!(migrate_database_to_binary(folder).unwrap_err(), "CANONICAL_PRICE_STORE_BUSY");
+        assert!(!folder.join("eod_data/NSE/AAA.eod").exists());
+        drop(read);
+
+        let partial = migrate_database_to_binary(folder).unwrap();
+        assert_eq!((partial.symbols_written, partial.errors.len()), (1, 1));
+        assert_eq!(access.begin_read().unwrap_err(), "CANONICAL_PRICE_STORE_INTERRUPTED");
+        let blocked = CanonicalAccess::lock_writer_for_database(folder).err().unwrap();
+        assert!(blocked.contains("Pending binary migration"));
+
+        fs::remove_dir(&invalid_file).unwrap();
+        let completed = migrate_database_to_binary(folder).unwrap();
+        assert_eq!((completed.symbols_written, completed.records_written), (2, 2));
+        assert!(completed.errors.is_empty());
+        assert!(access.begin_read().is_ok());
+        let bbb = BinaryEodFile::open(invalid_file).unwrap().read_all().unwrap();
+        assert_eq!(bbb[0].close, 20 * i64::from(DEFAULT_SCALE));
+        assert_eq!(super::super::get_price_storage_mode(&connection), super::super::PriceStorageMode::Hybrid);
+    }
 
     fn mock_record(date: u32, close: i64) -> EodRecord {
         EodRecord {

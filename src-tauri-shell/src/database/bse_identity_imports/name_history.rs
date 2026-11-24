@@ -597,7 +597,11 @@ pub async fn apply_bse_name_history(
                 );
             }
         };
-        let mut result = apply(&connection, &folder, &input, &report)?;
+        let mut result = {
+            let _canonical =
+                super::super::database_use::CanonicalAccess::lock_writer_for_database(&folder)?;
+            apply(&connection, &folder, &input, &report)?
+        };
         // History search metadata changed; instrument identity and price files did not.
         let refresh = (|| -> AppResult<()> {
             invalidate_cached_db_stats(&app, &folder)?;

@@ -15,6 +15,10 @@
 
 use serde_json::{Map, Value};
 
+mod forward;
+
+pub(super) use forward::{ForwardRuleEvaluator, ForwardRuleSet};
+
 pub const MAX_AST_DEPTH: usize = 24;
 pub const MAX_AST_NODES: usize = 512;
 pub const MAX_RULES: usize = 32;
@@ -295,6 +299,15 @@ fn as_identifier(
     path: &str,
     issues: &mut Vec<ValidationIssue>,
 ) -> Option<String> {
+    as_identifier_with_suffix(value, path, issues, false)
+}
+
+fn as_identifier_with_suffix(
+    value: Option<&Value>,
+    path: &str,
+    issues: &mut Vec<ValidationIssue>,
+    allow_bse_settlement_suffix: bool,
+) -> Option<String> {
     let Some(value) = value else {
         issues.push(ValidationIssue::new(
             path,
@@ -311,9 +324,14 @@ fn as_identifier(
         ));
         return None;
     };
-    let valid = !text.trim().is_empty()
+    let base = if allow_bse_settlement_suffix {
+        text.strip_suffix('#').unwrap_or(text)
+    } else {
+        text
+    };
+    let valid = !base.trim().is_empty()
         && text.len() <= MAX_ID_LENGTH
-        && text
+        && base
             .bytes()
             .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'_' | b'.' | b':' | b'-'));
     if !valid {
@@ -698,6 +716,19 @@ fn parse_expr(
 pub fn parse_native_scan_request_v1(
     value: &Value,
 ) -> Result<NativeScanRequestV1, Vec<ValidationIssue>> {
+    parse_native_scan_request(value, false)
+}
+
+pub(super) fn parse_native_numeric_history_request(
+    value: &Value,
+) -> Result<NativeScanRequestV1, Vec<ValidationIssue>> {
+    parse_native_scan_request(value, true)
+}
+
+fn parse_native_scan_request(
+    value: &Value,
+    allow_bse_settlement_suffix: bool,
+) -> Result<NativeScanRequestV1, Vec<ValidationIssue>> {
     let mut issues: Vec<ValidationIssue> = Vec::new();
     let Some(root) = as_object(value, "request", &mut issues) else {
         return Err(issues);
@@ -767,8 +798,13 @@ pub fn parse_native_scan_request_v1(
                         reject_unknown_keys(target, &["exchange", "symbol"], &path, &mut issues);
                         let exchange =
                             as_identifier(target.get("exchange"), &format!("{path}.exchange"), &mut issues);
-                        let symbol =
-                            as_identifier(target.get("symbol"), &format!("{path}.symbol"), &mut issues);
+                        let symbol = as_identifier_with_suffix(
+                            target.get("symbol"),
+                            &format!("{path}.symbol"),
+                            &mut issues,
+                            allow_bse_settlement_suffix
+                                && exchange.as_deref().is_some_and(|name| name.eq_ignore_ascii_case("BSE")),
+                        );
                         if let (Some(exchange), Some(symbol)) = (exchange, symbol) {
                             let key = format!(
                                 "{}:{}",
@@ -1037,6 +1073,7 @@ impl EvalValue {
         }
     }
 
+    #[cfg(test)]
     pub fn boolean(&self) -> Vec<Option<bool>> {
         match self {
             Self::Boolean(values) => values.clone(),
@@ -1048,112 +1085,153 @@ impl EvalValue {
     }
 }
 
+/// Retains the input window in the original summation order.
+struct SmaState {
+    period: usize,
+    window: std::collections::VecDeque<Option<f64>>,
+}
+
+impl SmaState {
+    fn new(period: usize) -> Self {
+        Self {
+            period,
+            window: std::collections::VecDeque::new(),
+        }
+    }
+
+    fn advance(&mut self, input: Option<f64>) -> Option<f64> {
+        if self.period == 0 {
+            return None;
+        }
+        if self.window.len() == self.period {
+            self.window.pop_front();
+        }
+        self.window.push_back(input);
+        if self.window.len() < self.period {
+            return None;
+        }
+
+        let mut sum = 0.0;
+        for &value in &self.window {
+            sum += value?;
+        }
+        Some(sum / self.period as f64)
+    }
+}
+
 /// SMA matching the TypeScript engine: first value at `period - 1`, `None` while any
 /// window entry is undefined.
 pub fn sma(values: &[Option<f64>], period: usize) -> Series {
-    let mut result: Series = vec![None; values.len()];
-    if period == 0 || values.len() < period {
-        return result;
+    let mut state = SmaState::new(period);
+    values.iter().map(|&value| state.advance(value)).collect()
+}
+
+struct EmaState {
+    period: usize,
+    multiplier: f64,
+    seed_count: usize,
+    seed_sum: f64,
+    current: Option<f64>,
+}
+
+impl EmaState {
+    fn new(period: usize) -> Self {
+        Self {
+            period,
+            multiplier: 2.0 / (period as f64 + 1.0),
+            seed_count: 0,
+            seed_sum: 0.0,
+            current: None,
+        }
     }
-    for index in (period - 1)..values.len() {
-        let mut sum = 0.0;
-        let mut valid = true;
-        for offset in (index + 1 - period)..=index {
-            match values[offset] {
-                Some(value) => sum += value,
-                None => {
-                    valid = false;
-                    break;
-                }
+
+    fn advance(&mut self, input: Option<f64>) -> Option<f64> {
+        if self.period == 0 {
+            return None;
+        }
+        let Some(value) = input else {
+            self.seed_count = 0;
+            self.seed_sum = 0.0;
+            self.current = None;
+            return None;
+        };
+
+        if let Some(previous) = self.current {
+            self.current = Some((value - previous) * self.multiplier + previous);
+        } else {
+            self.seed_sum += value;
+            self.seed_count += 1;
+            if self.seed_count == self.period {
+                self.current = Some(self.seed_sum / self.period as f64);
             }
         }
-        if valid {
-            result[index] = Some(sum / period as f64);
-        }
+        self.current
     }
-    result
 }
 
 /// EMA matching the TypeScript engine: seeded with the SMA of the first `period` valid
 /// values, then `(value - ema) * multiplier + ema`. A `None` block resets the seed.
 pub fn ema(values: &[Option<f64>], period: usize) -> Series {
-    let mut result: Series = vec![None; values.len()];
-    if period == 0 {
-        return result;
-    }
-    let multiplier = 2.0 / (period as f64 + 1.0);
-    let mut seed_count = 0usize;
-    let mut seed_sum = 0.0;
-    let mut current: Option<f64> = None;
-    for (index, value) in values.iter().enumerate() {
-        let Some(value) = *value else {
-            seed_count = 0;
-            seed_sum = 0.0;
-            current = None;
-            continue;
-        };
-        match current {
-            None => {
-                seed_sum += value;
-                seed_count += 1;
-                if seed_count == period {
-                    current = Some(seed_sum / period as f64);
-                    result[index] = current;
-                }
-            }
-            Some(previous) => {
-                let next = (value - previous) * multiplier + previous;
-                current = Some(next);
-                result[index] = Some(next);
-            }
+    let mut state = EmaState::new(period);
+    values.iter().map(|&value| state.advance(value)).collect()
+}
+
+struct RsiState {
+    period: usize,
+    previous: Option<f64>,
+    seed: Vec<(f64, f64)>,
+    averages: Option<(f64, f64)>,
+}
+
+impl RsiState {
+    fn new(period: usize) -> Self {
+        Self {
+            period,
+            previous: None,
+            seed: Vec::new(),
+            averages: None,
         }
     }
-    result
+
+    fn advance(&mut self, input: Option<f64>) -> Option<f64> {
+        if self.period == 0 {
+            return None;
+        }
+        let previous = std::mem::replace(&mut self.previous, input);
+        let (Some(current), Some(previous)) = (input, previous) else {
+            self.seed.clear();
+            self.averages = None;
+            return None;
+        };
+
+        let change = current - previous;
+        let gain = change.max(0.0);
+        let loss = (-change).max(0.0);
+        let period = self.period as f64;
+        let averages = if let Some((average_gain, average_loss)) = self.averages {
+            (
+                (average_gain * (period - 1.0) + gain) / period,
+                (average_loss * (period - 1.0) + loss) / period,
+            )
+        } else {
+            self.seed.push((gain, loss));
+            if self.seed.len() < self.period {
+                return None;
+            }
+            let average_gain = self.seed.iter().map(|&(gain, _)| gain).sum::<f64>() / period;
+            let average_loss = self.seed.iter().map(|&(_, loss)| loss).sum::<f64>() / period;
+            self.seed.clear();
+            (average_gain, average_loss)
+        };
+        self.averages = Some(averages);
+        Some(rsi_value(averages.0, averages.1))
+    }
 }
 
 /// RSI matching the TypeScript engine's seed/averaging rules.
 pub fn rsi(values: &[Option<f64>], period: usize) -> Series {
-    let mut result: Series = vec![None; values.len()];
-    if period == 0 || values.len() <= period {
-        return result;
-    }
-    let mut gains: Vec<f64> = Vec::new();
-    let mut losses: Vec<f64> = Vec::new();
-    let mut average_gain: Option<f64> = None;
-    let mut average_loss: Option<f64> = None;
-    for index in 1..values.len() {
-        let (Some(current), Some(previous)) = (values[index], values[index - 1]) else {
-            gains.clear();
-            losses.clear();
-            average_gain = None;
-            average_loss = None;
-            continue;
-        };
-        let change = current - previous;
-        let gain = change.max(0.0);
-        let loss = (-change).max(0.0);
-        match (average_gain, average_loss) {
-            (Some(gain_average), Some(loss_average)) => {
-                let next_gain = (gain_average * (period as f64 - 1.0) + gain) / period as f64;
-                let next_loss = (loss_average * (period as f64 - 1.0) + loss) / period as f64;
-                average_gain = Some(next_gain);
-                average_loss = Some(next_loss);
-                result[index] = Some(rsi_value(next_gain, next_loss));
-            }
-            _ => {
-                gains.push(gain);
-                losses.push(loss);
-                if gains.len() == period {
-                    let gain_average: f64 = gains.iter().sum::<f64>() / period as f64;
-                    let loss_average: f64 = losses.iter().sum::<f64>() / period as f64;
-                    average_gain = Some(gain_average);
-                    average_loss = Some(loss_average);
-                    result[index] = Some(rsi_value(gain_average, loss_average));
-                }
-            }
-        }
-    }
-    result
+    let mut state = RsiState::new(period);
+    values.iter().map(|&value| state.advance(value)).collect()
 }
 
 fn rsi_value(average_gain: f64, average_loss: f64) -> f64 {
@@ -1164,90 +1242,103 @@ fn rsi_value(average_gain: f64, average_loss: f64) -> f64 {
     100.0 - (100.0 / (1.0 + relative_strength))
 }
 
+struct AtrState {
+    previous_close: Option<f64>,
+    average: SmaState,
+}
+
+impl AtrState {
+    fn new(period: usize) -> Self {
+        Self {
+            previous_close: None,
+            average: SmaState::new(period),
+        }
+    }
+
+    fn advance(&mut self, high: f64, low: f64, close: f64) -> Option<f64> {
+        let range = high - low;
+        let true_range = match self.previous_close.replace(close) {
+            Some(previous) => range
+                .max((high - previous).abs())
+                .max((low - previous).abs()),
+            None => range,
+        };
+        self.average.advance(Some(true_range))
+    }
+}
+
 /// True range with the first bar's range as its seed value, then a plain SMA.
 pub fn atr(bars: &[EvalBar], period: usize) -> Series {
-    let true_ranges: Series = bars
-        .iter()
-        .enumerate()
-        .map(|(index, bar)| {
-            if index == 0 {
-                return Some(bar.high - bar.low);
-            }
-            let previous = &bars[index - 1];
-            Some(
-                (bar.high - bar.low)
-                    .max((bar.high - previous.close).abs())
-                    .max((bar.low - previous.close).abs()),
-            )
-        })
-        .collect();
-    sma(&true_ranges, period)
+    let mut state = AtrState::new(period);
+    bars.iter()
+        .map(|bar| state.advance(bar.high, bar.low, bar.close))
+        .collect()
+}
+
+fn read_field(bar: &EvalBar, field: OhlcvFieldV1) -> f64 {
+    match field {
+        OhlcvFieldV1::Open => bar.open,
+        OhlcvFieldV1::High => bar.high,
+        OhlcvFieldV1::Low => bar.low,
+        OhlcvFieldV1::Close => bar.close,
+        OhlcvFieldV1::Volume => bar.volume,
+    }
 }
 
 fn field_series(bars: &[EvalBar], field: OhlcvFieldV1, lookback: usize) -> Series {
-    let raw: Vec<Option<f64>> = bars
-        .iter()
-        .map(|bar| {
-            Some(match field {
-                OhlcvFieldV1::Open => bar.open,
-                OhlcvFieldV1::High => bar.high,
-                OhlcvFieldV1::Low => bar.low,
-                OhlcvFieldV1::Close => bar.close,
-                OhlcvFieldV1::Volume => bar.volume,
-            })
-        })
-        .collect();
-    raw.iter()
-        .enumerate()
-        .map(|(index, _)| {
-            if index < lookback {
-                None
-            } else {
-                raw[index - lookback]
-            }
+    (0..bars.len())
+        .map(|index| {
+            index
+                .checked_sub(lookback)
+                .map(|index| read_field(&bars[index], field))
         })
         .collect()
 }
 
-fn numeric_zip(
-    left: &Series,
-    right: &Series,
-    mut combine: impl FnMut(f64, f64) -> Option<f64>,
-) -> Series {
-    left.iter()
-        .zip(right.iter())
-        .map(
-            |(left_value, right_value)| match (left_value, right_value) {
-                (Some(left), Some(right)) => combine(*left, *right),
-                _ => None,
-            },
-        )
-        .collect()
+fn binary_point(op: BinaryOpV1, left: Option<f64>, right: Option<f64>) -> Option<f64> {
+    if op.is_logical() {
+        let logical_or = matches!(op, BinaryOpV1::Or);
+        let left = left.map(|value| value != 0.0);
+        let right = right.map(|value| value != 0.0);
+        // True determines OR and false determines AND, including with an undefined operand.
+        let result = if left == Some(logical_or) || right == Some(logical_or) {
+            logical_or
+        } else {
+            left?;
+            right?;
+            !logical_or
+        };
+        return Some(result as u8 as f64);
+    }
+    let (left, right) = (left?, right?);
+    use BinaryOpV1::*;
+    Some(match op {
+        Add => left + right,
+        Sub => left - right,
+        Mul => left * right,
+        Div if right == 0.0 => return None,
+        Div => left / right,
+        Gt => (left > right) as u8 as f64,
+        Gte => (left >= right) as u8 as f64,
+        Lt => (left < right) as u8 as f64,
+        Lte => (left <= right) as u8 as f64,
+        Eq => (left == right) as u8 as f64,
+        Neq => (left != right) as u8 as f64,
+        And | Or => unreachable!("logical operations are handled above"),
+    })
 }
 
-fn boolean_zip(
-    left: &[Option<bool>],
-    right: &[Option<bool>],
-    logical_or: bool,
-) -> Vec<Option<bool>> {
-    left.iter()
-        .zip(right.iter())
-        .map(
-            |(left_value, right_value)| match (left_value, right_value) {
-                (Some(left), Some(right)) => Some(if logical_or {
-                    *left || *right
-                } else {
-                    *left && *right
-                }),
-                // A definite result on one side short-circuits the undefined side.
-                (Some(false), None) if !logical_or => Some(false),
-                (None, Some(false)) if !logical_or => Some(false),
-                (Some(true), None) if logical_or => Some(true),
-                (None, Some(true)) if logical_or => Some(true),
-                _ => None,
-            },
-        )
-        .collect()
+fn cross_point(
+    kind: CrossKindV1,
+    previous: (Option<f64>, Option<f64>),
+    current: (Option<f64>, Option<f64>),
+) -> Option<bool> {
+    let (previous_left, previous_right) = (previous.0?, previous.1?);
+    let (current_left, current_right) = (current.0?, current.1?);
+    Some(match kind {
+        CrossKindV1::Over => previous_left <= previous_right && current_left > current_right,
+        CrossKindV1::Under => previous_left >= previous_right && current_left < current_right,
+    })
 }
 
 /// Evaluates an AST over a window of completed bars.
@@ -1290,74 +1381,29 @@ pub fn evaluate_expression(expression: &ExprV1, bars: &[EvalBar]) -> Result<Eval
         ExprV1::Cross { kind, left, right } => {
             let left = evaluate_expression(left, bars)?.numeric();
             let right = evaluate_expression(right, bars)?.numeric();
-            let mut values: Vec<Option<bool>> = vec![None; length];
+            let mut values = vec![None; length];
             for index in 1..length {
-                let (Some(previous_left), Some(previous_right), Some(current_left), Some(current_right)) = (
-                    left[index - 1],
-                    right[index - 1],
-                    left[index],
-                    right[index],
-                ) else {
-                    continue;
-                };
-                values[index] = Some(match kind {
-                    CrossKindV1::Over => previous_left <= previous_right && current_left > current_right,
-                    CrossKindV1::Under => previous_left >= previous_right && current_left < current_right,
-                });
+                values[index] = cross_point(
+                    *kind,
+                    (left[index - 1], right[index - 1]),
+                    (left[index], right[index]),
+                );
             }
             Ok(EvalValue::Boolean(values))
         }
         ExprV1::Binary { op, left, right } => {
-            let left_value = evaluate_expression(left, bars)?;
-            let right_value = evaluate_expression(right, bars)?;
-            if op.is_logical() {
-                let values = boolean_zip(
-                    &left_value.boolean(),
-                    &right_value.boolean(),
-                    matches!(op, BinaryOpV1::Or),
-                );
-                return Ok(EvalValue::Boolean(values));
-            }
-            let left_series = left_value.numeric();
-            let right_series = right_value.numeric();
-            if op.is_comparison() {
-                let comparison = *op;
-                // `numeric_zip` yields numeric series, so a comparison is combined as
-                // 1.0/0.0 and mapped back to a boolean here. Undefined operands stay
-                // `None` (never a false match).
-                let values = numeric_zip(&left_series, &right_series, |left, right| {
-                    Some(
-                        match comparison {
-                            BinaryOpV1::Gt => left > right,
-                            BinaryOpV1::Gte => left >= right,
-                            BinaryOpV1::Lt => left < right,
-                            BinaryOpV1::Lte => left <= right,
-                            BinaryOpV1::Eq => left == right,
-                            BinaryOpV1::Neq => left != right,
-                            _ => unreachable!("non-comparison operator"),
-                        } as u8 as f64,
-                    )
-                });
+            let left = evaluate_expression(left, bars)?.numeric();
+            let right = evaluate_expression(right, bars)?.numeric();
+            let values = left
+                .into_iter()
+                .zip(right)
+                .map(|(left, right)| binary_point(*op, left, right));
+            if op.is_logical() || op.is_comparison() {
                 return Ok(EvalValue::Boolean(
-                    values.into_iter().map(|value| value.map(|flag| flag != 0.0)).collect(),
+                    values.map(|value| value.map(|flag| flag != 0.0)).collect(),
                 ));
             }
-            let arithmetic = *op;
-            let values = numeric_zip(&left_series, &right_series, |left, right| {
-                Some(match arithmetic {
-                    BinaryOpV1::Add => left + right,
-                    BinaryOpV1::Sub => left - right,
-                    BinaryOpV1::Mul => left * right,
-                    BinaryOpV1::Div => {
-                        if right == 0.0 {
-                            return None;
-                        }
-                        left / right
-                    }
-                    _ => unreachable!("non-arithmetic operator"),
-                })
-            });
-            Ok(EvalValue::Numeric(values))
+            Ok(EvalValue::Numeric(values.collect()))
         }
     }
 }
@@ -1700,6 +1746,145 @@ mod tests {
 
         let gapped = vec![Some(1.0), None, Some(2.0)];
         assert_eq!(sma(&gapped, 2), vec![None, None, None]);
+    }
+
+    #[derive(Default)]
+    struct FixtureEmaState {
+        seed_count: usize,
+        seed_sum: f64,
+        current: Option<f64>,
+    }
+
+    impl FixtureEmaState {
+        fn advance(&mut self, input: Option<f64>, period: usize) -> Option<f64> {
+            let Some(input) = input else {
+                *self = Self::default();
+                return None;
+            };
+
+            if let Some(previous) = self.current {
+                let multiplier = 2.0 / (period as f64 + 1.0);
+                self.current = Some((input - previous) * multiplier + previous);
+            } else {
+                self.seed_count += 1;
+                self.seed_sum += input;
+                if self.seed_count == period {
+                    self.current = Some(self.seed_sum / period as f64);
+                }
+            }
+            self.current
+        }
+    }
+
+    #[test]
+    fn nsr7_ema_page_seam_preserves_exact_values_through_seed_and_reset() {
+        // With two-value pages, seams split the initial seed, the running series,
+        // the undefined block and the next seed.
+        let input = [
+            Some(2.0),
+            Some(6.0),
+            Some(4.0),
+            Some(12.0),
+            Some(5.0),
+            None,
+            None,
+            Some(3.0),
+            Some(8.0),
+            Some(2.0),
+            Some(16.0),
+            Some(1.0),
+        ];
+
+        for period in [1, 3, 5] {
+            let expected = ema(&input, period);
+            for page_size in [1, 2, 4, 7, 12] {
+                let mut state = FixtureEmaState::default();
+                let mut actual = Vec::new();
+                for page in input.chunks(page_size) {
+                    actual.extend(page.iter().map(|&value| state.advance(value, period)));
+                }
+                assert_eq!(actual, expected, "period {period}, page size {page_size}");
+            }
+        }
+    }
+
+    #[test]
+    fn nsr7_ema_page_seam_visits_every_eligible_endpoint_and_emits_exact_match_dates() {
+        let period = 5;
+        let threshold = 100.0;
+        let rule = ExprV1::Binary {
+            op: BinaryOpV1::Gt,
+            left: Box::new(ExprV1::Indicator {
+                name: IndicatorNameV1::Ema,
+                period,
+                input: Some(Box::new(ExprV1::Field {
+                    field: OhlcvFieldV1::Close,
+                    lookback: 0,
+                })),
+            }),
+            right: Box::new(ExprV1::Number { value: threshold }),
+        };
+        let warmup = minimum_bars_for_expression(&rule).max(1);
+        assert_eq!(warmup, period);
+
+        let first_date = chrono::NaiveDate::from_ymd_opt(1990, 1, 1).unwrap();
+        for eligible_count in [999, 1_000, 1_001, 5_000, 5_001] {
+            let closes: Vec<_> = (0..eligible_count + period - 1)
+                .map(|index| if index / 1_000 % 2 == 0 { 120.0 } else { 99.0 })
+                .collect();
+            let mut bars = bars_from_closes(&closes);
+            for (index, bar) in bars.iter_mut().enumerate() {
+                let date = first_date + chrono::Duration::days(index as i64);
+                bar.date = date.format("%Y%m%d").to_string().parse().unwrap();
+            }
+
+            let verdicts = evaluate_expression(&rule, &bars)
+                .expect("evaluate the whole fixture")
+                .boolean();
+            let expected_endpoints: Vec<_> = bars
+                .iter()
+                .zip(verdicts)
+                .enumerate()
+                .skip(period - 1)
+                .map(|(index, (bar, verdict))| (index + 1, bar.date, verdict))
+                .collect();
+            let expected_dates: Vec<_> = expected_endpoints
+                .iter()
+                .filter_map(|&(_, date, verdict)| (verdict == Some(true)).then_some(date))
+                .collect();
+            assert_eq!(expected_endpoints.len(), eligible_count);
+            if bars.len() >= 1_005 {
+                // At the fifth bar on page two, both EMA variants have a value.
+                // Carrying page one's EMA still matches. Seeding page two at 99 does not.
+                assert!(evaluate_rule_latest(&rule, &bars[..1_005]).unwrap().matched);
+                let restarted = evaluate_rule_latest(&rule, &bars[1_000..1_005]).unwrap();
+                assert_eq!(restarted.value, Some(0.0));
+                assert!(!restarted.matched);
+            }
+
+            for page_size in [1, 17, 1_000, 5_000] {
+                let mut evaluator = ForwardRuleEvaluator::new(&rule).unwrap();
+                let mut endpoints = Vec::new();
+                let mut match_dates = Vec::new();
+                let mut ordinal = 0;
+                for page in bars.chunks(page_size) {
+                    for bar in page {
+                        ordinal += 1;
+                        let verdict = evaluator.advance(*bar).value.map(|value| value != 0.0);
+                        if ordinal >= warmup {
+                            endpoints.push((ordinal, bar.date, verdict));
+                            if verdict == Some(true) {
+                                match_dates.push(bar.date);
+                            }
+                        }
+                    }
+                }
+
+                let case = format!("{eligible_count} eligible endpoints, page size {page_size}");
+                assert_eq!(endpoints, expected_endpoints, "{case}");
+                assert_eq!(match_dates, expected_dates, "{case}");
+            }
+        }
     }
 
     #[test]

@@ -1,0 +1,26 @@
+# WP-02 / NS-R7 — Shared SQLite manifests and the forward cursor
+
+23 November 2026 IST. The operator's “Yes” was taken as approval to preserve manifests that reference a shared SQLite file. This work continues the [writer enrollment and reproducer](2026-11-23_1236_IST_NSR7_BHAVCOPY_STORAGE_IDENTITY_LEASES.md) in the existing Windows checkout.
+
+## Physical SQLite coordination
+
+- The canonical coordinator holds the registered folder lease for binary storage and a second lease keyed by the physical SQLite file. Two folders whose manifests resolve to the same file now contend on the second lease. The writer publishes its folder membership durably before it can leave a mutation intent. The physical owner folder is checked even when the selected manifest resides elsewhere. [Coordinator](../../src-tauri-shell/src/database/database_use/canonical_access.rs) · [SQLite scope](../../src-tauri-shell/src/database/database_use/canonical_access/sqlite_scope.rs).
+- New mutation intents record their SQLite identity. A pending intent bound to a different file requires review. Known alias markers and journals gate future shared reads. Unbound legacy coordination markers fence candidate full-history reads until reconciled, since the older record cannot prove which SQLite file it affected. Existing shared-file manifests and per-folder intent formats remain readable. [Coordinator](../../src-tauri-shell/src/database/database_use/canonical_access.rs).
+- Schema preparation holds the folder lease before opening SQLite and the physical lease before schema writes. Bhavcopy uses the actual SQLite filename for apply, replay and checkpoint. New Bhavcopy journals also record the file identity to prevent replay against a replacement SQLite file. Hardlinked SQLite names can have separate WAL paths, so candidate full-history read admission rejects that case. Ordinary writer coordination continues to key those names by their shared physical identity. [Activation](../../src-tauri-shell/src/database/connection_registry.rs) · [Bhavcopy ingestion](../../src-tauri-shell/src/bhavcopy/ingestion.rs) · [Recovery](../../src-tauri-shell/src/bhavcopy_recovery.rs).
+
+## Forward raw cursor
+
+The fixture cursor keeps the shared lease through traversal. It merges one current row per contributing symbol and resolves same-date rows through the existing canonical alias and settlement logic. It reads binary files sequentially and fetches Hybrid SQLite rows by ascending date in batches of 64. It carries the prior canonical close across page boundaries and applies the existing index gap rule. The fixture caps related symbols at 64 and page size at 1,000 bars. [Forward cursor and fixtures](../../src-tauri-shell/src/database/eod_data/forward_cursor.rs) · [Binary record traversal](../../src-tauri-shell/src/database/binary_eod.rs).
+
+## Verification
+
+- Shared Cargo lease and recovery suite — PASS. 150 passed, zero failed, one maintenance test skipped. The original alias reproducer now verifies cross-folder exclusion, durable read refusal after interruption, and independent database access. The shared target runner used the `nsr7_`, registry, quote, Bhavcopy apply and recovery filters. [Evidence log](../../tmp/fixtures/nsr7-physical-sqlite-20261123_165926/shared-cargo.log).
+- Shared Cargo cursor and scanner suite — PASS. 196 passed, zero failed, three skipped. Page sizes 1, 64 and 1,000 matched the canonical Binary and Hybrid oracle, including 5,012 Hybrid bars, an index gap, BSE settlement separation, cancellation and duplicate binary dates. The suite also tested hardlink read refusal and replacement SQLite recovery refusal. [Evidence log](../../tmp/fixtures/nsr7-physical-sqlite-20261123_165926/cursor-cargo.log).
+- Windows SQLite path-family fixture — PASS for hardlinks. The original filename returned the committed WAL value `1` while a second hardlink to the same SQLite file returned `0`. The file-symlink case was skipped because this Windows session could not create a file symlink. [Hardlink log](../../tmp/fixtures/nsr7-physical-sqlite-20261123_165926/sqlite-hardlink-wal.log) · [File-symlink log](../../tmp/fixtures/nsr7-physical-sqlite-20261123_165926/sqlite-file-symlink-wal.log).
+- Rustfmt on both new modules and the documentation profile — PASS.
+
+## Resume point
+
+Forward cursor code is fixture-only. Full numeric paging remains disabled. Production admission must establish one SQLite WAL family, including file-symlink handling. The job needs to retain the database-use and shared source leases through final exhaustion, fence publication and retrieval against selection changes and cancellation, and verify bounded spool and IPC behavior under dense output and slow readers. Follow the [versioned paging design](2026-11-23_0152_IST_NSR7_NUMERIC_HISTORY_PAGING_DESIGN.md). The V1 limits, routing, alerts, fallback and pattern paging stay in effect. Chart indicator migration remains separately scoped.
+
+Backups under `backups/`: `pre_opencode_changes_20261123_165926_nsr7-physical-sqlite-lease`, `pre_opencode_changes_20261123_170755_nsr7-forward-canonical-cursor`, and `pre_opencode_changes_20261123_170953_nsr7-cursor-lease-type`. Validation used disposable database fixtures. Native desktop and live-data acceptance remain unverified.

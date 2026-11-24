@@ -21,6 +21,7 @@ import {
   NATIVE_SCAN_LIMITS,
   NATIVE_SUPPORTED_PATTERN_IDS,
   NATIVE_SUPPORTED_PATTERN_NAMES,
+  type NativeNumericHistoryCoverageV1,
   type NativeScanCountsV1,
   type NativeScanDiagnosticV1,
   type NativeScanMatchV1,
@@ -169,6 +170,7 @@ export interface NativeScannerRunOutcome extends ScannerRunOutput {
   backend: 'native' | 'typescript-fallback';
   /** Populated when a native attempt was made and abandoned. */
   fallbackReason?: string;
+  numericHistoryCoverage?: readonly NativeNumericHistoryCoverageV1[];
   /** per-target accounting reported by the native backend. */
   nativeCounts?: {
     targets: number;
@@ -307,8 +309,8 @@ function toScannerResult(match: NativeScanMatchV1, generatedAt: string): Scanner
         })()
       : {}),
     ...(match.source ? { source: match.source } : {}),
-    // Accepted core and Daily Market TypeScript results include an explicit empty warnings array.
-    ...(isNativeBuiltInResultId(scannerId) ? { warnings: [] } : {}),
+    // Accepted TypeScript results for built-in patterns, core, and Daily Market include empty warnings.
+    ...(supported || isNativeBuiltInResultId(scannerId) ? { warnings: [] } : {}),
     // Grouped historical annotation for consecutive pattern matches. The native executor
     // groups exactly like the TypeScript evaluation, so ScannerWindow can render the same
     // history counts on either backend.
@@ -440,6 +442,7 @@ export async function runNativeOrTypeScriptScannerBatch(
     error: NativeScanCommandErrorV1 | null;
     counts: NativeScanCountsV1 | null;
     diagnostics: NativeScanDiagnosticV1[];
+    numericHistoryCoverage?: readonly NativeNumericHistoryCoverageV1[];
   } = {
     kind: null,
     cancelled: false,
@@ -510,6 +513,7 @@ export async function runNativeOrTypeScriptScannerBatch(
       terminalState.cancelled = event.cancelled;
       terminalState.counts = event.counts;
       terminalState.diagnostics = event.diagnostics;
+      terminalState.numericHistoryCoverage = event.numericHistoryCoverage;
       resolveTerminal?.();
     },
     onError: (event) => {
@@ -626,6 +630,7 @@ export async function runNativeOrTypeScriptScannerBatch(
     options.onResultChunk?.(published);
   }
 
+  const cancelled = terminalState.cancelled || databaseSelectionChanged();
   return {
     results: published,
     alertTriggers: [] as EodAlertTrigger[],
@@ -634,8 +639,11 @@ export async function runNativeOrTypeScriptScannerBatch(
       .filter((diagnostic) => diagnostic.code !== 'target-notice')
       .map((diagnostic) => diagnostic.message),
     scannedSymbols: counts ? counts.targets : completed > 0 ? completed : total,
-    cancelled: terminalState.cancelled || databaseSelectionChanged(),
+    cancelled,
     backend: 'native',
+    ...(!cancelled && options.evaluateHistory && terminalState.numericHistoryCoverage?.length
+      ? { numericHistoryCoverage: terminalState.numericHistoryCoverage }
+      : {}),
     nativeCounts: {
       targets: counts?.targets ?? total,
       matched: counts?.matched ?? 0,
@@ -648,8 +656,8 @@ export async function runNativeOrTypeScriptScannerBatch(
 
 /**
  * Completion summary shared by the Scanner window's native and TypeScript paths.
- * Keep the accepted TypeScript, fallback, and cancellation wording unchanged;
- * only completed native scans use the backend's real skipped/failed accounting.
+ * Keep TypeScript and fallback wording unchanged. Native terminal counts include
+ * skipped targets, so a cancelled native run reports them as targets, not scanned symbols.
  */
 export function formatScannerCompletionStatus(
   outcome: ScannerRunOutput | NativeScannerRunOutcome,
@@ -666,14 +674,53 @@ export function formatScannerCompletionStatus(
   }
 
   if (outcome.cancelled) {
+    if ('backend' in outcome && outcome.backend === 'native' && outcome.nativeCounts) {
+      const { targets, skipped, failed } = outcome.nativeCounts;
+      const resultCount = outcome.results.length;
+      return `Native scan cancelled. Recorded ${resultCount} match${resultCount === 1 ? '' : 'es'}. ${targets} target symbol${targets === 1 ? '' : 's'} (${skipped} skipped, ${failed} failed).`;
+    }
     return `Scan cancelled after ${outcome.scannedSymbols} symbol${outcome.scannedSymbols === 1 ? '' : 's'}; ${outcome.results.length} match${outcome.results.length === 1 ? '' : 'es'} recorded.`;
   }
 
   if ('backend' in outcome && outcome.backend === 'native') {
-    return formatNativeScannerStatus(outcome, symbolCount);
+    const status = formatNativeScannerStatus(outcome, symbolCount);
+    const coverage = formatNumericHistoryCoverage(outcome.numericHistoryCoverage ?? []);
+    return coverage ? `${status} ${coverage}` : status;
   }
 
   return scannedSummary;
+}
+
+function formatNumericHistoryCoverage(coverage: readonly NativeNumericHistoryCoverageV1[]): string {
+  let first = '';
+  let last = '';
+  let evaluated = 0;
+  let omitted = 0;
+  let targets = 0;
+  let olderInputUnknown = 0;
+  for (const target of coverage) {
+    if (target.rules.length === 0) continue;
+    targets += 1;
+    if (target.olderInputUnknown) olderInputUnknown += 1;
+    for (const rule of target.rules) {
+      if (first === '' || rule.firstEvaluatedDate < first) first = rule.firstEvaluatedDate;
+      if (last === '' || rule.lastEvaluatedDate > last) last = rule.lastEvaluatedDate;
+      evaluated += rule.evaluatedEndpointCount;
+      omitted += rule.omittedEligibleEndpointCount;
+    }
+  }
+  if (targets === 0) return '';
+
+  const messages = [
+    `Numeric history evaluated ${evaluated} rule endpoints across ${targets} target symbols from ${first} through ${last}.`,
+  ];
+  if (omitted > 0) {
+    messages.push(`${omitted} eligible rule endpoints were omitted within the loaded data.`);
+  }
+  if (olderInputUnknown > 0) {
+    messages.push(`Older bars may exist for ${olderInputUnknown} of these target symbols.`);
+  }
+  return messages.join(' ');
 }
 
 /** Status line text for a native run, mirroring the TypeScript wording. */

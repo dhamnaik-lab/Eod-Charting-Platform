@@ -8,6 +8,7 @@ use super::connection_registry::{resolve_active_database_folder, with_connection
 use super::index_aliases::nse_index_alias_family;
 mod index_alias_history;
 mod bse_code_history;
+pub(super) mod forward_cursor;
 use index_alias_history::{
     augment_index_alias_context, guard_index_previous_close, resolve_index_alias_context,
     validate_index_alias_rows,

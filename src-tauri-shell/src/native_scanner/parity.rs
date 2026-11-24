@@ -150,10 +150,16 @@ fn ns01_numeric_cases_match_recorded_typescript_values() {
             case.id
         );
 
-        // Compare each endpoint, which is also the historical-evaluation code path.
+        let mut forward = super::ast::ForwardRuleEvaluator::new(&expression).unwrap();
         for (index, expected) in case.expected_values.iter().enumerate() {
             let outcome = evaluate_rule_latest(&expression, &bars[..=index])
                 .unwrap_or_else(|error| panic!("{}@{index}: {error}", case.id));
+            assert_eq!(
+                forward.advance(bars[index]),
+                outcome,
+                "{}@{index}: forward parity",
+                case.id
+            );
             let expected_matched = expected.map(|value| value != 0.0).unwrap_or(false);
             assert_eq!(
                 outcome.matched, expected_matched,

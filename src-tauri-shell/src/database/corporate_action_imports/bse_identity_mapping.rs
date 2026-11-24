@@ -5,6 +5,7 @@ use super::*;
 pub(super) fn collect(
     app: &AppHandle,
     connection: &Connection,
+    folder: &Path,
     session: &mut bse_fetch::BseSession,
 ) -> AppResult<usize> {
     let missing: bool = connection
@@ -21,6 +22,8 @@ pub(super) fn collect(
     // Same guarded HTTP -> isolated WebView2 route and immutable capture receipt
     // as official CA Fetch. Current master metadata is not historical proof.
     let bytes = session.fetch(app, &super::bse_browser::Scope::identity_master())?;
+    let _canonical =
+        crate::database::database_use::CanonicalAccess::lock_writer_for_database(folder)?;
     run_connection_transaction(connection, |c| fill_missing_codes(c, &bytes))
 }
 

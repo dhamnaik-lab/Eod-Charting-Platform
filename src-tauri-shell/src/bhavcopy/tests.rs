@@ -5,7 +5,7 @@ use rusqlite::Connection;
 fn create_temp_bhavcopy_db() -> (tempfile::TempDir, std::path::PathBuf) {
     let temp_dir = tempfile::tempdir().unwrap();
     let db_path = temp_dir.path().join("test.db");
-    let conn = open_database_connection(&db_path).unwrap();
+    let conn = open_prepared_fixture_connection(&db_path).unwrap();
     drop(conn);
     (temp_dir, db_path)
 }
@@ -173,7 +173,7 @@ fn test_binary_mode_stale_nse() {
 #[test]
 fn test_parse_and_insert_binary_skips_sqlite() {
     let (temp_dir, db_path) = create_temp_bhavcopy_db();
-    let conn = open_database_connection(&db_path).unwrap();
+    let conn = open_prepared_fixture_connection(&db_path).unwrap();
 
     // Set Binary mode
     set_price_storage_mode(&conn, PriceStorageMode::Binary).unwrap();
@@ -221,7 +221,7 @@ fn test_parse_and_insert_stores_nse_series_and_isin_metadata() {
     let result = parse_and_insert(&db_path, csv, "NSE", "2024-05-15", &[]).unwrap();
     assert_eq!(result.rows_inserted, 1);
 
-    let conn = open_database_connection(&db_path).unwrap();
+    let conn = open_prepared_fixture_connection(&db_path).unwrap();
     let metadata = conn
         .query_row(
             "SELECT series, isin, series_as_of_date FROM instruments WHERE symbol = ? AND exchange = ?",
@@ -258,7 +258,7 @@ fn test_bhav02_legacy_exclusions_do_not_discard_supported_nse_series() {
     .unwrap();
     assert_eq!(result.rows_inserted, 3);
 
-    let conn = open_database_connection(&db_path).unwrap();
+    let conn = open_prepared_fixture_connection(&db_path).unwrap();
     let be_series: Option<String> = conn
         .query_row(
             "SELECT series FROM instruments WHERE symbol = ? AND exchange = ?",
@@ -397,7 +397,7 @@ fn test_series_metadata_keeps_latest_trade_date_when_backfilling() {
     parse_and_insert(&db_path, newer_csv, "NSE", "2024-05-16", &[]).unwrap();
     parse_and_insert(&db_path, older_csv, "NSE", "2024-05-15", &[]).unwrap();
 
-    let conn = open_database_connection(&db_path).unwrap();
+    let conn = open_prepared_fixture_connection(&db_path).unwrap();
     let metadata = conn
         .query_row(
             "SELECT series, series_as_of_date FROM instruments WHERE symbol = ? AND exchange = ?",
@@ -419,7 +419,7 @@ fn test_parse_and_insert_stores_bse_group_as_series_metadata() {
     let result = parse_and_insert(&db_path, csv, "BSE", "2024-05-15", &[]).unwrap();
     assert_eq!(result.rows_inserted, 1);
 
-    let conn = open_database_connection(&db_path).unwrap();
+    let conn = open_prepared_fixture_connection(&db_path).unwrap();
     let group_value: Option<String> = conn
         .query_row(
             "SELECT series FROM instruments WHERE symbol = ? AND exchange = ?",
@@ -442,7 +442,7 @@ fn bse_backfill_preserves_newer_isin_and_still_imports_historical_prices() {
                 EXAMPLE,A,NEXTISIN,101,111,96,106,1100,26-OCT-2026";
     parse_and_insert(&db_path, newer, "BSE", "2026-10-23", &[]).unwrap();
     parse_and_insert(&db_path, older, "BSE", "2026-10-22", &[]).unwrap();
-    let connection = open_database_connection(&db_path).unwrap();
+    let connection = open_prepared_fixture_connection(&db_path).unwrap();
     let metadata: (String, String, String) = connection.query_row(
         "SELECT isin,series,series_as_of_date FROM instruments WHERE symbol='EXAMPLE' AND exchange='BSE'",
         [], |row| Ok((row.get(0)?,row.get(1)?,row.get(2)?)),
@@ -454,7 +454,7 @@ fn bse_backfill_preserves_newer_isin_and_still_imports_historical_prices() {
     ).unwrap(), 2);
     drop(connection);
     parse_and_insert(&db_path, next, "BSE", "2026-10-26", &[]).unwrap();
-    let connection = open_database_connection(&db_path).unwrap();
+    let connection = open_prepared_fixture_connection(&db_path).unwrap();
     assert_eq!(connection.query_row(
         "SELECT isin FROM instruments WHERE symbol='EXAMPLE' AND exchange='BSE'", [],
         |row| row.get::<_, String>(0),
@@ -893,7 +893,7 @@ fn test_bse_index_api_filename_uses_downloadable_case() {
 #[test]
 fn db_safe_03_bhavcopy_reimport_preserves_delivery_including_nulls() {
     let (_temp_dir, db_path) = create_temp_bhavcopy_db();
-    let conn = open_database_connection(&db_path).unwrap();
+    let conn = open_prepared_fixture_connection(&db_path).unwrap();
     set_price_storage_mode(&conn, PriceStorageMode::Hybrid).unwrap();
     let date = "2026-06-16";
     let original = "SYMBOL,SERIES,OPEN,HIGH,LOW,CLOSE,TOTTRDQTY,TIMESTAMP\n\
@@ -944,7 +944,7 @@ fn db_safe_03_bhavcopy_reimport_preserves_delivery_including_nulls() {
 #[test]
 fn db_safe_03_bhavcopy_journal_replay_write_preserves_delivery() {
     let (temp_dir, db_path) = create_temp_bhavcopy_db();
-    let conn = open_database_connection(&db_path).unwrap();
+    let conn = open_prepared_fixture_connection(&db_path).unwrap();
     set_price_storage_mode(&conn, PriceStorageMode::Hybrid).unwrap();
     let date = "2026-06-16";
     conn.execute(
@@ -1000,7 +1000,7 @@ fn db_safe_03_bhavcopy_journal_replay_write_preserves_delivery() {
 #[test]
 fn test_insert_parsed_bhavcopy_files_batches_binary_records_by_symbol() {
     let (temp_dir, db_path) = create_temp_bhavcopy_db();
-    let conn = open_database_connection(&db_path).unwrap();
+    let conn = open_prepared_fixture_connection(&db_path).unwrap();
     set_price_storage_mode(&conn, PriceStorageMode::Binary).unwrap();
     drop(conn);
 
@@ -1044,7 +1044,7 @@ fn test_insert_parsed_bhavcopy_files_batches_binary_records_by_symbol() {
 #[test]
 fn test_insert_parsed_bhavcopy_files_skips_existing_binary_records() {
     let (temp_dir, db_path) = create_temp_bhavcopy_db();
-    let conn = open_database_connection(&db_path).unwrap();
+    let conn = open_prepared_fixture_connection(&db_path).unwrap();
     set_price_storage_mode(&conn, PriceStorageMode::Binary).unwrap();
     drop(conn);
 
@@ -1081,7 +1081,7 @@ fn test_insert_parsed_bhavcopy_files_skips_existing_binary_records() {
 #[test]
 fn test_bhavcopy_buffered_durability_defers_only_append_newest_sync() {
     let (temp_dir, db_path) = create_temp_bhavcopy_db();
-    let conn = open_database_connection(&db_path).unwrap();
+    let conn = open_prepared_fixture_connection(&db_path).unwrap();
     set_price_storage_mode(&conn, PriceStorageMode::Binary).unwrap();
     drop(conn);
 
@@ -1126,7 +1126,7 @@ fn test_bhavcopy_buffered_durability_defers_only_append_newest_sync() {
 #[test]
 fn test_insert_parsed_bhavcopy_files_counts_only_new_binary_rows_for_mixed_batch() {
     let (temp_dir, db_path) = create_temp_bhavcopy_db();
-    let conn = open_database_connection(&db_path).unwrap();
+    let conn = open_prepared_fixture_connection(&db_path).unwrap();
     set_price_storage_mode(&conn, PriceStorageMode::Binary).unwrap();
     drop(conn);
 
@@ -1717,19 +1717,50 @@ AAA,EQ,10,11,9,10.5,9.9,100,01-Oct-2019,INE000A01001";
 }
 
 #[test]
-fn test_binary_write_failure_is_never_reported_as_success() {
+fn test_invalid_binary_baseline_is_rejected_before_single_download_writes() {
     let (temp_dir, db_path) = create_temp_bhavcopy_db();
     let nse_dir = temp_dir.path().join("eod_data").join("NSE");
     fs::create_dir_all(&nse_dir).unwrap();
-    // Deterministic fault injection: the writer cannot open a directory as the
-    // symbol's binary file, so the binary stage reports an error.
+    // The symbol's path is a directory, so journal baseline capture fails.
     fs::create_dir_all(nse_dir.join("AAA.eod")).unwrap();
     let csv = "SYMBOL,SERIES,OPEN,HIGH,LOW,CLOSE,TOTTRDQTY,TIMESTAMP,ISIN
                AAA,EQ,10,11,9,10.5,100,20-NOV-2014,INE000A01001";
     let error = parse_and_insert(&db_path, csv, "NSE", "2014-11-20", &[])
         .err()
-        .expect("binary failure must be surfaced");
+        .expect("invalid binary baseline must be surfaced");
+    assert!(error.contains("Cannot prepare Bhavcopy recovery baseline"), "{error}");
+    let connection = open_database_connection(&db_path).unwrap();
+    let instruments: i64 = connection
+        .query_row("SELECT count(*) FROM instruments", [], |row| row.get(0))
+        .unwrap();
+    assert_eq!(instruments, 0);
+    assert!(!crate::bhavcopy_recovery::has_pending_sessions(temp_dir.path()).unwrap());
+}
+
+#[test]
+fn nsr7_single_download_retains_replay_rows_after_binary_write_failure() {
+    let (fixture, db_path) = create_temp_bhavcopy_db();
+    let folder = fixture.path();
+    let staging_path = folder.join("eod_data/NSE/AAA.tmp");
+    fs::create_dir_all(&staging_path).unwrap();
+    let csv = "SYMBOL,SERIES,OPEN,HIGH,LOW,CLOSE,TOTTRDQTY,TIMESTAMP,ISIN
+               AAA,EQ,10,11,9,10.5,100,20-NOV-2014,INE000A01001";
+    let error = parse_and_insert(&db_path, csv, "NSE", "2014-11-20", &[])
+        .err()
+        .unwrap();
     assert!(error.contains("Binary store write failed"), "{error}");
+    assert!(!folder.join("eod_data/NSE/AAA.eod").exists());
+    let sessions = crate::bhavcopy_recovery::load_pending_sessions(folder).unwrap();
+    let [session] = sessions.as_slice() else {
+        panic!("expected one durable recovery session");
+    };
+    assert_eq!(session.manifest.state, RecoverySessionState::Applying);
+    assert_eq!(session.rows[0].symbol, "AAA");
+    assert_eq!(session.rows[0].close, 10.5);
+    let error = parse_and_insert(&db_path, csv, "NSE", "2014-11-20", &[])
+        .err()
+        .unwrap();
+    assert!(error.starts_with("CANONICAL_PRICE_STORE_INTERRUPTED"));
 }
 
 #[test]
@@ -1737,7 +1768,7 @@ fn test_staged_replacement_only_import_is_truthful_and_idempotent() {
     let (temp_dir, db_path) = create_temp_bhavcopy_db();
     fs::create_dir_all(temp_dir.path().join("eod_data").join("NSE")).unwrap();
     {
-        let conn = open_database_connection(&db_path).unwrap();
+        let conn = open_prepared_fixture_connection(&db_path).unwrap();
         set_price_storage_mode(&conn, PriceStorageMode::Binary).unwrap();
     }
     let lock = Mutex::new(());
@@ -1783,7 +1814,7 @@ AAA,EQ,10,11,9,{close},100,20-NOV-2014,INE000A01001"
 fn test_binary_reimport_reports_replaced_rows_as_work() {
     let (temp_dir, db_path) = create_temp_bhavcopy_db();
     fs::create_dir_all(temp_dir.path().join("eod_data").join("NSE")).unwrap();
-    let conn = open_database_connection(&db_path).unwrap();
+    let conn = open_prepared_fixture_connection(&db_path).unwrap();
     set_price_storage_mode(&conn, PriceStorageMode::Binary).unwrap();
     drop(conn);
 
@@ -1811,7 +1842,7 @@ fn test_binary_reimport_reports_replaced_rows_as_work() {
 fn test_range_mode_refreshes_metadata_only_binary_dates() {
     let (temp_dir, db_path) = create_temp_bhavcopy_db();
     fs::create_dir_all(temp_dir.path().join("eod_data").join("NSE")).unwrap();
-    let conn = open_database_connection(&db_path).unwrap();
+    let conn = open_prepared_fixture_connection(&db_path).unwrap();
     set_price_storage_mode(&conn, PriceStorageMode::Binary).unwrap();
     conn.execute(
         "INSERT INTO download_log (trade_date, exchange, rows_inserted, max_volume, status) VALUES (?, ?, ?, ?, ?)",
@@ -2347,7 +2378,7 @@ fn test_v14_append_newest_fast_classification_rejects_baseline_state_mismatch() 
 fn test_v14_append_newest_fast_classification_bhavcopy_integration_uses_zero_classification_reads(
 ) {
     let (temp_dir, db_path) = create_temp_bhavcopy_db();
-    let connection = open_database_connection(&db_path).unwrap();
+    let connection = open_prepared_fixture_connection(&db_path).unwrap();
     set_price_storage_mode(&connection, PriceStorageMode::Binary).unwrap();
     drop(connection);
 

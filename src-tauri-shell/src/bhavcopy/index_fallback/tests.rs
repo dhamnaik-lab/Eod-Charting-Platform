@@ -230,7 +230,7 @@ fn partial_ohlc_bad_volume_and_prelaunch_never_become_candles() {
 fn additive_binary_alias_conflict_and_rerun_preserve_existing_bytes() {
     let temp = tempfile::tempdir().unwrap();
     let db = temp.path().join("fixture.db");
-    let conn = open_database_connection(&db).unwrap();
+    let conn = open_prepared_fixture_connection(&db).unwrap();
     set_price_storage_mode(&conn, PriceStorageMode::Binary).unwrap();
     drop(conn);
     let alias = parsed("NIFTY 50", "2011-01-03", 105.0).rows[0].binary_record;
@@ -263,7 +263,7 @@ fn additive_binary_alias_conflict_and_rerun_preserve_existing_bytes() {
 fn additive_long_headers_keep_full_filename_ownership_and_prefixes_separate() {
     let temp = tempfile::tempdir().unwrap();
     let db = temp.path().join("fixture.db");
-    let conn = open_database_connection(&db).unwrap();
+    let conn = open_prepared_fixture_connection(&db).unwrap();
     set_price_storage_mode(&conn, PriceStorageMode::Binary).unwrap();
     let names = [
         "NIFTY500LARGEMIDSMALLEQUALCAPWEIGHTED",
@@ -323,7 +323,7 @@ fn additive_long_headers_keep_full_filename_ownership_and_prefixes_separate() {
 fn additive_headers_reject_real_symbol_exchange_and_zero_scale_mismatches() {
     let temp = tempfile::tempdir().unwrap();
     let db = temp.path().join("fixture.db");
-    let conn = open_database_connection(&db).unwrap();
+    let conn = open_prepared_fixture_connection(&db).unwrap();
     set_price_storage_mode(&conn, PriceStorageMode::Binary).unwrap();
     let long = "NIFTY500LARGEMIDSMALLEQUALCAPWEIGHTED";
     conn.execute(
@@ -362,7 +362,7 @@ fn captured_daily_archive_long_names_reach_guard_and_additive_writer() {
     );
     let temp = tempfile::tempdir().unwrap();
     let db = temp.path().join("fixture.db");
-    let conn = open_database_connection(&db).unwrap();
+    let conn = open_prepared_fixture_connection(&db).unwrap();
     set_price_storage_mode(&conn, PriceStorageMode::Binary).unwrap();
     let report = parse_bhavcopy_csv(csv, "NSE_INDEX", "2026-11-03", &[]).unwrap();
     // 167 archive rows; 29 lack complete OHLC and remain excluded.
@@ -511,7 +511,7 @@ fn isolated_production_daily_archive_additive_proof() {
 fn journal_replay_rechecks_changed_alias_before_insertion() {
     let temp = tempfile::tempdir().unwrap();
     let db = temp.path().join("fixture.db");
-    let conn = open_database_connection(&db).unwrap();
+    let conn = open_prepared_fixture_connection(&db).unwrap();
     set_price_storage_mode(&conn, PriceStorageMode::Binary).unwrap();
     drop(conn);
     let mut files = vec![parsed("NIFTY 50", "2011-01-03", 105.0)];
@@ -545,7 +545,7 @@ fn journal_replay_rechecks_changed_alias_before_insertion() {
 fn partial_log_does_not_certify_day_but_preserves_forward_update_window() {
     let temp = tempfile::tempdir().unwrap();
     let db = temp.path().join("fixture.db");
-    let conn = open_database_connection(&db).unwrap();
+    let conn = open_prepared_fixture_connection(&db).unwrap();
     upsert_download_log_entry(
         &conn,
         &DownloadResult {
@@ -590,7 +590,7 @@ fn cancelled_fetch_makes_no_request() {
 fn hybrid_checks_binary_only_alias_history_and_preserves_progress_after_conflicts() {
     let temp = tempfile::tempdir().unwrap();
     let db = temp.path().join("fixture.db");
-    let conn = open_database_connection(&db).unwrap();
+    let conn = open_prepared_fixture_connection(&db).unwrap();
     set_price_storage_mode(&conn, PriceStorageMode::Hybrid).unwrap();
     let mut old = [parsed("NIFTY 50", "2011-01-03", 105.0).rows[0].binary_record];
     let path = temp.path().join("eod_data/NSE_INDEX/CNXNIFTY.eod");
@@ -761,7 +761,7 @@ fn retained_responses_for_four_more_indices_keep_identity_and_missing_dates() {
 fn invalid_stored_smallcap_alias_holds_only_its_quotation() {
     let temp = tempfile::tempdir().unwrap();
     let db = temp.path().join("fixture.db");
-    let conn = open_database_connection(&db).unwrap();
+    let conn = open_prepared_fixture_connection(&db).unwrap();
     set_price_storage_mode(&conn, PriceStorageMode::Binary).unwrap();
     drop(conn);
     let path = temp.path().join("eod_data/NSE_INDEX/CNXSMALLCAP.eod");
@@ -884,7 +884,7 @@ fn transport_refusal_empty_oversize_and_timeout_remain_distinct() {
 fn bse_2011_evidenced_holiday_is_readable_but_never_blocks_a_download() {
     let temp = tempfile::tempdir().unwrap();
     let db = temp.path().join("fixture.db");
-    let conn = open_database_connection(&db).unwrap();
+    let conn = open_prepared_fixture_connection(&db).unwrap();
     for exchange in ["BSE", "BSE_INDEX"] {
         // The evidenced BSE notice date is a weekday holiday. It must no longer
         // suppress the download; it is kept so a no-data result can be explained.

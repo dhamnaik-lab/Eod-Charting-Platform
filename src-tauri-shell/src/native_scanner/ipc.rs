@@ -21,9 +21,9 @@ use super::ast::parse_native_scan_request_v1;
 use super::database_source::ReadOnlyDatabaseSource;
 use super::job::{
     clamp_worker_count, codes, events, resolve_targets, EventEmitter, EventSink, JobRejection,
-    NativeScanJobRegistry, ScanCancelAckV1, ScanCompleteEventV1, ScanCountsV1, ScanDiagnosticV1,
-    ScanErrorEventV1, ScanMatchBatchEventV1, ScanProgressEventV1, ScanStartAckV1, ScanTargetRefV1,
-    DEFAULT_EVENT_BATCH_SIZE, DEFAULT_PROGRESS_INTERVAL_MS,
+    NativeScanJobRegistry, ScanCancelAckV1, ScanCompleteEventV1, ScanCountsV1, ScanErrorEventV1,
+    ScanMatchBatchEventV1, ScanProgressEventV1, ScanStartAckV1, DEFAULT_EVENT_BATCH_SIZE,
+    DEFAULT_PROGRESS_INTERVAL_MS,
 };
 use super::scan::ScanExecutionOptions;
 use crate::database::database_use::acquire_use;
@@ -363,29 +363,8 @@ fn run_prepared_job(app: AppHandle, job: PreparedJob) {
 
     match outcome {
         Ok(report) => {
-            let diagnostics: Vec<ScanDiagnosticV1> = report
-                .diagnostics
-                .iter()
-                .map(|diagnostic| ScanDiagnosticV1 {
-                    code: diagnostic.code.clone(),
-                    message: diagnostic.message.clone(),
-                    target: diagnostic.target.as_ref().map(|target| ScanTargetRefV1 {
-                        exchange: target.exchange.clone(),
-                        symbol: target.symbol.clone(),
-                    }),
-                    rule_id: diagnostic.rule_id.clone(),
-                })
-                .collect();
-
-            // Exactly one terminal event, whether the run completed, failed or was
-            // cancelled. P1-05: the real counts are reported, never zero-filled.
-            emitter.finalize_complete(
-                report.cancelled,
-                report.duration_ms,
-                report.counts,
-                report.workers_used,
-                diagnostics,
-            );
+            let duration_ms = report.duration_ms;
+            emitter.finalize_complete(report, duration_ms);
         }
         Err(_) => {
             // The worker panicked: report a terminal error rather than leaving the UI

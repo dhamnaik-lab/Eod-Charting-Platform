@@ -21,6 +21,11 @@ mod scanner_runaway_gap;
 mod scanner_exhaustion_gap;
 #[allow(dead_code)]
 mod native_scanner;
+#[cfg(all(windows, feature = "wp02-acceptance"))]
+mod wp02_acceptance;
+
+#[cfg(all(not(windows), feature = "wp02-acceptance"))]
+compile_error!("The WP-02 acceptance shell requires Windows.");
 
 use app_profile::*;
 use bhavcopy::*;
@@ -794,6 +799,14 @@ fn settings_section_payload(section: &'static str) -> Option<Value> {
 fn main() {
     // Maintenance paths are resolved before Tauri startup.
     let args: Vec<_> = std::env::args_os().collect();
+    #[cfg(all(windows, feature = "wp02-acceptance"))]
+    wp02_acceptance::launch(&args[1..]);
+    #[cfg(not(all(windows, feature = "wp02-acceptance")))]
+    if args.get(1).is_some_and(|flag| flag == "--wp02-acceptance") {
+        eprintln!("WP-02 acceptance requires the acceptance-only build.");
+        std::process::exit(1);
+    }
+
     let _maintenance_database_use = if args.iter().any(|arg| arg.to_str().is_some_and(|arg| arg.starts_with("--maintenance-corporate-action-"))) {
         match database::database_use::acquire_use() {
             Ok(permit) => {
@@ -865,6 +878,7 @@ fn main() {
         // NS-03: the native scan registry and its database-use permit. Native scanning
         // stays opt-in; registering the state does not activate any UI path.
         .manage(native_scanner::ipc::NativeScanState::default())
+        .manage(native_scanner::numeric_history::NumericHistoryState::default())
         .setup(|app| {
             let runtime_context = resolve_runtime_context(&app.handle())?;
             ensure_registry_initialized(&app.handle())?;
@@ -894,6 +908,9 @@ fn main() {
                 // late event and the database-use permit is released deterministically.
                 let native_state = window.app_handle().state::<native_scanner::ipc::NativeScanState>();
                 let cancelled = native_scanner::ipc::finalize_all_runs(&native_state);
+                native_scanner::numeric_history::shutdown(
+                    &window.app_handle().state::<native_scanner::numeric_history::NumericHistoryState>(),
+                );
                 if cancelled > 0 {
                     log_runtime_event(
                         &window.app_handle(),
@@ -1321,6 +1338,10 @@ fn main() {
             native_scanner::ipc::start_native_eod_scan,
             native_scanner::ipc::cancel_native_eod_scan,
             native_scanner::ipc::native_scanner_capabilities,
+            native_scanner::numeric_history::native_numeric_history_capability_v2,
+            native_scanner::numeric_history::start_native_numeric_history_v2,
+            native_scanner::numeric_history::page_native_numeric_history_v2,
+            native_scanner::numeric_history::close_native_numeric_history_v2,
         ])
         .run(tauri::generate_context!());
 

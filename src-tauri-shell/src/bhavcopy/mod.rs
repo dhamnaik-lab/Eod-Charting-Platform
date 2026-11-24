@@ -7,9 +7,9 @@ pub use crate::database::binary_eod::*;
 #[cfg(test)]
 pub use crate::database::eod_binary_state::*;
 use crate::database::{
-    emit_database_changed, get_active_database_file_path, get_app_snapshot_internal,
-    invalidate_cached_db_stats, prepare_database_connection,
-    try_acquire_price_store_operation, PriceStorageMode, PriceStoreOperationKind, SnapshotOptions,
+    configure_database_connection, emit_database_changed, get_active_database_file_path,
+    get_app_snapshot_internal, invalidate_cached_db_stats, try_acquire_price_store_operation,
+    PriceStorageMode, PriceStoreOperationKind, SnapshotOptions,
 };
 use crate::runtime::log_runtime_event;
 pub use chrono::{Datelike, Local};
@@ -73,7 +73,7 @@ pub async fn download_bhavcopy(app: AppHandle, date: Option<String>) -> AppResul
             )),
         );
         let holiday_connection = Connection::open(&database_file_path).map_err(|e| e.to_string())?;
-        prepare_database_connection(&holiday_connection)?;
+        configure_database_connection(&holiday_connection)?;
         if let Some(result) = create_calendar_skip_result(&holiday_connection, "NSE", &trade_date, parsed_date.weekday())
         {
             log_runtime_event(

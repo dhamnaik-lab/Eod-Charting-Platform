@@ -1,5 +1,6 @@
-use crate::database::storage_paths::{check_sibling, directory, eod_path, file};
 use crate::database::binary_eod::{BinaryEodFile, EodRecord, DEFAULT_SCALE};
+use crate::database::database_use::{CanonicalAccess, CanonicalWriterIntent};
+use crate::database::storage_paths::{check_sibling, directory, eod_path, file};
 use chrono::Utc;
 use rusqlite::{params, Connection, OptionalExtension};
 use serde::{Deserialize, Serialize};
@@ -424,6 +425,7 @@ where
     let database_folder = database_file_path
         .parent()
         .ok_or_else(|| "Database folder is unavailable for manual import recovery.".to_string())?;
+    let writer = CanonicalAccess::lock_writer_for_database(database_folder)?;
     let mut session = load_session(database_folder, session_id)?;
     if !session.manifest.state.is_undoable() {
         return Err(format!(
@@ -447,6 +449,9 @@ where
         eod_path(database_folder, &session.manifest.exchange, symbol)?;
     }
 
+    let apply = writer.begin_apply(CanonicalWriterIntent::ManualUndo {
+        session_id: session_id.to_owned(),
+    })?;
     session.manifest.state = ManualImportRecoveryState::Undoing;
     session.manifest.updated_at = now_iso();
     write_manifest_atomic(&session.directory, &session.manifest)?;
@@ -528,6 +533,12 @@ where
     }
     session.manifest.updated_at = now;
     write_manifest_atomic(&session.directory, &session.manifest)?;
+
+    if conflicts == 0 {
+        if let Err(error) = apply.finish_known_consistent() {
+            eprintln!("Manual Import Undo coordination remains pending: {error}");
+        }
+    }
 
     Ok(ManualImportUndoResult {
         success: conflicts == 0,

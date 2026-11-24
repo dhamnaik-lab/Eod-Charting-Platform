@@ -10,11 +10,14 @@ use tauri::{AppHandle, Manager};
 use super::watchlists::load_watchlists;
 use super::{database_deletion, database_use::{self, DatabasePath}};
 use super::{
-    emit_database_changed, load_db_stats, now_iso, path_to_string, prepare_database_connection,
-    set_price_storage_mode, AppResult, AppSnapshot, DbStats, KnownDatabase, PathInput,
-    PriceStorageMode, SnapshotOptions, DATABASE_FILE_NAME, DATABASE_MANIFEST_FILE,
-    DATABASE_REGISTRY_FILE,
+    configure_database_connection, emit_database_changed, load_db_stats, now_iso, path_to_string,
+    prepare_database_connection, set_price_storage_mode, AppResult, AppSnapshot, DbStats,
+    KnownDatabase, PathInput, PriceStorageMode, SnapshotOptions, DATABASE_FILE_NAME,
+    DATABASE_MANIFEST_FILE, DATABASE_REGISTRY_FILE,
 };
+
+#[cfg(all(windows, feature = "wp02-acceptance"))]
+pub(crate) mod wp02_acceptance;
 
 pub struct ActiveDatabaseConnectionState {
     cached: Mutex<Option<CachedDatabaseConnection>>,
@@ -58,7 +61,20 @@ pub(crate) struct NativeScanSelection {
     pub(crate) folder: PathBuf,
     pub(crate) database_identity: String,
     canonical_folder: PathBuf,
+    sqlite_filename: PathBuf,
     physical_file_identity: String,
+}
+
+#[cfg(test)]
+impl NativeScanSelection {
+    pub(crate) fn fixture(folder: &Path, revision: u64) -> AppResult<Self> {
+        let path = path_to_string(folder);
+        native_selection_from_registry(&DatabaseRegistryFile {
+            recent: vec![KnownDatabase { path: path.clone(), label: "Fixture".into(), last_opened_at: String::new() }],
+            last_active_path: Some(path),
+            active_selection_revision: revision,
+        })?.ok_or_else(|| "Fixture database selection is unavailable.".into())
+    }
 }
 
 fn advance_selection_revision(registry: &mut DatabaseRegistryFile) -> AppResult<()> {
@@ -106,6 +122,7 @@ fn native_selection_from_registry(
         folder,
         database_identity: format!("{}#{}", active, registry.active_selection_revision),
         canonical_folder,
+        sqlite_filename: database_file,
         physical_file_identity,
     }))
 }
@@ -113,18 +130,72 @@ fn native_selection_from_registry(
 /// Serialize this read-only snapshot with existing DB-use / registry locks.
 /// Never initializes or rewrites an existing user profile.
 pub(crate) fn read_native_scan_selection(app: &AppHandle) -> AppResult<Option<NativeScanSelection>> {
+    with_native_scan_selection(app, Ok)
+}
+
+pub(crate) fn with_native_scan_selection<T>(
+    app: &AppHandle,
+    use_selection: impl FnOnce(Option<NativeScanSelection>) -> AppResult<T>,
+) -> AppResult<T> {
     let _permit = database_use::acquire_use()?;
     let _registry = database_use::lock_registry()?;
-    let path = get_registry_path(app)?;
-    if !path.is_file() {
-        return Ok(None);
-    }
-    let registry = read_existing_registry(&path)?;
+    let Some(registry) = scanner_registry(app)? else {
+        return use_selection(None);
+    };
     let selection = native_selection_from_registry(&registry)?;
     if let Some(value) = &selection {
         database_deletion::require_unblocked(&value.folder)?;
     }
-    Ok(selection)
+    use_selection(selection)
+}
+
+fn scanner_registry(app: &AppHandle) -> AppResult<Option<DatabaseRegistryFile>> {
+    #[cfg(all(windows, feature = "wp02-acceptance"))]
+    if let Some(registry) = app.try_state::<wp02_acceptance::AcceptanceRegistry>() {
+        return registry.snapshot().map(Some);
+    }
+    let path = get_registry_path(app)?;
+    if !path.is_file() {
+        return Ok(None);
+    }
+    read_existing_registry(&path).map(Some)
+}
+
+pub(crate) fn require_native_history_wal_family(
+    app: &AppHandle,
+    selection: &NativeScanSelection,
+) -> AppResult<()> {
+    let _registry = database_use::lock_registry()?;
+    let registry = scanner_registry(app)?.ok_or("NUMERIC_HISTORY_DATABASE_CHANGED")?;
+    if native_selection_from_registry(&registry)?.as_ref() != Some(selection) {
+        return Err("NUMERIC_HISTORY_DATABASE_CHANGED".into());
+    }
+    require_registry_wal_family(&registry, selection)
+}
+
+fn require_registry_wal_family(
+    registry: &DatabaseRegistryFile,
+    selection: &NativeScanSelection,
+) -> AppResult<()> {
+    let physical =
+        fs::canonicalize(&selection.sqlite_filename).map_err(|error| error.to_string())?;
+    for entry in &registry.recent {
+        let (_, file) = load_database_file_info(Path::new(&entry.path))?;
+        if database_use::CanonicalAccess::has_file_reparse_point(&file)? {
+            match fs::canonicalize(&file) {
+                Ok(alias) if alias == physical => {
+                    return Err(
+                        "Canonical history requires review of a registered SQLite WAL alias."
+                            .into(),
+                    )
+                }
+                Ok(_) => {}
+                Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+                Err(error) => return Err(error.to_string()),
+            }
+        }
+    }
+    Ok(())
 }
 
 impl ActiveDatabaseConnectionState {
@@ -160,8 +231,36 @@ pub async fn get_db_stats(app: AppHandle) -> AppResult<Option<DbStats>> {
 
 pub(crate) fn ensure_registry_initialized(app: &AppHandle) -> AppResult<()> {
     let _permit = database_use::acquire_use()?;
+    let (folder, revision) = {
+        let _registry = database_use::lock_registry()?;
+        let registry = read_registry(app)?;
+        (
+            resolve_active_folder_locked(app, &registry)?,
+            registry.active_selection_revision,
+        )
+    };
+    let Some(folder) = folder else {
+        return Ok(());
+    };
+    let connection = match prepare_database_at(&folder, false, None) {
+        Ok(connection) => connection,
+        Err(error) => {
+            log_runtime_event(
+                app,
+                "WARN",
+                "saved-database-preparation-deferred",
+                Some(&error),
+            );
+            return Ok(());
+        }
+    };
     let _registry = database_use::lock_registry()?;
-    let _ = read_registry(app)?;
+    let current = read_registry(app)?;
+    if current.active_selection_revision == revision
+        && resolve_active_folder_locked(app, &current)?.as_deref() == Some(folder.as_path())
+    {
+        cache_prepared_connection(app, &folder, connection)?;
+    }
     Ok(())
 }
 
@@ -179,8 +278,7 @@ pub async fn create_database_interactive(
     let snapshot = tauri::async_runtime::spawn_blocking(move || {
         if let Some(folder_path) = selected_path {
             let _permit = database_use::acquire_use()?;
-            let _registry = database_use::lock_registry()?;
-            create_database_at_internal(&app_for_task, folder_path, requested_mode, _registry)
+            create_database_at_internal(&app_for_task, folder_path, requested_mode)
         } else {
             get_app_snapshot_internal(
                 &app_for_task,
@@ -216,8 +314,7 @@ pub async fn open_database_interactive(app: AppHandle) -> AppResult<AppSnapshot>
     let snapshot = tauri::async_runtime::spawn_blocking(move || {
         if let Some(folder_path) = selected_path {
             let _permit = database_use::acquire_use()?;
-            let _registry = database_use::lock_registry()?;
-            open_database_at_internal(&app_for_task, folder_path, _registry)
+            open_database_at_internal(&app_for_task, folder_path)
         } else {
             get_app_snapshot_internal(
                 &app_for_task,
@@ -248,8 +345,7 @@ pub async fn activate_database_path(app: AppHandle, input: PathInput) -> AppResu
     let app_for_task = app.clone();
     let snapshot = tauri::async_runtime::spawn_blocking(move || {
         let _permit = database_use::acquire_use()?;
-        let _registry = database_use::lock_registry()?;
-        open_database_at_internal(&app_for_task, PathBuf::from(input.file_path), _registry)
+        open_database_at_internal(&app_for_task, PathBuf::from(input.file_path))
     })
     .await
     .map_err(|error| error.to_string())??;
@@ -605,66 +701,70 @@ fn create_database_at_internal(
     app: &AppHandle,
     folder_path: PathBuf,
     requested_mode: Option<PriceStorageMode>,
-    registry_guard: fs::File,
 ) -> AppResult<AppSnapshot> {
     let normalized_path = normalize_database_folder_path(folder_path)?;
     database_deletion::require_unblocked(&normalized_path)?;
     if is_database_folder(&normalized_path)? {
-        return open_database_at_internal(app, normalized_path, registry_guard);
+        return open_database_at_internal(app, normalized_path);
     }
 
+    let revision = registry_revision(app)?;
     prepare_database_folder(&normalized_path)?;
-    let manifest = ensure_database_manifest(&normalized_path)?;
-    with_connection_for_folder(app, &normalized_path, true, |connection| {
-        if let Some(mode) = requested_mode {
-            if mode == PriceStorageMode::Binary {
-                set_price_storage_mode(connection, mode)?;
-            }
-        }
-        Ok(())
-    })?;
-    touch_registry(app, &normalized_path, &manifest.name)?;
-    snapshot_locked(
-        app,
-        Some(&SnapshotOptions {
-            include_stats: Some(false),
-            include_watchlists: Some(false),
-        }),
-        registry_guard,
-    )
+    let connection = prepare_database_at(&normalized_path, true, requested_mode)?;
+    let manifest = read_database_manifest(&normalized_path)?
+        .ok_or("Prepared database is missing its manifest.")?;
+    publish_prepared_database(app, &normalized_path, &manifest.name, revision, connection)
 }
 
-fn open_database_at_internal(app: &AppHandle, folder_path: PathBuf, registry_guard: fs::File) -> AppResult<AppSnapshot> {
+fn open_database_at_internal(app: &AppHandle, folder_path: PathBuf) -> AppResult<AppSnapshot> {
     let normalized_path = normalize_database_folder_path(folder_path)?;
     database_deletion::require_unblocked(&normalized_path)?;
-    if !normalized_path.exists() || !normalized_path.is_dir() {
+    if !normalized_path.is_dir() {
         return Err(format!(
             "Database folder does not exist: {}",
             path_to_string(&normalized_path)
         ));
     }
 
-    let manifest = read_database_manifest(&normalized_path)?.unwrap_or_else(|| DatabaseManifest {
-        format: "eod-chart-db".to_string(),
-        version: 1,
-        name: normalized_path
-            .file_name()
-            .and_then(|value| value.to_str())
-            .unwrap_or("Database")
-            .to_string(),
-        db_file: DATABASE_FILE_NAME.to_string(),
-        created_at: now_iso(),
-    });
-    let database_file_path = resolve_database_file_path(&normalized_path, Some(&manifest));
-    if !database_file_path.exists() {
+    let (label, database_file_path) = load_database_file_info(&normalized_path)?;
+    if !database_file_path.is_file() {
         return Err(format!(
             "Selected folder is not an EOD Chart database: {}",
             path_to_string(&normalized_path)
         ));
     }
+    let label = label.unwrap_or_else(|| {
+        normalized_path
+            .file_name()
+            .and_then(|value| value.to_str())
+            .unwrap_or("Database")
+            .to_string()
+    });
+    let revision = registry_revision(app)?;
+    let connection = prepare_database_at(&normalized_path, false, None)?;
+    publish_prepared_database(app, &normalized_path, &label, revision, connection)
+}
 
-    with_connection_for_folder(app, &normalized_path, false, |_| Ok(()))?;
-    touch_registry(app, &normalized_path, &manifest.name)?;
+fn registry_revision(app: &AppHandle) -> AppResult<u64> {
+    let _registry = database_use::lock_registry()?;
+    Ok(read_registry(app)?.active_selection_revision)
+}
+
+fn publish_prepared_database(
+    app: &AppHandle,
+    folder_path: &Path,
+    label: &str,
+    revision: u64,
+    connection: Connection,
+) -> AppResult<AppSnapshot> {
+    let registry_guard = database_use::lock_registry()?;
+    if read_registry(app)?.active_selection_revision != revision {
+        return Err(
+            "Database selection changed during preparation. Open the database again.".into(),
+        );
+    }
+    touch_registry(app, folder_path, label)?;
+    cache_prepared_connection(app, folder_path, connection)?;
     snapshot_locked(
         app,
         Some(&SnapshotOptions {
@@ -1001,37 +1101,111 @@ pub(crate) fn open_connection_for_folder(
     folder_path: &Path,
     create_if_missing: bool,
 ) -> AppResult<Connection> {
-    let manifest = if create_if_missing {
+    if create_if_missing {
+        let (_, path) = load_database_file_info(folder_path)?;
+        if !path.try_exists().map_err(|error| error.to_string())? {
+            return prepare_database_at(folder_path, true, None);
+        }
+    }
+    let connection = open_database_file(folder_path, false)?;
+    configure_database_connection(&connection)?;
+    Ok(connection)
+}
+
+fn prepare_database_at(
+    folder_path: &Path,
+    allow_create: bool,
+    requested_mode: Option<PriceStorageMode>,
+) -> AppResult<Connection> {
+    database_use::CanonicalAccess::for_database(folder_path)?.run_schema_preparation(
+        || {
+            let (_, database_file) = load_database_file_info(folder_path)?;
+            let creating = allow_create
+                && !database_file
+                    .try_exists()
+                    .map_err(|error| error.to_string())?;
+            Ok((open_database_file(folder_path, creating)?, creating))
+        },
+        |(connection, creating)| {
+            prepare_database_connection(&connection)?;
+            if creating && requested_mode == Some(PriceStorageMode::Binary) {
+                set_price_storage_mode(&connection, PriceStorageMode::Binary)?;
+            }
+            Ok(connection)
+        },
+    )
+}
+
+fn open_database_file(folder_path: &Path, allow_create: bool) -> AppResult<Connection> {
+    let manifest = if allow_create {
         Some(ensure_database_manifest(folder_path)?)
     } else {
         read_database_manifest(folder_path)?
     };
-    let database_file_path = resolve_database_file_path(folder_path, manifest.as_ref());
-    if !create_if_missing && !database_file_path.exists() {
+    let path = resolve_database_file_path(folder_path, manifest.as_ref());
+    if !allow_create && !path.exists() {
         return Err(format!(
             "Database file does not exist: {}",
-            path_to_string(&database_file_path)
+            path_to_string(&path)
         ));
     }
-
-    let connection = Connection::open(database_file_path).map_err(|error| error.to_string())?;
-    prepare_database_connection(&connection)?;
-    Ok(connection)
+    let mut flags = OpenFlags::SQLITE_OPEN_READ_WRITE | OpenFlags::SQLITE_OPEN_NO_MUTEX;
+    if allow_create {
+        flags |= OpenFlags::SQLITE_OPEN_CREATE;
+    }
+    Connection::open_with_flags(path, flags).map_err(|error| error.to_string())
 }
 
 pub(crate) fn open_read_only_connection_for_folder(folder_path: &Path) -> AppResult<Connection> {
-    let manifest = read_database_manifest(folder_path)?;
-    let database_file_path = resolve_database_file_path(folder_path, manifest.as_ref());
-    if !database_file_path.exists() {
+    let (_, file) = load_database_file_info(folder_path)?;
+    if !file.exists() {
         return Err(format!(
             "Database file does not exist: {}",
-            path_to_string(&database_file_path)
+            path_to_string(&file)
         ));
     }
+    open_read_only_sqlite(&file, "")
+}
 
-    let uri_path = encode_sqlite_uri_path(&database_file_path);
+#[cfg(all(windows, feature = "wp02-acceptance"))]
+pub(super) fn open_wp02_acceptance_connection(
+    folder_path: &Path,
+) -> AppResult<(fs::File, Connection)> {
+    use std::os::windows::fs::OpenOptionsExt;
+    use windows::Win32::Storage::FileSystem::FILE_SHARE_READ;
+
+    let (_, file) = load_database_file_info(folder_path)?;
+    // Holding this handle prevents SQLite writers and file replacement until the
+    // immutable reader is closed. A canonical read lease must already be held.
+    let guard = fs::OpenOptions::new()
+        .read(true)
+        .share_mode(FILE_SHARE_READ.0)
+        .open(&file)
+        .map_err(|error| format!("WP-02 needs a quiescent database: {error}"))?;
+    if database_use::CanonicalAccess::has_file_reparse_point(&file)? {
+        return Err("WP-02 requires the canonical SQLite filename.".into());
+    }
+    for suffix in ["-wal", "-shm", "-journal"] {
+        let mut sidecar = file.as_os_str().to_owned();
+        sidecar.push(suffix);
+        match fs::symlink_metadata(PathBuf::from(sidecar)) {
+            Ok(_) => {
+                return Err(format!(
+                    "WP-02 needs a clean database with no {suffix} sidecar."
+                ));
+            }
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+            Err(error) => return Err(format!("WP-02 could not inspect {suffix}: {error}")),
+        }
+    }
+    let connection = open_read_only_sqlite(&file, "&immutable=1")?;
+    Ok((guard, connection))
+}
+
+fn open_read_only_sqlite(database_file_path: &Path, uri_options: &str) -> AppResult<Connection> {
+    let uri_path = encode_sqlite_uri_path(database_file_path);
     let connection = Connection::open_with_flags(
-        format!("file:{uri_path}?mode=ro"),
+        format!("file:{uri_path}?mode=ro{uri_options}"),
         OpenFlags::SQLITE_OPEN_READ_ONLY
             | OpenFlags::SQLITE_OPEN_URI
             | OpenFlags::SQLITE_OPEN_NO_MUTEX,
@@ -1083,6 +1257,24 @@ where
         .ok_or_else(|| "Unable to access the active database connection.".to_string())?;
 
     callback(&entry.connection)
+}
+
+fn cache_prepared_connection(
+    app: &AppHandle,
+    folder_path: &Path,
+    connection: Connection,
+) -> AppResult<()> {
+    let state = app.state::<ActiveDatabaseConnectionState>();
+    let mut cached = state
+        .cached
+        .lock()
+        .map_err(|_| "Unable to lock the active database connection.".to_string())?;
+    *cached = Some(CachedDatabaseConnection {
+        folder_path: folder_path.to_path_buf(),
+        connection,
+        db_stats_cache: None,
+    });
+    Ok(())
 }
 
 fn clear_cached_connection(app: &AppHandle) -> AppResult<()> {
@@ -1175,7 +1367,7 @@ fn get_or_load_cached_db_stats(app: &AppHandle, folder_path: &Path) -> AppResult
 
     // 2. Cache miss or invalid - expensive calculation outside the lock.
     // We open a temporary connection to avoid holding the global connection lock.
-    let temp_connection = open_connection_for_folder(folder_path, false)?;
+    let temp_connection = open_read_only_connection_for_folder(folder_path)?;
     let stats = load_db_stats(folder_path, &temp_connection)?;
 
     // 3. Update cache with minimal lock
@@ -1195,15 +1387,6 @@ fn get_or_load_cached_db_stats(app: &AppHandle, folder_path: &Path) -> AppResult
             Some(entry) if entry.folder_path == folder_path => {
                 // Update existing entry
                 entry.db_stats_cache = stats_cache;
-            }
-            None => {
-                // Cache was empty, populate it now with our temp connection
-                *cached = Some(CachedDatabaseConnection {
-                    folder_path: folder_path.to_path_buf(),
-                    connection: temp_connection,
-                    db_stats_cache: stats_cache,
-                });
-                return Ok(Some(stats));
             }
             _ => {
                 // Cache now points elsewhere, just drop our results and temp_connection
@@ -1304,6 +1487,77 @@ mod native_selection_revision_tests {
         registry.last_active_path = Some(path_a);
         registry.recent.clear();
         assert!(native_selection_from_registry(&registry).is_err());
+    }
+
+    #[test]
+    fn nsr7_shared_sqlite_manifests_contend_and_share_interruption_admission() {
+        let fixture = tempfile::tempdir().unwrap();
+        let a = fixture.path().join("a");
+        let b = fixture.path().join("b");
+        fs::create_dir(&a).unwrap();
+        fs::create_dir(&b).unwrap();
+        let sqlite = a.join(DATABASE_FILE_NAME);
+        let connection = Connection::open(&sqlite).unwrap();
+        connection.execute_batch("CREATE TABLE witness(value INTEGER);
+                                  INSERT INTO witness VALUES(0);").unwrap();
+        let manifest = DatabaseManifest {
+            format: "eod-chart-db".into(),
+            version: 1,
+            name: "b".into(),
+            db_file: sqlite.to_string_lossy().into_owned(),
+            created_at: String::new(),
+        };
+        fs::write(b.join(DATABASE_MANIFEST_FILE), serde_json::to_vec(&manifest).unwrap()).unwrap();
+        assert_eq!(load_database_file_info(&b).unwrap().1, sqlite);
+
+        let first = database_use::CanonicalAccess::in_namespace(&a, fixture.path()).unwrap();
+        let second = database_use::CanonicalAccess::in_namespace(&b, fixture.path()).unwrap();
+        let independent = fixture.path().join("independent");
+        fs::create_dir(&independent).unwrap();
+        drop(Connection::open(independent.join(DATABASE_FILE_NAME)).unwrap());
+        let third = database_use::CanonicalAccess::in_namespace(&independent, fixture.path()).unwrap();
+        let read = first.begin_read().unwrap();
+        assert_eq!(
+            first.run_schema_preparation(|| Ok(()), Ok).unwrap_err(),
+            "CANONICAL_PRICE_STORE_BUSY"
+        );
+        let update = |alias: Connection| {
+            alias
+                .execute("UPDATE witness SET value=1", [])
+                .map_err(|error| error.to_string())?;
+            Ok(())
+        };
+        let open = || open_connection_for_folder(&b, false);
+        assert_eq!(
+            second.run_schema_preparation(open, update).unwrap_err(),
+            "CANONICAL_PRICE_STORE_BUSY"
+        );
+        let value = || connection.query_row("SELECT value FROM witness", [], |row| row.get::<_, i64>(0)).unwrap();
+        assert_eq!(value(), 0);
+        third.run_schema_preparation(|| Ok(()), Ok).unwrap();
+        drop(read);
+        assert_eq!(second.run_schema_preparation(open, |alias| {
+            update(alias)?;
+            Err::<(), _>("simulated failure after SQLite changed".into())
+        }).unwrap_err(), "simulated failure after SQLite changed");
+        assert_eq!(value(), 1);
+        assert_eq!(first.begin_read().unwrap_err(), "CANONICAL_PRICE_STORE_INTERRUPTED");
+        assert!(third.begin_read().is_ok());
+        second.run_schema_preparation(open, update).unwrap();
+        first.begin_read().unwrap();
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn nsr7_canonical_read_refuses_multiple_sqlite_hardlink_names() {
+        let fixture = tempfile::tempdir().unwrap();
+        let folder = fixture.path();
+        let original = folder.join(DATABASE_FILE_NAME);
+        drop(Connection::open(&original).unwrap());
+        fs::hard_link(&original, folder.join("hardlink.sqlite3")).unwrap();
+        let access = database_use::CanonicalAccess::in_namespace(folder, folder).unwrap();
+        assert!(access.begin_read().unwrap_err().contains("WAL family"));
+        assert!(database_use::CanonicalAccess::lock_writer_for_database(folder).is_ok());
     }
 }
 
@@ -1468,6 +1722,61 @@ mod r1a_context_tests {
         assert!(peek_cached_folder_only(&state).unwrap().is_none());
         assert!(state.cached.lock().unwrap().is_none());
     }
+    #[test]
+    fn nsr7_schema_preparation_is_explicit_and_recoverable() {
+        let dir = tempfile::tempdir().unwrap();
+        let folder = dir.path();
+        drop(open_database_file(folder, true).unwrap());
+        let has_price_schema = |connection: &Connection| {
+            connection.query_row(
+                "SELECT EXISTS(SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'eod_prices')",
+                [],
+                |row| row.get::<_, bool>(0),
+            ).unwrap()
+        };
+        let configured = open_connection_for_folder(folder, false).unwrap();
+        assert!(!has_price_schema(&configured));
+        drop(configured);
+        let read_only = open_read_only_connection_for_folder(folder).unwrap();
+        assert!(!has_price_schema(&read_only));
+        assert!(load_db_stats(folder, &read_only).is_err());
+        drop(read_only);
+
+        let access = database_use::CanonicalAccess::in_namespace(folder, folder).unwrap();
+        let reader = access.begin_read().unwrap();
+        let busy = access.run_schema_preparation::<(), ()>(
+            || panic!("a busy schema preparation must not open SQLite"),
+            Ok,
+        );
+        assert_eq!(busy.unwrap_err(), "CANONICAL_PRICE_STORE_BUSY");
+        drop(reader);
+        assert!(access
+            .run_schema_preparation(|| Ok(()), |_| Err::<(), _>("interrupted preparation".into()))
+            .is_err());
+        assert_eq!(
+            access.begin_read().unwrap_err(),
+            "CANONICAL_PRICE_STORE_INTERRUPTED"
+        );
+
+        access
+            .run_schema_preparation(
+                || open_database_file(folder, false),
+                |connection| prepare_database_connection(&connection),
+            )
+            .unwrap();
+        assert!(access.begin_read().is_ok());
+        let read_only = open_read_only_connection_for_folder(folder).unwrap();
+        assert!(has_price_schema(&read_only));
+        assert!(load_db_stats(folder, &read_only).is_ok());
+        assert!(read_only
+            .execute("CREATE TABLE read_only_probe (id INT)", [])
+            .is_err());
+        let configured = open_connection_for_folder(folder, false).unwrap();
+        configured
+            .execute("CREATE TEMP TABLE writable_probe (id INT)", [])
+            .unwrap();
+    }
+
     #[test]
     fn r1a_context_peek_preserves_cached_connection_and_folder() {
         let connection = Connection::open_in_memory().unwrap();

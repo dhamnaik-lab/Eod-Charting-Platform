@@ -217,7 +217,10 @@ pub async fn apply_nse_historical_identity_archive(
         let report = |progress: apply_reporting::IdentityApplyProgress| {
             if let Some(id) = &operation_id { let _ = app_handle.emit("identity:historical-progress", serde_json::json!({"operationId":id,"databasePath":folder_path,"progress":progress})); }
         };
-        let mut result = apply_nse_historical_identity_archive_with_progress(&connection, &resolved_input, &report)?;
+        let mut result = {
+            let _canonical = super::database_use::CanonicalAccess::lock_writer_for_database(&folder_path)?;
+            apply_nse_historical_identity_archive_with_progress(&connection, &resolved_input, &report)?
+        };
         report(historical_reporting::progress("refreshing",0,0));
         let refresh = (|| -> AppResult<()> {
         invalidate_cached_db_stats(&app_handle, &folder_path)?;
@@ -279,7 +282,10 @@ pub async fn apply_nse_current_universe_sync(
                 }));
             }
         };
-        let mut result = apply_reporting::apply_reviewed(&connection, &input, Some(&managed_root), &report)?;
+        let mut result = {
+            let _canonical = super::database_use::CanonicalAccess::lock_writer_for_database(&folder_path)?;
+            apply_reporting::apply_reviewed(&connection, &input, Some(&managed_root), &report)?
+        };
         report(apply_reporting::IdentityApplyProgress { stage: "refreshing", processed: 0, total: 0, percent: Some(100) });
         // A refresh error after commit must not be reported as a failed apply.
         let refresh = (|| -> AppResult<()> {

@@ -411,6 +411,7 @@ mod tests {
             let result = (|| -> AppResult<serde_json::Value> {
                 let connection =
                     rusqlite::Connection::open_in_memory().map_err(|e| e.to_string())?;
+                let database_folder = tempfile::tempdir().map_err(|e| e.to_string())?;
                 crate::database::prepare_database_connection(&connection)?;
                 // Match the normal user workflow: missing instrument codes are
                 // collected by Fetch itself, before its CA date windows.
@@ -421,6 +422,7 @@ mod tests {
                     let mut session = BseSession::new(guard.0.clone())?;
                     session.directories = Some((profile_path.clone(), captures.clone()));
                     super::super::fetch_official_corporate_actions_with_session(&handle, &connection,
+                        database_folder.path(),
                         &super::super::CorporateActionOfficialFetchInput { exchange: "BSE".into(), from_date: from.into(), to_date: to.into(), force_refresh: Some(false) },
                         guard.0.clone(), Some(session))
                 };
@@ -459,6 +461,7 @@ mod tests {
                 let interrupted = super::super::fetch_official_corporate_actions_with_session(
                     &handle,
                     &connection,
+                    database_folder.path(),
                     &super::super::CorporateActionOfficialFetchInput {
                         exchange: "BSE".into(),
                         from_date: "2026-10-08".into(),

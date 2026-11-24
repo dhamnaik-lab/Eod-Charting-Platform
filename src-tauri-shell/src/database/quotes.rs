@@ -1,17 +1,26 @@
 use super::storage_paths::{check_sibling, eod_directory, eod_file, eod_path, eod_write_path};
-use rusqlite::{params, params_from_iter, types::Value, Connection};
+use rusqlite::{params, params_from_iter, types::Value, Connection, OptionalExtension};
 use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicUsize, Ordering};
 
 use super::binary_eod::{date_to_u32, u32_to_date, BinaryEodFile, EodRecord, DEFAULT_SCALE};
+use super::database_use::{
+    BinaryAfterDelete, CanonicalAccess, QuoteContext, QuoteDeletion, QuoteDeletionContext,
+    QuoteIntent,
+};
 use super::eod_binary_state::{BinaryStateIndex, BinaryStateKey};
 use super::{
     get_price_storage_mode, normalize_exchange, normalize_symbol, normalize_trade_date,
     run_connection_transaction, AppResult, DeleteQuoteDateInput, DeleteQuoteInput,
     DeleteQuoteRangeInput, DeleteQuoteResult, PriceStorageMode, QuoteDateListInput,
     QuoteInputPayload, QuoteListInput, QuoteRow,
+};
+
+mod bulk_recovery;
+pub(super) use bulk_recovery::{
+    delete_quote_date_scope_coordinated, delete_quote_range_coordinated,
 };
 
 #[derive(Clone, Debug)]
@@ -476,16 +485,173 @@ pub(super) fn list_quotes_by_date_internal(
     Ok(final_rows)
 }
 
-pub(super) fn upsert_quote_internal(
+fn quote_intent(quote: &NormalizedQuoteInput) -> QuoteIntent {
+    QuoteIntent {
+        exchange: quote.exchange.clone(),
+        symbol: quote.symbol.clone(),
+        date: quote.date.clone(),
+        price_bits: [quote.open, quote.high, quote.low, quote.close].map(f64::to_bits),
+        volume: quote.volume,
+        open_interest: quote.open_interest,
+        context: None,
+    }
+}
+
+fn quote_predecessor(
     connection: &Connection,
+    symbol: &str,
+    exchange: &str,
+    date: &str,
+) -> AppResult<Option<(String, u64)>> {
+    connection
+        .query_row(
+            "SELECT date, close FROM eod_prices WHERE symbol = ?1 AND exchange = ?2
+         AND date < ?3 ORDER BY date DESC LIMIT 1",
+            params![symbol, exchange, date],
+            |row| Ok((row.get(0)?, row.get::<_, f64>(1)?.to_bits())),
+        )
+        .optional()
+        .map_err(|error| error.to_string())
+}
+
+fn open_quote_binary(path: &Path, intent: &QuoteIntent) -> AppResult<BinaryEodFile> {
+    use crate::native_scanner::reader::{open_validated, validate_identity};
+
+    let file = open_validated(path)?;
+    validate_identity(&file, &intent.symbol, &intent.exchange)?;
+    if file.header.price_scale != DEFAULT_SCALE {
+        return Err("Unexpected binary quote price scale.".into());
+    }
+    Ok(BinaryEodFile {
+        path: path.to_path_buf(),
+        header: file.header,
+    })
+}
+
+fn quote_binary_record(row: &QuoteRow) -> EodRecord {
+    EodRecord {
+        date: date_to_u32(&row.date),
+        flags: 0,
+        open: (row.open * DEFAULT_SCALE as f64).round() as i64,
+        high: (row.high * DEFAULT_SCALE as f64).round() as i64,
+        low: (row.low * DEFAULT_SCALE as f64).round() as i64,
+        close: (row.close * DEFAULT_SCALE as f64).round() as i64,
+        prev_close: (row.prev_close.unwrap_or(0.0) * DEFAULT_SCALE as f64).round() as i64,
+        volume: row.volume as u64,
+        oi: row.open_interest as u64,
+    }
+}
+
+fn verify_quote_intent(
+    connection: &Connection,
+    folder: &Path,
+    intent: &QuoteIntent,
+) -> AppResult<bool> {
+    let Some(context) = &intent.context else {
+        return Ok(false);
+    };
+    let Some(row) = read_sqlite_quote(connection, &intent.symbol, &intent.exchange, &intent.date)?
+    else {
+        return Ok(false);
+    };
+    let price_bits = [row.open, row.high, row.low, row.close].map(f64::to_bits);
+    if price_bits != intent.price_bits
+        || row.volume != intent.volume
+        || row.open_interest != intent.open_interest
+        || row.prev_close.map(f64::to_bits) != context.previous.as_ref().map(|(_, close)| *close)
+        || quote_predecessor(connection, &intent.symbol, &intent.exchange, &intent.date)?
+            != context.previous
+    {
+        return Ok(false);
+    }
+    let successor_previous_close = connection
+        .query_row(
+            "SELECT prev_close FROM eod_prices WHERE symbol = ?1 AND exchange = ?2
+         AND date > ?3 ORDER BY date ASC LIMIT 1",
+            params![intent.symbol, intent.exchange, intent.date],
+            |row| row.get::<_, Option<f64>>(0),
+        )
+        .optional()
+        .map_err(|error| error.to_string())?;
+    if successor_previous_close
+        .is_some_and(|close| close.map(f64::to_bits) != Some(row.close.to_bits()))
+    {
+        return Ok(false);
+    }
+
+    let path = eod_path(folder, &intent.exchange, &intent.symbol)?;
+    if !path.try_exists().map_err(|error| error.to_string())? {
+        return Ok(false);
+    }
+    let binary = open_quote_binary(&path, intent)?;
+    let expected = quote_binary_record(&row);
+    let observed = binary.read_range_bounded(expected.date, expected.date, 2)?;
+    Ok(observed.as_slice() == [expected])
+}
+
+pub(super) fn upsert_quote_internal(
+    folder: &Path,
     input: &QuoteInputPayload,
-    base_path: Option<&Path>,
+    access: &CanonicalAccess,
+    connect: impl FnOnce() -> AppResult<Connection>,
 ) -> AppResult<QuoteRow> {
     let quote = normalize_quote_input(input)?;
-    let bin_path = base_path
-        .map(|folder| eod_write_path(folder, &quote.exchange, &quote.symbol))
-        .transpose()?;
+    let bin_path = eod_write_path(folder, &quote.exchange, &quote.symbol)?;
+    let intent = quote_intent(&quote);
+    let mut lease = access.begin_quote_mutation(intent.clone())?;
+    let connection = connect()?;
+    // A changed scale can affect every older binary record. Leave these intents
+    // unprepared for reviewed recovery instead of certifying a single matching row.
+    let safe_binary_before = match fs::metadata(&bin_path) {
+        Ok(_) => open_quote_binary(&bin_path, &intent).is_ok(),
+        Err(error) => error.kind() == std::io::ErrorKind::NotFound,
+    };
+    if safe_binary_before {
+        let previous =
+            quote_predecessor(&connection, &intent.symbol, &intent.exchange, &intent.date)?;
+        lease.prepare_quote(QuoteContext { previous })?;
+    }
+    let final_row = upsert_sqlite_quote(&connection, &quote)?;
+    let record = quote_binary_record(&final_row);
 
+    match BinaryEodFile::append_or_merge_records(
+        &bin_path,
+        &final_row.symbol,
+        &final_row.exchange,
+        DEFAULT_SCALE,
+        vec![record],
+    ) {
+        Ok(_) => {
+            invalidate_binary_state_rows_after_mutation(
+                folder,
+                &final_row.exchange,
+                std::slice::from_ref(&final_row.symbol),
+            );
+            match lease.verify_quote(|intent| verify_quote_intent(&connection, folder, intent)) {
+                Ok(true) => {}
+                Ok(false) => {
+                    eprintln!("Quote upsert awaits exact canonical recovery verification.")
+                }
+                Err(error) => {
+                    eprintln!("Canonical price store remains blocked after quote upsert: {error}");
+                }
+            }
+        }
+        Err(error) => {
+            // Keep the legacy SQL result. The unresolved intent denies canonical reads.
+            eprintln!(
+                "Binary EOD manual upsert failure for {}:{}: {}",
+                final_row.exchange, final_row.symbol, error
+            );
+        }
+    }
+    Ok(final_row)
+}
+
+fn upsert_sqlite_quote(
+    connection: &Connection,
+    quote: &NormalizedQuoteInput,
+) -> AppResult<QuoteRow> {
     run_connection_transaction(connection, |connection| {
         connection
             .execute(
@@ -540,7 +706,17 @@ pub(super) fn upsert_quote_internal(
         Ok(())
     })?;
 
-    let final_row = connection
+    read_sqlite_quote(connection, &quote.symbol, &quote.exchange, &quote.date)?
+        .ok_or_else(|| rusqlite::Error::QueryReturnedNoRows.to_string())
+}
+
+fn read_sqlite_quote(
+    connection: &Connection,
+    symbol: &str,
+    exchange: &str,
+    date: &str,
+) -> AppResult<Option<QuoteRow>> {
+    connection
         .query_row(
             "
               SELECT
@@ -559,7 +735,7 @@ pub(super) fn upsert_quote_internal(
                 AND exchange = ?
                 AND date = ?
             ",
-            params![quote.symbol, quote.exchange, quote.date],
+            params![symbol, exchange, date],
             |row| {
                 Ok(QuoteRow {
                     symbol: row.get(0)?,
@@ -571,48 +747,12 @@ pub(super) fn upsert_quote_internal(
                     close: row.get(6)?,
                     prev_close: row.get(7)?,
                     volume: row.get(8)?,
-                    open_interest: row.get(9).unwrap_or(0),
+                    open_interest: row.get(9)?,
                 })
             },
         )
-        .map_err(|error| error.to_string())?;
-
-    // Dual-write to Binary EOD
-    if let (Some(folder_path), Some(bin_path)) = (base_path, bin_path) {
-        let record = EodRecord {
-            date: date_to_u32(&final_row.date),
-            flags: 0,
-            open: (final_row.open * DEFAULT_SCALE as f64).round() as i64,
-            high: (final_row.high * DEFAULT_SCALE as f64).round() as i64,
-            low: (final_row.low * DEFAULT_SCALE as f64).round() as i64,
-            close: (final_row.close * DEFAULT_SCALE as f64).round() as i64,
-            prev_close: (final_row.prev_close.unwrap_or(0.0) * DEFAULT_SCALE as f64).round() as i64,
-            volume: final_row.volume as u64,
-            oi: final_row.open_interest as u64,
-        };
-
-        match BinaryEodFile::append_or_merge_records(
-            &bin_path,
-            &final_row.symbol,
-            &final_row.exchange,
-            DEFAULT_SCALE,
-            vec![record],
-        ) {
-            Ok(_) => invalidate_binary_state_rows_after_mutation(
-                folder_path,
-                &final_row.exchange,
-                std::slice::from_ref(&final_row.symbol),
-            ),
-            Err(e) => {
-                eprintln!(
-                    "Binary EOD manual upsert failure for {}:{}: {}",
-                    final_row.exchange, final_row.symbol, e
-                );
-            }
-        }
-    }
-
-    Ok(final_row)
+        .optional()
+        .map_err(|error| error.to_string())
 }
 
 
@@ -667,62 +807,238 @@ fn invalidate_download_log_for_deleted_quote_range(
         .map_err(|error| error.to_string())
 }
 
-pub(super) fn delete_quote_internal(
+fn quote_deletion(input: &DeleteQuoteInput) -> AppResult<QuoteDeletion> {
+    Ok(QuoteDeletion {
+        symbol: normalize_symbol(&input.symbol)?,
+        exchange: normalize_exchange(&input.exchange)?,
+        date: normalize_trade_date(&input.date)?,
+        context: None,
+    })
+}
+
+/// Scan dates in order and hash the untouched records without retaining the file in memory.
+fn binary_deletion_state(
+    path: &Path,
+    deletion: &QuoteDeletion,
+) -> AppResult<(BinaryAfterDelete, bool)> {
+    let date = date_to_u32(&deletion.date);
+    binary_range_deletion_state(path, &deletion.exchange, &deletion.symbol, date, date)
+}
+
+fn binary_range_deletion_state(
+    path: &Path,
+    exchange: &str,
+    symbol: &str,
+    start: u32,
+    end: u32,
+) -> AppResult<(BinaryAfterDelete, bool)> {
+    use std::io::{BufReader, Read, Seek, SeekFrom};
+
+    use sha2::{Digest, Sha256};
+
+    use super::binary_eod::{HEADER_SIZE, RECORD_SIZE};
+    use crate::native_scanner::reader::{open_validated, validate_identity};
+
+    if !path.try_exists().map_err(|error| error.to_string())? {
+        return Ok((BinaryAfterDelete::Absent, false));
+    }
+    let validated = open_validated(path)?;
+    validate_identity(&validated, symbol, exchange)?;
+    let mut file = BufReader::new(fs::File::open(path).map_err(|error| error.to_string())?);
+    file.seek(SeekFrom::Start(HEADER_SIZE as u64))
+        .map_err(|error| error.to_string())?;
+    let mut previous_date = 0;
+    let mut removed = 0;
+    let mut hash = Sha256::new();
+    let mut record = [0; RECORD_SIZE];
+
+    for _ in 0..validated.record_count {
+        file.read_exact(&mut record)
+            .map_err(|error| error.to_string())?;
+        let date = u32::from_le_bytes(record[..4].try_into().expect("binary quote date"));
+        if date <= previous_date {
+            return Err(
+                "Binary quote dates must be unique and ascending for deletion proof.".into(),
+            );
+        }
+        previous_date = date;
+        if (start..=end).contains(&date) {
+            removed += 1;
+        } else {
+            hash.update(record);
+        }
+    }
+    let remaining = validated.record_count - removed;
+    let after = if removed > 0 && remaining == 0 {
+        BinaryAfterDelete::Absent
+    } else {
+        BinaryAfterDelete::Present {
+            scale: validated.header.price_scale,
+            count: remaining,
+            digest: format!("{:x}", hash.finalize()),
+        }
+    };
+    Ok((after, removed > 0))
+}
+
+fn deletion_instrument_exists(
+    connection: &Connection,
+    deletion: &QuoteDeletion,
+) -> AppResult<bool> {
+    connection
+        .query_row(
+            "SELECT EXISTS(SELECT 1 FROM instruments WHERE symbol = ?1 AND exchange = ?2)",
+            params![deletion.symbol, deletion.exchange],
+            |row| row.get(0),
+        )
+        .map_err(|error| error.to_string())
+}
+
+fn deletion_context(
+    connection: &Connection,
+    bin_path: &Path,
+    deletion: &QuoteDeletion,
+) -> AppResult<QuoteDeletionContext> {
+    Ok(QuoteDeletionContext {
+        had_instrument: deletion_instrument_exists(connection, deletion)?,
+        previous: quote_predecessor(
+            connection,
+            &deletion.symbol,
+            &deletion.exchange,
+            &deletion.date,
+        )?,
+        binary: binary_deletion_state(bin_path, deletion)?.0,
+    })
+}
+
+fn verify_quote_deletion(
+    connection: &Connection,
+    bin_path: &Path,
+    deletion: &QuoteDeletion,
+) -> AppResult<bool> {
+    let Some(expected) = &deletion.context else {
+        return Ok(false);
+    };
+    let sqlite_contains_quote: bool = connection.query_row(
+        "SELECT EXISTS(SELECT 1 FROM eod_prices WHERE symbol = ?1 AND exchange = ?2 AND date = ?3)",
+        params![deletion.symbol, deletion.exchange, deletion.date],
+        |row| row.get(0),
+    ).map_err(|error| error.to_string())?;
+    if sqlite_contains_quote
+        || deletion_instrument_exists(connection, deletion)? != expected.had_instrument
+        || quote_predecessor(
+            connection,
+            &deletion.symbol,
+            &deletion.exchange,
+            &deletion.date,
+        )? != expected.previous
+    {
+        return Ok(false);
+    }
+    let successor_previous_close = connection
+        .query_row(
+            "SELECT prev_close FROM eod_prices WHERE symbol = ?1 AND exchange = ?2
+         AND date > ?3 ORDER BY date ASC LIMIT 1",
+            params![deletion.symbol, deletion.exchange, deletion.date],
+            |row| row.get::<_, Option<f64>>(0),
+        )
+        .optional()
+        .map_err(|error| error.to_string())?;
+    let expected_previous_close = expected.previous.as_ref().map(|(_, close)| *close);
+    if successor_previous_close
+        .is_some_and(|close| close.map(f64::to_bits) != expected_previous_close)
+    {
+        return Ok(false);
+    }
+
+    let (observed, binary_contains_quote) = binary_deletion_state(bin_path, deletion)?;
+    Ok(!binary_contains_quote && observed == expected.binary)
+}
+
+pub(super) fn delete_quote_coordinated(
+    folder: &Path,
+    input: &DeleteQuoteInput,
+    access: &CanonicalAccess,
+    connect: impl FnOnce() -> AppResult<Connection>,
+) -> AppResult<DeleteQuoteResult> {
+    let deletion = quote_deletion(input)?;
+    let bin_path = eod_write_path(folder, &deletion.exchange, &deletion.symbol)?;
+    let mut lease = access.begin_quote_deletion(deletion.clone())?;
+    let connection = connect()?;
+    match deletion_context(&connection, &bin_path, &deletion) {
+        Ok(context) => lease.prepare(context)?,
+        Err(error) => {
+            eprintln!("Quote deletion could not prepare canonical recovery proof: {error}")
+        }
+    }
+    let result = delete_quote_stores(&connection, &deletion, Some((folder, &bin_path)))?;
+    match lease.verify(|intent| verify_quote_deletion(&connection, &bin_path, intent)) {
+        Ok(true) => {}
+        Ok(false) => eprintln!("Quote deletion awaits exact canonical recovery verification."),
+        Err(error) => {
+            eprintln!("Canonical price store remains blocked after quote deletion: {error}")
+        }
+    }
+    Ok(result)
+}
+
+#[cfg(test)]
+fn delete_quote_internal(
     connection: &Connection,
     input: &DeleteQuoteInput,
     base_path: Option<&Path>,
 ) -> AppResult<DeleteQuoteResult> {
-    let symbol = normalize_symbol(&input.symbol)?;
-    let exchange = normalize_exchange(&input.exchange)?;
-    let date = normalize_trade_date(&input.date)?;
-    let bin_path = base_path
-        .map(|folder| eod_write_path(folder, &exchange, &symbol))
+    let deletion = quote_deletion(input)?;
+    let path = base_path
+        .map(|folder| eod_write_path(folder, &deletion.exchange, &deletion.symbol))
         .transpose()?;
-    let mut deleted_sqlite = 0_i64;
+    delete_quote_stores(connection, &deletion, base_path.zip(path.as_deref()))
+}
 
+fn delete_sqlite_quote(connection: &Connection, deletion: &QuoteDeletion) -> AppResult<i64> {
+    let mut deleted = 0;
     run_connection_transaction(connection, |connection| {
-        deleted_sqlite = connection
+        deleted = connection
             .execute(
-                "
-                  DELETE FROM eod_prices
-                  WHERE symbol = ?
-                    AND exchange = ?
-                    AND date = ?
-                ",
-                params![symbol, exchange, date],
+                "DELETE FROM eod_prices WHERE symbol = ?1 AND exchange = ?2 AND date = ?3",
+                params![deletion.symbol, deletion.exchange, deletion.date],
             )
             .map_err(|error| error.to_string())? as i64;
-        recompute_prev_close_for_symbol(connection, &symbol, &exchange)?;
+        recompute_prev_close_for_symbol(connection, &deletion.symbol, &deletion.exchange)?;
         Ok(())
     })?;
+    Ok(deleted)
+}
 
+fn delete_quote_stores(
+    connection: &Connection,
+    deletion: &QuoteDeletion,
+    binary: Option<(&Path, &Path)>,
+) -> AppResult<DeleteQuoteResult> {
+    let deleted_sqlite = delete_sqlite_quote(connection, deletion)?;
     let mut deleted_binary = false;
-    // Dual-delete from Binary EOD
-    if let (Some(folder_path), Some(bin_path)) = (base_path, bin_path) {
-        deleted_binary = BinaryEodFile::delete_record_by_date(&bin_path, date_to_u32(&date))?;
+    if let Some((folder, path)) = binary {
+        deleted_binary = BinaryEodFile::delete_record_by_date(path, date_to_u32(&deletion.date))?;
         if deleted_binary {
             invalidate_binary_state_rows_after_mutation(
-                folder_path,
-                &exchange,
-                std::slice::from_ref(&symbol),
+                folder,
+                &deletion.exchange,
+                std::slice::from_ref(&deletion.symbol),
             );
         }
     }
 
     let deleted = if deleted_sqlite > 0 {
         deleted_sqlite
-    } else if deleted_binary {
-        1
     } else {
-        0
+        deleted_binary as i64
     };
-
     if deleted > 0 {
         invalidate_download_log_for_deleted_quote_range(
             connection,
-            &exchange,
-            &date,
-            &date,
+            &deletion.exchange,
+            &deletion.date,
+            &deletion.date,
         )?;
     }
 
@@ -2524,7 +2840,10 @@ mod v16_localized_state_invalidation_tests {
     use tempfile::tempdir;
 
     fn setup_test_db() -> Connection {
-        let conn = Connection::open_in_memory().unwrap();
+        setup_test_db_on(Connection::open_in_memory().unwrap())
+    }
+
+    pub(super) fn setup_test_db_on(conn: Connection) -> Connection {
         conn.execute(
             "CREATE TABLE settings (key TEXT PRIMARY KEY, value TEXT NOT NULL, updated_at TEXT DEFAULT (datetime('now')))",
             [],
@@ -2700,24 +3019,432 @@ mod v16_localized_state_invalidation_tests {
         write_symbol(dir.path(), "TEST", &[20240515]);
         assert_eq!(rebuild_state(dir.path()), 1);
 
+        let access = CanonicalAccess::in_namespace(dir.path(), dir.path()).unwrap();
         let row = upsert_quote_internal(
-            &conn,
-            &QuoteInputPayload {
-                symbol: "TEST".to_string(),
-                exchange: "NSE".to_string(),
-                date: "2024-05-16".to_string(),
-                open: 101.0,
-                high: 105.0,
-                low: 99.0,
-                close: 103.0,
-                volume: 1000.0,
-                open_interest: Some(0.0),
-            },
-            Some(dir.path()),
+            dir.path(),
+            &coordinated_quote("2024-05-16"),
+            &access,
+            || Ok(conn),
         )
         .unwrap();
+        assert!(access.begin_read().is_ok());
         assert_eq!(row.symbol, "TEST");
         assert!(!verified_keys(dir.path()).contains(&BinaryStateKey::new("NSE", "TEST")));
+    }
+
+    pub(super) fn coordinated_quote(date: &str) -> QuoteInputPayload {
+        QuoteInputPayload {
+            symbol: "TEST".into(),
+            exchange: "NSE".into(),
+            date: date.into(),
+            open: 101.0,
+            high: 105.0,
+            low: 99.0,
+            close: 103.0,
+            volume: 1000.0,
+            open_interest: Some(0.0),
+        }
+    }
+
+    #[test]
+    fn nsr7_quote_lease_crash_child() {
+        let Some(root) = std::env::var_os("EOD_NSR7_QUOTE_LEASE_CHILD_FIXTURE").map(PathBuf::from)
+        else {
+            return;
+        };
+        assert_eq!(
+            fs::read(root.join("fixture-id")).unwrap().as_slice(),
+            b"nsr7-quote-lease-v1"
+        );
+        let database = root.join("database");
+        let access = CanonicalAccess::in_namespace(&database, &root).unwrap();
+        let input = coordinated_quote("2024-05-16");
+
+        match std::env::var("EOD_NSR7_QUOTE_LEASE_CHILD_ACTION")
+            .unwrap()
+            .as_str()
+        {
+            "busy" => {
+                let error = upsert_quote_internal(&database, &input, &access, || {
+                    panic!("a busy mutation must not open the writable connection")
+                })
+                .unwrap_err();
+                assert_eq!(error, "CANONICAL_PRICE_STORE_BUSY");
+            }
+            "crash" => {
+                let quote = normalize_quote_input(&input).unwrap();
+                let intent = quote_intent(&quote);
+                let mut mutation = access.begin_quote_mutation(intent.clone()).unwrap();
+                let connection = Connection::open(database.join("quote-fixture.sqlite")).unwrap();
+                mutation
+                    .prepare_quote(QuoteContext {
+                        previous: quote_predecessor(
+                            &connection,
+                            &intent.symbol,
+                            &intent.exchange,
+                            &intent.date,
+                        )
+                        .unwrap(),
+                    })
+                    .unwrap();
+                upsert_sqlite_quote(&connection, &quote).unwrap();
+                // Leave the SQLite commit visible and exit before writing the binary row.
+                std::process::exit(86);
+            }
+            action => panic!("unknown child action: {action}"),
+        }
+    }
+
+    #[test]
+    fn nsr7_quote_lease_survives_an_interrupted_dual_store_write() {
+        let dir = match std::env::var_os("EOD_NSR7_QUOTE_LEASE_FIXTURE_ROOT") {
+            Some(root) => tempfile::tempdir_in(root).unwrap(),
+            None => tempdir().unwrap(),
+        };
+        let root = dir.path();
+        fs::write(root.join("fixture-id"), b"nsr7-quote-lease-v1").unwrap();
+        let database = root.join("database");
+        let second_database = root.join("other-database");
+        fs::create_dir(&database).unwrap();
+        fs::create_dir(&second_database).unwrap();
+        let sqlite = database.join("quote-fixture.sqlite");
+        setup_test_db_on(Connection::open(&sqlite).unwrap());
+        write_symbol(&database, "TEST", &[20240515]);
+        let binary = eod_path(&database, "NSE", "TEST").unwrap();
+        let access = CanonicalAccess::in_namespace(&database, root).unwrap();
+        let alias = CanonicalAccess::in_namespace(&database.join("."), root).unwrap();
+        let independent = CanonicalAccess::in_namespace(&second_database, root).unwrap();
+        let module = module_path!().split_once("::").unwrap().1;
+        let child_test = format!("{module}::nsr7_quote_lease_crash_child");
+
+        let run_child = |action: &str, exit_code: i32| {
+            let output = std::process::Command::new(std::env::current_exe().unwrap())
+                .args(["--exact", &child_test, "--nocapture"])
+                .env("EOD_NSR7_QUOTE_LEASE_CHILD_FIXTURE", root)
+                .env("EOD_NSR7_QUOTE_LEASE_CHILD_ACTION", action)
+                .output()
+                .unwrap();
+            assert_eq!(
+                output.status.code(),
+                Some(exit_code),
+                "{}\n{}",
+                String::from_utf8_lossy(&output.stdout),
+                String::from_utf8_lossy(&output.stderr)
+            );
+            if action == "busy" {
+                assert!(String::from_utf8_lossy(&output.stdout).contains("1 passed"));
+            }
+        };
+
+        let reader = access.begin_read().unwrap();
+        let second_reader = alias.begin_read().unwrap();
+        let intent =
+            quote_intent(&normalize_quote_input(&coordinated_quote("2024-05-16")).unwrap());
+        assert_eq!(
+            alias.begin_quote_mutation(intent.clone()).err().unwrap(),
+            "CANONICAL_PRICE_STORE_BUSY"
+        );
+        assert!(independent.begin_quote_mutation(intent).is_ok());
+        let busy =
+            access.verify_pending_quote(|_| panic!("busy verification must not inspect stores"));
+        assert_eq!(busy.unwrap_err(), "CANONICAL_PRICE_STORE_BUSY");
+        run_child("busy", 0);
+        drop(reader);
+        drop(second_reader);
+        let quote_count = |date: &str| {
+            Connection::open(&sqlite)
+                .unwrap()
+                .query_row(
+                    "SELECT COUNT(*) FROM eod_prices WHERE date = ?1",
+                    [date],
+                    |row| row.get::<_, i64>(0),
+                )
+                .unwrap()
+        };
+        assert_eq!(quote_count("2024-05-16"), 0);
+
+        run_child("crash", 86);
+        assert_eq!(quote_count("2024-05-16"), 1);
+        assert!(BinaryEodFile::open(&binary)
+            .unwrap()
+            .read_range(20240516, 20240516)
+            .unwrap()
+            .is_empty());
+        assert_eq!(
+            access.begin_read().unwrap_err(),
+            "CANONICAL_PRICE_STORE_INTERRUPTED"
+        );
+
+        upsert_quote_internal(&database, &coordinated_quote("2024-05-17"), &access, || {
+            Connection::open(&sqlite).map_err(|error| error.to_string())
+        })
+        .unwrap();
+        assert_eq!(quote_count("2024-05-17"), 1);
+        let read_only =
+            Connection::open_with_flags(&sqlite, rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY)
+                .unwrap();
+        let cleared = access
+            .verify_pending_quote(|intent| {
+                assert_eq!(intent.date, "2024-05-16");
+                verify_quote_intent(&read_only, &database, intent)
+            })
+            .unwrap();
+        assert_eq!(cleared, 0);
+        assert_eq!(
+            access.begin_read().unwrap_err(),
+            "CANONICAL_PRICE_STORE_INTERRUPTED"
+        );
+        if std::env::var_os("EOD_NSR7_QUOTE_LEASE_FIXTURE_ROOT").is_some() {
+            println!("Retained quote lease fixture: {}", dir.keep().display());
+        }
+    }
+
+    #[test]
+    fn nsr7_quote_lease_preserves_sqlite_success_after_a_binary_error() {
+        let dir = tempdir().unwrap();
+        let connection = setup_test_db();
+        write_symbol(dir.path(), "TEST", &[20240515]);
+        fs::write(
+            eod_path(dir.path(), "NSE", "TEST").unwrap(),
+            b"invalid EOD file",
+        )
+        .unwrap();
+        let access = CanonicalAccess::in_namespace(dir.path(), dir.path()).unwrap();
+        let row = upsert_quote_internal(
+            dir.path(),
+            &coordinated_quote("2024-05-16"),
+            &access,
+            || Ok(connection),
+        )
+        .unwrap();
+        assert_eq!(row.close, 103.0);
+        assert_eq!(
+            access.begin_read().unwrap_err(),
+            "CANONICAL_PRICE_STORE_INTERRUPTED"
+        );
+    }
+
+    #[test]
+    fn nsr7_quote_recovery_requires_exact_values_and_preserves_legacy_block() {
+        let dir = tempdir().unwrap();
+        let database = dir.path();
+        let sqlite = database.join("quote-proof.sqlite");
+        setup_test_db_on(Connection::open(&sqlite).unwrap());
+        let access = CanonicalAccess::in_namespace(database, database).unwrap();
+        let input = coordinated_quote("2024-05-16");
+        let connect = || Connection::open(&sqlite).map_err(|error| error.to_string());
+        let row = upsert_quote_internal(database, &input, &access, connect).unwrap();
+        let intent = quote_intent(&normalize_quote_input(&input).unwrap());
+        let path = eod_path(database, "NSE", "TEST").unwrap();
+
+        let prepare = || {
+            let mut lease = access.begin_quote_mutation(intent.clone()).unwrap();
+            lease
+                .prepare_quote(QuoteContext { previous: None })
+                .unwrap();
+        };
+        let verify = || {
+            access.verify_pending_quote(|intent| {
+                let read_only = Connection::open_with_flags(
+                    &sqlite,
+                    rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY,
+                )
+                .map_err(|error| error.to_string())?;
+                verify_quote_intent(&read_only, database, intent)
+            })
+        };
+        prepare();
+        connect()
+            .unwrap()
+            .execute("UPDATE eod_prices SET close = close + 0.01", [])
+            .unwrap();
+        assert_eq!(verify().unwrap(), 0);
+        connect()
+            .unwrap()
+            .execute("UPDATE eod_prices SET close = ?1", [row.close])
+            .unwrap();
+
+        let expected = quote_binary_record(&row);
+        let different_price = EodRecord {
+            close: expected.close + 1,
+            ..expected
+        };
+        BinaryEodFile::append_or_merge_records(
+            &path,
+            "TEST",
+            "NSE",
+            DEFAULT_SCALE,
+            vec![different_price],
+        )
+        .unwrap();
+        assert_eq!(verify().unwrap(), 0);
+        assert_eq!(
+            access.begin_read().unwrap_err(),
+            "CANONICAL_PRICE_STORE_INTERRUPTED"
+        );
+        BinaryEodFile::append_or_merge_records(&path, "TEST", "NSE", DEFAULT_SCALE, vec![expected])
+            .unwrap();
+        assert_eq!(verify().unwrap(), 1);
+        assert!(access.begin_read().is_ok());
+
+        let state = fs::read_dir(database.join("canonical-price-store-v1"))
+            .unwrap()
+            .map(|entry| entry.unwrap().path())
+            .find(|path| {
+                path.extension()
+                    .is_some_and(|extension| extension == "state")
+            })
+            .unwrap();
+        fs::write(&state, b"dirty-v1\n").unwrap();
+        prepare();
+        assert_eq!(verify().unwrap(), 1);
+        assert_eq!(fs::read(&state).unwrap().as_slice(), b"dirty-v1\n");
+        assert_eq!(
+            access.begin_read().unwrap_err(),
+            "CANONICAL_PRICE_STORE_INTERRUPTED"
+        );
+    }
+
+    #[test]
+    fn nsr7_quote_recovery_refuses_unsafe_preexisting_binary_scale() {
+        let dir = tempdir().unwrap();
+        write_symbol(dir.path(), "TEST", &[20240515]);
+        let path = eod_path(dir.path(), "NSE", "TEST").unwrap();
+        let mut rows = BinaryEodFile::open(&path).unwrap().read_all().unwrap();
+        BinaryEodFile::write_all(&path, "TEST", "NSE", DEFAULT_SCALE / 10, &mut rows).unwrap();
+
+        let access = CanonicalAccess::in_namespace(dir.path(), dir.path()).unwrap();
+        upsert_quote_internal(
+            dir.path(),
+            &coordinated_quote("2024-05-16"),
+            &access,
+            || Ok(setup_test_db()),
+        )
+        .unwrap();
+        let mut intent_was_unprepared = false;
+        let verified = access
+            .verify_pending_quote(|intent| {
+                assert_eq!(intent.date, "2024-05-16");
+                assert!(intent.context.is_none());
+                intent_was_unprepared = true;
+                Ok(false)
+            })
+            .unwrap();
+        assert!(intent_was_unprepared);
+        assert_eq!(verified, 0);
+        assert_eq!(
+            access.begin_read().unwrap_err(),
+            "CANONICAL_PRICE_STORE_INTERRUPTED"
+        );
+    }
+
+    fn single_delete_input(date: &str) -> DeleteQuoteInput {
+        DeleteQuoteInput {
+            symbol: "TEST".into(),
+            exchange: "NSE".into(),
+            date: date.into(),
+        }
+    }
+
+    #[test]
+    fn nsr7_single_delete_proves_last_quote_absent_and_keeps_the_instrument() {
+        let dir = tempdir().unwrap();
+        let folder = dir.path();
+        let sqlite = folder.join("delete-proof.sqlite");
+        setup_test_db_on(Connection::open(&sqlite).unwrap());
+        let connect = || Connection::open(&sqlite).map_err(|error| error.to_string());
+        let access = CanonicalAccess::in_namespace(folder, folder).unwrap();
+        upsert_quote_internal(folder, &coordinated_quote("2024-05-16"), &access, connect).unwrap();
+        let input = single_delete_input("2024-05-16");
+        let deletion = quote_deletion(&input).unwrap();
+        let held = access.begin_read().unwrap();
+        let blocked = delete_quote_coordinated(folder, &input, &access, || {
+            panic!("contended deletion must not open SQLite for writing")
+        });
+        assert_eq!(blocked.err().unwrap(), "CANONICAL_PRICE_STORE_BUSY");
+        assert!(
+            read_sqlite_quote(&connect().unwrap(), "TEST", "NSE", "2024-05-16")
+                .unwrap()
+                .is_some()
+        );
+        drop(held);
+
+        let result = delete_quote_coordinated(folder, &input, &access, connect).unwrap();
+        assert!(result.success);
+        assert_eq!(result.deleted, 1);
+        let connection = connect().unwrap();
+        assert!(deletion_instrument_exists(&connection, &deletion).unwrap());
+        assert!(read_sqlite_quote(&connection, "TEST", "NSE", "2024-05-16")
+            .unwrap()
+            .is_none());
+        assert!(!eod_path(folder, "NSE", "TEST").unwrap().exists());
+        assert!(access.begin_read().is_ok());
+
+        let retry = delete_quote_coordinated(folder, &input, &access, connect).unwrap();
+        assert!(!retry.success);
+        assert_eq!(retry.deleted, 0);
+        assert!(access.begin_read().is_ok());
+    }
+
+    #[test]
+    fn nsr7_single_delete_retains_interruption_until_both_stores_are_verified() {
+        let dir = tempdir().unwrap();
+        let folder = dir.path();
+        let sqlite = folder.join("delete-proof.sqlite");
+        setup_test_db_on(Connection::open(&sqlite).unwrap());
+        let connect = || Connection::open(&sqlite).map_err(|error| error.to_string());
+        let access = CanonicalAccess::in_namespace(folder, folder).unwrap();
+        for date in ["2024-05-15", "2024-05-16", "2024-05-17"] {
+            let mut input = coordinated_quote(date);
+            if date == "2024-05-16" {
+                input.close = 102.0;
+            }
+            upsert_quote_internal(folder, &input, &access, connect).unwrap();
+        }
+        let binary_path = eod_path(folder, "NSE", "TEST").unwrap();
+        let mut deletion = quote_deletion(&single_delete_input("2024-05-16")).unwrap();
+        let mut lease = access.begin_quote_deletion(deletion.clone()).unwrap();
+        let connection = connect().unwrap();
+        let context = deletion_context(&connection, &binary_path, &deletion).unwrap();
+        lease.prepare(context.clone()).unwrap();
+        deletion.context = Some(context);
+
+        assert_eq!(delete_sqlite_quote(&connection, &deletion).unwrap(), 1);
+        drop(lease);
+        assert!(!verify_quote_deletion(&connection, &binary_path, &deletion).unwrap());
+        assert_eq!(
+            access.begin_read().unwrap_err(),
+            "CANONICAL_PRICE_STORE_INTERRUPTED"
+        );
+        let original = BinaryEodFile::open(&binary_path)
+            .unwrap()
+            .read_all()
+            .unwrap();
+
+        let moved = folder.join("unexpected-missing.eod");
+        fs::rename(&binary_path, &moved).unwrap();
+        assert!(!verify_quote_deletion(&connection, &binary_path, &deletion).unwrap());
+        fs::rename(&moved, &binary_path).unwrap();
+
+        let mut changed = vec![original[0], original[2]];
+        changed[1].volume += 1;
+        BinaryEodFile::write_all(&binary_path, "TEST", "NSE", DEFAULT_SCALE, &mut changed).unwrap();
+        assert!(!verify_quote_deletion(&connection, &binary_path, &deletion).unwrap());
+
+        let mut original = original;
+        BinaryEodFile::write_all(&binary_path, "TEST", "NSE", DEFAULT_SCALE, &mut original)
+            .unwrap();
+        let result =
+            delete_quote_coordinated(folder, &single_delete_input("2024-05-16"), &access, connect)
+                .unwrap();
+        assert_eq!(result.deleted, 1);
+        assert!(verify_quote_deletion(&connection, &binary_path, &deletion).unwrap());
+        let successor = read_sqlite_quote(&connection, "TEST", "NSE", "2024-05-17")
+            .unwrap()
+            .unwrap();
+        assert_eq!(successor.prev_close, Some(103.0));
+        assert!(deletion_instrument_exists(&connection, &deletion).unwrap());
+        assert!(access.begin_read().is_ok());
     }
 
     #[test]

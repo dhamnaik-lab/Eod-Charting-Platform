@@ -371,7 +371,13 @@ pub async fn fetch_official_corporate_actions(
         })?;
         let connection = open_connection_for_folder(&folder_path, false)?;
 
-        let result = fetch_official_corporate_actions_internal(&app_handle, &connection, &input, _fetch_guard.0.clone())?;
+        let result = fetch_official_corporate_actions_internal(
+            &app_handle,
+            &connection,
+            &folder_path,
+            &input,
+            _fetch_guard.0.clone(),
+        )?;
         emit_corporate_action_progress(
             &app_handle,
             FETCH_PROGRESS_DONE,
@@ -1472,15 +1478,17 @@ pub fn cancel_official_corporate_action_fetch() -> bool {
 fn fetch_official_corporate_actions_internal(
     app: &AppHandle,
     connection: &Connection,
+    folder: &Path,
     input: &CorporateActionOfficialFetchInput,
     cancelled: std::sync::Arc<std::sync::atomic::AtomicBool>,
 ) -> AppResult<CorporateActionOfficialFetchResult> {
-    fetch_official_corporate_actions_with_session(app, connection, input, cancelled, None)
+    fetch_official_corporate_actions_with_session(app, connection, folder, input, cancelled, None)
 }
 
 fn fetch_official_corporate_actions_with_session(
     app: &AppHandle,
     connection: &Connection,
+    folder: &Path,
     input: &CorporateActionOfficialFetchInput,
     cancelled: std::sync::Arc<std::sync::atomic::AtomicBool>,
     session: Option<bse_fetch::BseSession>,
@@ -1567,7 +1575,7 @@ fn fetch_official_corporate_actions_with_session(
     if exchange == "BSE" {
         bse_fetch::check_cancel(&cancelled)?;
         emit_corporate_action_progress(app, 3, "Collecting official BSE security-code mappings; no approvals...");
-        match bse_identity_mapping::collect(app, connection, bse_session.as_mut().expect("BSE session")) {
+        match bse_identity_mapping::collect(app, connection, folder, bse_session.as_mut().expect("BSE session")) {
             Ok(count) => emit_corporate_action_progress(app, 4, format!("Filled {count} missing BSE security-code mapping(s). Load & Validate will retry unmatched rows; no approvals.")),
             Err(error) => result.errors.push(format!("BSE security-code identity source unavailable: {error}. Unmatched rows remain unresolved; retry Fetch before Load & Validate.")),
         }

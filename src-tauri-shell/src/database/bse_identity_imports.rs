@@ -128,7 +128,11 @@ pub async fn apply_bse_current_universe_sync(
                 );
             }
         };
-        let mut result = apply_reporting::apply_reviewed(&connection, &input, &report)?;
+        let mut result = {
+            let _canonical =
+                super::database_use::CanonicalAccess::lock_writer_for_database(&folder)?;
+            apply_reporting::apply_reviewed(&connection, &input, &report)?
+        };
         report(apply_reporting::progress("refreshing", 0, 0));
         let refresh = (|| -> AppResult<()> {
             invalidate_cached_db_stats(&app, &folder)?;

@@ -9,6 +9,14 @@ use std::sync::{
 
 use super::AppResult;
 
+mod canonical_access;
+pub(super) use canonical_access::{
+    BinaryAfterDelete, BulkQuoteDeletion, QuoteContext, QuoteDeletion, QuoteDeletionContext,
+    QuoteIntent,
+};
+pub(crate) use canonical_access::{CanonicalAccess, CanonicalWriterIntent};
+pub(crate) use canonical_access::CanonicalLease;
+
 pub(crate) const BUSY: &str = "DATABASE_OPERATION_BUSY";
 
 #[derive(Clone, Debug)]

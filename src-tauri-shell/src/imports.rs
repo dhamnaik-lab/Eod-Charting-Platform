@@ -2,9 +2,10 @@ use crate::database::binary_eod::{
     date_to_u32, u32_to_date, BinaryAppendMergeStats, BinaryEodFile, BinaryWriteDiagnostics,
     BinaryWritePath, EodRecord, DEFAULT_SCALE,
 };
+use crate::database::database_use::{CanonicalAccess, CanonicalWriterIntent};
 use crate::database::{
-    emit_database_changed, get_active_database_file_path, get_app_snapshot_internal,
-    get_price_storage_mode, invalidate_cached_db_stats, prepare_database_connection,
+    configure_database_connection, emit_database_changed, get_active_database_file_path,
+    get_app_snapshot_internal, get_price_storage_mode, invalidate_cached_db_stats,
     try_acquire_price_store_operation, PriceStorageMode, PriceStoreOperationKind, SnapshotOptions,
 };
 use crate::manual_import_recovery::{
@@ -630,7 +631,7 @@ pub async fn undo_manual_import_recovery(
             .lock()
             .map_err(|_| "Manual Import mutation lock was poisoned.".to_string())?;
         let connection = Connection::open(&database_file_path).map_err(|error| error.to_string())?;
-        prepare_database_connection(&connection)?;
+        configure_database_connection(&connection)?;
         let result = undo_session(
             &database_file_path,
             &connection,
@@ -767,8 +768,16 @@ where F: Fn(u32, String),
         .max(1);
     let mut completed_bytes = 0_u64;
 
-    let mut connection = Connection::open(database_file_path).map_err(|error| error.to_string())?;
-    prepare_database_connection(&connection)?;
+    let folder = database_file_path
+        .parent()
+        .ok_or("Manual Import database folder is unavailable.")?;
+    let writer = CanonicalAccess::lock_writer_for_database(folder)?;
+    let mut connection = Connection::open_with_flags(
+        database_file_path,
+        rusqlite::OpenFlags::SQLITE_OPEN_READ_WRITE | rusqlite::OpenFlags::SQLITE_OPEN_NO_MUTEX,
+    )
+    .map_err(|error| error.to_string())?;
+    configure_database_connection(&connection)?;
     let storage_mode = get_price_storage_mode(&connection);
     let binary_only = storage_mode == PriceStorageMode::Binary;
     let duplicate_mode = parse_duplicate_mode(options.on_duplicate.as_deref());
@@ -784,6 +793,7 @@ where F: Fn(u32, String),
     let mut max_date: Option<String> = None;
     let mut aggregate_binary_records = HashMap::<String, Vec<EodRecord>>::new();
     let parse_prepare_started = std::time::Instant::now();
+    let apply = writer.begin_apply(CanonicalWriterIntent::ManualCsv)?;
 
     for (index, file_path) in normalized_file_paths.iter().enumerate() {
         let file_size = fs::metadata(file_path)
@@ -1071,6 +1081,11 @@ where F: Fn(u32, String),
         )?;
     }
     let recovery_session = recovery_handle.as_ref().map(summary_from_handle);
+    if aggregate_rows_error == 0 {
+        if let Err(error) = apply.finish_known_consistent() {
+            eprintln!("Manual Import coordination remains pending: {error}");
+        }
+    }
 
     on_progress(100, "Import complete".to_string());
 
@@ -2301,7 +2316,7 @@ mod tests {
 
     fn setup_test_db(db_path: &Path) -> Connection {
         let conn = Connection::open(db_path).unwrap();
-        prepare_database_connection(&conn).unwrap();
+        crate::database::prepare_database_connection(&conn).unwrap();
         conn
     }
 

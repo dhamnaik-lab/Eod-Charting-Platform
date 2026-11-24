@@ -1,6 +1,6 @@
 #[allow(unused_imports)]
 pub use self::corporate_action_imports::{preview_split_bonus_reconciliation, CorporateActionReconciliationPreflightInput, CorporateActionReconciliationPreflightResult, CorporateActionReconciliationPreflightRow, CorporateActionReconciliationBlocker};
-pub(crate) use self::connection_registry::{peek_active_database_folder_read_only, read_native_scan_selection, NativeScanSelection};
+pub(crate) use self::connection_registry::{peek_active_database_folder_read_only, read_native_scan_selection, require_native_history_wal_family, with_native_scan_selection, NativeScanSelection};
 pub mod binary_eod;
 pub(crate) mod storage_paths;
 mod bootstrap;
@@ -8,6 +8,8 @@ mod bootstrap;
 mod bse_history_repair_acceptance;
 mod bse_identity_imports;
 mod connection_registry;
+#[cfg(all(windows, feature = "wp02-acceptance"))]
+pub(crate) use self::connection_registry::wp02_acceptance::{AcceptanceRegistry, AcceptanceSlot};
 mod database_deletion;
 pub(crate) use self::database_deletion::require_unblocked as require_database_not_marked;
 pub(crate) mod database_use;
@@ -17,6 +19,7 @@ mod daily_market_snapshot;
 mod dnn_research_export;
 pub mod eod_binary_state;
 mod eod_data;
+pub(crate) use eod_data::forward_cursor::ForwardSource;
 pub(crate) mod index_aliases;
 mod instrument_mutations;
 pub(crate) mod identity_evidence_resolver;
@@ -45,7 +48,9 @@ use tauri::{AppHandle, Emitter};
 
 #[allow(unused_imports)]
 pub use self::binary_eod::{get_binary_eod_status, migrate_to_binary_eod, validate_binary_parity};
-pub(crate) use self::bootstrap::{load_db_stats, prepare_database_connection};
+pub(crate) use self::bootstrap::{
+    configure_database_connection, load_db_stats, prepare_database_connection,
+};
 pub use self::bse_identity_imports::{
     apply_bse_current_universe_sync, download_bse_current_universe_master,
     preview_bse_current_universe_sync, list_bse_identity_apply_history,
@@ -133,7 +138,7 @@ pub(crate) use self::price_store_operation_lock::{
     try_acquire_price_store_operation, PriceStoreOperationKind,
 };
 use self::quotes::{
-    delete_quote_date_scope_internal, delete_quote_internal, delete_quote_range_internal,
+    delete_quote_coordinated, delete_quote_date_scope_coordinated, delete_quote_range_coordinated,
     list_quotes_by_date_scope_internal, list_quotes_internal, recompute_prev_close_for_symbol,
     upsert_quote_internal, QuoteDeleteProgress,
 };
@@ -2071,11 +2076,11 @@ pub async fn upsert_quote(app: AppHandle, input: QuoteInputPayload) -> AppResult
             try_acquire_price_store_operation(PriceStoreOperationKind::QuoteMutation)?;
 
         let operation = (|| -> AppResult<QuoteRow> {
-            // 1. Open a temporary connection after acquiring the shared price-store operation permit.
-            let connection = open_connection_for_folder(&folder_path, false)?;
-
-            // 2. Perform the heavy work (SQLite + Binary EOD)
-            let result = upsert_quote_internal(&connection, &input, Some(&folder_path))?;
+            // Coordinate both stores before opening the writable connection.
+            let access = database_use::CanonicalAccess::for_database(&folder_path)?;
+            let result = upsert_quote_internal(&folder_path, &input, &access, || {
+                open_connection_for_folder(&folder_path, false)
+            })?;
 
             // 3. Invalidate the stats cache since we just modified data
             invalidate_cached_db_stats(&app_handle, &folder_path)?;
@@ -2154,8 +2159,10 @@ pub async fn delete_quote(app: AppHandle, input: DeleteQuoteInput) -> AppResult<
             try_acquire_price_store_operation(PriceStoreOperationKind::QuoteMutation)?;
 
         let operation = (|| -> AppResult<DeleteQuoteResult> {
-            let connection = open_connection_for_folder(&folder_path, false)?;
-            let result = delete_quote_internal(&connection, &input, Some(&folder_path))?;
+            let access = database_use::CanonicalAccess::for_database(&folder_path)?;
+            let result = delete_quote_coordinated(&folder_path, &input, &access, || {
+                open_connection_for_folder(&folder_path, false)
+            })?;
 
             invalidate_cached_db_stats(&app_handle, &folder_path)?;
 
@@ -2239,8 +2246,10 @@ pub async fn delete_quote_range(
             try_acquire_price_store_operation(PriceStoreOperationKind::QuoteMutation)?;
 
         let operation = (|| -> AppResult<DeleteQuoteResult> {
-            let connection = open_connection_for_folder(&folder_path, false)?;
-            let result = delete_quote_range_internal(&connection, &input, Some(&folder_path))?;
+            let access = database_use::CanonicalAccess::for_database(&folder_path)?;
+            let result = delete_quote_range_coordinated(&folder_path, &input, &access, || {
+                open_connection_for_folder(&folder_path, false)
+            })?;
 
             invalidate_cached_db_stats(&app_handle, &folder_path)?;
 
@@ -2335,11 +2344,12 @@ pub async fn delete_quote_date(
             try_acquire_price_store_operation(PriceStoreOperationKind::QuoteMutation)?;
 
         let operation = (|| {
-            let connection = open_connection_for_folder(&folder_path, false)?;
-            let scope_result = delete_quote_date_scope_internal(
-                &connection,
+            let access = database_use::CanonicalAccess::for_database(&folder_path)?;
+            let scope_result = delete_quote_date_scope_coordinated(
+                &folder_path,
                 &input,
-                Some(&folder_path),
+                &access,
+                || open_connection_for_folder(&folder_path, false),
                 Some(&|progress| emit_quote_delete_progress(&app_handle, progress)),
             )?;
 

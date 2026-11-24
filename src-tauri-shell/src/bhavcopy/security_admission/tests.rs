@@ -1,6 +1,6 @@
 use super::*;
 use crate::bhavcopy::ingestion::{
-    insert_parsed_bhavcopy_files, open_database_connection, parse_and_insert,
+    insert_parsed_bhavcopy_files, open_prepared_fixture_connection, parse_and_insert,
 };
 use crate::bhavcopy::parsers::parse_bhavcopy_csv;
 use crate::database::binary_eod::{BinaryEodFile, DEFAULT_SCALE};
@@ -21,7 +21,7 @@ fn db() -> PathBuf {
         ));
     fs::create_dir_all(&folder).unwrap();
     let path = folder.join("market-data.sqlite3");
-    drop(open_database_connection(&path).unwrap());
+    drop(open_prepared_fixture_connection(&path).unwrap());
     path
 }
 fn csv(rows: &str) -> String {
@@ -31,7 +31,7 @@ fn parse(rows: &str) -> ParsedBhavcopyFile {
     parse_bhavcopy_csv(&csv(rows), "NSE", "2014-11-20", &[]).unwrap()
 }
 fn count(path: &Path) -> i64 {
-    open_database_connection(path)
+    open_prepared_fixture_connection(path)
         .unwrap()
         .query_row("SELECT count(*) FROM instruments", [], |r| r.get(0))
         .unwrap()
@@ -48,7 +48,7 @@ fn security_admission_official_sbin_samples_are_order_independent_in_both_stores
         for binary in [false, true] {
             for reverse in [false, true] {
                 let path = db();
-                let connection = open_database_connection(&path).unwrap();
+                let connection = open_prepared_fixture_connection(&path).unwrap();
                 if binary {
                     set_price_storage_mode(&connection, PriceStorageMode::Binary).unwrap();
                 }
@@ -229,7 +229,7 @@ fn security_admission_legacy_e_family_bucket_keeps_the_equity_bar() {
 fn security_admission_conflict_blocks_whole_key_but_preserves_other_symbols() {
     for binary in [false, true] {
         let path = db();
-        let connection = open_database_connection(&path).unwrap();
+        let connection = open_prepared_fixture_connection(&path).unwrap();
         if binary {
             set_price_storage_mode(&connection, PriceStorageMode::Binary).unwrap();
         }
@@ -283,7 +283,7 @@ fn security_admission_non_equity_only_never_creates_or_overwrites_identity() {
     )
     .unwrap();
     assert_eq!(result.rows_inserted, 1);
-    let connection = open_database_connection(&path).unwrap();
+    let connection = open_prepared_fixture_connection(&path).unwrap();
     let before: String = connection
         .query_row(
             "SELECT isin FROM instruments WHERE symbol='SBIN'",
@@ -367,7 +367,7 @@ fn security_admission_dated_isin_backfill_does_not_replace_current_metadata() {
         &[],
     )
     .unwrap();
-    let connection = open_database_connection(&path).unwrap();
+    let connection = open_prepared_fixture_connection(&path).unwrap();
     let isin: String = connection
         .query_row(
             "SELECT isin FROM instruments WHERE symbol='SBIN'",
@@ -459,7 +459,7 @@ fn security_admission_existing_equity_identity_cannot_be_replaced_by_another_cla
     .unwrap();
     assert_eq!(result.admission.conflicted, 1);
     assert_eq!(result.rows_inserted, 0);
-    let c = open_database_connection(&path).unwrap();
+    let c = open_prepared_fixture_connection(&path).unwrap();
     let series: String = c
         .query_row(
             "SELECT series FROM instruments WHERE symbol='SHARED'",
@@ -492,7 +492,7 @@ fn security_admission_native_eq_auxiliary_and_it_failures_have_complete_daily_qu
     for binary in [false, true] {
         for reverse in [false, true] {
             let path = db();
-            let connection = open_database_connection(&path).unwrap();
+            let connection = open_prepared_fixture_connection(&path).unwrap();
             if binary {
                 set_price_storage_mode(&connection, PriceStorageMode::Binary).unwrap();
             }
@@ -614,7 +614,7 @@ fn security_admission_market_selection_preserves_trade_for_trade_and_sme_primary
         assert_eq!(result[0].rows_inserted, 1);
         assert_eq!(result[0].admission.market_rows, 1);
         assert_eq!(result[0].admission.conflicted, 0);
-        let connection = open_database_connection(&path).unwrap();
+        let connection = open_prepared_fixture_connection(&path).unwrap();
         let series: String = connection
             .query_row(
                 "SELECT series FROM instruments WHERE symbol='SAMPLE'",

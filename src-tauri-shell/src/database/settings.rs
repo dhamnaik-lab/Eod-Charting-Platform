@@ -92,6 +92,14 @@ fn validate_setting_write_key(key: &str) -> AppResult<()> {
 #[tauri::command]
 pub fn set_setting(app: AppHandle, input: SettingValueInput) -> AppResult<OperationResult> {
     validate_setting_write_key(&input.key)?;
+    if input.key == super::storage_mode::PRICE_STORAGE_MODE_KEY {
+        let folder = super::resolve_active_database_folder(&app)?
+            .ok_or_else(|| "Open a database before changing settings.".to_string())?;
+        let _canonical = super::database_use::CanonicalAccess::lock_writer_for_database(&folder)?;
+        let connection = super::connection_registry::open_connection_for_folder(&folder, false)?;
+        write_setting_value(&connection, &input.key, &input.value)?;
+        return Ok(OperationResult { success: true });
+    }
     with_active_connection(&app, |connection| {
         write_setting_value(connection, &input.key, &input.value)?;
         Ok(OperationResult { success: true })

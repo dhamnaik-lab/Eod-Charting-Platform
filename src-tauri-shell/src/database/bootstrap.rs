@@ -19,19 +19,22 @@ use super::{
 };
 
 pub(crate) fn prepare_database_connection(connection: &Connection) -> AppResult<()> {
-    apply_pragmas(connection)?;
+    connection
+        .busy_timeout(Duration::from_secs(15))
+        .map_err(|error| error.to_string())?;
+    connection
+        .pragma_update(None, "journal_mode", "WAL")
+        .map_err(|error| error.to_string())?;
+    configure_database_connection(connection)?;
     run_migrations(connection)?;
     ensure_official_source_version_bootstrap(connection)?;
     seed_defaults(connection)?;
     Ok(())
 }
 
-fn apply_pragmas(connection: &Connection) -> AppResult<()> {
+pub(crate) fn configure_database_connection(connection: &Connection) -> AppResult<()> {
     connection
         .busy_timeout(Duration::from_secs(15))
-        .map_err(|error| error.to_string())?;
-    connection
-        .pragma_update(None, "journal_mode", "WAL")
         .map_err(|error| error.to_string())?;
     connection
         .pragma_update(None, "synchronous", "NORMAL")

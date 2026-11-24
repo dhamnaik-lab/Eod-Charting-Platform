@@ -260,7 +260,7 @@ describe('NS-R2 opt-in core OHLCV native latest-only routing', () => {
     },
   );
 
-  it('retains TypeScript, fallback, and cancellation completion wording', () => {
+  it('retains TypeScript, fallback, and database-change cancellation wording', () => {
     const output = emptyTypeScriptOutput();
     expect(formatScannerCompletionStatus(output, 1))
       .toBe('Scanned 1 symbol; 0 matches; 0 alerts.');
@@ -274,15 +274,36 @@ describe('NS-R2 opt-in core OHLCV native latest-only routing', () => {
     expect(formatScannerCompletionStatus({ ...fallback, cancelled: true }, 1))
       .toBe('Used the TypeScript scanner backend. unsupported native rule Scan cancelled after 1 symbol.');
 
-    const cancelledNative = {
-      ...output,
-      backend: 'native' as const,
-      cancelled: true,
-      nativeCounts: { targets: 1, matched: 0, noMatch: 0, skipped: 1, failed: 0 },
-      errors: ['NSE:TEST: run cancelled before this target was scanned.'],
-    };
-    expect(formatScannerCompletionStatus(cancelledNative, 1))
+    expect(formatScannerCompletionStatus({ ...output, cancelled: true }, 1))
       .toBe('Scan cancelled after 1 symbol; 0 matches recorded.');
+
+    const databaseChange = {
+      ...output, backend: 'native' as const, cancelled: true, scannedSymbols: 0,
+      errors: ['Native scan cancelled because the active database changed.'],
+    };
+    expect(formatScannerCompletionStatus(databaseChange, 1))
+      .toBe('Scan cancelled after 0 symbols; 0 matches recorded.');
+  });
+
+  it.each([
+    {
+      counts: { targets: 3, matched: 0, noMatch: 0, skipped: 3, failed: 0 },
+      expected: 'Native scan cancelled. Recorded 0 matches. 3 target symbols (3 skipped, 0 failed).',
+    },
+    {
+      counts: { targets: 4, matched: 1, noMatch: 1, skipped: 1, failed: 1 },
+      expected: 'Native scan cancelled. Recorded 0 matches. 4 target symbols (1 skipped, 1 failed).',
+    },
+    {
+      counts: { targets: 1, matched: 0, noMatch: 0, skipped: 1, failed: 0 },
+      expected: 'Native scan cancelled. Recorded 0 matches. 1 target symbol (1 skipped, 0 failed).',
+    },
+  ])('reports native cancellation from terminal counts $counts', ({ counts, expected }) => {
+    const outcome = {
+      ...emptyTypeScriptOutput(), backend: 'native' as const, cancelled: true,
+      scannedSymbols: counts.targets, nativeCounts: counts,
+    };
+    expect(formatScannerCompletionStatus(outcome, counts.targets)).toBe(expected);
   });
 
   it('falls back without publishing partial matches when core metadata is incomplete', async () => {

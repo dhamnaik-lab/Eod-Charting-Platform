@@ -17,11 +17,12 @@
 //!   strict `(date desc, exchange, symbol, rule)` ordering.
 
 use super::ast::{
-    contains_pattern, evaluate_rule_latest, minimum_bars_for_expression, NativeScanRequestV1,
-    PriceBasisV1, RuleV1,
+    contains_pattern, evaluate_rule_latest, minimum_bars_for_expression, ForwardRuleEvaluator,
+    NativeScanRequestV1, PriceBasisV1, RuleV1,
 };
 use super::reader::{NativeBar, MAX_WINDOW_BARS};
 use crate::scanner_contract::ScannerDirectionV1;
+use serde::{Deserialize, Serialize};
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::Mutex;
 use std::time::Instant;
@@ -292,6 +293,31 @@ pub struct ScanCounts {
     pub failed: usize,
 }
 
+/// Bounded raw input and completed evaluations for one target's numeric history.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct NumericHistoryCoverage {
+    pub exchange: String,
+    pub symbol: String,
+    pub input_first_date: String,
+    pub input_last_date: String,
+    pub input_bar_count: usize,
+    /// The input filled the requested read window. Older bars may exist.
+    pub older_input_unknown: bool,
+    pub rules: Vec<NumericRuleHistoryCoverage>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct NumericRuleHistoryCoverage {
+    pub rule_id: String,
+    pub first_evaluated_date: String,
+    pub last_evaluated_date: String,
+    pub evaluated_endpoint_count: usize,
+    /// Eligible endpoints omitted by the numeric cap within the input window.
+    pub omitted_eligible_endpoint_count: usize,
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct TargetOutcome {
     pub target: ScanTarget,
@@ -300,6 +326,7 @@ pub struct TargetOutcome {
     pub matched_rule_ids: Vec<String>,
     pub bars: usize,
     pub evaluated_history_endpoints: usize,
+    pub numeric_history_coverage: Option<NumericHistoryCoverage>,
     /// Actionable reason when the status is `Skipped` or `Error`.
     pub message: Option<String>,
 }
@@ -604,6 +631,7 @@ fn cancelled_outcome(target: &ScanTarget) -> TargetOutcome {
         matched_rule_ids: Vec::new(),
         bars: 0,
         evaluated_history_endpoints: 0,
+        numeric_history_coverage: None,
         message: Some(format!(
             "{}: run cancelled before this target was scanned.",
             target.key()
@@ -668,6 +696,7 @@ fn scan_full_pattern_history<D: ScanDataSource>(
         matched_rule_ids: Vec::new(),
         bars: 0,
         evaluated_history_endpoints: 0,
+        numeric_history_coverage: None,
         message: Some(format!("{}: {message}", target.key())),
     };
 
@@ -740,6 +769,7 @@ fn scan_full_pattern_history<D: ScanDataSource>(
                 matched_rule_ids: Vec::new(),
                 bars: 0,
                 evaluated_history_endpoints: 0,
+                numeric_history_coverage: None,
                 message: Some(format!(
                     "{} has no completed bars at or before the requested date.",
                     target.key()
@@ -821,6 +851,7 @@ fn scan_full_pattern_history<D: ScanDataSource>(
             matched_rule_ids: Vec::new(),
             bars: total_unique_bars,
             evaluated_history_endpoints,
+            numeric_history_coverage: None,
             message: Some(format!(
                 "{} has {total_unique_bars} completed bar(s); no selected rule has enough warm-up data.",
                 target.key()
@@ -846,6 +877,7 @@ fn scan_full_pattern_history<D: ScanDataSource>(
         matched_rule_ids,
         bars: total_unique_bars,
         evaluated_history_endpoints,
+        numeric_history_coverage: None,
         message: None,
     }
 }
@@ -888,6 +920,7 @@ fn scan_target<D: ScanDataSource>(
                 matched_rule_ids: Vec::new(),
                 bars: 0,
                 evaluated_history_endpoints: 0,
+                numeric_history_coverage: None,
                 message: Some(format!("{}: {message}", target.key())),
             };
         }
@@ -901,6 +934,7 @@ fn scan_target<D: ScanDataSource>(
             matched_rule_ids: Vec::new(),
             bars: 0,
             evaluated_history_endpoints: 0,
+            numeric_history_coverage: None,
             message: Some(format!(
                 "{} has no completed bars at or before the requested window start.",
                 target.key()
@@ -933,6 +967,7 @@ fn scan_target<D: ScanDataSource>(
             matched_rule_ids: Vec::new(),
             bars: bars.len(),
             evaluated_history_endpoints: 0,
+            numeric_history_coverage: None,
             message: Some(format!(
                 "{} has {} completed bar(s); no selected rule can be evaluated yet (shortest needs {needed}).",
                 target.key(),
@@ -956,6 +991,7 @@ fn scan_target<D: ScanDataSource>(
     let mut matches: Vec<ScanMatchRecord> = Vec::new();
     let mut matched_rule_ids: Vec<String> = Vec::new();
     let mut evaluated_history_endpoints = 0usize;
+    let mut numeric_rule_coverage = Vec::new();
     let mut had_error = false;
 
     let mut rules_evaluated = 0usize;
@@ -1044,34 +1080,47 @@ fn scan_target<D: ScanDataSource>(
         let warmup_index = start.saturating_sub(1);
         let cap = options.max_history_endpoints.max(1);
         let first_index = warmup_index.max((last_index + 1).saturating_sub(cap));
-        let mut index = first_index;
-        while index <= last_index {
+        let Ok(mut evaluator) = ForwardRuleEvaluator::new(&rule.expression) else {
+            had_error = true;
+            evaluated_history_endpoints += 1;
+            continue;
+        };
+
+        // Earlier bars still seed indicator state. Only the capped endpoints
+        // contribute verdicts, matches and coverage.
+        let mut endpoint_count = 0;
+        for (index, bar) in eval_bars.iter().copied().enumerate() {
             if cancel.load(Ordering::SeqCst) {
                 break;
             }
-            evaluated_history_endpoints += 1;
-            match evaluate_rule_latest(&rule.expression, &eval_bars[..=index]) {
-                Ok(outcome) => {
-                    if outcome.matched {
-                        matches.push(ScanMatchRecord {
-                            exchange: target.exchange.clone(),
-                            symbol: target.symbol.clone(),
-                            rule_id: rule.id.clone(),
-                            date: format_date(bars[index].date),
-                            value: outcome.value,
-                            ..ScanMatchRecord::default()
-                        });
-                        if !matched_rule_ids.contains(&rule.id) {
-                            matched_rule_ids.push(rule.id.clone());
-                        }
-                    }
-                }
-                Err(_) => {
-                    had_error = true;
-                    break;
+            let outcome = evaluator.advance(bar);
+            if index < first_index {
+                continue;
+            }
+            endpoint_count += 1;
+            if outcome.matched {
+                matches.push(ScanMatchRecord {
+                    exchange: target.exchange.clone(),
+                    symbol: target.symbol.clone(),
+                    rule_id: rule.id.clone(),
+                    date: format_date(bar.date),
+                    value: outcome.value,
+                    ..ScanMatchRecord::default()
+                });
+                if !matched_rule_ids.contains(&rule.id) {
+                    matched_rule_ids.push(rule.id.clone());
                 }
             }
-            index += 1;
+        }
+        evaluated_history_endpoints += endpoint_count;
+        if endpoint_count == last_index + 1 - first_index {
+            numeric_rule_coverage.push(NumericRuleHistoryCoverage {
+                rule_id: rule.id.clone(),
+                first_evaluated_date: format_date(bars[first_index].date),
+                last_evaluated_date: format_date(bars[last_index].date),
+                evaluated_endpoint_count: endpoint_count,
+                omitted_eligible_endpoint_count: first_index - warmup_index,
+            });
         }
     }
 
@@ -1175,6 +1224,7 @@ fn scan_target<D: ScanDataSource>(
             matched_rule_ids: Vec::new(),
             bars: bars.len(),
             evaluated_history_endpoints,
+            numeric_history_coverage: None,
             message: Some(format!(
                 "{} has {} completed bar(s); no selected rule has enough warm-up data.",
                 target.key(),
@@ -1198,6 +1248,17 @@ fn scan_target<D: ScanDataSource>(
         matched_rule_ids,
         bars: bars.len(),
         evaluated_history_endpoints,
+        numeric_history_coverage: (!had_error && !numeric_rule_coverage.is_empty()).then(|| {
+            NumericHistoryCoverage {
+                exchange: target.exchange.clone(),
+                symbol: target.symbol.clone(),
+                input_first_date: format_date(bars[0].date),
+                input_last_date: format_date(bars[bars.len() - 1].date),
+                input_bar_count: bars.len(),
+                older_input_unknown: bars.len() == window,
+                rules: numeric_rule_coverage,
+            }
+        }),
         message: had_error.then(|| {
             format!(
                 "{}: rule evaluation failed; the target is reported as an error, not a non-match.",
@@ -2187,6 +2248,186 @@ mod tests {
             );
             assert!(report.matches.is_empty());
         }
+    }
+
+    #[test]
+    fn nsr7_numeric_history_retains_each_endpoint_at_default_limits() {
+        for (size, expected_window, expected_endpoints) in [
+            (999, 999, 999),
+            (1_000, 1_000, 1_000),
+            (1_001, 1_001, 1_000),
+            (5_000, 5_000, 1_000),
+            (5_001, 5_000, 1_000),
+        ] {
+            let history = dated_quiet_bars(size);
+            let input_first_date = format_date(history[size - expected_window].date);
+            let expected_dates: Vec<_> = history
+                .iter()
+                .rev()
+                .take(expected_endpoints)
+                .map(|bar| format_date(bar.date))
+                .collect();
+            let source = FixtureSource::new(HashMap::from([("NSE:QUIET".to_string(), history)]));
+            let report = execute_scan(
+                &source,
+                &request(vec![close_above(99.0)], true),
+                &[target("QUIET")],
+                &AtomicBool::new(false),
+                ScanExecutionOptions::default(),
+                |_| {},
+            );
+            let outcome = &report.outcomes[0];
+            assert_eq!(
+                report.counts.failed, 0,
+                "{size} bars: {:?}",
+                report.diagnostics
+            );
+            assert_eq!(outcome.bars, expected_window, "{size} bars");
+            assert_eq!(
+                outcome.evaluated_history_endpoints, expected_endpoints,
+                "{size} bars"
+            );
+            let actual_dates: Vec<_> = report.matches.iter().map(|row| row.date.as_str()).collect();
+            assert_eq!(actual_dates, expected_dates, "{size} bars");
+            let coverage = outcome.numeric_history_coverage.as_ref().unwrap();
+            assert_eq!(coverage.exchange, "NSE");
+            assert_eq!(coverage.symbol, "QUIET");
+            assert_eq!(coverage.input_bar_count, expected_window);
+            assert_eq!(coverage.input_first_date, input_first_date);
+            assert_eq!(coverage.input_last_date, expected_dates[0]);
+            assert_eq!(coverage.older_input_unknown, size >= MAX_WINDOW_BARS);
+            assert_eq!(
+                coverage.rules,
+                vec![NumericRuleHistoryCoverage {
+                    rule_id: "close_above".to_string(),
+                    first_evaluated_date: expected_dates.last().unwrap().clone(),
+                    last_evaluated_date: expected_dates[0].clone(),
+                    evaluated_endpoint_count: expected_endpoints,
+                    omitted_eligible_endpoint_count: expected_window - expected_endpoints,
+                }],
+            );
+            assert_eq!(source.loads.lock().unwrap().len(), 1, "{size} bars");
+        }
+    }
+
+    #[test]
+    fn nsr7_numeric_coverage_is_per_rule_and_ends_at_the_as_of_date() {
+        let history = dated_quiet_bars(1_004);
+        let as_of = format_date(history[1_000].date);
+        let first_date = format_date(history[1].date);
+        let source = FixtureSource::new(HashMap::from([("NSE:QUIET".to_string(), history)]));
+        let mut req = request(
+            vec![
+                close_above(99.0),
+                RuleV1 {
+                    id: "prior_close".to_string(),
+                    expression: ExprV1::Field {
+                        field: OhlcvFieldV1::Close,
+                        lookback: 1,
+                    },
+                },
+                RuleV1 {
+                    id: "unready".to_string(),
+                    expression: ExprV1::Field {
+                        field: OhlcvFieldV1::Close,
+                        lookback: 1_002,
+                    },
+                },
+            ],
+            true,
+        );
+        req.evaluation.as_of_date = Some(as_of.clone());
+        let report = execute_scan(
+            &source,
+            &req,
+            &[target("QUIET")],
+            &AtomicBool::new(false),
+            ScanExecutionOptions::default(),
+            |_| {},
+        );
+        let coverage = report.outcomes[0]
+            .numeric_history_coverage
+            .as_ref()
+            .unwrap();
+        assert_eq!(coverage.input_bar_count, 1_001);
+        assert_eq!(coverage.input_last_date, as_of);
+        assert!(!coverage.older_input_unknown);
+        assert_eq!(coverage.rules.len(), 2);
+        for (rule, (expected_id, omitted)) in coverage
+            .rules
+            .iter()
+            .zip([("close_above", 1), ("prior_close", 0)])
+        {
+            assert_eq!(rule.rule_id, expected_id);
+            assert_eq!(rule.first_evaluated_date, first_date);
+            assert_eq!(rule.last_evaluated_date, as_of);
+            assert_eq!(rule.evaluated_endpoint_count, 1_000);
+            assert_eq!(rule.omitted_eligible_endpoint_count, omitted);
+        }
+    }
+
+    #[test]
+    fn nsr7_failed_target_omits_coverage_even_after_a_completed_numeric_rule() {
+        let source = FixtureSource::new(HashMap::from([(
+            "NSE:QUIET".to_string(),
+            dated_quiet_bars(25),
+        )]));
+        let report = execute_scan(
+            &source,
+            &request(
+                vec![close_above(99.0), issue131_close_near_high_rule()],
+                true,
+            ),
+            &[target("QUIET")],
+            &AtomicBool::new(false),
+            ScanExecutionOptions::default(),
+            |_| {},
+        );
+        assert_eq!(report.counts.failed, 1);
+        assert_eq!(report.outcomes[0].evaluated_history_endpoints, 25);
+        assert!(report.outcomes[0].numeric_history_coverage.is_none());
+    }
+
+    #[test]
+    fn nsr7_pattern_history_groups_adjacent_matches_across_the_first_page_seam() {
+        let mut history = dated_quiet_bars(MAX_WINDOW_BARS + 1);
+        // In the newest page, the first PATTERN_MAX_WINDOW_BARS bars provide context only.
+        let first_newer_endpoint = 1 + crate::native_scanner::patterns::PATTERN_MAX_WINDOW_BARS;
+        let last_older_endpoint = first_newer_endpoint - 1;
+        let first_date = format_date(history[last_older_endpoint].date);
+        let last_date = format_date(history[first_newer_endpoint].date);
+        // The older endpoint gaps up. The next quiet bar gaps back down. Both are neutral Common Gaps.
+        history[last_older_endpoint] = bar(history[last_older_endpoint].date, 104.0);
+        let source = FixtureSource::new(HashMap::from([("NSE:SEAM".to_string(), history)]));
+        let report = execute_scan(
+            &source,
+            &request(vec![pattern_rule("chart_common_gap")], true),
+            &[target("SEAM")],
+            &AtomicBool::new(false),
+            ScanExecutionOptions::default(),
+            |_| {},
+        );
+        assert_eq!(report.counts.failed, 0, "{:?}", report.diagnostics);
+        assert_eq!(report.outcomes[0].bars, MAX_WINDOW_BARS + 1);
+        assert!(report.outcomes[0].numeric_history_coverage.is_none());
+        assert_eq!(
+            report.outcomes[0].evaluated_history_endpoints,
+            MAX_WINDOW_BARS + 1 - 19
+        );
+        assert_eq!(report.matches.len(), 1);
+        let result = &report.matches[0];
+        assert_eq!(result.date, first_date);
+        let group = result.history.as_ref().unwrap();
+        assert_eq!(group.first_matched_date, first_date);
+        assert_eq!(group.last_matched_date, last_date);
+        assert_eq!(group.match_count, 2);
+        let loads = source.loads.lock().unwrap();
+        assert_eq!(loads.len(), 2);
+        assert_eq!(loads[0].2, None);
+        assert_eq!(loads[1].2.as_deref(), Some(first_date.as_str()));
+        assert!(loads
+            .iter()
+            .all(|(_, window, _, _)| *window == MAX_WINDOW_BARS));
     }
 
     struct InterruptedHistorySource {

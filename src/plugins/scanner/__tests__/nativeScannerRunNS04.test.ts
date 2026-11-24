@@ -6,6 +6,7 @@ import {
   describeNativeCapability,
   describeNativeUnsupportedScanners,
   formatNativeScannerStatus,
+  formatScannerCompletionStatus,
   runNativeOrTypeScriptScannerBatch,
 } from '@/plugins/scanner/nativeScannerRun';
 import type {
@@ -460,6 +461,7 @@ describe('NS-04 native run with TypeScript preservation', () => {
     expect(result.reasons).toEqual(['Gap of 8.9% above resistance']);
     expect(result.values).toEqual({ gap_pct: 8.9, resistance: 101 });
     expect(result.source).toBe('EODChartPatternScanner_v1');
+    expect(result.warnings).toEqual([]);
     const details = result.chartPattern;
     expect(details).toBeDefined();
     expect(details?.family).toBe('gap');
@@ -658,6 +660,54 @@ describe('NS-04 native run with TypeScript preservation', () => {
     expect(outcome.cancelled).toBe(true);
     expect(outcome.results).toEqual([]);
     expect(runTypeScript).not.toHaveBeenCalled();
+  });
+
+  it('reports numeric history coverage independently of match rows', () => {
+    const coverage = [
+      {
+        exchange: 'NSE',
+        symbol: 'AAA',
+        inputFirstDate: '2010-01-01',
+        inputLastDate: '2024-05-17',
+        inputBarCount: 5000,
+        olderInputUnknown: true,
+        rules: [{
+          ruleId: 'numeric-a',
+          firstEvaluatedDate: '2020-05-18',
+          lastEvaluatedDate: '2024-05-17',
+          evaluatedEndpointCount: 1000,
+          omittedEligibleEndpointCount: 3900,
+        }],
+      },
+      {
+        exchange: 'BSE',
+        symbol: 'BBB',
+        inputFirstDate: '2021-01-01',
+        inputLastDate: '2024-05-16',
+        inputBarCount: 900,
+        olderInputUnknown: false,
+        rules: [{
+          ruleId: 'numeric-b',
+          firstEvaluatedDate: '2021-01-01',
+          lastEvaluatedDate: '2024-05-16',
+          evaluatedEndpointCount: 900,
+          omittedEligibleEndpointCount: 0,
+        }],
+      },
+    ];
+    const outcome = {
+      ...tsOutput({ results: [] }),
+      backend: 'native' as const,
+      nativeCounts: { targets: 3, matched: 0, noMatch: 2, skipped: 1, failed: 0 },
+      numericHistoryCoverage: coverage,
+    };
+
+    const status = formatScannerCompletionStatus(outcome, 3);
+    expect(status).toContain('1900 rule endpoints across 2 target symbols from 2020-05-18 through 2024-05-17');
+    expect(status).toContain('3900 eligible rule endpoints were omitted within the loaded data');
+    expect(status).toContain('Older bars may exist for 1 of these target symbols');
+    expect(formatScannerCompletionStatus({ ...outcome, cancelled: true }, 3)).not.toContain('Numeric history');
+    expect(formatScannerCompletionStatus({ ...outcome, backend: 'typescript-fallback' }, 3)).not.toContain('Numeric history');
   });
 
   it('formats honest status text for both backends', () => {
