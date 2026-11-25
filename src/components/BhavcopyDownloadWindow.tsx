@@ -14,6 +14,7 @@ import type {
   OfficialHolidaySyncPreview,
 } from '@/types/desktop';
 import { useBhavcopyStore, type LogEntry } from '@/store/bhavcopyStore';
+import { activitySummaryText } from '@/features/bhavcopy/activityLog';
 import { useChartStore } from '@/store/chartStore';
 import { useUiStore } from '@/store/uiStore';
 import { useWindowStore } from '@/store/windowStore';
@@ -192,7 +193,7 @@ function filterLabel(filter: LogFilter) {
     case 'success':
       return 'Success';
     case 'warning':
-      return 'Skip';
+      return 'Skip / Warn';
     case 'error':
       return 'Fail';
     case 'info':
@@ -209,6 +210,8 @@ export function BhavcopyDownloadWindow({ onClose }: BhavcopyDownloadWindowProps)
   const requestingStop = activeBatch?.phase === 'stopQueued' || activeBatch?.phase === 'requestingStop';
   const stopping = activeBatch?.phase === 'stopping';
   const logs = useBhavcopyStore((state) => state.logs);
+  const activityLines = useBhavcopyStore((state) => state.activityLines);
+  const activitySummary = useBhavcopyStore((state) => state.activitySummary);
   const runSummary = useBhavcopyStore((state) => state.runSummary);
   const totalLogEntries = useBhavcopyStore((state) => state.totalLogEntries);
   const downloadProgress = useBhavcopyStore((state) => state.downloadProgress);
@@ -249,6 +252,7 @@ export function BhavcopyDownloadWindow({ onClose }: BhavcopyDownloadWindowProps)
   const [settingsLoaded, setSettingsLoaded] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [logFilter, setLogFilter] = useState<LogFilter>('all');
+  const [detailedLogs, setDetailedLogs] = useState(false);
   const [copySuccess, setCopySuccess] = useState(false);
   const [autoScroll, setAutoScroll] = useState(true);
   const [holidays, setHolidays] = useState<MarketHoliday[]>([]);
@@ -1160,16 +1164,36 @@ export function BhavcopyDownloadWindow({ onClose }: BhavcopyDownloadWindowProps)
       // Deduplicate against the current run, including results delivered as events.
       result.forEach(reportDownloadResult);
 
+      const rawSummary = batch.reconcileFinalResults(result);
+      const displaySummary = response.activity ? batch.setActivityReport(response.activity) : null;
       const { successCount, skippedCount, partialCount, failedCount: failCount,
-        totalRowsInserted: importedRows, calendarSkipCount } = batch.reconcileFinalResults(result);
-      if (failCount > 0) failure = `${failCount} download jobs failed.`;
+        totalRowsInserted: importedRows, calendarSkipCount } = rawSummary;
+      const actualDisplayFailures = displaySummary?.failedCount ?? failCount;
+      if (actualDisplayFailures > 0) failure = `${actualDisplayFailures} download jobs failed.`;
+      if (response.activity) {
+        const presented = new Set(response.activity.entries.map((entry) => `${entry.exchange}::${entry.tradeDate}`));
+        const unrepresentedFailure = result.some((entry) => !entry.diagnostic && !entry.success
+          && entry.outcome !== 'partialCoverage' && entry.outcome !== 'confirmedAbsent' && entry.outcome !== 'cancelled'
+          && !presented.has(`${entry.exchange}::${entry.tradeDate}`));
+        if (unrepresentedFailure && !failure) {
+          failure = 'An outcome could not be presented; inspect Detailed Logs.';
+          addLog('error', failure);
+        }
+      }
       if (!failure && result.some((entry) => entry.diagnostic && entry.exchange === 'BHAVCOPY' && !entry.success)) {
         failure = 'An import operation failed; inspect the recovery evidence and log.';
       }
       addLog(
         'info',
-        `${cancelled ? 'Download cancelled' : 'Download complete'}: ${successCount} success, ${skippedCount} skipped, ${partialCount} incomplete, ${failCount} failed, ${calendarSkipCount} calendar skips, imported rows: ${importedRows}`,
+        `${displaySummary ? `Raw source results (prefiltered dates excluded)${cancelled ? ' — cancelled' : ''}` : cancelled ? 'Download cancelled' : 'Download complete'}: ${successCount} success, ${skippedCount} skipped, ${partialCount} incomplete, ${failCount} failed, ${calendarSkipCount} calendar skips, imported rows: ${importedRows}`,
+        displaySummary ? { detailOnly: true, category: 'summary' } : { category: 'summary' },
       );
+      if (displaySummary) {
+        addLog('info', activitySummaryText(displaySummary, cancelled), { normalOnly: true, category: 'summary' });
+        if (!cancelled && response.noNewQuotationWrites === true) {
+          addLog('info', 'No new quotation writes in this download — no new checkpoint required', { category: 'durability' });
+        }
+      }
     } catch (error) {
       failure = getErrorMessage(error);
       addLog('error', failure);
@@ -1185,18 +1209,35 @@ export function BhavcopyDownloadWindow({ onClose }: BhavcopyDownloadWindowProps)
     }
   };
   const selectedExchangesCount = Object.values(config.exchanges).filter(Boolean).length;
-  const { skippedCount, successCount, failedCount, partialCount, totalRowsInserted, completedCount, calendarSkipCount } = runSummary;
+  const normalSummary = activitySummary;
+  const { skippedCount, successCount, failedCount, partialCount, totalRowsInserted, completedCount, calendarSkipCount } = normalSummary ?? runSummary;
+  const pendingCount = normalSummary?.pendingCount ?? 0;
+  const unresolvedCount = normalSummary?.unresolvedCount ?? 0;
+  const existingCount = normalSummary?.existingCount ?? 0;
   const runStatus = stopping ? 'Stopping...' : requestingStop ? 'Requesting stop...'
     : isDownloading ? 'Running' : batchOutcome === 'cancelled' ? 'Cancelled'
     : batchOutcome === 'failed' ? 'Stopped With Errors' : batchOutcome === 'completed'
-      ? (partialCount > 0 ? 'Completed With Incomplete Coverage' : 'Completed') : 'Idle';
+      ? (partialCount > 0 || pendingCount > 0 || unresolvedCount > 0 ? 'Completed With Unresolved Coverage' : 'Completed') : 'Idle';
+  const visibleLogs = useMemo(() => {
+    if (detailedLogs) return logs.filter((log) => !log.normalOnly);
+    // Failed/legacy runs without a terminal report retain original diagnostics.
+    if (!isDownloading && !activitySummary) return logs.filter((log) => !log.normalOnly);
+    const normal = logs.filter((log) => !log.detailOnly);
+    return [
+      ...normal.filter((log) => !log.category),
+      ...activityLines,
+      ...normal.filter((log) => log.category === 'summary'),
+      ...normal.filter((log) => log.category === 'durability'),
+    ];
+  }, [detailedLogs, isDownloading, activitySummary, activityLines, logs]);
   const filteredLogs = useMemo(() => {
-    if (logFilter === 'all') return logs;
-    return logs.filter((log) => log.level === logFilter);
-  }, [logFilter, logs]);
-  const logCountLabel = filteredLogs.length === totalLogEntries
-    ? `${totalLogEntries} entries`
-    : `${filteredLogs.length} shown / ${totalLogEntries} entries`;
+    if (logFilter === 'all') return visibleLogs;
+    return visibleLogs.filter((log) => log.level === logFilter || (logFilter === 'warning' && log.label === 'SKIP'));
+  }, [logFilter, visibleLogs]);
+  const logCountLabel = detailedLogs && totalLogEntries > logs.length
+    ? `${filteredLogs.length} shown / ${totalLogEntries} recorded entries`
+    : filteredLogs.length === visibleLogs.length ? `${visibleLogs.length} entries`
+      : `${filteredLogs.length} shown / ${visibleLogs.length} entries`;
 
   useEffect(() => {
     if (!autoScroll) return;
@@ -1207,7 +1248,7 @@ export function BhavcopyDownloadWindow({ onClose }: BhavcopyDownloadWindowProps)
 
   const copyLogToClipboard = () => {
     if (filteredLogs.length === 0) return;
-    const logText = filteredLogs.map((log) => `[${log.time}] ${logLevelText(log.level, log.message)}: ${log.message}`).join('\n');
+    const logText = filteredLogs.map((log) => `[${log.time}] ${log.label ?? logLevelText(log.level, log.message)}: ${log.message}`).join('\n');
     navigator.clipboard.writeText(logText).then(() => {
       setCopySuccess(true);
       window.setTimeout(() => setCopySuccess(false), 2000);
@@ -1423,6 +1464,8 @@ export function BhavcopyDownloadWindow({ onClose }: BhavcopyDownloadWindowProps)
                   <span style={{ ...statValueStyle, ...(skippedCount > 0 ? statSkippedValueStyle : null) }}>{skippedCount}</span>
                   <span style={statLabelStyle}>Skip</span>
                 </div>
+                {normalSummary && existingCount > 0 && <div style={statStyle}><span style={statValueStyle}>{existingCount}</span><span style={statLabelStyle}>Existing</span></div>}
+                {pendingCount > 0 && <div style={statStyle}><span style={statValueStyle}>{pendingCount}</span><span style={statLabelStyle}>Pending</span></div>}
                 {partialCount > 0 && (
                   <div style={statStyle}>
                     <span style={{ ...statValueStyle, ...statSkippedValueStyle }}>{partialCount}</span>
@@ -1451,6 +1494,10 @@ export function BhavcopyDownloadWindow({ onClose }: BhavcopyDownloadWindowProps)
                 ))}
               </div>
               <div style={logToolbarActionsStyle}>
+                <label style={autoScrollLabelStyle}>
+                  <input type="checkbox" checked={detailedLogs} onChange={(event) => setDetailedLogs(event.target.checked)} />
+                  Detailed Logs
+                </label>
                 <label style={autoScrollLabelStyle}>
                   <input
                     type="checkbox"
@@ -1483,7 +1530,7 @@ export function BhavcopyDownloadWindow({ onClose }: BhavcopyDownloadWindowProps)
                       ...(log.level === 'warning' || log.level === 'incomplete' ? logEntryWarningStyle : null),
                     }}
                   >
-                    [{log.time}] {logLevelText(log.level, log.message)}: {log.message}
+                    [{log.time}] {log.label ?? logLevelText(log.level, log.message)}: {log.message}
                   </div>
                 ))
               )}
@@ -1513,11 +1560,14 @@ export function BhavcopyDownloadWindow({ onClose }: BhavcopyDownloadWindowProps)
             ) : completedCount > 0 || calendarSkipCount > 0 ? (
               <>
                 <span style={{ color: 'var(--green-text)' }}>
-                  Imported {successCount + partialCount}
+                  Imported {successCount}
                   {partialCount > 0 ? ` (${partialCount} partial)` : ''}
                 </span>
                 <span style={{ color: 'var(--text-dim)' }}>Skipped {skippedCount}</span>
-                {calendarSkipCount > 0 && <span style={{ color: 'var(--text-dim)' }}>Calendar skips {calendarSkipCount}</span>}
+                {normalSummary && existingCount > 0 && <span style={{ color: 'var(--text-dim)' }}>Existing {existingCount}</span>}
+                {pendingCount > 0 && <span style={{ color: 'var(--text-dim)' }}>Pending {pendingCount}</span>}
+                {unresolvedCount > 0 && <span style={{ color: 'var(--text-dim)' }}>Unresolved {unresolvedCount}</span>}
+                {calendarSkipCount > 0 && <span style={{ color: 'var(--text-dim)' }}>{normalSummary ? 'Of which calendar' : 'Calendar skips'} {calendarSkipCount}</span>}
                 <span style={{ color: 'var(--red-text)' }}>
                   Fail {failedCount}
                 </span>

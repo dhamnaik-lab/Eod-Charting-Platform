@@ -1395,6 +1395,11 @@ pub(crate) fn spawn_background_bhavcopy_checkpoint(
                 "bhavcopy-background-checkpoint-error",
                 Some(&error),
             );
+            emit_progress(
+                &app_handle,
+                100,
+                format!("Background checkpoint error: {error}"),
+            );
         }
     });
 }
@@ -1489,6 +1494,7 @@ pub(crate) fn checkpoint_pending_buffered_sessions_background(
                         checkpoint.sync_max_us
                     )),
                 );
+                remove_checkpointed_session(&handle)?;
                 emit_progress(
                     app_handle,
                     100,
@@ -1506,7 +1512,6 @@ pub(crate) fn checkpoint_pending_buffered_sessions_background(
                         checkpoint.workers
                     ),
                 );
-                remove_checkpointed_session(&handle)?;
                 completed_sessions += 1;
             }
             Err(error) => {
@@ -1823,7 +1828,7 @@ pub(super) fn import_staged_csv_downloads(
     config: &BatchDownloadConfig,
     write_lock: &Mutex<()>,
     stop: &super::BatchStop,
-) -> AppResult<Vec<DownloadResult>> {
+) -> AppResult<(Vec<DownloadResult>, bool)> {
     let parse_started = Instant::now();
     let mut parsed_files = Vec::<ParsedBhavcopyFile>::new();
     let mut results = Vec::<DownloadResult>::new();
@@ -1957,6 +1962,10 @@ pub(super) fn import_staged_csv_downloads(
 
     // After journal preparation begins, finish the entire symbol-batched
     // import and its recovery transitions before observing another stop.
+    // True only when admission and additive filtering leave no files to pass
+    // into journal preparation / the quotation writer. Zero inserted rows alone
+    // cannot prove this: an existing quotation might have been replaced.
+    let no_quotation_write_path = parsed_files.is_empty();
     if !parsed_files.is_empty() && !stop.is_requested() {
         // The final admission pass was previously performed inside the writer.
         // Run it before preparing the journal, then reuse its exact masks for
@@ -2356,6 +2365,11 @@ pub(super) fn import_staged_csv_downloads(
                         )),
                     );
                     remove_checkpointed_session(&recovery_session)?;
+                    emit_progress(
+                        app_handle,
+                        80,
+                        "Bhavcopy immediate checkpoint complete".to_string(),
+                    );
                 }
             }
             Err(error) => {
@@ -2400,7 +2414,7 @@ pub(super) fn import_staged_csv_downloads(
         super::index_fallback::save_evidence(database_file_path, "import-result", &evidence)?;
     }
 
-    Ok(results)
+    Ok((results, no_quotation_write_path))
 }
 
 pub(crate) fn lock_bhavcopy_write(write_lock: &Mutex<()>) -> AppResult<MutexGuard<'_, ()>> {

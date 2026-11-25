@@ -47,6 +47,7 @@ pub mod settings;
 pub use settings::*;
 pub mod bse_price_history;
 pub use bse_price_history::{cancel_bse_price_history_download, download_bse_price_history};
+mod activity_report;
 mod batch_runtime;
 mod bse_browser_fallback;
 mod index_fallback;
@@ -161,6 +162,17 @@ pub enum BatchStopReply {
 pub struct TrackedBhavcopyBatchResult {
     cancelled: bool,
     results: Vec<DownloadResult>,
+    activity: activity_report::ActivityReport,
+    no_new_quotation_writes: bool,
+}
+
+// Preserve the original returned outcomes for coverage, legacy callers and diagnostics.
+// Prefiltered dates are carried separately for display only.
+struct BatchRunReport {
+    results: Vec<DownloadResult>,
+    prefiltered: Vec<DownloadResult>,
+    clock: activity_report::ActivityClock,
+    no_new_quotation_writes: bool,
 }
 
 #[tauri::command]
@@ -214,25 +226,42 @@ fn run_bhavcopy_batch(
     database_file_path: crate::database::database_use::DatabasePath,
     config: BatchDownloadConfig,
     stop: &BatchStop,
-) -> AppResult<Vec<DownloadResult>> {
+) -> AppResult<BatchRunReport> {
     let started_at = Instant::now();
+    let clock = activity_report::ActivityClock::now();
     if stop.is_requested() {
-        return Ok(Vec::new());
+        return Ok(BatchRunReport {
+            results: Vec::new(),
+            prefiltered: Vec::new(),
+            clock,
+            no_new_quotation_writes: false,
+        });
     }
     let normalized_config = normalize_batch_config(config)?;
     let _price_store_operation_permit =
         try_acquire_price_store_operation(PriceStoreOperationKind::BhavcopyWrite)?;
     if stop.is_requested() {
-        return Ok(Vec::new());
+        return Ok(BatchRunReport {
+            results: Vec::new(),
+            prefiltered: Vec::new(),
+            clock,
+            no_new_quotation_writes: false,
+        });
     }
     recover_pending_bhavcopy_sessions(&app_handle, &database_file_path)?;
     if stop.is_requested() {
-        return Ok(Vec::new());
+        return Ok(BatchRunReport {
+            results: Vec::new(),
+            prefiltered: Vec::new(),
+            clock,
+            no_new_quotation_writes: false,
+        });
     }
     let connection = open_database_connection(&database_file_path)?;
     let BatchPlan {
         info_messages,
         calendar_skip_results,
+        prefiltered_results,
         tasks,
     } = build_batch_plan(&connection, &normalized_config)?;
     log_runtime_event(
@@ -263,10 +292,10 @@ fn run_bhavcopy_batch(
         &app_handle,
         0,
         if calendar_skip_results.is_empty() {
-            format!("Found {active_trading_days} trading days")
+            format!("Found {active_trading_days} eligible download dates")
         } else {
             format!(
-                "Found {active_trading_days} active trading days ({} non-trading calendar days logged)",
+                "Found {active_trading_days} eligible download dates ({} calendar-skipped exchange/date pairs)",
                 calendar_skip_results.len()
             )
         },
@@ -284,7 +313,12 @@ fn run_bhavcopy_batch(
     }
 
     if stop.is_requested() {
-        return Ok(calendar_skip_results);
+        return Ok(BatchRunReport {
+            results: calendar_skip_results,
+            prefiltered: prefiltered_results,
+            clock,
+            no_new_quotation_writes: false,
+        });
     }
     if tasks.is_empty() {
         let imported_rows = calendar_skip_results
@@ -305,7 +339,12 @@ fn run_bhavcopy_batch(
                 started_at.elapsed().as_millis()
             )),
         );
-        return Ok(calendar_skip_results);
+        return Ok(BatchRunReport {
+            results: calendar_skip_results,
+            prefiltered: prefiltered_results,
+            clock,
+            no_new_quotation_writes: true,
+        });
     }
 
     let client = create_http_client()?;
@@ -512,6 +551,7 @@ fn run_bhavcopy_batch(
         }
     }
 
+    let mut csv_no_write = staged_csv_downloads.is_empty();
     if !staged_csv_downloads.is_empty() && !stop.is_requested() {
         emit_progress(
             &app_handle,
@@ -531,7 +571,10 @@ fn run_bhavcopy_batch(
                 stop,
             )
         })) {
-            Ok(Ok(results)) => results,
+            Ok(Ok((results, no_write))) => {
+                csv_no_write = no_write;
+                results
+            }
             Ok(Err(error)) => vec![failed_download_result("BHAVCOPY", "staged-csv", error)
                 .with_outcome(DownloadOutcome::ImportError)],
             Err(_) => vec![failed_download_result(
@@ -667,7 +710,41 @@ fn run_bhavcopy_batch(
             started_at.elapsed().as_millis()
         )),
     );
-    Ok(combined_results)
+    let no_new_quotation_writes = can_report_no_new_quotation_writes(
+        csv_no_write,
+        other_total,
+        stop.is_requested(),
+        &combined_results,
+    );
+    Ok(BatchRunReport {
+        results: combined_results,
+        prefiltered: prefiltered_results,
+        clock,
+        no_new_quotation_writes,
+    })
+}
+
+// Reporting only: require positive control-flow evidence that neither import
+// writer ran. Be conservative for cancellations, failures and unknown paths.
+fn can_report_no_new_quotation_writes(
+    csv_no_write: bool,
+    other_total: usize,
+    cancelled: bool,
+    results: &[DownloadResult],
+) -> bool {
+    csv_no_write
+        && other_total == 0
+        && !cancelled
+        && results.iter().all(|result| {
+            result.rows_inserted == 0
+                && !matches!(
+                    result.outcome,
+                    DownloadOutcome::Imported
+                        | DownloadOutcome::ImportError
+                        | DownloadOutcome::WorkerError
+                        | DownloadOutcome::Cancelled
+                )
+        })
 }
 
 fn finalize_planned_jobs(
@@ -825,10 +902,15 @@ fn refresh_after_import(app: &AppHandle, database_file_path: &Path) -> AppResult
 fn finish_batch_progress(
     app: &AppHandle,
     database_file_path: &Path,
-    results: AppResult<Vec<DownloadResult>>,
+    results: AppResult<BatchRunReport>,
     cancelled: bool,
 ) -> AppResult<TrackedBhavcopyBatchResult> {
-    let results = results?;
+    let BatchRunReport {
+        results,
+        prefiltered,
+        clock,
+        no_new_quotation_writes,
+    } = results?;
     if !cancelled {
         let calendar_skips = results
             .iter()
@@ -850,7 +932,14 @@ fn finish_batch_progress(
             emit_progress(app, 100, line);
         }
     }
-    Ok(TrackedBhavcopyBatchResult { cancelled, results })
+    let activity =
+        activity_report::build_report(database_file_path, &results, &prefiltered, &clock);
+    Ok(TrackedBhavcopyBatchResult {
+        cancelled,
+        results,
+        activity,
+        no_new_quotation_writes: no_new_quotation_writes && !cancelled,
+    })
 }
 
 /// Annotate only explicit source-absence outcomes with saved calendar context.
@@ -899,6 +988,7 @@ fn no_data_annotation_line(
 fn build_batch_plan(connection: &Connection, config: &BatchDownloadConfig) -> AppResult<BatchPlan> {
     let mut info_messages = Vec::<String>::new();
     let mut calendar_skip_results = Vec::<DownloadResult>::new();
+    let mut prefiltered_results = Vec::<DownloadResult>::new();
     let mut tasks = Vec::<DownloadTask>::new();
 
     for exchange in selected_exchanges(&config.exchanges) {
@@ -1001,6 +1091,14 @@ fn build_batch_plan(connection: &Connection, config: &BatchDownloadConfig) -> Ap
             // replaced by the source row.
             if !config.force_redownload && imported_dates.dates.contains(&trade_date) {
                 skipped_existing_days += 1;
+                prefiltered_results.push(
+                    skipped_download_result(
+                        &exchange,
+                        &trade_date,
+                        "Already imported (planner prefilter)",
+                    )
+                    .with_outcome(DownloadOutcome::AlreadyPresent),
+                );
                 continue;
             }
 
@@ -1090,6 +1188,7 @@ fn build_batch_plan(connection: &Connection, config: &BatchDownloadConfig) -> Ap
     Ok(BatchPlan {
         info_messages,
         calendar_skip_results,
+        prefiltered_results,
         tasks,
     })
 }
