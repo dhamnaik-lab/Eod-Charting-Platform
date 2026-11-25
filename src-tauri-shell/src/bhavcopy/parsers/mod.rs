@@ -36,7 +36,9 @@ pub struct ParsedBhavcopyFile {
     pub debug: Option<String>,
 }
 
-pub fn find_duplicate_symbol_date_rows(parsed_files: &[ParsedBhavcopyFile]) -> (usize, Vec<String>) {
+pub fn find_duplicate_symbol_date_rows(
+    parsed_files: &[ParsedBhavcopyFile],
+) -> (usize, Vec<String>) {
     let mut seen = HashSet::<(String, String, String)>::new();
     let mut duplicate_rows = 0_usize;
     let mut samples = Vec::<String>::new();

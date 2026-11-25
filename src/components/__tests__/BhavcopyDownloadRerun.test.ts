@@ -124,4 +124,15 @@ describe('Bhavcopy command results on repeated downloads', () => {
     expect(stops).toEqual([null]);
   });
 
+  it('does not fail an imported batch when only chart refresh fails', async () => {
+    const results: DownloadResult[] = [
+      { exchange: 'NSE', tradeDate: '2011-01-03', success: true, rowsInserted: 5, message: 'Imported', outcome: 'imported' },
+      { exchange: 'BHAVCOPY', tradeDate: 'chart-refresh', success: true, rowsInserted: 0,
+        message: 'Prices retained; chart refresh failed', outcome: 'reportingWarning', diagnostic: true },
+    ];
+    const stops: Array<string | null> = [];
+    await downloadHandler(results, stops)();
+    expect(stops).toEqual([null]);
+    expect(useBhavcopyStore.getState().runSummary).toMatchObject({ successCount: 1, failedCount: 0, completedCount: 1, totalRowsInserted: 5 });
+  });
 });

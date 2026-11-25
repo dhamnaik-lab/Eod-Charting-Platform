@@ -549,6 +549,9 @@ fn partial_log_does_not_certify_day_but_preserves_forward_update_window() {
     upsert_download_log_entry(
         &conn,
         &DownloadResult {
+            outcome: DownloadOutcome::PartialCoverage,
+            diagnostic: false,
+            follow_up_warning: None,
             success: true,
             trade_date: "2011-01-03".into(),
             exchange: "NSE_INDEX".into(),
@@ -604,6 +607,9 @@ fn hybrid_checks_binary_only_alias_history_and_preserves_progress_after_conflict
     assert!(candidate[0].rows.is_empty());
     assert_eq!(fs::read(&path).unwrap(), before);
     let result = DownloadResult {
+        outcome: DownloadOutcome::PartialCoverage,
+        diagnostic: false,
+        follow_up_warning: None,
         success: true,
         trade_date: "2011-01-03".into(),
         exchange: "NSE_INDEX".into(),

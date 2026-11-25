@@ -73,7 +73,10 @@ pub fn generate_bse_candidates(date: NaiveDate, url_override: Option<&String>) -
     candidates
 }
 
-pub fn generate_bse_index_candidates(date: NaiveDate, url_override: Option<&String>) -> Vec<Candidate> {
+pub fn generate_bse_index_candidates(
+    date: NaiveDate,
+    url_override: Option<&String>,
+) -> Vec<Candidate> {
     let mut candidates = Vec::new();
 
     if let Some(template) = url_override {

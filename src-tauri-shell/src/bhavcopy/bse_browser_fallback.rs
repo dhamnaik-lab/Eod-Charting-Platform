@@ -5,7 +5,7 @@ use super::{
     calendar::parse_trade_date,
     parsers::{extract_first_csv_from_zip, normalize_bse_index_archive_json},
     sources::{generate_bse_candidates, generate_bse_index_candidates},
-    transport::{is_html_response, normalize_bse_api_filename},
+    transport::{is_html_response, parse_bse_api_filename},
     types::*,
 };
 use serde_json::Value;
@@ -173,42 +173,9 @@ fn filename_url(
     name: &str,
     trade_date: &str,
 ) -> Result<(String, Payload), String> {
-    let filename = normalize_bse_api_filename(key, name.trim());
-    if filename.is_empty()
-        || !filename
-            .bytes()
-            .all(|c| c.is_ascii_alphanumeric() || matches!(c, b'_' | b'-' | b'.'))
-        || filename.contains("..")
-    {
-        return Err("BSE API returned an unsafe filename; browser fallback refused it.".into());
-    }
-    let lower = filename.to_ascii_lowercase();
-    let date = parse_trade_date(trade_date)?;
-    if ![
-        date.format("%Y%m%d").to_string(),
-        date.format("%d%m%Y").to_string(),
-        date.format("%d%m%y").to_string(),
-    ]
-    .iter()
-    .any(|token| filename.contains(token))
-    {
-        return Err("BSE API filename does not match the requested trading date.".into());
-    }
-    let kind = if lower.ends_with(".zip") {
-        Payload::Zip
-    } else if lower.ends_with(".csv") {
-        Payload::Csv
-    } else {
-        return Err("BSE API filename is not a CSV/ZIP source.".into());
-    };
-    if !matches!(
-        base,
-        "https://www.bseindia.com/download/BhavCopy/Equity/"
-            | "https://www.bseindia.com/bsedata/Index_Bhavcopy/"
-    ) {
-        return Err("Unapproved BSE download base.".into());
-    }
-    Ok((format!("{base}{filename}"), kind))
+    let (url, zipped) = super::transport::validated_bse_filename_url(base, key, name, trade_date)?;
+    let kind = if zipped { Payload::Zip } else { Payload::Csv };
+    Ok((url, kind))
 }
 
 fn fetch_candidate(
@@ -221,6 +188,9 @@ fn fetch_candidate(
         kind: payload(candidate),
     })?
     else {
+        if candidate.bse_download_base.is_some() {
+            return Err("BSE browser filename discovery endpoint returned HTTP 404.".into());
+        }
         return Ok(None);
     };
     let Some(base) = candidate.bse_download_base else {
@@ -229,17 +199,13 @@ fn fetch_candidate(
     let key = candidate
         .bse_response_key
         .ok_or("BSE source is missing its response key.")?;
-    let value: Value = serde_json::from_slice(&bytes).map_err(|e| e.to_string())?;
-    let Some(name) = value[key]
-        .as_array()
-        .and_then(|a| a.first())
-        .and_then(|r| r["filename"].as_str())
-        .filter(|s| !s.trim().is_empty())
-    else {
+    let Some(name) = parse_bse_api_filename(&bytes, key)? else {
         return Ok(None);
     };
-    let (url, kind) = filename_url(base, key, name, trade_date)?;
-    fetch(RequestScope { url, kind })
+    let (url, kind) = filename_url(base, key, &name, trade_date)?;
+    fetch(RequestScope { url, kind })?
+        .map(Some)
+        .ok_or_else(|| "BSE browser API referenced a file that returned HTTP 404.".to_string())
 }
 
 fn decode(
@@ -253,7 +219,7 @@ fn decode(
     let zipped = candidate.zipped || bytes.starts_with(b"PK\x03\x04");
     let content = if zipped {
         let Some(csv) = extract_first_csv_from_zip(bytes)? else {
-            return Ok(None);
+            return Err("BSE browser ZIP did not contain readable CSV/TXT data.".into());
         };
         csv
     } else {
@@ -321,9 +287,11 @@ impl BrowserFallback {
     ) -> Result<Option<StagedDownload>, String> {
         self.recover_with(app, task, worker_stop.clone(), |scope| {
             // Let a browser request already in flight finish normally.
-            user_stop.run_if_active(|| {
-                browser_response(collect_official(app.clone(), scope, worker_stop.clone()))
-            }).unwrap_or(Ok(None))
+            user_stop
+                .run_if_active(|| {
+                    browser_response(collect_official(app.clone(), scope, worker_stop.clone()))
+                })
+                .unwrap_or(Ok(None))
         })
     }
 
@@ -354,7 +322,26 @@ impl BrowserFallback {
             let result =
                 fetch_candidate(&candidate, &task.trade_date, &mut fetch).and_then(|bytes| {
                     match bytes {
-                        Some(bytes) => decode(&candidate, &bytes, task),
+                        Some(bytes) => {
+                            let decoded = decode(&candidate, &bytes, task)?;
+                            if let Some(csv) = &decoded {
+                                let parsed = super::parse_bhavcopy_csv(
+                                    csv,
+                                    &task.exchange,
+                                    &task.trade_date,
+                                    &[],
+                                )?;
+                                if let Some(debug) = parsed.debug {
+                                    return Err(debug);
+                                }
+                                if parsed.rows.is_empty() {
+                                    return Err(
+                                        "BSE browser candidate contains no usable rows.".into()
+                                    );
+                                }
+                            }
+                            Ok(decoded)
+                        }
                         None => Ok(None),
                     }
                 });

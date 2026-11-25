@@ -698,6 +698,9 @@ pub(crate) fn import_staged_download(
             if parsed.rows_inserted == 0 {
                 if let Some(debug) = parsed.debug {
                     return Ok(DownloadResult {
+                        outcome: DownloadOutcome::ImportError,
+                        diagnostic: false,
+                        follow_up_warning: None,
                         success: false,
                         trade_date: staged.task.trade_date,
                         exchange: staged.task.exchange,
@@ -729,6 +732,13 @@ pub(crate) fn import_staged_download(
                 )
             };
             let result = DownloadResult {
+                outcome: if parsed.admission.conflicted == 0 {
+                    DownloadOutcome::Imported
+                } else {
+                    DownloadOutcome::PartialCoverage
+                },
+                diagnostic: false,
+                follow_up_warning: None,
                 success: parsed.admission.conflicted == 0,
                 trade_date: staged.task.trade_date,
                 exchange: staged.task.exchange,
@@ -739,7 +749,7 @@ pub(crate) fn import_staged_download(
             if should_write_download_log(&result) {
                 let _write_guard = lock_bhavcopy_write(write_lock)?;
                 let connection = super::batch_runtime::open_staging_connection(database_file_path)?;
-                upsert_download_log_entry(&connection, &result)?;
+                upsert_batch_download_log_entry(&connection, &result)?;
             }
             Ok(result)
         }
@@ -769,6 +779,9 @@ pub(crate) fn import_staged_download(
             };
 
             Ok(DownloadResult {
+                outcome: DownloadOutcome::Imported,
+                diagnostic: false,
+                follow_up_warning: None,
                 success: true,
                 trade_date: staged.task.trade_date,
                 exchange: staged.task.exchange,
@@ -811,6 +824,7 @@ fn prepare_recovery_session(
     let mut symbols = HashSet::<(String, String)>::new();
     let mut rows = Vec::<RecoveryJournalRow>::new();
     let mut jobs = Vec::<RecoveryJobSummary>::new();
+    let mut binary_records = HashMap::<String, HashMap<String, Vec<BhavcopyBinaryRecord>>>::new();
     for parsed in parsed_files {
         jobs.push(RecoveryJobSummary {
             exchange: parsed.exchange.clone(),
@@ -820,7 +834,30 @@ fn prepare_recovery_session(
         });
         for row in &parsed.rows {
             symbols.insert((parsed.exchange.clone(), row.symbol.clone()));
+            // Keep the original journal order and SQL-facing source fields. The
+            // index here identifies a journal row rather than a parsed file.
+            binary_records
+                .entry(parsed.exchange.clone())
+                .or_default()
+                .entry(row.symbol.clone())
+                .or_default()
+                .push(BhavcopyBinaryRecord {
+                    file_index: rows.len(),
+                    record: row.binary_record,
+                });
             rows.push(recovery_row_from_parsed(&parsed.exchange, row));
+        }
+    }
+
+    // Use exactly the same stable per-symbol sorting and previous-close
+    // normalization as the binary writer, before persisting the journal.
+    // Only the encoded binary value changes; source/SQLite prev_close stays
+    // untouched. Do not weaken the subsequent exact byte comparisons.
+    for symbol_records in sort_bhavcopy_binary_records(binary_records).into_values() {
+        for records in symbol_records.into_values() {
+            for record in records {
+                rows[record.file_index].binary_prev_close = record.record.prev_close;
+            }
         }
     }
 
@@ -1718,6 +1755,9 @@ pub(crate) fn recover_pending_bhavcopy_sessions(
                     .map(|job| job.row_count)
                     .unwrap_or(parsed.rows.len());
                 let log_result = DownloadResult {
+                    outcome: DownloadOutcome::Imported,
+                    diagnostic: false,
+                    follow_up_warning: None,
                     success: true,
                     trade_date: parsed.trade_date.clone(),
                     exchange: parsed.exchange.clone(),
@@ -1805,6 +1845,9 @@ pub(super) fn import_staged_csv_downloads(
             Ok(parsed) => {
                 if let Some(debug) = parsed.debug.as_ref() {
                     results.push(DownloadResult {
+                        outcome: DownloadOutcome::ImportError,
+                        diagnostic: false,
+                        follow_up_warning: None,
                         success: false,
                         trade_date: staged.task.trade_date,
                         exchange: staged.task.exchange,
@@ -1818,11 +1861,10 @@ pub(super) fn import_staged_csv_downloads(
                 }
             }
             Err(error) => {
-                results.push(failed_download_result(
-                    &staged.task.exchange,
-                    &staged.task.trade_date,
-                    error,
-                ));
+                results.push(
+                    failed_download_result(&staged.task.exchange, &staged.task.trade_date, error)
+                        .with_outcome(DownloadOutcome::ImportError),
+                );
             }
         }
     }
@@ -1856,6 +1898,13 @@ pub(super) fn import_staged_csv_downloads(
         }
         let report = &security_reports[&(file.exchange.clone(), file.trade_date.clone())];
         results.push(DownloadResult {
+            outcome: if report.conflicted == 0 {
+                DownloadOutcome::AlreadyPresent
+            } else {
+                DownloadOutcome::PartialCoverage
+            },
+            diagnostic: false,
+            follow_up_warning: None,
             success: report.conflicted == 0,
             exchange: file.exchange.clone(),
             trade_date: file.trade_date.clone(),
@@ -1894,6 +1943,9 @@ pub(super) fn import_staged_csv_downloads(
             if file.exchange != "NSE_INDEX" || !file.rows.is_empty() { return true; }
             let outcome = &index_outcomes[&file.trade_date];
             results.push(DownloadResult {
+                outcome: DownloadOutcome::PartialCoverage,
+                diagnostic: false,
+                follow_up_warning: None,
                 success: outcome.conflicts == 0 && outcome.invalid == 0,
                 exchange: file.exchange.clone(), trade_date: file.trade_date.clone(),
                 rows_inserted: 0, max_volume: 0,
@@ -1906,8 +1958,14 @@ pub(super) fn import_staged_csv_downloads(
     // After journal preparation begins, finish the entire symbol-batched
     // import and its recovery transitions before observing another stop.
     if !parsed_files.is_empty() && !stop.is_requested() {
+        // The final admission pass was previously performed inside the writer.
+        // Run it before preparing the journal, then reuse its exact masks for
+        // the write so a later re-admission cannot change the journal row set.
+        let write_admission = super::security_admission::admit(database_file_path, &parsed_files)?;
+        let journal_files =
+            super::security_admission::filter_files(&parsed_files, &write_admission);
         let (mut recovery_session, state_shadow_stats, baseline_fast_path_stats) =
-            prepare_bhavcopy_recovery_session(database_file_path, config, &parsed_files)?;
+            prepare_bhavcopy_recovery_session(database_file_path, config, &journal_files)?;
         emit_progress(
             app_handle,
             71,
@@ -1977,13 +2035,13 @@ pub(super) fn import_staged_csv_downloads(
         let mut deferred_append_syncs = 0_usize;
         let protected_import = (|| -> AppResult<()> {
             let _write_guard = lock_bhavcopy_write(write_lock)?;
-            let (parsed_results, insert_timing) =
-                insert_parsed_bhavcopy_files_with_durability_and_recovery_baselines(
-                    database_file_path,
-                    &parsed_files,
-                    BinaryWriteDurability::RecoveryJournalBuffered,
-                    Some(&recovery_session.manifest.binary_baselines),
-                )?;
+            let (parsed_results, insert_timing) = insert_admitted_bhavcopy_files(
+                database_file_path,
+                &parsed_files,
+                BinaryWriteDurability::RecoveryJournalBuffered,
+                Some(&recovery_session.manifest.binary_baselines),
+                write_admission,
+            )?;
             deferred_append_syncs = insert_timing.binary_diagnostics.deferred_sync_calls;
             if insert_timing.binary_errors > 0 {
                 return Err(format!(
@@ -2161,7 +2219,7 @@ pub(super) fn import_staged_csv_downloads(
             let connection = open_database_connection(database_file_path)?;
             let log_write_started = Instant::now();
             let mut log_entries_written = 0_usize;
-            for (parsed, parsed_result) in parsed_files.iter().zip(parsed_results) {
+            for (parsed, parsed_result) in journal_files.iter().zip(parsed_results) {
                 let records_written = parsed_result.rows_inserted + parsed_result.rows_replaced;
                 let mut message = if records_written == 0 && !parsed.rows.is_empty() {
                     format!(
@@ -2199,6 +2257,13 @@ pub(super) fn import_staged_csv_downloads(
                         parsed_result.rows_inserted, outcome.identical, outcome.conflicts, outcome.invalid, outcome.details.join("; "));
                 }
                 let result = DownloadResult {
+                    outcome: if !success || parsed.exchange == "NSE_INDEX" {
+                        DownloadOutcome::PartialCoverage
+                    } else {
+                        DownloadOutcome::Imported
+                    },
+                    diagnostic: false,
+                    follow_up_warning: None,
                     success,
                     trade_date: parsed.trade_date.clone(),
                     exchange: parsed.exchange.clone(),
@@ -3553,11 +3618,36 @@ pub(crate) fn has_stale_zero_volume_rows_for_date(
     Ok(row_count > 0 && max_volume == 0)
 }
 
-pub(crate) fn clear_download_log_entry(connection: &Connection, id: i64) -> AppResult<()> {
-    connection
-        .execute("DELETE FROM download_log WHERE id = ?", params![id])
-        .map_err(|error| error.to_string())?;
-    Ok(())
+/// Latest terminal attempts are separate from historical coverage evidence.
+/// Never write decorated archive/request diagnostics or pre-planning skips.
+pub(super) fn record_latest_attempts(
+    connection: &Connection,
+    results: &[DownloadResult],
+) -> AppResult<()> {
+    super::batch_runtime::retry_busy(|| {
+        let transaction = connection.unchecked_transaction()?;
+        for result in results {
+            if result.diagnostic
+                || matches!(
+                    result.outcome,
+                    DownloadOutcome::CalendarSkip
+                        | DownloadOutcome::AlreadyPresent
+                        | DownloadOutcome::ReportingWarning
+                )
+            {
+                continue;
+            }
+            transaction.execute(
+                "INSERT INTO bhavcopy_download_attempts (trade_date, exchange, outcome, rows_written, message)
+                 VALUES (?1, ?2, ?3, ?4, ?5)
+                 ON CONFLICT(trade_date, exchange) DO UPDATE SET
+                    outcome=excluded.outcome, rows_written=excluded.rows_written,
+                    message=excluded.message, attempted_at=datetime('now')",
+                params![&result.trade_date, &result.exchange, result.outcome.as_str(), result.rows_inserted as i64, &result.message],
+            )?;
+        }
+        transaction.commit()
+    })
 }
 
 pub(crate) fn should_write_download_log(result: &DownloadResult) -> bool {

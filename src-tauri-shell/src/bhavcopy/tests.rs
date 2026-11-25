@@ -739,6 +739,7 @@ fn batch_download_log_keeps_historical_success_until_a_successful_replacement() 
     assert_eq!(read_log(), ("ok".into(), 10, 20, "original".into()));
 
     let replacement = DownloadResult {
+        outcome: DownloadOutcome::Imported,
         success: true,
         rows_inserted: 12,
         max_volume: 30,
@@ -777,6 +778,9 @@ fn download_log_distinguishes_held_back_subset_from_total_row_loss() {
     // A conflict blocked a subset of the file, but other symbols imported rows:
     // the log must keep the real counts and must not say status='error'.
     let subset = DownloadResult {
+        outcome: DownloadOutcome::PartialCoverage,
+        diagnostic: false,
+        follow_up_warning: None,
         success: false,
         trade_date: "2014-11-20".into(),
         exchange: "NSE".into(),
@@ -814,6 +818,7 @@ fn download_log_distinguishes_held_back_subset_from_total_row_loss() {
     // The batch variant keeps a historical success untouched: a later
     // held-back-subset failure on the same date must not downgrade it.
     let replacement = DownloadResult {
+        outcome: DownloadOutcome::Imported,
         success: true,
         rows_inserted: 40,
         max_volume: 900,
@@ -1119,6 +1124,123 @@ fn db_safe_03_bhavcopy_journal_replay_write_preserves_delivery() {
         )
         .unwrap();
     assert_eq!(fields, (109.0_f64, 1200_i64, Some(500_i64), Some(50.0_f64)));
+}
+
+#[test]
+fn bhav_recovery01a_journal_matches_buffered_multi_day_binary_records() {
+    assert_recovery01a_checkpoint_matches(false);
+}
+
+#[test]
+fn bhav_recovery01a_journal_preserves_supplied_previous_close() {
+    assert_recovery01a_checkpoint_matches(true);
+}
+
+fn assert_recovery01a_checkpoint_matches(supply_previous_close: bool) {
+    let (temp_dir, db_path) = create_temp_bhavcopy_db();
+    let conn = open_prepared_fixture_connection(&db_path).unwrap();
+    set_price_storage_mode(&conn, PriceStorageMode::Binary).unwrap();
+    drop(conn);
+
+    let parse = |date: &str, stamp: &str, close: u32| {
+        let csv = format!(
+            "SYMBOL,SERIES,OPEN,HIGH,LOW,CLOSE,TOTTRDQTY,TIMESTAMP\nRECOVERYCO,EQ,{close},{close},{close},{close},1000,{stamp}"
+        );
+        parse_bhavcopy_csv(&csv, "NSE", date, &[]).unwrap()
+    };
+    let initial = parse("2026-11-09", "09-NOV-2026", 100);
+    insert_parsed_bhavcopy_files(&db_path, &[initial]).unwrap();
+    // Deliberately unsorted, and retain the supplied previous-close value.
+    let mut batch = vec![
+        parse("2026-11-13", "13-NOV-2026", 130),
+        parse("2026-11-11", "11-NOV-2026", 110),
+        parse("2026-11-12", "12-NOV-2026", 120),
+    ];
+    let supplied = 109 * i64::from(DEFAULT_SCALE);
+    if supply_previous_close {
+        batch[2].rows[0].binary_record.prev_close = supplied;
+        batch[2].rows[0].prev_close = Some(109.0);
+    }
+    let expected_middle = if supply_previous_close {
+        supplied
+    } else {
+        batch[1].rows[0].binary_record.close
+    };
+    let config = BatchDownloadConfig {
+        mode: DownloadMode::Range,
+        exchanges: ExchangeSelection {
+            nse: true,
+            bse: false,
+            nse_index: false,
+            bse_index: false,
+        },
+        start_date: "2026-11-11".into(),
+        end_date: "2026-11-13".into(),
+        workers: 1,
+        excluded_series: Vec::new(),
+        nse_equity_url_override: None,
+        nse_index_url_override: None,
+        bse_equity_url_override: None,
+        bse_index_url_override: None,
+        force_redownload: false,
+    };
+    let (session, _, _) = prepare_bhavcopy_recovery_session(&db_path, &config, &batch).unwrap();
+    let sessions = crate::bhavcopy_recovery::load_pending_sessions(temp_dir.path()).unwrap();
+    assert_eq!(sessions.len(), 1);
+    let loaded = &sessions[0];
+    assert_eq!(loaded.rows.len(), 3);
+    // The journal retains source/file ordering even though normalization sorts
+    // by the binary date. The SQLite-facing missing value stays unchanged.
+    assert_eq!(loaded.rows[0].binary_date, 20261113);
+    assert_eq!(
+        loaded.rows[0].binary_prev_close,
+        batch[2].rows[0].binary_record.close
+    );
+    assert_eq!(loaded.rows[0].prev_close, batch[0].rows[0].prev_close);
+    assert_eq!(loaded.rows[1].binary_prev_close, 0);
+    assert_eq!(loaded.rows[2].binary_prev_close, expected_middle);
+    let (_, timing) = insert_parsed_bhavcopy_files_with_durability_and_recovery_baselines(
+        &db_path,
+        &batch,
+        BinaryWriteDurability::RecoveryJournalBuffered,
+        Some(&session.manifest.binary_baselines),
+    )
+    .unwrap();
+    assert_eq!(timing.binary_errors, 0);
+    assert_eq!(timing.binary_diagnostics.deferred_sync_calls, 1);
+    for _ in 0..2 {
+        let checkpoint = crate::bhavcopy_recovery::checkpoint_buffered_append_newest_files(
+            temp_dir.path(),
+            &loaded.manifest.binary_baselines,
+            &loaded.rows,
+        )
+        .unwrap();
+        assert_eq!(checkpoint.files, 1);
+    }
+    let path = temp_dir
+        .path()
+        .join("eod_data")
+        .join("NSE")
+        .join("RECOVERYCO.eod");
+    let records = BinaryEodFile::open(&path).unwrap().read_all().unwrap();
+    assert_eq!(records.len(), 4);
+    assert_eq!(records[1].prev_close, 0);
+    assert_eq!(records[2].prev_close, expected_middle);
+    assert_eq!(records[3].prev_close, records[2].close);
+    crate::bhavcopy_recovery::restore_buffered_binary_baselines(
+        temp_dir.path(),
+        &loaded.manifest.binary_baselines,
+        &loaded.rows,
+    )
+    .unwrap();
+    assert_eq!(
+        BinaryEodFile::open(&path)
+            .unwrap()
+            .read_all()
+            .unwrap()
+            .len(),
+        1
+    );
 }
 
 #[test]
@@ -1587,11 +1709,11 @@ fn test_bse_uses_shared_cash_market_holiday_calendar() {
 
 #[test]
 fn test_candidate_scan_soft_mismatch_does_not_mask_hard_error() {
-    assert!(candidate_scan_should_skip("BSE_INDEX", 4, 4, false, false));
-    assert!(candidate_scan_should_skip("BSE_INDEX", 4, 3, true, false));
-    assert!(!candidate_scan_should_skip("BSE_INDEX", 4, 3, false, true));
-    assert!(!candidate_scan_should_skip("BSE_INDEX", 4, 3, true, true));
-    assert!(candidate_scan_should_skip("NSE", 2, 2, false, false));
+    assert!(candidate_scan_should_skip(4, 4, false));
+    assert!(!candidate_scan_should_skip(4, 3, false));
+    assert!(!candidate_scan_should_skip(4, 3, true));
+    assert!(!candidate_scan_should_skip(4, 4, true));
+    assert!(!candidate_scan_should_skip(0, 0, false));
 }
 #[test]
 fn test_binary_prefilter_range_scan_counts_target_dates_across_files() {
@@ -2698,4 +2820,213 @@ fn fill_missing_prev_close_uses_the_previous_batch_close() {
         chain[2].record.prev_close, 0,
         "a zero predecessor close cannot fill"
     );
+}
+
+#[test]
+fn bhav01_bse_filename_absence_requires_expected_empty_array() {
+    assert_eq!(
+        transport::parse_bse_api_filename(br#"{"ds":[]}"#, "ds").unwrap(),
+        None
+    );
+    for invalid in [
+        b"<html>denied</html>".as_slice(),
+        br#"{}"#,
+        br#"{"ds":[{}]}"#,
+        br#"{"ds":[],"error":true}"#,
+    ] {
+        assert!(transport::parse_bse_api_filename(invalid, "ds").is_err());
+    }
+    assert_eq!(
+        transport::parse_bse_api_filename(br#"{"ds":[{"filename":"file.csv"}]}"#, "ds").unwrap(),
+        Some("file.csv".into())
+    );
+}
+
+#[test]
+fn bhav01_candidate_decoder_rejects_bad_zip_and_wrong_session() {
+    let zip = Candidate::direct("https://example.invalid/archive.zip".to_string(), true);
+    assert!(decode_candidate_csv(&zip, b"not a ZIP".to_vec(), "NSE", "2026-01-02").is_err());
+    let csv = Candidate::direct("https://example.invalid/archive.csv".to_string(), false);
+    let wrong = b"SYMBOL,SERIES,OPEN,HIGH,LOW,CLOSE,TOTTRDQTY,TIMESTAMP\nTEST,EQ,100,110,90,105,1000,03-JAN-2026";
+    assert!(decode_candidate_csv(&csv, wrong.to_vec(), "NSE", "2026-01-02").is_err());
+    let right = b"SYMBOL,SERIES,OPEN,HIGH,LOW,CLOSE,TOTTRDQTY,TIMESTAMP\nTEST,EQ,100,110,90,105,1000,02-JAN-2026";
+    assert!(
+        decode_candidate_csv(&csv, right.to_vec(), "NSE", "2026-01-02")
+            .unwrap()
+            .is_some()
+    );
+}
+
+#[test]
+fn bhav01_attempts_do_not_replace_coverage() {
+    let temp = tempfile::tempdir().unwrap();
+    let conn = open_prepared_fixture_connection(&temp.path().join("fixture.db")).unwrap();
+    let mut imported = failed_download_result("NSE", "2026-01-02", "imported")
+        .with_outcome(DownloadOutcome::Imported);
+    imported.success = true;
+    imported.rows_inserted = 10;
+    upsert_batch_download_log_entry(&conn, &imported).unwrap();
+    record_latest_attempts(&conn, &[imported]).unwrap();
+    let failed = failed_download_result("NSE", "2026-01-02", "HTTP 403")
+        .with_outcome(DownloadOutcome::SourceError);
+    upsert_batch_download_log_entry(&conn, &failed).unwrap();
+    record_latest_attempts(&conn, &[failed]).unwrap();
+    let coverage: (String, i64) = conn
+        .query_row(
+            "SELECT status, rows_inserted FROM download_log",
+            [],
+            |row| Ok((row.get(0)?, row.get(1)?)),
+        )
+        .unwrap();
+    assert_eq!(coverage, ("ok".into(), 10));
+    let attempt: (String, String) = conn
+        .query_row(
+            "SELECT outcome, message FROM bhavcopy_download_attempts",
+            [],
+            |row| Ok((row.get(0)?, row.get(1)?)),
+        )
+        .unwrap();
+    assert_eq!(attempt, ("sourceError".into(), "HTTP 403".into()));
+}
+
+#[test]
+fn bhav01_archive_diagnostic_does_not_replace_final_job() {
+    let key = ("NSE_INDEX".to_string(), "2026-01-02".to_string());
+    let planned = HashSet::from([key.clone()]);
+    let mut archive = failed_download_result(&key.0, "2026-01-02 archive", "HTTP 403")
+        .with_outcome(DownloadOutcome::SourceError);
+    archive.diagnostic = true;
+    let mut results = vec![archive];
+    finalize_planned_jobs(&planned, &HashSet::new(), &mut results, false);
+    assert_eq!(results.len(), 2);
+    assert_eq!(results[1].trade_date, key.1);
+    assert_eq!(results[1].outcome, DownloadOutcome::SourceError);
+    assert!(!results[1].diagnostic);
+}
+
+#[test]
+fn bhav01_follow_up_warning_preserves_import_result() {
+    let mut imported = failed_download_result("NSE", "2026-01-02", "imported")
+        .with_outcome(DownloadOutcome::Imported);
+    imported.success = true;
+    imported.rows_inserted = 7;
+    append_follow_up_warning(&mut imported, "refresh failed".into());
+    assert_eq!(imported.outcome, DownloadOutcome::Imported);
+    assert!(imported.success);
+    assert_eq!(imported.rows_inserted, 7);
+    assert_eq!(
+        imported.follow_up_warning.as_deref(),
+        Some("refresh failed")
+    );
+}
+
+#[test]
+fn bhav01_malformed_candidate_does_not_prevent_later_valid_candidate() {
+    use std::{
+        io::{Read, Write},
+        net::TcpListener,
+        thread,
+        time::Duration,
+    };
+    let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+    listener.set_nonblocking(true).unwrap();
+    let address = listener.local_addr().unwrap();
+    let client = Client::builder()
+        .no_proxy()
+        .timeout(Duration::from_secs(3))
+        .build()
+        .unwrap();
+    let task = DownloadTask {
+        exchange: "NSE".into(),
+        trade_date: "2026-01-02".into(),
+        mode: DownloadMode::Range,
+        candidates: vec![
+            Candidate::direct(format!("http://{address}/bad.zip"), true),
+            Candidate::direct(format!("http://{address}/good.csv"), false),
+        ],
+        nse_index_history: None,
+    };
+    let server = thread::spawn(move || {
+        let deadline = Instant::now() + Duration::from_secs(8);
+        let responses = [
+            "not a ZIP",
+            "SYMBOL,SERIES,OPEN,HIGH,LOW,CLOSE,TOTTRDQTY,TIMESTAMP\nTEST,EQ,100,110,90,105,1000,02-JAN-2026",
+        ];
+        for body in responses {
+            let mut stream = loop {
+                match listener.accept() {
+                    Ok((stream, _)) => break stream,
+                    Err(error)
+                        if error.kind() == std::io::ErrorKind::WouldBlock
+                            && Instant::now() < deadline =>
+                    {
+                        thread::sleep(Duration::from_millis(10))
+                    }
+                    Err(error) => panic!("Expected candidate request: {error}"),
+                }
+            };
+            stream.set_nonblocking(false).unwrap();
+            stream
+                .set_read_timeout(Some(Duration::from_secs(3)))
+                .unwrap();
+            let mut buffer = [0; 1024];
+            assert!(stream.read(&mut buffer).unwrap() > 0);
+            write!(
+                stream,
+                "HTTP/1.1 200 OK\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
+                body.len(),
+                body
+            )
+            .unwrap();
+        }
+    });
+    let result = stage_single_download(&client, &task, &BatchStop::default()).unwrap();
+    server.join().unwrap();
+    assert!(matches!(result, StagedDownloadOutcome::Ready(_)));
+}
+
+#[test]
+fn bhav01_bse_index_structure_and_empty_response_are_distinct() {
+    assert!(normalize_bse_index_archive_json(br#"{}"#, "2026-01-02").is_err());
+    assert!(normalize_bse_index_archive_json(br#"{"Table":[{}]}"#, "2026-01-02").is_err());
+    assert!(
+        normalize_bse_index_archive_json(br#"{"Table":[],"error":true}"#, "2026-01-02").is_err()
+    );
+    assert!(
+        normalize_bse_index_archive_json(br#"{"Table":[]}"#, "2026-01-02")
+            .unwrap()
+            .is_none()
+    );
+}
+
+#[test]
+fn bhav01_holiday_annotation_never_explains_source_failure() {
+    let temp = tempfile::tempdir().unwrap();
+    let path = temp.path().join("fixture.db");
+    let conn = open_prepared_fixture_connection(&path).unwrap();
+    conn.execute("INSERT INTO market_holidays (date,name,source) VALUES ('2026-01-02','Fixture closure','USER')", []).unwrap();
+    let failed = failed_download_result("NSE", "2026-01-02", "HTTP 403")
+        .with_outcome(DownloadOutcome::SourceError);
+    assert!(no_data_annotation_line(&path, std::slice::from_ref(&failed)).is_none());
+    let absent = skipped_download_result("NSE", "2026-01-02", "all candidates reported absence")
+        .with_outcome(DownloadOutcome::ConfirmedAbsent);
+    assert!(no_data_annotation_line(&path, &[absent])
+        .unwrap()
+        .contains("Fixture closure"));
+    assert!(!failed.success);
+    assert_eq!(failed.message, "HTTP 403");
+}
+
+#[test]
+fn bhav01_cancellation_does_not_hide_observed_import_failure() {
+    let key = ("NSE".to_string(), "2026-01-02".to_string());
+    let planned = HashSet::from([key.clone()]);
+    let mut aggregate = failed_download_result("BHAVCOPY", "staged-csv", "Import failed")
+        .with_outcome(DownloadOutcome::ImportError);
+    aggregate.diagnostic = true;
+    let mut results = vec![aggregate];
+    finalize_planned_jobs(&planned, &planned, &mut results, true);
+    assert_eq!(results.len(), 2);
+    assert_eq!(results[1].outcome, DownloadOutcome::ImportError);
+    assert!(!results[1].success);
 }

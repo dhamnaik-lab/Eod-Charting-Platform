@@ -101,6 +101,16 @@ fn run_migrations(connection: &Connection) -> AppResult<()> {
               UNIQUE (trade_date, exchange)
             );
 
+            CREATE TABLE IF NOT EXISTS bhavcopy_download_attempts (
+              trade_date TEXT NOT NULL,
+              exchange TEXT NOT NULL,
+              outcome TEXT NOT NULL,
+              rows_written INTEGER NOT NULL DEFAULT 0,
+              message TEXT NOT NULL,
+              attempted_at TEXT NOT NULL DEFAULT (datetime('now')),
+              PRIMARY KEY (trade_date, exchange)
+            );
+
             CREATE TABLE IF NOT EXISTS watchlists (
               id INTEGER PRIMARY KEY AUTOINCREMENT,
               name TEXT NOT NULL,

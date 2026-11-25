@@ -1,17 +1,64 @@
-use std::collections::HashSet;
 use serde::{Deserialize, Serialize};
+use std::collections::HashSet;
 
 pub type AppResult<T> = Result<T, String>;
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub enum DownloadOutcome {
+    Imported,
+    AlreadyPresent,
+    PartialCoverage,
+    ConfirmedAbsent,
+    SourceAcquired,
+    SourceRejected,
+    SourceError,
+    ImportError,
+    WorkerError,
+    CalendarSkip,
+    Cancelled,
+    ReportingWarning,
+}
+
+impl DownloadOutcome {
+    pub(crate) fn as_str(self) -> &'static str {
+        match self {
+            Self::Imported => "imported",
+            Self::AlreadyPresent => "alreadyPresent",
+            Self::PartialCoverage => "partialCoverage",
+            Self::ConfirmedAbsent => "confirmedAbsent",
+            Self::SourceAcquired => "sourceAcquired",
+            Self::SourceRejected => "sourceRejected",
+            Self::SourceError => "sourceError",
+            Self::ImportError => "importError",
+            Self::WorkerError => "workerError",
+            Self::CalendarSkip => "calendarSkip",
+            Self::Cancelled => "cancelled",
+            Self::ReportingWarning => "reportingWarning",
+        }
+    }
+}
 
 #[derive(Clone, Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct DownloadResult {
+    pub outcome: DownloadOutcome,
+    pub diagnostic: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub follow_up_warning: Option<String>,
     pub success: bool,
     pub trade_date: String,
     pub exchange: String,
     pub rows_inserted: usize,
     pub max_volume: u64,
     pub message: String,
+}
+
+impl DownloadResult {
+    pub(crate) fn with_outcome(mut self, outcome: DownloadOutcome) -> Self {
+        self.outcome = outcome;
+        self
+    }
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]

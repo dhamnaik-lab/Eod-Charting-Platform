@@ -1796,7 +1796,15 @@ export interface ImportResult {
   recoverySession: ManualImportRecoverySummary | null;
 }
 
+export type DownloadOutcome = 'imported' | 'alreadyPresent' | 'partialCoverage'
+  | 'confirmedAbsent' | 'sourceAcquired' | 'sourceRejected' | 'sourceError' | 'importError'
+  | 'workerError' | 'calendarSkip' | 'cancelled' | 'reportingWarning';
+
 export interface DownloadResult {
+  /** Optional for legacy clients/fixtures; the current Rust backend always supplies it. */
+  outcome?: DownloadOutcome;
+  diagnostic?: boolean;
+  followUpWarning?: string;
   success: boolean;
   tradeDate: string;
   exchange: string;

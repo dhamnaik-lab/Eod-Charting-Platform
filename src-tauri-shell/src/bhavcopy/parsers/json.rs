@@ -11,11 +11,17 @@ use crate::bhavcopy::types::{
 
 pub const BSE_INDEX_VOLUME_CRORE_UNITS: f64 = 10_000_000.0;
 
-pub fn normalize_bse_index_archive_json(buffer: &[u8], trade_date: &str) -> AppResult<Option<String>> {
+pub fn normalize_bse_index_archive_json(
+    buffer: &[u8],
+    trade_date: &str,
+) -> AppResult<Option<String>> {
     let value = serde_json::from_slice::<serde_json::Value>(buffer)
         .map_err(|error| format!("BSE Index archive API JSON parse failed: {error}"))?;
+    if value.get("error").and_then(|flag| flag.as_bool()) == Some(true) {
+        return Err("BSE Index archive API reported an error.".into());
+    }
     let Some(rows) = value.get("Table").and_then(|value| value.as_array()) else {
-        return Ok(None);
+        return Err("BSE Index archive API missing expected Table array.".into());
     };
     if rows.is_empty() {
         return Ok(None);
@@ -93,7 +99,7 @@ pub fn normalize_bse_index_archive_json(buffer: &[u8], trade_date: &str) -> AppR
     }
 
     if usable_rows == 0 {
-        return Ok(None);
+        return Err("BSE Index archive contained no usable rows.".into());
     }
 
     let bytes = writer.into_inner().map_err(|error| error.to_string())?;

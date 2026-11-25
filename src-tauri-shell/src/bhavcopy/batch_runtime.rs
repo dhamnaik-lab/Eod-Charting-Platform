@@ -88,7 +88,10 @@ impl BatchCancellation {
         }
         let stop = BatchStop::default();
         *active = Some((run_id, stop.clone()));
-        Ok(BatchRun { controller: self, stop })
+        Ok(BatchRun {
+            controller: self,
+            stop,
+        })
     }
 
     pub(super) fn request(&self, run_id: &str) -> super::BatchStopReply {
@@ -119,8 +122,15 @@ impl BatchRun<'_> {
     }
 
     fn release(&self) -> bool {
-        let mut active = self.controller.active.lock().expect("Bhavcopy batch owner poisoned");
-        if active.as_ref().is_some_and(|(_, stop)| Arc::ptr_eq(&self.stop.0, &stop.0)) {
+        let mut active = self
+            .controller
+            .active
+            .lock()
+            .expect("Bhavcopy batch owner poisoned");
+        if active
+            .as_ref()
+            .is_some_and(|(_, stop)| Arc::ptr_eq(&self.stop.0, &stop.0))
+        {
             *active = None;
         }
         self.stop.is_requested()
@@ -165,8 +175,8 @@ impl Drop for DownloadWorkers {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use super::super::BatchStopReply::*;
+    use super::*;
     use std::sync::{mpsc, Barrier};
 
     #[test]
@@ -177,7 +187,10 @@ mod tests {
         assert!(controller.start("second".into()).is_err());
         assert_eq!(controller.request("first"), Accepted);
         assert_eq!(controller.request("first"), AlreadyRequested);
-        assert!(first.stop.run_if_active(|| panic!("phase must not start")).is_none());
+        assert!(first
+            .stop
+            .run_if_active(|| panic!("phase must not start"))
+            .is_none());
         assert!(first.finish());
         let second = controller.start("second".into()).unwrap();
         assert_eq!(controller.request("first"), NoMatchingRun);
@@ -234,16 +247,24 @@ mod tests {
         let controller = BatchCancellation::default();
         let run = controller.start("import".into()).unwrap();
         let mut db = Connection::open_in_memory().unwrap();
-        db.execute_batch("CREATE TABLE prices(value INTEGER)").unwrap();
-        run.stop.run_if_active(|| {
-            let tx = db.transaction().unwrap();
-            tx.execute("INSERT INTO prices VALUES(7)", []).unwrap();
-            assert_eq!(controller.request("import"), Accepted);
-            tx.commit().unwrap();
-        }).unwrap();
-        assert!(run.stop.run_if_active(|| panic!("second import must not start")).is_none());
+        db.execute_batch("CREATE TABLE prices(value INTEGER)")
+            .unwrap();
+        run.stop
+            .run_if_active(|| {
+                let tx = db.transaction().unwrap();
+                tx.execute("INSERT INTO prices VALUES(7)", []).unwrap();
+                assert_eq!(controller.request("import"), Accepted);
+                tx.commit().unwrap();
+            })
+            .unwrap();
+        assert!(run
+            .stop
+            .run_if_active(|| panic!("second import must not start"))
+            .is_none());
         assert_eq!(
-            db.query_row("SELECT sum(value) FROM prices", [], |row| row.get::<_, i64>(0)).unwrap(),
+            db.query_row("SELECT sum(value) FROM prices", [], |row| row
+                .get::<_, i64>(0))
+                .unwrap(),
             7
         );
         assert!(run.finish());

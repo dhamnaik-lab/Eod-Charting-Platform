@@ -437,12 +437,18 @@ pub fn restore_buffered_binary_baselines(
 ) -> AppResult<()> {
     let journal_targets = journal_rows_by_symbol(rows);
 
+    // The caller holds the canonical recovery lock. Verify every append-only
+    // baseline read-only before truncating any file. A deterministic mismatch
+    // in a later symbol must not roll back earlier symbols. Revalidate at the
+    // actual write boundary as well; interrupted I/O is still restartable.
     for baseline in baselines {
-        match baseline.kind {
-            RecoveryBinaryBaselineKind::Conservative => continue,
-            RecoveryBinaryBaselineKind::AppendNewest => {
-                restore_append_newest_baseline(database_folder, baseline, &journal_targets)?;
-            }
+        if baseline.kind == RecoveryBinaryBaselineKind::AppendNewest {
+            restore_append_newest_baseline(database_folder, baseline, &journal_targets, false)?;
+        }
+    }
+    for baseline in baselines {
+        if baseline.kind == RecoveryBinaryBaselineKind::AppendNewest {
+            restore_append_newest_baseline(database_folder, baseline, &journal_targets, true)?;
         }
     }
     Ok(())
@@ -788,6 +794,7 @@ fn restore_append_newest_baseline(
     database_folder: &Path,
     baseline: &RecoveryBinaryBaseline,
     journal_targets: &HashMap<(String, String), Vec<&RecoveryJournalRow>>,
+    apply: bool,
 ) -> AppResult<()> {
     let path = binary_path_for_baseline(database_folder, baseline);
     if !path.exists() {
@@ -818,7 +825,7 @@ fn restore_append_newest_baseline(
 
     let mut file = OpenOptions::new()
         .read(true)
-        .write(true)
+        .write(apply)
         .open(&path)
         .map_err(|error| error.to_string())?;
 
@@ -866,6 +873,10 @@ fn restore_append_newest_baseline(
                 ));
             }
         }
+    }
+
+    if !apply {
+        return Ok(());
     }
 
     file.set_len(baseline.file_length)
@@ -1429,6 +1440,88 @@ mod tests {
             restore_buffered_binary_baselines(dir.path(), &[baseline], &[sample_row(20260807)])
                 .unwrap_err();
         assert!(error.contains("no longer matches the recovery journal"));
+    }
+
+    #[test]
+    fn bhav_recovery01a_late_mismatch_leaves_all_append_files_unchanged() {
+        use crate::database::binary_eod::EodRecord;
+        let dir = tempdir().unwrap();
+        let mut baselines = Vec::new();
+        let mut rows = Vec::new();
+        let mut originals = Vec::new();
+        for symbol in ["AAA", "ZZZ"] {
+            let path = dir
+                .path()
+                .join("eod_data")
+                .join("NSE")
+                .join(format!("{symbol}.eod"));
+            let mut initial = vec![EodRecord {
+                date: 20260806,
+                flags: 0,
+                open: 100,
+                high: 110,
+                low: 90,
+                close: 105,
+                prev_close: 99,
+                volume: 1000,
+                oi: 0,
+            }];
+            BinaryEodFile::write_all(&path, symbol, "NSE", DEFAULT_SCALE, &mut initial).unwrap();
+            baselines.push(RecoveryBinaryBaseline {
+                exchange: "NSE".into(),
+                symbol: symbol.into(),
+                kind: RecoveryBinaryBaselineKind::AppendNewest,
+                existed_before: true,
+                record_count: 1,
+                price_scale: DEFAULT_SCALE,
+                file_length: fs::metadata(&path).unwrap().len(),
+                target_dates: vec![20260807],
+            });
+            let mut row = sample_row(20260807);
+            row.symbol = symbol.into();
+            let mut tail = EodRecord {
+                date: row.binary_date,
+                flags: row.binary_flags,
+                open: row.binary_open,
+                high: row.binary_high,
+                low: row.binary_low,
+                close: row.binary_close,
+                prev_close: row.binary_prev_close,
+                volume: row.binary_volume,
+                oi: row.binary_oi,
+            };
+            if symbol == "ZZZ" {
+                tail.close += 1;
+            }
+            BinaryEodFile::append_or_merge_records_with_stats(
+                &path,
+                symbol,
+                "NSE",
+                DEFAULT_SCALE,
+                vec![tail],
+            )
+            .unwrap();
+            originals.push((path.clone(), fs::read(&path).unwrap()));
+            rows.push(row);
+        }
+        let error = restore_buffered_binary_baselines(dir.path(), &baselines, &rows).unwrap_err();
+        assert!(error.contains("ZZZ"));
+        for (path, before) in &originals {
+            assert_eq!(&fs::read(path).unwrap(), before);
+        }
+        // Correct journal evidence for the synthetic fixture, then prove that
+        // a repeated recovery after truncation is safe (baseline-length files).
+        rows[1].binary_close += 1;
+        restore_buffered_binary_baselines(dir.path(), &baselines, &rows).unwrap();
+        let restored: Vec<_> = originals
+            .iter()
+            .map(|(path, _)| fs::read(path).unwrap())
+            .collect();
+        restore_buffered_binary_baselines(dir.path(), &baselines, &rows).unwrap();
+        for ((path, _), before) in originals.iter().zip(restored.iter()) {
+            assert_eq!(&fs::read(path).unwrap(), before);
+            assert_eq!(BinaryEodFile::open(path).unwrap().header.record_count, 1);
+        }
     }
 
     #[test]
