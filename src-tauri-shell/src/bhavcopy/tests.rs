@@ -621,7 +621,7 @@ fn bse_maintenance_import_through_normal_batch_engine() {
             &BatchStop::default(),
         );
         drop(permit);
-        imported
+        imported.map(|(results, _)| results)
     } else {
         tauri::async_runtime::block_on(download_bhavcopy_batch(handle.clone(), job.config))
     };
@@ -1828,6 +1828,13 @@ fn test_range_mode_prefilters_already_imported_trading_days() {
     assert_eq!(plan.tasks.len(), 2);
     assert_eq!(plan.tasks[0].trade_date, "2026-06-22");
     assert_eq!(plan.tasks[1].trade_date, "2026-06-24");
+    assert_eq!(plan.prefiltered_results.len(), 1);
+    assert_eq!(plan.prefiltered_results[0].trade_date, "2026-06-23");
+    assert_eq!(
+        plan.prefiltered_results[0].outcome,
+        DownloadOutcome::AlreadyPresent
+    );
+    assert_eq!(plan.prefiltered_results[0].rows_inserted, 0);
     assert!(plan
         .info_messages
         .iter()
@@ -3029,4 +3036,39 @@ fn bhav01_cancellation_does_not_hide_observed_import_failure() {
     assert_eq!(results.len(), 2);
     assert_eq!(results[1].outcome, DownloadOutcome::ImportError);
     assert!(!results[1].success);
+}
+
+#[test]
+fn bhav02_r1_no_write_status_requires_backend_control_flow_evidence() {
+    let partial = failed_download_result("NSE_INDEX", "2026-11-02", "Identical existing rows")
+        .with_outcome(DownloadOutcome::PartialCoverage);
+    let source_error = failed_download_result("BSE", "2026-11-24", "HTTP 403")
+        .with_outcome(DownloadOutcome::SourceError);
+    let clean = [partial.clone(), source_error];
+    assert!(can_report_no_new_quotation_writes(true, 0, false, &clean));
+    assert!(!can_report_no_new_quotation_writes(false, 0, false, &clean));
+    assert!(!can_report_no_new_quotation_writes(true, 1, false, &clean));
+    assert!(!can_report_no_new_quotation_writes(true, 0, true, &clean));
+    for outcome in [
+        DownloadOutcome::Imported,
+        DownloadOutcome::ImportError,
+        DownloadOutcome::WorkerError,
+        DownloadOutcome::Cancelled,
+    ] {
+        let result = partial.clone().with_outcome(outcome);
+        assert!(!can_report_no_new_quotation_writes(
+            true,
+            0,
+            false,
+            &[result]
+        ));
+    }
+    let mut inserted = partial;
+    inserted.rows_inserted = 1;
+    assert!(!can_report_no_new_quotation_writes(
+        true,
+        0,
+        false,
+        &[inserted]
+    ));
 }

@@ -1,4 +1,6 @@
 import { create } from 'zustand';
+import { compactActivityProgress, formatDateActivity, type ActivitySummary } from '@/features/bhavcopy/activityLog';
+import type { BhavcopyActivityReport } from '@/types/desktop';
 import { isBackgroundCheckpointProgress } from '@/features/bhavcopy/downloadRunState';
 import {
   getDesktopApi,
@@ -10,7 +12,13 @@ export interface LogEntry {
   time: string;
   level: 'info' | 'success' | 'error' | 'warning' | 'incomplete';
   message: string;
+  detailOnly?: boolean;
+  normalOnly?: boolean;
+  category?: 'summary' | 'durability';
+  label?: string;
 }
+
+type LogOptions = Pick<LogEntry, 'detailOnly' | 'normalOnly' | 'category' | 'label'>;
 
 export interface RunSummary {
   successCount: number;
@@ -40,6 +48,8 @@ interface BhavcopyStoreState {
   activeBatch: ActiveBatch | null;
   batchOutcome: BatchOutcome | null;
   logs: LogEntry[];
+  activityLines: LogEntry[];
+  activitySummary: ActivitySummary | null;
   runSummary: RunSummary;
   totalLogEntries: number;
   downloadProgress: DownloadProgress;
@@ -52,7 +62,8 @@ interface BhavcopyStoreState {
   acknowledgeBatch: (runId: string, stop: StopBatch) => void;
   requestBatchStop: (stop: StopBatch) => Promise<void>;
   finishBatch: (runId: string, outcome: BatchOutcome) => void;
-  addLog: (level: LogEntry['level'], message: string) => void;
+  addLog: (level: LogEntry['level'], message: string, options?: LogOptions) => void;
+  setActivityReport: (report: BhavcopyActivityReport) => ActivitySummary;
   clearLogs: () => void;
   reportDownloadResult: (result: DownloadResult) => void;
   reconcileFinalResults: (results: DownloadResult[]) => RunSummary;
@@ -145,6 +156,8 @@ export const useBhavcopyStore = create<BhavcopyStoreState>((set, get) => ({
   activeBatch: null,
   batchOutcome: null,
   logs: [],
+  activityLines: [],
+  activitySummary: null,
   runSummary: { ...EMPTY_RUN_SUMMARY },
   totalLogEntries: 0,
   downloadProgress: { progress: 0, message: '' },
@@ -199,10 +212,10 @@ export const useBhavcopyStore = create<BhavcopyStoreState>((set, get) => ({
     }
   },
 
-  addLog: (level, message) => {
+  addLog: (level, message, options) => {
     const time = new Date().toLocaleTimeString('en-IN', { hour12: false });
     set((state) => {
-      const nextLogs = [...state.logs, { time, level, message }];
+      const nextLogs = [...state.logs, { time, level, message, ...options }];
       return {
         totalLogEntries: state.totalLogEntries + 1,
         logs: nextLogs.length > MAX_LOG_ENTRIES
@@ -212,8 +225,21 @@ export const useBhavcopyStore = create<BhavcopyStoreState>((set, get) => ({
     });
   },
 
+  setActivityReport: (report) => {
+    const { lines, summary } = formatDateActivity(report);
+    const time = new Date().toLocaleTimeString('en-IN', { hour12: false });
+    set({ activityLines: lines.map((line) => ({ time, ...line })), activitySummary: summary });
+    if (report.calendarWarning) {
+      get().addLog('warning', 'Saved holiday calendar unavailable — no holiday inferred.');
+      get().addLog('warning', report.calendarWarning, { detailOnly: true });
+    }
+    return summary;
+  },
+
   clearLogs: () => set({
     logs: [],
+    activityLines: [],
+    activitySummary: null,
     totalLogEntries: 0,
     runSummary: { ...EMPTY_RUN_SUMMARY },
     downloadProgress: { progress: 0, message: '' },
@@ -248,20 +274,22 @@ export const useBhavcopyStore = create<BhavcopyStoreState>((set, get) => ({
     });
 
     const exchangeLabel = formatExchangeLabel(result.exchange);
+    const detailOnly = get().activeBatch !== null && result.exchange !== 'BHAVCOPY' && result.outcome !== 'reportingWarning';
+    const logResult = (level: LogEntry['level'], message: string) => get().addLog(level, message, detailOnly ? { detailOnly: true } : undefined);
     if (result.outcome === 'sourceAcquired') {
-      get().addLog('info', `[${exchangeLabel}] ${result.tradeDate}: ${result.message}`);
+      logResult('info', `[${exchangeLabel}] ${result.tradeDate}: ${result.message}`);
     } else if (result.outcome === 'reportingWarning' || result.outcome === 'cancelled') {
-      get().addLog('warning', `[${exchangeLabel}] ${result.tradeDate}: ${result.message}`);
+      logResult('warning', `[${exchangeLabel}] ${result.tradeDate}: ${result.message}`);
     } else if (isPartialCoverageResult(result)) {
-      get().addLog(result.exchange === 'NSE' ? 'incomplete' : 'warning', `[${exchangeLabel}] ${result.tradeDate}: ${result.message}`);
+      logResult(result.exchange === 'NSE' ? 'incomplete' : 'warning', `[${exchangeLabel}] ${result.tradeDate}: ${result.message}`);
     } else if (result.success) {
       if (result.rowsInserted === 0 && result.message) {
-        get().addLog('warning', `[${exchangeLabel}] ${result.tradeDate}: ${result.message}`);
+        logResult('warning', `[${exchangeLabel}] ${result.tradeDate}: ${result.message}`);
       } else {
-        get().addLog('success', `[${exchangeLabel}] ${result.tradeDate}: ${result.rowsInserted} rows${result.exchange === 'NSE_INDEX' || result.message.includes('Security admission:') ? `; ${result.message}` : ''}`);
+        logResult('success', `[${exchangeLabel}] ${result.tradeDate}: ${result.rowsInserted} rows${result.exchange === 'NSE_INDEX' || result.message.includes('Security admission:') ? `; ${result.message}` : ''}`);
       }
     } else {
-      get().addLog('error', `[${exchangeLabel}] ${result.tradeDate}: ${result.message}`);
+      logResult('error', `[${exchangeLabel}] ${result.tradeDate}: ${result.message}`);
     }
     if (result.followUpWarning) {
       get().addLog('warning', `[${exchangeLabel}] ${result.tradeDate}: ${result.followUpWarning}`);
@@ -305,7 +333,14 @@ export const useBhavcopyStore = create<BhavcopyStoreState>((set, get) => ({
       }
 
       if (message && !isPerTaskProgressMessage) {
-        get().addLog('info', message);
+        const compact = compactActivityProgress(message);
+        const useCompact = get().activeBatch !== null || isBackgroundCheckpointProgress(message);
+        if (useCompact) {
+          get().addLog('info', message, { detailOnly: true });
+          if (compact) get().addLog(compact.level, compact.message, { normalOnly: true, ...(compact.durability ? { category: 'durability' as const } : {}) });
+        } else {
+          get().addLog('info', message);
+        }
       }
     });
 

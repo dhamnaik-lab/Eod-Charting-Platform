@@ -1814,9 +1814,30 @@ export interface DownloadResult {
 
 export type BhavcopyBatchStopReply = 'accepted' | 'alreadyRequested' | 'noMatchingRun';
 
+export type BhavcopyActivityStatus = 'existing' | 'imported' | 'weekend' | 'holiday'
+  | 'notDue' | 'absent' | 'incomplete' | 'failed' | 'cancelled';
+
+export interface BhavcopyActivityEntry {
+  tradeDate: string;
+  exchange: string;
+  rowsInserted: number;
+  status: BhavcopyActivityStatus;
+  message: string;
+  context: string | null;
+}
+
+export interface BhavcopyActivityReport {
+  entries: BhavcopyActivityEntry[];
+  calendarWarning: string | null;
+}
+
 export interface TrackedBhavcopyBatchResult {
   cancelled: boolean;
   results: DownloadResult[];
+  /** Additive, presentation-only report; legacy fixtures may omit it. */
+  activity?: BhavcopyActivityReport;
+  /** Backend proof: no new quotation writer was entered after prior recovery. */
+  noNewQuotationWrites?: boolean;
 }
 
 export interface BatchDownloadConfig {

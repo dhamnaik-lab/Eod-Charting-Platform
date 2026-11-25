@@ -230,6 +230,7 @@ pub enum StagedDownloadOutcome {
 pub struct BatchPlan {
     pub info_messages: Vec<String>,
     pub calendar_skip_results: Vec<DownloadResult>,
+    pub prefiltered_results: Vec<DownloadResult>,
     pub tasks: Vec<DownloadTask>,
 }
 
