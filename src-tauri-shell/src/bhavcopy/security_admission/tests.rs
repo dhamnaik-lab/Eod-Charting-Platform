@@ -632,3 +632,193 @@ fn security_admission_market_selection_preserves_trade_for_trade_and_sme_primary
         assert_eq!(rows[0].volume, 200);
     }
 }
+
+#[test]
+fn bhav03a_native_december_admission_keeps_exact_regular_rows() {
+    let input = include_str!("fixtures/bhav03a-december-2025.csv");
+    let mut reader = ::csv::Reader::from_reader(input.as_bytes());
+    let header = reader
+        .headers()
+        .unwrap()
+        .iter()
+        .collect::<Vec<_>>()
+        .join(",");
+    let mut dates = BTreeMap::<String, Vec<String>>::new();
+    for record in reader.records() {
+        let record = record.unwrap();
+        dates
+            .entry(record[8].to_string())
+            .or_default()
+            .push(record.iter().collect::<Vec<_>>().join(","));
+    }
+    assert_eq!(dates.values().map(Vec::len).sum::<usize>(), 112);
+    for binary in [false, true] {
+        for reverse in [false, true] {
+            let path = db();
+            let connection = open_prepared_fixture_connection(&path).unwrap();
+            if binary {
+                set_price_storage_mode(&connection, PriceStorageMode::Binary).unwrap();
+            }
+            for (symbol, series, isin) in [
+                ("CAPINVIT", "IV", "INE0Z8Z23013"),
+                ("NHIT", "IV", "INE0H7R23014"),
+                ("IDEA", "EQ", "INE669E01016"),
+                ("ONGC", "EQ", "INE213A01029"),
+                ("TATASTEEL", "EQ", "INE081A01020"),
+            ] {
+                connection.execute(
+                    "INSERT INTO instruments(symbol,exchange,series,isin) VALUES (?1,'NSE',?2,?3)",
+                    rusqlite::params![symbol, series, isin],
+                ).unwrap();
+            }
+            let mut files: Vec<_> = dates
+                .iter()
+                .map(|(date, rows)| {
+                    let mut file = parse_bhavcopy_csv(
+                        &format!("{header}\n{}", rows.join("\n")),
+                        "NSE",
+                        date,
+                        &[],
+                    )
+                    .unwrap();
+                    assert!(file.debug.is_none());
+                    if reverse {
+                        file.rows.reverse();
+                    }
+                    file
+                })
+                .collect();
+            if reverse {
+                files.reverse();
+            }
+            assert_eq!(files.iter().map(|f| f.rows.len()).sum::<usize>(), 112);
+            let expected: Vec<_> = files
+                .iter()
+                .flat_map(|f| f.rows.iter())
+                .filter(|r| matches!(r.series.as_str(), "EQ" | "IV"))
+                .map(|r| (r.symbol.clone(), r.binary_record))
+                .collect();
+            assert_eq!(expected.len(), 102);
+            let admission = admit(&path, &files).unwrap();
+            assert_eq!(
+                admission
+                    .reports
+                    .iter()
+                    .map(|r| r.conflicted)
+                    .sum::<usize>(),
+                0
+            );
+            assert_eq!(
+                admission
+                    .reports
+                    .iter()
+                    .map(|r| r.market_rows)
+                    .sum::<usize>(),
+                10
+            );
+            for (file, mask) in files.iter().zip(&admission.masks) {
+                for (row, keep) in file.rows.iter().zip(mask) {
+                    assert_eq!(*keep, matches!(row.series.as_str(), "EQ" | "IV"));
+                }
+            }
+            let safe = filter_files(&files, &admission);
+            assert!(require_replay_safe(&path, &safe).is_ok());
+            assert!(require_replay_safe(&path, &files).is_err());
+            let (results, _) = insert_parsed_bhavcopy_files(&path, &files).unwrap();
+            assert_eq!(results.iter().map(|r| r.rows_inserted).sum::<usize>(), 102);
+            assert_eq!(
+                results
+                    .iter()
+                    .map(|r| r.admission.conflicted)
+                    .sum::<usize>(),
+                0
+            );
+            assert_eq!(
+                results
+                    .iter()
+                    .map(|r| r.admission.market_rows)
+                    .sum::<usize>(),
+                10
+            );
+            for (symbol, record) in expected {
+                let stored = BinaryEodFile::open(
+                    path.parent()
+                        .unwrap()
+                        .join("eod_data/NSE")
+                        .join(format!("{symbol}.eod")),
+                )
+                .unwrap()
+                .read_all()
+                .unwrap();
+                assert!(
+                    stored.contains(&record),
+                    "canonical quotation changed: {symbol}"
+                );
+            }
+        }
+    }
+}
+
+#[test]
+fn bhav03a_new_auxiliary_pairs_require_matching_present_isin() {
+    for (regular, auxiliary) in [("EQ", "T0"), ("IV", "BL"), ("ID", "BL")] {
+        for (primary_isin, segment_isin) in [
+            ("INE062A01012", "INE999Z01010"),
+            ("INE062A01012", ""),
+            ("", ""),
+        ] {
+            let path = db();
+            let input = csv(&format!(
+                "SAMPLE,{regular},100,110,90,105,99,200,2025-12-03,{primary_isin}\nSAMPLE,{auxiliary},120,130,110,125,119,10,2025-12-03,{segment_isin}\n"
+            ));
+            let file = parse_bhavcopy_csv(&input, "NSE", "2025-12-03", &[]).unwrap();
+            assert_eq!(file.rows.len(), 2);
+            let admission = admit(&path, &[file]).unwrap();
+            assert_eq!(admission.masks, vec![vec![false, false]]);
+            assert_eq!(admission.reports[0].conflicted, 2);
+        }
+    }
+}
+
+#[test]
+fn bhav03a_t0_only_never_creates_daily_prices_or_replays() {
+    let path = db();
+    let file = parse_bhavcopy_csv(
+        &csv("SAMPLE,T0,100,110,90,105,99,200,2025-12-03,INE062A01012\n"),
+        "NSE",
+        "2025-12-03",
+        &[],
+    )
+    .unwrap();
+    let admission = admit(&path, std::slice::from_ref(&file)).unwrap();
+    assert_eq!(admission.masks, vec![vec![false]]);
+    assert_eq!(admission.reports[0].market_rows, 1);
+    assert!(require_replay_safe(&path, &[file]).is_err());
+    assert_eq!(count(&path), 0);
+}
+
+#[test]
+fn bhav03a_matched_block_does_not_hide_real_cross_date_class_conflict() {
+    let path = db();
+    let first = parse_bhavcopy_csv(
+        &csv("SAMPLE,IV,100,110,90,105,99,200,2025-12-03,INE062A01012\nSAMPLE,BL,120,130,110,125,119,10,2025-12-03,INE062A01012\n"),
+        "NSE", "2025-12-03", &[],
+    ).unwrap();
+    let second = parse_bhavcopy_csv(
+        &csv("SAMPLE,EQ,100,110,90,105,99,200,2025-12-04,INE062A01012\n"),
+        "NSE",
+        "2025-12-04",
+        &[],
+    )
+    .unwrap();
+    let admission = admit(&path, &[first, second]).unwrap();
+    assert_eq!(admission.masks, vec![vec![false, false], vec![false]]);
+    assert_eq!(
+        admission
+            .reports
+            .iter()
+            .map(|r| r.conflicted)
+            .sum::<usize>(),
+        3
+    );
+}
