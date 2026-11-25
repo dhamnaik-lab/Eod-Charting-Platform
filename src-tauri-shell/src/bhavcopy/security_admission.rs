@@ -69,7 +69,7 @@ fn classify(series: &str) -> SecurityClass {
     // Exact existing equity codes MUST precede the overlapping debt families.
     match series {
         "EQ" | "BE" | "BZ" | "SM" | "ST" | "SZ" | "SP" | "SL" | "SI" | "SO" | "SQ" | "BT"
-        | "BL" | "BO" | "IL" | "IQ" | "TT" | "IT" => SecurityClass::Equity,
+        | "BL" | "BO" | "IL" | "IQ" | "TT" | "IT" | "T0" => SecurityClass::Equity,
         // Preserve existing standalone instruments and government-security policy.
         // They may not be combined with equity at a shared symbol/date key.
         "GS" | "GB" | "GF" | "GT" | "GBD" | "GBI" | "GSD" | "GSI" | "SG" | "TB" => {
@@ -111,7 +111,17 @@ fn auxiliary_market(series: &str) -> bool {
     // the same symbol/date as the ordinary equity bar, so the buyback print must
     // never replace the canonical OHLCV row. It is kept as evidence exactly like
     // the block/illiquid buckets.
-    matches!(series, "IL" | "IQ" | "BL" | "SL" | "SI" | "SQ" | "BO")
+    // T0 is the separate optional same-day settlement market, not a T+1 bar.
+    matches!(
+        series,
+        "IL" | "IQ" | "BL" | "SL" | "SI" | "SQ" | "BO" | "T0"
+    )
+}
+
+// New exceptions require positive identity evidence. Keep the historical
+// both-ISIN-less rule for the already accepted equity auxiliary markets.
+fn same_present_isin(a: &ParsedBhavcopyRow, b: &ParsedBhavcopyRow) -> bool {
+    a.isin.len() == 12 && a.isin.starts_with("IN") && a.isin == b.isin
 }
 
 fn equal_rows(a: &ParsedBhavcopyRow, b: &ParsedBhavcopyRow) -> bool {
@@ -166,6 +176,18 @@ pub(crate) fn admit(database_path: &Path, files: &[ParsedBhavcopyFile]) -> AppRe
         for &(f, r) in positions {
             let row = &files[f].rows[r];
             let classes = symbol_classes.entry(row.symbol.clone()).or_default();
+            // BL is a market segment, not a security class, when a same-key
+            // InvIT unit with matching identity establishes its actual owner.
+            // Keep unmatched BL and all other existing class guards unchanged.
+            if row.series == "BL"
+                && positions.iter().any(|&(pf, pr)| {
+                    let primary = &files[pf].rows[pr];
+                    matches!(primary.series.as_str(), "IV" | "ID")
+                        && same_present_isin(primary, row)
+                })
+            {
+                continue;
+            }
             let class = classify(&row.series);
             if class != SecurityClass::Unknown && !classes.contains(&class) {
                 classes.push(class);
@@ -233,7 +255,19 @@ pub(crate) fn admit(database_path: &Path, files: &[ParsedBhavcopyFile]) -> AppRe
         let qualified = !unknown
             && !class_conflict
             && primary.map_or(false, |primary| {
-                classify(&primary.series) == SecurityClass::Equity
+                let invit_block_pair = matches!(primary.series.as_str(), "IV" | "ID")
+                    && !paired_segments.is_empty()
+                    && paired_segments.iter().all(|&(f, r)| {
+                        let segment = &files[f].rows[r];
+                        segment.series == "BL" && same_present_isin(primary, segment)
+                    });
+                let t0_identity_ok = paired_segments.iter().all(|&(f, r)| {
+                    let segment = &files[f].rows[r];
+                    segment.series != "T0"
+                        || (primary.series == "EQ" && same_present_isin(primary, segment))
+                });
+                (classify(&primary.series) == SecurityClass::Equity || invit_block_pair)
+                    && t0_identity_ok
                     && isin_ok(&primary.isin)
                     && regular
                         .iter()
@@ -331,7 +365,7 @@ pub(crate) fn admit(database_path: &Path, files: &[ParsedBhavcopyFile]) -> AppRe
             std::process::id(),
             AUDIT_ID.fetch_add(1, Ordering::Relaxed)
         ));
-        let data = serde_json::to_vec(&serde_json::json!({"schema":"nse-security-admission-v2","classification":"NSE legend 2024-09-19 and SBIN listing 2010-11-11","rows":evidence_rows,"reports":reports})).map_err(|e|e.to_string())?;
+        let data = serde_json::to_vec(&serde_json::json!({"schema":"nse-security-admission-v2","classification":"NSE legend 2024-09-19 and SBIN listing 2010-11-11; BHAV-03A T0 settlement and identity-matched InvIT BL","rows":evidence_rows,"reports":reports})).map_err(|e|e.to_string())?;
         let mut output = OpenOptions::new()
             .create_new(true)
             .write(true)
