@@ -3068,3 +3068,68 @@ fn bhav02_r1_no_write_status_requires_backend_control_flow_evidence() {
         &[inserted]
     ));
 }
+
+#[test]
+fn bhavperf01_calendar_batch_preserves_single_date_presence() {
+    let fixture = tempfile::tempdir().unwrap();
+    let connection = Connection::open(fixture.path().join("fixture.db")).unwrap();
+    connection.execute_batch("CREATE TABLE settings (key TEXT PRIMARY KEY, value TEXT NOT NULL, updated_at TEXT DEFAULT (datetime('now')))").unwrap();
+    set_price_storage_mode(&connection, PriceStorageMode::Binary).unwrap();
+    let index = Connection::open(fixture.path().join("eod_binary_state.sqlite")).unwrap();
+    index.execute_batch("CREATE TABLE eod_binary_state (exchange TEXT, symbol TEXT, record_count INTEGER, first_date INTEGER, last_date INTEGER); INSERT INTO eod_binary_state VALUES ('NSE','AAA',2,20260805,20260809),('NSE','BBB',2,20260806,20260808);").unwrap();
+    let folder = fixture.path().join("eod_data/NSE");
+    std::fs::create_dir_all(&folder).unwrap();
+    for (symbol, days) in [("AAA", [20260805, 20260809]), ("BBB", [20260806, 20260808])] {
+        let mut records = days
+            .into_iter()
+            .map(|date| baseline_fast_path_test_record(date, 100))
+            .collect::<Vec<_>>();
+        BinaryEodFile::write_all(
+            folder.join(format!("{symbol}.eod")),
+            symbol,
+            "NSE",
+            DEFAULT_SCALE,
+            &mut records,
+        )
+        .unwrap();
+    }
+    let dates = [
+        "2026-08-04",
+        "2026-08-05",
+        "2026-08-06",
+        "2026-08-07",
+        "2026-08-08",
+        "2026-08-09",
+        "2026-08-10",
+    ]
+    .map(str::to_string)
+    .to_vec();
+    let assert_equivalent = || {
+        let expected = dates
+            .iter()
+            .filter(|date| {
+                super::ingestion::binary_store_has_imported_rows_for_date(&connection, date, "NSE")
+                    .unwrap()
+            })
+            .cloned()
+            .collect::<std::collections::HashSet<_>>();
+        let actual =
+            super::ingestion::calendar_contradiction_dates(&connection, "NSE", &dates).unwrap();
+        assert_eq!(actual, expected);
+        actual
+    };
+    assert_eq!(assert_equivalent().len(), 4);
+    // A missing or wrong-identity file must not become a positive cached proof.
+    std::fs::remove_file(folder.join("AAA.eod")).unwrap();
+    assert!(!assert_equivalent().contains("2026-08-05"));
+    let mut records = vec![baseline_fast_path_test_record(20260805, 100)];
+    BinaryEodFile::write_all(
+        folder.join("AAA.eod"),
+        "WRONG",
+        "NSE",
+        DEFAULT_SCALE,
+        &mut records,
+    )
+    .unwrap();
+    assert!(!assert_equivalent().contains("2026-08-05"));
+}

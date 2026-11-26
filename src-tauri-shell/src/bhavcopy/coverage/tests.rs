@@ -306,3 +306,34 @@ fn bhav03bcd_historical_fallback_receipt_never_certifies_whole_archive() {
         .dates
         .is_empty());
 }
+
+#[test]
+fn bhavperf01_same_handle_reads_keep_header_range_and_forward_validation() {
+    let (_dir, path) = fixture(PriceStorageMode::Binary);
+    let binary = store_path(&path, "AAA");
+    fs::create_dir_all(binary.parent().unwrap()).unwrap();
+    let mut records = vec![
+        parsed("AAA", DATE, 100).rows[0].binary_record,
+        parsed("AAA", "2026-11-03", 101).rows[0].binary_record,
+    ];
+    BinaryEodFile::write_all(&binary, "AAA", "NSE", DEFAULT_SCALE, &mut records).unwrap();
+    let (file, handle) = BinaryEodFile::open_with_read_handle(&binary).unwrap();
+    let range = file.read_range_from(handle, 20261102, 20261102).unwrap();
+    assert_eq!(range.len(), 1);
+    assert_eq!(range[0].date, 20261102);
+    assert_eq!(range[0].close, records[0].close);
+    let (file, handle) = BinaryEodFile::open_with_read_handle(&binary).unwrap();
+    let mut forward = file.forward_records_from(handle).unwrap();
+    assert_eq!(forward.next_record().unwrap().unwrap().date, 20261102);
+    assert_eq!(forward.next_record().unwrap().unwrap().date, 20261103);
+    assert!(forward.next_record().unwrap().is_none());
+    let bytes = fs::read(&binary).unwrap();
+    let mut corrupt = bytes.clone();
+    corrupt[HEADER_SIZE + RECORD_SIZE..HEADER_SIZE + RECORD_SIZE + 4]
+        .copy_from_slice(&bytes[HEADER_SIZE..HEADER_SIZE + 4]);
+    fs::write(&binary, corrupt).unwrap();
+    let (file, handle) = BinaryEodFile::open_with_read_handle(&binary).unwrap();
+    let mut forward = file.forward_records_from(handle).unwrap();
+    assert!(forward.next_record().unwrap().is_some());
+    assert!(forward.next_record().is_err());
+}

@@ -2515,10 +2515,14 @@ fn finalize_coverage_receipts(
     session: Option<&str>,
     results: &mut [DownloadResult],
 ) -> AppResult<usize> {
+    let verify_started = Instant::now();
     if let Some(root) = database.parent() {
         super::coverage::check_receipts(connection, root, receipts);
     }
+    let verification_ms = verify_started.elapsed().as_millis();
+    let save_started = Instant::now();
     let save_error = super::coverage::save_receipts(connection, receipts, session).err();
+    let receipt_save_ms = save_started.elapsed().as_millis();
     if let Some(error) = save_error.as_ref() {
         log_runtime_event(
             app,
@@ -2528,6 +2532,7 @@ fn finalize_coverage_receipts(
         );
         emit_progress(app,79,format!("Coverage receipt could not be saved; prices retained, future verification required: {error}"));
     }
+    let log_started = Instant::now();
     let mut count = 0;
     for result in results {
         if result.diagnostic {
@@ -2577,6 +2582,7 @@ fn finalize_coverage_receipts(
             count += 1;
         }
     }
+    emit_progress(app, 79, format!("Bhavcopy coverage timings: physical verification {verification_ms} ms; receipt save {receipt_save_ms} ms; outcome/log writes {} ms; receipts {}", log_started.elapsed().as_millis(), receipts.len()));
     Ok(count)
 }
 
@@ -3362,6 +3368,17 @@ pub(crate) fn binary_store_has_imported_rows_for_date(
     }
 }
 
+const CALENDAR_PRESENCE_SQL: &str = "
+              SELECT symbol
+              FROM eod_binary_state
+              WHERE exchange = ?
+                AND record_count > 0
+                AND first_date IS NOT NULL
+                AND last_date IS NOT NULL
+                AND first_date <= ?
+                AND last_date >= ?
+            ";
+
 fn binary_index_covers_date(
     database_folder: &Path,
     exchange: &str,
@@ -3378,18 +3395,7 @@ fn binary_index_covers_date(
         .map_err(|error| error.to_string())?;
     let date = date_to_u32(trade_date);
     let mut statement = index
-        .prepare(
-            "
-              SELECT symbol
-              FROM eod_binary_state
-              WHERE exchange = ?
-                AND record_count > 0
-                AND first_date IS NOT NULL
-                AND last_date IS NOT NULL
-                AND first_date <= ?
-                AND last_date >= ?
-            ",
-        )
+        .prepare_cached(CALENDAR_PRESENCE_SQL)
         .map_err(|error| error.to_string())?;
     let symbols = statement
         .query_map(params![exchange, date, date], |row| row.get::<_, String>(0))
@@ -3404,19 +3410,171 @@ fn binary_index_covers_date(
             .join(exchange)
             .join(format!("{symbol}.eod"));
         // A stale index or a missing/corrupt file cannot justify skipping a download.
-        let Ok(binary) = BinaryEodFile::open(&path) else {
+        let Ok((binary, mut handle)) = BinaryEodFile::open_with_read_handle(&path) else {
             return Ok(false);
         };
         if binary.header.symbol != symbol || binary.header.exchange != exchange {
             return Ok(false);
         }
-        match binary_file_contained_dates(&path, &[date]) {
+        match binary_file_contained_dates_from(
+            &mut handle,
+            binary.header.record_count as usize,
+            &[date],
+        ) {
             Ok(dates) if dates.contains(&date) => return Ok(true),
             Ok(_) => {}
             Err(_) => return Ok(false),
         }
     }
     Ok(false)
+}
+
+// Bounded planning-only memo of physical presence (NOT coverage receipts).
+// Reuse the original per-date sidecar candidate order and exact binary search;
+// a candidate error still terminates that date's probe as false. The cache
+// never survives this calendar window and never authorizes skipping a receipt.
+struct CalendarFilePresence {
+    stamp: (u64, std::time::SystemTime),
+    found: Vec<Option<bool>>,
+}
+
+fn calendar_file_stamp(path: &Path) -> std::io::Result<(u64, std::time::SystemTime)> {
+    let metadata = fs::metadata(path)?;
+    Ok((metadata.len(), metadata.modified()?))
+}
+
+fn calendar_file_presence(
+    folder: &Path,
+    exchange: &str,
+    symbol: &str,
+    dates: &[u32],
+    position: usize,
+    cache: &mut HashMap<String, CalendarFilePresence>,
+) -> Option<bool> {
+    if symbol.contains(['/', '\\']) || symbol == "." || symbol == ".." {
+        return None;
+    }
+    let path = folder
+        .join("eod_data")
+        .join(exchange)
+        .join(format!("{symbol}.eod"));
+    let stamp = calendar_file_stamp(&path).ok();
+    if let Some(previous) = cache.get(symbol) {
+        if stamp == Some(previous.stamp) {
+            return previous.found[position];
+        }
+    }
+    cache.remove(symbol);
+    let (binary, mut handle) = BinaryEodFile::open_with_read_handle(&path).ok()?;
+    if binary.header.symbol != symbol || binary.header.exchange != exchange {
+        return None;
+    }
+    let count = binary.header.record_count as usize;
+    let handle_stamp = handle
+        .metadata()
+        .ok()
+        .and_then(|metadata| Some((metadata.len(), metadata.modified().ok()?)));
+    if stamp.is_none() || stamp != handle_stamp {
+        // Do not cache a file whose identity could not be bound to the handle.
+        return binary_file_contained_dates_from(&mut handle, count, &[dates[position]])
+            .ok()
+            .map(|v| v.contains(&dates[position]));
+    }
+    let found = dates
+        .iter()
+        .map(|&date| {
+            binary_file_contained_dates_from(&mut handle, count, &[date])
+                .ok()
+                .map(|v| v.contains(&date))
+        })
+        .collect::<Vec<_>>();
+    let result = found[position];
+    if calendar_file_stamp(&path).ok() == stamp {
+        cache.insert(
+            symbol.to_string(),
+            CalendarFilePresence {
+                stamp: stamp?,
+                found,
+            },
+        );
+        return result;
+    }
+    // A changing file cannot authorize a cached answer. Retry the original
+    // physical test for this one date on a fresh handle.
+    let (binary, mut handle) = BinaryEodFile::open_with_read_handle(&path).ok()?;
+    if binary.header.symbol != symbol || binary.header.exchange != exchange {
+        return None;
+    }
+    binary_file_contained_dates_from(
+        &mut handle,
+        binary.header.record_count as usize,
+        &[dates[position]],
+    )
+    .ok()
+    .map(|v| v.contains(&dates[position]))
+}
+
+pub(super) fn calendar_contradiction_dates(
+    connection: &Connection,
+    exchange: &str,
+    dates: &[String],
+) -> AppResult<HashSet<String>> {
+    let mut covered = HashSet::new();
+    if dates.is_empty() {
+        return Ok(covered);
+    }
+    if dates.len() == 1
+        || dates.len() > 31
+        || get_price_storage_mode(connection) != PriceStorageMode::Binary
+    {
+        for date in dates {
+            if storage_mode_has_imported_rows_for_date(connection, date, exchange)? {
+                covered.insert(date.clone());
+            }
+        }
+        return Ok(covered);
+    }
+    let Some(folder) = connection_database_folder(connection)? else {
+        return Ok(covered);
+    };
+    let sidecar = folder.join("eod_binary_state.sqlite");
+    let Ok(index) = Connection::open_with_flags(&sidecar, OpenFlags::SQLITE_OPEN_READ_ONLY) else {
+        return Ok(covered);
+    };
+    let Ok(mut statement) = index.prepare_cached(CALENDAR_PRESENCE_SQL) else {
+        return Ok(covered);
+    };
+    let numbers = dates
+        .iter()
+        .map(|date| date_to_u32(date))
+        .collect::<Vec<_>>();
+    let mut cache = HashMap::<String, CalendarFilePresence>::new();
+    for (position, date) in dates.iter().enumerate() {
+        let number = numbers[position];
+        let Ok(symbols) = statement.query_map(params![exchange, number, number], |row| {
+            row.get::<_, String>(0)
+        }) else {
+            continue;
+        };
+        for symbol in symbols {
+            let Ok(symbol) = symbol else {
+                break;
+            };
+            match calendar_file_presence(&folder, exchange, &symbol, &numbers, position, &mut cache)
+            {
+                Some(true) => {
+                    covered.insert(date.clone());
+                    break;
+                }
+                Some(false) => {}
+                None => break,
+            }
+        }
+    }
+    if get_price_storage_mode(connection) != PriceStorageMode::Binary {
+        return Err("Storage mode changed during calendar presence planning".into());
+    }
+    Ok(covered)
 }
 
 pub(crate) fn storage_mode_get_latest_imported_trade_date(
@@ -3592,12 +3750,20 @@ pub(crate) fn binary_file_contained_dates(
     file.read_exact(&mut header)
         .map_err(|error| error.to_string())?;
     let record_count = u32::from_le_bytes(header[8..12].try_into().unwrap()) as usize;
+    binary_file_contained_dates_from(&mut file, record_count, target_dates)
+}
+
+fn binary_file_contained_dates_from(
+    file: &mut fs::File,
+    record_count: usize,
+    target_dates: &[u32],
+) -> AppResult<Vec<u32>> {
     if record_count == 0 {
         return Ok(Vec::new());
     }
 
-    let first_date = read_binary_date_at(&mut file, 0)?;
-    let last_date = read_binary_date_at(&mut file, record_count - 1)?;
+    let first_date = read_binary_date_at(file, 0)?;
+    let last_date = read_binary_date_at(file, record_count - 1)?;
     let target_first = target_dates[0];
     let target_last = target_dates[target_dates.len() - 1];
     if target_last < first_date || target_first > last_date {
@@ -3607,9 +3773,8 @@ pub(crate) fn binary_file_contained_dates(
     let overlap_first = target_first.max(first_date);
     let overlap_last = target_last.min(last_date);
     let start_index =
-        binary_file_lower_bound_date_with_open_file(&mut file, record_count, overlap_first)?;
-    let end_index =
-        binary_file_upper_bound_date_with_open_file(&mut file, record_count, overlap_last)?;
+        binary_file_lower_bound_date_with_open_file(file, record_count, overlap_first)?;
+    let end_index = binary_file_upper_bound_date_with_open_file(file, record_count, overlap_last)?;
     if start_index >= end_index {
         return Ok(Vec::new());
     }
@@ -4042,4 +4207,48 @@ pub(crate) fn metadata_has_stale_zero_volume_rows_for_date(
         .optional()
         .map_err(|error| error.to_string())?
         .is_some())
+}
+
+#[cfg(test)]
+#[test]
+fn bhavperf01_calendar_cache_drops_stale_file_membership() {
+    let fixture = tempfile::tempdir().unwrap();
+    let folder = fixture.path().join("eod_data/NSE");
+    fs::create_dir_all(&folder).unwrap();
+    let path = folder.join("AAA.eod");
+    let record = |date| EodRecord {
+        date,
+        flags: 0,
+        open: 100,
+        high: 100,
+        low: 100,
+        close: 100,
+        prev_close: 100,
+        volume: 1,
+        oi: 0,
+    };
+    let mut records = vec![record(20260805), record(20260807)];
+    BinaryEodFile::write_all(&path, "AAA", "NSE", DEFAULT_SCALE, &mut records).unwrap();
+    let dates = [20260805, 20260806, 20260807];
+    let mut cache = HashMap::new();
+    assert_eq!(
+        calendar_file_presence(fixture.path(), "NSE", "AAA", &dates, 0, &mut cache),
+        Some(true)
+    );
+    assert_eq!(
+        calendar_file_presence(fixture.path(), "NSE", "AAA", &dates, 1, &mut cache),
+        Some(false)
+    );
+    // Change length deterministically, even on a filesystem with coarse mtime.
+    let mut records = vec![record(20260805), record(20260806), record(20260807)];
+    BinaryEodFile::write_all(&path, "AAA", "NSE", DEFAULT_SCALE, &mut records).unwrap();
+    assert_eq!(
+        calendar_file_presence(fixture.path(), "NSE", "AAA", &dates, 1, &mut cache),
+        Some(true)
+    );
+    fs::remove_file(&path).unwrap();
+    assert_eq!(
+        calendar_file_presence(fixture.path(), "NSE", "AAA", &dates, 1, &mut cache),
+        None
+    );
 }

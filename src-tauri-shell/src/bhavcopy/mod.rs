@@ -1087,52 +1087,67 @@ fn build_batch_plan(connection: &Connection, config: &BatchDownloadConfig) -> Ap
         calendar_days.extend(retries.dates);
         let mut skipped_existing_days = 0_usize;
 
-        for trade_date in calendar_days {
-            let parsed_date = parse_trade_date(&trade_date)?;
-            if let Some(special_name) = special_trading_day_name(&exchange, &trade_date) {
-                info_messages.push(format!(
+        let calendar_days = calendar_days.into_iter().collect::<Vec<_>>();
+        let mut presence_ms = 0_u128;
+        let mut presence_dates = 0_usize;
+        for window in calendar_days.chunks(31) {
+            let mut planned = Vec::with_capacity(window.len());
+            let mut probe_dates = Vec::new();
+            for trade_date in window {
+                let parsed_date = parse_trade_date(trade_date)?;
+                let special = special_trading_day_name(&exchange, trade_date);
+                let skip = create_calendar_skip_result(
+                    connection,
+                    &exchange,
+                    trade_date,
+                    parsed_date.weekday(),
+                );
+                if skip.is_some() && !imported_dates.dates.contains(trade_date) {
+                    probe_dates.push(trade_date.clone());
+                }
+                planned.push((trade_date.clone(), parsed_date, special, skip));
+            }
+            let probe_started = Instant::now();
+            let contradicted =
+                ingestion::calendar_contradiction_dates(connection, &exchange, &probe_dates)?;
+            presence_ms += probe_started.elapsed().as_millis();
+            presence_dates += probe_dates.len();
+            for (trade_date, parsed_date, special, skip) in planned {
+                if let Some(special_name) = special {
+                    info_messages.push(format!(
                     "[{}] {}: Special trading day override ({special_name}); treated as trading day",
                     format_exchange_log_label(&exchange),
                     trade_date
                 ));
-            }
-            if let Some(skip_result) = create_calendar_skip_result(
-                connection,
-                &exchange,
-                &trade_date,
-                parsed_date.weekday(),
-            ) {
-                // PHASE-1: observed bars outrank the calendar. A wrong holiday row
-                // must not suppress a real session (2023-09-28 held 2,331 NSE bars
-                // while market_holidays called it Id-E-Milad).
-                if is_calendar_skip_contradicted(
-                    &skip_result,
-                    imported_dates.dates.contains(&trade_date)
-                        || storage_mode_has_imported_rows_for_date(
-                            connection,
-                            &trade_date,
-                            &exchange,
-                        )?,
-                ) {
-                    info_messages.push(format!(
+                }
+                if let Some(skip_result) = skip {
+                    // PHASE-1: observed bars outrank the calendar. A wrong holiday row
+                    // must not suppress a real session (2023-09-28 held 2,331 NSE bars
+                    // while market_holidays called it Id-E-Milad).
+                    if is_calendar_skip_contradicted(
+                        &skip_result,
+                        imported_dates.dates.contains(&trade_date)
+                            || contradicted.contains(&trade_date),
+                    ) {
+                        info_messages.push(format!(
                         "[{}] {}: CALENDAR CONTRADICTION - stored bars exist but the calendar says '{}'; scheduling instead of skipping",
                         format_exchange_log_label(&exchange),
                         trade_date,
                         skip_result.message
                     ));
-                } else {
-                    calendar_skip_results.push(skip_result);
-                    continue;
+                    } else {
+                        calendar_skip_results.push(skip_result);
+                        continue;
+                    }
                 }
-            }
 
-            // Normal Range behaviour is gap-filling: already-imported days are
-            // skipped. `force_redownload` is the explicit repair switch that
-            // plans every session so an existing (possibly wrong) bar can be
-            // replaced by the source row.
-            if !config.force_redownload && imported_dates.dates.contains(&trade_date) {
-                skipped_existing_days += 1;
-                prefiltered_results.push(
+                // Normal Range behaviour is gap-filling: already-imported days are
+                // skipped. `force_redownload` is the explicit repair switch that
+                // plans every session so an existing (possibly wrong) bar can be
+                // replaced by the source row.
+                if !config.force_redownload && imported_dates.dates.contains(&trade_date) {
+                    skipped_existing_days += 1;
+                    prefiltered_results.push(
                     skipped_download_result(
                         &exchange,
                         &trade_date,
@@ -1140,51 +1155,60 @@ fn build_batch_plan(connection: &Connection, config: &BatchDownloadConfig) -> Ap
                     )
                     .with_outcome(DownloadOutcome::AlreadyPresent),
                 );
-                continue;
-            }
+                    continue;
+                }
 
-            if exchange == "NSE" {
-                tasks.push(DownloadTask {
-                    exchange: "NSE".to_string(),
-                    trade_date: trade_date.clone(),
-                    mode: config.mode.clone(),
-                    candidates: generate_nse_candidates(
+                if exchange == "NSE" {
+                    tasks.push(DownloadTask {
+                        exchange: "NSE".to_string(),
+                        trade_date: trade_date.clone(),
+                        mode: config.mode.clone(),
+                        candidates: generate_nse_candidates(
+                            parsed_date,
+                            config.nse_equity_url_override.as_ref(),
+                        ),
+                        nse_index_history: None,
+                    });
+                    continue;
+                }
+
+                if exchange == "NSE_INDEX" {
+                    tasks.push(DownloadTask {
+                        exchange: "NSE_INDEX".to_string(),
+                        trade_date: trade_date.clone(),
+                        mode: config.mode.clone(),
+                        candidates: generate_nse_index_candidates(
+                            parsed_date,
+                            config.nse_index_url_override.as_ref(),
+                        ),
+                        nse_index_history: None,
+                    });
+                    continue;
+                }
+
+                let candidates = if exchange == "BSE" {
+                    generate_bse_candidates(parsed_date, config.bse_equity_url_override.as_ref())
+                } else {
+                    generate_bse_index_candidates(
                         parsed_date,
-                        config.nse_equity_url_override.as_ref(),
-                    ),
+                        config.bse_index_url_override.as_ref(),
+                    )
+                };
+                tasks.push(DownloadTask {
+                    exchange: exchange.clone(),
+                    trade_date,
+                    mode: config.mode.clone(),
+                    candidates,
                     nse_index_history: None,
                 });
-                continue;
             }
-
-            if exchange == "NSE_INDEX" {
-                tasks.push(DownloadTask {
-                    exchange: "NSE_INDEX".to_string(),
-                    trade_date: trade_date.clone(),
-                    mode: config.mode.clone(),
-                    candidates: generate_nse_index_candidates(
-                        parsed_date,
-                        config.nse_index_url_override.as_ref(),
-                    ),
-                    nse_index_history: None,
-                });
-                continue;
-            }
-
-            let candidates = if exchange == "BSE" {
-                generate_bse_candidates(parsed_date, config.bse_equity_url_override.as_ref())
-            } else {
-                generate_bse_index_candidates(parsed_date, config.bse_index_url_override.as_ref())
-            };
-            tasks.push(DownloadTask {
-                exchange: exchange.clone(),
-                trade_date,
-                mode: config.mode.clone(),
-                candidates,
-                nse_index_history: None,
-            });
         }
-
+        if presence_dates > 0 {
+            info_messages.push(format!(
+                "[{}] Calendar contradiction probe: {presence_dates} dates in {presence_ms} ms",
+                format_exchange_log_label(&exchange)
+            ));
+        }
         if skipped_existing_days > 0 {
             info_messages.push(format!(
                 "[{}] Prefiltered {skipped_existing_days} already imported trading days",
