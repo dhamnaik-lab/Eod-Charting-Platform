@@ -53,3 +53,15 @@ Status: PASS_BHAV_PERF01_WINDOWS_AUTOMATED
 Scoped backup: E:\TA Projects\EOD Charting Platform\backups\pre_opencode_changes_20261126_150151_BHAV-PERF-01-20261126-150150-428131
 
 Native performance acceptance and release build remain pending. No automatic rollback.
+
+## Final native functional closeout (owner approved)
+
+IST: 2026-11-26T16:57:54+05:30
+
+Status: FUNCTIONAL ACCEPTANCE PASS; controlled native speedup not established. PR #144 merged at `a698559c6f86facff9cbb24a244378c40f6067b9`; Renderer CI #229 and Rust CI #45 passed. Local sync verified all 11 files; protected local manifest retained. Standard portable built: Vite 12.22 s, Rust optimized release 4m 56s (11 non-blocking dead-code warnings). Accepted portable SHA-256 `CCD5C0753E74D39E46D4C494AC1E6CD24855D799665F6960A9F7C47F30B6F53F`. Windows native reconciled at 16:45:46 IST, all 13 checks true.
+
+- Evidence `BHAV-PERF-01-Native-Reconciled-20261126-164449-901049.zip` SHA-256 `E139603DEEEE94D26F15902622B570EBA27656AD2269E06DE6D15B7F467B68AB`; prior Update manifest `63666F1CE25465CE37338FA3A4B1D293AE08105DA611EEDB181671DB1C7D27D7`; final manifest `7E46F305477621B274D79C4BDE1635BB2F8FC3A5D00FCB3217D464777635031B`. Both download log hashes independently matched; archive CRC and 180 receipt hash/identity summaries verified.
+- 2,207,236 existing quotations preserved, exactly 3,677 added on 2026-11-26 (3,598 NSE / 79 BSE Index), 0 changed/deleted; 14,033 prior EOD files preserved, 8 new, 14,041 final; 2,210,913 final quotations. No pending receipts or recovery sessions; 17 held source rows remain unresolved. December 2025 added zero quotations.
+- Initial verifier HOLD resulted from the actual November range extending through 26 November rather than 25 November; corrected read-only verifier compared to the original baseline and allowed exactly the logged additions. Failed evidence retained. No restoration, repair or repeated download required.
+- November planning 21 s, calendar 16.175 s, physical receipt verification 1,316 ms, receipt save 6 ms, log writes 0 ms (1,323 ms total). December planning 17 s, calendar 16.824 s, physical receipt verification 3,745 ms, receipt save 523 ms, log writes 10 ms (4,279 ms total). Earlier 23 s repeat planning and 32.5 s historical receipt stage had different workloads. No controlled speedup or exchange-source price parity claimed.
+- New baseline is New Database only. Original EOD DATABASE and RECOVERY-01B remain HOLD. Keep exact accepted executable until separately authorized replacement. Calendar-only bottleneck follow-up: [2026-11-26_1657_IST_BHAV_PERF02_BUFFERED_CALENDAR_SEARCH.md](2026-11-26_1657_IST_BHAV_PERF02_BUFFERED_CALENDAR_SEARCH.md).

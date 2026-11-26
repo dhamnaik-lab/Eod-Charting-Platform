@@ -3443,6 +3443,53 @@ fn calendar_file_stamp(path: &Path) -> std::io::Result<(u64, std::time::SystemTi
     Ok((metadata.len(), metadata.modified()?))
 }
 
+// A single bounded, temporary read per candidate file. Preserve the old exact
+// per-date search (including its handling of malformed ordering) by running it
+// against a Cursor, not by substituting first/last bounds for physical proof.
+const MAX_CALENDAR_BUFFER_BYTES: usize = 1024 * 1024;
+
+fn read_calendar_buffer(handle: &mut fs::File, count: usize) -> Option<Vec<u8>> {
+    let bytes = count.checked_mul(RECORD_SIZE)?.checked_add(HEADER_SIZE)?;
+    if bytes > MAX_CALENDAR_BUFFER_BYTES {
+        return None;
+    }
+    let mut buffer = vec![0_u8; bytes];
+    handle.seek(SeekFrom::Start(0)).ok()?;
+    handle.read_exact(&mut buffer).ok()?;
+    Some(buffer)
+}
+
+fn calendar_presence_results<R: Read + Seek>(
+    reader: &mut R,
+    count: usize,
+    dates: &[u32],
+) -> Vec<Option<bool>> {
+    dates
+        .iter()
+        .map(|&date| {
+            binary_file_contained_dates_from(reader, count, &[date])
+                .ok()
+                .map(|v| v.contains(&date))
+        })
+        .collect()
+}
+
+fn calendar_file_presence_results(
+    handle: &mut fs::File,
+    count: usize,
+    dates: &[u32],
+    buffered: bool,
+) -> Vec<Option<bool>> {
+    if buffered {
+        if let Some(buffer) = read_calendar_buffer(handle, count) {
+            return calendar_presence_results(&mut std::io::Cursor::new(buffer), count, dates);
+        }
+    }
+    // An oversized, short, or unreadable whole-file buffer is not an absence
+    // claim. Fall back to the original independent per-date physical searches.
+    calendar_presence_results(handle, count, dates)
+}
+
 fn calendar_file_presence(
     folder: &Path,
     exchange: &str,
@@ -3450,6 +3497,7 @@ fn calendar_file_presence(
     dates: &[u32],
     position: usize,
     cache: &mut HashMap<String, CalendarFilePresence>,
+    buffered: bool,
 ) -> Option<bool> {
     if symbol.contains(['/', '\\']) || symbol == "." || symbol == ".." {
         return None;
@@ -3480,14 +3528,7 @@ fn calendar_file_presence(
             .ok()
             .map(|v| v.contains(&dates[position]));
     }
-    let found = dates
-        .iter()
-        .map(|&date| {
-            binary_file_contained_dates_from(&mut handle, count, &[date])
-                .ok()
-                .map(|v| v.contains(&date))
-        })
-        .collect::<Vec<_>>();
+    let found = calendar_file_presence_results(&mut handle, count, dates, buffered);
     let result = found[position];
     if calendar_file_stamp(&path).ok() == stamp {
         cache.insert(
@@ -3541,8 +3582,26 @@ pub(super) fn calendar_contradiction_dates(
     let Ok(index) = Connection::open_with_flags(&sidecar, OpenFlags::SQLITE_OPEN_READ_ONLY) else {
         return Ok(covered);
     };
+    covered = calendar_contradiction_dates_in_index(&folder, &index, exchange, dates, true);
+    if get_price_storage_mode(connection) != PriceStorageMode::Binary {
+        return Err("Storage mode changed during calendar presence planning".into());
+    }
+    Ok(covered)
+}
+
+// The same candidate order, stamp guards, early termination and query are used
+// for both strategies. The unbuffered strategy is retained for fallback and
+// a controlled read-only A/B benchmark of the previous implementation.
+fn calendar_contradiction_dates_in_index(
+    folder: &Path,
+    index: &Connection,
+    exchange: &str,
+    dates: &[String],
+    buffered: bool,
+) -> HashSet<String> {
+    let mut covered = HashSet::new();
     let Ok(mut statement) = index.prepare_cached(CALENDAR_PRESENCE_SQL) else {
-        return Ok(covered);
+        return covered;
     };
     let numbers = dates
         .iter()
@@ -3560,8 +3619,9 @@ pub(super) fn calendar_contradiction_dates(
             let Ok(symbol) = symbol else {
                 break;
             };
-            match calendar_file_presence(&folder, exchange, &symbol, &numbers, position, &mut cache)
-            {
+            match calendar_file_presence(
+                folder, exchange, &symbol, &numbers, position, &mut cache, buffered,
+            ) {
                 Some(true) => {
                     covered.insert(date.clone());
                     break;
@@ -3571,10 +3631,7 @@ pub(super) fn calendar_contradiction_dates(
             }
         }
     }
-    if get_price_storage_mode(connection) != PriceStorageMode::Binary {
-        return Err("Storage mode changed during calendar presence planning".into());
-    }
-    Ok(covered)
+    covered
 }
 
 pub(crate) fn storage_mode_get_latest_imported_trade_date(
@@ -3753,8 +3810,8 @@ pub(crate) fn binary_file_contained_dates(
     binary_file_contained_dates_from(&mut file, record_count, target_dates)
 }
 
-fn binary_file_contained_dates_from(
-    file: &mut fs::File,
+fn binary_file_contained_dates_from<R: Read + Seek>(
+    file: &mut R,
     record_count: usize,
     target_dates: &[u32],
 ) -> AppResult<Vec<u32>> {
@@ -3802,8 +3859,8 @@ fn binary_file_contained_dates_from(
     Ok(found)
 }
 
-pub(crate) fn binary_file_lower_bound_date_with_open_file(
-    file: &mut fs::File,
+pub(crate) fn binary_file_lower_bound_date_with_open_file<R: Read + Seek>(
+    file: &mut R,
     record_count: usize,
     target_date: u32,
 ) -> AppResult<usize> {
@@ -3821,8 +3878,8 @@ pub(crate) fn binary_file_lower_bound_date_with_open_file(
     Ok(low)
 }
 
-pub(crate) fn binary_file_upper_bound_date_with_open_file(
-    file: &mut fs::File,
+pub(crate) fn binary_file_upper_bound_date_with_open_file<R: Read + Seek>(
+    file: &mut R,
     record_count: usize,
     target_date: u32,
 ) -> AppResult<usize> {
@@ -3840,7 +3897,7 @@ pub(crate) fn binary_file_upper_bound_date_with_open_file(
     Ok(low)
 }
 
-pub(crate) fn read_binary_date_at(file: &mut fs::File, index: usize) -> AppResult<u32> {
+pub(crate) fn read_binary_date_at<R: Read + Seek>(file: &mut R, index: usize) -> AppResult<u32> {
     file.seek(SeekFrom::Start((HEADER_SIZE + index * RECORD_SIZE) as u64))
         .map_err(|error| error.to_string())?;
     let mut buffer = [0_u8; 4];
@@ -4232,23 +4289,224 @@ fn bhavperf01_calendar_cache_drops_stale_file_membership() {
     let dates = [20260805, 20260806, 20260807];
     let mut cache = HashMap::new();
     assert_eq!(
-        calendar_file_presence(fixture.path(), "NSE", "AAA", &dates, 0, &mut cache),
+        calendar_file_presence(fixture.path(), "NSE", "AAA", &dates, 0, &mut cache, true),
         Some(true)
     );
     assert_eq!(
-        calendar_file_presence(fixture.path(), "NSE", "AAA", &dates, 1, &mut cache),
+        calendar_file_presence(fixture.path(), "NSE", "AAA", &dates, 1, &mut cache, true),
         Some(false)
     );
     // Change length deterministically, even on a filesystem with coarse mtime.
     let mut records = vec![record(20260805), record(20260806), record(20260807)];
     BinaryEodFile::write_all(&path, "AAA", "NSE", DEFAULT_SCALE, &mut records).unwrap();
     assert_eq!(
-        calendar_file_presence(fixture.path(), "NSE", "AAA", &dates, 1, &mut cache),
+        calendar_file_presence(fixture.path(), "NSE", "AAA", &dates, 1, &mut cache, true),
         Some(true)
     );
     fs::remove_file(&path).unwrap();
     assert_eq!(
-        calendar_file_presence(fixture.path(), "NSE", "AAA", &dates, 1, &mut cache),
+        calendar_file_presence(fixture.path(), "NSE", "AAA", &dates, 1, &mut cache, true),
         None
     );
+}
+
+#[cfg(test)]
+fn bhavperf02_test_record(date: u32) -> EodRecord {
+    EodRecord {
+        date,
+        flags: 0,
+        open: 100,
+        high: 100,
+        low: 100,
+        close: 100,
+        prev_close: 100,
+        volume: 1,
+        oi: 0,
+    }
+}
+
+#[cfg(test)]
+#[test]
+fn bhavperf02_buffered_search_matches_legacy_on_gaps_and_bad_order() {
+    let fixture = tempfile::tempdir().unwrap();
+    let path = fixture.path().join("AAA.eod");
+    let mut records =
+        [20251201, 20251202, 20251205, 20251208, 20251231].map(bhavperf02_test_record);
+    BinaryEodFile::write_all(&path, "AAA", "NSE", DEFAULT_SCALE, &mut records).unwrap();
+    let dates = [
+        20251130, 20251201, 20251203, 20251205, 20251207, 20251208, 20251231, 20260101,
+    ];
+    let compare = || {
+        let (binary, mut handle) = BinaryEodFile::open_with_read_handle(&path).unwrap();
+        let count = binary.header.record_count as usize;
+        assert!(read_calendar_buffer(&mut handle, count).is_some());
+        let old = calendar_file_presence_results(&mut handle, count, &dates, false);
+        let new = calendar_file_presence_results(&mut handle, count, &dates, true);
+        assert_eq!(old, new);
+        new
+    };
+    assert_eq!(
+        compare(),
+        vec![
+            Some(false),
+            Some(true),
+            Some(false),
+            Some(true),
+            Some(false),
+            Some(true),
+            Some(true),
+            Some(false)
+        ]
+    );
+    // Unsorted/duplicate dates must not change the established search outcome.
+    let mut bytes = fs::read(&path).unwrap();
+    bytes[HEADER_SIZE + RECORD_SIZE..HEADER_SIZE + RECORD_SIZE + 4]
+        .copy_from_slice(&20251231_u32.to_le_bytes());
+    bytes[HEADER_SIZE + 2 * RECORD_SIZE..HEADER_SIZE + 2 * RECORD_SIZE + 4]
+        .copy_from_slice(&20251201_u32.to_le_bytes());
+    fs::write(&path, bytes).unwrap();
+    compare();
+}
+
+#[cfg(test)]
+#[test]
+fn bhavperf02_oversize_and_short_read_preserve_fallback() {
+    let fixture = tempfile::tempdir().unwrap();
+    let path = fixture.path().join("AAA.eod");
+    let mut records = [20251201, 20251205, 20251208].map(bhavperf02_test_record);
+    BinaryEodFile::write_all(&path, "AAA", "NSE", DEFAULT_SCALE, &mut records).unwrap();
+    let (_, mut handle) = BinaryEodFile::open_with_read_handle(&path).unwrap();
+    assert!(read_calendar_buffer(&mut handle, usize::MAX).is_none());
+    assert!(
+        read_calendar_buffer(&mut handle, MAX_CALENDAR_BUFFER_BYTES / RECORD_SIZE + 1).is_none()
+    );
+    drop(handle);
+    // Keep the final date bytes readable but truncate the final full record.
+    fs::OpenOptions::new()
+        .write(true)
+        .open(&path)
+        .unwrap()
+        .set_len((HEADER_SIZE + 2 * RECORD_SIZE + 4) as u64)
+        .unwrap();
+    let (_, mut handle) = BinaryEodFile::open_with_read_handle(&path).unwrap();
+    assert!(read_calendar_buffer(&mut handle, 3).is_none());
+    let dates = [20251201, 20251203, 20251208];
+    let expected = calendar_file_presence_results(&mut handle, 3, &dates, false);
+    assert_eq!(expected, vec![Some(true), Some(false), None]);
+    assert_eq!(
+        calendar_file_presence_results(&mut handle, 3, &dates, true),
+        expected
+    );
+}
+
+#[cfg(test)]
+#[test]
+fn bhavperf02_index_candidate_order_and_errors_are_equivalent() {
+    let fixture = tempfile::tempdir().unwrap();
+    let folder = fixture.path().join("eod_data/NSE");
+    fs::create_dir_all(&folder).unwrap();
+    let index = Connection::open_in_memory().unwrap();
+    index.execute_batch("CREATE TABLE eod_binary_state(exchange TEXT,symbol TEXT,record_count INTEGER,first_date INTEGER,last_date INTEGER); INSERT INTO eod_binary_state VALUES ('NSE','AAA',2,20251201,20251208),('NSE','BBB',2,20251201,20251208)").unwrap();
+    let mut a = [20251201, 20251208].map(bhavperf02_test_record);
+    let mut b = [20251206, 20251207].map(bhavperf02_test_record);
+    BinaryEodFile::write_all(folder.join("AAA.eod"), "AAA", "NSE", DEFAULT_SCALE, &mut a).unwrap();
+    BinaryEodFile::write_all(folder.join("BBB.eod"), "BBB", "NSE", DEFAULT_SCALE, &mut b).unwrap();
+    let dates = ["2025-12-01", "2025-12-06", "2025-12-07", "2025-12-08"].map(str::to_string);
+    let compare = || {
+        let old =
+            calendar_contradiction_dates_in_index(fixture.path(), &index, "NSE", &dates, false);
+        let new =
+            calendar_contradiction_dates_in_index(fixture.path(), &index, "NSE", &dates, true);
+        assert_eq!(old, new);
+        new
+    };
+    assert_eq!(compare().len(), 4);
+    fs::remove_file(folder.join("AAA.eod")).unwrap();
+    compare();
+    BinaryEodFile::write_all(
+        folder.join("AAA.eod"),
+        "WRONG",
+        "NSE",
+        DEFAULT_SCALE,
+        &mut a,
+    )
+    .unwrap();
+    compare();
+}
+
+// Explicit operator-only read-only benchmark. Ordinary test runs never access
+// New Database. The runner supplies an exact copied sidecar under project tmp.
+#[cfg(test)]
+#[test]
+#[ignore = "operator-only read-only New Database calendar A/B benchmark"]
+fn bhavperf02_calendar_read_only_benchmark() {
+    let root = Path::new(r"E:\TA Projects\EOD Charting Platform");
+    let folder = root.join("New Database");
+    let sidecar = PathBuf::from(
+        std::env::var_os("EOD_BHAVPERF02_BENCHMARK_SIDECAR")
+            .expect("Explicit benchmark sidecar required"),
+    );
+    assert!(sidecar
+        .canonicalize()
+        .unwrap()
+        .starts_with(root.join("tmp").canonicalize().unwrap()));
+    assert_eq!(sidecar.file_name().unwrap(), "eod_binary_state.sqlite");
+    assert_eq!(
+        folder.canonicalize().unwrap(),
+        root.canonicalize().unwrap().join("New Database")
+    );
+    let index = Connection::open_with_flags(sidecar, OpenFlags::SQLITE_OPEN_READ_ONLY).unwrap();
+    let windows = [
+        (
+            "December2025",
+            vec![
+                "2025-12-06",
+                "2025-12-07",
+                "2025-12-13",
+                "2025-12-14",
+                "2025-12-20",
+                "2025-12-21",
+                "2025-12-27",
+                "2025-12-28",
+            ],
+        ),
+        (
+            "November2026",
+            vec![
+                "2026-11-01",
+                "2026-11-07",
+                "2026-11-14",
+                "2026-11-15",
+                "2026-11-21",
+                "2026-11-22",
+            ],
+        ),
+    ];
+    for (window, dates) in windows {
+        let dates = dates.into_iter().map(str::to_string).collect::<Vec<_>>();
+        for round in 0..2 {
+            let mut totals = [0_u128; 2];
+            for exchange in ["NSE", "BSE", "NSE_INDEX", "BSE_INDEX"] {
+                let mut answers = [HashSet::new(), HashSet::new()];
+                for buffered in [round == 1, round == 0] {
+                    let started = Instant::now();
+                    let result = calendar_contradiction_dates_in_index(
+                        &folder, &index, exchange, &dates, buffered,
+                    );
+                    let ms = started.elapsed().as_millis();
+                    let position = buffered as usize;
+                    totals[position] += ms;
+                    let mut sorted = result.iter().cloned().collect::<Vec<_>>();
+                    sorted.sort();
+                    println!("BHAVPERF02_BENCH window={window} round={} exchange={exchange} buffered={buffered} ms={ms} dates={:?}",round+1,sorted);
+                    answers[position] = result;
+                }
+                assert_eq!(
+                    answers[0], answers[1],
+                    "Calendar decisions changed for {window} {exchange}"
+                );
+            }
+            println!("BHAVPERF02_TOTAL window={window} round={} legacy_ms={} buffered_ms={} equivalent=true",round+1,totals[0],totals[1]);
+        }
+    }
 }
