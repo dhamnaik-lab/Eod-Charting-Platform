@@ -164,18 +164,6 @@ pub fn failed_download_result(
     }
 }
 
-pub fn create_holiday_skip_result(
-    exchange: &str,
-    trade_date: &str,
-    holiday_name: &str,
-) -> DownloadResult {
-    skipped_download_result(
-        exchange,
-        trade_date,
-        format!("Exchange holiday ({holiday_name})"),
-    )
-}
-
 pub fn create_weekend_skip_result(
     exchange: &str,
     trade_date: &str,

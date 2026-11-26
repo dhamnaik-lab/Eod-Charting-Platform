@@ -46,6 +46,7 @@ pub fn emit_download_result(app: &AppHandle, result: &DownloadResult) {
 
 // Coverage proofs are checked in bounded windows, never accepted because a cap is exceeded.
 pub(crate) const MAX_BHAVCOPY_BINARY_WORKERS: usize = 2;
+#[cfg(test)]
 pub(crate) const MAX_BHAVCOPY_PREFILTER_WORKERS: usize = 4;
 pub(crate) static BHAVCOPY_CHECKPOINT_LIFECYCLE_LOCK: OnceLock<Mutex<()>> = OnceLock::new();
 
@@ -3664,6 +3665,7 @@ pub(crate) fn storage_mode_load_imported_trade_dates(
     Ok(verified)
 }
 
+#[cfg(test)]
 pub(crate) fn storage_mode_has_stale_zero_volume_rows_for_date(
     connection: &Connection,
     trade_date: &str,
@@ -3699,6 +3701,7 @@ pub(crate) fn connection_database_folder(connection: &Connection) -> AppResult<O
     }))
 }
 
+#[cfg(test)]
 pub(crate) fn count_binary_files_containing_dates(
     binary_folder: &Path,
     mut target_dates: Vec<u32>,
@@ -3790,6 +3793,7 @@ pub(crate) fn count_binary_files_containing_dates(
     Ok((counts, binary_files_scanned))
 }
 
+#[cfg(test)]
 pub(crate) fn bhavcopy_prefilter_worker_count(file_count: usize) -> usize {
     if file_count == 0 {
         0
@@ -3798,6 +3802,7 @@ pub(crate) fn bhavcopy_prefilter_worker_count(file_count: usize) -> usize {
     }
 }
 
+#[cfg(test)]
 pub(crate) fn binary_file_contained_dates(
     path: &Path,
     target_dates: &[u32],
@@ -3944,72 +3949,7 @@ pub(crate) fn get_latest_imported_trade_date(
         .map_err(|error| error.to_string())
 }
 
-pub(crate) fn load_imported_trade_dates(
-    connection: &Connection,
-    exchange: &str,
-    start_date: &str,
-    end_date: &str,
-) -> AppResult<ImportedTradeDates> {
-    let normalized_exchange = normalize_exchange_key(exchange);
-    if normalized_exchange == "NSE" || normalized_exchange == "NSEINDEX" {
-        let mut statement = connection
-            .prepare(
-                "
-                  SELECT date, COALESCE(MAX(volume), 0) AS max_volume
-                  FROM eod_prices
-                  WHERE exchange = ?
-                    AND date >= ?
-                    AND date <= ?
-                  GROUP BY date
-                ",
-            )
-            .map_err(|error| error.to_string())?;
-        let rows = statement
-            .query_map(params![exchange, start_date, end_date], |row| {
-                Ok((row.get::<_, String>(0)?, row.get::<_, i64>(1)?))
-            })
-            .map_err(|error| error.to_string())?;
-
-        let mut imported_dates = ImportedTradeDates::default();
-        for row in rows {
-            let (trade_date, max_volume) = row.map_err(|error| error.to_string())?;
-            if max_volume > 0 {
-                imported_dates.dates.insert(trade_date);
-            } else {
-                imported_dates.stale_zero_volume_dates += 1;
-            }
-        }
-
-        return Ok(imported_dates);
-    }
-
-    let mut statement = connection
-        .prepare(
-            "
-              SELECT DISTINCT date
-              FROM eod_prices
-              WHERE exchange = ?
-                AND date >= ?
-                AND date <= ?
-            ",
-        )
-        .map_err(|error| error.to_string())?;
-    let rows = statement
-        .query_map(params![exchange, start_date, end_date], |row| {
-            row.get::<_, String>(0)
-        })
-        .map_err(|error| error.to_string())?;
-
-    let mut imported_dates = ImportedTradeDates::default();
-    for row in rows {
-        imported_dates
-            .dates
-            .insert(row.map_err(|error| error.to_string())?);
-    }
-
-    Ok(imported_dates)
-}
-
+#[cfg(test)]
 pub(crate) fn has_stale_zero_volume_rows_for_date(
     connection: &Connection,
     trade_date: &str,
@@ -4153,6 +4093,7 @@ fn upsert_download_log_entry_once(
     Ok(())
 }
 
+#[cfg(test)]
 pub(crate) fn metadata_has_imported_rows_for_date(
     connection: &Connection,
     trade_date: &str,
@@ -4236,6 +4177,7 @@ pub(crate) fn metadata_load_imported_trade_dates(
     Ok(imported_dates)
 }
 
+#[cfg(test)]
 pub(crate) fn metadata_has_stale_zero_volume_rows_for_date(
     connection: &Connection,
     trade_date: &str,

@@ -521,7 +521,6 @@ pub(super) fn stage_fallback(
     app: &AppHandle,
     client: &Client,
     database: &Path,
-    config: &BatchDownloadConfig,
     dates: &BTreeSet<String>,
     staged: &mut Vec<StagedDownload>,
     results: &mut Vec<DownloadResult>,
@@ -657,7 +656,6 @@ pub(super) fn stage_fallback(
             task: DownloadTask {
                 exchange: "NSE_INDEX".into(),
                 trade_date: date,
-                mode: config.mode.clone(),
                 candidates: vec![],
                 nse_index_history: None,
             },

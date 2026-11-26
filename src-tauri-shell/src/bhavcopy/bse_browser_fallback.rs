@@ -559,7 +559,6 @@ mod tests {
         DownloadTask {
             exchange: exchange.into(),
             trade_date: "2026-10-23".into(),
-            mode: DownloadMode::Range,
             candidates: Vec::new(),
             nse_index_history: None,
         }

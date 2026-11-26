@@ -1,0 +1,26 @@
+# BHAV-CLEANUP-01 — Dead-code cleanup
+
+- IST: 2026-11-26T23:52:34.974355+05:30
+- Source authority: `cef2a4a72a52ba50846231183b4a4a5e90889c6b` plus accepted local PERF-02 documentation closeout `0360BDF7F8210839E271760C18FB9A08931F49A9C924665C4969DEBB646DDC29`.
+- Objective: eliminate eleven observed Rust dead-code warnings without changing runtime behaviour.
+- Previous limitation: 11 release warnings, 3 test warnings.
+- Implementation: Removed unused DownloadTask.mode and its 12 literal assignments; removed now-unused internal fallback/history-generator mode arguments. Deleted unreferenced create_holiday_skip_result and load_imported_trade_dates. Restricted seven test-only helpers and MAX_BHAVCOPY_PREFILTER_WORKERS to cfg(test); all tests retained. Active download mode in BatchDownloadConfig, calendar decisions, source admission, coverage receipt checks, binary data writes, recovery, checkpoint policy and worker limits unchanged.
+- Files changed:
+  - `src-tauri-shell/src/bhavcopy/bse_browser_fallback.rs`
+  - `src-tauri-shell/src/bhavcopy/calendar.rs`
+  - `src-tauri-shell/src/bhavcopy/index_fallback.rs`
+  - `src-tauri-shell/src/bhavcopy/index_fallback/tests.rs`
+  - `src-tauri-shell/src/bhavcopy/ingestion.rs`
+  - `src-tauri-shell/src/bhavcopy/mod.rs`
+  - `src-tauri-shell/src/bhavcopy/sources/nse.rs`
+  - `src-tauri-shell/src/bhavcopy/tests.rs`
+  - `src-tauri-shell/src/bhavcopy/types.rs`
+  - `HANDOFF.md`
+  - `NEXT_THREAD_PROMPT_EOD_CHARTING_PLATFORM.md`
+  - `ARCHITECTURE_CURRENT_EOD_CHARTING_PLATFORM.md`
+  - `docs/changes/2026-11-26_2339_IST_BHAV_CLEANUP_01_DEAD_CODE.md`
+- Validation: canonical explicit-file Rustfmt PASS; `bhavperf02_` 3 passed / 1 ignored; `bhavcopy::` 207 passed / 5 ignored; `bhavcopy_recovery::` 19 passed; `database::binary_eod::` 29 passed. 255 distinct regression passes; all zero failures. `cargo check --release --offline --locked` through shared wrapper PASS, no warning lines. Operator benchmark (ignored) not repeated.
+- Protected accepted portable SHA-256: `36187516702E2E1E03EE4A1AEB749AFEC6591A77B68B294FA73B04929C8C9662`. No DB access, Git mutations or new release artifact.
+- Risk: a real optimized executable build and manual smoke test remain pending; no new performance or full exchange-source parity claim.
+- Rollback: with owner approval and app closed, restore only exact affected files from `E:\TA Projects\EOD Charting Platform\backups\pre_opencode_changes_20261126_233920_BHAV-CLEANUP-01-20261126-233919-529422`; remove only this newly created change record if rolling back. Do not restore database or clean targets.
+- Evidence: local validation log and source inventory in `E:\TA Projects\EOD Charting Platform\tmp\BHAV-CLEANUP-01-20261126-233919-529422`; publication and CI remain pending.
