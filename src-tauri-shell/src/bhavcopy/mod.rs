@@ -50,6 +50,7 @@ pub use bse_price_history::{cancel_bse_price_history_download, download_bse_pric
 mod activity_report;
 mod batch_runtime;
 mod bse_browser_fallback;
+mod coverage;
 mod index_fallback;
 
 #[tauri::command]
@@ -1000,24 +1001,48 @@ fn build_batch_plan(connection: &Connection, config: &BatchDownloadConfig) -> Ap
                 .join(", ");
             info_messages.push(format!("[NSE Index] Daily archives first; missing supported indices use historical fallback in chunks up to 366 days. Supported subset: {supported}. Other indices and unavailable dates remain unresolved; no full-history certification. Existing prices are preserved."));
         }
-        let Some((start_date, end_date)) = resolve_exchange_date_window(
+        let regular_window = resolve_exchange_date_window(
             connection,
             &config.mode,
             &exchange,
             &config.start_date,
             &config.end_date,
             &mut info_messages,
-        )?
-        else {
-            continue;
+        )?;
+        let end_date = regular_window
+            .as_ref()
+            .map(|(_, end)| end.clone())
+            .unwrap_or_else(update_end_trade_date);
+        let retry_start = if config.mode == DownloadMode::Update {
+            Some(coverage::retry_window_start(&end_date)?)
+        } else {
+            None
         };
-
-        let imported_dates = if exchange == "NSE_INDEX" {
-            // An exchange-date marker cannot establish per-index coverage.
+        let start_date = match (regular_window.as_ref(), retry_start.as_ref()) {
+            (Some((start, _)), Some(retry)) => start.min(retry).clone(),
+            (Some((start, _)), None) => start.clone(),
+            (None, Some(retry)) => retry.clone(),
+            (None, None) => continue,
+        };
+        let imported_dates = if config.force_redownload {
             ImportedTradeDates::default()
         } else {
             storage_mode_load_imported_trade_dates(connection, &exchange, &start_date, &end_date)?
         };
+        let retries = if config.mode == DownloadMode::Update {
+            coverage::update_retries(
+                connection,
+                &exchange,
+                &end_date,
+                coverage::now_timestamp(),
+                &imported_dates.dates,
+            )?
+        } else {
+            coverage::RetryPlan::default()
+        };
+        if config.mode == DownloadMode::Update {
+            info_messages.push(format!("[{}] Earlier unresolved/unverified dates: {} scheduled, {} deferred (90-day window, 10 per exchange/run, 24h cooldown); {} older legacy error/partial markers outside window; use Date Range for older history",format_exchange_log_label(&exchange),retries.dates.len(),retries.deferred,retries.outside_window));
+        }
 
         // PHASE-1: make a missing official calendar explicit rather than letting
         // an unverified built-in seed silently stand in for it.
@@ -1048,7 +1073,18 @@ fn build_batch_plan(connection: &Connection, config: &BatchDownloadConfig) -> Ap
             ));
         }
 
-        let calendar_days = generate_calendar_days(&start_date, &end_date)?;
+        let mut calendar_days = std::collections::BTreeSet::new();
+        if let Some((start, end)) = regular_window {
+            calendar_days.extend(generate_calendar_days(&start, &end)?);
+        }
+        if !retries.dates.is_empty() {
+            info_messages.push(format!(
+                "[{}] Earlier retry dates: {}",
+                format_exchange_log_label(&exchange),
+                retries.dates.iter().cloned().collect::<Vec<_>>().join(", ")
+            ));
+        }
+        calendar_days.extend(retries.dates);
         let mut skipped_existing_days = 0_usize;
 
         for trade_date in calendar_days {
@@ -1071,7 +1107,12 @@ fn build_batch_plan(connection: &Connection, config: &BatchDownloadConfig) -> Ap
                 // while market_holidays called it Id-E-Milad).
                 if is_calendar_skip_contradicted(
                     &skip_result,
-                    imported_dates.dates.contains(&trade_date),
+                    imported_dates.dates.contains(&trade_date)
+                        || storage_mode_has_imported_rows_for_date(
+                            connection,
+                            &trade_date,
+                            &exchange,
+                        )?,
                 ) {
                     info_messages.push(format!(
                         "[{}] {}: CALENDAR CONTRADICTION - stored bars exist but the calendar says '{}'; scheduling instead of skipping",
@@ -1095,7 +1136,7 @@ fn build_batch_plan(connection: &Connection, config: &BatchDownloadConfig) -> Ap
                     skipped_download_result(
                         &exchange,
                         &trade_date,
-                        "Already imported (planner prefilter)",
+                        "Already imported (checkpointed source OHLC scope verified against current records; not full-market certification)",
                     )
                     .with_outcome(DownloadOutcome::AlreadyPresent),
                 );
@@ -1149,19 +1190,6 @@ fn build_batch_plan(connection: &Connection, config: &BatchDownloadConfig) -> Ap
                 "[{}] Prefiltered {skipped_existing_days} already imported trading days",
                 format_exchange_log_label(&exchange)
             ));
-            if exchange == "NSE_INDEX" {
-                info_messages.push(
-                    "[NSE Index] Already-imported dates describe exchange-day imports, not complete per-index history. Charts join verified historical index aliases without rewriting source files.".to_string(),
-                );
-                if crate::database::get_price_storage_mode(connection) == PriceStorageMode::Binary
-                    && imported_dates.dates.len() > BINARY_PREFILTER_RECONCILE_MAX_DATES
-                {
-                    info_messages.push(format!(
-                        "[NSE Index] Binary reconciliation was not run: {} imported dates exceed the {}-date scan limit; metadata completion is not binary coverage verification.",
-                        imported_dates.dates.len(), BINARY_PREFILTER_RECONCILE_MAX_DATES
-                    ));
-                }
-            }
         }
         if imported_dates.stale_zero_volume_dates > 0 {
             info_messages.push(format!(
@@ -1172,7 +1200,7 @@ fn build_batch_plan(connection: &Connection, config: &BatchDownloadConfig) -> Ap
         }
         if imported_dates.metadata_only_dates > 0 {
             info_messages.push(format!(
-                "[{}] Scheduled {} metadata-only trading days for refresh because binary files are missing or incomplete",
+                "[{}] Scheduled {} metadata-only/unverified trading days for source verification (legacy counts alone do not prove coverage)",
                 format_exchange_log_label(&exchange),
                 imported_dates.metadata_only_dates
             ));
@@ -1205,35 +1233,11 @@ fn stage_download_task(
     if stop.is_requested() {
         return Ok(StagedDownloadOutcome::Cancelled);
     }
+    // The planner's evidence decision is authoritative. Physical presence of
+    // one bar must never cancel a scheduled gap/retry/forced repair.
     if task.exchange == "NSE_INDEX" && task.nse_index_history.is_none() {
-        return stage_single_download(client, task, stop);
+        return stage_single_download_with_evidence(client, task, stop, Some(database_file_path));
     }
-    let connection = batch_runtime::open_staging_connection(database_file_path)?;
-    // Coverage is answered from the price store (binary index or eod_prices),
-    // not from download_log; the log remains only notes/status.
-    let has_imported_rows =
-        storage_mode_has_imported_rows_for_date(&connection, &task.trade_date, &task.exchange)?;
-    let has_stale_zero_volume_rows = storage_mode_has_stale_zero_volume_rows_for_date(
-        &connection,
-        &task.trade_date,
-        &task.exchange,
-    )?;
-
-    if has_imported_rows && !has_stale_zero_volume_rows && task.mode != DownloadMode::Range {
-        return Ok(StagedDownloadOutcome::Result(DownloadResult {
-            outcome: DownloadOutcome::AlreadyPresent,
-            diagnostic: false,
-            follow_up_warning: None,
-            success: true,
-            trade_date: task.trade_date.clone(),
-            exchange: task.exchange.clone(),
-            rows_inserted: 0,
-            max_volume: 0,
-            message: "Already downloaded".to_string(),
-        }));
-    }
-    // A replacement can update the successful log only after import.
-    drop(connection);
 
     if stop.is_requested() {
         return Ok(StagedDownloadOutcome::Cancelled);
@@ -1242,7 +1246,7 @@ fn stage_download_task(
         return stage_nse_index_history_task(client, task, history_task);
     }
 
-    let normal = stage_single_download(client, task, stop);
+    let normal = stage_single_download_with_evidence(client, task, stop, Some(database_file_path));
     if bse_browser_fallback::should_recover(task, &normal) {
         if stop.is_requested() {
             return Ok(StagedDownloadOutcome::Cancelled);
@@ -1340,6 +1344,16 @@ fn decode_candidate_csv(
     exchange: &str,
     trade_date: &str,
 ) -> AppResult<Option<String>> {
+    decode_candidate_csv_with_evidence(candidate, bytes, exchange, trade_date, None)
+}
+
+fn decode_candidate_csv_with_evidence(
+    candidate: &Candidate,
+    bytes: Vec<u8>,
+    exchange: &str,
+    trade_date: &str,
+    evidence_database: Option<&Path>,
+) -> AppResult<Option<String>> {
     let csv = if candidate.bse_index_archive_json {
         let Some(csv) = normalize_bse_index_archive_json(&bytes, trade_date)? else {
             return Ok(None);
@@ -1354,20 +1368,39 @@ fn decode_candidate_csv(
         };
         String::from_utf8_lossy(&bytes).into_owned()
     };
-    let parsed = parse_bhavcopy_csv(&csv, exchange, trade_date, &[])?;
+    let (parsed, rejected) = parse_download_csv(&csv, exchange, trade_date)?;
+    if let Some(database) = evidence_database {
+        if !rejected.is_empty() {
+            let evidence = serde_json::to_vec_pretty(&serde_json::json!({"schema":"bhavcopy-index-quarantine-v1","exchange":exchange,"date":trade_date,"decodedArchiveSha256":coverage::digest(csv.as_bytes()),"rows":&rejected})).map_err(|e|e.to_string())?;
+            index_fallback::save_evidence(database, "quarantine", &evidence)?;
+        }
+    }
     if let Some(debug) = parsed.debug {
         return Err(debug);
     }
     if parsed.rows.is_empty() {
-        return Err("Candidate CSV contains no usable rows.".into());
+        return Err(format!(
+            "Candidate CSV contains no usable rows; {} held/unsupported index rows",
+            rejected.len()
+        ));
     }
     Ok(Some(csv))
 }
 
+#[cfg(test)]
 fn stage_single_download(
     client: &Client,
     task: &DownloadTask,
     stop: &BatchStop,
+) -> AppResult<StagedDownloadOutcome> {
+    stage_single_download_with_evidence(client, task, stop, None)
+}
+
+fn stage_single_download_with_evidence(
+    client: &Client,
+    task: &DownloadTask,
+    stop: &BatchStop,
+    evidence_database: Option<&Path>,
 ) -> AppResult<StagedDownloadOutcome> {
     let mut last_hard_error: Option<String> = None;
     let mut primary_hard_error: Option<String> = None;
@@ -1381,11 +1414,12 @@ fn stage_single_download(
         }
         match fetch_candidate_content_bytes(client, candidate, referer, 3, &task.trade_date) {
             Ok(Some(bytes)) => {
-                let csv_content = match decode_candidate_csv(
+                let csv_content = match decode_candidate_csv_with_evidence(
                     candidate,
                     bytes,
                     &task.exchange,
                     &task.trade_date,
+                    evidence_database,
                 ) {
                     Ok(Some(csv)) => csv,
                     Ok(None) => {
@@ -1471,17 +1505,15 @@ fn process_download_task(
     }
 
     let connection = open_database_connection(database_file_path)?;
-    // Coverage is answered from the price store (binary index or eod_prices),
-    // not from download_log; the log remains only notes/status.
-    let has_imported_rows =
-        storage_mode_has_imported_rows_for_date(&connection, &task.trade_date, &task.exchange)?;
-    let has_stale_zero_volume_rows = storage_mode_has_stale_zero_volume_rows_for_date(
+    if coverage::verified_dates(
         &connection,
-        &task.trade_date,
         &task.exchange,
-    )?;
-
-    if has_imported_rows && !has_stale_zero_volume_rows && task.mode != DownloadMode::Range {
+        &task.trade_date,
+        &task.trade_date,
+    )?
+    .dates
+    .contains(&task.trade_date)
+    {
         return Ok(DownloadResult {
             outcome: DownloadOutcome::AlreadyPresent,
             diagnostic: false,
@@ -1491,7 +1523,9 @@ fn process_download_task(
             exchange: task.exchange.clone(),
             rows_inserted: 0,
             max_volume: 0,
-            message: "Already downloaded".to_string(),
+            message:
+                "Already imported (checkpointed source OHLC scope verified against current records)"
+                    .to_string(),
         });
     }
     let mut result = download_single(
@@ -1510,7 +1544,15 @@ fn process_download_task(
 
     let report = (|| -> AppResult<()> {
         let _write_guard = lock_bhavcopy_write(write_lock)?;
-        if should_write_download_log(&result) {
+        // The normal single importer already records the verified source
+        // member count. Do not replace it with this attempt's number of writes.
+        if !matches!(
+            result.outcome,
+            DownloadOutcome::Imported
+                | DownloadOutcome::AlreadyPresent
+                | DownloadOutcome::PartialCoverage
+        ) && should_write_download_log(&result)
+        {
             upsert_batch_download_log_entry(&connection, &result)?;
         }
         record_latest_attempts(&connection, std::slice::from_ref(&result))
@@ -1624,7 +1666,7 @@ fn download_single(
                 };
                 let parsed = {
                     let _write_guard = lock_bhavcopy_write(write_lock)?;
-                    parse_and_insert(
+                    parse_and_insert_normal_download(
                         database_file_path,
                         &csv_content,
                         exchange,
@@ -1632,27 +1674,32 @@ fn download_single(
                         excluded_series,
                     )?
                 };
+                let (parsed, coverage_message, coverage_complete) = parsed;
                 if let Some(debug) = parsed.debug {
                     return Ok(failed_download_result(exchange, trade_date, debug)
                         .with_outcome(DownloadOutcome::ImportError));
                 }
                 let written = parsed.rows_inserted + parsed.rows_replaced;
                 return Ok(DownloadResult {
-                    outcome: if parsed.admission.conflicted == 0 {
-                        DownloadOutcome::Imported
+                    outcome: if parsed.admission.conflicted == 0 && coverage_complete {
+                        if written == 0 {
+                            DownloadOutcome::AlreadyPresent
+                        } else {
+                            DownloadOutcome::Imported
+                        }
                     } else {
                         DownloadOutcome::PartialCoverage
                     },
                     diagnostic: false,
                     follow_up_warning: None,
-                    success: parsed.admission.conflicted == 0,
+                    success: parsed.admission.conflicted == 0 && coverage_complete,
                     trade_date: trade_date.to_string(),
                     exchange: exchange.to_string(),
                     rows_inserted: written,
                     max_volume: parsed.max_volume,
-                    message: parsed
-                        .admission
-                        .describe_result(format!("Downloaded {written} records (new or replaced)")),
+                    message: parsed.admission.describe_result(format!(
+                        "Downloaded {written} missing records; {coverage_message}"
+                    )),
                 });
             }
             Ok(None) => {

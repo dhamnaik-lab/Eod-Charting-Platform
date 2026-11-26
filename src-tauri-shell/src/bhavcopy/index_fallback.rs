@@ -283,7 +283,11 @@ fn existing_rows(
                         path.display()
                     ));
                 }
-                for r in file.read_range(date_to_u32(from), date_to_u32(to))? {
+                let mut records = file.forward_records()?;
+                while let Some(r) = records.next_record()? {
+                    if r.date < date_to_u32(from) || r.date > date_to_u32(to) {
+                        continue;
+                    }
                     let p = [r.open, r.high, r.low, r.close]
                         .map(|v| v as f64 / file.header.price_scale as f64);
                     existing
@@ -475,12 +479,26 @@ fn unresolved_requests(
     }
     for download in staged.iter().filter(|s| s.task.exchange == "NSE_INDEX") {
         if let StagedDownloadContent::Csv(csv) = &download.content {
-            if let Ok(parsed) = parse_bhavcopy_csv(csv, "NSE_INDEX", &download.task.trade_date, &[])
+            if let Ok((parsed, _rejected)) =
+                parse_download_csv(csv, "NSE_INDEX", &download.task.trade_date)
             {
                 if parsed.debug.is_none() {
+                    let mut archive = HashMap::<(String, String), Vec<([i64; 4], i64)>>::new();
                     for row in parsed.rows {
-                        if valid_prices([row.open, row.high, row.low, row.close]) {
-                            resolved.insert((row.symbol, row.trade_date));
+                        if valid_prices([row.open, row.high, row.low, row.close]) && row.volume >= 0
+                        {
+                            archive
+                                .entry((row.symbol, row.trade_date))
+                                .or_default()
+                                .push((
+                                    scaled([row.open, row.high, row.low, row.close]),
+                                    row.volume,
+                                ));
+                        }
+                    }
+                    for (key, bars) in archive {
+                        if bars.iter().all(|bar| *bar == bars[0]) {
+                            resolved.insert(key);
                         }
                     }
                 }

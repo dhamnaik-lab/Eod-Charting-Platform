@@ -149,7 +149,8 @@ fn test_storage_mode_selection_binary() {
         params!["2024-05-15", "NSE", 100, 5000, "ok"],
     ).unwrap();
 
-    assert!(storage_mode_has_imported_rows_for_date(&conn, "2024-05-15", "NSE").unwrap());
+    // BHAV-03BCD: a legacy count is not physical presence or verified coverage.
+    assert!(!storage_mode_has_imported_rows_for_date(&conn, "2024-05-15", "NSE").unwrap());
     // eod_prices is empty, so if it were hybrid it would return false
     assert!(!has_imported_rows_for_date(&conn, "2024-05-15", "NSE").unwrap());
 }
@@ -1517,8 +1518,8 @@ fn index_alias_prefilter_reports_exchange_completion_and_unverified_large_ranges
         },
     )
     .unwrap();
-    // All 40 exchange-day markers are present and exceed the binary scan
-    // limit. They do not establish which individual indices were imported.
+    // All 40 legacy markers exist, but none is a checkpointed member receipt.
+    // Neither a count nor the old scan cap establishes per-index coverage.
     let metadata = storage_mode_load_imported_trade_dates(
         &connection,
         "NSE_INDEX",
@@ -1526,8 +1527,8 @@ fn index_alias_prefilter_reports_exchange_completion_and_unverified_large_ranges
         "2015-02-09",
     )
     .unwrap();
-    assert_eq!(metadata.dates.len(), 40);
-    assert!(metadata.dates.len() > BINARY_PREFILTER_RECONCILE_MAX_DATES);
+    assert!(metadata.dates.is_empty());
+    assert_eq!(metadata.metadata_only_dates, 40);
     assert_eq!(metadata.binary_reconcile_target_dates, 0);
     assert_eq!(metadata.binary_reconcile_files_scanned, 0);
 
@@ -1795,7 +1796,7 @@ fn test_binary_prefilter_worker_count_is_bounded_to_four() {
     assert_eq!(bhavcopy_prefilter_worker_count(20_000), 4);
 }
 #[test]
-fn test_range_mode_prefilters_already_imported_trading_days() {
+fn test_range_mode_does_not_prefilter_legacy_count_only_dates() {
     let conn = setup_test_db();
     set_price_storage_mode(&conn, PriceStorageMode::Binary).unwrap();
     conn.execute(
@@ -1825,20 +1826,15 @@ fn test_range_mode_prefilters_already_imported_trading_days() {
 
     let plan = build_batch_plan(&conn, &config).unwrap();
 
-    assert_eq!(plan.tasks.len(), 2);
+    assert_eq!(plan.tasks.len(), 3);
     assert_eq!(plan.tasks[0].trade_date, "2026-06-22");
-    assert_eq!(plan.tasks[1].trade_date, "2026-06-24");
-    assert_eq!(plan.prefiltered_results.len(), 1);
-    assert_eq!(plan.prefiltered_results[0].trade_date, "2026-06-23");
-    assert_eq!(
-        plan.prefiltered_results[0].outcome,
-        DownloadOutcome::AlreadyPresent
-    );
-    assert_eq!(plan.prefiltered_results[0].rows_inserted, 0);
+    assert_eq!(plan.tasks[1].trade_date, "2026-06-23");
+    assert_eq!(plan.tasks[2].trade_date, "2026-06-24");
+    assert!(plan.prefiltered_results.is_empty());
     assert!(plan
         .info_messages
         .iter()
-        .any(|message| message.contains("[NSE] Prefiltered 1 already imported trading days")));
+        .any(|message| message.contains("metadata-only/unverified")));
 }
 
 #[test]
@@ -2191,9 +2187,9 @@ fn test_range_mode_refreshes_metadata_only_binary_dates() {
     assert_eq!(plan.tasks[0].trade_date, "2026-06-22");
     assert_eq!(plan.tasks[1].trade_date, "2026-06-23");
     assert_eq!(plan.tasks[2].trade_date, "2026-06-24");
-    assert!(plan.info_messages.iter().any(
-        |message| message.contains("[NSE] Scheduled 1 metadata-only trading days for refresh")
-    ));
+    assert!(plan.info_messages.iter().any(|message| message.contains(
+        "[NSE] Scheduled 1 metadata-only/unverified trading days for source verification"
+    )));
 }
 
 #[test]

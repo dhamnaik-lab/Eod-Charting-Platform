@@ -19,7 +19,7 @@ use crate::database::eod_binary_state::{
 use crate::database::{configure_database_connection, get_price_storage_mode, PriceStorageMode};
 use crate::runtime::log_runtime_event;
 use rusqlite::{params, Connection, OpenFlags, OptionalExtension};
-use std::collections::{HashMap, HashSet, VecDeque};
+use std::collections::{BTreeMap, HashMap, HashSet, VecDeque};
 use std::fs;
 use std::io::{Read, Seek, SeekFrom};
 use std::path::{Path, PathBuf};
@@ -30,7 +30,8 @@ use tauri::{AppHandle, Emitter};
 
 use crate::bhavcopy::calendar::failed_download_result;
 use crate::bhavcopy::parsers::{
-    find_duplicate_symbol_date_rows, parse_bhavcopy_csv, ParsedBhavcopyFile, ParsedBhavcopyRow,
+    find_duplicate_symbol_date_rows, parse_bhavcopy_csv, parse_download_csv, ParsedBhavcopyFile,
+    ParsedBhavcopyRow,
 };
 use crate::bhavcopy::transport::normalize_exchange_key;
 use crate::bhavcopy::types::*;
@@ -43,7 +44,7 @@ pub fn emit_download_result(app: &AppHandle, result: &DownloadResult) {
     let _ = app.emit("bhavcopy:result", result.clone());
 }
 
-pub(crate) const BINARY_PREFILTER_RECONCILE_MAX_DATES: usize = 31;
+// Coverage proofs are checked in bounded windows, never accepted because a cap is exceeded.
 pub(crate) const MAX_BHAVCOPY_BINARY_WORKERS: usize = 2;
 pub(crate) const MAX_BHAVCOPY_PREFILTER_WORKERS: usize = 4;
 pub(crate) static BHAVCOPY_CHECKPOINT_LIFECYCLE_LOCK: OnceLock<Mutex<()>> = OnceLock::new();
@@ -1374,6 +1375,18 @@ pub(crate) fn lock_bhavcopy_checkpoint_lifecycle() -> AppResult<MutexGuard<'stat
         .map_err(|_| "Bhavcopy checkpoint lifecycle lock was poisoned.".to_string())
 }
 
+fn activate_coverage_after_checkpoint(app: &AppHandle, database: &Path, session: &str) {
+    if let Err(error) = super::coverage::checkpoint_receipts(database, session) {
+        log_runtime_event(
+            app,
+            "WARN",
+            "bhavcopy-coverage-publication-warning",
+            Some(&error),
+        );
+        emit_progress(app,100,format!("Coverage proof publication failed; prices retained, dates remain unverified: {error}"));
+    }
+}
+
 pub(crate) fn can_resume_buffered_checkpoint(state: &RecoverySessionState) -> bool {
     matches!(
         state,
@@ -1474,6 +1487,11 @@ pub(crate) fn checkpoint_pending_buffered_sessions_background(
         ) {
             Ok(checkpoint) => {
                 update_session_state(&mut handle, RecoverySessionState::Checkpointed, None)?;
+                activate_coverage_after_checkpoint(
+                    app_handle,
+                    database_file_path,
+                    &handle.manifest.session_id,
+                );
                 let elapsed_ms = checkpoint_started.elapsed().as_millis();
                 log_runtime_event(
                     app_handle,
@@ -1623,6 +1641,11 @@ pub(crate) fn recover_pending_bhavcopy_sessions(
             ) {
                 Ok(checkpoint) => {
                     update_session_state(&mut handle, RecoverySessionState::Checkpointed, None)?;
+                    activate_coverage_after_checkpoint(
+                        app_handle,
+                        database_file_path,
+                        &handle.manifest.session_id,
+                    );
                     let elapsed_ms = checkpoint_started.elapsed().as_millis();
                     log_runtime_event(
                         app_handle,
@@ -1692,6 +1715,11 @@ pub(crate) fn recover_pending_bhavcopy_sessions(
             {
                 Ok(published_rows) => {
                     update_session_state(&mut handle, RecoverySessionState::Checkpointed, None)?;
+                    activate_coverage_after_checkpoint(
+                        app_handle,
+                        database_file_path,
+                        &handle.manifest.session_id,
+                    );
                     log_runtime_event(
                         app_handle,
                         "INFO",
@@ -1788,6 +1816,11 @@ pub(crate) fn recover_pending_bhavcopy_sessions(
                 update_session_state(&mut handle, RecoverySessionState::Applied, None)?;
                 update_session_state(&mut handle, RecoverySessionState::Checkpointing, None)?;
                 update_session_state(&mut handle, RecoverySessionState::Checkpointed, None)?;
+                activate_coverage_after_checkpoint(
+                    app_handle,
+                    database_file_path,
+                    &handle.manifest.session_id,
+                );
                 log_runtime_event(
                     app_handle,
                     "INFO",
@@ -1833,6 +1866,7 @@ pub(super) fn import_staged_csv_downloads(
     let mut parsed_files = Vec::<ParsedBhavcopyFile>::new();
     let mut results = Vec::<DownloadResult>::new();
     let mut parsed_rows = 0_usize;
+    let mut sources = BTreeMap::<(String, String), super::coverage::SourceEvidence>::new();
 
     for staged in staged_downloads {
         if stop.is_requested() {
@@ -1841,14 +1875,24 @@ pub(super) fn import_staged_csv_downloads(
         let StagedDownloadContent::Csv(csv_content) = staged.content else {
             continue;
         };
-        match parse_bhavcopy_csv(
-            &csv_content,
-            &staged.task.exchange,
-            &staged.task.trade_date,
-            &config.excluded_series,
-        ) {
-            Ok(parsed) => {
+        match parse_download_csv(&csv_content, &staged.task.exchange, &staged.task.trade_date) {
+            Ok((parsed, rejected)) => {
+                let job = (staged.task.exchange.clone(), staged.task.trade_date.clone());
+                sources.entry(job.clone()).or_default().note(
+                    &csv_content,
+                    !staged.task.candidates.is_empty(),
+                    &rejected,
+                );
+                if !rejected.is_empty() {
+                    let evidence=serde_json::to_vec_pretty(&serde_json::json!({"schema":"bhavcopy-index-quarantine-v1","exchange":job.0,"date":job.1,"decodedArchiveSha256":super::coverage::digest(csv_content.as_bytes()),"rows":rejected})).map_err(|e|e.to_string())?;
+                    super::index_fallback::save_evidence(
+                        database_file_path,
+                        "quarantine",
+                        &evidence,
+                    )?;
+                }
                 if let Some(debug) = parsed.debug.as_ref() {
+                    sources.entry(job).or_default().held += 1;
                     results.push(DownloadResult {
                         outcome: DownloadOutcome::ImportError,
                         diagnostic: false,
@@ -1866,6 +1910,10 @@ pub(super) fn import_staged_csv_downloads(
                 }
             }
             Err(error) => {
+                sources
+                    .entry((staged.task.exchange.clone(), staged.task.trade_date.clone()))
+                    .or_default()
+                    .held += 1;
                 results.push(
                     failed_download_result(&staged.task.exchange, &staged.task.trade_date, error)
                         .with_outcome(DownloadOutcome::ImportError),
@@ -1875,6 +1923,9 @@ pub(super) fn import_staged_csv_downloads(
     }
 
     let parse_ms = parse_started.elapsed().as_millis();
+    if stop.is_requested() {
+        return Ok((results, false));
+    }
 
     // Admission and baseline capture must see the same store the workers mutate.
     let _canonical = if parsed_files.is_empty() {
@@ -1897,30 +1948,31 @@ pub(super) fn import_staged_csv_downloads(
         }
     }
     parsed_files = super::security_admission::filter_files(&parsed_files, &security_admission);
-    parsed_files.retain(|file| {
-        if !file.rows.is_empty() || file.exchange != "NSE" {
-            return true;
+    // Capture canonical source members before removing exact existing bars.
+    let mut receipts =
+        super::coverage::prepare_receipts(database_file_path, &parsed_files, &sources)?;
+    for (job, report) in &security_reports {
+        if let Some(receipt) = receipts.get_mut(job) {
+            receipt.hold(report.conflicted, &[]);
         }
-        let report = &security_reports[&(file.exchange.clone(), file.trade_date.clone())];
-        results.push(DownloadResult {
-            outcome: if report.conflicted == 0 {
-                DownloadOutcome::AlreadyPresent
-            } else {
-                DownloadOutcome::PartialCoverage
-            },
-            diagnostic: false,
-            follow_up_warning: None,
-            success: report.conflicted == 0,
-            exchange: file.exchange.clone(),
-            trade_date: file.trade_date.clone(),
-            rows_inserted: 0,
-            max_volume: 0,
-            message: report.describe_result("No admitted daily security rows".into()),
-        });
-        false
-    });
+    }
+    let gap_outcomes = if config.force_redownload {
+        BTreeMap::new()
+    } else {
+        super::coverage::guard_missing_only(database_file_path, &mut parsed_files)?
+    };
+    for (job, outcome) in &gap_outcomes {
+        if let Some(receipt) = receipts.get_mut(job) {
+            receipt.hold(outcome.held, &outcome.details);
+        }
+    }
     let index_outcomes =
         super::index_fallback::guard_additive(database_file_path, &mut parsed_files)?;
+    for (date, outcome) in &index_outcomes {
+        if let Some(receipt) = receipts.get_mut(&("NSE_INDEX".to_string(), date.clone())) {
+            receipt.hold(outcome.conflicts + outcome.invalid, &outcome.details);
+        }
+    }
     if !index_outcomes.is_empty() {
         let evidence = serde_json::to_vec_pretty(&serde_json::json!({
             "createdAt": chrono::Utc::now().to_rfc3339(),
@@ -1944,27 +1996,59 @@ pub(super) fn import_staged_csv_downloads(
             combined.push(parsed);
         }
         parsed_files = combined;
-        parsed_files.retain(|file| {
-            if file.exchange != "NSE_INDEX" || !file.rows.is_empty() { return true; }
-            let outcome = &index_outcomes[&file.trade_date];
-            results.push(DownloadResult {
-                outcome: DownloadOutcome::PartialCoverage,
-                diagnostic: false,
-                follow_up_warning: None,
-                success: outcome.conflicts == 0 && outcome.invalid == 0,
-                exchange: file.exchange.clone(), trade_date: file.trade_date.clone(),
-                rows_inserted: 0, max_volume: 0,
-                message: format!("NSE index subset: inserted 0, identical existing {}, conflicting existing {}, invalid {}; existing prices preserved. {}", outcome.identical, outcome.conflicts, outcome.invalid, outcome.details.join("; ")),
-            });
-            false
-        });
     }
+    if stop.is_requested() {
+        return Ok((results, false));
+    }
+    let prior_result_count = results.len();
+    parsed_files.retain(|file| {
+        if !file.rows.is_empty() {
+            return true;
+        }
+        let job = (file.exchange.clone(), file.trade_date.clone());
+        let mut message = "No new admitted quotations; existing records preserved".to_string();
+        if let Some(report) = security_reports.get(&job) {
+            message = report.describe_result(message);
+        }
+        if let Some(outcome) = gap_outcomes.get(&job) {
+            message.push_str(&format!(
+                "; {} exact/duplicate existing, {} held",
+                outcome.exact, outcome.held
+            ));
+        }
+        if let Some(outcome) = index_outcomes
+            .get(&file.trade_date)
+            .filter(|_| file.exchange == "NSE_INDEX")
+        {
+            message.push_str(&format!(
+                "; NSE index identical {}, conflicting {}, invalid {}",
+                outcome.identical, outcome.conflicts, outcome.invalid
+            ));
+        }
+        // Final status is computed from the checked source receipt after all writes.
+        results.push(DownloadResult {
+            outcome: DownloadOutcome::PartialCoverage,
+            diagnostic: false,
+            follow_up_warning: None,
+            success: false,
+            trade_date: file.trade_date.clone(),
+            exchange: file.exchange.clone(),
+            rows_inserted: 0,
+            max_volume: 0,
+            message,
+        });
+        false
+    });
 
     // After journal preparation begins, finish the entire symbol-batched
     // import and its recovery transitions before observing another stop.
     // True only when admission and additive filtering leave no files to pass
     // into journal preparation / the quotation writer. Zero inserted rows alone
     // cannot prove this: an existing quotation might have been replaced.
+    if stop.is_requested() {
+        results.truncate(prior_result_count);
+        return Ok((results, false));
+    }
     let no_quotation_write_path = parsed_files.is_empty();
     if !parsed_files.is_empty() && !stop.is_requested() {
         // The final admission pass was previously performed inside the writer.
@@ -2227,7 +2311,6 @@ pub(super) fn import_staged_csv_downloads(
 
             let connection = open_database_connection(database_file_path)?;
             let log_write_started = Instant::now();
-            let mut log_entries_written = 0_usize;
             for (parsed, parsed_result) in journal_files.iter().zip(parsed_results) {
                 let records_written = parsed_result.rows_inserted + parsed_result.rows_replaced;
                 let mut message = if records_written == 0 && !parsed.rows.is_empty() {
@@ -2257,6 +2340,14 @@ pub(super) fn import_staged_csv_downloads(
                 if let Some(report) = security_report {
                     message = report.describe_result(message);
                 }
+                if let Some(outcome) =
+                    gap_outcomes.get(&(parsed.exchange.clone(), parsed.trade_date.clone()))
+                {
+                    message.push_str(&format!(
+                        "; {} exact/duplicate existing, {} held",
+                        outcome.exact, outcome.held
+                    ));
+                }
                 if let Some(outcome) = index_outcomes
                     .get(&parsed.trade_date)
                     .filter(|_| parsed.exchange == "NSE_INDEX")
@@ -2280,23 +2371,16 @@ pub(super) fn import_staged_csv_downloads(
                     max_volume: parsed_result.max_volume,
                     message,
                 };
-                let log_result = DownloadResult {
-                    rows_inserted: parsed.rows.len(),
-                    message: result.message.clone(),
-                    ..result.clone()
-                };
-                if should_write_download_log(&log_result) {
-                    upsert_batch_download_log_entry(&connection, &log_result)?;
-                    log_entries_written += 1;
-                }
                 results.push(result);
             }
-            for result in results.iter().filter(|result| !result.success) {
-                if should_write_download_log(result) {
-                    upsert_batch_download_log_entry(&connection, result)?;
-                    log_entries_written += 1;
-                }
-            }
+            let log_entries_written = finalize_coverage_receipts(
+                app_handle,
+                database_file_path,
+                &connection,
+                &mut receipts,
+                Some(&recovery_session.manifest.session_id),
+                &mut results,
+            )?;
             let download_log_write_ms = log_write_started.elapsed().as_millis();
             emit_progress(
                 app_handle,
@@ -2354,6 +2438,11 @@ pub(super) fn import_staged_csv_downloads(
                         RecoverySessionState::Checkpointed,
                         None,
                     )?;
+                    activate_coverage_after_checkpoint(
+                        app_handle,
+                        database_file_path,
+                        &recovery_session.manifest.session_id,
+                    );
                     log_runtime_event(
                         app_handle,
                         "INFO",
@@ -2381,17 +2470,18 @@ pub(super) fn import_staged_csv_downloads(
                 return Err(error);
             }
         }
-    } else if !results.is_empty() {
+    } else if !results.is_empty() && !stop.is_requested() {
         let _write_guard = lock_bhavcopy_write(write_lock)?;
         let connection = open_database_connection(database_file_path)?;
         let log_write_started = Instant::now();
-        let mut log_entries_written = 0_usize;
-        for result in &results {
-            if should_write_download_log(result) {
-                upsert_batch_download_log_entry(&connection, result)?;
-                log_entries_written += 1;
-            }
-        }
+        let log_entries_written = finalize_coverage_receipts(
+            app_handle,
+            database_file_path,
+            &connection,
+            &mut receipts,
+            None,
+            &mut results,
+        )?;
         let download_log_write_ms = log_write_started.elapsed().as_millis();
         emit_progress(
             app_handle,
@@ -2415,6 +2505,79 @@ pub(super) fn import_staged_csv_downloads(
     }
 
     Ok((results, no_quotation_write_path))
+}
+
+fn finalize_coverage_receipts(
+    app: &AppHandle,
+    database: &Path,
+    connection: &Connection,
+    receipts: &mut BTreeMap<(String, String), super::coverage::Receipt>,
+    session: Option<&str>,
+    results: &mut [DownloadResult],
+) -> AppResult<usize> {
+    if let Some(root) = database.parent() {
+        super::coverage::check_receipts(connection, root, receipts);
+    }
+    let save_error = super::coverage::save_receipts(connection, receipts, session).err();
+    if let Some(error) = save_error.as_ref() {
+        log_runtime_event(
+            app,
+            "WARN",
+            "bhavcopy-coverage-receipt-warning",
+            Some(error),
+        );
+        emit_progress(app,79,format!("Coverage receipt could not be saved; prices retained, future verification required: {error}"));
+    }
+    let mut count = 0;
+    for result in results {
+        if result.diagnostic {
+            continue;
+        }
+        let key = (result.exchange.clone(), result.trade_date.clone());
+        if let Some(receipt) = receipts.get(&key).filter(|_| {
+            !matches!(
+                result.outcome,
+                DownloadOutcome::ImportError
+                    | DownloadOutcome::SourceError
+                    | DownloadOutcome::SourceRejected
+                    | DownloadOutcome::Cancelled
+            )
+        }) {
+            result
+                .message
+                .push_str(&format!("; {}", receipt.describe()));
+            if receipt.is_complete_scope() {
+                result.outcome = if result.rows_inserted > 0 {
+                    DownloadOutcome::Imported
+                } else {
+                    DownloadOutcome::AlreadyPresent
+                };
+                result.success = true;
+            } else {
+                result.outcome = DownloadOutcome::PartialCoverage;
+                result.success = false;
+            }
+            if let Some(error) = save_error.as_ref() {
+                super::append_follow_up_warning(
+                    result,
+                    format!("Coverage receipt not saved: {error}"),
+                );
+            }
+            let log_result = DownloadResult {
+                rows_inserted: receipt.count(),
+                max_volume: receipt.max_volume(),
+                ..result.clone()
+            };
+            if should_write_download_log(&log_result) {
+                upsert_batch_download_log_entry(connection, &log_result)?;
+                count += 1;
+            }
+        } else if should_write_download_log(result) {
+            upsert_batch_download_log_entry(connection, result)?;
+            count += 1;
+        }
+    }
+    Ok(count)
 }
 
 pub(crate) fn lock_bhavcopy_write(write_lock: &Mutex<()>) -> AppResult<MutexGuard<'_, ()>> {
@@ -2493,6 +2656,129 @@ pub(crate) fn parse_and_insert(
         remove_checkpointed_session(&recovery)?;
     }
     Ok(result)
+}
+
+/// Normal single-date download is additive. The existing parse_and_insert
+/// helper retains explicit repair semantics for its other accepted callers.
+pub(super) fn parse_and_insert_normal_download(
+    database: &Path,
+    csv: &str,
+    exchange: &str,
+    date: &str,
+    excluded_series: &[String],
+) -> AppResult<(ParseInsertResult, String, bool)> {
+    if exchange != "NSE" {
+        return Err("Normal single-date import is NSE-only".into());
+    }
+    let parsed = parse_bhavcopy_csv(csv, exchange, date, excluded_series)?;
+    if let Some(debug) = parsed.debug.clone() {
+        return Ok((
+            ParseInsertResult {
+                admission: Default::default(),
+                rows_inserted: 0,
+                binary_errors: 0,
+                rows_replaced: 0,
+                max_volume: 0,
+                debug: Some(debug),
+            },
+            "Source rejected".into(),
+            false,
+        ));
+    }
+    let root = database.parent().ok_or("Missing database folder")?;
+    let _canonical = CanonicalAccess::lock_bhavcopy_apply(database)?;
+    let files = [parsed];
+    let admitted = super::security_admission::admit(database, &files)?;
+    let report = admitted.reports[0].clone();
+    let mut files = super::security_admission::filter_files(&files, &admitted);
+    let key = (exchange.to_string(), date.to_string());
+    let mut source = super::coverage::SourceEvidence::default();
+    source.note(csv, true, &[]);
+    let mut receipts = super::coverage::prepare_receipts(
+        database,
+        &files,
+        &BTreeMap::from([(key.clone(), source)]),
+    )?;
+    receipts
+        .get_mut(&key)
+        .expect("single receipt")
+        .hold(report.conflicted, &[]);
+    let gaps = super::coverage::guard_missing_only(database, &mut files)?;
+    if let Some(gap) = gaps.get(&key) {
+        receipts
+            .get_mut(&key)
+            .expect("single receipt")
+            .hold(gap.held, &gap.details);
+    }
+    let mut result = ParseInsertResult {
+        admission: report.clone(),
+        rows_inserted: 0,
+        binary_errors: 0,
+        rows_replaced: 0,
+        max_volume: 0,
+        debug: None,
+    };
+    let mut session = None;
+    if !files[0].rows.is_empty() {
+        let write_admission = super::security_admission::admit(database, &files)?;
+        let journal = super::security_admission::filter_files(&files, &write_admission);
+        let (mut recovery, _, _) = prepare_recovery_session(database, None, &journal)?;
+        update_session_state(&mut recovery, RecoverySessionState::Applying, None)?;
+        let (mut results, timing) = insert_admitted_bhavcopy_files(
+            database,
+            &files,
+            BinaryWriteDurability::Immediate,
+            None,
+            write_admission,
+        )?;
+        if timing.binary_errors > 0 {
+            return Err(format!(
+                "Binary store write failed for {} symbols; recovery journal retained",
+                timing.binary_errors
+            ));
+        }
+        result = results.remove(0);
+        result.admission = report;
+        update_session_state(&mut recovery, RecoverySessionState::Applied, None)?;
+        update_session_state(&mut recovery, RecoverySessionState::Checkpointing, None)?;
+        publish_recovery_binary_state(root, &recovery.manifest.binary_baselines)?;
+        update_session_state(&mut recovery, RecoverySessionState::Checkpointed, None)?;
+        session = Some(recovery);
+    }
+    let connection = open_database_connection(database)?;
+    super::coverage::check_receipts(&connection, root, &mut receipts);
+    let saved = super::coverage::save_receipts(&connection, &receipts, None);
+    let receipt = &receipts[&key];
+    let complete = receipt.is_complete_scope();
+    let mut message = receipt.describe();
+    if let Err(error) = saved {
+        message.push_str(&format!("; coverage receipt not saved: {error}"));
+    }
+    result.max_volume = receipt.max_volume();
+    let log = DownloadResult {
+        outcome: if complete {
+            DownloadOutcome::Imported
+        } else {
+            DownloadOutcome::PartialCoverage
+        },
+        diagnostic: false,
+        follow_up_warning: None,
+        success: complete,
+        trade_date: date.into(),
+        exchange: exchange.into(),
+        rows_inserted: receipt.count(),
+        max_volume: result.max_volume,
+        message: message.clone(),
+    };
+    if should_write_download_log(&log) {
+        if let Err(error) = upsert_batch_download_log_entry(&connection, &log) {
+            message.push_str(&format!("; download log not updated: {error}"));
+        }
+    }
+    if let Some(recovery) = session {
+        remove_checkpointed_session(&recovery)?;
+    }
+    Ok((result, message, complete))
 }
 
 #[cfg(test)]
@@ -3060,19 +3346,19 @@ pub(crate) fn storage_mode_has_imported_rows_for_date(
 /// (first/last bounds select candidates; actual records prove membership),
 /// never from `download_log`, whose 2018-2024 gap must not
 /// gate coverage. `download_log` stays authoritative only for notes/status.
-/// When the sidecar index is unavailable (legacy database), the download_log
-/// contract is the conservative fallback.
+/// Physical presence only, not complete coverage. Missing/unavailable storage
+/// evidence is false, not a metadata-only success.
 pub(crate) fn binary_store_has_imported_rows_for_date(
     connection: &Connection,
     trade_date: &str,
     exchange: &str,
 ) -> AppResult<bool> {
     let Some(database_folder) = connection_database_folder(connection)? else {
-        return metadata_has_imported_rows_for_date(connection, trade_date, exchange);
+        return Ok(false);
     };
     match binary_index_covers_date(&database_folder, exchange, trade_date) {
         Ok(covered) => Ok(covered),
-        Err(_) => metadata_has_imported_rows_for_date(connection, trade_date, exchange),
+        Err(_) => Ok(false),
     }
 }
 
@@ -3149,82 +3435,18 @@ pub(crate) fn storage_mode_load_imported_trade_dates(
     start_date: &str,
     end_date: &str,
 ) -> AppResult<ImportedTradeDates> {
-    match get_price_storage_mode(connection) {
-        PriceStorageMode::Binary => {
-            let metadata_started = Instant::now();
-            let mut imported_dates =
-                metadata_load_imported_trade_dates(connection, exchange, start_date, end_date)?;
-            imported_dates.metadata_lookup_ms = metadata_started.elapsed().as_millis();
-
-            let reconcile_started = Instant::now();
-            reconcile_binary_imported_trade_dates(connection, exchange, &mut imported_dates)?;
-            imported_dates.binary_reconcile_ms = reconcile_started.elapsed().as_millis();
-            Ok(imported_dates)
-        }
-        PriceStorageMode::Hybrid => {
-            let metadata_started = Instant::now();
-            let mut imported_dates =
-                load_imported_trade_dates(connection, exchange, start_date, end_date)?;
-            imported_dates.metadata_lookup_ms = metadata_started.elapsed().as_millis();
-            Ok(imported_dates)
-        }
-    }
-}
-
-pub(crate) fn reconcile_binary_imported_trade_dates(
-    connection: &Connection,
-    exchange: &str,
-    imported_dates: &mut ImportedTradeDates,
-) -> AppResult<()> {
-    if imported_dates.dates.is_empty()
-        || imported_dates.dates.len() > BINARY_PREFILTER_RECONCILE_MAX_DATES
-    {
-        return Ok(());
-    }
-
-    let Some(database_folder) = connection_database_folder(connection)? else {
-        return Ok(());
-    };
-    let binary_folder = database_folder.join("eod_data").join(exchange);
-    if !binary_folder.is_dir() {
-        return Ok(());
-    }
-
-    let expected_rows =
-        metadata_load_imported_row_counts(connection, exchange, &imported_dates.dates)?;
-    let date_keys = imported_dates
-        .dates
-        .iter()
-        .map(|trade_date| (trade_date.clone(), date_to_u32(trade_date)))
-        .collect::<HashMap<_, _>>();
-    imported_dates.binary_reconcile_target_dates = date_keys.len();
-    let (binary_counts, binary_files_scanned) = count_binary_files_containing_dates(
-        &binary_folder,
-        date_keys.values().copied().collect::<Vec<_>>(),
-    )?;
-    imported_dates.binary_reconcile_files_scanned = binary_files_scanned;
-    let mut metadata_only_dates = Vec::<String>::new();
-    for trade_date in &imported_dates.dates {
-        let expected = expected_rows.get(trade_date).copied().unwrap_or(1);
-        let actual = date_keys
-            .get(trade_date)
-            .and_then(|date| binary_counts.get(date))
-            .copied()
-            .unwrap_or(0);
-        let has_usable_binary_coverage = actual > 0
-            && (expected < 100 || actual.saturating_mul(10) >= expected.saturating_mul(8));
-        if !has_usable_binary_coverage {
-            metadata_only_dates.push(trade_date.clone());
-        }
-    }
-
-    for trade_date in metadata_only_dates {
-        if imported_dates.dates.remove(&trade_date) {
-            imported_dates.metadata_only_dates += 1;
-        }
-    }
-
-    Ok(())
+    let started = Instant::now();
+    // Legacy success/row counts are diagnostics only. They cannot prove the
+    // source's admitted member set, regardless of how many bars exist.
+    let legacy = metadata_load_imported_trade_dates(connection, exchange, start_date, end_date)?;
+    let metadata_ms = started.elapsed().as_millis();
+    let mut verified = super::coverage::verified_dates(connection, exchange, start_date, end_date)?;
+    verified.metadata_lookup_ms = metadata_ms;
+    verified.stale_zero_volume_dates = legacy.stale_zero_volume_dates;
+    verified.metadata_only_dates = verified
+        .metadata_only_dates
+        .max(legacy.dates.difference(&verified.dates).count());
+    Ok(verified)
 }
 
 pub(crate) fn storage_mode_has_stale_zero_volume_rows_for_date(
@@ -3260,46 +3482,6 @@ pub(crate) fn connection_database_folder(connection: &Connection) -> AppResult<O
                 .map(|parent| parent.to_path_buf())
         }
     }))
-}
-
-pub(crate) fn metadata_load_imported_row_counts(
-    connection: &Connection,
-    exchange: &str,
-    dates: &HashSet<String>,
-) -> AppResult<HashMap<String, usize>> {
-    if dates.is_empty() {
-        return Ok(HashMap::new());
-    }
-
-    let start_date = dates.iter().min().cloned().unwrap_or_default();
-    let end_date = dates.iter().max().cloned().unwrap_or_default();
-    let mut statement = connection
-        .prepare(
-            "
-              SELECT trade_date, rows_inserted
-              FROM download_log
-              WHERE exchange = ?
-                AND trade_date >= ?
-                AND trade_date <= ?
-                AND status = 'ok'
-                AND rows_inserted > 0
-            ",
-        )
-        .map_err(|error| error.to_string())?;
-    let rows = statement
-        .query_map(params![exchange, start_date, end_date], |row| {
-            Ok((row.get::<_, String>(0)?, row.get::<_, i64>(1)?))
-        })
-        .map_err(|error| error.to_string())?;
-
-    let mut counts = HashMap::<String, usize>::new();
-    for row in rows {
-        let (trade_date, rows_inserted) = row.map_err(|error| error.to_string())?;
-        if dates.contains(&trade_date) {
-            counts.insert(trade_date, rows_inserted.max(0) as usize);
-        }
-    }
-    Ok(counts)
 }
 
 pub(crate) fn count_binary_files_containing_dates(
@@ -3645,7 +3827,7 @@ pub(super) fn record_latest_attempts(
                 || matches!(
                     result.outcome,
                     DownloadOutcome::CalendarSkip
-                        | DownloadOutcome::AlreadyPresent
+                        | DownloadOutcome::Cancelled
                         | DownloadOutcome::ReportingWarning
                 )
             {
