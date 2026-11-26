@@ -7,12 +7,47 @@ use crate::bhavcopy::transport::is_html_response;
 use crate::bhavcopy::types::AppResult;
 use crate::database::binary_eod::{date_to_u32, EodRecord, DEFAULT_SCALE};
 
+#[derive(Clone, Debug, serde::Serialize)]
+pub(crate) struct IndexRejectedRow {
+    pub(crate) symbol: String,
+    pub(crate) raw: Vec<String>,
+    pub(crate) reason: String,
+    pub(crate) close_only: bool,
+}
+
 pub fn parse_bhavcopy_csv(
     csv_content: &str,
     exchange: &str,
     trade_date: &str,
     _excluded_series: &[String],
 ) -> AppResult<ParsedBhavcopyFile> {
+    parse_csv_impl(csv_content, exchange, trade_date, None)
+}
+
+/// Only the NSE daily-download pipeline may isolate invalid price rows.
+/// Manual/other parser callers retain the strict pre-existing contract.
+pub(crate) fn parse_download_csv(
+    csv_content: &str,
+    exchange: &str,
+    trade_date: &str,
+) -> AppResult<(ParsedBhavcopyFile, Vec<IndexRejectedRow>)> {
+    let mut rejected = Vec::new();
+    let parsed = parse_csv_impl(
+        csv_content,
+        exchange,
+        trade_date,
+        (exchange == "NSE_INDEX").then_some(&mut rejected),
+    )?;
+    Ok((parsed, rejected))
+}
+
+fn parse_csv_impl(
+    csv_content: &str,
+    exchange: &str,
+    trade_date: &str,
+    mut rejected: Option<&mut Vec<IndexRejectedRow>>,
+) -> AppResult<ParsedBhavcopyFile> {
+    let isolate = rejected.is_some();
     let trimmed = csv_content.trim();
     if trimmed.is_empty() {
         return Ok(ParsedBhavcopyFile {
@@ -152,6 +187,31 @@ pub fn parse_bhavcopy_csv(
         "TRADDT",
     ]);
     let is_index_data = get_column_index(&["INDEX_NAME", "INDEXNAME"]).is_some();
+    if isolate {
+        let name_idx = get_column_index(&["INDEX_NAME", "INDEXNAME"]);
+        if !is_index_data
+            || symbol_idx != name_idx
+            || date_idx.is_none()
+            || open_idx.is_none()
+            || high_idx.is_none()
+            || low_idx.is_none()
+            || close_idx.is_none()
+        {
+            return Err(
+                "NSE index archive missing required name, session date or OHLC columns".into(),
+            );
+        }
+        let unique = normalized_headers
+            .iter()
+            .collect::<std::collections::HashSet<_>>();
+        if unique.len() != normalized_headers.len()
+            || rows.iter().skip(1).any(|row| row.len() != headers.len())
+        {
+            return Err(
+                "NSE index archive has ambiguous headers or inconsistent row structure".into(),
+            );
+        }
+    }
 
     let Some(symbol_idx) = symbol_idx else {
         return Ok(ParsedBhavcopyFile {
@@ -240,6 +300,9 @@ pub fn parse_bhavcopy_csv(
 
         let raw_symbol = get_csv_value(row, symbol_idx).trim().to_string();
         if raw_symbol.is_empty() {
+            if isolate {
+                return Err("NSE index archive has a row without an identity".into());
+            }
             continue;
         }
 
@@ -277,6 +340,11 @@ pub fn parse_bhavcopy_csv(
         let symbol = if is_index_data {
             let mapped = map_index_symbol(&raw_symbol);
             if mapped.is_empty() {
+                if isolate {
+                    return Err(format!(
+                        "NSE index archive has invalid identity: {raw_symbol}"
+                    ));
+                }
                 continue;
             }
             mapped
@@ -305,6 +373,25 @@ pub fn parse_bhavcopy_csv(
             .iter()
             .any(|value| is_missing_index_value(value))
         {
+            if let Some(rejected) = rejected.as_deref_mut() {
+                let close = parse_decimal(&close_raw);
+                let close_only = [open_raw.as_str(), high_raw.as_str(), low_raw.as_str()]
+                    .iter()
+                    .all(|v| is_missing_index_value(v))
+                    && close.is_finite()
+                    && close > 0.0
+                    && close <= 1_000_000_000.0;
+                rejected.push(IndexRejectedRow {
+                    symbol: raw_symbol.clone(),
+                    raw: row.clone(),
+                    reason: if close_only {
+                        "Close-only source row; no OHLC fabricated".into()
+                    } else {
+                        "Missing OHLC fields".into()
+                    },
+                    close_only,
+                });
+            }
             continue;
         }
 
@@ -313,8 +400,43 @@ pub fn parse_bhavcopy_csv(
         let low_value = parse_decimal(&low_raw);
         let close_value = parse_decimal(&close_raw);
         if is_index_data {
-            validate_index_ohlc([open_value, high_value, low_value, close_value])
-                .map_err(|error| format!("Invalid index OHLC for {raw_symbol}: {error}"))?;
+            if let Err(error) =
+                validate_index_ohlc([open_value, high_value, low_value, close_value])
+            {
+                let reason = format!("Invalid index OHLC for {raw_symbol}: {error}");
+                if let Some(rejected) = rejected.as_deref_mut() {
+                    rejected.push(IndexRejectedRow {
+                        symbol: raw_symbol.clone(),
+                        raw: row.clone(),
+                        reason,
+                        close_only: false,
+                    });
+                    continue;
+                }
+                return Err(reason);
+            }
+            if isolate {
+                let raw_volume = volume_idx
+                    .map(|idx| get_csv_value(row, idx))
+                    .unwrap_or_default();
+                if !is_missing_index_value(&raw_volume) {
+                    let valid = raw_volume
+                        .replace(',', "")
+                        .parse::<f64>()
+                        .is_ok_and(|v| v.is_finite() && v >= 0.0 && v < i64::MAX as f64);
+                    if !valid {
+                        rejected.as_deref_mut().expect("isolation enabled").push(
+                            IndexRejectedRow {
+                                symbol: raw_symbol.clone(),
+                                raw: row.clone(),
+                                reason: "Invalid index volume".into(),
+                                close_only: false,
+                            },
+                        );
+                        continue;
+                    }
+                }
+            }
         }
         if close_value == 0.0 && !is_index_data {
             continue;

@@ -291,14 +291,14 @@ pub struct BinaryEodFile {
     pub header: EodHeader,
 }
 
-pub(super) struct ForwardBinaryRecords {
+pub(crate) struct ForwardBinaryRecords {
     reader: std::io::BufReader<File>,
     remaining: u32,
     last_date: Option<u32>,
 }
 
 impl ForwardBinaryRecords {
-    pub(super) fn next_record(&mut self) -> AppResult<Option<EodRecord>> {
+    pub(crate) fn next_record(&mut self) -> AppResult<Option<EodRecord>> {
         if self.remaining == 0 {
             return Ok(None);
         }
@@ -319,7 +319,7 @@ impl ForwardBinaryRecords {
 }
 
 impl BinaryEodFile {
-    pub(super) fn forward_records(&self) -> AppResult<ForwardBinaryRecords> {
+    pub(crate) fn forward_records(&self) -> AppResult<ForwardBinaryRecords> {
         let mut file = open_ro_with_retry(&self.path).map_err(|error| error.to_string())?;
         let count = self.header.record_count;
         let expected = HEADER_SIZE as u64 + u64::from(count) * RECORD_SIZE as u64;
