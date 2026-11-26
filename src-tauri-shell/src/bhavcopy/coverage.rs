@@ -176,7 +176,7 @@ impl BinaryReader {
         if !metadata.file_type().is_file() {
             return Err(format!("Non-regular EOD file {}", path.display()));
         }
-        let file = BinaryEodFile::open(&path)?;
+        let (file, handle) = BinaryEodFile::open_with_read_handle(&path)?;
         self.opens += 1;
         let header_symbol = String::from_utf8_lossy(&symbol.as_bytes()[..symbol.len().min(32)]);
         let owned = symbol.len() <= 32 || connection.query_row("SELECT EXISTS(SELECT 1 FROM instruments WHERE exchange=?1 AND symbol=?2 COLLATE BINARY)", params![exchange,symbol], |r| r.get::<_,bool>(0)).map_err(|e|e.to_string())?;
@@ -198,7 +198,7 @@ impl BinaryReader {
         if self.validated.get(&path) == Some(&stamp) {
             if let (Some(&first), Some(&last)) = (dates.first(), dates.last()) {
                 let mut previous = None;
-                for r in file.read_range(first, last)? {
+                for r in file.read_range_from(handle, first, last)? {
                     if !valid_date_number(r.date) || previous.is_some_and(|d| d >= r.date) {
                         return Err(format!("Invalid EOD ordering: {}", path.display()));
                     }
@@ -209,7 +209,7 @@ impl BinaryReader {
                 }
             }
         } else {
-            let mut records = file.forward_records()?;
+            let mut records = file.forward_records_from(handle)?;
             while let Some(r) = records.next_record()? {
                 if !valid_date_number(r.date) {
                     return Err(format!("Invalid EOD date: {}", path.display()));
@@ -241,7 +241,7 @@ fn sql_rows(
     let (Some(&first), Some(&last)) = (dates.first(), dates.last()) else {
         return Ok(BTreeMap::new());
     };
-    let mut statement = connection.prepare("SELECT date,open,high,low,close,prev_close,volume,open_interest,trades FROM eod_prices WHERE exchange=?1 AND symbol=?2 AND date BETWEEN ?3 AND ?4 ORDER BY date").map_err(|e|e.to_string())?;
+    let mut statement = connection.prepare_cached("SELECT date,open,high,low,close,prev_close,volume,open_interest,trades FROM eod_prices WHERE exchange=?1 AND symbol=?2 AND date BETWEEN ?3 AND ?4 ORDER BY date").map_err(|e|e.to_string())?;
     let rows = statement
         .query_map(
             params![exchange, symbol, u32_to_date(first), u32_to_date(last)],
@@ -287,8 +287,8 @@ fn classify_group(
     exchange: &str,
     symbol: &str,
     members: &BTreeMap<u32, Member>,
+    hybrid: bool,
 ) -> AppResult<BTreeMap<u32, Existing>> {
-    let hybrid = get_price_storage_mode(connection) == PriceStorageMode::Hybrid;
     let dates = members.keys().copied().collect::<BTreeSet<_>>();
     let aliases = if exchange == "NSE_INDEX" {
         nse_index_alias_family(symbol)
@@ -368,6 +368,8 @@ pub(super) fn guard_missing_only(
         Connection::open_with_flags(database, rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY)
             .map_err(|e| e.to_string())?;
     let root = database.parent().ok_or("Missing database folder")?;
+    let mode = get_price_storage_mode(&connection);
+    let hybrid = mode == PriceStorageMode::Hybrid;
     let mut reader = BinaryReader::default();
     let mut groups = BTreeMap::<(String, String), Vec<(usize, usize)>>::new();
     for (fi, file) in files
@@ -399,8 +401,15 @@ pub(super) fn guard_missing_only(
                 }
             }
         }
-        let classified =
-            classify_group(&connection, root, &mut reader, &exchange, &symbol, &members)?;
+        let classified = classify_group(
+            &connection,
+            root,
+            &mut reader,
+            &exchange,
+            &symbol,
+            &members,
+            hybrid,
+        )?;
         // Reproduce the existing stable per-symbol previous-close inference on
         // the original admitted batch, not on the smaller missing-only write set.
         let mut positions = positions;
@@ -434,6 +443,9 @@ pub(super) fn guard_missing_only(
                 files[fi].rows[ri].binary_record.prev_close = *previous;
             }
         }
+    }
+    if get_price_storage_mode(&connection) != mode {
+        return Err("Storage mode changed during missing-only verification".into());
     }
     for (file, mask) in files.iter_mut().zip(masks) {
         let mut mask = mask.into_iter();
@@ -593,6 +605,8 @@ pub(super) fn check_receipts(
     root: &Path,
     receipts: &mut BTreeMap<Job, Receipt>,
 ) {
+    let mode = get_price_storage_mode(connection);
+    let hybrid = mode == PriceStorageMode::Hybrid;
     let mut reader = BinaryReader::default();
     let mut by_exchange = BTreeMap::<String, Vec<String>>::new();
     for ((exchange, date), receipt) in receipts.iter_mut() {
@@ -627,7 +641,15 @@ pub(super) fn check_receipts(
                 }
             }
             for (symbol, members) in groups {
-                match classify_group(connection, root, &mut reader, &exchange, &symbol, &members) {
+                match classify_group(
+                    connection,
+                    root,
+                    &mut reader,
+                    &exchange,
+                    &symbol,
+                    &members,
+                    hybrid,
+                ) {
                     Ok(states) => {
                         for (number, state) in states {
                             if let Some(receipt) =
@@ -661,6 +683,16 @@ pub(super) fn check_receipts(
             }
         }
     }
+    // Never reuse proof obtained while the storage representation changed.
+    if get_price_storage_mode(connection) != mode {
+        for receipt in receipts.values_mut() {
+            receipt.verified_members = 0;
+            receipt.store_unresolved = receipt.members.len();
+            receipt
+                .details
+                .push("Storage mode changed during receipt verification".into());
+        }
+    }
 }
 
 // Main metadata DB owns this small, versioned, per-session-date source receipt.
@@ -680,13 +712,23 @@ pub(super) fn save_receipts(
     let transaction = connection
         .unchecked_transaction()
         .map_err(|e| e.to_string())?;
+    let mut statement = transaction.prepare_cached("INSERT INTO bhavcopy_coverage_v1(exchange,trade_date,receipt_json,receipt_sha256,pending_session) VALUES (?1,?2,?3,?4,?5) ON CONFLICT(exchange,trade_date) DO UPDATE SET receipt_json=excluded.receipt_json,receipt_sha256=excluded.receipt_sha256,pending_session=excluded.pending_session").map_err(|e|e.to_string())?;
     for ((exchange, date), receipt) in receipts {
         let json = serde_json::to_string(receipt).map_err(|e| e.to_string())?;
         if json.len() > MAX_RECEIPT_BYTES || receipt.members.len() > MAX_MEMBERS {
             return Err("Coverage receipt exceeds evidence limit".into());
         }
-        transaction.execute("INSERT INTO bhavcopy_coverage_v1(exchange,trade_date,receipt_json,receipt_sha256,pending_session) VALUES (?1,?2,?3,?4,?5) ON CONFLICT(exchange,trade_date) DO UPDATE SET receipt_json=excluded.receipt_json,receipt_sha256=excluded.receipt_sha256,pending_session=excluded.pending_session",params![exchange,date,json,digest(json.as_bytes()),session]).map_err(|e|e.to_string())?;
+        statement
+            .execute(params![
+                exchange,
+                date,
+                json,
+                digest(json.as_bytes()),
+                session
+            ])
+            .map_err(|e| e.to_string())?;
     }
+    drop(statement);
     transaction.commit().map_err(|e| e.to_string())
 }
 
@@ -726,7 +768,9 @@ pub(super) fn verified_dates(
         return Ok(result);
     }
     let key = CanonicalAccess::sqlite_key_for_file(&database)?;
-    let mode = get_price_storage_mode(connection).as_str().to_string();
+    let storage_mode = get_price_storage_mode(connection);
+    let mode = storage_mode.as_str();
+    let hybrid = storage_mode == PriceStorageMode::Hybrid;
     let mut start = parse_trade_date(from)?;
     let end = parse_trade_date(to)?;
     let mut reader = BinaryReader::default();
@@ -792,7 +836,15 @@ pub(super) fn verified_dates(
         }
         result.binary_reconcile_target_dates += candidates.len();
         for (symbol, members) in groups {
-            match classify_group(connection, &root, &mut reader, exchange, &symbol, &members) {
+            match classify_group(
+                connection,
+                &root,
+                &mut reader,
+                exchange,
+                &symbol,
+                &members,
+                hybrid,
+            ) {
                 Ok(states) => {
                     for (date, state) in states {
                         if state != Existing::Exact {
@@ -811,6 +863,9 @@ pub(super) fn verified_dates(
             }
         }
         start = stop + Duration::days(1);
+    }
+    if get_price_storage_mode(connection) != storage_mode {
+        return Err("Storage mode changed during coverage planning".into());
     }
     result.binary_reconcile_files_scanned = reader.opens;
     result.binary_reconcile_ms = started.elapsed().as_millis();

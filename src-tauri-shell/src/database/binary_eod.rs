@@ -320,7 +320,12 @@ impl ForwardBinaryRecords {
 
 impl BinaryEodFile {
     pub(crate) fn forward_records(&self) -> AppResult<ForwardBinaryRecords> {
-        let mut file = open_ro_with_retry(&self.path).map_err(|error| error.to_string())?;
+        let file = open_ro_with_retry(&self.path).map_err(|error| error.to_string())?;
+        self.forward_records_from(file)
+    }
+
+    // Use the handle whose header was validated by the caller.
+    pub(crate) fn forward_records_from(&self, mut file: File) -> AppResult<ForwardBinaryRecords> {
         let count = self.header.record_count;
         let expected = HEADER_SIZE as u64 + u64::from(count) * RECORD_SIZE as u64;
         if file.metadata().map_err(|error| error.to_string())?.len() != expected {
@@ -337,12 +342,19 @@ impl BinaryEodFile {
 
     /// Opens an existing binary EOD file.
     pub fn open<P: AsRef<Path>>(path: P) -> Result<Self, String> {
+        Self::open_with_read_handle(path).map(|(binary, _)| binary)
+    }
+
+    pub(crate) fn open_with_read_handle<P: AsRef<Path>>(path: P) -> AppResult<(Self, File)> {
         let mut file = open_ro_with_retry(&path).map_err(|e| e.to_string())?;
         let header = Self::read_header(&mut file)?;
-        Ok(Self {
-            path: path.as_ref().to_path_buf(),
-            header,
-        })
+        Ok((
+            Self {
+                path: path.as_ref().to_path_buf(),
+                header,
+            },
+            file,
+        ))
     }
 
     /// Reads all records from the file.
@@ -380,7 +392,16 @@ impl BinaryEodFile {
     /// Reads records within a specific date range (inclusive).
     /// Uses binary search to find the start of the range.
     pub fn read_range(&self, start_date: u32, end_date: u32) -> Result<Vec<EodRecord>, String> {
-        let mut file = open_ro_with_retry(&self.path).map_err(|e| e.to_string())?;
+        let file = open_ro_with_retry(&self.path).map_err(|e| e.to_string())?;
+        self.read_range_from(file, start_date, end_date)
+    }
+
+    pub(crate) fn read_range_from(
+        &self,
+        mut file: File,
+        start_date: u32,
+        end_date: u32,
+    ) -> AppResult<Vec<EodRecord>> {
         let total_records = self.header.record_count as usize;
 
         if total_records == 0 {
