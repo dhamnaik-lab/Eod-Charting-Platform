@@ -4,9 +4,7 @@ use reqwest::Url;
 use super::{apply_template, EXCHANGE_UDIFF_START};
 use crate::bhavcopy::calendar::parse_trade_date;
 use crate::bhavcopy::transport::NSE_INDEX_HISTORY_API_URL;
-use crate::bhavcopy::types::{
-    AppResult, Candidate, DownloadMode, DownloadTask, NseIndexHistoryTask,
-};
+use crate::bhavcopy::types::{AppResult, Candidate, DownloadTask, NseIndexHistoryTask};
 
 pub fn generate_nse_candidates(date: NaiveDate, url_override: Option<&String>) -> Vec<Candidate> {
     let mut candidates = Vec::new();
@@ -90,7 +88,6 @@ pub fn generate_nse_index_candidates(
 pub fn generate_nse_index_history_tasks(
     start_date: &str,
     end_date: &str,
-    mode: &DownloadMode,
 ) -> AppResult<Vec<DownloadTask>> {
     let start = parse_trade_date(start_date)?;
     let end = parse_trade_date(end_date)?;
@@ -107,7 +104,6 @@ pub fn generate_nse_index_history_tasks(
             tasks.push(DownloadTask {
                 exchange: "NSE_INDEX".to_string(),
                 trade_date: format!("{from_date}..{to_date} {symbol}"),
-                mode: mode.clone(),
                 candidates: Vec::new(),
                 nse_index_history: Some(NseIndexHistoryTask {
                     index_type: index_type.to_string(),

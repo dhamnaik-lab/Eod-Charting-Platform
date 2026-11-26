@@ -606,7 +606,6 @@ fn bse_maintenance_import_through_normal_batch_engine() {
                 task: DownloadTask {
                     exchange: source.exchange,
                     trade_date: source.trade_date,
-                    mode: DownloadMode::Range,
                     candidates: Vec::new(),
                     nse_index_history: None,
                 },
@@ -668,7 +667,6 @@ fn batch_stop_lets_a_started_http_attempt_finish_without_trying_the_next_url() {
     let task = DownloadTask {
         exchange: "NSE".into(),
         trade_date: "2026-01-02".into(),
-        mode: DownloadMode::Range,
         candidates: ["first", "second"]
             .into_iter()
             .map(|route| Candidate::direct(format!("http://{address}/{route}"), false))
@@ -2083,7 +2081,6 @@ AAA,EQ,10,11,9,{close},100,20-NOV-2014,INE000A01001"
         task: DownloadTask {
             exchange: "NSE".to_string(),
             trade_date: "2014-11-20".to_string(),
-            mode: DownloadMode::Range,
             candidates: Vec::new(),
             nse_index_history: None,
         },
@@ -2194,8 +2191,7 @@ fn test_range_mode_refreshes_metadata_only_binary_dates() {
 
 #[test]
 fn test_nse_index_history_chunks_split_selected_range() {
-    let tasks =
-        generate_nse_index_history_tasks("1993-01-01", "1994-01-15", &DownloadMode::Range).unwrap();
+    let tasks = generate_nse_index_history_tasks("1993-01-01", "1994-01-15").unwrap();
 
     assert_eq!(tasks.len(), 4);
     assert_eq!(tasks[0].trade_date, "1993-01-01..1993-12-31 NIFTY");
@@ -2942,7 +2938,6 @@ fn bhav01_malformed_candidate_does_not_prevent_later_valid_candidate() {
     let task = DownloadTask {
         exchange: "NSE".into(),
         trade_date: "2026-01-02".into(),
-        mode: DownloadMode::Range,
         candidates: vec![
             Candidate::direct(format!("http://{address}/bad.zip"), true),
             Candidate::direct(format!("http://{address}/good.csv"), false),

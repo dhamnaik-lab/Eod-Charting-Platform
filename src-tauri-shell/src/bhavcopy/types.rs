@@ -206,7 +206,6 @@ pub struct NseIndexHistoryTask {
 pub struct DownloadTask {
     pub exchange: String,
     pub trade_date: String,
-    pub mode: DownloadMode,
     pub candidates: Vec<Candidate>,
     pub nse_index_history: Option<NseIndexHistoryTask>,
 }

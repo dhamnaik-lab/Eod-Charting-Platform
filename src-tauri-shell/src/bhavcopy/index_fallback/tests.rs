@@ -797,7 +797,6 @@ fn archive_success_avoids_fallback_and_partial_or_missing_archives_plan_only_gap
         task: DownloadTask {
             exchange: "NSE_INDEX".into(),
             trade_date: date.into(),
-            mode: DownloadMode::Range,
             candidates: vec![],
             nse_index_history: None,
         },

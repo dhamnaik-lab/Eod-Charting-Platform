@@ -102,7 +102,6 @@ pub async fn download_bhavcopy(app: AppHandle, date: Option<String>) -> AppResul
         let task = DownloadTask {
             exchange: "NSE".to_string(),
             trade_date: trade_date.clone(),
-            mode: DownloadMode::Update,
             candidates: generate_nse_candidates(
                 parsed_date,
                 settings.nse_equity_url_override.as_ref(),
@@ -502,7 +501,6 @@ fn run_bhavcopy_batch(
             &app_handle,
             &client,
             &database_file_path,
-            &normalized_config,
             &index_dates,
             &mut staged_downloads,
             &mut results,
@@ -1162,7 +1160,6 @@ fn build_batch_plan(connection: &Connection, config: &BatchDownloadConfig) -> Ap
                     tasks.push(DownloadTask {
                         exchange: "NSE".to_string(),
                         trade_date: trade_date.clone(),
-                        mode: config.mode.clone(),
                         candidates: generate_nse_candidates(
                             parsed_date,
                             config.nse_equity_url_override.as_ref(),
@@ -1176,7 +1173,6 @@ fn build_batch_plan(connection: &Connection, config: &BatchDownloadConfig) -> Ap
                     tasks.push(DownloadTask {
                         exchange: "NSE_INDEX".to_string(),
                         trade_date: trade_date.clone(),
-                        mode: config.mode.clone(),
                         candidates: generate_nse_index_candidates(
                             parsed_date,
                             config.nse_index_url_override.as_ref(),
@@ -1197,7 +1193,6 @@ fn build_batch_plan(connection: &Connection, config: &BatchDownloadConfig) -> Ap
                 tasks.push(DownloadTask {
                     exchange: exchange.clone(),
                     trade_date,
-                    mode: config.mode.clone(),
                     candidates,
                     nse_index_history: None,
                 });
