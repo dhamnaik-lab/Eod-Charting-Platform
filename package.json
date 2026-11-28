@@ -11,6 +11,7 @@
     "pretauri:bundle:nsis": "node .\\scripts\\generate-build-metadata.cjs",
     "tauri:bundle:nsis": "cd src-tauri-shell && tauri bundle --config tauri.conf.json --bundles nsis",
     "tauri:portable:win": "npm run tauri:build && powershell -NoProfile -ExecutionPolicy Bypass -File .\\scripts\\prepare-tauri-portable.ps1",
+    "tauri:portable:win:clean": "pwsh -NoProfile -File .\\scripts\\Invoke-EOD-PortableBuildAndClean.ps1",
     "tauri:check": "cargo check --manifest-path src-tauri-shell/Cargo.toml",
     "typecheck:renderer": "tsc -p tsconfig.json --noEmit",
     "build:renderer": "vite build",

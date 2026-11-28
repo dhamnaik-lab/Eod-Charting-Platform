@@ -1,7 +1,7 @@
 ﻿#requires -Version 7.0
 [CmdletBinding()]
 param(
-    [Parameter()][ValidateSet('Preview','Run')][string]$Mode = 'Preview',
+    [Parameter()][ValidateSet('Preview','Run','CachePreview')][string]$Mode = 'Preview',
     [Parameter()][ValidateSet('check','test','build')][string]$CargoAction = 'check',
     [Parameter()][string[]]$CargoArguments = @()
 )
@@ -15,6 +15,12 @@ $target = Join-Path $root 'target'
 $manifest = Join-Path $root 'src-tauri-shell\Cargo.toml'
 $config = Join-Path $root '.cargo\config.toml'
 $tmp = Join-Path $root 'tmp'
+$targetBudget = 25GB
+$minimumFree = 8GB
+
+if ($Mode -eq 'CachePreview' -and $CargoArguments.Count -gt 0) {
+    throw 'CachePreview uses a fixed Cargo package/profile scope and does not accept CargoArguments.'
+}
 
 if ($root -cne $authorized) { throw "Wrong workstream root: $root" }
 if (-not (Test-Path -LiteralPath $manifest -PathType Leaf)) { throw "Missing Rust manifest: $manifest" }
@@ -44,6 +50,34 @@ foreach ($argument in $CargoArguments) {
     if ($argument -match '^(?i:--target-dir|--manifest-path|--config|--build-dir)(?:=|$)' -or
         $argument -match '^(?i:-Z)(?:$|.+)') {
         throw "Unsupported Cargo override in routine shared build: $argument"
+    }
+}
+
+function Get-SharedTargetUsage {
+    param([Parameter(Mandatory)][string]$TargetPath)
+
+    $options = [System.IO.EnumerationOptions]::new()
+    $options.AttributesToSkip = [IO.FileAttributes]::ReparsePoint
+    $options.IgnoreInaccessible = $false
+    $options.RecurseSubdirectories = $true
+
+    [long]$bytes = 0
+    foreach ($file in ([IO.DirectoryInfo]::new($TargetPath)).EnumerateFiles('*', $options)) {
+        $bytes += $file.Length
+    }
+
+    $drive = [IO.DriveInfo]::new([IO.Path]::GetPathRoot($TargetPath))
+    return [pscustomobject]@{ LogicalBytes = $bytes; FreeBytes = $drive.AvailableFreeSpace }
+}
+
+function Get-SharedTargetBudgetViolations {
+    param([long]$LogicalBytes, [long]$FreeBytes, [long]$TargetBudget, [long]$MinimumFree)
+
+    if ($LogicalBytes -ge $TargetBudget) {
+        'shared target is at or above its size budget'
+    }
+    if ($FreeBytes -lt $MinimumFree) {
+        'the target drive is below its free-space reserve'
     }
 }
 
@@ -223,13 +257,27 @@ $secondary = @(Get-SecondaryCargoTargetViolations `
     -RetainedSpecs $retainedHistoricalSpecs)
 if ($secondary.Count -gt 0) { throw "Secondary Cargo artifact roots detected in tmp: $($secondary -join '; ')" }
 
-$commandArgs = @($CargoAction,'--offline','--locked','--manifest-path',$manifest,'--target-dir',$target) + @($CargoArguments)
+$pinnedArgs = @('--offline','--locked','--manifest-path',$manifest,'--target-dir',$target)
+$commandArgs = @($CargoAction) + $pinnedArgs + $CargoArguments
+if ($Mode -eq 'CachePreview') {
+    $commandArgs = @('clean') + $pinnedArgs + @('--profile','dev','--package','eod-charting-platform-shell','--dry-run')
+}
 Write-Host "WORKSTREAM: $root"
 Write-Host "MODE: $Mode"
-Write-Host "CARGO ACTION: $CargoAction"
+Write-Host "CARGO ACTION: $($commandArgs[0])"
 Write-Host "SHARED TARGET: $target"
 Write-Host 'DEPENDENCY POLICY: --offline --locked; no custom rustflags or incremental overrides introduced.'
 Write-Host ('COMMAND: cargo ' + ($commandArgs -join ' '))
+
+$usage = Get-SharedTargetUsage -TargetPath $target
+Write-Host ('TARGET LOGICAL SIZE: {0:F2} GiB / {1:F0} GiB budget' -f ($usage.LogicalBytes / 1GB), ($targetBudget / 1GB))
+Write-Host ('TARGET DRIVE FREE: {0:F2} GiB / {1:F0} GiB reserve' -f ($usage.FreeBytes / 1GB), ($minimumFree / 1GB))
+$violations = @(Get-SharedTargetBudgetViolations -LogicalBytes $usage.LogicalBytes -FreeBytes $usage.FreeBytes -TargetBudget $targetBudget -MinimumFree $minimumFree)
+if ($violations.Count -gt 0) {
+    $budgetMessage = "Shared Cargo build paused: $($violations -join '; '). Review the scoped cleanup with -Mode CachePreview."
+    if ($Mode -eq 'Run') { throw $budgetMessage }
+    Write-Warning $budgetMessage
+}
 
 if ($Mode -eq 'Preview') {
     Write-Output 'STATUS: BUILD01_SHARED_CARGO_PREVIEW_PASS_NO_BUILD_NO_CHANGES'
@@ -249,5 +297,9 @@ try {
 }
 finally {
     Set-Location -LiteralPath $oldLocation.Path
+}
+if ($Mode -eq 'CachePreview') {
+    Write-Output 'STATUS: BUILD01_SHARED_CARGO_CACHE_PREVIEW_PASS_NO_ARTIFACT_DELETION'
+    return
 }
 Write-Output 'STATUS: BUILD01_SHARED_CARGO_COMMAND_PASS'

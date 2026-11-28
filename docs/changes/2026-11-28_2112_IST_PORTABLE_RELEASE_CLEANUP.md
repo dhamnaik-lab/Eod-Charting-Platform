@@ -1,0 +1,11 @@
+# Portable Windows release artifact cleanup
+
+Run `npm run tauri:portable:win:clean` from the main Windows project root to build and stage the portable EXE, then remove the project's generated `target/release` tree. Use `npm run tauri:portable:win:clean -- -WhatIf` to preview the exact target without building or staging. The standard `npm run tauri:portable:win` command retains the build tree.
+
+The opt-in command uses the existing Tauri build and portable stage script. It checks the final portable path beneath `release/tauri-portable-win` and compares the EXE there to the source EXE using SHA-256 before cleanup. It rejects target overrides and linked paths and checks for active Rust build processes. Build, staging, or verification failures skip release cleanup. If removal fails, the command returns an error and the staged portable output is available. The whole release target is in scope, including the source EXE, debug symbols, dependencies, and any bundles within that tree. The manual workflow and debug target are outside the cleanup scope.
+
+The release tree measured 8.67 GiB in the prior inventory. A future release build needs to recreate those artifacts. Peak space during the build still depends on Cargo's build requirements. Use the saved portable copy after cleanup. Restaging from the build tree or creating an installer from it requires another build.
+
+PowerShell parsing and the real npm WhatIf entry point passed. Simulated builds verified that failed compilation, failed staging, and a hash mismatch skipped deletion, and that a matching final EXE requested deletion of only `target/release`. The owner’s live run completed Rust release compilation in 4m 01s and reported successful cleanup. Independent checks matched the final EXE SHA-256 `BFCDFCECE84D95A0F3B384978DC2148675DBE8A27637F6D66280C7A172413EBB`, confirmed the launcher and renderer entry point, and verified that `target/release` was absent and `target/debug` remained. Shared Cargo Preview passed with 3.84 GiB in target and 21.88 GiB free on E:. No native app launch was performed.
+
+Implementation backup at `backups/pre_opencode_changes_20261128_211232_portable-release-cleanup`. Live-proof documentation backup at `backups/pre_opencode_changes_20261128_212905_portable-release-cleanup-live-proof`.
