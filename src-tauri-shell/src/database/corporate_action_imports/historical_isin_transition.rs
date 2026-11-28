@@ -1,4 +1,4 @@
-use super::{normalize_isin, CorporateActionImportRow, CorporateActionImportResolutionSuggestion};
+use super::{normalize_isin, CorporateActionImportResolutionSuggestion, CorporateActionImportRow};
 use crate::database::AppResult;
 use chrono::NaiveDate;
 use rusqlite::{params, Connection, OptionalExtension};
@@ -40,7 +40,9 @@ fn table_has_columns(connection: &Connection, table: &str, required: &[&str]) ->
         return Ok(false);
     }
     let sql = format!("PRAGMA table_info({table})");
-    let mut statement = connection.prepare(&sql).map_err(|error| error.to_string())?;
+    let mut statement = connection
+        .prepare(&sql)
+        .map_err(|error| error.to_string())?;
     let columns = statement
         .query_map([], |row| row.get::<_, String>(1))
         .map_err(|error| error.to_string())?
@@ -67,7 +69,14 @@ fn transition_schema_available(connection: &Connection) -> AppResult<bool> {
     )? && table_has_columns(
         connection,
         "corporate_actions",
-        &["id", "exchange", "symbol", "isin", "effective_date", "action_type"],
+        &[
+            "id",
+            "exchange",
+            "symbol",
+            "isin",
+            "effective_date",
+            "action_type",
+        ],
     )? && table_has_columns(
         connection,
         "instrument_isin_history",
@@ -114,7 +123,12 @@ fn exact_transition_history_is_unambiguous(
                 symbol,
                 transition_date,
             ],
-            |row| Ok((row.get::<_, Option<i64>>(0)?.unwrap_or(0), row.get::<_, Option<i64>>(1)?.unwrap_or(0))),
+            |row| {
+                Ok((
+                    row.get::<_, Option<i64>>(0)?.unwrap_or(0),
+                    row.get::<_, Option<i64>>(1)?.unwrap_or(0),
+                ))
+            },
         )
         .map_err(|error| error.to_string())?;
     Ok(matching >= 1 && conflicting == 0)
@@ -220,7 +234,10 @@ pub(super) fn load_verified_historical_isin_transition(
         )
         || import_row.approved_corporate_action_id.is_some()
         || import_row.parse_status != "PARSED"
-        || !matches!(import_row.action_type.as_str(), "DIVIDEND" | "SPLIT" | "BONUS")
+        || !matches!(
+            import_row.action_type.as_str(),
+            "DIVIDEND" | "SPLIT" | "BONUS"
+        )
         || !suggestion.exchange.eq_ignore_ascii_case("NSE")
     {
         return Ok(None);
@@ -308,8 +325,11 @@ pub(super) fn load_verified_historical_isin_transition(
 
     let mut verified = Vec::new();
     for candidate in candidates {
-        let transition_date_value = NaiveDate::parse_from_str(&candidate.transition_date, "%Y-%m-%d")
-            .map_err(|_| "Historical ISIN transition evidence contains an invalid transition date.".to_string())?;
+        let transition_date_value =
+            NaiveDate::parse_from_str(&candidate.transition_date, "%Y-%m-%d").map_err(|_| {
+                "Historical ISIN transition evidence contains an invalid transition date."
+                    .to_string()
+            })?;
         if event_date_value >= transition_date_value {
             continue;
         }

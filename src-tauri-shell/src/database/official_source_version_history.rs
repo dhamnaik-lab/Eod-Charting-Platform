@@ -6,8 +6,8 @@ use tauri::AppHandle;
 use super::official_source_candidate_review::{
     compute_er4_configuration_fingerprint, validate_er4_candidate_review_plan_integrity,
     validation_report_json_from_review, Er4CurrentSourceAuthority,
-    OfficialSourceCandidateReviewPlan, OfficialSourceRollbackReview,
-    ER4_REVIEW_SCHEMA_VERSION, ER4_SOURCE_REGISTRY,
+    OfficialSourceCandidateReviewPlan, OfficialSourceRollbackReview, ER4_REVIEW_SCHEMA_VERSION,
+    ER4_SOURCE_REGISTRY,
 };
 use super::official_source_urls::{
     load_legacy_official_source_urls, OfficialSourceUrls, OFFICIAL_SOURCE_URLS_SETTING_KEY,
@@ -77,7 +77,6 @@ pub struct SaveOfficialSourceUrlsReviewedResult {
     pub authority: OfficialSourceConfigurationAuthority,
 }
 
-
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) struct PromotionRevalidationEvidence {
     pub candidate_content_sha256: String,
@@ -90,7 +89,6 @@ pub(crate) struct CommittedOfficialSourceMutation {
     pub result_version_id: i64,
     pub authority: OfficialSourceConfigurationAuthority,
 }
-
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) struct RollbackRevalidationEvidence {
@@ -138,9 +136,7 @@ pub struct OfficialSourceHistoryEntry {
     pub post_health_status: Option<String>,
 }
 
-pub(crate) fn ensure_official_source_version_schema(
-    connection: &Connection,
-) -> Result<(), String> {
+pub(crate) fn ensure_official_source_version_schema(connection: &Connection) -> Result<(), String> {
     connection
         .execute_batch(
             "
@@ -220,10 +216,7 @@ pub(crate) fn ensure_official_source_version_schema(
         .map_err(|error| error.to_string())
 }
 
-fn url_for_config_field<'a>(
-    urls: &'a OfficialSourceUrls,
-    field: &str,
-) -> Result<&'a str, String> {
+fn url_for_config_field<'a>(urls: &'a OfficialSourceUrls, field: &str) -> Result<&'a str, String> {
     match field {
         "nseSecuritiesAvailablePageUrl" => Ok(&urls.nse_securities_available_page_url),
         "nseEquityMasterUrl" => Ok(&urls.nse_equity_master_url),
@@ -234,7 +227,9 @@ fn url_for_config_field<'a>(
         "nseDelistedWorkbookUrl" => Ok(&urls.nse_delisted_workbook_url),
         "bseListScripsUrlPrefix" => Ok(&urls.bse_list_scrips_url_prefix),
         "bseListScripsReferer" => Ok(&urls.bse_list_scrips_referer),
-        _ => Err(format!("{ER4_LEDGER_CORRUPT}: unknown config field '{field}'.")),
+        _ => Err(format!(
+            "{ER4_LEDGER_CORRUPT}: unknown config field '{field}'."
+        )),
     }
 }
 
@@ -253,7 +248,11 @@ fn set_url_for_config_field(
         "nseDelistedWorkbookUrl" => urls.nse_delisted_workbook_url = value,
         "bseListScripsUrlPrefix" => urls.bse_list_scrips_url_prefix = value,
         "bseListScripsReferer" => urls.bse_list_scrips_referer = value,
-        _ => return Err(format!("{ER4_LEDGER_CORRUPT}: unknown config field '{field}'.")),
+        _ => {
+            return Err(format!(
+                "{ER4_LEDGER_CORRUPT}: unknown config field '{field}'."
+            ))
+        }
     }
     Ok(())
 }
@@ -272,14 +271,23 @@ fn normalize_manual_urls(mut urls: OfficialSourceUrls) -> OfficialSourceUrls {
         &mut urls.nse_securities_available_page_url,
         &defaults.nse_securities_available_page_url,
     );
-    normalize(&mut urls.nse_equity_master_url, &defaults.nse_equity_master_url);
+    normalize(
+        &mut urls.nse_equity_master_url,
+        &defaults.nse_equity_master_url,
+    );
     normalize(&mut urls.nse_sme_master_url, &defaults.nse_sme_master_url);
-    normalize(&mut urls.nse_symbol_change_url, &defaults.nse_symbol_change_url);
+    normalize(
+        &mut urls.nse_symbol_change_url,
+        &defaults.nse_symbol_change_url,
+    );
     normalize(
         &mut urls.nse_company_name_change_url,
         &defaults.nse_company_name_change_url,
     );
-    normalize(&mut urls.nse_delisted_page_url, &defaults.nse_delisted_page_url);
+    normalize(
+        &mut urls.nse_delisted_page_url,
+        &defaults.nse_delisted_page_url,
+    );
     normalize(
         &mut urls.nse_delisted_workbook_url,
         &defaults.nse_delisted_workbook_url,
@@ -366,9 +374,7 @@ pub(crate) fn validate_official_source_ledger_integrity(
     Ok(())
 }
 
-pub(crate) fn ensure_official_source_baseline(
-    connection: &Connection,
-) -> Result<(), String> {
+pub(crate) fn ensure_official_source_baseline(connection: &Connection) -> Result<(), String> {
     ensure_official_source_version_schema(connection)?;
 
     let current_count: i64 = connection
@@ -573,7 +579,9 @@ pub(crate) fn read_official_source_configuration_authority(
     validate_official_source_ledger_integrity(connection)?;
     let internal_sources = read_internal_authority_sources(connection)?;
     if internal_sources.len() != ER4_SOURCE_REGISTRY.len() {
-        return Err(format!("{ER4_LEDGER_CORRUPT}: current authority is incomplete."));
+        return Err(format!(
+            "{ER4_LEDGER_CORRUPT}: current authority is incomplete."
+        ));
     }
     let configuration_fingerprint = compute_er4_configuration_fingerprint(&internal_sources)?;
     let urls = try_load_official_source_urls_from_ledger(connection)?
@@ -674,7 +682,8 @@ fn save_official_source_urls_reviewed_internal(
             return Err(ER4_STALE_REJECTED.to_string());
         }
         for source in &current_authority.sources {
-            if expected_revisions.get(source.source_key.as_str()).copied() != Some(source.revision) {
+            if expected_revisions.get(source.source_key.as_str()).copied() != Some(source.revision)
+            {
                 return Err(ER4_STALE_REJECTED.to_string());
             }
         }
@@ -781,8 +790,6 @@ pub fn save_official_source_urls_reviewed(
     })?
     .ok_or_else(|| "Open a database before changing source URLs.".to_string())
 }
-
-
 
 fn er4_test_inject(inject_after: Option<&str>, marker: &str) -> Result<(), String> {
     if inject_after == Some(marker) {
@@ -905,7 +912,8 @@ pub(crate) fn promote_official_source_candidate_internal(
         er4_test_inject(inject_after, "AFTER_CURRENT_POINTER")?;
 
         let authority = read_official_source_configuration_authority(connection)?;
-        let mirror_json = serde_json::to_string(&authority.urls).map_err(|error| error.to_string())?;
+        let mirror_json =
+            serde_json::to_string(&authority.urls).map_err(|error| error.to_string())?;
         er4_test_inject(inject_after, "BEFORE_MIRROR")?;
         write_setting_value(connection, OFFICIAL_SOURCE_URLS_SETTING_KEY, &mirror_json)?;
         er4_test_inject(inject_after, "AFTER_MIRROR")?;
@@ -938,8 +946,6 @@ pub(crate) fn promote_official_source_candidate_internal(
         }
     }
 }
-
-
 
 pub(crate) fn read_official_source_version_for_rollback(
     connection: &Connection,
@@ -1096,7 +1102,8 @@ pub(crate) fn apply_official_source_rollback_internal(
         er4_test_inject(inject_after, "ROLLBACK_AFTER_CURRENT_POINTER")?;
 
         let authority = read_official_source_configuration_authority(connection)?;
-        let mirror_json = serde_json::to_string(&authority.urls).map_err(|error| error.to_string())?;
+        let mirror_json =
+            serde_json::to_string(&authority.urls).map_err(|error| error.to_string())?;
         er4_test_inject(inject_after, "ROLLBACK_BEFORE_MIRROR")?;
         write_setting_value(connection, OFFICIAL_SOURCE_URLS_SETTING_KEY, &mirror_json)?;
         er4_test_inject(inject_after, "ROLLBACK_AFTER_MIRROR")?;
@@ -1234,7 +1241,9 @@ pub(crate) fn record_candidate_decision_internal(
     if decision != DECISION_KEEP_CURRENT && decision != DECISION_REJECT_CANDIDATE {
         return Err("ER4_DECISION_UNSUPPORTED".to_string());
     }
-    let trimmed_note = operator_note.map(str::trim).filter(|value| !value.is_empty());
+    let trimmed_note = operator_note
+        .map(str::trim)
+        .filter(|value| !value.is_empty());
     if decision == DECISION_REJECT_CANDIDATE && trimmed_note.is_none() {
         return Err("ER4_REJECTION_NOTE_REQUIRED".to_string());
     }
@@ -1471,12 +1480,7 @@ pub(crate) fn list_official_source_history_internal(
         }
     }
 
-    entries.sort_by(|left, right| {
-        right
-            .0
-            .cmp(&left.0)
-            .then_with(|| right.1.cmp(&left.1))
-    });
+    entries.sort_by(|left, right| right.0.cmp(&left.0).then_with(|| right.1.cmp(&left.1)));
     Ok(entries.into_iter().map(|(_, _, entry)| entry).collect())
 }
 
@@ -1488,8 +1492,9 @@ mod tests {
 
     fn test_connection() -> Connection {
         let connection = Connection::open_in_memory().unwrap();
-        connection.execute_batch(
-            "
+        connection
+            .execute_batch(
+                "
             PRAGMA foreign_keys = ON;
             CREATE TABLE settings (
               key TEXT PRIMARY KEY,
@@ -1497,7 +1502,8 @@ mod tests {
               updated_at TEXT NOT NULL DEFAULT (datetime('now'))
             );
             ",
-        ).unwrap();
+            )
+            .unwrap();
         connection
     }
 
@@ -1525,15 +1531,33 @@ mod tests {
         let connection = test_connection();
         ensure_official_source_baseline(&connection).unwrap();
         assert_eq!(
-            connection.query_row("SELECT COUNT(*) FROM official_source_url_versions", [], |row| row.get::<_, i64>(0)).unwrap(),
+            connection
+                .query_row(
+                    "SELECT COUNT(*) FROM official_source_url_versions",
+                    [],
+                    |row| row.get::<_, i64>(0)
+                )
+                .unwrap(),
             9
         );
         assert_eq!(
-            connection.query_row("SELECT COUNT(*) FROM official_source_url_current", [], |row| row.get::<_, i64>(0)).unwrap(),
+            connection
+                .query_row(
+                    "SELECT COUNT(*) FROM official_source_url_current",
+                    [],
+                    |row| row.get::<_, i64>(0)
+                )
+                .unwrap(),
             9
         );
         assert_eq!(
-            connection.query_row("SELECT COUNT(DISTINCT batch_id) FROM official_source_url_versions", [], |row| row.get::<_, i64>(0)).unwrap(),
+            connection
+                .query_row(
+                    "SELECT COUNT(DISTINCT batch_id) FROM official_source_url_versions",
+                    [],
+                    |row| row.get::<_, i64>(0)
+                )
+                .unwrap(),
             1
         );
         assert_eq!(
@@ -1547,13 +1571,13 @@ mod tests {
         let mirror = super::super::settings::read_setting_value(
             &connection,
             OFFICIAL_SOURCE_URLS_SETTING_KEY,
-        ).unwrap().unwrap();
+        )
+        .unwrap()
+        .unwrap();
         let parsed: OfficialSourceUrls = serde_json::from_str(&mirror).unwrap();
         assert_eq!(parsed, OfficialSourceUrls::defaults());
         validate_official_source_ledger_integrity(&connection).unwrap();
     }
-
-
 
     #[test]
     fn er4b_bootstrap_installs_ledger_and_preserves_default_seeding() {
@@ -1579,10 +1603,16 @@ mod tests {
             &connection,
             OFFICIAL_SOURCE_URLS_SETTING_KEY,
             r#"{"nseEquityMasterUrl":" https://example.invalid/custom.csv "}"#,
-        ).unwrap();
+        )
+        .unwrap();
         ensure_official_source_baseline(&connection).unwrap();
-        let urls = try_load_official_source_urls_from_ledger(&connection).unwrap().unwrap();
-        assert_eq!(urls.nse_equity_master_url, "https://example.invalid/custom.csv");
+        let urls = try_load_official_source_urls_from_ledger(&connection)
+            .unwrap()
+            .unwrap();
+        assert_eq!(
+            urls.nse_equity_master_url,
+            "https://example.invalid/custom.csv"
+        );
         assert_eq!(
             urls.nse_symbol_change_url,
             OfficialSourceUrls::defaults().nse_symbol_change_url
@@ -1592,7 +1622,9 @@ mod tests {
         write_setting_value(&malformed, OFFICIAL_SOURCE_URLS_SETTING_KEY, "{bad json").unwrap();
         ensure_official_source_baseline(&malformed).unwrap();
         assert_eq!(
-            try_load_official_source_urls_from_ledger(&malformed).unwrap().unwrap(),
+            try_load_official_source_urls_from_ledger(&malformed)
+                .unwrap()
+                .unwrap(),
             OfficialSourceUrls::defaults()
         );
     }
@@ -1603,7 +1635,13 @@ mod tests {
         ensure_official_source_baseline(&connection).unwrap();
         ensure_official_source_baseline(&connection).unwrap();
         assert_eq!(
-            connection.query_row("SELECT COUNT(*) FROM official_source_url_versions", [], |row| row.get::<_, i64>(0)).unwrap(),
+            connection
+                .query_row(
+                    "SELECT COUNT(*) FROM official_source_url_versions",
+                    [],
+                    |row| row.get::<_, i64>(0)
+                )
+                .unwrap(),
             9
         );
 
@@ -1621,7 +1659,13 @@ mod tests {
         let error = ensure_official_source_baseline(&corrupt).unwrap_err();
         assert!(error.contains(ER4_LEDGER_CORRUPT));
         assert_eq!(
-            corrupt.query_row("SELECT COUNT(*) FROM official_source_url_current", [], |row| row.get::<_, i64>(0)).unwrap(),
+            corrupt
+                .query_row(
+                    "SELECT COUNT(*) FROM official_source_url_current",
+                    [],
+                    |row| row.get::<_, i64>(0)
+                )
+                .unwrap(),
             1
         );
     }
@@ -1633,18 +1677,31 @@ mod tests {
         let first = read_official_source_configuration_authority(&connection).unwrap();
         let second = read_official_source_configuration_authority(&connection).unwrap();
         assert_eq!(first.sources.len(), 9);
-        assert_eq!(first.configuration_fingerprint, second.configuration_fingerprint);
         assert_eq!(
-            first.sources.iter().map(|item| item.source_key.as_str()).collect::<Vec<_>>(),
-            ER4_SOURCE_REGISTRY.iter().map(|item| item.source_key).collect::<Vec<_>>()
+            first.configuration_fingerprint,
+            second.configuration_fingerprint
+        );
+        assert_eq!(
+            first
+                .sources
+                .iter()
+                .map(|item| item.source_key.as_str())
+                .collect::<Vec<_>>(),
+            ER4_SOURCE_REGISTRY
+                .iter()
+                .map(|item| item.source_key)
+                .collect::<Vec<_>>()
         );
 
         write_setting_value(
             &connection,
             OFFICIAL_SOURCE_URLS_SETTING_KEY,
             r#"{"nseEquityMasterUrl":"https://example.invalid/mirror-only.csv"}"#,
-        ).unwrap();
-        let loaded = try_load_official_source_urls_from_ledger(&connection).unwrap().unwrap();
+        )
+        .unwrap();
+        let loaded = try_load_official_source_urls_from_ledger(&connection)
+            .unwrap()
+            .unwrap();
         assert_eq!(
             loaded.nse_equity_master_url,
             OfficialSourceUrls::defaults().nse_equity_master_url
@@ -1656,16 +1713,33 @@ mod tests {
         let connection = test_connection();
         ensure_official_source_baseline(&connection).unwrap();
         let authority = read_official_source_configuration_authority(&connection).unwrap();
-        let before: i64 = connection.query_row("SELECT COUNT(*) FROM official_source_url_versions", [], |row| row.get(0)).unwrap();
+        let before: i64 = connection
+            .query_row(
+                "SELECT COUNT(*) FROM official_source_url_versions",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
         let result = save_official_source_urls_reviewed_internal(
             &connection,
             &authority_input(&authority, authority.urls.clone()),
             false,
-        ).unwrap();
+        )
+        .unwrap();
         assert!(result.changed_source_keys.is_empty());
-        let after: i64 = connection.query_row("SELECT COUNT(*) FROM official_source_url_versions", [], |row| row.get(0)).unwrap();
+        let after: i64 = connection
+            .query_row(
+                "SELECT COUNT(*) FROM official_source_url_versions",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
         assert_eq!(before, after);
-        assert!(result.authority.sources.iter().all(|source| source.revision == 1));
+        assert!(result
+            .authority
+            .sources
+            .iter()
+            .all(|source| source.revision == 1));
     }
 
     #[test]
@@ -1679,9 +1753,15 @@ mod tests {
             &connection,
             &authority_input(&authority, urls),
             false,
-        ).unwrap();
+        )
+        .unwrap();
         assert_eq!(one.changed_source_keys, vec!["NSE_CURRENT_EQUITY_MASTER"]);
-        let equity = one.authority.sources.iter().find(|source| source.source_key == "NSE_CURRENT_EQUITY_MASTER").unwrap();
+        let equity = one
+            .authority
+            .sources
+            .iter()
+            .find(|source| source.source_key == "NSE_CURRENT_EQUITY_MASTER")
+            .unwrap();
         assert_eq!(equity.revision, 2);
 
         let authority = one.authority;
@@ -1692,7 +1772,8 @@ mod tests {
             &connection,
             &authority_input(&authority, urls),
             false,
-        ).unwrap();
+        )
+        .unwrap();
         assert_eq!(multi.changed_source_keys.len(), 2);
         let distinct_batches: i64 = connection.query_row(
             "SELECT COUNT(DISTINCT batch_id) FROM official_source_url_versions WHERE source_revision = 2 AND source_key IN ('NSE_SYMBOL_CHANGE_HISTORY','NSE_COMPANY_NAME_CHANGE_HISTORY')",
@@ -1700,8 +1781,16 @@ mod tests {
             |row| row.get(0),
         ).unwrap();
         assert_eq!(distinct_batches, 1);
-        let mirror = super::super::settings::read_setting_value(&connection, OFFICIAL_SOURCE_URLS_SETTING_KEY).unwrap().unwrap();
-        assert_eq!(serde_json::from_str::<OfficialSourceUrls>(&mirror).unwrap(), multi.authority.urls);
+        let mirror = super::super::settings::read_setting_value(
+            &connection,
+            OFFICIAL_SOURCE_URLS_SETTING_KEY,
+        )
+        .unwrap()
+        .unwrap();
+        assert_eq!(
+            serde_json::from_str::<OfficialSourceUrls>(&mirror).unwrap(),
+            multi.authority.urls
+        );
     }
 
     #[test]
@@ -1709,7 +1798,13 @@ mod tests {
         let connection = test_connection();
         ensure_official_source_baseline(&connection).unwrap();
         let authority = read_official_source_configuration_authority(&connection).unwrap();
-        let before: i64 = connection.query_row("SELECT COUNT(*) FROM official_source_url_versions", [], |row| row.get(0)).unwrap();
+        let before: i64 = connection
+            .query_row(
+                "SELECT COUNT(*) FROM official_source_url_versions",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
         let mut stale = authority_input(&authority, authority.urls.clone());
         stale.expected_configuration_fingerprint = "STALE".to_string();
         assert_eq!(
@@ -1719,10 +1814,17 @@ mod tests {
         let mut stale_revision = authority_input(&authority, authority.urls.clone());
         stale_revision.expected_source_revisions[0].revision += 1;
         assert_eq!(
-            save_official_source_urls_reviewed_internal(&connection, &stale_revision, false).unwrap_err(),
+            save_official_source_urls_reviewed_internal(&connection, &stale_revision, false)
+                .unwrap_err(),
             ER4_STALE_REJECTED
         );
-        let after: i64 = connection.query_row("SELECT COUNT(*) FROM official_source_url_versions", [], |row| row.get(0)).unwrap();
+        let after: i64 = connection
+            .query_row(
+                "SELECT COUNT(*) FROM official_source_url_versions",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
         assert_eq!(before, after);
     }
 
@@ -1731,24 +1833,49 @@ mod tests {
         let connection = test_connection();
         ensure_official_source_baseline(&connection).unwrap();
         let authority = read_official_source_configuration_authority(&connection).unwrap();
-        let mirror_before = super::super::settings::read_setting_value(&connection, OFFICIAL_SOURCE_URLS_SETTING_KEY).unwrap().unwrap();
-        let before: i64 = connection.query_row("SELECT COUNT(*) FROM official_source_url_versions", [], |row| row.get(0)).unwrap();
+        let mirror_before = super::super::settings::read_setting_value(
+            &connection,
+            OFFICIAL_SOURCE_URLS_SETTING_KEY,
+        )
+        .unwrap()
+        .unwrap();
+        let before: i64 = connection
+            .query_row(
+                "SELECT COUNT(*) FROM official_source_url_versions",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
         let mut urls = authority.urls.clone();
         urls.nse_equity_master_url = "https://example.invalid/fail.csv".to_string();
         let error = save_official_source_urls_reviewed_internal(
             &connection,
             &authority_input(&authority, urls),
             true,
-        ).unwrap_err();
+        )
+        .unwrap_err();
         assert_eq!(error, "ER4_TEST_INJECTED_FAILURE");
-        let after: i64 = connection.query_row("SELECT COUNT(*) FROM official_source_url_versions", [], |row| row.get(0)).unwrap();
+        let after: i64 = connection
+            .query_row(
+                "SELECT COUNT(*) FROM official_source_url_versions",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
         assert_eq!(before, after);
         assert_eq!(
-            super::super::settings::read_setting_value(&connection, OFFICIAL_SOURCE_URLS_SETTING_KEY).unwrap().unwrap(),
+            super::super::settings::read_setting_value(
+                &connection,
+                OFFICIAL_SOURCE_URLS_SETTING_KEY
+            )
+            .unwrap()
+            .unwrap(),
             mirror_before
         );
         assert_eq!(
-            read_official_source_configuration_authority(&connection).unwrap().configuration_fingerprint,
+            read_official_source_configuration_authority(&connection)
+                .unwrap()
+                .configuration_fingerprint,
             authority.configuration_fingerprint
         );
     }
@@ -1764,8 +1891,12 @@ mod tests {
             &connection,
             &authority_input(&authority, urls),
             false,
-        ).unwrap();
-        assert_eq!(result.authority.urls.nse_equity_master_url, "http://not-official.example/manual.csv");
+        )
+        .unwrap();
+        assert_eq!(
+            result.authority.urls.nse_equity_master_url,
+            "http://not-official.example/manual.csv"
+        );
     }
 
     #[test]
@@ -1784,33 +1915,41 @@ mod tests {
                 &connection,
                 &authority_input(&authority, urls),
                 false,
-            ).unwrap();
+            )
+            .unwrap();
         }
         let reopened = Connection::open(file.path()).unwrap();
         reopened.execute_batch("PRAGMA foreign_keys=ON;").unwrap();
         validate_official_source_ledger_integrity(&reopened).unwrap();
         let authority = read_official_source_configuration_authority(&reopened).unwrap();
-        let source = authority.sources.iter().find(|source| source.source_key == "NSE_CURRENT_SME_MASTER").unwrap();
+        let source = authority
+            .sources
+            .iter()
+            .find(|source| source.source_key == "NSE_CURRENT_SME_MASTER")
+            .unwrap();
         assert_eq!(source.revision, 2);
-        assert_eq!(authority.urls.nse_sme_master_url, "https://example.invalid/sme.csv");
+        assert_eq!(
+            authority.urls.nse_sme_master_url,
+            "https://example.invalid/sme.csv"
+        );
     }
 }
 
-
 #[cfg(test)]
 mod er4c_decision_tests {
-    use super::*;
     use super::super::official_source_candidate_review::build_er4_candidate_review_plan;
     use super::super::official_source_candidate_validation::{
         Er3bCandidateValidationResult, ER3B_CLASS_VALIDATED,
     };
+    use super::*;
     use rusqlite::Connection;
     use tempfile::NamedTempFile;
 
     fn test_connection() -> Connection {
         let connection = Connection::open_in_memory().unwrap();
-        connection.execute_batch(
-            "
+        connection
+            .execute_batch(
+                "
             PRAGMA foreign_keys = ON;
             CREATE TABLE settings (
               key TEXT PRIMARY KEY,
@@ -1818,7 +1957,8 @@ mod er4c_decision_tests {
               updated_at TEXT NOT NULL DEFAULT (datetime('now'))
             );
             ",
-        ).unwrap();
+            )
+            .unwrap();
         ensure_official_source_baseline(&connection).unwrap();
         connection
     }
@@ -1830,11 +1970,19 @@ mod er4c_decision_tests {
             source_id: base.source_id.clone().unwrap(),
             source_role: base.source_role.clone().unwrap(),
             configured_url: base.current_url.clone(),
-            landing_page_url: "https://www.nseindia.com/static/market-data/securities-available-for-trading".to_string(),
-            candidate_url: "https://nsearchives.nseindia.com/content/equities/EQUITY_REPLACEMENT.csv".to_string(),
+            landing_page_url:
+                "https://www.nseindia.com/static/market-data/securities-available-for-trading"
+                    .to_string(),
+            candidate_url:
+                "https://nsearchives.nseindia.com/content/equities/EQUITY_REPLACEMENT.csv"
+                    .to_string(),
             discovery_reason: "SOURCE_ROLE_MATCH".to_string(),
-            request_url: "https://nsearchives.nseindia.com/content/equities/EQUITY_REPLACEMENT.csv".to_string(),
-            final_url: Some("https://nsearchives.nseindia.com/content/equities/EQUITY_REPLACEMENT.csv".to_string()),
+            request_url: "https://nsearchives.nseindia.com/content/equities/EQUITY_REPLACEMENT.csv"
+                .to_string(),
+            final_url: Some(
+                "https://nsearchives.nseindia.com/content/equities/EQUITY_REPLACEMENT.csv"
+                    .to_string(),
+            ),
             http_status: Some(200),
             content_type: Some("text/csv".to_string()),
             response_bytes: Some(1024),
@@ -1854,29 +2002,53 @@ mod er4c_decision_tests {
     fn er4c_keep_current_persists_one_event_without_version_or_mirror_change() {
         let connection = test_connection();
         let review = review_for(&connection);
-        let versions_before: i64 = connection.query_row(
-            "SELECT COUNT(*) FROM official_source_url_versions", [], |row| row.get(0)
-        ).unwrap();
+        let versions_before: i64 = connection
+            .query_row(
+                "SELECT COUNT(*) FROM official_source_url_versions",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
         let mirror_before = super::super::settings::read_setting_value(
-            &connection, OFFICIAL_SOURCE_URLS_SETTING_KEY
-        ).unwrap().unwrap();
+            &connection,
+            OFFICIAL_SOURCE_URLS_SETTING_KEY,
+        )
+        .unwrap()
+        .unwrap();
 
         record_candidate_decision_internal(
-            &connection, &review, DECISION_KEEP_CURRENT, Some("keep current")
-        ).unwrap();
+            &connection,
+            &review,
+            DECISION_KEEP_CURRENT,
+            Some("keep current"),
+        )
+        .unwrap();
 
-        let events: i64 = connection.query_row(
-            "SELECT COUNT(*) FROM official_source_review_events WHERE decision='KEEP_CURRENT'",
-            [],
-            |row| row.get(0),
-        ).unwrap();
+        let events: i64 = connection
+            .query_row(
+                "SELECT COUNT(*) FROM official_source_review_events WHERE decision='KEEP_CURRENT'",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
         assert_eq!(events, 1);
         assert_eq!(
-            connection.query_row("SELECT COUNT(*) FROM official_source_url_versions", [], |row| row.get::<_, i64>(0)).unwrap(),
+            connection
+                .query_row(
+                    "SELECT COUNT(*) FROM official_source_url_versions",
+                    [],
+                    |row| row.get::<_, i64>(0)
+                )
+                .unwrap(),
             versions_before
         );
         assert_eq!(
-            super::super::settings::read_setting_value(&connection, OFFICIAL_SOURCE_URLS_SETTING_KEY).unwrap().unwrap(),
+            super::super::settings::read_setting_value(
+                &connection,
+                OFFICIAL_SOURCE_URLS_SETTING_KEY
+            )
+            .unwrap()
+            .unwrap(),
             mirror_before
         );
     }
@@ -1885,25 +2057,49 @@ mod er4c_decision_tests {
     fn er4c_reject_requires_nonempty_note_and_persists_no_url_version() {
         let connection = test_connection();
         let review = review_for(&connection);
-        let versions_before: i64 = connection.query_row(
-            "SELECT COUNT(*) FROM official_source_url_versions", [], |row| row.get(0)
-        ).unwrap();
+        let versions_before: i64 = connection
+            .query_row(
+                "SELECT COUNT(*) FROM official_source_url_versions",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
         assert_eq!(
             record_candidate_decision_internal(
-                &connection, &review, DECISION_REJECT_CANDIDATE, Some("   ")
-            ).unwrap_err(),
+                &connection,
+                &review,
+                DECISION_REJECT_CANDIDATE,
+                Some("   ")
+            )
+            .unwrap_err(),
             "ER4_REJECTION_NOTE_REQUIRED"
         );
         assert_eq!(
-            connection.query_row("SELECT COUNT(*) FROM official_source_review_events", [], |row| row.get::<_, i64>(0)).unwrap(),
+            connection
+                .query_row(
+                    "SELECT COUNT(*) FROM official_source_review_events",
+                    [],
+                    |row| row.get::<_, i64>(0)
+                )
+                .unwrap(),
             0
         );
 
         record_candidate_decision_internal(
-            &connection, &review, DECISION_REJECT_CANDIDATE, Some("bad candidate")
-        ).unwrap();
+            &connection,
+            &review,
+            DECISION_REJECT_CANDIDATE,
+            Some("bad candidate"),
+        )
+        .unwrap();
         assert_eq!(
-            connection.query_row("SELECT COUNT(*) FROM official_source_url_versions", [], |row| row.get::<_, i64>(0)).unwrap(),
+            connection
+                .query_row(
+                    "SELECT COUNT(*) FROM official_source_url_versions",
+                    [],
+                    |row| row.get::<_, i64>(0)
+                )
+                .unwrap(),
             versions_before
         );
         let note: String = connection.query_row(
@@ -1920,13 +2116,18 @@ mod er4c_decision_tests {
         let mut review = review_for(&connection);
         review.base_revision += 1;
         assert_eq!(
-            record_candidate_decision_internal(
-                &connection, &review, DECISION_KEEP_CURRENT, None
-            ).unwrap_err(),
+            record_candidate_decision_internal(&connection, &review, DECISION_KEEP_CURRENT, None)
+                .unwrap_err(),
             ER4_STALE_REJECTED
         );
         assert_eq!(
-            connection.query_row("SELECT COUNT(*) FROM official_source_review_events", [], |row| row.get::<_, i64>(0)).unwrap(),
+            connection
+                .query_row(
+                    "SELECT COUNT(*) FROM official_source_review_events",
+                    [],
+                    |row| row.get::<_, i64>(0)
+                )
+                .unwrap(),
             0
         );
     }
@@ -1936,8 +2137,12 @@ mod er4c_decision_tests {
         let connection = test_connection();
         let review = review_for(&connection);
         record_candidate_decision_internal(
-            &connection, &review, DECISION_KEEP_CURRENT, Some("evidence reviewed")
-        ).unwrap();
+            &connection,
+            &review,
+            DECISION_KEEP_CURRENT,
+            Some("evidence reviewed"),
+        )
+        .unwrap();
 
         let history =
             list_official_source_history_internal(&connection, "NSE_CURRENT_EQUITY_MASTER")
@@ -1964,14 +2169,17 @@ mod er4c_decision_tests {
             ensure_official_source_baseline(&connection).unwrap();
             let review = review_for(&connection);
             record_candidate_decision_internal(
-                &connection, &review, DECISION_REJECT_CANDIDATE, Some("persistent rejection")
-            ).unwrap();
+                &connection,
+                &review,
+                DECISION_REJECT_CANDIDATE,
+                Some("persistent rejection"),
+            )
+            .unwrap();
         }
         let reopened = Connection::open(file.path()).unwrap();
         reopened.execute_batch("PRAGMA foreign_keys=ON;").unwrap();
         let history =
-            list_official_source_history_internal(&reopened, "NSE_CURRENT_EQUITY_MASTER")
-                .unwrap();
+            list_official_source_history_internal(&reopened, "NSE_CURRENT_EQUITY_MASTER").unwrap();
         assert!(history.iter().any(|entry| {
             entry.review_decision.as_deref() == Some("REJECT_CANDIDATE")
                 && entry.operator_note.as_deref() == Some("persistent rejection")
@@ -1979,14 +2187,13 @@ mod er4c_decision_tests {
     }
 }
 
-
 #[cfg(test)]
 mod er4d_promotion_tests {
-    use super::*;
     use super::super::official_source_candidate_review::build_er4_candidate_review_plan;
     use super::super::official_source_candidate_validation::{
         Er3bCandidateValidationResult, ER3B_CLASS_VALIDATED,
     };
+    use super::*;
 
     fn connection() -> Connection {
         let connection = Connection::open_in_memory().unwrap();
@@ -1998,28 +2205,42 @@ mod er4d_promotion_tests {
     }
 
     fn validated_review(connection: &Connection) -> OfficialSourceCandidateReviewPlan {
-        let base = read_er4_current_source_authority(connection, "NSE_CURRENT_EQUITY_MASTER").unwrap();
-        build_er4_candidate_review_plan(&base, &Er3bCandidateValidationResult {
-            source_id: base.source_id.clone().unwrap(),
-            source_role: base.source_role.clone().unwrap(),
-            configured_url: base.current_url.clone(),
-            landing_page_url: "https://www.nseindia.com/static/market-data/securities-available-for-trading".to_string(),
-            candidate_url: "https://nsearchives.nseindia.com/content/equities/EQUITY_REPLACEMENT.csv".to_string(),
-            discovery_reason: "SOURCE_ROLE_MATCH".to_string(),
-            request_url: "https://nsearchives.nseindia.com/content/equities/EQUITY_REPLACEMENT.csv".to_string(),
-            final_url: Some("https://nsearchives.nseindia.com/content/equities/EQUITY_REPLACEMENT.csv".to_string()),
-            http_status: Some(200),
-            content_type: Some("text/csv".to_string()),
-            response_bytes: Some(4096),
-            content_sha256: Some("ABCD0123456789EF".to_string()),
-            parser_status: "PASS".to_string(),
-            schema_status: "PASS".to_string(),
-            population_status: "PASS".to_string(),
-            population_count: Some(2000),
-            freshness_status: "NOT_APPLICABLE".to_string(),
-            validation_reason: "ER3B_SOURCE_CONTRACT_VALIDATED".to_string(),
-            classification: ER3B_CLASS_VALIDATED.to_string(),
-        }).unwrap()
+        let base =
+            read_er4_current_source_authority(connection, "NSE_CURRENT_EQUITY_MASTER").unwrap();
+        build_er4_candidate_review_plan(
+            &base,
+            &Er3bCandidateValidationResult {
+                source_id: base.source_id.clone().unwrap(),
+                source_role: base.source_role.clone().unwrap(),
+                configured_url: base.current_url.clone(),
+                landing_page_url:
+                    "https://www.nseindia.com/static/market-data/securities-available-for-trading"
+                        .to_string(),
+                candidate_url:
+                    "https://nsearchives.nseindia.com/content/equities/EQUITY_REPLACEMENT.csv"
+                        .to_string(),
+                discovery_reason: "SOURCE_ROLE_MATCH".to_string(),
+                request_url:
+                    "https://nsearchives.nseindia.com/content/equities/EQUITY_REPLACEMENT.csv"
+                        .to_string(),
+                final_url: Some(
+                    "https://nsearchives.nseindia.com/content/equities/EQUITY_REPLACEMENT.csv"
+                        .to_string(),
+                ),
+                http_status: Some(200),
+                content_type: Some("text/csv".to_string()),
+                response_bytes: Some(4096),
+                content_sha256: Some("ABCD0123456789EF".to_string()),
+                parser_status: "PASS".to_string(),
+                schema_status: "PASS".to_string(),
+                population_status: "PASS".to_string(),
+                population_count: Some(2000),
+                freshness_status: "NOT_APPLICABLE".to_string(),
+                validation_reason: "ER3B_SOURCE_CONTRACT_VALIDATED".to_string(),
+                classification: ER3B_CLASS_VALIDATED.to_string(),
+            },
+        )
+        .unwrap()
     }
 
     #[test]
@@ -2035,17 +2256,23 @@ mod er4d_promotion_tests {
             },
             Some("approved replacement"),
             None,
-        ).unwrap();
+        )
+        .unwrap();
 
-        assert_eq!(result.authority.urls.nse_equity_master_url, review.candidate_url);
+        assert_eq!(
+            result.authority.urls.nse_equity_master_url,
+            review.candidate_url
+        );
         let current = read_er4_current_source_authority(&connection, &review.source_key).unwrap();
         assert_eq!(current.revision, review.base_revision + 1);
         assert_eq!(current.current_version_id, result.result_version_id);
-        let change_kind: String = connection.query_row(
-            "SELECT change_kind FROM official_source_url_versions WHERE id=?",
-            params![result.result_version_id],
-            |row| row.get(0),
-        ).unwrap();
+        let change_kind: String = connection
+            .query_row(
+                "SELECT change_kind FROM official_source_url_versions WHERE id=?",
+                params![result.result_version_id],
+                |row| row.get(0),
+            )
+            .unwrap();
         assert_eq!(change_kind, "CANDIDATE_PROMOTION");
     }
 
@@ -2053,7 +2280,13 @@ mod er4d_promotion_tests {
     fn er4d_changed_candidate_sha_rejects_before_write() {
         let connection = connection();
         let review = validated_review(&connection);
-        let versions_before: i64 = connection.query_row("SELECT COUNT(*) FROM official_source_url_versions", [], |row| row.get(0)).unwrap();
+        let versions_before: i64 = connection
+            .query_row(
+                "SELECT COUNT(*) FROM official_source_url_versions",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
         let error = promote_official_source_candidate_internal(
             &connection,
             &review,
@@ -2063,10 +2296,29 @@ mod er4d_promotion_tests {
             },
             None,
             None,
-        ).unwrap_err();
+        )
+        .unwrap_err();
         assert_eq!(error, "ER4_REVALIDATION_MISMATCH");
-        assert_eq!(connection.query_row("SELECT COUNT(*) FROM official_source_url_versions", [], |row| row.get::<_, i64>(0)).unwrap(), versions_before);
-        assert_eq!(connection.query_row("SELECT COUNT(*) FROM official_source_review_events", [], |row| row.get::<_, i64>(0)).unwrap(), 0);
+        assert_eq!(
+            connection
+                .query_row(
+                    "SELECT COUNT(*) FROM official_source_url_versions",
+                    [],
+                    |row| row.get::<_, i64>(0)
+                )
+                .unwrap(),
+            versions_before
+        );
+        assert_eq!(
+            connection
+                .query_row(
+                    "SELECT COUNT(*) FROM official_source_review_events",
+                    [],
+                    |row| row.get::<_, i64>(0)
+                )
+                .unwrap(),
+            0
+        );
     }
 
     #[test]
@@ -2074,11 +2326,13 @@ mod er4d_promotion_tests {
         let connection = connection();
         let mut review = validated_review(&connection);
         review.base_revision += 1;
-        let versions_before: i64 = connection.query_row(
-            "SELECT COUNT(*) FROM official_source_url_versions",
-            [],
-            |row| row.get(0),
-        ).unwrap();
+        let versions_before: i64 = connection
+            .query_row(
+                "SELECT COUNT(*) FROM official_source_url_versions",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
         let error = promote_official_source_candidate_internal(
             &connection,
             &review,
@@ -2088,10 +2342,29 @@ mod er4d_promotion_tests {
             },
             None,
             None,
-        ).unwrap_err();
+        )
+        .unwrap_err();
         assert_eq!(error, ER4_STALE_REJECTED);
-        assert_eq!(connection.query_row("SELECT COUNT(*) FROM official_source_url_versions", [], |row| row.get::<_, i64>(0)).unwrap(), versions_before);
-        assert_eq!(connection.query_row("SELECT COUNT(*) FROM official_source_review_events", [], |row| row.get::<_, i64>(0)).unwrap(), 0);
+        assert_eq!(
+            connection
+                .query_row(
+                    "SELECT COUNT(*) FROM official_source_url_versions",
+                    [],
+                    |row| row.get::<_, i64>(0)
+                )
+                .unwrap(),
+            versions_before
+        );
+        assert_eq!(
+            connection
+                .query_row(
+                    "SELECT COUNT(*) FROM official_source_review_events",
+                    [],
+                    |row| row.get::<_, i64>(0)
+                )
+                .unwrap(),
+            0
+        );
     }
 
     #[test]
@@ -2106,16 +2379,21 @@ mod er4d_promotion_tests {
         ] {
             let connection = connection();
             let review = validated_review(&connection);
-            let versions_before: i64 = connection.query_row(
-                "SELECT COUNT(*) FROM official_source_url_versions",
-                [],
-                |row| row.get(0),
-            ).unwrap();
-            let authority_before = read_official_source_configuration_authority(&connection).unwrap();
+            let versions_before: i64 = connection
+                .query_row(
+                    "SELECT COUNT(*) FROM official_source_url_versions",
+                    [],
+                    |row| row.get(0),
+                )
+                .unwrap();
+            let authority_before =
+                read_official_source_configuration_authority(&connection).unwrap();
             let mirror_before = super::super::settings::read_setting_value(
                 &connection,
                 OFFICIAL_SOURCE_URLS_SETTING_KEY,
-            ).unwrap().unwrap();
+            )
+            .unwrap()
+            .unwrap();
 
             let error = promote_official_source_candidate_internal(
                 &connection,
@@ -2126,12 +2404,42 @@ mod er4d_promotion_tests {
                 },
                 None,
                 Some(marker),
-            ).unwrap_err();
+            )
+            .unwrap_err();
             assert!(error.contains("ER4_TEST_INJECTED_FAILURE"));
-            assert_eq!(connection.query_row("SELECT COUNT(*) FROM official_source_url_versions", [], |row| row.get::<_, i64>(0)).unwrap(), versions_before);
-            assert_eq!(connection.query_row("SELECT COUNT(*) FROM official_source_review_events", [], |row| row.get::<_, i64>(0)).unwrap(), 0);
-            assert_eq!(read_official_source_configuration_authority(&connection).unwrap(), authority_before);
-            assert_eq!(super::super::settings::read_setting_value(&connection, OFFICIAL_SOURCE_URLS_SETTING_KEY).unwrap().unwrap(), mirror_before);
+            assert_eq!(
+                connection
+                    .query_row(
+                        "SELECT COUNT(*) FROM official_source_url_versions",
+                        [],
+                        |row| row.get::<_, i64>(0)
+                    )
+                    .unwrap(),
+                versions_before
+            );
+            assert_eq!(
+                connection
+                    .query_row(
+                        "SELECT COUNT(*) FROM official_source_review_events",
+                        [],
+                        |row| row.get::<_, i64>(0)
+                    )
+                    .unwrap(),
+                0
+            );
+            assert_eq!(
+                read_official_source_configuration_authority(&connection).unwrap(),
+                authority_before
+            );
+            assert_eq!(
+                super::super::settings::read_setting_value(
+                    &connection,
+                    OFFICIAL_SOURCE_URLS_SETTING_KEY
+                )
+                .unwrap()
+                .unwrap(),
+                mirror_before
+            );
         }
     }
 
@@ -2179,14 +2487,12 @@ mod er4d_promotion_tests {
             0
         );
     }
-
 }
-
 
 #[cfg(test)]
 mod er4e_rollback_tests {
-    use super::*;
     use super::super::official_source_candidate_review::OfficialSourceRollbackReview;
+    use super::*;
 
     fn connection() -> Connection {
         let connection = Connection::open_in_memory().unwrap();
@@ -2199,30 +2505,52 @@ mod er4e_rollback_tests {
 
     fn make_manual_version(connection: &Connection) -> (i64, i64, String, i64) {
         let baseline = read_official_source_configuration_authority(connection).unwrap();
-        let source = baseline.sources.iter().find(|entry| entry.source_key == "NSE_CURRENT_EQUITY_MASTER").unwrap();
+        let source = baseline
+            .sources
+            .iter()
+            .find(|entry| entry.source_key == "NSE_CURRENT_EQUITY_MASTER")
+            .unwrap();
         let target_version_id = source.current_version_id;
         let target_url = source.current_url.clone();
         let mut urls = baseline.urls.clone();
-        urls.nse_equity_master_url = "https://nsearchives.nseindia.com/content/equities/EQUITY_ALT.csv".to_string();
+        urls.nse_equity_master_url =
+            "https://nsearchives.nseindia.com/content/equities/EQUITY_ALT.csv".to_string();
         let input = SaveOfficialSourceUrlsReviewedInput {
             expected_configuration_fingerprint: baseline.configuration_fingerprint.clone(),
-            expected_source_revisions: baseline.sources.iter().map(|entry| ExpectedOfficialSourceRevision {
-                source_key: entry.source_key.clone(),
-                revision: entry.revision,
-            }).collect(),
+            expected_source_revisions: baseline
+                .sources
+                .iter()
+                .map(|entry| ExpectedOfficialSourceRevision {
+                    source_key: entry.source_key.clone(),
+                    revision: entry.revision,
+                })
+                .collect(),
             urls,
             operator_note: Some("test manual version".to_string()),
         };
-        let changed = save_official_source_urls_reviewed_internal(connection, &input, false).unwrap();
-        let current = changed.authority.sources.iter().find(|entry| entry.source_key == "NSE_CURRENT_EQUITY_MASTER").unwrap();
-        (target_version_id, current.current_version_id, target_url, current.revision)
+        let changed =
+            save_official_source_urls_reviewed_internal(connection, &input, false).unwrap();
+        let current = changed
+            .authority
+            .sources
+            .iter()
+            .find(|entry| entry.source_key == "NSE_CURRENT_EQUITY_MASTER")
+            .unwrap();
+        (
+            target_version_id,
+            current.current_version_id,
+            target_url,
+            current.revision,
+        )
     }
 
     #[test]
     fn er4e_rollback_creates_new_version_and_preserves_target_and_current_history() {
         let connection = connection();
-        let (target_version_id, current_version_id, target_url, current_revision) = make_manual_version(&connection);
-        let current = read_er4_current_source_authority(&connection, "NSE_CURRENT_EQUITY_MASTER").unwrap();
+        let (target_version_id, current_version_id, target_url, current_revision) =
+            make_manual_version(&connection);
+        let current =
+            read_er4_current_source_authority(&connection, "NSE_CURRENT_EQUITY_MASTER").unwrap();
         let review = OfficialSourceRollbackReview {
             schema_version: 1,
             source_key: current.source_key.clone(),
@@ -2243,30 +2571,38 @@ mod er4e_rollback_tests {
             },
             Some("operator rollback"),
             None,
-        ).unwrap();
-        let current_after = read_er4_current_source_authority(&connection, "NSE_CURRENT_EQUITY_MASTER").unwrap();
+        )
+        .unwrap();
+        let current_after =
+            read_er4_current_source_authority(&connection, "NSE_CURRENT_EQUITY_MASTER").unwrap();
         assert_eq!(current_after.current_version_id, result.result_version_id);
         assert_eq!(current_after.revision, current_revision + 1);
         assert_eq!(current_after.current_url, target_url);
-        let old_count: i64 = connection.query_row(
-            "SELECT COUNT(*) FROM official_source_url_versions WHERE id IN (?, ?)",
-            params![target_version_id, current_version_id],
-            |row| row.get(0),
-        ).unwrap();
+        let old_count: i64 = connection
+            .query_row(
+                "SELECT COUNT(*) FROM official_source_url_versions WHERE id IN (?, ?)",
+                params![target_version_id, current_version_id],
+                |row| row.get(0),
+            )
+            .unwrap();
         assert_eq!(old_count, 2);
-        let kind: String = connection.query_row(
-            "SELECT change_kind FROM official_source_url_versions WHERE id=?",
-            params![result.result_version_id],
-            |row| row.get(0),
-        ).unwrap();
+        let kind: String = connection
+            .query_row(
+                "SELECT change_kind FROM official_source_url_versions WHERE id=?",
+                params![result.result_version_id],
+                |row| row.get(0),
+            )
+            .unwrap();
         assert_eq!(kind, "ROLLBACK");
     }
 
     #[test]
     fn er4e_stale_rollback_rejects_zero_write() {
         let connection = connection();
-        let (target_version_id, current_version_id, target_url, current_revision) = make_manual_version(&connection);
-        let current = read_er4_current_source_authority(&connection, "NSE_CURRENT_EQUITY_MASTER").unwrap();
+        let (target_version_id, current_version_id, target_url, current_revision) =
+            make_manual_version(&connection);
+        let current =
+            read_er4_current_source_authority(&connection, "NSE_CURRENT_EQUITY_MASTER").unwrap();
         let review = OfficialSourceRollbackReview {
             schema_version: 1,
             source_key: current.source_key.clone(),
@@ -2278,7 +2614,13 @@ mod er4e_rollback_tests {
             target_validation_sha256: "TARGET_VALIDATION_SHA".to_string(),
             rollback_fingerprint: "ROLLBACK_FINGERPRINT".to_string(),
         };
-        let versions_before: i64 = connection.query_row("SELECT COUNT(*) FROM official_source_url_versions", [], |row| row.get(0)).unwrap();
+        let versions_before: i64 = connection
+            .query_row(
+                "SELECT COUNT(*) FROM official_source_url_versions",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
         let error = apply_official_source_rollback_internal(
             &connection,
             &review,
@@ -2288,9 +2630,19 @@ mod er4e_rollback_tests {
             },
             None,
             None,
-        ).unwrap_err();
+        )
+        .unwrap_err();
         assert_eq!(error, ER4_STALE_REJECTED);
-        assert_eq!(connection.query_row("SELECT COUNT(*) FROM official_source_url_versions", [], |row| row.get::<_, i64>(0)).unwrap(), versions_before);
+        assert_eq!(
+            connection
+                .query_row(
+                    "SELECT COUNT(*) FROM official_source_url_versions",
+                    [],
+                    |row| row.get::<_, i64>(0)
+                )
+                .unwrap(),
+            versions_before
+        );
     }
 
     #[test]
@@ -2306,11 +2658,9 @@ mod er4e_rollback_tests {
             let connection = connection();
             let (target_version_id, current_version_id, target_url, current_revision) =
                 make_manual_version(&connection);
-            let current = read_er4_current_source_authority(
-                &connection,
-                "NSE_CURRENT_EQUITY_MASTER",
-            )
-            .unwrap();
+            let current =
+                read_er4_current_source_authority(&connection, "NSE_CURRENT_EQUITY_MASTER")
+                    .unwrap();
             let review = OfficialSourceRollbackReview {
                 schema_version: 1,
                 source_key: current.source_key.clone(),
@@ -2391,11 +2741,8 @@ mod er4e_rollback_tests {
         let connection = connection();
         let (target_version_id, current_version_id, target_url, current_revision) =
             make_manual_version(&connection);
-        let current = read_er4_current_source_authority(
-            &connection,
-            "NSE_CURRENT_EQUITY_MASTER",
-        )
-        .unwrap();
+        let current =
+            read_er4_current_source_authority(&connection, "NSE_CURRENT_EQUITY_MASTER").unwrap();
         let review = OfficialSourceRollbackReview {
             schema_version: 1,
             source_key: current.source_key.clone(),
@@ -2430,8 +2777,7 @@ mod er4e_rollback_tests {
         let authority = read_official_source_configuration_authority(&connection).unwrap();
         let mut urls = authority.urls.clone();
         urls.nse_sme_master_url =
-            "https://nsearchives.nseindia.com/emerge/corporates/content/SME_ALT.csv"
-                .to_string();
+            "https://nsearchives.nseindia.com/emerge/corporates/content/SME_ALT.csv".to_string();
         let changed = save_official_source_urls_reviewed_internal(
             &connection,
             &SaveOfficialSourceUrlsReviewedInput {
@@ -2450,7 +2796,9 @@ mod er4e_rollback_tests {
             false,
         )
         .unwrap();
-        assert!(changed.changed_source_keys.contains(&"NSE_CURRENT_SME_MASTER".to_string()));
+        assert!(changed
+            .changed_source_keys
+            .contains(&"NSE_CURRENT_SME_MASTER".to_string()));
 
         let error = read_post_health_retry_context(
             &connection,
@@ -2460,5 +2808,4 @@ mod er4e_rollback_tests {
         .unwrap_err();
         assert_eq!(error, ER4_STALE_REJECTED);
     }
-
 }

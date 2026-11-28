@@ -351,13 +351,15 @@ impl BinaryStateIndex {
             ));
         }
 
-        let connection = Connection::open_with_flags(&sidecar_path, OpenFlags::SQLITE_OPEN_READ_WRITE)
-            .map_err(|error| {
-                format!(
-                    "Failed to open EOD binary state sidecar read-write {}: {error}",
-                    sidecar_path.display()
-                )
-            })?;
+        let connection =
+            Connection::open_with_flags(&sidecar_path, OpenFlags::SQLITE_OPEN_READ_WRITE).map_err(
+                |error| {
+                    format!(
+                        "Failed to open EOD binary state sidecar read-write {}: {error}",
+                        sidecar_path.display()
+                    )
+                },
+            )?;
 
         connection
             .execute_batch(
@@ -727,9 +729,9 @@ impl BinaryStateIndex {
             }
         }
 
-        transaction
-            .commit()
-            .map_err(|error| format!("Failed to commit incremental EOD binary state publication: {error}"))?;
+        transaction.commit().map_err(|error| {
+            format!("Failed to commit incremental EOD binary state publication: {error}")
+        })?;
 
         Ok(BinaryStatePublicationResult {
             published: observed.len(),
@@ -773,9 +775,9 @@ impl BinaryStateIndex {
             }
         }
 
-        transaction
-            .commit()
-            .map_err(|error| format!("Failed to commit localized EOD binary state invalidation: {error}"))?;
+        transaction.commit().map_err(|error| {
+            format!("Failed to commit localized EOD binary state invalidation: {error}")
+        })?;
         Ok(removed)
     }
 

@@ -75,7 +75,10 @@ fn database_root_rejects_admission_file_and_junction() {
     let tree = PinnedTree::open(&target).unwrap();
     let (database, _, _evidence) = verify_deletion_ownership(&tree.path, true).unwrap();
     let refusal = tree.preflight(&database).unwrap_err();
-    assert!(refusal.to_string().contains("Unrecognized entry"), "{refusal}");
+    assert!(
+        refusal.to_string().contains("Unrecognized entry"),
+        "{refusal}"
+    );
     assert_eq!(fs::read(&admission).unwrap(), b"must survive");
     fs::remove_file(&admission).unwrap();
 
@@ -110,7 +113,10 @@ fn preflight_refuses_mixed_use_folders_and_nested_database_boundaries() {
     let tree = PinnedTree::open(&target).unwrap();
     let (database, _, _evidence) = verify_deletion_ownership(&tree.path, true).unwrap();
     let refusal = tree.preflight(&database).unwrap_err();
-    assert!(refusal.to_string().contains("Unrecognized entry"), "{refusal}");
+    assert!(
+        refusal.to_string().contains("Unrecognized entry"),
+        "{refusal}"
+    );
     assert_eq!(fs::read(&extra).unwrap(), b"must survive");
     fs::remove_file(&extra).unwrap();
     let nested = target.join("reference-data/another-db");
@@ -315,11 +321,25 @@ fn fresh_process_refuses_marked_roots_and_descendants() {
     let damaged = root.join("damaged");
     create_database(&damaged, "market-data.sqlite3");
     fs::create_dir(damaged.join("reference-data")).unwrap();
-    create_database(&damaged.join("reference-data/nested"), "market-data.sqlite3");
+    create_database(
+        &damaged.join("reference-data/nested"),
+        "market-data.sqlite3",
+    );
     create_database(&root.join("healthy"), "market-data.sqlite3");
-    write_markers(root, &[Marker { id: identity(&damaged).unwrap(), path: damaged.canonicalize().unwrap() }]).unwrap();
+    write_markers(
+        root,
+        &[Marker {
+            id: identity(&damaged).unwrap(),
+            path: damaged.canonicalize().unwrap(),
+        }],
+    )
+    .unwrap();
     let child = Command::new(std::env::current_exe().unwrap())
         .args(["--exact", "database::database_deletion::tests::fresh_process_refuses_marked_roots_and_descendants"])
         .env("EOD_DB_SAFE_MARKER_FIXTURE", root).output().unwrap();
-    assert!(child.status.success(), "{}", String::from_utf8_lossy(&child.stdout));
+    assert!(
+        child.status.success(),
+        "{}",
+        String::from_utf8_lossy(&child.stdout)
+    );
 }

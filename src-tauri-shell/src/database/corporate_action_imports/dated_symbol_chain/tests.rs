@@ -60,17 +60,20 @@ fn ca_a1_gujgas_split_cannot_borrow_the_dividend_chain_proof() {
     // Exact edge captured from the official symbolchange.csv on 8 November 2026.
     let csv = b"NAME OF THE COMPANY,OLD SYMBOL,NEW SYMBOL,EFFECTIVE DATE\nGUJARAT ENERGY LIMITED,GUJGASLTD,GUJENERGY,01-JUL-2026\n";
     retain_source(&c, URL, csv).unwrap();
-    let parsed = super::super::super::nse_identity_imports::parse_ca_symbol_change_source(csv)
-        .unwrap();
+    let parsed =
+        super::super::super::nse_identity_imports::parse_ca_symbol_change_source(csv).unwrap();
     assert_eq!(parsed.len(), 1);
     assert_eq!(parsed[0].0, "GUJGASLTD");
     assert_eq!(parsed[0].1, "GUJENERGY");
     assert_eq!(parsed[0].2, "2026-07-01");
 
-    c.execute_batch("UPDATE instruments SET symbol='GUJENERGY',isin='INE844O01030' WHERE symbol='NEW';
+    c.execute_batch(
+        "UPDATE instruments SET symbol='GUJENERGY',isin='INE844O01030' WHERE symbol='NEW';
         UPDATE corporate_action_imports SET symbol='GUJGASLTD',isin='INE844O01022',
         ex_date='2019-01-15',action_type='SPLIT',purpose_raw='Face Value Split',cash_amount=NULL
-        WHERE id=1;").unwrap();
+        WHERE id=1;",
+    )
+    .unwrap();
     let before = get_import_row(&c, 1).unwrap();
     let s = CorporateActionImportResolutionSuggestion {
         symbol: "GUJENERGY".to_string(),

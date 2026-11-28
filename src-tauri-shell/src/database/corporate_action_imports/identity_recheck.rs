@@ -10,11 +10,18 @@ pub(super) fn machine_identity_is_unproven(
     }
     // A route decision must be revalidated before the exact-ISIN shortcut.
     if split_bonus_symbol_chain::has_decision(c, row.id)? {
-        if !matches!(row.review_status.as_str(), "PENDING" | "UNRESOLVED" | "PENDING_ISIN_MISMATCH") {
+        if !matches!(
+            row.review_status.as_str(),
+            "PENDING" | "UNRESOLVED" | "PENDING_ISIN_MISMATCH"
+        ) {
             return Ok(false);
         }
-        return Ok(split_bonus_symbol_chain::verified(c,
-            &split_isin_price_proof::database_folder(c)?, row)?.is_none());
+        return Ok(split_bonus_symbol_chain::verified(
+            c,
+            &split_isin_price_proof::database_folder(c)?,
+            row,
+        )?
+        .is_none());
     }
     let machine: bool = c.query_row("SELECT EXISTS(SELECT 1 FROM corporate_action_import_decisions
         WHERE import_id=? AND decision_type IN ('VERIFIED_QUICK_RESOLUTION',
@@ -93,9 +100,10 @@ mod tests {
     #[test]
     #[ignore = "requires CA_VERIFIED_PAIR_AUDIT_ROOT containing a marked disposable database copy"]
     fn auto_id1_disposable_verified_rename_pair_audit() {
-        let folder = std::path::PathBuf::from(std::env::var("CA_VERIFIED_PAIR_AUDIT_ROOT").unwrap())
-            .canonicalize()
-            .unwrap();
+        let folder =
+            std::path::PathBuf::from(std::env::var("CA_VERIFIED_PAIR_AUDIT_ROOT").unwrap())
+                .canonicalize()
+                .unwrap();
         let allowed = Path::new(env!("CARGO_MANIFEST_DIR"))
             .parent()
             .unwrap()
@@ -113,7 +121,9 @@ mod tests {
         // price access, source collection or approval API is called.
         let c = Connection::open(folder.join("market-data.sqlite3")).unwrap();
         let tables: Vec<String> = c
-            .prepare("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'")
+            .prepare(
+                "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'",
+            )
             .unwrap()
             .query_map([], |r| r.get(0))
             .unwrap()

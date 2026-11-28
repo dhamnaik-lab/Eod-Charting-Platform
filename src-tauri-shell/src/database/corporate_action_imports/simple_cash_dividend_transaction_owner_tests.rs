@@ -361,12 +361,15 @@ fn p4b_15_source_outer_transaction_occurs_exactly_once() {
 fn dividend_owner_never_confirms_a_failed_rollback() {
     let connection = p4b_connection();
     let error = run_simple_cash_dividend_write_stage_outer_transaction_with_executor(
-        &connection, Path::new("E:\\p4b"), &p4b_input("E:\\p4b"),
+        &connection,
+        Path::new("E:\\p4b"),
+        &p4b_input("E:\\p4b"),
         |connection, _, _| {
             connection.execute_batch("ROLLBACK").unwrap();
             Err("synthetic transaction ended unexpectedly".into())
         },
-    ).unwrap_err();
+    )
+    .unwrap_err();
     assert!(error.starts_with("Dividend rollback unconfirmed:"));
     assert!(!error.contains("CA_DIVIDEND_ROLLBACK_CONFIRMED"));
 }
@@ -375,12 +378,15 @@ fn dividend_owner_never_confirms_a_failed_rollback() {
 fn dividend_owner_never_labels_commit_error_as_confirmed_rollback() {
     let connection = p4b_connection();
     let error = run_simple_cash_dividend_write_stage_outer_transaction_with_executor(
-        &connection, Path::new("E:\\p4b"), &p4b_input("E:\\p4b"),
+        &connection,
+        Path::new("E:\\p4b"),
+        &p4b_input("E:\\p4b"),
         |connection, _, _| {
             connection.execute_batch("ROLLBACK").unwrap();
             Ok(p4b_result(1, 0, 0, 0, 0, 0, true))
         },
-    ).unwrap_err();
+    )
+    .unwrap_err();
     assert!(error.contains("commit outcome requires reconciliation"));
     assert!(!error.contains("CA_DIVIDEND_ROLLBACK_CONFIRMED"));
 }

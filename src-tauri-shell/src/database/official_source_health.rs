@@ -7,23 +7,20 @@ use std::time::Duration;
 use tauri::AppHandle;
 
 use super::bse_identity_imports::{
-    validate_bse_active_population_for_health, validate_bse_master_bytes_for_health,
-    BSE_USER_AGENT,
+    validate_bse_active_population_for_health, validate_bse_master_bytes_for_health, BSE_USER_AGENT,
 };
 use super::nse_identity_imports::{
     discover_nse_actual_delisted_workbook_url_for_health,
-    validate_nse_company_name_change_bytes_for_health,
-    validate_nse_current_population_for_health, validate_nse_delisted_workbook_bytes_for_health,
-    validate_nse_equity_master_bytes_for_health, validate_nse_sme_master_bytes_for_health,
-    validate_nse_symbol_change_bytes_for_health, NSE_USER_AGENT,
+    validate_nse_company_name_change_bytes_for_health, validate_nse_current_population_for_health,
+    validate_nse_delisted_workbook_bytes_for_health, validate_nse_equity_master_bytes_for_health,
+    validate_nse_sme_master_bytes_for_health, validate_nse_symbol_change_bytes_for_health,
+    NSE_USER_AGENT,
 };
 use super::official_source_urls::{
     bse_official_redirect_policy, load_official_source_urls, nse_official_redirect_policy,
     validate_bse_official_source_url, validate_nse_official_source_url, OfficialSourceUrls,
 };
-use super::{
-    open_read_only_connection_for_folder, resolve_active_database_folder, AppResult,
-};
+use super::{open_read_only_connection_for_folder, resolve_active_database_folder, AppResult};
 
 const PASS: &str = "PASS";
 const FAIL: &str = "FAIL";
@@ -60,7 +57,6 @@ pub struct OfficialSourceHealthResult {
     pub reason: String,
     pub diagnostic: Option<String>,
 }
-
 
 pub(crate) fn er1_health_result_is_healthy(result: &OfficialSourceHealthResult) -> bool {
     result.provenance_status == PASS
@@ -112,12 +108,14 @@ pub async fn assess_identity_official_source_health(
 ) -> AppResult<OfficialSourceHealthReport> {
     let app_handle = app.clone();
     tauri::async_runtime::spawn_blocking(move || {
-        let folder_path = resolve_active_database_folder(&app_handle)?.ok_or_else(|| {
-            "Open a database before checking Official Source Health.".to_string()
-        })?;
+        let folder_path = resolve_active_database_folder(&app_handle)?
+            .ok_or_else(|| "Open a database before checking Official Source Health.".to_string())?;
         let connection = open_read_only_connection_for_folder(&folder_path)?;
         let urls = load_official_source_urls(Some(&connection))?;
-        assess_official_source_health_with_diagnostics(&urls, Some(&folder_path.join("reference-data")))
+        assess_official_source_health_with_diagnostics(
+            &urls,
+            Some(&folder_path.join("reference-data")),
+        )
     })
     .await
     .map_err(|error| error.to_string())?
@@ -199,11 +197,16 @@ fn assess_official_source_health_with_diagnostics(
     let mut company_result = assess_nse_company_name_change(&company_name_change_fetch);
     if !er1_health_result_is_healthy(&company_result) {
         if let Some(bytes) = company_name_change_fetch.body.as_deref() {
-            company_result.diagnostic = Some(super::nse_identity_imports::company_name_failure_diagnostic(
-                archive_root, bytes, &company_name_change_fetch.request_url,
-                company_name_change_fetch.final_url.as_deref(), company_name_change_fetch.http_status,
-                &company_result.reason,
-            ));
+            company_result.diagnostic = Some(
+                super::nse_identity_imports::company_name_failure_diagnostic(
+                    archive_root,
+                    bytes,
+                    &company_name_change_fetch.request_url,
+                    company_name_change_fetch.final_url.as_deref(),
+                    company_name_change_fetch.http_status,
+                    &company_result.reason,
+                ),
+            );
         }
     }
     results.push(company_result);
@@ -224,8 +227,8 @@ fn assess_official_source_health_with_diagnostics(
         discovered_delisted_url.as_deref(),
     ));
 
-    let workbook_url = discovered_delisted_url
-        .unwrap_or_else(|| urls.nse_delisted_workbook_url.clone());
+    let workbook_url =
+        discovered_delisted_url.unwrap_or_else(|| urls.nse_delisted_workbook_url.clone());
     let delisted_workbook_fetch = fetch_source(
         &nse_client,
         "NSE",
@@ -309,7 +312,8 @@ fn fetch_source(
     if let Some(referer_url) = referer {
         if let Err(error) = validate_exchange_url(exchange, referer_url) {
             evidence.provenance_status = FAIL.to_string();
-            evidence.reason = format!("Request referer failed official provenance validation: {error}");
+            evidence.reason =
+                format!("Request referer failed official provenance validation: {error}");
             return evidence;
         }
     }
@@ -356,7 +360,8 @@ fn fetch_source(
         } else {
             FAIL.to_string()
         };
-        evidence.reason = format!("Final response URL failed official provenance validation: {error}");
+        evidence.reason =
+            format!("Final response URL failed official provenance validation: {error}");
         return evidence;
     }
 
@@ -373,12 +378,18 @@ fn fetch_source(
     evidence.body = Some(body);
     if !status.is_success() {
         evidence.transport_status = FAIL.to_string();
-        evidence.reason = format!("Official-source HTTP request returned status {}.", status.as_u16());
+        evidence.reason = format!(
+            "Official-source HTTP request returned status {}.",
+            status.as_u16()
+        );
         return evidence;
     }
 
     evidence.transport_status = PASS.to_string();
-    evidence.reason = format!("Official-source HTTP request returned status {}.", status.as_u16());
+    evidence.reason = format!(
+        "Official-source HTTP request returned status {}.",
+        status.as_u16()
+    );
     evidence
 }
 
@@ -394,7 +405,12 @@ fn sha256_upper_hex(bytes: &[u8]) -> String {
     format!("{:x}", Sha256::digest(bytes)).to_ascii_uppercase()
 }
 
-fn base_result(source_id: &str, exchange: &str, role: &str, fetch: &FetchEvidence) -> OfficialSourceHealthResult {
+fn base_result(
+    source_id: &str,
+    exchange: &str,
+    role: &str,
+    fetch: &FetchEvidence,
+) -> OfficialSourceHealthResult {
     OfficialSourceHealthResult {
         source_id: source_id.to_string(),
         exchange: exchange.to_string(),
@@ -498,7 +514,8 @@ fn assess_nse_sme_master(fetch: &FetchEvidence) -> OfficialSourceHealthResult {
             result.format_status = PASS.to_string();
             result.population_count = Some(count as u32);
             result.drift_class = Some(COMPATIBLE.to_string());
-            result.reason = format!("NSE SME master passed the frozen parser with {count} supported row(s).");
+            result.reason =
+                format!("NSE SME master passed the frozen parser with {count} supported row(s).");
         }
         Err(error) => {
             result.format_status = FAIL.to_string();
@@ -525,7 +542,8 @@ fn assess_nse_symbol_change(fetch: &FetchEvidence) -> OfficialSourceHealthResult
             result.format_status = PASS.to_string();
             result.population_count = Some(count as u32);
             result.drift_class = Some(COMPATIBLE.to_string());
-            result.reason = format!("NSE symbol-change source passed the frozen parser with {count} row(s).");
+            result.reason =
+                format!("NSE symbol-change source passed the frozen parser with {count} row(s).");
         }
         Err(error) => {
             result.format_status = FAIL.to_string();
@@ -552,7 +570,9 @@ fn assess_nse_company_name_change(fetch: &FetchEvidence) -> OfficialSourceHealth
             result.format_status = PASS.to_string();
             result.population_count = Some(count as u32);
             result.drift_class = Some(COMPATIBLE.to_string());
-            result.reason = format!("NSE company-name-change source passed the frozen I4 parser with {count} row(s).");
+            result.reason = format!(
+                "NSE company-name-change source passed the frozen I4 parser with {count} row(s)."
+            );
         }
         Err(error) => {
             result.format_status = FAIL.to_string();
@@ -587,9 +607,8 @@ fn assess_nse_delisted_landing(
         Some(url) => {
             result.format_status = PASS.to_string();
             result.drift_class = Some(COMPATIBLE.to_string());
-            result.reason = format!(
-                "NSE delisted landing retained actual-delisted workbook semantics: {url}"
-            );
+            result.reason =
+                format!("NSE delisted landing retained actual-delisted workbook semantics: {url}");
         }
         None => {
             result.format_status = FAIL.to_string();
@@ -669,7 +688,8 @@ fn assess_bse_lifecycle(
     }
 
     result.drift_class = Some(COMPATIBLE.to_string());
-    result.reason = format!("BSE lifecycle source passed the frozen five-field contract with {count} row(s).");
+    result.reason =
+        format!("BSE lifecycle source passed the frozen five-field contract with {count} row(s).");
     result
 }
 
@@ -730,7 +750,10 @@ mod tests {
 
     #[test]
     fn er1_nse_equity_1000_rows_is_compatible() {
-        let fetch = successful_fetch("https://nsearchives.nseindia.com/equity.csv", nse_master_csv(1000));
+        let fetch = successful_fetch(
+            "https://nsearchives.nseindia.com/equity.csv",
+            nse_master_csv(1000),
+        );
         let result = assess_nse_equity_master(&fetch);
 
         assert_eq!(result.format_status, PASS);
@@ -741,7 +764,10 @@ mod tests {
 
     #[test]
     fn er1_nse_equity_999_rows_fails_population_without_forcing_drift() {
-        let fetch = successful_fetch("https://nsearchives.nseindia.com/equity.csv", nse_master_csv(999));
+        let fetch = successful_fetch(
+            "https://nsearchives.nseindia.com/equity.csv",
+            nse_master_csv(999),
+        );
         let result = assess_nse_equity_master(&fetch);
 
         assert_eq!(result.format_status, PASS);
@@ -786,7 +812,8 @@ mod tests {
 
     #[test]
     fn er1_bse_parser_failure_does_not_guess_a_drift_class() {
-        let body = b"Security Code,Security Id,Security Name,Group\n500001,ER1B,ER1 Company,A\n".to_vec();
+        let body =
+            b"Security Code,Security Id,Security Name,Group\n500001,ER1B,ER1 Company,A\n".to_vec();
         let fetch = successful_fetch("https://api.bseindia.com/source.csv", body);
         let result = assess_bse_lifecycle(
             "BSE_LIST_SCRIPS_ACTIVE",
@@ -834,7 +861,10 @@ mod tests {
 
     #[test]
     fn er1_delisted_workbook_requires_non_empty_symbol_column() {
-        let fetch = successful_fetch("https://nsearchives.nseindia.com/delisted.xlsx", delisted_workbook_bytes());
+        let fetch = successful_fetch(
+            "https://nsearchives.nseindia.com/delisted.xlsx",
+            delisted_workbook_bytes(),
+        );
         let result = assess_nse_delisted_workbook(&fetch);
 
         assert_eq!(result.format_status, PASS);

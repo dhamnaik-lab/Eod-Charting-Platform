@@ -10,9 +10,9 @@ use std::collections::{HashMap, HashSet};
 use std::path::Path;
 
 #[cfg(test)]
-mod dividend_performance_tests;
-#[cfg(test)]
 mod dividend_failure_diagnostic;
+#[cfg(test)]
+mod dividend_performance_tests;
 #[cfg(test)]
 mod event_price_route_copy_tests;
 
@@ -225,7 +225,9 @@ fn load_unique_active_symbol_isin(
         )
         .map_err(|error| error.to_string())?;
     let rows = statement
-        .query_map(params![exchange, symbol], |row| row.get::<_, Option<String>>(0))
+        .query_map(params![exchange, symbol], |row| {
+            row.get::<_, Option<String>>(0)
+        })
         .map_err(|error| error.to_string())?
         .collect::<Result<Vec<_>, _>>()
         .map_err(|error| error.to_string())?;
@@ -298,9 +300,7 @@ fn has_legacy_manual_raw_event_identity_conflict(
         let legacy_backfill = note
             .as_deref()
             .map(normalized)
-            .map(|text| {
-                text.contains("BACKFILLED FROM AN EXISTING CORPORATE_ACTION_IMPORTS ROW")
-            })
+            .map(|text| text.contains("BACKFILLED FROM AN EXISTING CORPORATE_ACTION_IMPORTS ROW"))
             .unwrap_or(false);
         if normalized(isin_seen.as_str()) != normalized(resolved_isin)
             && (manual_message || legacy_backfill)
@@ -339,12 +339,14 @@ fn load_latest_machine_decision(
               LIMIT 1
             ",
             params![import_id],
-            |row| Ok(MachineDecision {
-                decision_type: row.get(0)?,
-                resolved_symbol: row.get(1)?,
-                resolved_exchange: row.get(2)?,
-                resolved_isin: row.get(3)?,
-            }),
+            |row| {
+                Ok(MachineDecision {
+                    decision_type: row.get(0)?,
+                    resolved_symbol: row.get(1)?,
+                    resolved_exchange: row.get(2)?,
+                    resolved_isin: row.get(3)?,
+                })
+            },
         )
         .optional()
         .map_err(|error| error.to_string())
@@ -354,7 +356,8 @@ fn effective_event_identity_key(
     connection: &Connection,
     import_id: i64,
 ) -> AppResult<Option<String>> {
-    let identity = super::event_identity_resolution::load_effective_event_identity(connection, import_id)?;
+    let identity =
+        super::event_identity_resolution::load_effective_event_identity(connection, import_id)?;
     if let Some(symbol) = identity
         .event_symbol
         .as_deref()
@@ -478,15 +481,15 @@ fn machine_identity_proof(
     let Some(symbol) = import_row.symbol.as_deref() else {
         return Ok(None);
     };
-    let Some(active_isin) = load_unique_active_symbol_isin(
-        connection,
-        import_row.exchange.as_str(),
-        symbol,
-    )? else {
+    let Some(active_isin) =
+        load_unique_active_symbol_isin(connection, import_row.exchange.as_str(), symbol)?
+    else {
         return Ok(None);
     };
 
-    if let (Some(raw_isin), Some(current_isin)) = (import_row.isin.as_deref(), active_isin.as_deref()) {
+    if let (Some(raw_isin), Some(current_isin)) =
+        (import_row.isin.as_deref(), active_isin.as_deref())
+    {
         let raw_norm = normalized(raw_isin);
         let cur_norm = normalized(current_isin);
         if raw_norm == cur_norm && !block_exact_active_current {
@@ -525,15 +528,25 @@ fn machine_identity_proof(
     let dated_chain = decision.decision_type == super::dated_symbol_chain::DECISION
         && matches!(
             &proof,
-            Some(CorporateActionQuickResolveProof::VerifiedDatedSymbolChain(_))
+            Some(CorporateActionQuickResolveProof::VerifiedDatedSymbolChain(
+                _
+            ))
         )
         && super::dated_symbol_chain::verify_persisted(connection, &unresolved_view, active[0])?;
-    let proof_matches_decision = dated_chain || matches!(
-        (decision.decision_type.as_str(), proof),
-        ("VERIFIED_QUICK_RESOLUTION", Some(CorporateActionQuickResolveProof::ExactEventDateHistoricalIsin))
-            | ("VERIFIED_EVENT_IDENTITY_RESOLUTION", Some(CorporateActionQuickResolveProof::VerifiedPersistedEventIdentity { .. }))
-            | ("VERIFIED_HISTORICAL_ISIN_TRANSITION", Some(CorporateActionQuickResolveProof::VerifiedHistoricalIsinTransition { .. }))
-    );
+    let proof_matches_decision = dated_chain
+        || matches!(
+            (decision.decision_type.as_str(), proof),
+            (
+                "VERIFIED_QUICK_RESOLUTION",
+                Some(CorporateActionQuickResolveProof::ExactEventDateHistoricalIsin)
+            ) | (
+                "VERIFIED_EVENT_IDENTITY_RESOLUTION",
+                Some(CorporateActionQuickResolveProof::VerifiedPersistedEventIdentity { .. })
+            ) | (
+                "VERIFIED_HISTORICAL_ISIN_TRANSITION",
+                Some(CorporateActionQuickResolveProof::VerifiedHistoricalIsinTransition { .. })
+            )
+        );
     if !proof_matches_decision {
         return Ok(None);
     }
@@ -685,62 +698,127 @@ pub(super) fn verified_existing_dividend(
     import_id: i64,
 ) -> AppResult<Option<i64>> {
     let row = get_import_row(connection, import_id)?;
-    if row.exchange != "NSE" || row.source != "NSE_API" || row.action_type != "DIVIDEND"
-        || row.parse_status != "PARSED" || row.review_status != "PENDING"
+    if row.exchange != "NSE"
+        || row.source != "NSE_API"
+        || row.action_type != "DIVIDEND"
+        || row.parse_status != "PARSED"
+        || row.review_status != "PENDING"
         || row.approved_corporate_action_id.is_some()
-        || row.factor.is_some() || row.price_factor.is_some()
-        || row.ratio_num.is_some() || row.ratio_den.is_some()
-        || row.old_face_value.is_some() || row.new_face_value.is_some()
+        || row.factor.is_some()
+        || row.price_factor.is_some()
+        || row.ratio_num.is_some()
+        || row.ratio_den.is_some()
+        || row.old_face_value.is_some()
+        || row.new_face_value.is_some()
     {
         return Ok(None);
     }
-    let (Some(isin), Some(date), Some(symbol), Some(cash)) =
-        (row.isin.as_deref(), row.ex_date.as_deref(), row.symbol.as_deref(), row.cash_amount)
-    else { return Ok(None); };
-    if isin.trim().is_empty() || !cash.is_finite() || cash <= 0.0
+    let (Some(isin), Some(date), Some(symbol), Some(cash)) = (
+        row.isin.as_deref(),
+        row.ex_date.as_deref(),
+        row.symbol.as_deref(),
+        row.cash_amount,
+    ) else {
+        return Ok(None);
+    };
+    if isin.trim().is_empty()
+        || !cash.is_finite()
+        || cash <= 0.0
         || find_existing_corporate_action(connection, &row)?.is_none()
-    { return Ok(None); }
+    {
+        return Ok(None);
+    }
     if !matches!(revalidate_simple_cash_dividend_evidence(&row.purpose_raw, Some(cash)),
         SimpleCashDividendEvidence::EligibleSimpleCash(amount) if amount == cash)
         || load_exact_simple_cash_dividend_official_evidence(connection, &row)?.is_none()
         || has_forbidden_decision(connection, import_id)?
-    { return Ok(None); }
+    {
+        return Ok(None);
+    }
     let conflict = has_legacy_manual_raw_event_identity_conflict(connection, &row)?;
-    if machine_identity_proof(connection, &row, conflict)?.is_none() { return Ok(None); }
+    if machine_identity_proof(connection, &row, conflict)?.is_none() {
+        return Ok(None);
+    }
 
-    let mut statement = connection.prepare(
-        "SELECT id, factor, cash_amount, adjust_volume, source,
+    let mut statement = connection
+        .prepare(
+            "SELECT id, factor, cash_amount, adjust_volume, source,
                 ratio_num, ratio_den, old_face_value, new_face_value, isin
          FROM corporate_actions WHERE exchange=? AND effective_date=? AND action_type='DIVIDEND'
-           AND (isin=? OR symbol=?) LIMIT 2"
-    ).map_err(|e| e.to_string())?;
-    let candidates = statement.query_map(params![row.exchange, date, isin, symbol], |r| {
-        Ok((r.get::<_, i64>(0)?, r.get::<_, f64>(1)?, r.get::<_, Option<f64>>(2)?,
-            r.get::<_, i64>(3)?, r.get::<_, Option<String>>(4)?,
-            r.get::<_, Option<f64>>(5)?, r.get::<_, Option<f64>>(6)?,
-            r.get::<_, Option<f64>>(7)?, r.get::<_, Option<f64>>(8)?, r.get::<_, Option<String>>(9)?))
-    }).map_err(|e| e.to_string())?.collect::<Result<Vec<_>, _>>().map_err(|e| e.to_string())?;
-    if candidates.len() != 1 { return Ok(None); }
-    let (id, factor, stored_cash, volume, source, num, den, old_fv, new_fv, canonical_isin) = &candidates[0];
-    if *stored_cash != Some(cash) || *volume != 0 || source.as_deref() != Some("NSE_API")
-        || !factor.is_finite() || *factor <= 1.0
-        || num.is_some() || den.is_some() || old_fv.is_some() || new_fv.is_some()
+           AND (isin=? OR symbol=?) LIMIT 2",
+        )
+        .map_err(|e| e.to_string())?;
+    let candidates = statement
+        .query_map(params![row.exchange, date, isin, symbol], |r| {
+            Ok((
+                r.get::<_, i64>(0)?,
+                r.get::<_, f64>(1)?,
+                r.get::<_, Option<f64>>(2)?,
+                r.get::<_, i64>(3)?,
+                r.get::<_, Option<String>>(4)?,
+                r.get::<_, Option<f64>>(5)?,
+                r.get::<_, Option<f64>>(6)?,
+                r.get::<_, Option<f64>>(7)?,
+                r.get::<_, Option<f64>>(8)?,
+                r.get::<_, Option<String>>(9)?,
+            ))
+        })
+        .map_err(|e| e.to_string())?
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|e| e.to_string())?;
+    if candidates.len() != 1 {
+        return Ok(None);
+    }
+    let (id, factor, stored_cash, volume, source, num, den, old_fv, new_fv, canonical_isin) =
+        &candidates[0];
+    if *stored_cash != Some(cash)
+        || *volume != 0
+        || source.as_deref() != Some("NSE_API")
+        || !factor.is_finite()
+        || *factor <= 1.0
+        || num.is_some()
+        || den.is_some()
+        || old_fv.is_some()
+        || new_fv.is_some()
         || canonical_isin.as_deref() != Some(isin)
-    { return Ok(None); }
-    let linked: bool = connection.query_row(
-        "SELECT EXISTS(SELECT 1 FROM corporate_action_imports
+    {
+        return Ok(None);
+    }
+    let linked: bool = connection
+        .query_row(
+            "SELECT EXISTS(SELECT 1 FROM corporate_action_imports
          WHERE approved_corporate_action_id=? AND review_status='APPROVED' AND parse_status='PARSED'
            AND source='NSE_API' AND exchange=? AND isin=? AND ex_date=?
            AND action_type='DIVIDEND' AND cash_amount=? AND id<>?)",
-        params![id, row.exchange, isin, date, cash, import_id], |r| r.get(0),
-    ).map_err(|e| e.to_string())?;
-    if !linked { return Ok(None); }
-    let Some(context) = crate::database::eod_data::resolve_instrument_context(connection, symbol, &row.exchange)?
-    else { return Ok(None); };
-    if !context.corporate_actions.iter().any(|action| action.id == *id) { return Ok(None); }
+            params![id, row.exchange, isin, date, cash, import_id],
+            |r| r.get(0),
+        )
+        .map_err(|e| e.to_string())?;
+    if !linked {
+        return Ok(None);
+    }
+    let Some(context) =
+        crate::database::eod_data::resolve_instrument_context(connection, symbol, &row.exchange)?
+    else {
+        return Ok(None);
+    };
+    if !context
+        .corporate_actions
+        .iter()
+        .any(|action| action.id == *id)
+    {
+        return Ok(None);
+    }
     let basis = match crate::database::instrument_mutations::load_dividend_adjustment_basis(
-        connection, Some(folder_path), &context, date, Some(cash),
-    ) { Ok(basis) => basis, Err(_) => return Ok(None) };
+        connection,
+        Some(folder_path),
+        &context,
+        date,
+        Some(cash),
+    ) {
+        Ok(basis) => basis,
+        Err(_) => return Ok(None),
+    };
     if (basis.computed_factor - factor).abs() > 1e-9 * factor.abs().max(1.0) {
         return Ok(None);
     }
@@ -842,7 +920,8 @@ fn evaluate_simple_cash_dividend_policy_with_peer_cache(
         SimpleCashDividendEvidence::EligibleSimpleCash(amount) if amount == cash_amount => {}
         SimpleCashDividendEvidence::Ineligible(reason) => {
             return Ok(SimpleCashDividendPolicyEligibility::Ineligible(format!(
-                "Dividend R1 cash evidence: {}.", reason.diagnostic_label()
+                "Dividend R1 cash evidence: {}.",
+                reason.diagnostic_label()
             )));
         }
         _ => {
@@ -880,7 +959,9 @@ fn evaluate_simple_cash_dividend_policy_with_peer_cache(
         return Ok(SimpleCashDividendPolicyEligibility::Ineligible(reason));
     };
 
-    if let Some(peer_action_type) = same_date_automatic_exclusion_peer_with_cache(connection, &import_row, peer_cache)? {
+    if let Some(peer_action_type) =
+        same_date_automatic_exclusion_peer_with_cache(connection, &import_row, peer_cache)?
+    {
         return Ok(SimpleCashDividendPolicyEligibility::Ineligible(format!(
             "Same-date automatic-exclusion {} peer is excluded from Dividend R1.",
             peer_action_type
@@ -903,24 +984,32 @@ fn evaluate_simple_cash_dividend_policy_with_peer_cache(
             "Dividend R1 requires a current resolved instrument context.".to_string(),
         ));
     };
-    let dated_price_route = match super::event_price_route::resolve(connection,folder_path,&import_row) {
-        Ok(route) => route,
-        Err(reason) if reason.starts_with("Awaiting verified dated price-route identity:") || reason.starts_with("Waiting for EOD Data:") || reason.starts_with("Scheduled / Upcoming:") => {
-            return Ok(SimpleCashDividendPolicyEligibility::Ineligible(reason));
-        }
-        Err(error) => return Err(error),
-    };
+    let dated_price_route =
+        match super::event_price_route::resolve(connection, folder_path, &import_row) {
+            Ok(route) => route,
+            Err(reason)
+                if reason.starts_with("Awaiting verified dated price-route identity:")
+                    || reason.starts_with("Waiting for EOD Data:")
+                    || reason.starts_with("Scheduled / Upcoming:") =>
+            {
+                return Ok(SimpleCashDividendPolicyEligibility::Ineligible(reason));
+            }
+            Err(error) => return Err(error),
+        };
     if let Some(route) = &dated_price_route {
-        identity_proof.push_str(&format!(";eventPriceRouteR1={}",route.fingerprint()));
+        identity_proof.push_str(&format!(";eventPriceRouteR1={}", route.fingerprint()));
     }
-    let basis_result = if let Some(route) = &dated_price_route { route.dividend_basis(cash_amount) } else {
+    let basis_result = if let Some(route) = &dated_price_route {
+        route.dividend_basis(cash_amount)
+    } else {
         crate::database::instrument_mutations::load_dividend_adjustment_basis(
-        connection,
-        Some(folder_path),
-        &context,
-        ex_date_text,
-        Some(cash_amount),
-    ) };
+            connection,
+            Some(folder_path),
+            &context,
+            ex_date_text,
+            Some(cash_amount),
+        )
+    };
     let basis = match basis_result {
         Ok(value) => value,
         Err(error) => {
@@ -954,7 +1043,9 @@ fn evaluate_simple_cash_dividend_policy_with_peer_cache(
         .checked_add_signed(chrono::Duration::days(DIVIDEND_MAX_PREV_TRADE_GAP_DAYS))
         .ok_or_else(|| "Dividend R1 ex-date window overflow.".to_string())?;
     let today = chrono::Utc::now()
-        .with_timezone(&chrono::FixedOffset::east_opt(5 * 3600 + 30 * 60).expect("valid IST offset"))
+        .with_timezone(
+            &chrono::FixedOffset::east_opt(5 * 3600 + 30 * 60).expect("valid IST offset"),
+        )
         .date_naive();
     if ex_date > today {
         return Ok(SimpleCashDividendPolicyEligibility::Ineligible(
@@ -962,13 +1053,25 @@ fn evaluate_simple_cash_dividend_policy_with_peer_cache(
         ));
     }
     let ex_window_end = latest_ex_date.min(today).format("%Y-%m-%d").to_string();
-    let ex_rows = if dated_price_route.is_some() { Vec::new() } else { crate::database::eod_data::load_unified_price_rows(
-        folder_path, connection, &context, ex_date_text, &ex_window_end,
-    )? };
-    if dated_price_route.is_none() && !ex_rows.iter().any(|row| {
-        row.date.as_str() >= ex_date_text && row.date.as_str() <= ex_window_end.as_str()
-            && row.close.is_finite() && row.close > 0.0
-    }) {
+    let ex_rows = if dated_price_route.is_some() {
+        Vec::new()
+    } else {
+        crate::database::eod_data::load_unified_price_rows(
+            folder_path,
+            connection,
+            &context,
+            ex_date_text,
+            &ex_window_end,
+        )?
+    };
+    if dated_price_route.is_none()
+        && !ex_rows.iter().any(|row| {
+            row.date.as_str() >= ex_date_text
+                && row.date.as_str() <= ex_window_end.as_str()
+                && row.close.is_finite()
+                && row.close > 0.0
+        })
+    {
         return Ok(SimpleCashDividendPolicyEligibility::Ineligible(
             "Dividend R1 requires a valid local ex-date or next-trading-date EOD close within seven calendar days."
                 .to_string(),
@@ -992,7 +1095,11 @@ fn evaluate_simple_cash_dividend_policy_with_peer_cache(
     // Ready must satisfy the ordinary writer's symbol/date routing too. A
     // shared ISIN in unified prices is not dated historical-symbol evidence.
     if let Err(reason) = super::ensure_official_import_eod_ready(
-        connection, folder_path, &import_row, symbol, ex_date_text,
+        connection,
+        folder_path,
+        &import_row,
+        symbol,
+        ex_date_text,
     ) {
         return Ok(SimpleCashDividendPolicyEligibility::Ineligible(reason));
     }
@@ -1103,7 +1210,12 @@ pub(super) fn evaluate_simple_cash_dividend_prepared_scope_in_connection(
             continue;
         }
 
-        match evaluate_simple_cash_dividend_policy_with_peer_cache(connection, folder_path, import_id, peer_cache.as_mut()) {
+        match evaluate_simple_cash_dividend_policy_with_peer_cache(
+            connection,
+            folder_path,
+            import_id,
+            peer_cache.as_mut(),
+        ) {
             Ok(SimpleCashDividendPolicyEligibility::Eligible(evidence)) => {
                 eligible += 1;
                 dispositions.push(SimpleCashDividendPreparedScopeDisposition {
@@ -1325,9 +1437,11 @@ fn verify_simple_cash_dividend_write_result(
     // Quick Resolve retains the official event-time ISIN. The canonical writer
     // stores the current instrument ISIN; the freshly revalidated historical
     // proof above binds the two identities without rewriting the source row.
-    let expected_canonical_isin = load_unique_active_symbol_isin(
-        connection, &previous.exchange, expected_symbol,
-    )?.ok_or_else(|| "Dividend R1 current canonical identity is no longer unique.".to_string())?;
+    let expected_canonical_isin =
+        load_unique_active_symbol_isin(connection, &previous.exchange, expected_symbol)?
+            .ok_or_else(|| {
+                "Dividend R1 current canonical identity is no longer unique.".to_string()
+            })?;
     if canonical.0 != expected_symbol
         || canonical.1 != previous.exchange
         || canonical.2 != expected_canonical_isin
@@ -1583,7 +1697,9 @@ fn split_bonus_scan_basis(
     expected_factor: f64,
 ) -> Result<ActionApprovalBasis, String> {
     if !confidence.is_finite() || !expected_factor.is_finite() || expected_factor <= 0.0 {
-        return Err("Safe V2 requires finite positive Split/Bonus validation evidence.".to_string());
+        return Err(
+            "Safe V2 requires finite positive Split/Bonus validation evidence.".to_string(),
+        );
     }
 
     let Some(ex_date_text) = import_row.ex_date.as_deref() else {
@@ -1603,21 +1719,29 @@ fn split_bonus_scan_basis(
     }
 
     let mut observed_factor: Option<f64> = None;
-    for value in [validation.actual_open_factor, validation.actual_close_factor]
-        .into_iter()
-        .flatten()
+    for value in [
+        validation.actual_open_factor,
+        validation.actual_close_factor,
+    ]
+    .into_iter()
+    .flatten()
     {
         if !value.is_finite() || value <= 0.0 {
             continue;
         }
         observed_factor = Some(match observed_factor {
             Some(current)
-                if (current - expected_factor).abs() <= (value - expected_factor).abs() => current,
+                if (current - expected_factor).abs() <= (value - expected_factor).abs() =>
+            {
+                current
+            }
             _ => value,
         });
     }
     let Some(observed_factor) = observed_factor else {
-        return Err("Safe V2 requires a finite positive observed Split/Bonus price factor.".to_string());
+        return Err(
+            "Safe V2 requires a finite positive observed Split/Bonus price factor.".to_string(),
+        );
     };
 
     let allowed_distance = AUTO_APPROVAL_NEAR_UNITY_MARGIN * (expected_factor - 1.0).abs();
@@ -1645,7 +1769,9 @@ pub(super) fn evaluate_auto_approval_r1(
         return Ok(AutoApprovalEligibility::AlreadyApproved);
     }
     if super::split_bonus_symbol_chain::has_decision(connection, import_id)? {
-        return Ok(AutoApprovalEligibility::Ineligible("Verified rename routes require explicit user approval.".into()));
+        return Ok(AutoApprovalEligibility::Ineligible(
+            "Verified rename routes require explicit user approval.".into(),
+        ));
     }
     if import_row.exchange != "NSE" {
         return Ok(AutoApprovalEligibility::Ineligible(
@@ -1668,9 +1794,22 @@ pub(super) fn evaluate_auto_approval_r1(
             import_row.review_status
         )));
     }
-    if import_row.symbol.as_deref().map(str::trim).unwrap_or_default().is_empty()
-        || import_row.ex_date.as_deref().map(str::trim).unwrap_or_default().is_empty()
-        || import_row.factor.filter(|value| value.is_finite() && *value > 0.0).is_none()
+    if import_row
+        .symbol
+        .as_deref()
+        .map(str::trim)
+        .unwrap_or_default()
+        .is_empty()
+        || import_row
+            .ex_date
+            .as_deref()
+            .map(str::trim)
+            .unwrap_or_default()
+            .is_empty()
+        || import_row
+            .factor
+            .filter(|value| value.is_finite() && *value > 0.0)
+            .is_none()
     {
         return Ok(AutoApprovalEligibility::Ineligible(
             "Resolved symbol, ex-date and positive factor are required.".to_string(),
@@ -1684,11 +1823,9 @@ pub(super) fn evaluate_auto_approval_r1(
     }
     let legacy_manual_raw_event_conflict =
         has_legacy_manual_raw_event_identity_conflict(connection, &import_row)?;
-    let Some(identity_proof) = machine_identity_proof(
-        connection,
-        &import_row,
-        legacy_manual_raw_event_conflict,
-    )? else {
+    let Some(identity_proof) =
+        machine_identity_proof(connection, &import_row, legacy_manual_raw_event_conflict)?
+    else {
         let reason = if legacy_manual_raw_event_conflict {
             "Legacy/manual resolved identity has conflicting raw event identity evidence and no machine-verifiable event-time identity proof.".to_string()
         } else {
@@ -1698,7 +1835,8 @@ pub(super) fn evaluate_auto_approval_r1(
     };
     if let Some(peer_action_type) = same_date_automatic_exclusion_peer(connection, &import_row)? {
         let reason = if matches!(peer_action_type.as_str(), "SPLIT" | "BONUS") {
-            "Same-date compound Split/Bonus rows are excluded from Safe V2 auto-approval.".to_string()
+            "Same-date compound Split/Bonus rows are excluded from Safe V2 auto-approval."
+                .to_string()
         } else {
             format!(
                 "Same-date cross-action {} peer is excluded from Safe V2 auto-approval.",
@@ -1708,7 +1846,8 @@ pub(super) fn evaluate_auto_approval_r1(
         return Ok(AutoApprovalEligibility::Ineligible(reason));
     }
 
-    let Some(validation) = load_latest_official_split_bonus_validation(connection, import_row.id)? else {
+    let Some(validation) = load_latest_official_split_bonus_validation(connection, import_row.id)?
+    else {
         return Ok(AutoApprovalEligibility::Ineligible(
             "Current official-import Split/Bonus validation is required.".to_string(),
         ));
@@ -1740,7 +1879,8 @@ pub(super) fn evaluate_auto_approval_r1(
             "Safe V2 requires the current validation factor.".to_string(),
         ));
     };
-    let basis = match split_bonus_scan_basis(&import_row, &validation, confidence, expected_factor) {
+    let basis = match split_bonus_scan_basis(&import_row, &validation, confidence, expected_factor)
+    {
         Ok(basis) => basis,
         Err(reason) => return Ok(AutoApprovalEligibility::Ineligible(reason)),
     };
@@ -1792,7 +1932,9 @@ pub(super) fn auto_approve_corporate_action_imports_in_connection(
 ) -> AppResult<CorporateActionAutoApprovalResult> {
     validate_exact_import_lookup_ids(&input.import_ids)?;
     if input.import_ids.is_empty() {
-        return Err("Auto-approval requires at least one completed preparation-scope ID.".to_string());
+        return Err(
+            "Auto-approval requires at least one completed preparation-scope ID.".to_string(),
+        );
     }
     if input.import_ids.len() > AUTO_APPROVAL_MAX_ITEMS {
         return Err(format!(
@@ -1903,7 +2045,9 @@ pub(super) fn auto_approve_corporate_action_imports_in_connection(
                     }
                     Err(error) => {
                         connection
-                            .execute_batch("ROLLBACK TO SAVEPOINT corporate_action_auto_approval_item")
+                            .execute_batch(
+                                "ROLLBACK TO SAVEPOINT corporate_action_auto_approval_item",
+                            )
                             .map_err(|rollback_error| {
                                 format!(
                                     "Could not rollback failed auto-approval {}: {}",
@@ -2130,17 +2274,31 @@ mod tests {
     }
 
     fn insert_import(connection: &Connection, id: i64, action_type: &str, review_status: &str) {
-        connection.execute(
-            "INSERT INTO corporate_action_imports (
+        connection
+            .execute(
+                "INSERT INTO corporate_action_imports (
               id, dedupe_key, exchange, source, symbol, isin, company_name, purpose_raw, ex_date,
               action_type, ratio_num, ratio_den, factor, price_factor, parse_status, review_status
             ) VALUES (?, ?, 'NSE', 'NSE_API', 'TEST', 'INEAUTO01001', 'Test Limited', ?,
               '2026-08-14', ?, 2, 1, 2, 0.5, 'PARSED', ?)",
-            params![id, format!("row-{id}"), format!("{action_type} fixture"), action_type, review_status],
-        ).unwrap();
+                params![
+                    id,
+                    format!("row-{id}"),
+                    format!("{action_type} fixture"),
+                    action_type,
+                    review_status
+                ],
+            )
+            .unwrap();
     }
 
-    fn insert_scan(connection: &Connection, import_id: i64, status: &str, confidence: Option<f64>, factor: f64) {
+    fn insert_scan(
+        connection: &Connection,
+        import_id: i64,
+        status: &str,
+        confidence: Option<f64>,
+        factor: f64,
+    ) {
         insert_scan_window(
             connection,
             import_id,
@@ -2152,8 +2310,6 @@ mod tests {
             Some(factor),
         );
     }
-
-
 
     fn insert_scan_window(
         connection: &Connection,
@@ -2169,7 +2325,7 @@ mod tests {
             "INSERT INTO scan_runs(scope, action_types, started_at, completed_at, status, total_results)
              VALUES ('official_imports','SPLIT,BONUS','2026-08-14T00:00:00Z','2026-08-14T00:00:01Z','COMPLETED',1)", [],
         ).unwrap();
-        let run_id=connection.last_insert_rowid();
+        let run_id = connection.last_insert_rowid();
         connection.execute(
             "INSERT INTO corporate_action_scan_results(
               scan_run_id, corporate_action_import_id, symbol, exchange, scan_status,
@@ -2182,8 +2338,17 @@ mod tests {
 
     fn split_bonus_basis(evidence: &AutoApprovalEvidence) -> (i64, &str, f64, f64) {
         match &evidence.basis {
-            ActionApprovalBasis::SplitBonusScan { scan_id, scan_timestamp, confidence, expected_factor } =>
-                (*scan_id, scan_timestamp.as_str(), *confidence, *expected_factor),
+            ActionApprovalBasis::SplitBonusScan {
+                scan_id,
+                scan_timestamp,
+                confidence,
+                expected_factor,
+            } => (
+                *scan_id,
+                scan_timestamp.as_str(),
+                *confidence,
+                *expected_factor,
+            ),
         }
     }
 
@@ -2300,8 +2465,20 @@ mod tests {
         let c = eligible_dividend_fixture();
         c.execute("INSERT INTO corporate_actions(id,symbol,exchange,isin,effective_date,action_type,factor,cash_amount,adjust_volume,source)
             VALUES (77,'TEST','NSE','INEAUTO01001','2026-08-14','DIVIDEND',?,5,0,'NSE_API')", [100.0 / 95.0]).unwrap();
-        insert_simple_cash_dividend_import(&c, 2, "NSE_API", "APPROVED", "Dividend Rs.5 per share", "2026-08-14", 5.0);
-        c.execute("UPDATE corporate_action_imports SET approved_corporate_action_id=77 WHERE id=2", []).unwrap();
+        insert_simple_cash_dividend_import(
+            &c,
+            2,
+            "NSE_API",
+            "APPROVED",
+            "Dividend Rs.5 per share",
+            "2026-08-14",
+            5.0,
+        );
+        c.execute(
+            "UPDATE corporate_action_imports SET approved_corporate_action_id=77 WHERE id=2",
+            [],
+        )
+        .unwrap();
         c
     }
 
@@ -2309,12 +2486,17 @@ mod tests {
     fn existing_dividend_classification_is_read_only_and_keeps_duplicate_guard() {
         let c = existing_dividend_fixture();
         c.execute_batch("PRAGMA query_only=ON").unwrap();
-        assert_eq!(verified_existing_dividend(&c, &dividend_policy_folder(), 1).unwrap(), Some(77));
+        assert_eq!(
+            verified_existing_dividend(&c, &dividend_policy_folder(), 1).unwrap(),
+            Some(77)
+        );
         let row = get_import_row(&c, 1).unwrap();
         assert_eq!(row.review_status, "PENDING");
         assert!(row.approved_corporate_action_id.is_none());
-        assert!(matches!(evaluate_simple_cash_dividend_policy_r1(&c, &dividend_policy_folder(), 1).unwrap(),
-            SimpleCashDividendPolicyEligibility::Ineligible(_)));
+        assert!(matches!(
+            evaluate_simple_cash_dividend_policy_r1(&c, &dividend_policy_folder(), 1).unwrap(),
+            SimpleCashDividendPolicyEligibility::Ineligible(_)
+        ));
         assert_eq!(find_existing_corporate_action(&c, &row).unwrap(), Some(77));
     }
 
@@ -2341,21 +2523,41 @@ mod tests {
     #[test]
     #[ignore = "Explicit read-only acceptance of the marked local evidence copy"]
     fn existing_dividend_classification_real_copy_acceptance() {
-        let folder = std::path::PathBuf::from(std::env::var("CA_EXISTING_DIVIDEND_ACCEPTANCE").unwrap());
+        let folder =
+            std::path::PathBuf::from(std::env::var("CA_EXISTING_DIVIDEND_ACCEPTANCE").unwrap());
         assert!(folder.is_absolute());
-        assert_eq!(folder.file_name().unwrap(), "ca-existing-dividend-acceptance-20261024");
+        assert_eq!(
+            folder.file_name().unwrap(),
+            "ca-existing-dividend-acceptance-20261024"
+        );
         // Dated-chain proofs bind the database path. Keep their captured path;
         // use the separate acceptance folder only for copied binary prices.
-        let proof_folder = folder.parent().unwrap().join("ca-witness-provenance-20261023");
+        let proof_folder = folder
+            .parent()
+            .unwrap()
+            .join("ca-witness-provenance-20261023");
         assert!(proof_folder.join("DATED_CHAIN_AUDIT.txt").is_file());
-        let c = Connection::open_with_flags(proof_folder.join("market-data.sqlite3").canonicalize().unwrap(),
-            rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY).unwrap();
+        let c = Connection::open_with_flags(
+            proof_folder
+                .join("market-data.sqlite3")
+                .canonicalize()
+                .unwrap(),
+            rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY,
+        )
+        .unwrap();
         c.execute_batch("PRAGMA query_only=ON").unwrap();
         let context = crate::database::eod_data::resolve_instrument_context(&c, "DELPHIFX", "NSE")
-            .unwrap().unwrap();
+            .unwrap()
+            .unwrap();
         let rows = crate::database::eod_data::load_unified_price_rows_with_mode(
-            &folder, &c, &context, "1900-01-01", "2100-01-01", crate::database::PriceStorageMode::Binary,
-        ).unwrap();
+            &folder,
+            &c,
+            &context,
+            "1900-01-01",
+            "2100-01-01",
+            crate::database::PriceStorageMode::Binary,
+        )
+        .unwrap();
         assert_eq!(rows.first().unwrap().date, "2011-06-28");
         for (import, id, date, previous, close, cash) in [
             (20928, 10199, "2015-09-04", "2015-09-03", 245.4, 7.5),
@@ -2363,20 +2565,34 @@ mod tests {
             (24836, 8699, "2017-08-14", "2017-08-11", 707.85, 3.0),
             (26670, 7991, "2018-07-30", "2018-07-27", 538.8, 1.0),
         ] {
-            let matches = context.corporate_actions.iter().filter(|a| a.id == id).cloned().collect::<Vec<_>>();
+            let matches = context
+                .corporate_actions
+                .iter()
+                .filter(|a| a.id == id)
+                .cloned()
+                .collect::<Vec<_>>();
             assert_eq!(matches.len(), 1);
             let raw = rows.iter().find(|r| r.date == previous).unwrap();
             assert_eq!(raw.close, close);
             let factor = close / (close - cash);
             assert!((matches[0].factor - factor).abs() < 1e-12);
-            let adjusted = crate::database::eod_data::apply_corporate_adjustments(rows.clone(), &matches, true, false).unwrap();
+            let adjusted = crate::database::eod_data::apply_corporate_adjustments(
+                rows.clone(),
+                &matches,
+                true,
+                false,
+            )
+            .unwrap();
             let before = adjusted.iter().find(|r| r.date == previous).unwrap();
             assert_eq!(before.close, crate::database::round_price(close - cash));
             assert_eq!(before.volume, raw.volume);
             let ex_raw = rows.iter().find(|r| r.date == date).unwrap();
             let ex_adjusted = adjusted.iter().find(|r| r.date == date).unwrap();
             assert_eq!(ex_raw.close, ex_adjusted.close);
-            assert_eq!(verified_existing_dividend(&c, &folder, import).unwrap(), Some(id));
+            assert_eq!(
+                verified_existing_dividend(&c, &folder, import).unwrap(),
+                Some(id)
+            );
             let stored = get_import_row(&c, import).unwrap();
             assert!(stored.approved_corporate_action_id.is_none());
             println!("PASS import={import} canonical={id} date={date} raw_previous={close} cash={cash} adjusted_previous={} factor={factor}", before.close);
@@ -2394,73 +2610,153 @@ mod tests {
 
     #[test]
     fn phase5b_safe_v2_well_separated_split_remains_eligible_with_typed_scan_basis() {
-        let connection=fixture();
-        insert_import(&connection,1,"SPLIT","PENDING");
-        insert_scan(&connection,1,"MATCHED",Some(0.99),2.0);
-        let evidence=expect_eligible(&connection,1);
-        let (_, _, confidence, expected_factor)=split_bonus_basis(&evidence);
-        assert_eq!(confidence,0.99);
-        assert_eq!(expected_factor,2.0);
-        assert_eq!(AUTO_APPROVAL_POLICY_VERSION,"AUTO_APPROVAL_SAFE_V2");
+        let connection = fixture();
+        insert_import(&connection, 1, "SPLIT", "PENDING");
+        insert_scan(&connection, 1, "MATCHED", Some(0.99), 2.0);
+        let evidence = expect_eligible(&connection, 1);
+        let (_, _, confidence, expected_factor) = split_bonus_basis(&evidence);
+        assert_eq!(confidence, 0.99);
+        assert_eq!(expected_factor, 2.0);
+        assert_eq!(AUTO_APPROVAL_POLICY_VERSION, "AUTO_APPROVAL_SAFE_V2");
     }
 
     #[test]
     fn phase5b_safe_v2_near_unity_no_move_bonus_fails_closed() {
-        let connection=fixture();
-        insert_import(&connection,1,"BONUS","PENDING");
-        connection.execute("UPDATE corporate_action_imports SET factor=1.05 WHERE id=1",[]).unwrap();
-        let confidence=1.0-(0.05_f64/1.05_f64);
-        insert_scan_window(&connection,1,"MATCHED",Some(confidence),1.05,"2026-08-14",Some(1.0),Some(1.0));
-        assert!(matches!(evaluate_auto_approval_r1(&connection,1).unwrap(),AutoApprovalEligibility::Ineligible(reason) if reason.contains("near-unity")));
+        let connection = fixture();
+        insert_import(&connection, 1, "BONUS", "PENDING");
+        connection
+            .execute(
+                "UPDATE corporate_action_imports SET factor=1.05 WHERE id=1",
+                [],
+            )
+            .unwrap();
+        let confidence = 1.0 - (0.05_f64 / 1.05_f64);
+        insert_scan_window(
+            &connection,
+            1,
+            "MATCHED",
+            Some(confidence),
+            1.05,
+            "2026-08-14",
+            Some(1.0),
+            Some(1.0),
+        );
+        assert!(
+            matches!(evaluate_auto_approval_r1(&connection,1).unwrap(),AutoApprovalEligibility::Ineligible(reason) if reason.contains("near-unity"))
+        );
     }
 
     #[test]
     fn phase5b_safe_v2_near_unity_bonus_close_to_expected_remains_eligible() {
-        let connection=fixture();
-        insert_import(&connection,1,"BONUS","PENDING");
-        connection.execute("UPDATE corporate_action_imports SET factor=1.05 WHERE id=1",[]).unwrap();
-        let confidence=1.0-(0.01_f64/1.05_f64);
-        insert_scan_window(&connection,1,"MATCHED",Some(confidence),1.05,"2026-08-14",Some(1.04),Some(1.04));
-        expect_eligible(&connection,1);
+        let connection = fixture();
+        insert_import(&connection, 1, "BONUS", "PENDING");
+        connection
+            .execute(
+                "UPDATE corporate_action_imports SET factor=1.05 WHERE id=1",
+                [],
+            )
+            .unwrap();
+        let confidence = 1.0 - (0.01_f64 / 1.05_f64);
+        insert_scan_window(
+            &connection,
+            1,
+            "MATCHED",
+            Some(confidence),
+            1.05,
+            "2026-08-14",
+            Some(1.04),
+            Some(1.04),
+        );
+        expect_eligible(&connection, 1);
     }
 
     #[test]
     fn phase5b_safe_v2_seven_day_ex_gap_passes_and_eight_day_gap_fails() {
-        let seven=fixture();insert_import(&seven,1,"SPLIT","PENDING");
-        insert_scan_window(&seven,1,"MATCHED",Some(0.99),2.0,"2026-08-21",Some(2.0),Some(2.0));
-        expect_eligible(&seven,1);
+        let seven = fixture();
+        insert_import(&seven, 1, "SPLIT", "PENDING");
+        insert_scan_window(
+            &seven,
+            1,
+            "MATCHED",
+            Some(0.99),
+            2.0,
+            "2026-08-21",
+            Some(2.0),
+            Some(2.0),
+        );
+        expect_eligible(&seven, 1);
 
-        let eight=fixture();insert_import(&eight,1,"SPLIT","PENDING");
-        insert_scan_window(&eight,1,"MATCHED",Some(0.99),2.0,"2026-08-22",Some(2.0),Some(2.0));
-        assert!(matches!(evaluate_auto_approval_r1(&eight,1).unwrap(),AutoApprovalEligibility::Ineligible(reason) if reason.contains("7 calendar days") || reason.contains("8 day")));
+        let eight = fixture();
+        insert_import(&eight, 1, "SPLIT", "PENDING");
+        insert_scan_window(
+            &eight,
+            1,
+            "MATCHED",
+            Some(0.99),
+            2.0,
+            "2026-08-22",
+            Some(2.0),
+            Some(2.0),
+        );
+        assert!(
+            matches!(evaluate_auto_approval_r1(&eight,1).unwrap(),AutoApprovalEligibility::Ineligible(reason) if reason.contains("7 calendar days") || reason.contains("8 day"))
+        );
     }
 
     #[test]
     fn phase5b_safe_v2_same_date_dividend_peer_blocks_split() {
-        let connection=fixture();insert_import(&connection,1,"SPLIT","PENDING");insert_scan(&connection,1,"MATCHED",Some(0.99),2.0);
-        insert_import(&connection,2,"DIVIDEND","PENDING");
-        assert!(matches!(evaluate_auto_approval_r1(&connection,1).unwrap(),AutoApprovalEligibility::Ineligible(reason) if reason.contains("cross-action") && reason.contains("DIVIDEND")));
+        let connection = fixture();
+        insert_import(&connection, 1, "SPLIT", "PENDING");
+        insert_scan(&connection, 1, "MATCHED", Some(0.99), 2.0);
+        insert_import(&connection, 2, "DIVIDEND", "PENDING");
+        assert!(
+            matches!(evaluate_auto_approval_r1(&connection,1).unwrap(),AutoApprovalEligibility::Ineligible(reason) if reason.contains("cross-action") && reason.contains("DIVIDEND"))
+        );
     }
 
     #[test]
     fn phase5b_safe_v2_different_date_dividend_peer_does_not_block_split() {
-        let connection=fixture();insert_import(&connection,1,"SPLIT","PENDING");insert_scan(&connection,1,"MATCHED",Some(0.99),2.0);
-        insert_import(&connection,2,"DIVIDEND","PENDING");
-        connection.execute("UPDATE corporate_action_imports SET ex_date='2026-08-15' WHERE id=2",[]).unwrap();
-        expect_eligible(&connection,1);
+        let connection = fixture();
+        insert_import(&connection, 1, "SPLIT", "PENDING");
+        insert_scan(&connection, 1, "MATCHED", Some(0.99), 2.0);
+        insert_import(&connection, 2, "DIVIDEND", "PENDING");
+        connection
+            .execute(
+                "UPDATE corporate_action_imports SET ex_date='2026-08-15' WHERE id=2",
+                [],
+            )
+            .unwrap();
+        expect_eligible(&connection, 1);
     }
 
     #[test]
     fn phase5b_safe_v2_nonfinite_observed_factor_fails_closed() {
-        let connection=fixture();insert_import(&connection,1,"SPLIT","PENDING");
-        insert_scan_window(&connection,1,"MATCHED",Some(0.99),2.0,"2026-08-14",Some(f64::NAN),Some(f64::INFINITY));
-        assert!(matches!(evaluate_auto_approval_r1(&connection,1).unwrap(),AutoApprovalEligibility::Ineligible(reason) if reason.contains("finite positive observed")));
+        let connection = fixture();
+        insert_import(&connection, 1, "SPLIT", "PENDING");
+        insert_scan_window(
+            &connection,
+            1,
+            "MATCHED",
+            Some(0.99),
+            2.0,
+            "2026-08-14",
+            Some(f64::NAN),
+            Some(f64::INFINITY),
+        );
+        assert!(
+            matches!(evaluate_auto_approval_r1(&connection,1).unwrap(),AutoApprovalEligibility::Ineligible(reason) if reason.contains("finite positive observed"))
+        );
     }
 
     #[test]
     fn phase5b_safe_v2_split_bonus_peer_keeps_compound_reason() {
-        let connection=fixture();insert_import(&connection,1,"SPLIT","PENDING");insert_scan(&connection,1,"MATCHED",Some(0.99),2.0);insert_import(&connection,2,"BONUS","PENDING");
-        assert!(matches!(evaluate_auto_approval_r1(&connection,1).unwrap(),AutoApprovalEligibility::Ineligible(reason) if reason.contains("compound")));
+        let connection = fixture();
+        insert_import(&connection, 1, "SPLIT", "PENDING");
+        insert_scan(&connection, 1, "MATCHED", Some(0.99), 2.0);
+        insert_import(&connection, 2, "BONUS", "PENDING");
+        assert!(
+            matches!(evaluate_auto_approval_r1(&connection,1).unwrap(),AutoApprovalEligibility::Ineligible(reason) if reason.contains("compound"))
+        );
     }
 
     fn expect_eligible(connection: &Connection, id: i64) -> AutoApprovalEvidence {
@@ -2472,85 +2768,145 @@ mod tests {
 
     #[test]
     fn auto_approval_r1_accepts_nse_split_with_exact_identity_and_strong_match() {
-        let connection=fixture(); insert_import(&connection,1,"SPLIT","PENDING"); insert_scan(&connection,1,"MATCHED",Some(0.95),2.0);
-        let evidence=expect_eligible(&connection,1);
-        assert_eq!(evidence.identity_proof,"EXACT_ACTIVE_CURRENT_IDENTITY");
-        assert_eq!(split_bonus_basis(&evidence).2,0.95);
+        let connection = fixture();
+        insert_import(&connection, 1, "SPLIT", "PENDING");
+        insert_scan(&connection, 1, "MATCHED", Some(0.95), 2.0);
+        let evidence = expect_eligible(&connection, 1);
+        assert_eq!(evidence.identity_proof, "EXACT_ACTIVE_CURRENT_IDENTITY");
+        assert_eq!(split_bonus_basis(&evidence).2, 0.95);
     }
 
     #[test]
     fn auto_approval_r1_accepts_bonus_with_strong_match() {
-        let connection=fixture(); insert_import(&connection,1,"BONUS","PENDING"); insert_scan(&connection,1,"MATCHED",Some(0.99),2.0);
-        expect_eligible(&connection,1);
+        let connection = fixture();
+        insert_import(&connection, 1, "BONUS", "PENDING");
+        insert_scan(&connection, 1, "MATCHED", Some(0.99), 2.0);
+        expect_eligible(&connection, 1);
     }
 
     #[test]
     fn auto_approval_r1_rejects_confidence_below_strong_match() {
-        let connection=fixture(); insert_import(&connection,1,"SPLIT","PENDING"); insert_scan(&connection,1,"MATCHED",Some(0.949999),2.0);
-        assert!(matches!(evaluate_auto_approval_r1(&connection,1).unwrap(),AutoApprovalEligibility::Ineligible(reason) if reason.contains("0.95")));
+        let connection = fixture();
+        insert_import(&connection, 1, "SPLIT", "PENDING");
+        insert_scan(&connection, 1, "MATCHED", Some(0.949999), 2.0);
+        assert!(
+            matches!(evaluate_auto_approval_r1(&connection,1).unwrap(),AutoApprovalEligibility::Ineligible(reason) if reason.contains("0.95"))
+        );
     }
 
     #[test]
     fn auto_approval_r1_rejects_review_no_price_and_missing_validation() {
-        for (id,status,confidence) in [(1,"REVIEW",Some(0.99)),(2,"NO_PRICE_DATA",Some(0.99))] {
-            let connection=fixture(); insert_import(&connection,id,"SPLIT","PENDING"); insert_scan(&connection,id,status,confidence,2.0);
-            assert!(matches!(evaluate_auto_approval_r1(&connection,id).unwrap(),AutoApprovalEligibility::Ineligible(_)));
+        for (id, status, confidence) in
+            [(1, "REVIEW", Some(0.99)), (2, "NO_PRICE_DATA", Some(0.99))]
+        {
+            let connection = fixture();
+            insert_import(&connection, id, "SPLIT", "PENDING");
+            insert_scan(&connection, id, status, confidence, 2.0);
+            assert!(matches!(
+                evaluate_auto_approval_r1(&connection, id).unwrap(),
+                AutoApprovalEligibility::Ineligible(_)
+            ));
         }
-        let connection=fixture(); insert_import(&connection,3,"SPLIT","PENDING");
-        assert!(matches!(evaluate_auto_approval_r1(&connection,3).unwrap(),AutoApprovalEligibility::Ineligible(reason) if reason.contains("validation")));
+        let connection = fixture();
+        insert_import(&connection, 3, "SPLIT", "PENDING");
+        assert!(
+            matches!(evaluate_auto_approval_r1(&connection,3).unwrap(),AutoApprovalEligibility::Ineligible(reason) if reason.contains("validation"))
+        );
     }
 
     #[test]
     fn auto_approval_r1_rejects_non_nse_non_split_bonus_and_pending_isin_mismatch() {
-        let connection=fixture(); insert_import(&connection,1,"DIVIDEND","PENDING");
-        assert!(matches!(evaluate_auto_approval_r1(&connection,1).unwrap(),AutoApprovalEligibility::Ineligible(_)));
+        let connection = fixture();
+        insert_import(&connection, 1, "DIVIDEND", "PENDING");
+        assert!(matches!(
+            evaluate_auto_approval_r1(&connection, 1).unwrap(),
+            AutoApprovalEligibility::Ineligible(_)
+        ));
         connection.execute("UPDATE corporate_action_imports SET action_type='SPLIT', exchange='BSE' WHERE id=1",[]).unwrap();
-        assert!(matches!(evaluate_auto_approval_r1(&connection,1).unwrap(),AutoApprovalEligibility::Ineligible(_)));
+        assert!(matches!(
+            evaluate_auto_approval_r1(&connection, 1).unwrap(),
+            AutoApprovalEligibility::Ineligible(_)
+        ));
         connection.execute("UPDATE corporate_action_imports SET exchange='NSE', review_status='PENDING_ISIN_MISMATCH' WHERE id=1",[]).unwrap();
-        assert!(matches!(evaluate_auto_approval_r1(&connection,1).unwrap(),AutoApprovalEligibility::Ineligible(_)));
+        assert!(matches!(
+            evaluate_auto_approval_r1(&connection, 1).unwrap(),
+            AutoApprovalEligibility::Ineligible(_)
+        ));
     }
 
     #[test]
     fn auto_approval_r1_rejects_manual_and_exception_provenance() {
         for decision_type in FORBIDDEN_DECISION_TYPES {
-            let connection=fixture(); insert_import(&connection,1,"SPLIT","PENDING"); insert_scan(&connection,1,"MATCHED",Some(0.99),2.0);
+            let connection = fixture();
+            insert_import(&connection, 1, "SPLIT", "PENDING");
+            insert_scan(&connection, 1, "MATCHED", Some(0.99), 2.0);
             connection.execute("INSERT INTO corporate_action_import_decisions(import_id,decision_type,reason) VALUES (1,?, 'fixture')",params![decision_type]).unwrap();
-            assert!(matches!(evaluate_auto_approval_r1(&connection,1).unwrap(),AutoApprovalEligibility::Ineligible(reason) if reason.contains("exceptional") || reason.contains("Manual")));
+            assert!(
+                matches!(evaluate_auto_approval_r1(&connection,1).unwrap(),AutoApprovalEligibility::Ineligible(reason) if reason.contains("exceptional") || reason.contains("Manual"))
+            );
         }
     }
 
     #[test]
     fn auto_approval_r1_accepts_whitelisted_machine_resolution_with_historical_isin() {
-        let connection=fixture(); insert_import(&connection,1,"SPLIT","PENDING"); insert_scan(&connection,1,"MATCHED",Some(0.99),2.0);
-        connection.execute("UPDATE corporate_action_imports SET isin='INEHIST01001' WHERE id=1",[]).unwrap();
+        let connection = fixture();
+        insert_import(&connection, 1, "SPLIT", "PENDING");
+        insert_scan(&connection, 1, "MATCHED", Some(0.99), 2.0);
+        connection
+            .execute(
+                "UPDATE corporate_action_imports SET isin='INEHIST01001' WHERE id=1",
+                [],
+            )
+            .unwrap();
         connection.execute("INSERT INTO instrument_isin_history(exchange,symbol,isin,effective_date,source) VALUES ('NSE','TEST','INEHIST01001','2026-08-14','fixture')",[]).unwrap();
         connection.execute("INSERT INTO corporate_action_import_decisions(import_id,decision_type,resolved_symbol,resolved_exchange,resolved_isin,reason) VALUES (1,'VERIFIED_QUICK_RESOLUTION','TEST','NSE','INEHIST01001','fixture')",[]).unwrap();
-        let evidence=expect_eligible(&connection,1);
-        assert_eq!(evidence.identity_proof,"VERIFIED_QUICK_RESOLUTION");
+        let evidence = expect_eligible(&connection, 1);
+        assert_eq!(evidence.identity_proof, "VERIFIED_QUICK_RESOLUTION");
     }
 
     #[test]
     fn auto_approval_r1_rejects_stale_machine_decision_when_current_proof_is_missing() {
-        let connection=fixture(); insert_import(&connection,1,"SPLIT","PENDING"); insert_scan(&connection,1,"MATCHED",Some(0.99),2.0);
-        connection.execute("UPDATE corporate_action_imports SET isin='INEHIST01001' WHERE id=1",[]).unwrap();
+        let connection = fixture();
+        insert_import(&connection, 1, "SPLIT", "PENDING");
+        insert_scan(&connection, 1, "MATCHED", Some(0.99), 2.0);
+        connection
+            .execute(
+                "UPDATE corporate_action_imports SET isin='INEHIST01001' WHERE id=1",
+                [],
+            )
+            .unwrap();
         connection.execute("INSERT INTO corporate_action_import_decisions(import_id,decision_type,resolved_symbol,resolved_exchange,resolved_isin,reason) VALUES (1,'VERIFIED_QUICK_RESOLUTION','TEST','NSE','INEHIST01001','fixture')",[]).unwrap();
-        assert!(matches!(evaluate_auto_approval_r1(&connection,1).unwrap(),AutoApprovalEligibility::Ineligible(reason) if reason.contains("machine-proven identity")));
+        assert!(
+            matches!(evaluate_auto_approval_r1(&connection,1).unwrap(),AutoApprovalEligibility::Ineligible(reason) if reason.contains("machine-proven identity"))
+        );
     }
 
     #[test]
     fn auto_approval_r1_rejects_same_date_split_bonus_compound_scope() {
-        let connection=fixture(); insert_import(&connection,1,"SPLIT","PENDING"); insert_scan(&connection,1,"MATCHED",Some(0.99),2.0);
-        insert_import(&connection,2,"BONUS","PENDING");
-        assert!(matches!(evaluate_auto_approval_r1(&connection,1).unwrap(),AutoApprovalEligibility::Ineligible(reason) if reason.contains("compound")));
+        let connection = fixture();
+        insert_import(&connection, 1, "SPLIT", "PENDING");
+        insert_scan(&connection, 1, "MATCHED", Some(0.99), 2.0);
+        insert_import(&connection, 2, "BONUS", "PENDING");
+        assert!(
+            matches!(evaluate_auto_approval_r1(&connection,1).unwrap(),AutoApprovalEligibility::Ineligible(reason) if reason.contains("compound"))
+        );
     }
 
     #[test]
     fn auto_approval_r1_rejects_stale_factor_fingerprint() {
-        let connection=fixture(); insert_import(&connection,1,"SPLIT","PENDING"); insert_scan(&connection,1,"MATCHED",Some(0.99),2.0);
-        connection.execute("UPDATE corporate_action_imports SET factor=3.0 WHERE id=1",[]).unwrap();
-        assert!(matches!(evaluate_auto_approval_r1(&connection,1).unwrap(),AutoApprovalEligibility::Ineligible(reason) if reason.contains("stale")));
+        let connection = fixture();
+        insert_import(&connection, 1, "SPLIT", "PENDING");
+        insert_scan(&connection, 1, "MATCHED", Some(0.99), 2.0);
+        connection
+            .execute(
+                "UPDATE corporate_action_imports SET factor=3.0 WHERE id=1",
+                [],
+            )
+            .unwrap();
+        assert!(
+            matches!(evaluate_auto_approval_r1(&connection,1).unwrap(),AutoApprovalEligibility::Ineligible(reason) if reason.contains("stale"))
+        );
     }
-
 
     fn r1b4_insert_event_evidence(
         connection: &Connection,
@@ -2671,22 +3027,41 @@ mod tests {
 
     #[test]
     fn auto_approval_r1_links_existing_and_records_safe_audit_without_touching_out_of_scope_row() {
-        let connection=fixture();
+        let connection = fixture();
         let folder = tempfile::tempdir().unwrap();
-        insert_import(&connection,1,"SPLIT","PENDING"); insert_scan(&connection,1,"MATCHED",Some(0.99),2.0);
-        insert_import(&connection,2,"SPLIT","PENDING"); insert_scan(&connection,2,"MATCHED",Some(0.99),2.0);
+        insert_import(&connection, 1, "SPLIT", "PENDING");
+        insert_scan(&connection, 1, "MATCHED", Some(0.99), 2.0);
+        insert_import(&connection, 2, "SPLIT", "PENDING");
+        insert_scan(&connection, 2, "MATCHED", Some(0.99), 2.0);
         connection.execute("UPDATE corporate_action_imports SET ex_date='2026-08-15', dedupe_key='row-2b' WHERE id=2",[]).unwrap();
         connection.execute("INSERT INTO corporate_actions(symbol,exchange,isin,effective_date,action_type,factor,ratio_num,ratio_den) VALUES ('TEST','NSE','INEAUTO01001','2026-08-14','SPLIT',2,2,1)",[]).unwrap();
         // Linking still requires actual local EOD bars, not only a stored scan.
         connection.execute("INSERT INTO eod_prices(symbol,exchange,date,open,high,low,close) VALUES('TEST','NSE','2026-08-13',100,100,100,100),('TEST','NSE','2026-08-14',50,50,50,50)",[]).unwrap();
         // The approval writer re-reads this window and requires the scan to have observed it.
         connection.execute("UPDATE corporate_action_scan_results SET prev_close=100, ex_open=50, ex_close=50 WHERE corporate_action_import_id=1",[]).unwrap();
-        let result=auto_approve_corporate_action_imports_in_connection(&connection,folder.path(),&CorporateActionAutoApprovalInput{import_ids:vec![1],expected_database_path:folder.path().to_string_lossy().to_string()}).unwrap();
-        assert_eq!(result.requested,1); assert_eq!(result.eligible,1); assert_eq!(result.linked_existing,1); assert_eq!(result.failed,0);
-        let row1=get_import_row(&connection,1).unwrap(); assert_eq!(row1.review_status,"APPROVED"); assert!(row1.approved_corporate_action_id.is_some());
-        let row2=get_import_row(&connection,2).unwrap(); assert_eq!(row2.review_status,"PENDING"); assert!(row2.approved_corporate_action_id.is_none());
+        let result = auto_approve_corporate_action_imports_in_connection(
+            &connection,
+            folder.path(),
+            &CorporateActionAutoApprovalInput {
+                import_ids: vec![1],
+                expected_database_path: folder.path().to_string_lossy().to_string(),
+            },
+        )
+        .unwrap();
+        assert_eq!(result.requested, 1);
+        assert_eq!(result.eligible, 1);
+        assert_eq!(result.linked_existing, 1);
+        assert_eq!(result.failed, 0);
+        let row1 = get_import_row(&connection, 1).unwrap();
+        assert_eq!(row1.review_status, "APPROVED");
+        assert!(row1.approved_corporate_action_id.is_some());
+        let row2 = get_import_row(&connection, 2).unwrap();
+        assert_eq!(row2.review_status, "PENDING");
+        assert!(row2.approved_corporate_action_id.is_none());
         let audit:(String,String)=connection.query_row("SELECT decision_type,reason FROM corporate_action_import_decisions WHERE import_id=1 ORDER BY id DESC LIMIT 1",[],|r|Ok((r.get(0)?,r.get(1)?))).unwrap();
-        assert_eq!(audit.0,AUTO_APPROVAL_POLICY_VERSION); assert!(audit.1.contains("confidence=0.990000")); assert!(audit.1.contains("canonicalCorporateActionId="));
+        assert_eq!(audit.0, AUTO_APPROVAL_POLICY_VERSION);
+        assert!(audit.1.contains("confidence=0.990000"));
+        assert!(audit.1.contains("canonicalCorporateActionId="));
     }
 
     #[test]
@@ -3118,7 +3493,9 @@ mod tests {
     #[test]
     fn dividend_policy_r1_requires_actual_post_ex_date_local_eod_close() {
         let connection = eligible_dividend_fixture();
-        connection.execute("DELETE FROM eod_prices WHERE date >= '2026-08-14'", []).unwrap();
+        connection
+            .execute("DELETE FROM eod_prices WHERE date >= '2026-08-14'", [])
+            .unwrap();
         assert!(matches!(
             evaluate_simple_cash_dividend_policy_r1(&connection, &dividend_policy_folder(), 1).unwrap(),
             SimpleCashDividendPolicyEligibility::Ineligible(reason) if reason.contains("ex-date")

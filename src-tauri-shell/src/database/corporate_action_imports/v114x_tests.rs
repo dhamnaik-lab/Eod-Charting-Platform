@@ -25,19 +25,21 @@ fn v114x_red_live_apply_path_is_registered_end_to_end() {
         missing.push("five_pair_consolidation_apply.rs does not exist".to_string());
     }
     if !corporate.contains("mod five_pair_consolidation_apply;") {
-        missing.push("corporate_action_imports.rs does not register the V1.14X Apply module".to_string());
+        missing.push(
+            "corporate_action_imports.rs does not register the V1.14X Apply module".to_string(),
+        );
     }
     if !corporate.contains(
         "five_pair_consolidation_apply::try_run_five_pair_consolidation_apply_maintenance",
     ) {
-        missing.push("corporate_action_imports.rs does not re-export the V1.14X Apply runner".to_string());
+        missing.push(
+            "corporate_action_imports.rs does not re-export the V1.14X Apply runner".to_string(),
+        );
     }
     if !database.contains("try_run_five_pair_consolidation_apply_maintenance") {
         missing.push("database.rs does not re-export the V1.14X Apply runner".to_string());
     }
-    if !main.contains(
-        "try_run_five_pair_consolidation_apply_maintenance(std::env::args())",
-    ) {
+    if !main.contains("try_run_five_pair_consolidation_apply_maintenance(std::env::args())") {
         missing.push("main.rs does not dispatch the V1.14X Apply runner".to_string());
     }
 
@@ -115,9 +117,8 @@ fn v114x_red_apply_requires_verified_backup_and_immediate_transaction() {
 fn v114x_red_apply_contract_names_exact_five_pairs_and_protected_state() {
     let apply_source_path = manifest_dir()
         .join("src/database/corporate_action_imports/five_pair_consolidation_apply.rs");
-    let common_source = read_source(
-        "src/database/corporate_action_imports/five_pair_consolidation.rs",
-    );
+    let common_source =
+        read_source("src/database/corporate_action_imports/five_pair_consolidation.rs");
     let apply_source = fs::read_to_string(&apply_source_path).unwrap_or_else(|_| {
         panic!(
             "V1.14X live Apply module is missing: {}",
@@ -127,12 +128,20 @@ fn v114x_red_apply_contract_names_exact_five_pairs_and_protected_state() {
 
     let combined = format!("{common_source}\n{apply_source}");
     for required in [
-        "42737", "1232",
-        "42779", "3799",
-        "42818", "6362",
-        "42855", "9005",
-        "42863", "9582",
-        "10947", "1736", "4670", "5353",
+        "42737",
+        "1232",
+        "42779",
+        "3799",
+        "42818",
+        "6362",
+        "42855",
+        "9005",
+        "42863",
+        "9582",
+        "10947",
+        "1736",
+        "4670",
+        "5353",
         "corporate_action_import_evidence",
         "DELETE FROM corporate_action_imports",
     ] {

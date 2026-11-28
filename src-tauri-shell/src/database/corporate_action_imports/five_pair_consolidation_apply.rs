@@ -7,7 +7,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 use super::five_pair_consolidation::{
-    expected_pre_state_lock, execute_consolidation_transaction_with_behavior, foreign_key_check,
+    execute_consolidation_transaction_with_behavior, expected_pre_state_lock, foreign_key_check,
     load_authority, load_manifest, post_state_fingerprint, quick_check, same_database_family,
     sha256_file, snapshot_database_family, verify_exact_live_family_before_open, LiveFamily,
     V114V_RELEVANT_STATE_FINGERPRINT, V114V_SCHEMA_FINGERPRINT,
@@ -162,18 +162,25 @@ fn verify_backup_artifact(
 ) -> AppResult<()> {
     let path = PathBuf::from(&artifact.path);
     if !path.is_file() {
-        return Err(format!("V1.14X {label} backup artifact missing: {}", path.display()));
+        return Err(format!(
+            "V1.14X {label} backup artifact missing: {}",
+            path.display()
+        ));
     }
     let canonical_backup_dir =
         fs::canonicalize(backup_directory).map_err(|error| error.to_string())?;
     let canonical_artifact = fs::canonicalize(&path).map_err(|error| error.to_string())?;
     if !canonical_artifact.starts_with(&canonical_backup_dir) {
-        return Err(format!("V1.14X {label} backup artifact is outside backup_directory."));
+        return Err(format!(
+            "V1.14X {label} backup artifact is outside backup_directory."
+        ));
     }
     if live_artifact.is_file() {
         let live_canonical = fs::canonicalize(live_artifact).map_err(|error| error.to_string())?;
         if canonical_artifact == live_canonical {
-            return Err(format!("V1.14X {label} backup artifact aliases the live database family."));
+            return Err(format!(
+                "V1.14X {label} backup artifact aliases the live database family."
+            ));
         }
     }
     if artifact.length != expected_length
@@ -204,7 +211,10 @@ fn validate_backup_manifest(
         return Err("V1.14X verified backup manifest is incomplete.".to_string());
     }
     if !same_database_family(&backup.source_database_family, expected_family) {
-        return Err("V1.14X backup source_database_family differs from the live preflight family.".to_string());
+        return Err(
+            "V1.14X backup source_database_family differs from the live preflight family."
+                .to_string(),
+        );
     }
 
     let backup_directory = PathBuf::from(&backup.backup_directory);
@@ -443,11 +453,7 @@ fn run_maintenance(input: MaintenanceInput) -> AppResult<i32> {
         &input.output_path.join("v1-14x-live-apply-result.json"),
         &result,
     ) {
-        write_committed_failure_marker(
-            &input.output_path,
-            "COMMITTED_REPORT_FAILURE",
-            &error,
-        );
+        write_committed_failure_marker(&input.output_path, "COMMITTED_REPORT_FAILURE", &error);
         eprintln!("COMMITTED_REPORT_FAILURE");
         eprintln!("V1.14X transaction committed; result report writing failed. Do not restore automatically.");
         eprintln!("Report error: {error}");
@@ -517,7 +523,9 @@ mod tests {
         let mut args = valid_args();
         let mode_index = args.iter().position(|value| value == "--mode").unwrap() + 1;
         args[mode_index] = "dry-run".to_string();
-        assert!(parse_maintenance_args(args).unwrap_err().contains("Only apply"));
+        assert!(parse_maintenance_args(args)
+            .unwrap_err()
+            .contains("Only apply"));
     }
 
     #[test]
@@ -540,11 +548,9 @@ mod tests {
             version: "V1.14W".to_string(),
             status: "PRIVATE_COPY_DRY_RUN_PASS_NO_LIVE_AUTHORIZATION".to_string(),
             v114u_plan_fingerprint:
-                "6D6F6B15FE86C7D31A333F8097D69E5AF970F0E7A3981E9930A59CB10DF53C95"
-                    .to_string(),
+                "6D6F6B15FE86C7D31A333F8097D69E5AF970F0E7A3981E9930A59CB10DF53C95".to_string(),
             v114v_manifest_fingerprint:
-                "40297583AC3B77F4C36C4689A9B13A5F56897D76A5F30FFE5E4C2DC12A3CB218"
-                    .to_string(),
+                "40297583AC3B77F4C36C4689A9B13A5F56897D76A5F30FFE5E4C2DC12A3CB218".to_string(),
             pre_state_relevant_fingerprint: V114X_EXPECTED_PRE_STATE_FINGERPRINT.to_string(),
             schema_fingerprint: V114X_EXPECTED_SCHEMA_FINGERPRINT.to_string(),
             post_state_fingerprint: V114W_EXPECTED_POST_STATE_FINGERPRINT.to_string(),

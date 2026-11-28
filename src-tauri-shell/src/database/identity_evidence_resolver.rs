@@ -346,9 +346,7 @@ fn is_positive_conclusion(conclusion: IdentityResolverConclusion) -> bool {
     )
 }
 
-fn rule_metadata(
-    rule_id: IdentityResolverRuleId,
-) -> Option<&'static IdentityResolverRuleMetadata> {
+fn rule_metadata(rule_id: IdentityResolverRuleId) -> Option<&'static IdentityResolverRuleMetadata> {
     IDENTITY_RESOLVER_RULE_MATRIX_V1
         .iter()
         .find(|metadata| metadata.rule_id == rule_id)
@@ -563,8 +561,7 @@ pub(crate) fn validate_resolver_result_contract(
                 .filter(|value| !value.is_empty()),
         ) {
             if !local_isin.eq_ignore_ascii_case(official_isin) {
-                if result.rule_id
-                    != IdentityResolverRuleId::IsinChangeRequiresExplicitContinuityV1
+                if result.rule_id != IdentityResolverRuleId::IsinChangeRequiresExplicitContinuityV1
                     || result.conclusion != IdentityResolverConclusion::IsinContinuity
                 {
                     return Err("ER2A_ISIN_CONTINUITY_RULE_REQUIRED".to_string());
@@ -722,11 +719,7 @@ fn transition_date_is_compatible(
     official: &IdentityResolverOfficialIdentity,
     evidence: &IdentityResolverEvidence,
 ) -> bool {
-    let Some(evidence_date) = evidence
-        .effective_date
-        .as_deref()
-        .and_then(parse_er2b_date)
-    else {
+    let Some(evidence_date) = evidence.effective_date.as_deref().and_then(parse_er2b_date) else {
         return false;
     };
 
@@ -793,12 +786,16 @@ fn evidence_binds_symbol(evidence: &IdentityResolverEvidence, symbol: &str) -> b
 
 fn evidence_semantic_key(evidence: &IdentityResolverEvidence) -> String {
     let authority = match evidence.authority_class {
-        IdentityResolverAuthorityClass::OfficialExchangeStructured => "OFFICIAL_EXCHANGE_STRUCTURED",
+        IdentityResolverAuthorityClass::OfficialExchangeStructured => {
+            "OFFICIAL_EXCHANGE_STRUCTURED"
+        }
         IdentityResolverAuthorityClass::OfficialRegulatorOrDepository => {
             "OFFICIAL_REGULATOR_OR_DEPOSITORY"
         }
         IdentityResolverAuthorityClass::OfficialIssuerFiling => "OFFICIAL_ISSUER_FILING",
-        IdentityResolverAuthorityClass::ExternalDiscoveryCandidate => "EXTERNAL_DISCOVERY_CANDIDATE",
+        IdentityResolverAuthorityClass::ExternalDiscoveryCandidate => {
+            "EXTERNAL_DISCOVERY_CANDIDATE"
+        }
     };
 
     let kind = match evidence.evidence_kind {
@@ -1006,10 +1003,7 @@ fn evaluate_rule_a(
                 .as_deref()
                 .map(normalize_code)
                 .is_some_and(|value| value == normalize_code(&official.symbol))
-            && evidence
-                .isin
-                .as_deref()
-                .map(normalize_code)
+            && evidence.isin.as_deref().map(normalize_code)
                 == normalize_optional_code(local.isin.as_deref())
             && transition_date_is_compatible(local, official, evidence)
     })
@@ -1064,10 +1058,7 @@ fn evaluate_rule_b(
                 .as_deref()
                 .map(normalize_code)
                 .is_some_and(|value| value == normalize_code(&official.symbol))
-            && evidence
-                .isin
-                .as_deref()
-                .map(normalize_code)
+            && evidence.isin.as_deref().map(normalize_code)
                 == normalize_optional_code(local.isin.as_deref())
             && evidence
                 .company_name
@@ -1196,8 +1187,7 @@ fn rule_d_continuity_pair<'a>(
     input: &'a IdentityResolverInput,
     official: &IdentityResolverOfficialIdentity,
 ) -> Option<(&'a IdentityResolverEvidence, &'a IdentityResolverEvidence)> {
-    let (local_isin, official_isin) =
-        nonempty_isin_pair(&input.local_identity, official)?;
+    let (local_isin, official_isin) = nonempty_isin_pair(&input.local_identity, official)?;
 
     if local_isin == official_isin {
         return None;
@@ -1232,8 +1222,7 @@ fn rule_d_continuity_pair<'a>(
                     if normalize_code(&input.local_identity.symbol)
                         != normalize_code(&official.symbol) =>
                 {
-                    normalize_code(old_symbol)
-                        == normalize_code(&input.local_identity.symbol)
+                    normalize_code(old_symbol) == normalize_code(&input.local_identity.symbol)
                         && normalize_code(new_symbol) == normalize_code(&official.symbol)
                 }
                 _ => true,
@@ -1262,8 +1251,7 @@ fn evaluate_rule_d(
     input: &IdentityResolverInput,
     official: &IdentityResolverOfficialIdentity,
 ) -> Option<IdentityResolverCandidate> {
-    let (local_isin, official_isin) =
-        nonempty_isin_pair(&input.local_identity, official)?;
+    let (local_isin, official_isin) = nonempty_isin_pair(&input.local_identity, official)?;
 
     if local_isin == official_isin {
         return None;
@@ -1317,11 +1305,7 @@ fn evaluate_rule_d(
         IdentityResolverStatus::Conflict,
         IdentityResolverConclusion::ConflictingIdentity,
         IdentityResolverPrecedenceClass::HardConflict,
-        ordered_evidence_ids(
-            current,
-            new_partial.into_iter(),
-            old_partial.into_iter(),
-        ),
+        ordered_evidence_ids(current, new_partial.into_iter(), old_partial.into_iter()),
         "Local and official ISINs differ and explicit authoritative continuity evidence is absent.",
     ))
 }
@@ -1436,10 +1420,7 @@ fn evaluate_rule_f(
 }
 
 fn evidence_date(evidence: &IdentityResolverEvidence) -> Option<Er2bDate> {
-    evidence
-        .effective_date
-        .as_deref()
-        .and_then(parse_er2b_date)
+    evidence.effective_date.as_deref().and_then(parse_er2b_date)
 }
 
 fn evaluate_rule_g(
@@ -1452,8 +1433,7 @@ fn evaluate_rule_g(
         return None;
     }
 
-    let (local_isin, official_isin) =
-        nonempty_isin_pair(&input.local_identity, official)?;
+    let (local_isin, official_isin) = nonempty_isin_pair(&input.local_identity, official)?;
 
     if local_isin == official_isin {
         return None;
@@ -1479,8 +1459,7 @@ fn evaluate_rule_g(
         authoritative_for_exchange(evidence, &official.exchange)
             && matches!(
                 evidence.evidence_kind,
-                IdentityResolverEvidenceKind::Listing
-                    | IdentityResolverEvidenceKind::CurrentMaster
+                IdentityResolverEvidenceKind::Listing | IdentityResolverEvidenceKind::CurrentMaster
             )
             && evidence
                 .isin
@@ -1681,14 +1660,21 @@ fn arbitrate_candidates(
             .filter_map(|candidate| hard_conflict_specificity(candidate.rule_id))
             .min()
         else {
-            return Err(IdentityResolverEvaluationError::AmbiguousDeterministicCandidates {
-                rule_ids: finalists.iter().map(|candidate| candidate.rule_id).collect(),
-            });
+            return Err(
+                IdentityResolverEvaluationError::AmbiguousDeterministicCandidates {
+                    rule_ids: finalists
+                        .iter()
+                        .map(|candidate| candidate.rule_id)
+                        .collect(),
+                },
+            );
         };
 
         let most_specific = finalists
             .into_iter()
-            .filter(|candidate| hard_conflict_specificity(candidate.rule_id) == Some(best_specificity))
+            .filter(|candidate| {
+                hard_conflict_specificity(candidate.rule_id) == Some(best_specificity)
+            })
             .collect::<Vec<_>>();
 
         if most_specific.len() == 1 {
@@ -1706,9 +1692,7 @@ fn arbitrate_candidates(
         rule_ids.sort_by_key(|rule_id| rule_id_sort_key(*rule_id));
         rule_ids.dedup();
 
-        return Err(IdentityResolverEvaluationError::AmbiguousDeterministicCandidates {
-            rule_ids,
-        });
+        return Err(IdentityResolverEvaluationError::AmbiguousDeterministicCandidates { rule_ids });
     }
 
     let mut rule_ids = finalists
@@ -1718,9 +1702,7 @@ fn arbitrate_candidates(
     rule_ids.sort_by_key(|rule_id| rule_id_sort_key(*rule_id));
     rule_ids.dedup();
 
-    Err(IdentityResolverEvaluationError::AmbiguousDeterministicCandidates {
-        rule_ids,
-    })
+    Err(IdentityResolverEvaluationError::AmbiguousDeterministicCandidates { rule_ids })
 }
 
 fn rule_i_candidate(
@@ -1842,7 +1824,6 @@ pub(crate) fn resolve_identity(
     Err(IdentityResolverEvaluationError::NoMismatchToResolve)
 }
 
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1959,10 +1940,7 @@ mod tests {
                 IdentityResolverConclusion::SymbolChange,
                 r#""SYMBOL_CHANGE""#,
             ),
-            (
-                IdentityResolverConclusion::NameChange,
-                r#""NAME_CHANGE""#,
-            ),
+            (IdentityResolverConclusion::NameChange, r#""NAME_CHANGE""#),
             (
                 IdentityResolverConclusion::SymbolAndNameChange,
                 r#""SYMBOL_AND_NAME_CHANGE""#,
@@ -2023,7 +2001,10 @@ mod tests {
         }
 
         let evidence_kinds = [
-            (IdentityResolverEvidenceKind::CurrentMaster, "CURRENT_MASTER"),
+            (
+                IdentityResolverEvidenceKind::CurrentMaster,
+                "CURRENT_MASTER",
+            ),
             (IdentityResolverEvidenceKind::SymbolChange, "SYMBOL_CHANGE"),
             (IdentityResolverEvidenceKind::NameChange, "NAME_CHANGE"),
             (IdentityResolverEvidenceKind::IsinChange, "ISIN_CHANGE"),
@@ -2038,7 +2019,10 @@ mod tests {
                 IdentityResolverEvidenceKind::HistoricalIdentity,
                 "HISTORICAL_IDENTITY",
             ),
-            (IdentityResolverEvidenceKind::OtherOfficial, "OTHER_OFFICIAL"),
+            (
+                IdentityResolverEvidenceKind::OtherOfficial,
+                "OTHER_OFFICIAL",
+            ),
         ];
         for (value, expected) in evidence_kinds {
             assert_eq!(
@@ -2049,7 +2033,10 @@ mod tests {
 
         let source_states = [
             (IdentityResolverSourceAvailability::Available, "AVAILABLE"),
-            (IdentityResolverSourceAvailability::Unavailable, "UNAVAILABLE"),
+            (
+                IdentityResolverSourceAvailability::Unavailable,
+                "UNAVAILABLE",
+            ),
             (
                 IdentityResolverSourceAvailability::UntrustedOrInvalid,
                 "UNTRUSTED_OR_INVALID",
@@ -2115,7 +2102,10 @@ mod tests {
             rule_a.precedence,
             IdentityResolverPrecedenceClass::OrdinaryConfirmation
         );
-        assert_eq!(rule_a.permitted_statuses, &[IdentityResolverStatus::Confirmed]);
+        assert_eq!(
+            rule_a.permitted_statuses,
+            &[IdentityResolverStatus::Confirmed]
+        );
         assert_eq!(
             rule_a.permitted_conclusions,
             &[IdentityResolverConclusion::SymbolChange]
@@ -2138,7 +2128,10 @@ mod tests {
             rule_b.precedence,
             IdentityResolverPrecedenceClass::OrdinaryConfirmation
         );
-        assert_eq!(rule_b.permitted_statuses, &[IdentityResolverStatus::Confirmed]);
+        assert_eq!(
+            rule_b.permitted_statuses,
+            &[IdentityResolverStatus::Confirmed]
+        );
         assert_eq!(
             rule_b.permitted_conclusions,
             &[IdentityResolverConclusion::NameChange]
@@ -2161,7 +2154,10 @@ mod tests {
             rule_c.precedence,
             IdentityResolverPrecedenceClass::OrdinaryConfirmation
         );
-        assert_eq!(rule_c.permitted_statuses, &[IdentityResolverStatus::Confirmed]);
+        assert_eq!(
+            rule_c.permitted_statuses,
+            &[IdentityResolverStatus::Confirmed]
+        );
         assert_eq!(
             rule_c.permitted_conclusions,
             &[IdentityResolverConclusion::SymbolAndNameChange]
@@ -2228,7 +2224,10 @@ mod tests {
             let rule = &IDENTITY_RESOLVER_RULE_MATRIX_V1[4 + offset];
             assert_eq!(rule.family, family);
             assert_eq!(rule.rule_id, rule_id);
-            assert_eq!(rule.precedence, IdentityResolverPrecedenceClass::HardConflict);
+            assert_eq!(
+                rule.precedence,
+                IdentityResolverPrecedenceClass::HardConflict
+            );
             assert_eq!(rule.permitted_statuses, &[IdentityResolverStatus::Conflict]);
             assert_eq!(
                 rule.permitted_conclusions,
@@ -2247,7 +2246,10 @@ mod tests {
             rule_h.precedence,
             IdentityResolverPrecedenceClass::OrdinaryConfirmation
         );
-        assert_eq!(rule_h.permitted_statuses, &[IdentityResolverStatus::Confirmed]);
+        assert_eq!(
+            rule_h.permitted_statuses,
+            &[IdentityResolverStatus::Confirmed]
+        );
         assert_eq!(
             rule_h.permitted_conclusions,
             &[IdentityResolverConclusion::SameSecurityNoIdentitySplit]
@@ -2361,10 +2363,8 @@ mod tests {
 
     #[test]
     fn er2a_rule_d_is_explicit_high_risk_and_never_ordinary_continuity() {
-        let rule_d = rule_metadata(
-            IdentityResolverRuleId::IsinChangeRequiresExplicitContinuityV1,
-        )
-        .unwrap();
+        let rule_d =
+            rule_metadata(IdentityResolverRuleId::IsinChangeRequiresExplicitContinuityV1).unwrap();
 
         assert_eq!(rule_d.family, IdentityResolverRuleFamily::D);
         assert_eq!(
@@ -2445,8 +2445,7 @@ mod tests {
         let mut input = valid_input();
         input.official_identity = None;
         for evidence in &mut input.evidence {
-            evidence.authority_class =
-                IdentityResolverAuthorityClass::ExternalDiscoveryCandidate;
+            evidence.authority_class = IdentityResolverAuthorityClass::ExternalDiscoveryCandidate;
             evidence.source_id.clear();
             evidence.source_reference.clear();
             evidence.content_sha256.clear();
@@ -2593,11 +2592,14 @@ mod tests {
             "databaseMutation",
             "sourceReplacement",
         ] {
-            assert!(json.get(forbidden).is_none(), "forbidden field: {forbidden}");
+            assert!(
+                json.get(forbidden).is_none(),
+                "forbidden field: {forbidden}"
+            );
         }
     }
 
-fn er2b_equivalent_input() -> IdentityResolverInput {
+    fn er2b_equivalent_input() -> IdentityResolverInput {
         let mut input = valid_input();
         let official = input.official_identity.as_ref().unwrap().clone();
         input.local_identity.symbol = official.symbol.clone();
@@ -2658,13 +2660,15 @@ fn er2b_equivalent_input() -> IdentityResolverInput {
             current.isin = Some("INENEW000002".to_string());
         }
 
-        input
-            .evidence
-            .retain(|evidence| evidence.evidence_kind != IdentityResolverEvidenceKind::SymbolChange);
+        input.evidence.retain(|evidence| {
+            evidence.evidence_kind != IdentityResolverEvidenceKind::SymbolChange
+        });
 
         if with_bridge {
-            let mut old_side =
-                official_evidence("ev-old-isin", IdentityResolverEvidenceKind::HistoricalIdentity);
+            let mut old_side = official_evidence(
+                "ev-old-isin",
+                IdentityResolverEvidenceKind::HistoricalIdentity,
+            );
             old_side.source_id = "NSE_ISIN_CHANGE_NOTICE".to_string();
             old_side.source_reference = "notice:isin-transition-1".to_string();
             old_side.content_sha256 = content_sha('D');
@@ -2693,15 +2697,19 @@ fn er2b_equivalent_input() -> IdentityResolverInput {
     }
 
     fn er2b_rule_h_input(local_series: &str, official_series: &str) -> IdentityResolverInput {
-        let mut current =
-            official_evidence(CURRENT_MASTER_ID, IdentityResolverEvidenceKind::CurrentMaster);
+        let mut current = official_evidence(
+            CURRENT_MASTER_ID,
+            IdentityResolverEvidenceKind::CurrentMaster,
+        );
         current.symbol = Some("ABC".to_string());
         current.series = Some(official_series.to_string());
         current.isin = Some("INE000A01001".to_string());
         current.company_name = Some("ABC Limited".to_string());
 
-        let mut series_change =
-            official_evidence("ev-series-change", IdentityResolverEvidenceKind::SeriesChange);
+        let mut series_change = official_evidence(
+            "ev-series-change",
+            IdentityResolverEvidenceKind::SeriesChange,
+        );
         series_change.symbol = Some("ABC".to_string());
         series_change.series = Some(official_series.to_string());
         series_change.isin = Some("INE000A01001".to_string());
@@ -2735,9 +2743,7 @@ fn er2b_equivalent_input() -> IdentityResolverInput {
         }
     }
 
-    fn er2b_conflict_candidate(
-        rule_id: IdentityResolverRuleId,
-    ) -> IdentityResolverCandidate {
+    fn er2b_conflict_candidate(rule_id: IdentityResolverRuleId) -> IdentityResolverCandidate {
         candidate(
             rule_id,
             IdentityResolverStatus::Conflict,
@@ -2854,11 +2860,7 @@ fn er2b_equivalent_input() -> IdentityResolverInput {
             .unwrap()
             .old_symbol = Some("OTHER".to_string());
 
-        assert!(evaluate_rule_a(
-            &input,
-            input.official_identity.as_ref().unwrap()
-        )
-        .is_none());
+        assert!(evaluate_rule_a(&input, input.official_identity.as_ref().unwrap()).is_none());
     }
 
     #[test]
@@ -2881,11 +2883,7 @@ fn er2b_equivalent_input() -> IdentityResolverInput {
             .evidence
             .retain(|evidence| evidence.evidence_kind != IdentityResolverEvidenceKind::NameChange);
 
-        assert!(evaluate_rule_b(
-            &input,
-            input.official_identity.as_ref().unwrap()
-        )
-        .is_none());
+        assert!(evaluate_rule_b(&input, input.official_identity.as_ref().unwrap()).is_none());
 
         let result = resolve_identity(&input).unwrap();
         assert_eq!(result.status, IdentityResolverStatus::InsufficientEvidence);
@@ -2918,11 +2916,7 @@ fn er2b_equivalent_input() -> IdentityResolverInput {
             .evidence
             .retain(|evidence| evidence.evidence_kind != IdentityResolverEvidenceKind::NameChange);
 
-        assert!(evaluate_rule_c(
-            &input,
-            input.official_identity.as_ref().unwrap()
-        )
-        .is_none());
+        assert!(evaluate_rule_c(&input, input.official_identity.as_ref().unwrap()).is_none());
         let result = resolve_identity(&input).unwrap();
         assert_eq!(result.status, IdentityResolverStatus::InsufficientEvidence);
     }
@@ -2933,7 +2927,10 @@ fn er2b_equivalent_input() -> IdentityResolverInput {
         let result = resolve_identity(&input).unwrap();
 
         assert_eq!(result.status, IdentityResolverStatus::Confirmed);
-        assert_eq!(result.conclusion, IdentityResolverConclusion::IsinContinuity);
+        assert_eq!(
+            result.conclusion,
+            IdentityResolverConclusion::IsinContinuity
+        );
         assert_eq!(
             result.rule_id,
             IdentityResolverRuleId::IsinChangeRequiresExplicitContinuityV1
@@ -2985,8 +2982,10 @@ fn er2b_equivalent_input() -> IdentityResolverInput {
     #[test]
     fn er2b_rule_e_detects_same_isin_on_two_distinct_current_symbols() {
         let mut input = valid_input();
-        let mut duplicate =
-            official_evidence("ev-current-xyz", IdentityResolverEvidenceKind::CurrentMaster);
+        let mut duplicate = official_evidence(
+            "ev-current-xyz",
+            IdentityResolverEvidenceKind::CurrentMaster,
+        );
         duplicate.symbol = Some("XYZ".to_string());
         duplicate.content_sha256 = content_sha('E');
         input.evidence.push(duplicate);
@@ -3010,11 +3009,7 @@ fn er2b_equivalent_input() -> IdentityResolverInput {
         another_series.content_sha256 = content_sha('J');
         input.evidence.push(another_series);
 
-        assert!(evaluate_rule_e(
-            &input,
-            input.official_identity.as_ref().unwrap()
-        )
-        .is_none());
+        assert!(evaluate_rule_e(&input, input.official_identity.as_ref().unwrap()).is_none());
     }
 
     #[test]
@@ -3040,8 +3035,7 @@ fn er2b_equivalent_input() -> IdentityResolverInput {
     fn er2b_rule_g_proven_recycled_symbol_outranks_f_and_d() {
         let mut input = er2b_rule_h_input("EQ", "EQ");
         input.local_identity.isin = Some("INEOLD000001".to_string());
-        input.official_identity.as_mut().unwrap().isin =
-            Some("INENEW000002".to_string());
+        input.official_identity.as_mut().unwrap().isin = Some("INENEW000002".to_string());
         input.evidence[0].isin = Some("INENEW000002".to_string());
         input.evidence.retain(|evidence| {
             evidence.evidence_kind == IdentityResolverEvidenceKind::CurrentMaster
@@ -3068,26 +3062,23 @@ fn er2b_equivalent_input() -> IdentityResolverInput {
     fn er2b_rule_g_requires_strict_old_end_before_new_start() {
         let mut input = er2b_rule_h_input("EQ", "EQ");
         input.local_identity.isin = Some("INEOLD000001".to_string());
-        input.official_identity.as_mut().unwrap().isin =
-            Some("INENEW000002".to_string());
+        input.official_identity.as_mut().unwrap().isin = Some("INENEW000002".to_string());
         input.evidence[0].isin = Some("INENEW000002".to_string());
         input.evidence.retain(|evidence| {
             evidence.evidence_kind == IdentityResolverEvidenceKind::CurrentMaster
         });
         input.evidence[0].effective_date = Some("2025-01-01".to_string());
 
-        let mut old_side =
-            official_evidence("ev-old-history", IdentityResolverEvidenceKind::HistoricalIdentity);
+        let mut old_side = official_evidence(
+            "ev-old-history",
+            IdentityResolverEvidenceKind::HistoricalIdentity,
+        );
         old_side.symbol = Some("ABC".to_string());
         old_side.isin = Some("INEOLD000001".to_string());
         old_side.effective_date = Some("2025-01-01".to_string());
         input.evidence.push(old_side);
 
-        assert!(evaluate_rule_g(
-            &input,
-            input.official_identity.as_ref().unwrap()
-        )
-        .is_none());
+        assert!(evaluate_rule_g(&input, input.official_identity.as_ref().unwrap()).is_none());
 
         let result = resolve_identity(&input).unwrap();
         assert_eq!(
@@ -3166,9 +3157,9 @@ fn er2b_equivalent_input() -> IdentityResolverInput {
     #[test]
     fn er2b_rule_i_is_only_used_for_real_unresolved_mismatch() {
         let mut input = valid_input();
-        input
-            .evidence
-            .retain(|evidence| evidence.evidence_kind != IdentityResolverEvidenceKind::SymbolChange);
+        input.evidence.retain(|evidence| {
+            evidence.evidence_kind != IdentityResolverEvidenceKind::SymbolChange
+        });
 
         let result = resolve_identity(&input).unwrap();
 
@@ -3183,9 +3174,7 @@ fn er2b_equivalent_input() -> IdentityResolverInput {
     #[test]
     fn er2b_arbitration_prefers_g_over_generic_d_conflict() {
         let result = arbitrate_candidates(vec![
-            er2b_conflict_candidate(
-                IdentityResolverRuleId::IsinChangeRequiresExplicitContinuityV1,
-            ),
+            er2b_conflict_candidate(IdentityResolverRuleId::IsinChangeRequiresExplicitContinuityV1),
             er2b_conflict_candidate(
                 IdentityResolverRuleId::RecycledSymbolRequiresIdentityHistoryV1,
             ),
@@ -3205,9 +3194,7 @@ fn er2b_equivalent_input() -> IdentityResolverInput {
             er2b_conflict_candidate(
                 IdentityResolverRuleId::RecycledSymbolRequiresIdentityHistoryV1,
             ),
-            er2b_conflict_candidate(
-                IdentityResolverRuleId::ActiveDuplicateIsinConflictV1,
-            ),
+            er2b_conflict_candidate(IdentityResolverRuleId::ActiveDuplicateIsinConflictV1),
         ])
         .unwrap()
         .unwrap();
@@ -3239,9 +3226,7 @@ fn er2b_equivalent_input() -> IdentityResolverInput {
 
         assert!(matches!(
             arbitrate_candidates(vec![h, a]),
-            Err(IdentityResolverEvaluationError::AmbiguousDeterministicCandidates {
-                ..
-            })
+            Err(IdentityResolverEvaluationError::AmbiguousDeterministicCandidates { .. })
         ));
     }
 
@@ -3264,15 +3249,16 @@ fn er2b_equivalent_input() -> IdentityResolverInput {
             "same",
         );
 
-        let result = arbitrate_candidates(vec![first, second])
-            .unwrap()
-            .unwrap();
+        let result = arbitrate_candidates(vec![first, second]).unwrap().unwrap();
 
         assert_eq!(
             result.rule_id,
             IdentityResolverRuleId::SeriesChangeNotNewSecurityByDefaultV1
         );
-        assert_eq!(result.evidence_ids, vec!["ev-z".to_string(), "ev-a".to_string()]);
+        assert_eq!(
+            result.evidence_ids,
+            vec!["ev-z".to_string(), "ev-a".to_string()]
+        );
     }
 
     #[test]
@@ -3408,8 +3394,7 @@ fn er2b_equivalent_input() -> IdentityResolverInput {
         ));
     }
 
-
-#[test]
+    #[test]
     fn er2b_rule_d_rejects_bridge_from_different_source_reference() {
         let mut input = er2b_rule_d_input(true);
         input
@@ -3430,34 +3415,30 @@ fn er2b_equivalent_input() -> IdentityResolverInput {
     #[test]
     fn er2b_rule_e_ignores_cross_exchange_current_master_rows() {
         let mut input = er2b_rule_h_input("BE", "EQ");
-        let mut bse =
-            official_evidence("ev-bse-current", IdentityResolverEvidenceKind::CurrentMaster);
+        let mut bse = official_evidence(
+            "ev-bse-current",
+            IdentityResolverEvidenceKind::CurrentMaster,
+        );
         bse.exchange = "BSE".to_string();
         bse.symbol = Some("XYZ".to_string());
         bse.isin = Some("INE000A01001".to_string());
         input.evidence.push(bse);
 
-        assert!(evaluate_rule_e(
-            &input,
-            input.official_identity.as_ref().unwrap()
-        )
-        .is_none());
+        assert!(evaluate_rule_e(&input, input.official_identity.as_ref().unwrap()).is_none());
     }
 
     #[test]
     fn er2b_rule_f_ignores_unrelated_delisting_evidence() {
         let mut input = er2b_rule_d_input(false);
-        let mut delisting =
-            official_evidence("ev-unrelated-delisting", IdentityResolverEvidenceKind::Delisting);
+        let mut delisting = official_evidence(
+            "ev-unrelated-delisting",
+            IdentityResolverEvidenceKind::Delisting,
+        );
         delisting.symbol = Some("UNRELATED".to_string());
         delisting.isin = Some("INEUNRELATED1".to_string());
         input.evidence.push(delisting);
 
-        assert!(evaluate_rule_f(
-            &input,
-            input.official_identity.as_ref().unwrap()
-        )
-        .is_none());
+        assert!(evaluate_rule_f(&input, input.official_identity.as_ref().unwrap()).is_none());
 
         let result = resolve_identity(&input).unwrap();
         assert_eq!(
@@ -3479,9 +3460,8 @@ fn er2b_equivalent_input() -> IdentityResolverInput {
 
     #[test]
     fn er2b_hard_conflict_outranks_rule_h_confirmation_candidate() {
-        let d = er2b_conflict_candidate(
-            IdentityResolverRuleId::IsinChangeRequiresExplicitContinuityV1,
-        );
+        let d =
+            er2b_conflict_candidate(IdentityResolverRuleId::IsinChangeRequiresExplicitContinuityV1);
         let h = candidate(
             IdentityResolverRuleId::SeriesChangeNotNewSecurityByDefaultV1,
             IdentityResolverStatus::Confirmed,

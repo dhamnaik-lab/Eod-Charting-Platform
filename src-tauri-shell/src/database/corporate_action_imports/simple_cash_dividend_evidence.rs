@@ -6,9 +6,9 @@
 //! are separate and remain mandatory before any write.
 
 use super::{
-    compound_action_primary_type, contains_inclusive_dividend_total,
-    looks_like_unit_distribution, normalize_text, normalized_dividend_marker_count,
-    normalized_token_position, parse_corporate_action_purpose, positive_number,
+    compound_action_primary_type, contains_inclusive_dividend_total, looks_like_unit_distribution,
+    normalize_text, normalized_dividend_marker_count, normalized_token_position,
+    parse_corporate_action_purpose, positive_number,
 };
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -45,8 +45,12 @@ impl SimpleCashDividendReason {
             UnitOrMixedDistribution => "Per-unit or mixed cash/noncash distribution",
             InclusiveOrSpecialDividend => "Special or inclusive multi-component dividend",
             MultipleDividendComponents => "Multiple ordinary dividend components",
-            NotSimpleExplicitPerShareCash => "Unrecognized or qualified single-cash per-share wording",
-            ExistingParserDidNotConfirm => "Stored official parser did not confirm a positive single cash amount",
+            NotSimpleExplicitPerShareCash => {
+                "Unrecognized or qualified single-cash per-share wording"
+            }
+            ExistingParserDidNotConfirm => {
+                "Stored official parser did not confirm a positive single cash amount"
+            }
             MissingStoredCashAmount => "Stored dividend cash amount is absent",
             InvalidStoredCashAmount => "Stored dividend cash amount is invalid",
             StoredCashAmountMismatch => "Parsed and stored cash amounts disagree",
@@ -78,9 +82,15 @@ pub(crate) fn classify_simple_cash_dividend_evidence(
     // when they appear alongside a per-share dividend rather than a per-unit one.
     if looks_like_unit_distribution(&normalized)
         || normalized.contains("PER UNIT")
-        || ["DISTRIBUTION", "DISTRITBUTION", "INTEREST", "PRINCIPAL", "REPAYMENT"]
-            .iter()
-            .any(|marker| normalized_token_position(&normalized, marker).is_some())
+        || [
+            "DISTRIBUTION",
+            "DISTRITBUTION",
+            "INTEREST",
+            "PRINCIPAL",
+            "REPAYMENT",
+        ]
+        .iter()
+        .any(|marker| normalized_token_position(&normalized, marker).is_some())
         || normalized.contains("OTHER INCOME")
         || normalized.contains("RETURN OF CAPITAL")
         || normalized.contains("RETURN ON CAPITAL")
@@ -200,21 +210,26 @@ fn has_simple_per_share_cash_form(purpose_raw: &str) -> bool {
         " PER SH",
     ]
     .iter()
-    .find_map(|suffix| cash_description.strip_suffix(*suffix))
-    else {
+    .find_map(|suffix| cash_description.strip_suffix(*suffix)) else {
         return false;
     };
     let without_ordinal = [
-        "1ST ", "2ND ", "3RD ", "4TH ", "5TH ",
-        "FIRST ", "SECOND ", "THIRD ", "FOURTH ",
+        "1ST ", "2ND ", "3RD ", "4TH ", "5TH ", "FIRST ", "SECOND ", "THIRD ", "FOURTH ",
     ]
     .iter()
     .find_map(|ord| without_suffix.strip_prefix(*ord))
     .map(str::trim_start)
     .unwrap_or(without_suffix);
     let Some(remainder) = [
-        "INTERIM DIVIDEND", "INTERIM DIV", "INT DIVIDEND", "INT DIV", "INTDIVIDEND",
-        "FINAL DIVIDEND", "FINAL DIV", "DIVIDEND", "DIV",
+        "INTERIM DIVIDEND",
+        "INTERIM DIV",
+        "INT DIVIDEND",
+        "INT DIV",
+        "INTDIVIDEND",
+        "FINAL DIVIDEND",
+        "FINAL DIV",
+        "DIVIDEND",
+        "DIV",
     ]
     .iter()
     .find_map(|prefix| {
@@ -230,7 +245,10 @@ fn has_simple_per_share_cash_form(purpose_raw: &str) -> bool {
         .or_else(|| remainder.strip_prefix(':'))
         .unwrap_or(remainder)
         .trim_start();
-    let remainder = remainder.strip_prefix("OF ").map(str::trim_start).unwrap_or(remainder);
+    let remainder = remainder
+        .strip_prefix("OF ")
+        .map(str::trim_start)
+        .unwrap_or(remainder);
     let Some(number) = ["RS.", "RS", "RE.", "RE", "INR", "₹"]
         .iter()
         .find_map(|marker| remainder.strip_prefix(*marker))

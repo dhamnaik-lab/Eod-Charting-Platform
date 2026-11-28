@@ -41,24 +41,37 @@ impl Scope {
             "{BSE_ACTIONS_API_URL}?scripcode=&Fdate={}&Purposecode=&TDate={}&ddlcategorys=E&ddlindustrys=&segment=0&strSearch=S",
             format_bse_api_date(&from)?, format_bse_api_date(&to)?
         );
-        Ok(Self { from, to, url, identity_master: false })
+        Ok(Self {
+            from,
+            to,
+            url,
+            identity_master: false,
+        })
     }
 
     // A single fixed official endpoint, not a generic browser fetch capability.
     pub(super) fn identity_master() -> Self {
         Self {
-            from: "identity".into(), to: "active".into(),
-            url: format!("{}Active", crate::database::official_source_urls::DEFAULT_BSE_LIST_SCRIPS_URL_PREFIX),
+            from: "identity".into(),
+            to: "active".into(),
+            url: format!(
+                "{}Active",
+                crate::database::official_source_urls::DEFAULT_BSE_LIST_SCRIPS_URL_PREFIX
+            ),
             identity_master: true,
         }
     }
 
-    pub(super) fn is_identity_master(&self) -> bool { self.identity_master }
+    pub(super) fn is_identity_master(&self) -> bool {
+        self.identity_master
+    }
 
     fn page_url(&self) -> &'static str {
         if self.identity_master {
             BSE_IDENTITY_PAGE_URL
-        } else { BSE_ACTIONS_PAGE_URL }
+        } else {
+            BSE_ACTIONS_PAGE_URL
+        }
     }
 
     fn matches(&self, raw: &str) -> bool {
@@ -104,8 +117,14 @@ impl Scope {
             return Err("BSE browser response exceeded the byte limit.".into());
         }
         if self.identity_master {
-            let count = crate::database::bse_identity_imports::validate_bse_master_bytes_for_health(bytes, "BSE official active identity master")?;
-            crate::database::bse_identity_imports::validate_bse_active_population_for_health(count)?;
+            let count =
+                crate::database::bse_identity_imports::validate_bse_master_bytes_for_health(
+                    bytes,
+                    "BSE official active identity master",
+                )?;
+            crate::database::bse_identity_imports::validate_bse_active_population_for_health(
+                count,
+            )?;
             return Ok(count);
         }
         let value: Value =
@@ -496,22 +515,28 @@ mod native {
         assert!(scope.matches(&scope.url));
         assert!(scope.permits_resource(scope.page_url()));
         assert!(!scope.permits_resource(BSE_ACTIONS_PAGE_URL));
-        assert!(!scope.permits_resource(crate::database::official_source_urls::DEFAULT_BSE_LIST_SCRIPS_REFERER));
-        for bad in [scope.url.replace("status=Active", "status=Delisted"),
+        assert!(!scope.permits_resource(
+            crate::database::official_source_urls::DEFAULT_BSE_LIST_SCRIPS_REFERER
+        ));
+        for bad in [
+            scope.url.replace("status=Active", "status=Delisted"),
             scope.url.replace("segment=Equity", "segment=Debt"),
-            format!("{}&status=Active",scope.url),
+            format!("{}&status=Active", scope.url),
             scope.url.replace("https://", "http://"),
-            scope.url.replace("api.bseindia.com", "example.com")] {
+            scope.url.replace("api.bseindia.com", "example.com"),
+        ] {
             assert!(!scope.permits_resource(&bad));
         }
-        assert!(!scope.permits_resource(&Scope::new("2026-10-23","2026-10-23").unwrap().url));
-        assert!(scope.validate(403,b"Access denied").is_err());
-        assert!(scope.validate(200,b"<html>Access denied</html>").is_err());
-        assert!(scope.validate(200,b"[]").is_err());
+        assert!(!scope.permits_resource(&Scope::new("2026-10-23", "2026-10-23").unwrap().url));
+        assert!(scope.validate(403, b"Access denied").is_err());
+        assert!(scope.validate(200, b"<html>Access denied</html>").is_err());
+        assert!(scope.validate(200, b"[]").is_err());
         assert!(scope.validate(200,b"Security Code,Security Id,Security Name,Group,ISIN\n544131,GPTHEALTH,GPT Healthcare Ltd,A,INE486R01017\n").is_err());
         let mut valid = String::from("Security Code,Security Id,Security Name,Group,ISIN\n");
-        for n in 0..1000 { valid.push_str(&format!("{},TEST{n},Test {n},A,INE000A01001\n",500000+n)); }
-        assert_eq!(scope.validate(200,valid.as_bytes()).unwrap(),1000);
+        for n in 0..1000 {
+            valid.push_str(&format!("{},TEST{n},Test {n},A,INE000A01001\n", 500000 + n));
+        }
+        assert_eq!(scope.validate(200, valid.as_bytes()).unwrap(), 1000);
     }
 
     #[test]

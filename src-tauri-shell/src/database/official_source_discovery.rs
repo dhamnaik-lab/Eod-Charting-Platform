@@ -214,11 +214,7 @@ pub(crate) fn discover_nse_official_source_candidates(
         }
 
         if resolved_url == configured_canonical {
-            insert_rejection(
-                &mut rejections,
-                raw_href,
-                "CONFIGURED_URL_UNCHANGED",
-            );
+            insert_rejection(&mut rejections, raw_href, "CONFIGURED_URL_UNCHANGED");
             continue;
         }
 
@@ -274,10 +270,7 @@ pub(crate) fn discover_nse_official_source_candidates(
         .into_iter()
         .map(|item| item.candidate)
         .collect();
-    let rejected_candidates = rejections
-        .into_values()
-        .take(ER3A_MAX_REJECTIONS)
-        .collect();
+    let rejected_candidates = rejections.into_values().take(ER3A_MAX_REJECTIONS).collect();
 
     Ok(NseOfficialSourceDiscoveryReport {
         source_id: request.source_id.to_string(),
@@ -295,10 +288,12 @@ fn insert_rejection(
     reason: &str,
 ) {
     let key = (raw_href.clone(), reason.to_string());
-    rejections.entry(key).or_insert_with(|| NseOfficialSourceDiscoveryRejection {
-        raw_href,
-        reason: reason.to_string(),
-    });
+    rejections
+        .entry(key)
+        .or_insert_with(|| NseOfficialSourceDiscoveryRejection {
+            raw_href,
+            reason: reason.to_string(),
+        });
 }
 
 fn url_filename(url: &Url) -> String {
@@ -480,10 +475,13 @@ mod tests {
         .unwrap();
 
         assert!(report.candidates.is_empty());
-        assert!(report
-            .rejected_candidates
-            .iter()
-            .any(|item| item.raw_href.starts_with("http://") && item.reason.contains("PROVENANCE")));
+        assert!(
+            report
+                .rejected_candidates
+                .iter()
+                .any(|item| item.raw_href.starts_with("http://")
+                    && item.reason.contains("PROVENANCE"))
+        );
     }
 
     #[test]
@@ -557,8 +555,16 @@ mod tests {
         let report_a = discover_nse_official_source_candidates(&a).unwrap();
         let report_b = discover_nse_official_source_candidates(&b).unwrap();
 
-        let urls_a: Vec<_> = report_a.candidates.iter().map(|item| item.url.as_str()).collect();
-        let urls_b: Vec<_> = report_b.candidates.iter().map(|item| item.url.as_str()).collect();
+        let urls_a: Vec<_> = report_a
+            .candidates
+            .iter()
+            .map(|item| item.url.as_str())
+            .collect();
+        let urls_b: Vec<_> = report_b
+            .candidates
+            .iter()
+            .map(|item| item.url.as_str())
+            .collect();
         assert_eq!(urls_a, urls_b);
         assert_eq!(
             urls_a,
@@ -576,7 +582,10 @@ mod tests {
         ))
         .unwrap();
 
-        assert_eq!(report.candidates[0].discovery_authority, "DISCOVERED_NOT_PROMOTED");
+        assert_eq!(
+            report.candidates[0].discovery_authority,
+            "DISCOVERED_NOT_PROMOTED"
+        );
         assert!(report.candidates[0].reason.contains("MATCH"));
     }
 

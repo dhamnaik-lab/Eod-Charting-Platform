@@ -188,7 +188,9 @@ impl OfficialSourceUrls {
     }
 }
 
-pub(crate) fn load_legacy_official_source_urls(connection: Option<&Connection>) -> OfficialSourceUrls {
+pub(crate) fn load_legacy_official_source_urls(
+    connection: Option<&Connection>,
+) -> OfficialSourceUrls {
     let mut urls = OfficialSourceUrls::defaults();
     let Some(connection) = connection else {
         return urls;
@@ -210,7 +212,9 @@ pub fn load_official_source_urls(
     };
 
     if let Some(urls) =
-        super::official_source_version_history::try_load_official_source_urls_from_ledger(connection)?
+        super::official_source_version_history::try_load_official_source_urls_from_ledger(
+            connection,
+        )?
     {
         return Ok(urls);
     }

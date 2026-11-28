@@ -244,7 +244,6 @@ fn ensure_private_database_path(database_file: &Path, live_database_path: &str) 
     Ok(())
 }
 
-
 pub(super) fn ensure_exact_live_database_path(
     database_file: &Path,
     manifest: &V114VManifest,
@@ -268,7 +267,9 @@ pub(super) fn ensure_exact_live_database_path(
     let actual_canonical = fs::canonicalize(database_file).map_err(|error| error.to_string())?;
     let expected_canonical = fs::canonicalize(&expected_path).map_err(|error| error.to_string())?;
     if normalize_path_text(&actual_canonical) != normalize_path_text(&expected_canonical) {
-        return Err("V1.14X database path does not resolve to the exact V1.14V live database.".to_string());
+        return Err(
+            "V1.14X database path does not resolve to the exact V1.14V live database.".to_string(),
+        );
     }
     Ok(())
 }
@@ -353,14 +354,23 @@ pub(super) fn verify_exact_live_family_before_open(
     ensure_exact_live_database_path(database_file, manifest)?;
     let actual = snapshot_database_family(database_file)?;
     if !same_database_family(&actual, &manifest.live_family_before) {
-        return Err("V1.14X live database family differs from the exact V1.14V preflight family.".to_string());
+        return Err(
+            "V1.14X live database family differs from the exact V1.14V preflight family."
+                .to_string(),
+        );
     }
     Ok(actual)
 }
 
-fn verify_private_family_before_open(database_file: &Path, manifest: &V114VManifest) -> AppResult<(String, String)> {
+fn verify_private_family_before_open(
+    database_file: &Path,
+    manifest: &V114VManifest,
+) -> AppResult<(String, String)> {
     if !database_file.is_file() {
-        return Err(format!("V1.14W private database missing: {}", database_file.display()));
+        return Err(format!(
+            "V1.14W private database missing: {}",
+            database_file.display()
+        ));
     }
     let main_hash = sha256_file(database_file)?;
     if main_hash != manifest.live_family_before.main_sha256 {
@@ -369,7 +379,9 @@ fn verify_private_family_before_open(database_file: &Path, manifest: &V114VManif
             manifest.live_family_before.main_sha256, main_hash
         ));
     }
-    if fs::metadata(database_file).map_err(|error| error.to_string())?.len()
+    if fs::metadata(database_file)
+        .map_err(|error| error.to_string())?
+        .len()
         != manifest.live_family_before.main_length
     {
         return Err("V1.14W private main length differs from V1.14V authority.".to_string());
@@ -377,7 +389,9 @@ fn verify_private_family_before_open(database_file: &Path, manifest: &V114VManif
 
     let wal_path = sidecar_path(database_file, "-wal");
     if !manifest.live_family_before.wal_exists || !wal_path.is_file() {
-        return Err("V1.14W requires the exact V1.14V WAL sidecar on the private copy.".to_string());
+        return Err(
+            "V1.14W requires the exact V1.14V WAL sidecar on the private copy.".to_string(),
+        );
     }
     let wal_hash = sha256_file(&wal_path)?;
     if wal_hash != manifest.live_family_before.wal_sha256 {
@@ -386,7 +400,9 @@ fn verify_private_family_before_open(database_file: &Path, manifest: &V114VManif
             manifest.live_family_before.wal_sha256, wal_hash
         ));
     }
-    if fs::metadata(&wal_path).map_err(|error| error.to_string())?.len()
+    if fs::metadata(&wal_path)
+        .map_err(|error| error.to_string())?
+        .len()
         != manifest.live_family_before.wal_length
     {
         return Err("V1.14W private WAL length differs from V1.14V authority.".to_string());
@@ -406,11 +422,17 @@ fn sqlite_value_to_json(value: ValueRef<'_>) -> AppResult<Value> {
                 .map_err(|error| error.to_string())?
                 .to_string(),
         )),
-        ValueRef::Blob(_) => Err("V1.14W relevant-state audit encountered an unexpected BLOB.".to_string()),
+        ValueRef::Blob(_) => {
+            Err("V1.14W relevant-state audit encountered an unexpected BLOB.".to_string())
+        }
     }
 }
 
-fn query_json_rows(connection: &Connection, sql: &str, parameters: &[SqlValue]) -> AppResult<Vec<Value>> {
+fn query_json_rows(
+    connection: &Connection,
+    sql: &str,
+    parameters: &[SqlValue],
+) -> AppResult<Vec<Value>> {
     let mut statement = connection.prepare(sql).map_err(|error| error.to_string())?;
     let column_names = statement
         .column_names()
@@ -478,11 +500,17 @@ fn exact_ids() -> Vec<i64> {
 }
 
 fn target_ids() -> HashSet<i64> {
-    EXACT_PAIRS.iter().map(|pair| pair.target_import_id).collect()
+    EXACT_PAIRS
+        .iter()
+        .map(|pair| pair.target_import_id)
+        .collect()
 }
 
 fn owner_ids() -> HashSet<i64> {
-    EXACT_PAIRS.iter().map(|pair| pair.owner_import_id).collect()
+    EXACT_PAIRS
+        .iter()
+        .map(|pair| pair.owner_import_id)
+        .collect()
 }
 
 fn fetch_rows_by_ids(
@@ -492,7 +520,11 @@ fn fetch_rows_by_ids(
     ids: &[i64],
 ) -> AppResult<Vec<Value>> {
     let marks = (0..ids.len()).map(|_| "?").collect::<Vec<_>>().join(",");
-    let params = ids.iter().copied().map(SqlValue::Integer).collect::<Vec<_>>();
+    let params = ids
+        .iter()
+        .copied()
+        .map(SqlValue::Integer)
+        .collect::<Vec<_>>();
     query_json_rows(
         connection,
         &format!(
@@ -597,7 +629,9 @@ fn collect_heuristic_import_references(
             let Some(name) = column.get("name").and_then(Value::as_str) else {
                 continue;
             };
-            if already.contains(&(table.clone(), name.to_string())) || !is_heuristic_import_id_column(name) {
+            if already.contains(&(table.clone(), name.to_string()))
+                || !is_heuristic_import_id_column(name)
+            {
                 continue;
             }
             let ref_rows = fetch_rows_by_ids(connection, table, name, &ids)?;
@@ -638,11 +672,16 @@ fn protected_scans(connection: &Connection) -> AppResult<Vec<Value>> {
     )
 }
 
-fn build_relevant_state(connection: &Connection, authority: &AuthorityDocument) -> AppResult<Value> {
+fn build_relevant_state(
+    connection: &Connection,
+    authority: &AuthorityDocument,
+) -> AppResult<Value> {
     let tables = table_names(connection)?;
     for required in &authority.expected_relevant_tables {
         if !tables.iter().any(|table| table == required) {
-            return Err(format!("V1.14W required relevant table missing: {required}"));
+            return Err(format!(
+                "V1.14W required relevant table missing: {required}"
+            ));
         }
     }
     let imports = fetch_import_rows(connection)?;
@@ -663,7 +702,10 @@ fn build_relevant_state(connection: &Connection, authority: &AuthorityDocument) 
     }))
 }
 
-fn build_schema_contract(connection: &Connection, authority: &AuthorityDocument) -> AppResult<Value> {
+fn build_schema_contract(
+    connection: &Connection,
+    authority: &AuthorityDocument,
+) -> AppResult<Value> {
     let mut contract = JsonMap::<String, Value>::new();
     for table in &authority.expected_relevant_tables {
         contract.insert(
@@ -694,7 +736,10 @@ pub(super) fn foreign_key_check(connection: &Connection) -> AppResult<Vec<Value>
     query_json_rows(connection, "PRAGMA foreign_key_check", &[])
 }
 
-fn table_counts(connection: &Connection, authority: &AuthorityDocument) -> AppResult<BTreeMap<String, i64>> {
+fn table_counts(
+    connection: &Connection,
+    authority: &AuthorityDocument,
+) -> AppResult<BTreeMap<String, i64>> {
     let mut counts = BTreeMap::<String, i64>::new();
     for table in &authority.expected_relevant_tables {
         let sql = format!("SELECT COUNT(*) AS count FROM {}", quote_identifier(table));
@@ -709,7 +754,10 @@ fn table_counts(connection: &Connection, authority: &AuthorityDocument) -> AppRe
     Ok(counts)
 }
 
-fn snapshot_pre_state(connection: &Connection, authority: &AuthorityDocument) -> AppResult<PreStateSnapshot> {
+fn snapshot_pre_state(
+    connection: &Connection,
+    authority: &AuthorityDocument,
+) -> AppResult<PreStateSnapshot> {
     let mut imports = fetch_import_rows(connection)?;
     let mut evidence = fetch_evidence_rows(connection)?;
     let mut scans = protected_scans(connection)?;
@@ -740,7 +788,9 @@ fn validate_compiled_authority(authority: &AuthorityDocument) -> AppResult<()> {
     {
         return Err("V1.14W authority does not bind to the accepted V1.14U result.".to_string());
     }
-    if serde_json::to_value(&authority.pairs).map_err(|error| error.to_string())? != exact_pairs_value()? {
+    if serde_json::to_value(&authority.pairs).map_err(|error| error.to_string())?
+        != exact_pairs_value()?
+    {
         return Err("V1.14W authority exact five-pair set drifted.".to_string());
     }
     let expected_tables = EXPECTED_RELEVANT_TABLES
@@ -776,7 +826,8 @@ fn validate_manifest_value(manifest_value: &Value) -> AppResult<V114VManifest> {
         || manifest.sqlite_total_changes != 0
         || manifest.preflight_status != "READY_FOR_SEPARATE_APPLY_DESIGN_REVIEW"
         || manifest.apply_authorized
-        || serde_json::to_value(&manifest.pairs).map_err(|error| error.to_string())? != exact_pairs_value()?
+        || serde_json::to_value(&manifest.pairs).map_err(|error| error.to_string())?
+            != exact_pairs_value()?
     {
         return Err("V1.14W V1.14V manifest contract drifted.".to_string());
     }
@@ -806,8 +857,9 @@ pub(super) fn load_authority(path: &Path) -> AppResult<AuthorityDocument> {
     if sha256_file(path)? != V114V_AUTHORITY_SHA256 {
         return Err("V1.14W authority file SHA-256 mismatch.".to_string());
     }
-    let authority: AuthorityDocument = serde_json::from_slice(&fs::read(path).map_err(|error| error.to_string())?)
-        .map_err(|error| format!("Invalid V1.14W authority JSON: {error}"))?;
+    let authority: AuthorityDocument =
+        serde_json::from_slice(&fs::read(path).map_err(|error| error.to_string())?)
+            .map_err(|error| format!("Invalid V1.14W authority JSON: {error}"))?;
     validate_compiled_authority(&authority)?;
     Ok(authority)
 }
@@ -821,7 +873,10 @@ pub(super) fn load_manifest(path: &Path) -> AppResult<V114VManifest> {
     validate_manifest_value(&value)
 }
 
-fn verify_authority_rows(snapshot: &PreStateSnapshot, authority: &AuthorityDocument) -> AppResult<()> {
+fn verify_authority_rows(
+    snapshot: &PreStateSnapshot,
+    authority: &AuthorityDocument,
+) -> AppResult<()> {
     let mut expected_imports = authority.expected_imports.clone();
     let mut expected_evidence = authority.expected_evidence.clone();
     let mut expected_scans = authority.protected_scan_results.clone();
@@ -906,7 +961,9 @@ fn target_has_any_reference(connection: &Connection, target_id: i64) -> AppResul
         }
         let declared_columns = foreign_keys(connection, table)?
             .into_iter()
-            .filter(|fk| fk.get("table").and_then(Value::as_str) == Some("corporate_action_imports"))
+            .filter(|fk| {
+                fk.get("table").and_then(Value::as_str) == Some("corporate_action_imports")
+            })
             .filter_map(|fk| fk.get("from").and_then(Value::as_str).map(str::to_string))
             .collect::<HashSet<_>>();
         for column in table_info(connection, table)? {
@@ -962,7 +1019,10 @@ fn expected_post_evidence(authority: &AuthorityDocument) -> AppResult<Vec<Value>
 }
 
 fn build_post_state(connection: &Connection, authority: &AuthorityDocument) -> AppResult<Value> {
-    let owner_vec = EXACT_PAIRS.iter().map(|pair| pair.owner_import_id).collect::<Vec<_>>();
+    let owner_vec = EXACT_PAIRS
+        .iter()
+        .map(|pair| pair.owner_import_id)
+        .collect::<Vec<_>>();
     let mut owners = fetch_rows_by_ids(connection, "corporate_action_imports", "id", &owner_vec)?;
     sort_values_by_i64_id(&mut owners);
     let mut evidence = fetch_rows_by_ids(
@@ -988,12 +1048,18 @@ fn verify_post_state(
     authority: &AuthorityDocument,
     pre: &PreStateSnapshot,
 ) -> AppResult<(Value, String)> {
-    let target_vec = EXACT_PAIRS.iter().map(|pair| pair.target_import_id).collect::<Vec<_>>();
+    let target_vec = EXACT_PAIRS
+        .iter()
+        .map(|pair| pair.target_import_id)
+        .collect::<Vec<_>>();
     if !fetch_rows_by_ids(connection, "corporate_action_imports", "id", &target_vec)?.is_empty() {
         return Err("V1.14W redundant targets remain after dry-run transaction.".to_string());
     }
 
-    let owner_vec = EXACT_PAIRS.iter().map(|pair| pair.owner_import_id).collect::<Vec<_>>();
+    let owner_vec = EXACT_PAIRS
+        .iter()
+        .map(|pair| pair.owner_import_id)
+        .collect::<Vec<_>>();
     let mut owners = fetch_rows_by_ids(connection, "corporate_action_imports", "id", &owner_vec)?;
     sort_values_by_i64_id(&mut owners);
     if owners != expected_post_imports(authority) {
@@ -1008,7 +1074,9 @@ fn verify_post_state(
     )?;
     sort_values_by_i64_id(&mut evidence);
     if evidence != expected_post_evidence(authority)? {
-        return Err("V1.14W evidence was lost or mutated beyond import_id re-parenting.".to_string());
+        return Err(
+            "V1.14W evidence was lost or mutated beyond import_id re-parenting.".to_string(),
+        );
     }
 
     for owner in &owner_vec {
@@ -1022,7 +1090,9 @@ fn verify_post_state(
         .and_then(Value::as_i64)
         .ok_or_else(|| "V1.14W could not verify owner evidence count.".to_string())?;
         if count != 2 {
-            return Err(format!("V1.14W owner {owner} does not have exactly two evidence rows."));
+            return Err(format!(
+                "V1.14W owner {owner} does not have exactly two evidence rows."
+            ));
         }
     }
 
@@ -1190,7 +1260,9 @@ fn parse_required_arg<'a>(values: &'a HashMap<String, String>, key: &str) -> App
         .ok_or_else(|| format!("V1.14W requires {key}."))
 }
 
-fn parse_maintenance_args(args: impl IntoIterator<Item = String>) -> AppResult<Option<MaintenanceInput>> {
+fn parse_maintenance_args(
+    args: impl IntoIterator<Item = String>,
+) -> AppResult<Option<MaintenanceInput>> {
     let args = args.into_iter().collect::<Vec<_>>();
     if !args.iter().any(|arg| arg == V114W_FLAG) {
         return Ok(None);
@@ -1252,7 +1324,8 @@ fn run_maintenance(input: MaintenanceInput) -> AppResult<i32> {
 
     let lock = expected_pre_state_lock();
 
-    let mut connection = Connection::open(&input.database_file).map_err(|error| error.to_string())?;
+    let mut connection =
+        Connection::open(&input.database_file).map_err(|error| error.to_string())?;
     connection
         .execute_batch("PRAGMA foreign_keys=ON; PRAGMA busy_timeout=5000;")
         .map_err(|error| error.to_string())?;
@@ -1309,9 +1382,14 @@ fn run_maintenance(input: MaintenanceInput) -> AppResult<i32> {
         live_apply_capability: false,
     };
 
-    write_json(&input.output_path.join("v1-14w-dry-run-result.json"), &result)?;
     write_json(
-        &input.output_path.join("v1-14w-dry-run-apply-plan-manifest.json"),
+        &input.output_path.join("v1-14w-dry-run-result.json"),
+        &result,
+    )?;
+    write_json(
+        &input
+            .output_path
+            .join("v1-14w-dry-run-apply-plan-manifest.json"),
         &json!({
             "formatVersion": V114W_APPLY_PLAN_FINGERPRINT_VERSION,
             "version": "V1.14W",
@@ -1362,7 +1440,10 @@ fn run_maintenance(input: MaintenanceInput) -> AppResult<i32> {
     println!("[PASS] foreign_key_check = 0");
     println!("[PASS] live database writes = 0");
     println!("[PASS] live Apply capability = 0");
-    println!("V1.14W apply-plan fingerprint: {}", result.apply_plan_fingerprint);
+    println!(
+        "V1.14W apply-plan fingerprint: {}",
+        result.apply_plan_fingerprint
+    );
     Ok(0)
 }
 
@@ -1468,7 +1549,11 @@ mod tests {
             .unwrap();
 
         for pair in EXACT_PAIRS {
-            let action_type = if pair.owner_import_id == 9582 { "SPLIT" } else { "DIVIDEND" };
+            let action_type = if pair.owner_import_id == 9582 {
+                "SPLIT"
+            } else {
+                "DIVIDEND"
+            };
             let cash = match pair.owner_import_id {
                 1232 => Some(5.0),
                 3799 => Some(7.5),
@@ -1476,10 +1561,26 @@ mod tests {
                 9005 => Some(10.0),
                 _ => None,
             };
-            let old_fv = if action_type == "SPLIT" { Some(10.0) } else { None };
-            let new_fv = if action_type == "SPLIT" { Some(2.0) } else { None };
-            let factor = if action_type == "SPLIT" { Some(5.0) } else { None };
-            let price_factor = if action_type == "SPLIT" { Some(0.2) } else { None };
+            let old_fv = if action_type == "SPLIT" {
+                Some(10.0)
+            } else {
+                None
+            };
+            let new_fv = if action_type == "SPLIT" {
+                Some(2.0)
+            } else {
+                None
+            };
+            let factor = if action_type == "SPLIT" {
+                Some(5.0)
+            } else {
+                None
+            };
+            let price_factor = if action_type == "SPLIT" {
+                Some(0.2)
+            } else {
+                None
+            };
             let event_date = match pair.owner_import_id {
                 1232 => "2021-07-29",
                 3799 => "2022-08-04",
@@ -1499,8 +1600,16 @@ mod tests {
             } else {
                 "INE435A01028"
             };
-            let owner_status = if pair.owner_import_id == 9582 { "APPROVED" } else { "UNRESOLVED" };
-            let owner_action_id = if pair.owner_import_id == 9582 { Some(10947) } else { None };
+            let owner_status = if pair.owner_import_id == 9582 {
+                "APPROVED"
+            } else {
+                "UNRESOLVED"
+            };
+            let owner_action_id = if pair.owner_import_id == 9582 {
+                Some(10947)
+            } else {
+                None
+            };
 
             connection.execute(
                 "INSERT INTO corporate_action_imports
@@ -1527,7 +1636,11 @@ mod tests {
                 ],
             ).unwrap();
             for (evidence_id, import_id, symbol) in [
-                (pair.owner_evidence_id, pair.owner_import_id, Some("ANDHRAPAP")),
+                (
+                    pair.owner_evidence_id,
+                    pair.owner_import_id,
+                    Some("ANDHRAPAP"),
+                ),
                 (pair.target_evidence_id, pair.target_import_id, None),
             ] {
                 connection.execute(
@@ -1568,7 +1681,10 @@ mod tests {
             expected_evidence: evidence,
             protected_corporate_action: protected_action(connection).unwrap(),
             protected_scan_results: scans,
-            expected_relevant_tables: EXPECTED_RELEVANT_TABLES.iter().map(|value| value.to_string()).collect(),
+            expected_relevant_tables: EXPECTED_RELEVANT_TABLES
+                .iter()
+                .map(|value| value.to_string())
+                .collect(),
         }
     }
 
@@ -1590,7 +1706,9 @@ mod tests {
             target_evidence_id: 1,
             owner_evidence_id: 2,
         });
-        assert!(validate_compiled_authority(&authority).unwrap_err().contains("five-pair"));
+        assert!(validate_compiled_authority(&authority)
+            .unwrap_err()
+            .contains("five-pair"));
     }
 
     #[test]
@@ -1598,7 +1716,12 @@ mod tests {
         let connection = create_fixture();
         let authority = authority_from_fixture(&connection);
         let lock = lock_from_fixture(&connection, &authority);
-        connection.execute("UPDATE corporate_action_imports SET message='drift' WHERE id=42737", []).unwrap();
+        connection
+            .execute(
+                "UPDATE corporate_action_imports SET message='drift' WHERE id=42737",
+                [],
+            )
+            .unwrap();
         assert!(validate_pre_state(&connection, &authority, &lock).is_err());
     }
 
@@ -1607,7 +1730,12 @@ mod tests {
         let connection = create_fixture();
         let authority = authority_from_fixture(&connection);
         let lock = lock_from_fixture(&connection, &authority);
-        connection.execute("UPDATE corporate_action_import_evidence SET note='drift' WHERE id=42737", []).unwrap();
+        connection
+            .execute(
+                "UPDATE corporate_action_import_evidence SET note='drift' WHERE id=42737",
+                [],
+            )
+            .unwrap();
         assert!(validate_pre_state(&connection, &authority, &lock).is_err());
     }
 
@@ -1634,7 +1762,9 @@ mod tests {
         let connection = create_fixture();
         let authority = authority_from_fixture(&connection);
         let lock = lock_from_fixture(&connection, &authority);
-        connection.execute("UPDATE corporate_actions SET factor=4.0 WHERE id=10947", []).unwrap();
+        connection
+            .execute("UPDATE corporate_actions SET factor=4.0 WHERE id=10947", [])
+            .unwrap();
         assert!(validate_pre_state(&connection, &authority, &lock).is_err());
     }
 
@@ -1643,7 +1773,12 @@ mod tests {
         let connection = create_fixture();
         let authority = authority_from_fixture(&connection);
         let lock = lock_from_fixture(&connection, &authority);
-        connection.execute("UPDATE corporate_action_scan_results SET confidence=0.5 WHERE id=1736", []).unwrap();
+        connection
+            .execute(
+                "UPDATE corporate_action_scan_results SET confidence=0.5 WHERE id=1736",
+                [],
+            )
+            .unwrap();
         assert!(validate_pre_state(&connection, &authority, &lock).is_err());
     }
 
@@ -1652,12 +1787,22 @@ mod tests {
         let mut connection = create_fixture();
         let authority = authority_from_fixture(&connection);
         let lock = lock_from_fixture(&connection, &authority);
-        let (post_fingerprint, apply_plan) = execute_consolidation_transaction(&mut connection, &authority, &lock, None).unwrap();
+        let (post_fingerprint, apply_plan) =
+            execute_consolidation_transaction(&mut connection, &authority, &lock, None).unwrap();
         assert!(!post_fingerprint.is_empty());
         assert!(!apply_plan.is_empty());
         assert_eq!(connection.query_row("SELECT COUNT(*) FROM corporate_action_imports WHERE id IN (42737,42779,42818,42855,42863)", [], |row| row.get::<_,i64>(0)).unwrap(), 0);
-        for owner in [1232,3799,6362,9005,9582] {
-            assert_eq!(connection.query_row("SELECT COUNT(*) FROM corporate_action_import_evidence WHERE import_id=?", params![owner], |row| row.get::<_,i64>(0)).unwrap(), 2);
+        for owner in [1232, 3799, 6362, 9005, 9582] {
+            assert_eq!(
+                connection
+                    .query_row(
+                        "SELECT COUNT(*) FROM corporate_action_import_evidence WHERE import_id=?",
+                        params![owner],
+                        |row| row.get::<_, i64>(0)
+                    )
+                    .unwrap(),
+                2
+            );
         }
         assert_eq!(connection.query_row("SELECT approved_corporate_action_id FROM corporate_action_imports WHERE id=9582", [], |row| row.get::<_,Option<i64>>(0)).unwrap(), Some(10947));
         assert_eq!(connection.query_row("SELECT COUNT(*) FROM corporate_action_scan_results WHERE id IN (1736,4670,5353) AND corporate_action_import_id=9582", [], |row| row.get::<_,i64>(0)).unwrap(), 3);
@@ -1668,33 +1813,60 @@ mod tests {
         let mut connection = create_fixture();
         let authority = authority_from_fixture(&connection);
         let lock = lock_from_fixture(&connection, &authority);
-        let before = canonical_sha256(&build_relevant_state(&connection, &authority).unwrap()).unwrap();
-        let error = execute_consolidation_transaction(&mut connection, &authority, &lock, Some(3)).unwrap_err();
+        let before =
+            canonical_sha256(&build_relevant_state(&connection, &authority).unwrap()).unwrap();
+        let error = execute_consolidation_transaction(&mut connection, &authority, &lock, Some(3))
+            .unwrap_err();
         assert!(error.contains("FORCED_FAILURE"));
-        let after = canonical_sha256(&build_relevant_state(&connection, &authority).unwrap()).unwrap();
+        let after =
+            canonical_sha256(&build_relevant_state(&connection, &authority).unwrap()).unwrap();
         assert_eq!(before, after);
     }
 
     #[test]
     fn v114w_cli_rejects_non_dry_run_mode() {
         let args = vec![
-            "app".to_string(), V114W_FLAG.to_string(), "--mode".to_string(), "live".to_string(),
-            "--database-file".to_string(), "x".to_string(), "--output".to_string(), "y".to_string(),
-            "--authority".to_string(), "a".to_string(), "--v114v-manifest".to_string(), "m".to_string(),
-            "--private-copy-ack".to_string(), V114W_PRIVATE_COPY_ACK.to_string(),
+            "app".to_string(),
+            V114W_FLAG.to_string(),
+            "--mode".to_string(),
+            "live".to_string(),
+            "--database-file".to_string(),
+            "x".to_string(),
+            "--output".to_string(),
+            "y".to_string(),
+            "--authority".to_string(),
+            "a".to_string(),
+            "--v114v-manifest".to_string(),
+            "m".to_string(),
+            "--private-copy-ack".to_string(),
+            V114W_PRIVATE_COPY_ACK.to_string(),
         ];
-        assert!(parse_maintenance_args(args).unwrap_err().contains("Only dry-run"));
+        assert!(parse_maintenance_args(args)
+            .unwrap_err()
+            .contains("Only dry-run"));
     }
 
     #[test]
     fn v114w_cli_requires_private_copy_acknowledgement() {
         let args = vec![
-            "app".to_string(), V114W_FLAG.to_string(), "--mode".to_string(), "dry-run".to_string(),
-            "--database-file".to_string(), "x".to_string(), "--output".to_string(), "y".to_string(),
-            "--authority".to_string(), "a".to_string(), "--v114v-manifest".to_string(), "m".to_string(),
-            "--private-copy-ack".to_string(), "wrong".to_string(),
+            "app".to_string(),
+            V114W_FLAG.to_string(),
+            "--mode".to_string(),
+            "dry-run".to_string(),
+            "--database-file".to_string(),
+            "x".to_string(),
+            "--output".to_string(),
+            "y".to_string(),
+            "--authority".to_string(),
+            "a".to_string(),
+            "--v114v-manifest".to_string(),
+            "m".to_string(),
+            "--private-copy-ack".to_string(),
+            "wrong".to_string(),
         ];
-        assert!(parse_maintenance_args(args).unwrap_err().contains("acknowledgement"));
+        assert!(parse_maintenance_args(args)
+            .unwrap_err()
+            .contains("acknowledgement"));
     }
 
     #[test]

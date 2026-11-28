@@ -30,9 +30,7 @@ fn v114t_ordinary_ingestion_routes_through_evidence_aware_store() {
 
     for (name, section) in [("CSV", csv_path), ("OFFICIAL_FETCH", official_fetch_path)] {
         assert!(
-            section.contains(
-                "store_import_candidate_evidence_aware(connection, &candidate)"
-            ),
+            section.contains("store_import_candidate_evidence_aware(connection, &candidate)"),
             "{name} ordinary ingestion still bypasses the shared evidence-aware store"
         );
         assert!(
@@ -135,19 +133,21 @@ fn v114t_core_reuses_unapproved_andhrapap_dividend_owner_and_attaches_raw_null_s
     )
     .unwrap();
 
-    let outcome = store_import_candidate_evidence_aware(
-        &connection,
-        &v114t_dividend_candidate(),
-    )
-    .unwrap();
+    let outcome =
+        store_import_candidate_evidence_aware(&connection, &v114t_dividend_candidate()).unwrap();
 
     assert!(matches!(
         outcome,
-        HistoricalCandidateStoreOutcome::EvidenceAttached { import_id: 1232, .. }
+        HistoricalCandidateStoreOutcome::EvidenceAttached {
+            import_id: 1232,
+            ..
+        }
     ));
 
     let import_count: i64 = connection
-        .query_row("SELECT COUNT(*) FROM corporate_action_imports", [], |row| row.get(0))
+        .query_row("SELECT COUNT(*) FROM corporate_action_imports", [], |row| {
+            row.get(0)
+        })
         .unwrap();
     assert_eq!(import_count, 1);
 
@@ -180,7 +180,8 @@ fn v114t_split_candidate() -> NewImportCandidate {
         isin: Some("INE435A01028".to_string()),
         bse_scrip_code: None,
         company_name: Some("ANDHRA PAPER LIMITED".to_string()),
-        purpose_raw: "Face Value Split (Sub-Division) - From Rs 10/- Per Share To Rs 2/- Per Share".to_string(),
+        purpose_raw: "Face Value Split (Sub-Division) - From Rs 10/- Per Share To Rs 2/- Per Share"
+            .to_string(),
         ex_date: Some("2024-09-11".to_string()),
         record_date: Some("2024-09-11".to_string()),
         action_type: "SPLIT".to_string(),
@@ -261,19 +262,21 @@ fn v114t_core_reuses_approved_andhrapap_split_owner_through_raw_event_isin_evide
     )
     .unwrap();
 
-    let outcome = store_import_candidate_evidence_aware(
-        &connection,
-        &v114t_split_candidate(),
-    )
-    .unwrap();
+    let outcome =
+        store_import_candidate_evidence_aware(&connection, &v114t_split_candidate()).unwrap();
 
     assert!(matches!(
         outcome,
-        HistoricalCandidateStoreOutcome::EvidenceAttached { import_id: 9582, .. }
+        HistoricalCandidateStoreOutcome::EvidenceAttached {
+            import_id: 9582,
+            ..
+        }
     ));
 
     let import_count: i64 = connection
-        .query_row("SELECT COUNT(*) FROM corporate_action_imports", [], |row| row.get(0))
+        .query_row("SELECT COUNT(*) FROM corporate_action_imports", [], |row| {
+            row.get(0)
+        })
         .unwrap();
     assert_eq!(import_count, 1);
 

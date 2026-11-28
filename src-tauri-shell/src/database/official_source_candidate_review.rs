@@ -7,6 +7,10 @@ use super::official_source_candidate_validation::{
     Er3bCandidateValidationResult, Er3bRecoveryReport, Er3bRecoveryRequest,
     ER3B_CLASS_INDETERMINATE, ER3B_CLASS_REJECTED, ER3B_CLASS_VALIDATED,
 };
+use super::official_source_health::{
+    assess_official_source_health_for_urls, er1_health_result_is_healthy,
+    OfficialSourceHealthReport,
+};
 use super::official_source_version_history::{
     apply_official_source_rollback_internal, list_official_source_history_internal,
     promote_official_source_candidate_internal, read_er4_current_source_authority,
@@ -14,10 +18,6 @@ use super::official_source_version_history::{
     read_post_health_retry_context, record_candidate_decision_internal,
     update_review_event_post_health_internal, OfficialSourceConfigurationAuthority,
     OfficialSourceHistoryEntry, PromotionRevalidationEvidence, RollbackRevalidationEvidence,
-};
-use super::official_source_health::{
-    assess_official_source_health_for_urls, er1_health_result_is_healthy,
-    OfficialSourceHealthReport,
 };
 use super::{with_active_connection, AppResult};
 use tauri::AppHandle;
@@ -130,8 +130,6 @@ pub(crate) struct Er4ConfigurationAuthority {
     pub sources: Vec<Er4CurrentSourceAuthority>,
 }
 
-
-
 pub(crate) struct Er4ValidationProjection<'a> {
     pub source_key: &'a str,
     pub source_id: &'a str,
@@ -222,10 +220,7 @@ pub(crate) fn compute_er4_configuration_fingerprint(
         ]));
     }
 
-    let bytes = serialize_compact_array(vec![
-        json!("ER4_CONFIG_V1"),
-        Value::Array(ordered_rows),
-    ])?;
+    let bytes = serialize_compact_array(vec![json!("ER4_CONFIG_V1"), Value::Array(ordered_rows)])?;
     Ok(sha256_upper_hex(&bytes))
 }
 
@@ -280,7 +275,6 @@ pub(crate) fn compute_er4_review_fingerprint(
     ])?;
     Ok(sha256_upper_hex(&bytes))
 }
-
 
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
@@ -491,8 +485,8 @@ pub(crate) fn validate_er4_candidate_review_plan_integrity(
     if review.schema_version != ER4_REVIEW_SCHEMA_VERSION {
         return Err("ER4_REVIEW_PLAN_INVALID".to_string());
     }
-    let entry = registry_entry(&review.source_key)
-        .ok_or_else(|| "ER4_REVIEW_PLAN_INVALID".to_string())?;
+    let entry =
+        registry_entry(&review.source_key).ok_or_else(|| "ER4_REVIEW_PLAN_INVALID".to_string())?;
     if !entry.candidate_promotion_eligible
         || review.exchange != entry.exchange
         || review.source_id != entry.source_id.unwrap_or_default()
@@ -658,7 +652,6 @@ pub async fn find_official_source_replacement_candidates(
     build_replacement_candidates_result(authority, &base, report)
 }
 
-
 fn validation_report_sha256_for_revalidation(
     review: &OfficialSourceCandidateReviewPlan,
     fresh: &Er3bCandidateValidationResult,
@@ -814,11 +807,7 @@ pub async fn promote_official_source_candidate_reviewed(
             let json = serde_json::to_string(&report).map_err(|error| error.to_string())?;
             (status.to_string(), Some(report), Some(json))
         }
-        Err(_) => (
-            "PROMOTED_HEALTH_CHECK_FAILED".to_string(),
-            None,
-            None,
-        ),
+        Err(_) => ("PROMOTED_HEALTH_CHECK_FAILED".to_string(), None, None),
     };
 
     with_active_connection(&app, |connection| {
@@ -839,7 +828,6 @@ pub async fn promote_official_source_candidate_reviewed(
         post_health_report,
     })
 }
-
 
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
@@ -988,11 +976,8 @@ pub async fn create_official_source_rollback_review(
         if current.current_version_id == target_version_id {
             return Err("ER4_ROLLBACK_TARGET_IS_CURRENT".to_string());
         }
-        let target = read_official_source_version_for_rollback(
-            connection,
-            &source_key,
-            target_version_id,
-        )?;
+        let target =
+            read_official_source_version_for_rollback(connection, &source_key, target_version_id)?;
         if target.source_id != current.source_id || target.source_role != current.source_role {
             return Err("ER4_ROLLBACK_TARGET_SOURCE_MISMATCH".to_string());
         }
@@ -1028,11 +1013,8 @@ pub async fn create_official_source_rollback_review(
     if fresh.classification != ER3B_CLASS_VALIDATED || fresh.content_sha256.is_none() {
         return Err("ER4_ROLLBACK_TARGET_REVALIDATION_FAILED".to_string());
     }
-    let target_validation_sha256 = compute_rollback_target_validation_sha256(
-        &source_key,
-        &current.current_url,
-        &fresh,
-    )?;
+    let target_validation_sha256 =
+        compute_rollback_target_validation_sha256(&source_key, &current.current_url, &fresh)?;
     let rollback_fingerprint = compute_er4_rollback_fingerprint(
         &source_key,
         current.current_version_id,
@@ -1113,11 +1095,8 @@ pub async fn apply_official_source_rollback_reviewed(
     if fresh.classification != ER3B_CLASS_VALIDATED {
         return Err("ER4_ROLLBACK_TARGET_REVALIDATION_FAILED".to_string());
     }
-    let target_validation_sha256 = compute_rollback_target_validation_sha256(
-        &source_key,
-        &input.review.current_url,
-        &fresh,
-    )?;
+    let target_validation_sha256 =
+        compute_rollback_target_validation_sha256(&source_key, &input.review.current_url, &fresh)?;
     if target_validation_sha256 != input.review.target_validation_sha256 {
         return Err("ER4_REVALIDATION_MISMATCH".to_string());
     }
@@ -1166,11 +1145,7 @@ pub async fn apply_official_source_rollback_reviewed(
             let json = serde_json::to_string(&report).map_err(|error| error.to_string())?;
             (status.to_string(), Some(report), Some(json))
         }
-        Err(_) => (
-            "ROLLBACK_HEALTH_CHECK_FAILED".to_string(),
-            None,
-            None,
-        ),
+        Err(_) => ("ROLLBACK_HEALTH_CHECK_FAILED".to_string(), None, None),
     };
 
     with_active_connection(&app, |connection| {
@@ -1223,10 +1198,18 @@ pub async fn retry_official_source_post_health(
         .unwrap_or(false);
     let result_status = match context.decision.as_str() {
         "APPROVE_PROMOTION" => {
-            if healthy { "PROMOTED_HEALTHY" } else { "PROMOTED_HEALTH_CHECK_FAILED" }
+            if healthy {
+                "PROMOTED_HEALTHY"
+            } else {
+                "PROMOTED_HEALTH_CHECK_FAILED"
+            }
         }
         "ROLLBACK_APPROVED" => {
-            if healthy { "ROLLBACK_HEALTHY" } else { "ROLLBACK_HEALTH_CHECK_FAILED" }
+            if healthy {
+                "ROLLBACK_HEALTHY"
+            } else {
+                "ROLLBACK_HEALTH_CHECK_FAILED"
+            }
         }
         _ => return Err("ER4_POST_HEALTH_RETRY_NOT_ALLOWED".to_string()),
     }
@@ -1237,11 +1220,8 @@ pub async fn retry_official_source_post_health(
     };
 
     with_active_connection(&app, |connection| {
-        let refreshed = read_post_health_retry_context(
-            connection,
-            &source_key,
-            context.result_version_id,
-        )?;
+        let refreshed =
+            read_post_health_retry_context(connection, &source_key, context.result_version_id)?;
         if refreshed.authority.configuration_fingerprint
             != context.authority.configuration_fingerprint
             || refreshed.review_event_id != context.review_event_id
@@ -1309,12 +1289,7 @@ pub fn record_official_source_candidate_decision(
     let decision = input.decision.as_str().to_string();
     let note = input.operator_note.clone();
     with_active_connection(&app, |connection| {
-        record_candidate_decision_internal(
-            connection,
-            &input.review,
-            &decision,
-            note.as_deref(),
-        )?;
+        record_candidate_decision_internal(connection, &input.review, &decision, note.as_deref())?;
         Ok(OfficialSourceCandidateDecisionResult { success: true })
     })?
     .ok_or_else(|| "Open a database before recording source candidate decisions.".to_string())
@@ -1380,7 +1355,6 @@ mod tests {
         }
     }
 }
-
 
 #[cfg(test)]
 mod fingerprint_tests {
@@ -1521,7 +1495,6 @@ mod fingerprint_tests {
     }
 }
 
-
 #[cfg(test)]
 mod review_tests {
     use super::*;
@@ -1541,7 +1514,8 @@ mod review_tests {
             candidate_promotion_eligible: entry.candidate_promotion_eligible,
             current_version_id: 7,
             revision: 3,
-            current_url: "https://nsearchives.nseindia.com/content/equities/EQUITY_L.csv".to_string(),
+            current_url: "https://nsearchives.nseindia.com/content/equities/EQUITY_L.csv"
+                .to_string(),
         }
     }
 
@@ -1549,16 +1523,16 @@ mod review_tests {
         Er3bCandidateValidationResult {
             source_id: "NSE_CURRENT_EQUITY_MASTER".to_string(),
             source_role: "CURRENT_IDENTITY_MASTER".to_string(),
-            configured_url:
-                "https://nsearchives.nseindia.com/content/equities/EQUITY_L.csv".to_string(),
+            configured_url: "https://nsearchives.nseindia.com/content/equities/EQUITY_L.csv"
+                .to_string(),
             landing_page_url:
                 "https://www.nseindia.com/static/market-data/securities-available-for-trading"
                     .to_string(),
-            candidate_url:
-                "https://nsearchives.nseindia.com/content/equities/EQUITY_NEW.csv".to_string(),
+            candidate_url: "https://nsearchives.nseindia.com/content/equities/EQUITY_NEW.csv"
+                .to_string(),
             discovery_reason: "SOURCE_ROLE_MATCH".to_string(),
-            request_url:
-                "https://nsearchives.nseindia.com/content/equities/EQUITY_NEW.csv".to_string(),
+            request_url: "https://nsearchives.nseindia.com/content/equities/EQUITY_NEW.csv"
+                .to_string(),
             final_url: Some(
                 "https://nsearchives.nseindia.com/content/equities/EQUITY_NEW.csv".to_string(),
             ),
@@ -1583,8 +1557,7 @@ mod review_tests {
             build_er4_candidate_review_plan(&base, &candidate("VALIDATED_CANDIDATE_NOT_PROMOTED"))
                 .unwrap();
         let indeterminate =
-            build_er4_candidate_review_plan(&base, &candidate("INDETERMINATE_CANDIDATE"))
-                .unwrap();
+            build_er4_candidate_review_plan(&base, &candidate("INDETERMINATE_CANDIDATE")).unwrap();
         let rejected =
             build_er4_candidate_review_plan(&base, &candidate("REJECTED_CANDIDATE")).unwrap();
 
@@ -1629,8 +1602,7 @@ mod review_tests {
     fn er4a_review_plan_rejects_unknown_classification_and_malformed_validated_hash() {
         let base = base_authority("NSE_CURRENT_EQUITY_MASTER");
         assert_eq!(
-            build_er4_candidate_review_plan(&base, &candidate("UNSUPPORTED_CLASS"))
-                .unwrap_err(),
+            build_er4_candidate_review_plan(&base, &candidate("UNSUPPORTED_CLASS")).unwrap_err(),
             "ER4_CANDIDATE_CLASSIFICATION_UNSUPPORTED"
         );
 
@@ -1669,13 +1641,11 @@ mod review_tests {
             "ER4_STALE_REJECTED"
         );
         assert_eq!(
-            verify_er4_review_base(7, 3, "https://example.invalid/stale.csv", &actual)
-                .unwrap_err(),
+            verify_er4_review_base(7, 3, "https://example.invalid/stale.csv", &actual).unwrap_err(),
             "ER4_STALE_REJECTED"
         );
     }
 }
-
 
 #[cfg(test)]
 mod er4c_candidate_tests {
@@ -1706,11 +1676,19 @@ mod er4c_candidate_tests {
             source_id: base.source_id.clone().unwrap(),
             source_role: base.source_role.clone().unwrap(),
             configured_url: base.current_url.clone(),
-            landing_page_url: "https://www.nseindia.com/static/market-data/securities-available-for-trading".to_string(),
-            candidate_url: "https://nsearchives.nseindia.com/content/equities/EQUITY_REPLACEMENT.csv".to_string(),
+            landing_page_url:
+                "https://www.nseindia.com/static/market-data/securities-available-for-trading"
+                    .to_string(),
+            candidate_url:
+                "https://nsearchives.nseindia.com/content/equities/EQUITY_REPLACEMENT.csv"
+                    .to_string(),
             discovery_reason: "SOURCE_ROLE_MATCH".to_string(),
-            request_url: "https://nsearchives.nseindia.com/content/equities/EQUITY_REPLACEMENT.csv".to_string(),
-            final_url: Some("https://nsearchives.nseindia.com/content/equities/EQUITY_REPLACEMENT.csv".to_string()),
+            request_url: "https://nsearchives.nseindia.com/content/equities/EQUITY_REPLACEMENT.csv"
+                .to_string(),
+            final_url: Some(
+                "https://nsearchives.nseindia.com/content/equities/EQUITY_REPLACEMENT.csv"
+                    .to_string(),
+            ),
             http_status: Some(200),
             content_type: Some("text/csv".to_string()),
             response_bytes: Some(1024),
@@ -1765,8 +1743,7 @@ mod er4c_candidate_tests {
     #[test]
     fn er4c_recovery_report_converts_to_review_plan_without_raw_body() {
         let connection = test_connection();
-        let authority =
-            read_official_source_configuration_authority(&connection).unwrap();
+        let authority = read_official_source_configuration_authority(&connection).unwrap();
         let base =
             read_er4_current_source_authority(&connection, "NSE_CURRENT_EQUITY_MASTER").unwrap();
         let candidate = candidate_for(&base);
@@ -1842,9 +1819,11 @@ mod er4e_review_tests {
             source_key: "NSE_CURRENT_EQUITY_MASTER".to_string(),
             current_version_id: 10,
             current_revision: 2,
-            current_url: "https://nsearchives.nseindia.com/content/equities/EQUITY_ALT.csv".to_string(),
+            current_url: "https://nsearchives.nseindia.com/content/equities/EQUITY_ALT.csv"
+                .to_string(),
             target_version_id: 9,
-            target_url: "https://nsearchives.nseindia.com/content/equities/EQUITY_L.csv".to_string(),
+            target_url: "https://nsearchives.nseindia.com/content/equities/EQUITY_L.csv"
+                .to_string(),
             target_validation_sha256: "TARGET_VALIDATION_SHA".to_string(),
             rollback_fingerprint: "TAMPERED".to_string(),
         };
@@ -1854,4 +1833,3 @@ mod er4e_review_tests {
         );
     }
 }
-

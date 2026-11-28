@@ -8,12 +8,14 @@ pub(super) fn component_families(purpose: &str) -> Vec<String> {
         // "DIV150". Use the existing letter/number tokenizer on separate clauses
         // so a compact percentage cannot make a mixed notice look Split-only.
         let clauses = split_compound_action_segments(purpose);
-        if clauses.len() > 1 && clauses.iter().any(|clause| {
-            clause.contains('%')
-                && legacy_purpose_tokens(clause).first().is_some_and(|word| {
-                    word.eq_ignore_ascii_case("DIV") || word.eq_ignore_ascii_case("DIVIDEND")
-                })
-        }) {
+        if clauses.len() > 1
+            && clauses.iter().any(|clause| {
+                clause.contains('%')
+                    && legacy_purpose_tokens(clause).first().is_some_and(|word| {
+                        word.eq_ignore_ascii_case("DIV") || word.eq_ignore_ascii_case("DIVIDEND")
+                    })
+            })
+        {
             families.push("DIVIDEND".into());
         }
     }

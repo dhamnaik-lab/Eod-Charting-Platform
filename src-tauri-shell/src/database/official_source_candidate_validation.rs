@@ -7,18 +7,16 @@ use std::io::Read;
 use std::time::Duration;
 
 use super::nse_identity_imports::{
-    validate_nse_company_name_change_bytes_for_health,
-    validate_nse_current_population_for_health, validate_nse_delisted_workbook_bytes_for_health,
-    validate_nse_equity_master_bytes_for_health, validate_nse_sme_master_bytes_for_health,
-    validate_nse_symbol_change_bytes_for_health, NSE_USER_AGENT,
+    validate_nse_company_name_change_bytes_for_health, validate_nse_current_population_for_health,
+    validate_nse_delisted_workbook_bytes_for_health, validate_nse_equity_master_bytes_for_health,
+    validate_nse_sme_master_bytes_for_health, validate_nse_symbol_change_bytes_for_health,
+    NSE_USER_AGENT,
 };
 use super::official_source_discovery::{
     discover_nse_official_source_candidates, NseDiscoveryContract,
     NseOfficialSourceDiscoveryCandidate, NseOfficialSourceDiscoveryRequest,
 };
-use super::official_source_urls::{
-    nse_official_redirect_policy, validate_nse_official_source_url,
-};
+use super::official_source_urls::{nse_official_redirect_policy, validate_nse_official_source_url};
 
 pub(crate) const ER3B_CLASS_VALIDATED: &str = "VALIDATED_CANDIDATE_NOT_PROMOTED";
 pub(crate) const ER3B_CLASS_INDETERMINATE: &str = "INDETERMINATE_CANDIDATE";
@@ -155,12 +153,14 @@ impl Er3bTransport for ReqwestNseEr3bTransport {
             reason,
         })?;
         if let Some(referer_url) = referer {
-            validate_nse_official_source_url(referer_url).map_err(|reason| Er3bTransportFailure {
-                request_url: request_url.to_string(),
-                final_url: None,
-                http_status: None,
-                content_type: None,
-                reason: format!("ER3B_REFERER_PROVENANCE_REJECTED: {reason}"),
+            validate_nse_official_source_url(referer_url).map_err(|reason| {
+                Er3bTransportFailure {
+                    request_url: request_url.to_string(),
+                    final_url: None,
+                    http_status: None,
+                    content_type: None,
+                    reason: format!("ER3B_REFERER_PROVENANCE_REJECTED: {reason}"),
+                }
             })?;
         }
 
@@ -242,7 +242,13 @@ fn accept_header(contract: NseDiscoveryContract) -> &'static str {
 
 fn normalize_content_type(value: Option<&str>) -> Option<String> {
     value
-        .map(|raw| raw.split(';').next().unwrap_or_default().trim().to_ascii_lowercase())
+        .map(|raw| {
+            raw.split(';')
+                .next()
+                .unwrap_or_default()
+                .trim()
+                .to_ascii_lowercase()
+        })
         .filter(|value| !value.is_empty())
 }
 
@@ -464,7 +470,8 @@ fn response_to_bounded_fetch(
             reason: format!("ER3B_FINAL_URL_PROVENANCE_REJECTED: {reason}"),
         });
     }
-    if let Err(reason) = enforce_declared_content_length(response.content_length(), max_body_bytes) {
+    if let Err(reason) = enforce_declared_content_length(response.content_length(), max_body_bytes)
+    {
         return Err(Er3bTransportFailure {
             request_url: request_url.to_string(),
             final_url: Some(final_url),
@@ -482,13 +489,14 @@ fn response_to_bounded_fetch(
             body: Vec::new(),
         });
     }
-    let body = read_bounded_body(response, max_body_bytes).map_err(|reason| Er3bTransportFailure {
-        request_url: request_url.to_string(),
-        final_url: Some(final_url.clone()),
-        http_status: Some(status.as_u16()),
-        content_type: content_type.clone(),
-        reason,
-    })?;
+    let body =
+        read_bounded_body(response, max_body_bytes).map_err(|reason| Er3bTransportFailure {
+            request_url: request_url.to_string(),
+            final_url: Some(final_url.clone()),
+            http_status: Some(status.as_u16()),
+            content_type: content_type.clone(),
+            reason,
+        })?;
     Ok(Er3bFetchedResponse {
         request_url: request_url.to_string(),
         final_url,
@@ -515,7 +523,12 @@ fn validate_nse_candidate_recovery_with_transport<T: Er3bTransport>(
     validate_nse_official_source_url(request.landing_page_url)?;
 
     let landing = transport
-        .get(request.landing_page_url, "text/html,*/*", None, ER3B_MAX_LANDING_BYTES)
+        .get(
+            request.landing_page_url,
+            "text/html,*/*",
+            None,
+            ER3B_MAX_LANDING_BYTES,
+        )
         .map_err(|failure| format!("ER3B_LANDING_FETCH_FAILED: {}", failure.reason))?;
     if !(200..300).contains(&landing.http_status) {
         return Err(format!(
@@ -554,7 +567,8 @@ fn validate_nse_candidate_recovery_with_transport<T: Er3bTransport>(
             ));
             continue;
         }
-        let max_body = next_candidate_body_limit(remaining_bytes).expect("remaining byte budget checked above");
+        let max_body = next_candidate_body_limit(remaining_bytes)
+            .expect("remaining byte budget checked above");
         match transport.get(
             &candidate.url,
             accept_header(mapped.contract),
@@ -601,11 +615,7 @@ pub(crate) fn validate_nse_candidate_recovery(
     validate_nse_candidate_recovery_with_transport(request, &transport)
 }
 
-
-fn map_er4_direct_source(
-    source_id: &str,
-    source_role: &str,
-) -> Result<Er3bMappedSource, String> {
+fn map_er4_direct_source(source_id: &str, source_role: &str) -> Result<Er3bMappedSource, String> {
     let er1_source_id = match source_id {
         "NSE_CURRENT_EQUITY_MASTER" => "NSE_EQUITY_MASTER",
         "NSE_CURRENT_SME_MASTER" => "NSE_SME_MASTER",
@@ -613,9 +623,7 @@ fn map_er4_direct_source(
         "NSE_COMPANY_NAME_CHANGE_HISTORY" => "NSE_COMPANY_NAME_CHANGE",
         "NSE_DELISTED_COMPANIES_WORKBOOK" => "NSE_DELISTED_WORKBOOK",
         _ => {
-            return Err(format!(
-                "ER4_SOURCE_NOT_CANDIDATE_ELIGIBLE: '{source_id}'."
-            ));
+            return Err(format!("ER4_SOURCE_NOT_CANDIDATE_ELIGIBLE: '{source_id}'."));
         }
     };
     let mapped = map_er1_source_to_er3_contract(er1_source_id)?;
@@ -688,10 +696,10 @@ pub(crate) fn revalidate_nse_candidate_for_er4(
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use super::super::official_source_urls::{
         DEFAULT_NSE_EQUITY_MASTER_URL, DEFAULT_NSE_SECURITIES_AVAILABLE_PAGE_URL,
     };
+    use super::*;
     use std::collections::HashMap;
     use std::io::{Cursor, Write};
     use zip::write::FileOptions;
@@ -707,7 +715,8 @@ mod tests {
 
     impl FixtureTransport {
         fn insert_response(&mut self, response: Er3bFetchedResponse) {
-            self.responses.insert(response.request_url.clone(), Ok(response));
+            self.responses
+                .insert(response.request_url.clone(), Ok(response));
         }
 
         fn insert_failure(&mut self, url: &str, reason: &str) {
@@ -783,9 +792,7 @@ mod tests {
     fn equity_csv(count: usize) -> Vec<u8> {
         let mut csv = String::from("SYMBOL,NAME OF COMPANY,SERIES,ISIN NUMBER\n");
         for index in 0..count {
-            csv.push_str(&format!(
-                "EQ{index:04},Equity {index},EQ,INE{index:09}\n"
-            ));
+            csv.push_str(&format!("EQ{index:04},Equity {index},EQ,INE{index:09}\n"));
         }
         csv.into_bytes()
     }
@@ -812,7 +819,9 @@ mod tests {
                 br#"<sst><si><t>Sr.no</t></si><si><t>Symbol</t></si><si><t>Name of Company</t></si><si><t>ARCOTECH</t></si><si><t>Arcotech Limited</t></si></sst>"#,
             )
             .unwrap();
-        writer.start_file("xl/worksheets/sheet1.xml", options).unwrap();
+        writer
+            .start_file("xl/worksheets/sheet1.xml", options)
+            .unwrap();
         writer
             .write_all(
                 br#"<worksheet><sheetData><row r="1"><c r="A1"><v>1</v></c><c r="B1" t="s"><v>1</v></c><c r="C1" t="s"><v>2</v></c></row><row r="2"><c r="A2"><v>1</v></c><c r="B2" t="s"><v>3</v></c><c r="C2" t="s"><v>4</v></c></row></sheetData></worksheet>"#,
@@ -848,7 +857,10 @@ mod tests {
             ("NSE_DELISTED_LANDING", "NSE_DELISTED_COMPANIES_WORKBOOK"),
         ];
         for (er1, er3) in cases {
-            assert_eq!(map_er1_source_to_er3_contract(er1).unwrap().source_id(), er3);
+            assert_eq!(
+                map_er1_source_to_er3_contract(er1).unwrap().source_id(),
+                er3
+            );
         }
         assert!(map_er1_source_to_er3_contract("BSE_LIST_SCRIPS_ACTIVE").is_err());
         assert!(map_er1_source_to_er3_contract("NSE_UNKNOWN").is_err());
@@ -856,7 +868,9 @@ mod tests {
 
     #[test]
     fn er3b_b1_healthy_trigger_cannot_start_recovery() {
-        assert!(validate_trigger_category("HEALTHY").unwrap_err().contains("ER3B_TRIGGER_NOT_ELIGIBLE"));
+        assert!(validate_trigger_category("HEALTHY")
+            .unwrap_err()
+            .contains("ER3B_TRIGGER_NOT_ELIGIBLE"));
         assert!(validate_trigger_category("TRANSPORT_FAILURE").is_ok());
     }
 
@@ -877,7 +891,9 @@ mod tests {
             equity_csv(999),
         );
         assert_eq!(bad.classification, ER3B_CLASS_REJECTED);
-        assert!(bad.validation_reason.contains("SOURCE_POPULATION_SANITY_REJECTED"));
+        assert!(bad
+            .validation_reason
+            .contains("SOURCE_POPULATION_SANITY_REJECTED"));
     }
 
     #[test]
@@ -910,7 +926,11 @@ mod tests {
         ];
         for (source, url, content_type, bytes) in cases {
             let result = validate_fixture(source, url, Some(content_type), bytes);
-            assert_eq!(result.classification, ER3B_CLASS_VALIDATED, "{source}: {}", result.validation_reason);
+            assert_eq!(
+                result.classification, ER3B_CLASS_VALIDATED,
+                "{source}: {}",
+                result.validation_reason
+            );
             assert!(result.population_count.unwrap_or_default() > 0);
         }
     }
@@ -964,15 +984,30 @@ mod tests {
 
     #[test]
     fn er3b_b2_declared_and_streamed_body_limits_fail_closed() {
-        assert!(enforce_declared_content_length(Some(11), 10).unwrap_err().contains("BODY_LIMIT_EXCEEDED"));
-        assert!(read_bounded_body(Cursor::new(vec![0u8; 11]), 10).unwrap_err().contains("BODY_LIMIT_EXCEEDED"));
-        assert_eq!(read_bounded_body(Cursor::new(vec![0u8; 10]), 10).unwrap().len(), 10);
+        assert!(enforce_declared_content_length(Some(11), 10)
+            .unwrap_err()
+            .contains("BODY_LIMIT_EXCEEDED"));
+        assert!(read_bounded_body(Cursor::new(vec![0u8; 11]), 10)
+            .unwrap_err()
+            .contains("BODY_LIMIT_EXCEEDED"));
+        assert_eq!(
+            read_bounded_body(Cursor::new(vec![0u8; 10]), 10)
+                .unwrap()
+                .len(),
+            10
+        );
     }
 
     #[test]
     fn er3b_b2_total_candidate_byte_budget_caps_each_next_fetch() {
-        assert_eq!(next_candidate_body_limit(ER3B_MAX_TOTAL_CANDIDATE_BYTES), Some(ER3B_MAX_CANDIDATE_BYTES));
-        assert_eq!(next_candidate_body_limit(ER3B_MAX_CANDIDATE_BYTES + 1), Some(ER3B_MAX_CANDIDATE_BYTES));
+        assert_eq!(
+            next_candidate_body_limit(ER3B_MAX_TOTAL_CANDIDATE_BYTES),
+            Some(ER3B_MAX_CANDIDATE_BYTES)
+        );
+        assert_eq!(
+            next_candidate_body_limit(ER3B_MAX_CANDIDATE_BYTES + 1),
+            Some(ER3B_MAX_CANDIDATE_BYTES)
+        );
         assert_eq!(next_candidate_body_limit(1024), Some(1024));
         assert_eq!(next_candidate_body_limit(0), None);
     }
@@ -987,7 +1022,11 @@ mod tests {
             landing_html.push_str(&format!(r#"<a href="{url}">candidate</a>"#));
             transport.insert_response(fetched(&url, Some("text/csv"), equity_csv(1000)));
         }
-        transport.insert_response(fetched(LANDING, Some("text/html"), landing_html.into_bytes()));
+        transport.insert_response(fetched(
+            LANDING,
+            Some("text/html"),
+            landing_html.into_bytes(),
+        ));
         let report = validate_nse_candidate_recovery_with_transport(
             &Er3bRecoveryRequest {
                 er1_source_id: "NSE_EQUITY_MASTER",
@@ -1000,7 +1039,11 @@ mod tests {
         .unwrap();
         assert_eq!(report.discovery_candidate_count, 8);
         assert_eq!(report.candidate_results.len(), 5);
-        let urls: Vec<_> = report.candidate_results.iter().map(|item| item.candidate_url.clone()).collect();
+        let urls: Vec<_> = report
+            .candidate_results
+            .iter()
+            .map(|item| item.candidate_url.clone())
+            .collect();
         let mut sorted = urls.clone();
         sorted.sort();
         assert_eq!(urls, sorted);
@@ -1027,8 +1070,13 @@ mod tests {
         )
         .unwrap();
         assert_eq!(report.candidate_results.len(), 1);
-        assert_eq!(report.candidate_results[0].classification, ER3B_CLASS_REJECTED);
-        assert!(report.candidate_results[0].validation_reason.contains("TRANSPORT_FAILURE"));
+        assert_eq!(
+            report.candidate_results[0].classification,
+            ER3B_CLASS_REJECTED
+        );
+        assert!(report.candidate_results[0]
+            .validation_reason
+            .contains("TRANSPORT_FAILURE"));
     }
 
     #[test]
@@ -1040,8 +1088,16 @@ mod tests {
         let html = format!(r#"<a href="{}">a</a><a href="{}">z</a>"#, urls[0], urls[1]);
         let make = |reverse: bool| {
             let mut transport = FixtureTransport::default();
-            transport.insert_response(fetched(LANDING, Some("text/html"), html.clone().into_bytes()));
-            let order: Vec<_> = if reverse { urls.iter().rev().collect() } else { urls.iter().collect() };
+            transport.insert_response(fetched(
+                LANDING,
+                Some("text/html"),
+                html.clone().into_bytes(),
+            ));
+            let order: Vec<_> = if reverse {
+                urls.iter().rev().collect()
+            } else {
+                urls.iter().collect()
+            };
             for url in order {
                 transport.insert_response(fetched(url, Some("text/csv"), equity_csv(1000)));
             }
@@ -1082,14 +1138,13 @@ mod tests {
             )
             .expect("official NSE equity fetch must succeed");
         let mapped = mapped("NSE_EQUITY_MASTER");
-        let result = validate_candidate_response(
-            &mapped,
-            EQUITY,
-            LANDING,
-            &candidate(EQUITY),
-            &equity,
+        let result =
+            validate_candidate_response(&mapped, EQUITY, LANDING, &candidate(EQUITY), &equity);
+        assert_eq!(
+            result.classification, ER3B_CLASS_VALIDATED,
+            "{}",
+            result.validation_reason
         );
-        assert_eq!(result.classification, ER3B_CLASS_VALIDATED, "{}", result.validation_reason);
         println!(
             "ER3B_ONLINE_VERIFICATION_JSON={}",
             serde_json::json!({
@@ -1106,7 +1161,6 @@ mod tests {
         );
     }
 }
-
 
 #[cfg(test)]
 mod er4d_direct_revalidation_tests {
@@ -1126,16 +1180,15 @@ mod er4d_direct_revalidation_tests {
             _referer: Option<&str>,
             _max_body_bytes: usize,
         ) -> Result<Er3bFetchedResponse, Er3bTransportFailure> {
-            self.responses
-                .get(request_url)
-                .cloned()
-                .unwrap_or_else(|| Err(Er3bTransportFailure {
+            self.responses.get(request_url).cloned().unwrap_or_else(|| {
+                Err(Er3bTransportFailure {
                     request_url: request_url.to_string(),
                     final_url: None,
                     http_status: None,
                     content_type: None,
                     reason: "ER4D_FIXTURE_MISSING".to_string(),
-                }))
+                })
+            })
         }
     }
 
@@ -1150,7 +1203,8 @@ mod er4d_direct_revalidation_tests {
     #[test]
     fn er4d_direct_candidate_revalidation_reuses_er3b_contract_and_hash() {
         let configured = "https://nsearchives.nseindia.com/content/equities/EQUITY_L.csv";
-        let landing = "https://www.nseindia.com/static/market-data/securities-available-for-trading";
+        let landing =
+            "https://www.nseindia.com/static/market-data/securities-available-for-trading";
         let candidate = "https://nsearchives.nseindia.com/content/equities/EQUITY_REPLACEMENT.csv";
         let body = equity_csv(1000);
         let expected_sha = sha256_upper_hex(&body);
@@ -1177,7 +1231,10 @@ mod er4d_direct_revalidation_tests {
         .unwrap();
 
         assert_eq!(result.classification, ER3B_CLASS_VALIDATED);
-        assert_eq!(result.content_sha256.as_deref(), Some(expected_sha.as_str()));
+        assert_eq!(
+            result.content_sha256.as_deref(),
+            Some(expected_sha.as_str())
+        );
         assert_eq!(result.population_count, Some(1000));
     }
 }

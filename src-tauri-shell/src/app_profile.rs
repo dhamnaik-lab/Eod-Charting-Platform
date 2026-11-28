@@ -214,7 +214,8 @@ pub(crate) fn read_app_profile_theme(app: &AppHandle) -> AppResult<String> {
 pub(crate) fn read_saved_app_profile_theme(app: &AppHandle) -> AppResult<String> {
     let path = get_app_profile_directory(app)?.join(APP_PROFILE_SETTINGS_FILE_NAME);
     let raw = fs::read_to_string(path).map_err(|error| error.to_string())?;
-    let settings: AppProfileSettingsFile = serde_json::from_str(&raw).map_err(|error| error.to_string())?;
+    let settings: AppProfileSettingsFile =
+        serde_json::from_str(&raw).map_err(|error| error.to_string())?;
     Ok(settings.theme)
 }
 

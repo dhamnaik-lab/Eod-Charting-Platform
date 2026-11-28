@@ -56,7 +56,9 @@ fn refresh_classifications(
         .into_iter()
         .filter(|row| {
             matches!(row.action_type.as_str(), "SPLIT" | "BONUS")
-                && before.iter().any(|old| old.id == row.id && old.action_type == "OTHER")
+                && before
+                    .iter()
+                    .any(|old| old.id == row.id && old.action_type == "OTHER")
         })
         .map(|row| row.id)
         .collect::<Vec<_>>();
@@ -118,12 +120,16 @@ fn refresh_classifications_once(
         // Retry source-code mapping for old unmatched BSE imports after explicit
         // Fetch has populated official instrument metadata. Never remap an
         // existing identity or manufacture historical/event-date proof.
-        if row.exchange == "BSE" && row.source == "BSE_API"
-            && ((matches!(row.review_status.as_str(), "UNRESOLVED" | "NEEDS_REVIEW" | "UNSUPPORTED")
-                && row.symbol.is_none()
+        if row.exchange == "BSE"
+            && row.source == "BSE_API"
+            && ((matches!(
+                row.review_status.as_str(),
+                "UNRESOLVED" | "NEEDS_REVIEW" | "UNSUPPORTED"
+            ) && row.symbol.is_none()
                 && row.isin.is_none())
                 || (row.symbol.is_some() && row.symbol == row.bse_scrip_code))
-            && row.bse_scrip_code.is_some() && row.evidence_count > 0
+            && row.bse_scrip_code.is_some()
+            && row.evidence_count > 0
         {
             let resolved = recheck_import_row_resolution(connection, row)?;
             if resolved.symbol.is_some()
@@ -134,8 +140,12 @@ fn refresh_classifications_once(
                 apply_import_row_resolution(connection, row, &resolved)?;
                 if matches!(row.review_status.as_str(), "NEEDS_REVIEW" | "UNSUPPORTED") {
                     // Identity metadata must not clear a separate terms/type block.
-                    connection.execute("UPDATE corporate_action_imports SET review_status=? WHERE id=?",
-                        params![row.review_status,row.id]).map_err(|e|e.to_string())?;
+                    connection
+                        .execute(
+                            "UPDATE corporate_action_imports SET review_status=? WHERE id=?",
+                            params![row.review_status, row.id],
+                        )
+                        .map_err(|e| e.to_string())?;
                 }
                 let updated = get_import_row(connection, row.id)?;
                 record_corporate_action_import_decision(connection, row, &updated,
@@ -433,28 +443,62 @@ mod tests {
     #[ignore = "Explicit guarded database-copy audit using a fresh retained official BSE master capture"]
     fn bse_security_code_disposable_copy_audit() {
         use sha2::{Digest, Sha256};
-        let repo = Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap().canonicalize().unwrap();
-        let folder = std::path::PathBuf::from(std::env::var("CA_BSE_MAPPING_AUDIT").unwrap()).canonicalize().unwrap();
-        assert_eq!(folder.parent().unwrap(), repo.join("tmp").canonicalize().unwrap());
-        assert!(matches!(folder.file_name().unwrap().to_str().unwrap(), "ca-bse-code-mapping-20261024" | "ca-bse-code-mapping-20261024-r2"));
-        assert_eq!(fs::read_to_string(folder.join("AUDIT.txt")).unwrap().trim(), "CA_BSE_SECURITY_CODE_COPY_ONLY");
-        let capture = std::path::PathBuf::from(std::env::var("CA_BSE_MASTER_CAPTURE").unwrap()).canonicalize().unwrap();
+        let repo = Path::new(env!("CARGO_MANIFEST_DIR"))
+            .parent()
+            .unwrap()
+            .canonicalize()
+            .unwrap();
+        let folder = std::path::PathBuf::from(std::env::var("CA_BSE_MAPPING_AUDIT").unwrap())
+            .canonicalize()
+            .unwrap();
+        assert_eq!(
+            folder.parent().unwrap(),
+            repo.join("tmp").canonicalize().unwrap()
+        );
+        assert!(matches!(
+            folder.file_name().unwrap().to_str().unwrap(),
+            "ca-bse-code-mapping-20261024" | "ca-bse-code-mapping-20261024-r2"
+        ));
+        assert_eq!(
+            fs::read_to_string(folder.join("AUDIT.txt")).unwrap().trim(),
+            "CA_BSE_SECURITY_CODE_COPY_ONLY"
+        );
+        let capture = std::path::PathBuf::from(std::env::var("CA_BSE_MASTER_CAPTURE").unwrap())
+            .canonicalize()
+            .unwrap();
         assert!(capture.starts_with(repo.join("outputs").canonicalize().unwrap()));
         assert_eq!(capture.extension().unwrap(), "csv");
-        let manifest: Value = serde_json::from_slice(&fs::read(capture.with_extension("manifest.json")).unwrap()).unwrap();
+        let manifest: Value =
+            serde_json::from_slice(&fs::read(capture.with_extension("manifest.json")).unwrap())
+                .unwrap();
         let bytes = fs::read(&capture).unwrap();
         assert_eq!(manifest["source"], "BSE_IDENTITY_MASTER");
         assert_eq!(manifest["httpStatus"], 200);
-        assert_eq!(manifest["sha256"], format!("{:x}",Sha256::digest(&bytes)));
+        assert_eq!(manifest["sha256"], format!("{:x}", Sha256::digest(&bytes)));
         let c = Connection::open(folder.join("market-data.sqlite3")).unwrap();
-        let tables: Vec<String> = c.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'").unwrap()
-            .query_map([],|r|r.get(0)).unwrap().collect::<Result<_,_>>().unwrap();
-        for (index,table) in tables.iter().enumerate() {
-            for operation in ["INSERT","UPDATE","DELETE"] {
-                if (table == "instruments" || table == "corporate_action_imports") && operation == "UPDATE"
-                    || table == "corporate_action_import_decisions" && operation == "INSERT" { continue; }
-                c.execute_batch(&format!("CREATE TEMP TRIGGER guard_{index}_{operation} BEFORE {operation} ON \"{}\"
-                    BEGIN SELECT RAISE(ABORT,'copy audit forbids unrelated writes'); END;",table.replace('"',"\"\""))).unwrap();
+        let tables: Vec<String> = c
+            .prepare(
+                "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'",
+            )
+            .unwrap()
+            .query_map([], |r| r.get(0))
+            .unwrap()
+            .collect::<Result<_, _>>()
+            .unwrap();
+        for (index, table) in tables.iter().enumerate() {
+            for operation in ["INSERT", "UPDATE", "DELETE"] {
+                if (table == "instruments" || table == "corporate_action_imports")
+                    && operation == "UPDATE"
+                    || table == "corporate_action_import_decisions" && operation == "INSERT"
+                {
+                    continue;
+                }
+                c.execute_batch(&format!(
+                    "CREATE TEMP TRIGGER guard_{index}_{operation} BEFORE {operation} ON \"{}\"
+                    BEGIN SELECT RAISE(ABORT,'copy audit forbids unrelated writes'); END;",
+                    table.replace('"', "\"\"")
+                ))
+                .unwrap();
             }
         }
         c.execute_batch("CREATE TEMP TRIGGER guard_instrument_fields BEFORE UPDATE ON instruments
@@ -476,18 +520,25 @@ mod tests {
             AND symbol IS NULL AND isin IS NULL AND review_status IN ('UNRESOLVED','NEEDS_REVIEW','UNSUPPORTED') AND approved_corporate_action_id IS NULL ORDER BY id").unwrap()
             .query_map([],|r|r.get(0)).unwrap().collect::<Result<_,_>>().unwrap();
         assert!(!ids.is_empty());
-        let filled = run_connection_transaction(&c,|c|super::super::bse_identity_mapping::fill_missing_codes(c,&bytes)).unwrap();
+        let filled = run_connection_transaction(&c, |c| {
+            super::super::bse_identity_mapping::fill_missing_codes(c, &bytes)
+        })
+        .unwrap();
         let mut matched = 0;
         for chunk in ids.chunks(100) {
-            let rows = run_connection_transaction(&c,|c|refresh_classifications(c,chunk)).unwrap();
-            matched += rows.iter().filter(|r|r.symbol.is_some() && r.isin.is_some()).count();
+            let rows =
+                run_connection_transaction(&c, |c| refresh_classifications(c, chunk)).unwrap();
+            matched += rows
+                .iter()
+                .filter(|r| r.symbol.is_some() && r.isin.is_some())
+                .count();
         }
         let report = serde_json::json!({"database":"guarded disposable copy", "officialMaster":capture,
             "instrumentCodesFilled":filled,"unmatchedBefore":ids.len(),"matchedAfter":matched,
             "unmatchedAfter":ids.len()-matched,"financialAndSourceGuards":true});
         let output = folder.join("results.json");
         assert!(!output.exists());
-        fs::write(output,serde_json::to_vec_pretty(&report).unwrap()).unwrap();
+        fs::write(output, serde_json::to_vec_pretty(&report).unwrap()).unwrap();
         println!("BSE_COPY_AUDIT PASS {report}");
     }
 
@@ -508,53 +559,89 @@ mod tests {
     #[test]
     fn bse_code_refresh_retries_unmatched_without_approval_or_source_evidence_changes() {
         let c = fixture();
-        c.execute("INSERT INTO instruments(symbol,exchange,isin,bse_security_code,name,is_active)
-            VALUES('GPTHEALTH','BSE','INE486R01017','544131','GPT Healthcare Ltd',1)",[]).unwrap();
+        c.execute(
+            "INSERT INTO instruments(symbol,exchange,isin,bse_security_code,name,is_active)
+            VALUES('GPTHEALTH','BSE','INE486R01017','544131','GPT Healthcare Ltd',1)",
+            [],
+        )
+        .unwrap();
         for id in 1..=5 {
-            insert(&c,id,"DIVIDEND","UNRESOLVED","Dividend - Rs 1.5 Per Share",Some(1.5));
+            insert(
+                &c,
+                id,
+                "DIVIDEND",
+                "UNRESOLVED",
+                "Dividend - Rs 1.5 Per Share",
+                Some(1.5),
+            );
             c.execute("UPDATE corporate_action_imports SET exchange='BSE',source='BSE_API',symbol=NULL,isin=NULL,bse_scrip_code='544131' WHERE id=?",[id]).unwrap();
             if id != 5 {
                 c.execute("INSERT INTO corporate_action_import_evidence(import_id,source_code,raw_reference) VALUES(?,'BSE_API','retained original')",[id]).unwrap();
             }
         }
-        c.execute("UPDATE corporate_action_imports SET review_status='APPROVED' WHERE id=2",[]).unwrap();
+        c.execute(
+            "UPDATE corporate_action_imports SET review_status='APPROVED' WHERE id=2",
+            [],
+        )
+        .unwrap();
         c.execute("UPDATE corporate_action_imports SET message='Manually resolved by operator' WHERE id=3",[]).unwrap();
-        c.execute("UPDATE corporate_action_imports SET bse_scrip_code='999999' WHERE id=4",[]).unwrap();
-        run_connection_transaction(&c,|c|refresh_classifications(c,&[1,2,3,4,5])).unwrap();
-        let matched = get_import_row(&c,1).unwrap();
-        assert_eq!(matched.symbol.as_deref(),Some("GPTHEALTH"));
-        assert_eq!(matched.isin.as_deref(),Some("INE486R01017"));
-        assert_eq!(matched.review_status,"PENDING");
+        c.execute(
+            "UPDATE corporate_action_imports SET bse_scrip_code='999999' WHERE id=4",
+            [],
+        )
+        .unwrap();
+        run_connection_transaction(&c, |c| refresh_classifications(c, &[1, 2, 3, 4, 5])).unwrap();
+        let matched = get_import_row(&c, 1).unwrap();
+        assert_eq!(matched.symbol.as_deref(), Some("GPTHEALTH"));
+        assert_eq!(matched.isin.as_deref(), Some("INE486R01017"));
+        assert_eq!(matched.review_status, "PENDING");
         assert!(matched.approved_corporate_action_id.is_none());
-        assert_eq!(matched.cash_amount,Some(1.5));
-        for id in 2..=5 { assert!(get_import_row(&c,id).unwrap().symbol.is_none()); }
-        run_connection_transaction(&c,|c|refresh_classifications(c,&[1,2,3,4,5])).unwrap();
+        assert_eq!(matched.cash_amount, Some(1.5));
+        for id in 2..=5 {
+            assert!(get_import_row(&c, id).unwrap().symbol.is_none());
+        }
+        run_connection_transaction(&c, |c| refresh_classifications(c, &[1, 2, 3, 4, 5])).unwrap();
         assert_eq!(c.query_row("SELECT count(*) FROM corporate_action_import_decisions WHERE decision_type='BSE_SECURITY_CODE_RESOLUTION'",[],|r|r.get::<_,i64>(0)).unwrap(),1);
         assert_eq!(c.query_row("SELECT count(*) FROM corporate_action_import_evidence WHERE raw_reference='retained original' AND isin_seen IS NULL",[],|r|r.get::<_,i64>(0)).unwrap(),4);
-        assert_eq!(c.query_row("SELECT count(*) FROM corporate_actions",[],|r|r.get::<_,i64>(0)).unwrap(),0);
+        assert_eq!(
+            c.query_row("SELECT count(*) FROM corporate_actions", [], |r| r
+                .get::<_, i64>(0))
+                .unwrap(),
+            0
+        );
     }
 
     #[test]
     fn bse_identity_retry_preserves_unsupported_type_and_incomplete_terms_blocks() {
         let c = fixture();
-        c.execute("INSERT INTO instruments(symbol,exchange,isin,bse_security_code,name,is_active)
-            VALUES('GPTHEALTH','BSE','INE486R01017','544131','GPT Healthcare Ltd',1)",[]).unwrap();
-        for (id,action,status,purpose) in [(1,"RIGHTS","NEEDS_REVIEW","Rights issue of equity shares"),
-            (2,"OTHER","UNSUPPORTED","Distribution of income")] {
-            insert(&c,id,action,status,purpose,None);
+        c.execute(
+            "INSERT INTO instruments(symbol,exchange,isin,bse_security_code,name,is_active)
+            VALUES('GPTHEALTH','BSE','INE486R01017','544131','GPT Healthcare Ltd',1)",
+            [],
+        )
+        .unwrap();
+        for (id, action, status, purpose) in [
+            (1, "RIGHTS", "NEEDS_REVIEW", "Rights issue of equity shares"),
+            (2, "OTHER", "UNSUPPORTED", "Distribution of income"),
+        ] {
+            insert(&c, id, action, status, purpose, None);
             c.execute("UPDATE corporate_action_imports SET exchange='BSE',source='BSE_API',symbol=NULL,isin=NULL,
                 bse_scrip_code='544131',parse_status='NEEDS_REVIEW' WHERE id=?",[id]).unwrap();
-            c.execute("INSERT INTO corporate_action_import_evidence(import_id,source_code,raw_reference)
-                VALUES(?,'BSE_API','retained original')",[id]).unwrap();
+            c.execute(
+                "INSERT INTO corporate_action_import_evidence(import_id,source_code,raw_reference)
+                VALUES(?,'BSE_API','retained original')",
+                [id],
+            )
+            .unwrap();
         }
-        let rows = run_connection_transaction(&c,|c|refresh_classifications(c,&[1,2])).unwrap();
+        let rows = run_connection_transaction(&c, |c| refresh_classifications(c, &[1, 2])).unwrap();
         for row in &rows {
-            assert_eq!(row.symbol.as_deref(),Some("GPTHEALTH"));
+            assert_eq!(row.symbol.as_deref(), Some("GPTHEALTH"));
             assert!(row.approved_corporate_action_id.is_none());
-            assert_eq!(row.parse_status,"NEEDS_REVIEW");
+            assert_eq!(row.parse_status, "NEEDS_REVIEW");
         }
-        assert_eq!(get_import_row(&c,1).unwrap().review_status,"NEEDS_REVIEW");
-        assert_eq!(get_import_row(&c,2).unwrap().review_status,"UNSUPPORTED");
+        assert_eq!(get_import_row(&c, 1).unwrap().review_status, "NEEDS_REVIEW");
+        assert_eq!(get_import_row(&c, 2).unwrap().review_status, "UNSUPPORTED");
     }
 
     #[test]
@@ -708,7 +795,11 @@ mod tests {
         assert_eq!(rows[0].parse_status, "PARSED");
         assert_eq!(rows[0].review_status, "PENDING");
         assert_eq!(rows[0].factor, Some(10.0));
-        let count: i64 = c.query_row("SELECT COUNT(*) FROM corporate_action_imports", [], |r| r.get(0)).unwrap();
+        let count: i64 = c
+            .query_row("SELECT COUNT(*) FROM corporate_action_imports", [], |r| {
+                r.get(0)
+            })
+            .unwrap();
         assert_eq!(count, 1);
     }
 

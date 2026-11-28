@@ -16,8 +16,8 @@ fn v114w_red_rust_maintenance_path_is_registered_end_to_end() {
     let corporate = read_source("src/database/corporate_action_imports.rs");
     let database = read_source("src/database.rs");
     let main = read_source("src/main.rs");
-    let module_path = manifest_dir()
-        .join("src/database/corporate_action_imports/five_pair_consolidation.rs");
+    let module_path =
+        manifest_dir().join("src/database/corporate_action_imports/five_pair_consolidation.rs");
 
     let mut missing = Vec::<String>::new();
 
@@ -25,12 +25,15 @@ fn v114w_red_rust_maintenance_path_is_registered_end_to_end() {
         missing.push("five_pair_consolidation.rs does not exist".to_string());
     }
     if !corporate.contains("mod five_pair_consolidation;") {
-        missing.push("corporate_action_imports.rs does not register five_pair_consolidation".to_string());
+        missing.push(
+            "corporate_action_imports.rs does not register five_pair_consolidation".to_string(),
+        );
     }
-    if !corporate.contains(
-        "five_pair_consolidation::try_run_five_pair_consolidation_maintenance",
-    ) {
-        missing.push("corporate_action_imports.rs does not re-export the V1.14W maintenance runner".to_string());
+    if !corporate.contains("five_pair_consolidation::try_run_five_pair_consolidation_maintenance") {
+        missing.push(
+            "corporate_action_imports.rs does not re-export the V1.14W maintenance runner"
+                .to_string(),
+        );
     }
     if !database.contains("try_run_five_pair_consolidation_maintenance") {
         missing.push("database.rs does not re-export the V1.14W maintenance runner".to_string());
@@ -48,8 +51,8 @@ fn v114w_red_rust_maintenance_path_is_registered_end_to_end() {
 
 #[test]
 fn v114w_red_maintenance_contract_is_dry_run_only_and_fingerprint_locked() {
-    let module_path = manifest_dir()
-        .join("src/database/corporate_action_imports/five_pair_consolidation.rs");
+    let module_path =
+        manifest_dir().join("src/database/corporate_action_imports/five_pair_consolidation.rs");
 
     let source = fs::read_to_string(&module_path).unwrap_or_else(|_| {
         panic!(
@@ -80,8 +83,8 @@ fn v114w_red_maintenance_contract_is_dry_run_only_and_fingerprint_locked() {
 
 #[test]
 fn v114w_red_exact_pair_and_transaction_safety_contract_is_declared() {
-    let module_path = manifest_dir()
-        .join("src/database/corporate_action_imports/five_pair_consolidation.rs");
+    let module_path =
+        manifest_dir().join("src/database/corporate_action_imports/five_pair_consolidation.rs");
     let source = fs::read_to_string(&module_path).unwrap_or_else(|_| {
         panic!(
             "V1.14W consolidation module is missing: {}",
@@ -90,12 +93,20 @@ fn v114w_red_exact_pair_and_transaction_safety_contract_is_declared() {
     });
 
     for required in [
-        "42737", "1232",
-        "42779", "3799",
-        "42818", "6362",
-        "42855", "9005",
-        "42863", "9582",
-        "10947", "1736", "4670", "5353",
+        "42737",
+        "1232",
+        "42779",
+        "3799",
+        "42818",
+        "6362",
+        "42855",
+        "9005",
+        "42863",
+        "9582",
+        "10947",
+        "1736",
+        "4670",
+        "5353",
         "corporate_action_import_evidence",
         "DELETE FROM corporate_action_imports",
         "foreign_key_check",

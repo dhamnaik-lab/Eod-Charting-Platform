@@ -12,7 +12,19 @@ fn nifty_historical_review_to_chart_query_and_binary_transport() {
     assert_eq!(rows.len(), 1);
     assert_eq!(rows[0].date, "2024-01-02");
     assert_eq!(rows[0].close, 105.0);
-    let bars = rows.into_iter().map(|r| EodRow { date:r.date,open:r.open,high:r.high,low:r.low,close:r.close,prev_close:r.prev_close,volume:r.volume,open_interest:r.open_interest }).collect::<Vec<_>>();
+    let bars = rows
+        .into_iter()
+        .map(|r| EodRow {
+            date: r.date,
+            open: r.open,
+            high: r.high,
+            low: r.low,
+            close: r.close,
+            prev_close: r.prev_close,
+            volume: r.volume,
+            open_interest: r.open_interest,
+        })
+        .collect::<Vec<_>>();
     assert_eq!(encode_eod_rows_binary_b64(&bars).len(), 88);
 }
 
@@ -27,11 +39,26 @@ fn nifty_captured_source_acceptance_to_chart_query() {
     let binary = BinaryEodFile::open(root.join("eod_data/NSE_INDEX/NIFTY.eod")).unwrap();
     let records = binary.read_all().unwrap();
     for (row, record) in rows.iter().zip(&records) {
-        assert_eq!(date_to_u32(&row.date),record.date);
-        assert_eq!([row.open,row.high,row.low,row.close],
-            [record.open,record.high,record.low,record.close].map(|p|p as f64 / binary.header.price_scale as f64));
+        assert_eq!(date_to_u32(&row.date), record.date);
+        assert_eq!(
+            [row.open, row.high, row.low, row.close],
+            [record.open, record.high, record.low, record.close]
+                .map(|p| p as f64 / binary.header.price_scale as f64)
+        );
     }
-    let bars = rows.into_iter().map(|r| EodRow { date:r.date,open:r.open,high:r.high,low:r.low,close:r.close,prev_close:r.prev_close,volume:r.volume,open_interest:r.open_interest }).collect::<Vec<_>>();
+    let bars = rows
+        .into_iter()
+        .map(|r| EodRow {
+            date: r.date,
+            open: r.open,
+            high: r.high,
+            low: r.low,
+            close: r.close,
+            prev_close: r.prev_close,
+            volume: r.volume,
+            open_interest: r.open_interest,
+        })
+        .collect::<Vec<_>>();
     let response = encode_eod_rows_binary_b64(&bars);
     fs::write(root.join("chart-readback-result.json"),serde_json::to_vec_pretty(&serde_json::json!({
         "status":"PASS","barCount":count,"binaryTransportBase64Length":response.len(),"allChartOHLCMatchBinary":true,

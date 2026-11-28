@@ -29,15 +29,18 @@ const NON_EQUITY_MARKERS: [&str; 7] = [
 
 pub(super) fn event_includes_equity_split(row: &CorporateActionImportRow) -> bool {
     let normalized = expand_legacy_abbreviations(&normalize_text(&row.purpose_raw));
-    if NON_EQUITY_MARKERS
-        .iter()
-        .any(|marker| normalized.split_whitespace().any(|token| token.starts_with(marker)))
-    {
+    if NON_EQUITY_MARKERS.iter().any(|marker| {
+        normalized
+            .split_whitespace()
+            .any(|token| token.starts_with(marker))
+    }) {
         return false;
     }
     match row.action_type.as_str() {
         "SPLIT" => true,
-        "BONUS" => SPLIT_MARKERS.iter().any(|marker| normalized.contains(marker)),
+        "BONUS" => SPLIT_MARKERS
+            .iter()
+            .any(|marker| normalized.contains(marker)),
         _ => false,
     }
 }
@@ -62,8 +65,10 @@ pub(super) fn evaluate(
 ) -> AppResult<bool> {
     // PENDING_ISIN_MISMATCH is the same case seen from the other side: the
     // symbol matched, but the event ISIN differs from today's ISIN.
-    if !matches!(row.review_status.as_str(), "UNRESOLVED" | "PENDING_ISIN_MISMATCH")
-        || row.approved_corporate_action_id.is_some()
+    if !matches!(
+        row.review_status.as_str(),
+        "UNRESOLVED" | "PENDING_ISIN_MISMATCH"
+    ) || row.approved_corporate_action_id.is_some()
         || row.parse_status != "PARSED"
         || !matches!(row.action_type.as_str(), "SPLIT" | "BONUS")
         || !suggestion.is_active
@@ -76,7 +81,9 @@ pub(super) fn evaluate(
     let Some(raw) = normalize_isin(row.isin.as_deref()) else {
         return Ok(false);
     };
-    let Some(instrument) = find_instrument_record(connection, &suggestion.symbol, &suggestion.exchange)? else {
+    let Some(instrument) =
+        find_instrument_record(connection, &suggestion.symbol, &suggestion.exchange)?
+    else {
         return Ok(false);
     };
     let Some(current) = normalize_isin(instrument.isin.as_deref()) else {
@@ -124,14 +131,21 @@ pub(super) fn evaluate(
     // The saved scan must still match today's authoritative EOD bars. A price
     // correction or deletion after the scan removes the proof (fail closed).
     let folder = database_folder(connection)?;
-    Ok(price_validation_freshness::ensure_scan_uses_current_price_window(connection, &folder, row).is_ok())
+    Ok(
+        price_validation_freshness::ensure_scan_uses_current_price_window(connection, &folder, row)
+            .is_ok(),
+    )
 }
 
 /// Folder of the open database file. An in-memory database has no file, so its
 /// bars come only from SQL tables; the temp folder holds no `.eod` files for it.
 pub(super) fn database_folder(connection: &Connection) -> AppResult<std::path::PathBuf> {
     let file: String = connection
-        .query_row("SELECT file FROM pragma_database_list WHERE name='main'", [], |r| r.get(0))
+        .query_row(
+            "SELECT file FROM pragma_database_list WHERE name='main'",
+            [],
+            |r| r.get(0),
+        )
         .map_err(|error| error.to_string())?;
     Ok(match Path::new(&file).parent() {
         Some(parent) if !file.trim().is_empty() => parent.to_path_buf(),
@@ -191,7 +205,8 @@ mod tests {
         evaluate(c, &row, candidate).unwrap()
     }
 
-    const COMBINED: &str = "Bonus 1:1 / Face Value Split - From Rs 10/- Per Share To Rs 5/- Per Share";
+    const COMBINED: &str =
+        "Bonus 1:1 / Face Value Split - From Rs 10/- Per Share To Rs 5/- Per Share";
 
     fn predecessor(c: &Connection, active: i64, date: &str) {
         c.execute(
@@ -202,7 +217,8 @@ mod tests {
             "INSERT INTO instrument_isin_history(exchange,symbol,isin,effective_date,source)
              VALUES ('NSE','OLDCO',?,'2014-01-01','NSE_IDENTITY')",
             [RAW_ISIN],
-        ).unwrap();
+        )
+        .unwrap();
         c.execute(
             "INSERT INTO instrument_identity_history(exchange,isin,old_symbol,new_symbol,current_symbol,effective_date,change_type,source)
              VALUES ('NSE',?,'OLDCO','SPLITCO','SPLITCO',?,'SYMBOL_CHANGE','NSE_IDENTITY')",
@@ -217,22 +233,39 @@ mod tests {
             predecessor(&c, 0, date);
             assert!(proven(&c), "link on or before event: {date}");
             // Historical raw-ISIN ownership also needs a provably inactive instrument.
-            c.execute("UPDATE instruments SET isin=NULL WHERE symbol='OLDCO'", []).unwrap();
+            c.execute("UPDATE instruments SET isin=NULL WHERE symbol='OLDCO'", [])
+                .unwrap();
             assert!(proven(&c));
             let resolved = quick_resolve_corporate_action_import_internal(
-                &c, &CorporateActionImportQuickResolveInput { import_id: 1 },
-            ).unwrap().import_record;
+                &c,
+                &CorporateActionImportQuickResolveInput { import_id: 1 },
+            )
+            .unwrap()
+            .import_record;
             assert_eq!(resolved.review_status, "PENDING");
             assert_eq!(resolved.approved_corporate_action_id, None);
             assert!(!identity_recheck::machine_identity_is_unproven(&c, &resolved).unwrap());
-            c.execute("UPDATE instruments SET is_active=1 WHERE symbol='OLDCO'", []).unwrap();
+            c.execute(
+                "UPDATE instruments SET is_active=1 WHERE symbol='OLDCO'",
+                [],
+            )
+            .unwrap();
             assert!(identity_recheck::machine_identity_is_unproven(&c, &resolved).unwrap());
-            assert_eq!(c.query_row("SELECT count(*) FROM corporate_actions", [], |r| r.get::<_, i64>(0)).unwrap(), 0);
+            assert_eq!(
+                c.query_row("SELECT count(*) FROM corporate_actions", [], |r| r
+                    .get::<_, i64>(0))
+                    .unwrap(),
+                0
+            );
         }
         let c = fixture(COMBINED, "BONUS", 2.0, "MATCHED");
         predecessor(&c, 0, "2015-03-18");
-        c.execute("DELETE FROM instruments WHERE symbol='OLDCO'", []).unwrap();
-        assert!(!proven(&c), "historical-only owner without activity evidence");
+        c.execute("DELETE FROM instruments WHERE symbol='OLDCO'", [])
+            .unwrap();
+        assert!(
+            !proven(&c),
+            "historical-only owner without activity evidence"
+        );
     }
 
     #[test]
@@ -240,7 +273,11 @@ mod tests {
         let c = fixture(COMBINED, "BONUS", 2.0, "MATCHED");
         predecessor(&c, 1, "2015-03-18");
         assert!(!proven(&c));
-        c.execute("UPDATE instruments SET is_active=0 WHERE symbol='OLDCO'", []).unwrap();
+        c.execute(
+            "UPDATE instruments SET is_active=0 WHERE symbol='OLDCO'",
+            [],
+        )
+        .unwrap();
         assert!(proven(&c));
         c.execute("INSERT INTO instruments(symbol,exchange,isin,name,is_active) VALUES ('SECOND','NSE',?,'Second',1)", [RAW_ISIN]).unwrap();
         assert!(!proven(&c), "every owner must qualify");
@@ -250,14 +287,19 @@ mod tests {
     fn ca_nse_remaining_split_isin_rejects_unlinked_inactive_owner() {
         let c = fixture(COMBINED, "BONUS", 2.0, "MATCHED");
         predecessor(&c, 0, "2015-03-18");
-        c.execute("DELETE FROM instrument_identity_history", []).unwrap();
+        c.execute("DELETE FROM instrument_identity_history", [])
+            .unwrap();
         assert!(!proven(&c));
         c.execute("INSERT INTO instrument_identity_history(exchange,old_symbol,new_symbol,effective_date,change_type)
             VALUES ('NSE','SPLITCO','OLDCO','2015-03-18','SYMBOL_CHANGE')", []).unwrap();
-        assert!(!proven(&c), "reverse transition does not link old to current");
+        assert!(
+            !proven(&c),
+            "reverse transition does not link old to current"
+        );
         c.execute("UPDATE instrument_identity_history SET old_symbol='OLDCO',new_symbol='SPLITCO',exchange='BSE'", []).unwrap();
         assert!(!proven(&c), "link on another exchange does not qualify");
-        c.execute("UPDATE instrument_identity_history SET exchange='NSE'", []).unwrap();
+        c.execute("UPDATE instrument_identity_history SET exchange='NSE'", [])
+            .unwrap();
         assert!(proven(&c));
         c.execute("INSERT INTO instruments(symbol,exchange,isin,name,is_active) VALUES ('OLDCO','BSE',?,'Other exchange',0)", [RAW_ISIN]).unwrap();
         assert!(!proven(&c), "a cross-exchange owner still fails");
@@ -268,15 +310,38 @@ mod tests {
         let c = fixture(COMBINED, "BONUS", 2.0, "MATCHED");
         predecessor(&c, 0, "2015-03-20");
         assert!(!proven(&c));
-        c.execute("UPDATE instrument_identity_history SET effective_date='not-a-date'", []).unwrap();
+        c.execute(
+            "UPDATE instrument_identity_history SET effective_date='not-a-date'",
+            [],
+        )
+        .unwrap();
         assert!(!proven(&c));
-        c.execute("UPDATE instrument_identity_history SET effective_date='2015-03-18'", []).unwrap();
+        c.execute(
+            "UPDATE instrument_identity_history SET effective_date='2015-03-18'",
+            [],
+        )
+        .unwrap();
         assert!(proven(&c));
-        c.execute("UPDATE corporate_action_scan_results SET scan_status='REVIEW'", []).unwrap();
+        c.execute(
+            "UPDATE corporate_action_scan_results SET scan_status='REVIEW'",
+            [],
+        )
+        .unwrap();
         assert!(!proven(&c), "linked predecessor cannot bypass MATCHED scan");
-        c.execute("UPDATE corporate_action_scan_results SET scan_status='MATCHED'", []).unwrap();
-        c.execute("UPDATE eod_prices SET close=260 WHERE symbol='SPLITCO' AND date='2015-03-19'", []).unwrap();
-        assert!(!proven(&c), "linked predecessor cannot bypass current price window");
+        c.execute(
+            "UPDATE corporate_action_scan_results SET scan_status='MATCHED'",
+            [],
+        )
+        .unwrap();
+        c.execute(
+            "UPDATE eod_prices SET close=260 WHERE symbol='SPLITCO' AND date='2015-03-19'",
+            [],
+        )
+        .unwrap();
+        assert!(
+            !proven(&c),
+            "linked predecessor cannot bypass current price window"
+        );
     }
 
     #[test]
@@ -300,9 +365,13 @@ mod tests {
             .unwrap();
         assert_eq!(decision, DECISION);
         // The recorded machine decision is re-verified, not trusted forever.
-        assert!(!identity_recheck::machine_identity_is_unproven(&c, &result.import_record).unwrap());
+        assert!(
+            !identity_recheck::machine_identity_is_unproven(&c, &result.import_record).unwrap()
+        );
         assert_eq!(
-            c.query_row("SELECT count(*) FROM corporate_actions", [], |r| r.get::<_, i64>(0)).unwrap(),
+            c.query_row("SELECT count(*) FROM corporate_actions", [], |r| r
+                .get::<_, i64>(0))
+                .unwrap(),
             0
         );
     }
@@ -310,7 +379,11 @@ mod tests {
     #[test]
     fn ca_phase2a_split_isin_price_proof_accepts_pending_isin_mismatch_status() {
         let c = fixture("Fv Splt Frm Rs 10 To Re 1", "SPLIT", 10.0, "MATCHED");
-        c.execute("UPDATE corporate_action_imports SET review_status='PENDING_ISIN_MISMATCH'", []).unwrap();
+        c.execute(
+            "UPDATE corporate_action_imports SET review_status='PENDING_ISIN_MISMATCH'",
+            [],
+        )
+        .unwrap();
         assert!(proven(&c));
         let result = quick_resolve_corporate_action_import_internal(
             &c,
@@ -319,7 +392,11 @@ mod tests {
         .unwrap();
         assert_eq!(result.import_record.review_status, "PENDING");
         assert_eq!(result.import_record.approved_corporate_action_id, None);
-        c.execute("UPDATE corporate_action_imports SET review_status='NEEDS_REVIEW'", []).unwrap();
+        c.execute(
+            "UPDATE corporate_action_imports SET review_status='NEEDS_REVIEW'",
+            [],
+        )
+        .unwrap();
         assert!(!proven(&c), "other statuses stay out");
     }
 
@@ -330,7 +407,8 @@ mod tests {
             assert!(!proven(&c), "{status}");
         }
         let c = fixture(COMBINED, "BONUS", 2.0, "MATCHED");
-        c.execute("DELETE FROM corporate_action_scan_results", []).unwrap();
+        c.execute("DELETE FROM corporate_action_scan_results", [])
+            .unwrap();
         assert!(!proven(&c));
     }
 
@@ -338,9 +416,17 @@ mod tests {
     fn pr25_split_isin_price_proof_rejects_prices_changed_after_scan() {
         let c = fixture(COMBINED, "BONUS", 2.0, "MATCHED");
         assert!(proven(&c));
-        c.execute("UPDATE eod_prices SET close=260 WHERE symbol='SPLITCO' AND date='2015-03-19'", []).unwrap();
+        c.execute(
+            "UPDATE eod_prices SET close=260 WHERE symbol='SPLITCO' AND date='2015-03-19'",
+            [],
+        )
+        .unwrap();
         assert!(!proven(&c), "corrected bar removes the proof");
-        c.execute("DELETE FROM eod_prices WHERE symbol='SPLITCO' AND date='2015-03-19'", []).unwrap();
+        c.execute(
+            "DELETE FROM eod_prices WHERE symbol='SPLITCO' AND date='2015-03-19'",
+            [],
+        )
+        .unwrap();
         assert!(!proven(&c), "deleted bar removes the proof");
     }
 
@@ -352,20 +438,39 @@ mod tests {
 
     #[test]
     fn ca_phase2a_split_isin_price_proof_rejects_non_equity_terms() {
-        let c = fixture("Scheme Of Arrangement - Bonus Ncrps 4:1 and Split", "BONUS", 5.0, "MATCHED");
+        let c = fixture(
+            "Scheme Of Arrangement - Bonus Ncrps 4:1 and Split",
+            "BONUS",
+            5.0,
+            "MATCHED",
+        );
         assert!(!proven(&c));
-        let c = fixture("Bonus Debentures and Face Value Split", "BONUS", 2.0, "MATCHED");
+        let c = fixture(
+            "Bonus Debentures and Face Value Split",
+            "BONUS",
+            2.0,
+            "MATCHED",
+        );
         assert!(!proven(&c));
     }
 
     #[test]
     fn ca_phase2a_split_isin_price_proof_rejects_other_issuer_type_or_owner() {
         let c = fixture(COMBINED, "BONUS", 2.0, "MATCHED");
-        c.execute("UPDATE corporate_action_imports SET isin='INE111C01028'", []).unwrap();
+        c.execute(
+            "UPDATE corporate_action_imports SET isin='INE111C01028'",
+            [],
+        )
+        .unwrap();
         assert!(!proven(&c), "different issuer");
         let c = fixture(COMBINED, "BONUS", 2.0, "MATCHED");
-        c.execute("UPDATE corporate_action_imports SET isin='INE669C02028'", []).unwrap();
-        c.execute("UPDATE instruments SET isin='INE669C02036'", []).unwrap();
+        c.execute(
+            "UPDATE corporate_action_imports SET isin='INE669C02028'",
+            [],
+        )
+        .unwrap();
+        c.execute("UPDATE instruments SET isin='INE669C02036'", [])
+            .unwrap();
         assert!(!proven(&c), "not the equity security type");
         let c = fixture(COMBINED, "BONUS", 2.0, "MATCHED");
         c.execute(
@@ -379,7 +484,11 @@ mod tests {
     #[test]
     fn ca_phase2a_split_isin_price_proof_rejects_stale_factor_scan() {
         let c = fixture(COMBINED, "BONUS", 2.0, "MATCHED");
-        c.execute("UPDATE corporate_action_scan_results SET expected_factor=3.0", []).unwrap();
+        c.execute(
+            "UPDATE corporate_action_scan_results SET expected_factor=3.0",
+            [],
+        )
+        .unwrap();
         assert!(!proven(&c));
     }
 }

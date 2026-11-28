@@ -16,7 +16,6 @@ pub struct PluginDataFilePickerInput {
     pub extensions: Vec<String>,
 }
 
-
 #[derive(Clone, Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PluginOutputDirectoryPickerInput {
@@ -44,10 +43,7 @@ fn normalize_extensions(values: &[String]) -> AppResult<Vec<String>> {
     let mut normalized = Vec::new();
 
     for value in values {
-        let extension = value
-            .trim()
-            .trim_start_matches('.')
-            .to_ascii_lowercase();
+        let extension = value.trim().trim_start_matches('.').to_ascii_lowercase();
         if extension.is_empty() {
             continue;
         }
@@ -94,7 +90,6 @@ pub fn pick_plugin_data_file(input: PluginDataFilePickerInput) -> AppResult<Opti
         .map(|path| path.to_string_lossy().to_string()))
 }
 
-
 #[tauri::command]
 pub fn pick_plugin_output_directory(
     input: PluginOutputDirectoryPickerInput,
@@ -113,7 +108,9 @@ pub fn pick_plugin_output_directory(
 }
 
 #[tauri::command]
-pub fn read_plugin_text_file(input: PluginTextFileReadInput) -> AppResult<PluginTextFileReadResult> {
+pub fn read_plugin_text_file(
+    input: PluginTextFileReadInput,
+) -> AppResult<PluginTextFileReadResult> {
     let allowed_extensions = normalize_extensions(&input.allowed_extensions)?;
     let requested_path = input.file_path.trim();
     if requested_path.is_empty() {
@@ -280,7 +277,9 @@ fn validate_external_entry_file(raw_entry: &str) -> AppResult<String> {
         || trimmed.contains("..")
         || !trimmed.to_ascii_lowercase().ends_with(".js")
     {
-        return Err(format!("External plugin entry must be a local .js filename: {trimmed}"));
+        return Err(format!(
+            "External plugin entry must be a local .js filename: {trimmed}"
+        ));
     }
     Ok(trimmed.to_string())
 }
@@ -288,11 +287,14 @@ fn validate_external_entry_file(raw_entry: &str) -> AppResult<String> {
 fn get_external_plugins_root(app: &tauri::AppHandle) -> AppResult<PathBuf> {
     let profile_dir = crate::app_profile::get_app_profile_directory(app)?;
     let plugins_dir = profile_dir.join(EXTERNAL_PLUGINS_DIR_NAME);
-    fs::create_dir_all(&plugins_dir).map_err(|e| format!("Unable to create plugins directory: {e}"))?;
+    fs::create_dir_all(&plugins_dir)
+        .map_err(|e| format!("Unable to create plugins directory: {e}"))?;
     Ok(plugins_dir)
 }
 
-fn read_external_manifest_in_folder(folder: & std::path::Path) -> AppResult<ExternalPluginPackageDescriptor> {
+fn read_external_manifest_in_folder(
+    folder: &std::path::Path,
+) -> AppResult<ExternalPluginPackageDescriptor> {
     let manifest_path = folder.join("manifest.json");
     let raw = fs::read_to_string(&manifest_path)
         .map_err(|e| format!("Unable to read {}: {e}", manifest_path.display()))?;
@@ -302,7 +304,11 @@ fn read_external_manifest_in_folder(folder: & std::path::Path) -> AppResult<Exte
     let entry = validate_external_entry_file(&parsed.entry)?;
     let entry_path = folder.join(&entry);
     if !entry_path.is_file() {
-        return Err(format!("Plugin entry file '{}' is missing in {}.", entry, folder.display()));
+        return Err(format!(
+            "Plugin entry file '{}' is missing in {}.",
+            entry,
+            folder.display()
+        ));
     }
     Ok(ExternalPluginPackageDescriptor {
         id,
@@ -319,7 +325,9 @@ fn read_external_manifest_in_folder(folder: & std::path::Path) -> AppResult<Exte
 }
 
 #[tauri::command]
-pub fn list_external_plugins(app: tauri::AppHandle) -> AppResult<Vec<ExternalPluginPackageDescriptor>> {
+pub fn list_external_plugins(
+    app: tauri::AppHandle,
+) -> AppResult<Vec<ExternalPluginPackageDescriptor>> {
     let root = get_external_plugins_root(&app)?;
     recover_external_plugins_on_discovery(&root)?;
     let mut plugins = Vec::new();
@@ -416,14 +424,18 @@ fn lock_external_plugin_id(
             .create(true)
             .share_mode(0)
             .open(&file_path)
-            .map_err(|error| format!("Plugin {id} is already being modified or cannot be locked: {error}"))?
+            .map_err(|error| {
+                format!("Plugin {id} is already being modified or cannot be locked: {error}")
+            })?
     };
     #[cfg(not(windows))]
     let handle = fs::OpenOptions::new()
         .write(true)
         .create_new(true)
         .open(&file_path)
-        .map_err(|error| format!("Plugin {id} is already being modified or has an unresolved lock: {error}"))?;
+        .map_err(|error| {
+            format!("Plugin {id} is already being modified or has an unresolved lock: {error}")
+        })?;
     Ok(ExternalPluginInstallLock {
         _handle: handle,
         #[cfg(not(windows))]
@@ -438,7 +450,10 @@ fn previous_transaction_plugin_id(name: &str) -> Option<String> {
     let (before_attempt, attempt) = stem.rsplit_once('.')?;
     let (before_nanos, nanos) = before_attempt.rsplit_once('.')?;
     let (id, pid) = before_nanos.rsplit_once('.')?;
-    if attempt.parse::<u8>().is_err() || nanos.parse::<u128>().is_err() || pid.parse::<u32>().is_err() {
+    if attempt.parse::<u8>().is_err()
+        || nanos.parse::<u128>().is_err()
+        || pid.parse::<u32>().is_err()
+    {
         return None;
     }
     validate_external_plugin_id(id).ok()
@@ -453,18 +468,26 @@ fn recover_external_plugin_locked(plugins_root: &std::path::Path, id: &str) -> A
         let entry = dir_entry.map_err(|error| error.to_string())?;
         let name = entry.file_name();
         let Some(name) = name.to_str() else { continue };
-        if previous_transaction_plugin_id(name).as_deref() != Some(id) { continue; }
+        if previous_transaction_plugin_id(name).as_deref() != Some(id) {
+            continue;
+        }
         let metadata = fs::symlink_metadata(entry.path()).map_err(|error| error.to_string())?;
         if !metadata.is_dir() || metadata.file_type().is_symlink() {
-            return Err(format!("Unsafe previous-version recovery artifact for plugin {id}."));
+            return Err(format!(
+                "Unsafe previous-version recovery artifact for plugin {id}."
+            ));
         }
         let descriptor = read_external_manifest_in_folder(&entry.path())?;
         if descriptor.id != id {
-            return Err(format!("Previous-version recovery artifact has wrong plugin ID {id}."));
+            return Err(format!(
+                "Previous-version recovery artifact has wrong plugin ID {id}."
+            ));
         }
         previous.push(entry.path());
     }
-    if previous.is_empty() { return Ok(false); }
+    if previous.is_empty() {
+        return Ok(false);
+    }
     let destination = plugins_root.join(id);
     match fs::symlink_metadata(&destination) {
         Ok(metadata) if metadata.is_dir() && !metadata.file_type().is_symlink() => {
@@ -474,10 +497,16 @@ fn recover_external_plugin_locked(plugins_root: &std::path::Path, id: &str) -> A
         }
         Ok(_) => return Err(format!("Plugin {id} destination is not a real directory.")),
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
-        Err(error) => return Err(format!("Unable to inspect plugin {id} during recovery: {error}")),
+        Err(error) => {
+            return Err(format!(
+                "Unable to inspect plugin {id} during recovery: {error}"
+            ))
+        }
     }
     if previous.len() != 1 {
-        return Err(format!("Ambiguous previous versions for plugin {id}; manual recovery required."));
+        return Err(format!(
+            "Ambiguous previous versions for plugin {id}; manual recovery required."
+        ));
     }
     fs::rename(&previous[0], &destination)
         .map_err(|error| format!("Unable to restore interrupted plugin {id}: {error}"))?;
@@ -540,7 +569,8 @@ where
             Err(error) => return Err(format!("Unable to stage plugin: {error}")),
         }
     }
-    let (staging, previous) = created.ok_or("Unable to reserve a unique plugin staging directory.")?;
+    let (staging, previous) =
+        created.ok_or("Unable to reserve a unique plugin staging directory.")?;
     let candidate = (|| {
         write_candidate(&staging)?;
         let description = read_external_manifest_in_folder(&staging)?;
@@ -577,7 +607,9 @@ where
     if was_installed {
         if let Err(error) = fs::rename(&destination, &previous) {
             let _ = fs::remove_dir_all(&staging);
-            return Err(format!("Unable to protect existing plugin before replacement: {error}"));
+            return Err(format!(
+                "Unable to protect existing plugin before replacement: {error}"
+            ));
         }
     }
     let promotion = before_promote().and_then(|_| {
@@ -618,7 +650,10 @@ fn read_plugin_zip_entry(
         return Err(size_error());
     }
     let mut bytes = Vec::new();
-    entry.take(limit + 1).read_to_end(&mut bytes).map_err(|error| error.to_string())?;
+    entry
+        .take(limit + 1)
+        .read_to_end(&mut bytes)
+        .map_err(|error| error.to_string())?;
     if bytes.len() as u64 > limit {
         return Err(size_error());
     }
@@ -638,8 +673,11 @@ fn install_external_plugin_from_path(
             |staging| {
                 fs::copy(src_dir.join("manifest.json"), staging.join("manifest.json"))
                     .map_err(|error| error.to_string())?;
-                fs::copy(src_dir.join(&description.entry), staging.join(&description.entry))
-                    .map_err(|error| error.to_string())?;
+                fs::copy(
+                    src_dir.join(&description.entry),
+                    staging.join(&description.entry),
+                )
+                .map_err(|error| error.to_string())?;
                 Ok(())
             },
             || Ok(()),
@@ -647,13 +685,17 @@ fn install_external_plugin_from_path(
     }
 
     let file = fs::File::open(picked_path).map_err(|error| error.to_string())?;
-    let mut archive = zip::ZipArchive::new(file)
-        .map_err(|error| format!("Invalid plugin archive: {error}"))?;
+    let mut archive =
+        zip::ZipArchive::new(file).map_err(|error| format!("Invalid plugin archive: {error}"))?;
     let mut manifest_raw = None;
     for i in 0..archive.len() {
         let entry = archive.by_index(i).map_err(|error| error.to_string())?;
         if entry.name().rsplit('/').next() == Some("manifest.json") {
-            manifest_raw = Some(read_plugin_zip_entry(entry, MAX_EXTERNAL_PLUGIN_MANIFEST_BYTES, "manifest")?);
+            manifest_raw = Some(read_plugin_zip_entry(
+                entry,
+                MAX_EXTERNAL_PLUGIN_MANIFEST_BYTES,
+                "manifest",
+            )?);
             break;
         }
     }
@@ -666,13 +708,13 @@ fn install_external_plugin_from_path(
         plugins_root,
         &id,
         |staging| {
-            fs::write(staging.join("manifest.json"), &raw)
-                .map_err(|error| error.to_string())?;
+            fs::write(staging.join("manifest.json"), &raw).map_err(|error| error.to_string())?;
             let mut found_entry = false;
             for i in 0..archive.len() {
                 let entry = archive.by_index(i).map_err(|error| error.to_string())?;
                 if entry.name().rsplit('/').next() == Some(entry_name.as_str()) {
-                    let buffer = read_plugin_zip_entry(entry, MAX_EXTERNAL_PLUGIN_JS_BYTES, "JS bundle")?;
+                    let buffer =
+                        read_plugin_zip_entry(entry, MAX_EXTERNAL_PLUGIN_JS_BYTES, "JS bundle")?;
                     fs::write(staging.join(&entry_name), &buffer)
                         .map_err(|error| error.to_string())?;
                     found_entry = true;
@@ -680,7 +722,9 @@ fn install_external_plugin_from_path(
                 }
             }
             if !found_entry {
-                return Err(format!("Plugin archive is missing entry file {entry_name}."));
+                return Err(format!(
+                    "Plugin archive is missing entry file {entry_name}."
+                ));
             }
             Ok(())
         },
@@ -741,8 +785,12 @@ mod external_plugin_install_safety_tests {
         let root = temp.path().join("plugins");
         let path = temp.path().join("oversized.zip");
         let mut archive = zip::ZipWriter::new(fs::File::create(&path).unwrap());
-        archive.start_file("manifest.json", zip::write::FileOptions::default()).unwrap();
-        archive.write_all(&vec![b' '; MAX_EXTERNAL_PLUGIN_MANIFEST_BYTES as usize + 1]).unwrap();
+        archive
+            .start_file("manifest.json", zip::write::FileOptions::default())
+            .unwrap();
+        archive
+            .write_all(&vec![b' '; MAX_EXTERNAL_PLUGIN_MANIFEST_BYTES as usize + 1])
+            .unwrap();
         archive.finish().unwrap();
         let result = install_external_plugin_from_path(&root, &path);
         assert!(matches!(result, Err(error) if error.contains("manifest exceeds")));
@@ -765,7 +813,10 @@ mod external_plugin_install_safety_tests {
         let installed = install_external_plugin_from_path(&root, &archive).unwrap();
         assert_eq!(installed.version, "2.0.0");
         assert_eq!(installed.folder_path, old.to_string_lossy());
-        assert_eq!(fs::read_to_string(old.join("main.js")).unwrap(), "export default 'new';");
+        assert_eq!(
+            fs::read_to_string(old.join("main.js")).unwrap(),
+            "export default 'new';"
+        );
     }
 
     #[test]
@@ -779,7 +830,10 @@ mod external_plugin_install_safety_tests {
         make_archive(&archive, "2.0.0", None);
         assert!(install_external_plugin_from_path(&root, &archive).is_err());
         assert_eq!(fs::read(old.join("manifest.json")).unwrap(), before);
-        assert_eq!(fs::read_to_string(old.join("main.js")).unwrap(), "old-executable");
+        assert_eq!(
+            fs::read_to_string(old.join("main.js")).unwrap(),
+            "old-executable"
+        );
     }
 
     #[test]
@@ -792,7 +846,10 @@ mod external_plugin_install_safety_tests {
         fs::create_dir_all(&from).unwrap();
         fs::write(from.join("manifest.json"), manifest("2.0.0")).unwrap();
         assert!(install_external_plugin_from_path(&root, &from.join("manifest.json")).is_err());
-        assert_eq!(fs::read_to_string(old.join("main.js")).unwrap(), "old-executable");
+        assert_eq!(
+            fs::read_to_string(old.join("main.js")).unwrap(),
+            "old-executable"
+        );
     }
 
     #[test]
@@ -810,7 +867,10 @@ mod external_plugin_install_safety_tests {
             || Ok(()),
         );
         assert!(failed.is_err());
-        assert_eq!(fs::read_to_string(root.join(ID).join("main.js")).unwrap(), "old-executable");
+        assert_eq!(
+            fs::read_to_string(root.join(ID).join("main.js")).unwrap(),
+            "old-executable"
+        );
     }
 
     #[test]
@@ -828,8 +888,16 @@ mod external_plugin_install_safety_tests {
             || Err("synthetic promote failure".to_string()),
         );
         assert!(failed.is_err());
-        assert_eq!(fs::read_to_string(root.join(ID).join("main.js")).unwrap(), "old-executable");
-        assert_eq!(read_external_manifest_in_folder(&root.join(ID)).unwrap().version, "1.0.0");
+        assert_eq!(
+            fs::read_to_string(root.join(ID).join("main.js")).unwrap(),
+            "old-executable"
+        );
+        assert_eq!(
+            read_external_manifest_in_folder(&root.join(ID))
+                .unwrap()
+                .version,
+            "1.0.0"
+        );
     }
 
     #[test]
@@ -843,7 +911,10 @@ mod external_plugin_install_safety_tests {
         let invalid = temp.path().join("missing.eodplugin");
         make_archive(&invalid, "2.0.0", None);
         assert!(install_external_plugin_from_path(&root, &invalid).is_err());
-        assert_eq!(fs::read_to_string(root.join(id).join("main.js")).unwrap(), "old-executable");
+        assert_eq!(
+            fs::read_to_string(root.join(id).join("main.js")).unwrap(),
+            "old-executable"
+        );
         assert!(!backup.exists());
     }
 
@@ -857,7 +928,10 @@ mod external_plugin_install_safety_tests {
         write_plugin(&backup, "1.0.0", "old-executable");
         write_plugin(&orphan, "2.0.0", "uncommitted-executable");
         recover_external_plugins_on_discovery(&root).unwrap();
-        assert_eq!(fs::read_to_string(root.join(ID).join("main.js")).unwrap(), "old-executable");
+        assert_eq!(
+            fs::read_to_string(root.join(ID).join("main.js")).unwrap(),
+            "old-executable"
+        );
         assert!(orphan.exists());
         assert!(!backup.exists());
     }
@@ -871,8 +945,14 @@ mod external_plugin_install_safety_tests {
         write_plugin(&backup, "1.0.0", "old-executable");
         write_plugin(&root.join(ID), "2.0.0", "new-executable");
         recover_external_plugins_on_discovery(&root).unwrap();
-        assert_eq!(fs::read_to_string(root.join(ID).join("main.js")).unwrap(), "new-executable");
-        assert_eq!(fs::read_to_string(backup.join("main.js")).unwrap(), "old-executable");
+        assert_eq!(
+            fs::read_to_string(root.join(ID).join("main.js")).unwrap(),
+            "new-executable"
+        );
+        assert_eq!(
+            fs::read_to_string(backup.join("main.js")).unwrap(),
+            "old-executable"
+        );
     }
 
     #[test]
@@ -895,11 +975,16 @@ mod external_plugin_install_safety_tests {
         let root = temp.path().join("plugins");
         write_plugin(&root.join(ID), "1.0.0", "old-executable");
         let duplicate_attempt = install_external_plugin_staged(
-            &root, ID,
-            |staging| { write_plugin(staging, "2.0.0", "new-executable"); Ok(()) },
+            &root,
+            ID,
+            |staging| {
+                write_plugin(staging, "2.0.0", "new-executable");
+                Ok(())
+            },
             || {
                 let conflicting = install_external_plugin_staged(
-                    &root, ID,
+                    &root,
+                    ID,
                     |_staging| panic!("concurrent attempt must fail before staging"),
                     || Ok(()),
                 );
@@ -908,7 +993,10 @@ mod external_plugin_install_safety_tests {
             },
         );
         assert!(duplicate_attempt.is_ok());
-        assert_eq!(fs::read_to_string(root.join(ID).join("main.js")).unwrap(), "new-executable");
+        assert_eq!(
+            fs::read_to_string(root.join(ID).join("main.js")).unwrap(),
+            "new-executable"
+        );
     }
 
     #[test]
@@ -941,9 +1029,13 @@ mod external_plugin_install_safety_tests {
         let root = temp.path().join("plugins");
         let source = temp.path().join("incoming");
         write_plugin(&source, "1.0.0", "new-executable");
-        let installed = install_external_plugin_from_path(&root, &source.join("manifest.json")).unwrap();
+        let installed =
+            install_external_plugin_from_path(&root, &source.join("manifest.json")).unwrap();
         assert_eq!(installed.version, "1.0.0");
-        assert_eq!(fs::read_to_string(root.join(ID).join("main.js")).unwrap(), "new-executable");
+        assert_eq!(
+            fs::read_to_string(root.join(ID).join("main.js")).unwrap(),
+            "new-executable"
+        );
     }
 }
 

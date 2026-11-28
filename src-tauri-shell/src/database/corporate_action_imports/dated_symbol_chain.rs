@@ -170,21 +170,43 @@ fn witness(
     witness_for_action(c, row, event_symbol, "DIVIDEND")
 }
 
-pub(super) fn price_witness(c: &Connection, row: &CorporateActionImportRow, event_symbol: &str) -> AppResult<Option<(i64,String,String,String)>> {
-    price_witness_for_action(c,row,event_symbol,&row.action_type)
+pub(super) fn price_witness(
+    c: &Connection,
+    row: &CorporateActionImportRow,
+    event_symbol: &str,
+) -> AppResult<Option<(i64, String, String, String)>> {
+    price_witness_for_action(c, row, event_symbol, &row.action_type)
 }
 
-pub(super) fn price_witness_for_action(c: &Connection, row: &CorporateActionImportRow, event_symbol: &str, expected_action: &str) -> AppResult<Option<(i64,String,String,String)>> {
-    let witness = witness_for_action(c,row,event_symbol,expected_action)?;
-    if let Some((id,_,_,_)) = &witness {
-        let raw: String = c.query_row("SELECT raw_reference FROM corporate_action_import_evidence WHERE id=?",[id],|r|r.get(0)).map_err(|e|e.to_string())?;
-        let parsed: Value = serde_json::from_str(&raw).map_err(|e|e.to_string())?;
-        if parsed.get("recordDate").and_then(Value::as_str) != row.record_date.as_deref() { return Ok(None); }
+pub(super) fn price_witness_for_action(
+    c: &Connection,
+    row: &CorporateActionImportRow,
+    event_symbol: &str,
+    expected_action: &str,
+) -> AppResult<Option<(i64, String, String, String)>> {
+    let witness = witness_for_action(c, row, event_symbol, expected_action)?;
+    if let Some((id, _, _, _)) = &witness {
+        let raw: String = c
+            .query_row(
+                "SELECT raw_reference FROM corporate_action_import_evidence WHERE id=?",
+                [id],
+                |r| r.get(0),
+            )
+            .map_err(|e| e.to_string())?;
+        let parsed: Value = serde_json::from_str(&raw).map_err(|e| e.to_string())?;
+        if parsed.get("recordDate").and_then(Value::as_str) != row.record_date.as_deref() {
+            return Ok(None);
+        }
     }
     Ok(witness)
 }
 
-fn witness_for_action(c: &Connection, row: &CorporateActionImportRow, event_symbol: &str, expected_action: &str) -> AppResult<Option<(i64,String,String,String)>> {
+fn witness_for_action(
+    c: &Connection,
+    row: &CorporateActionImportRow,
+    event_symbol: &str,
+    expected_action: &str,
+) -> AppResult<Option<(i64, String, String, String)>> {
     let mut stmt=c.prepare("SELECT id,source_locator,captured_at,raw_reference,note,symbol_seen,isin_seen,event_date_seen,action_type_seen
         FROM corporate_action_import_evidence WHERE import_id=? AND source_code='NSE_API'").map_err(|e|e.to_string())?;
     let rows = stmt

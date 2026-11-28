@@ -343,41 +343,67 @@ fn success_fixture() -> (Connection, PathBuf) {
 fn event_route_fixture(csv: &str) -> (Connection, PathBuf) {
     let (c, folder) = success_fixture();
     c.execute("INSERT INTO instruments(symbol,exchange,isin,name,is_active) VALUES('OLDTEST','NSE','INEAUTO01001','Old Test',1)",[]).unwrap();
-    c.execute("UPDATE eod_prices SET symbol='OLDTEST'",[]).unwrap();
+    c.execute("UPDATE eod_prices SET symbol='OLDTEST'", [])
+        .unwrap();
     c.execute("UPDATE corporate_action_import_evidence SET source_locator='https://www.nseindia.com/api/corporates-corporateActions'",[]).unwrap();
-    super::super::dated_symbol_chain::retain_source(&c,"https://nsearchives.nseindia.com/content/equities/symbolchange.csv",csv.as_bytes()).unwrap();
-    (c,folder)
+    super::super::dated_symbol_chain::retain_source(
+        &c,
+        "https://nsearchives.nseindia.com/content/equities/symbolchange.csv",
+        csv.as_bytes(),
+    )
+    .unwrap();
+    (c, folder)
 }
 const ROUTE_CSV: &str = "OLD SYMBOL,NEW SYMBOL,EFFECTIVE DATE\nOLDTEST,TEST,01-SEP-2026\n";
-fn price_route(c: &Connection, folder: &PathBuf) -> AppResult<Option<super::super::event_price_route::VerifiedRoute>> {
-    super::super::event_price_route::resolve(c,folder,&get_import_row(c,1).unwrap())
+fn price_route(
+    c: &Connection,
+    folder: &PathBuf,
+) -> AppResult<Option<super::super::event_price_route::VerifiedRoute>> {
+    super::super::event_price_route::resolve(c, folder, &get_import_row(c, 1).unwrap())
 }
 
 #[test]
 fn event_price_route_single_edge_active_aliases_and_real_writer_agree() {
     let (c, folder) = event_route_fixture(ROUTE_CSV);
-    let route = price_route(&c,&folder).unwrap().unwrap();
-    assert_eq!(route.previous(),("2026-08-13",100.0));
-    assert_eq!(route.fingerprint().len(),64);
-    let result = execute(&c,&folder,vec![1]);
-    assert_eq!(result.auto_approved,1);
-    let (symbol,factor,note):(String,f64,String) = c.query_row("SELECT symbol,factor,note FROM corporate_actions",[],|r|Ok((r.get(0)?,r.get(1)?,r.get(2)?))).unwrap();
-    assert_eq!(symbol,"TEST"); assert_eq!(factor,100.0/95.0);
+    let route = price_route(&c, &folder).unwrap().unwrap();
+    assert_eq!(route.previous(), ("2026-08-13", 100.0));
+    assert_eq!(route.fingerprint().len(), 64);
+    let result = execute(&c, &folder, vec![1]);
+    assert_eq!(result.auto_approved, 1);
+    let (symbol, factor, note): (String, f64, String) = c
+        .query_row(
+            "SELECT symbol,factor,note FROM corporate_actions",
+            [],
+            |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)),
+        )
+        .unwrap();
+    assert_eq!(symbol, "TEST");
+    assert_eq!(factor, 100.0 / 95.0);
     assert!(note.contains(route.fingerprint()));
-    assert_eq!(c.query_row("SELECT count(*) FROM instruments WHERE is_active=1",[],|r|r.get::<_,i64>(0)).unwrap(),2);
-    assert_eq!(count(&c,"instrument_identity_history"),0);
+    assert_eq!(
+        c.query_row(
+            "SELECT count(*) FROM instruments WHERE is_active=1",
+            [],
+            |r| r.get::<_, i64>(0)
+        )
+        .unwrap(),
+        2
+    );
+    assert_eq!(count(&c, "instrument_identity_history"), 0);
 }
 #[test]
 fn event_price_route_rejects_tampering_even_after_graph_cache_hit() {
     let (c, folder) = event_route_fixture(ROUTE_CSV);
-    assert!(price_route(&c,&folder).unwrap().is_some());
+    assert!(price_route(&c, &folder).unwrap().is_some());
     c.execute("UPDATE corporate_action_symbol_chain_sources SET raw_csv=CAST(raw_csv||'tampered' AS BLOB)",[]).unwrap();
-    assert!(price_route(&c,&folder).unwrap_err().contains("hash validation"));
+    assert!(price_route(&c, &folder)
+        .unwrap_err()
+        .contains("hash validation"));
 }
 #[test]
 fn event_price_route_deduplicates_equal_edges_but_rejects_branches_and_cycles() {
     let (c, folder) = event_route_fixture("OLD SYMBOL,NEW SYMBOL,EFFECTIVE DATE\nOLDTEST,TEST,01-SEP-2026\nOLDTEST,TEST,01-SEP-2026\n");
-    assert!(price_route(&c,&folder).unwrap().is_some());
+    assert!(price_route(&c, &folder).unwrap().is_some());
     for csv in ["OLD SYMBOL,NEW SYMBOL,EFFECTIVE DATE\nOLDTEST,TEST,01-SEP-2026\nOTHER,TEST,02-SEP-2026\n",
         "OLD SYMBOL,NEW SYMBOL,EFFECTIVE DATE\nOLDTEST,TEST,01-SEP-2026\nTEST,OLDTEST,02-SEP-2026\n"] {
         super::super::dated_symbol_chain::retain_source(&c,"https://nsearchives.nseindia.com/content/equities/symbolchange.csv",csv.as_bytes()).unwrap();
@@ -388,9 +414,16 @@ fn event_price_route_deduplicates_equal_edges_but_rejects_branches_and_cycles() 
 fn event_price_route_supports_multistep_and_rename_day_boundary() {
     let (c, folder) = event_route_fixture("OLD SYMBOL,NEW SYMBOL,EFFECTIVE DATE\nOLDTEST,MIDTEST,14-AUG-2026\nMIDTEST,TEST,01-SEP-2026\n");
     c.execute("INSERT INTO instruments(symbol,exchange,isin,name,is_active) VALUES('MIDTEST','NSE','INEAUTO01001','Mid Test',0)",[]).unwrap();
-    c.execute("UPDATE eod_prices SET symbol='MIDTEST' WHERE date='2026-08-14'",[]).unwrap();
-    assert_eq!(price_route(&c,&folder).unwrap().unwrap().window().1.close,95.0);
-    assert_eq!(execute(&c,&folder,vec![1]).auto_approved,1);
+    c.execute(
+        "UPDATE eod_prices SET symbol='MIDTEST' WHERE date='2026-08-14'",
+        [],
+    )
+    .unwrap();
+    assert_eq!(
+        price_route(&c, &folder).unwrap().unwrap().window().1.close,
+        95.0
+    );
+    assert_eq!(execute(&c, &folder, vec![1]).auto_approved, 1);
 }
 #[test]
 fn event_price_route_rejects_competing_identity_wrong_isin_and_missing_witness() {
@@ -410,87 +443,164 @@ fn event_price_route_rejects_competing_identity_wrong_isin_and_missing_witness()
 }
 #[test]
 fn event_price_route_will_not_borrow_bars_outside_the_dated_interval() {
-    let (c,folder) = event_route_fixture("OLD SYMBOL,NEW SYMBOL,EFFECTIVE DATE\nOLDTEST,TEST,14-AUG-2026\n");
+    let (c, folder) =
+        event_route_fixture("OLD SYMBOL,NEW SYMBOL,EFFECTIVE DATE\nOLDTEST,TEST,14-AUG-2026\n");
     // Old file has the ex-date, but only TEST is valid on/after rename day.
-    assert!(price_route(&c,&folder).unwrap_err().contains("trading bars are missing"));
-    assert_eq!(execute(&c,&folder,vec![1]).ineligible,1);
+    assert!(price_route(&c, &folder)
+        .unwrap_err()
+        .contains("trading bars are missing"));
+    assert_eq!(execute(&c, &folder, vec![1]).ineligible, 1);
 }
 #[test]
 fn event_price_route_is_bound_to_event_and_price_basis() {
-    let (c,folder) = event_route_fixture(ROUTE_CSV);
-    let before = price_route(&c,&folder).unwrap().unwrap().fingerprint().to_string();
-    c.execute("UPDATE eod_prices SET close=101 WHERE date='2026-08-13'",[]).unwrap();
-    assert_ne!(price_route(&c,&folder).unwrap().unwrap().fingerprint(),before);
-    assert_eq!(count(&c,"corporate_actions"),0);
-    assert_eq!(count(&c,"corporate_action_import_decisions"),0);
+    let (c, folder) = event_route_fixture(ROUTE_CSV);
+    let before = price_route(&c, &folder)
+        .unwrap()
+        .unwrap()
+        .fingerprint()
+        .to_string();
+    c.execute(
+        "UPDATE eod_prices SET close=101 WHERE date='2026-08-13'",
+        [],
+    )
+    .unwrap();
+    assert_ne!(
+        price_route(&c, &folder).unwrap().unwrap().fingerprint(),
+        before
+    );
+    assert_eq!(count(&c, "corporate_actions"), 0);
+    assert_eq!(count(&c, "corporate_action_import_decisions"), 0);
 }
 
 #[test]
 fn event_price_route_rechecks_witness_record_date_and_future_event() {
-    let (c,folder) = event_route_fixture(ROUTE_CSV);
-    c.execute("UPDATE corporate_action_imports SET record_date='2026-08-15'",[]).unwrap();
-    assert!(price_route(&c,&folder).unwrap_err().contains("witness"));
-    c.execute("UPDATE corporate_action_imports SET record_date=NULL,ex_date='2099-08-14'",[]).unwrap();
-    assert!(price_route(&c,&folder).unwrap_err().starts_with("Scheduled / Upcoming:"));
+    let (c, folder) = event_route_fixture(ROUTE_CSV);
+    c.execute(
+        "UPDATE corporate_action_imports SET record_date='2026-08-15'",
+        [],
+    )
+    .unwrap();
+    assert!(price_route(&c, &folder).unwrap_err().contains("witness"));
+    c.execute(
+        "UPDATE corporate_action_imports SET record_date=NULL,ex_date='2099-08-14'",
+        [],
+    )
+    .unwrap();
+    assert!(price_route(&c, &folder)
+        .unwrap_err()
+        .starts_with("Scheduled / Upcoming:"));
 }
 
 #[test]
 fn event_price_route_supports_ratio_actions_without_granting_financial_approval() {
-    for action in ["SPLIT","BONUS","RIGHTS"] {
-        let (c,folder) = event_route_fixture(ROUTE_CSV);
-        let purpose = match action { "SPLIT" => "Face Value 10 to 2", "BONUS" => "Bonus 1:1", _ => "Rights 1:4 at Rs 10" };
+    for action in ["SPLIT", "BONUS", "RIGHTS"] {
+        let (c, folder) = event_route_fixture(ROUTE_CSV);
+        let purpose = match action {
+            "SPLIT" => "Face Value 10 to 2",
+            "BONUS" => "Bonus 1:1",
+            _ => "Rights 1:4 at Rs 10",
+        };
         c.execute("UPDATE corporate_action_imports SET action_type=?,purpose_raw=?,ratio_num=1,ratio_den=4",params![action,purpose]).unwrap();
-        let raw = super::super::build_import_evidence_raw_reference(Some("TEST"),Some("INEAUTO01001"),None,Some("Test Limited"),purpose,Some("2026-08-14"),None).unwrap();
-        c.execute("UPDATE corporate_action_import_evidence SET action_type_seen=?,raw_reference=?",params![action,raw]).unwrap();
-        assert!(price_route(&c,&folder).unwrap().is_some());
-        assert!(matches!(evaluate_simple_cash_dividend_policy_r1(&c,&folder,1).unwrap(),SimpleCashDividendPolicyEligibility::Ineligible(_)));
-        assert_eq!(count(&c,"corporate_actions"),0);
+        let raw = super::super::build_import_evidence_raw_reference(
+            Some("TEST"),
+            Some("INEAUTO01001"),
+            None,
+            Some("Test Limited"),
+            purpose,
+            Some("2026-08-14"),
+            None,
+        )
+        .unwrap();
+        c.execute(
+            "UPDATE corporate_action_import_evidence SET action_type_seen=?,raw_reference=?",
+            params![action, raw],
+        )
+        .unwrap();
+        assert!(price_route(&c, &folder).unwrap().is_some());
+        assert!(matches!(
+            evaluate_simple_cash_dividend_policy_r1(&c, &folder, 1).unwrap(),
+            SimpleCashDividendPolicyEligibility::Ineligible(_)
+        ));
+        assert_eq!(count(&c, "corporate_actions"), 0);
     }
 }
 
 #[test]
 fn dividend_ready_rejects_same_isin_prices_without_writer_dated_route() {
     let (connection, folder) = success_fixture();
-    assert!(matches!(evaluate_simple_cash_dividend_policy_r1(&connection, &folder, 1).unwrap(),
-        SimpleCashDividendPolicyEligibility::Eligible(_)));
+    assert!(matches!(
+        evaluate_simple_cash_dividend_policy_r1(&connection, &folder, 1).unwrap(),
+        SimpleCashDividendPolicyEligibility::Eligible(_)
+    ));
     connection.execute("INSERT INTO instruments(symbol,exchange,isin,name,is_active) SELECT 'OLDTEST',exchange,isin,'Old Test',1 FROM instruments WHERE symbol='TEST'", []).unwrap();
-    connection.execute("UPDATE eod_prices SET symbol='OLDTEST' WHERE symbol='TEST'", []).unwrap();
+    connection
+        .execute(
+            "UPDATE eod_prices SET symbol='OLDTEST' WHERE symbol='TEST'",
+            [],
+        )
+        .unwrap();
     let result = evaluate_simple_cash_dividend_policy_r1(&connection, &folder, 1).unwrap();
-    assert!(matches!(result, SimpleCashDividendPolicyEligibility::Ineligible(reason) if reason.contains("cum-date and ex-date")));
+    assert!(
+        matches!(result, SimpleCashDividendPolicyEligibility::Ineligible(reason) if reason.contains("cum-date and ex-date"))
+    );
     assert_eq!(count(&connection, "corporate_actions"), 0);
     assert_eq!(decision_count(&connection, 1), 0);
     // A genuine dated route remains supported; this is not an alias ban.
     connection.execute("INSERT INTO instrument_identity_history(exchange,isin,current_symbol,old_symbol,new_symbol,effective_date,change_type,source,source_ref) SELECT exchange,isin,'TEST','OLDTEST','TEST','2026-09-01','SYMBOL_CHANGE','NSE_IDENTITY','fixture:dated-history' FROM instruments WHERE symbol='TEST'", []).unwrap();
-    assert!(matches!(evaluate_simple_cash_dividend_policy_r1(&connection, &folder, 1).unwrap(),
-        SimpleCashDividendPolicyEligibility::Eligible(_)));
+    assert!(matches!(
+        evaluate_simple_cash_dividend_policy_r1(&connection, &folder, 1).unwrap(),
+        SimpleCashDividendPolicyEligibility::Eligible(_)
+    ));
 }
 
 #[test]
 fn ca_stabilization_historical_isin_dividend_commits_with_current_canonical_identity() {
     let (connection, folder) = success_fixture();
-    connection.execute("UPDATE corporate_action_imports SET isin='INEHIST01001' WHERE id=1", []).unwrap();
+    connection
+        .execute(
+            "UPDATE corporate_action_imports SET isin='INEHIST01001' WHERE id=1",
+            [],
+        )
+        .unwrap();
     connection.execute("UPDATE corporate_action_import_evidence SET isin_seen='INEHIST01001' WHERE import_id=1", []).unwrap();
     connection.execute("INSERT INTO instrument_isin_history(exchange,symbol,isin,effective_date,source) VALUES('NSE','TEST','INEHIST01001','2026-08-14','fixture')", []).unwrap();
     connection.execute("INSERT INTO corporate_action_import_decisions(import_id,decision_type,resolved_symbol,resolved_exchange,resolved_isin,reason) VALUES(1,'VERIFIED_QUICK_RESOLUTION','TEST','NSE','INEHIST01001','fixture')", []).unwrap();
 
     let result = super::super::run_simple_cash_dividend_write_stage_outer_transaction(
-        &connection, &folder, &input(&folder, vec![1]),
-    ).unwrap();
+        &connection,
+        &folder,
+        &input(&folder, vec![1]),
+    )
+    .unwrap();
     assert_eq!(result.auto_approved, 1);
-    assert_eq!(get_import_row(&connection, 1).unwrap().isin.as_deref(), Some("INEHIST01001"));
-    let canonical_isin: String = connection.query_row("SELECT isin FROM corporate_actions", [], |row| row.get(0)).unwrap();
+    assert_eq!(
+        get_import_row(&connection, 1).unwrap().isin.as_deref(),
+        Some("INEHIST01001")
+    );
+    let canonical_isin: String = connection
+        .query_row("SELECT isin FROM corporate_actions", [], |row| row.get(0))
+        .unwrap();
     assert_eq!(canonical_isin, "INEAUTO01001");
     assert_eq!(decision_count(&connection, 1), 1);
-    let decisions: i64 = connection.query_row(
-        "SELECT COUNT(*) FROM corporate_action_import_decisions WHERE import_id=1", [], |row| row.get(0),
-    ).unwrap();
+    let decisions: i64 = connection
+        .query_row(
+            "SELECT COUNT(*) FROM corporate_action_import_decisions WHERE import_id=1",
+            [],
+            |row| row.get(0),
+        )
+        .unwrap();
     assert_eq!(decisions, 2);
 }
 
 #[test]
 fn ca_stabilization_matching_prefix_does_not_replace_historical_identity_proof() {
     let (connection, folder) = success_fixture();
-    connection.execute("UPDATE corporate_action_imports SET isin='INEAUTO01002' WHERE id=1", []).unwrap();
+    connection
+        .execute(
+            "UPDATE corporate_action_imports SET isin='INEAUTO01002' WHERE id=1",
+            [],
+        )
+        .unwrap();
     let result = execute(&connection, &folder, vec![1]);
     assert_eq!(result.ineligible, 1);
     assert_eq!(count(&connection, "corporate_actions"), 0);
