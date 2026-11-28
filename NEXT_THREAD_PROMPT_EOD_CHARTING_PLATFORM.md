@@ -1,3 +1,5 @@
+**Portable candidate EXE verification (29 November 2026, IST).** Build-time digest enforcement passed simulated cases and isolated restaging of a real candidate. The script rejected an unrelated standard EXE and verified the final candidate hash. No native app launch or new release build ran. [Portable candidate change record](docs/changes/2026-11-28_1559_IST_PORTABLE_BUILD_METADATA_FALLBACK.md)
+
 **Portable EXE post-build cleanup (28 November 2026, IST).** The opt-in npm command passed the owner-run rebuild and release cleanup. The staged EXE hash matched and the shared target measured 3.84 GiB after cleanup. Native app launch was outside this check. [Portable cleanup change record](docs/changes/2026-11-28_2112_IST_PORTABLE_RELEASE_CLEANUP.md)
 
 **BUILD-01 shared target growth guard (28 November 2026, IST).** Wrapper preflight and scoped cleanup are verified. The target is 12.51 GiB with 19.19 GiB free on E:. Both thresholds are clear for the next needed shared Cargo command. [BUILD-01 change record](docs/changes/2026-11-28_1946_IST_BUILD01_TARGET_GROWTH_GUARD.md)

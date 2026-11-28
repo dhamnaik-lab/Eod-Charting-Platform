@@ -203,8 +203,21 @@ struct BuildMetadata {
     built_at: String,
 }
 
+// A shared target can retain build-script output from before the candidate
+// configuration was registered. Default metadata must compile in that case.
+#[allow(unexpected_cfgs)]
 fn read_build_metadata() -> Option<BuildMetadata> {
-    serde_json::from_str(include_str!("../gen/build-info.json")).ok()
+    #[cfg(eod_candidate_build_info)]
+    let json = include_str!(env!("EOD_BUILD_INFO_FILE"));
+    #[cfg(not(eod_candidate_build_info))]
+    let json = {
+        const _: () = assert!(
+            option_env!("EOD_CANDIDATE_BUILD_INFO").is_none(),
+            "Candidate metadata was requested but the build script did not activate it"
+        );
+        include_str!("../gen/build-info.json")
+    };
+    serde_json::from_str(json).ok()
 }
 
 #[tauri::command]

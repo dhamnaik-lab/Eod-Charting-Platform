@@ -1,4 +1,17 @@
+param(
+  [string]$CandidateRoot,
+  [ValidatePattern('^[0-9A-Fa-f]{64}$')]
+  [string]$ExpectedCandidateExeSha256
+)
+
 $ErrorActionPreference = 'Stop'
+
+if ($CandidateRoot -and !$ExpectedCandidateExeSha256) {
+  throw 'CandidateRoot requires ExpectedCandidateExeSha256 recorded from the candidate build.'
+}
+if ($ExpectedCandidateExeSha256 -and !$CandidateRoot) {
+  throw 'ExpectedCandidateExeSha256 requires CandidateRoot.'
+}
 
 function Get-Sha256Hex {
   param(
@@ -30,10 +43,31 @@ $workspaceRoot = Split-Path -Parent $PSScriptRoot
 $sourceExe = Join-Path $workspaceRoot 'target\release\eod-charting-platform-shell.exe'
 $rendererDistRoot = Join-Path $workspaceRoot 'dist'
 $portableBase = Join-Path $workspaceRoot 'release\tauri-portable-win'
+$buildMetadataPath = Join-Path $workspaceRoot 'src-tauri-shell\gen\build-info.json'
+if ($CandidateRoot) {
+  $candidate = (Get-Item -LiteralPath $CandidateRoot -ErrorAction Stop).FullName
+  $tmp = (Get-Item -LiteralPath (Join-Path $workspaceRoot 'tmp')).FullName
+  $prefix = $tmp.TrimEnd('\') + '\'
+  if (!$candidate.StartsWith($prefix, [StringComparison]::OrdinalIgnoreCase)) {
+    throw 'CandidateRoot must be below project tmp.'
+  }
+  $ancestor = Get-Item -LiteralPath $candidate
+  while ($ancestor.FullName.Length -ge $tmp.Length) {
+    if ($ancestor -isnot [IO.DirectoryInfo] -or ($ancestor.Attributes -band [IO.FileAttributes]::ReparsePoint)) {
+      throw "Candidate path is not an ordinary directory: $($ancestor.FullName)"
+    }
+    $ancestor = $ancestor.Parent
+  }
+  $rendererDistRoot = Join-Path $candidate 'renderer'
+  $buildMetadataPath = Join-Path $candidate 'build-info.json'
+  $portableBase = Join-Path $candidate 'portable'
+  if (Test-Path -LiteralPath $portableBase) {
+    throw "Candidate output already exists: $portableBase"
+  }
+}
 $portableName = 'EOD Chart Portable'
 $portableRoot = Join-Path $portableBase $portableName
 $stagingRoot = Join-Path $portableBase "_staging-$portableName"
-$buildMetadataPath = Join-Path $workspaceRoot 'src-tauri-shell\gen\build-info.json'
 
 if (!(Test-Path $sourceExe)) {
   throw "Missing built Tauri executable: $sourceExe`nRun 'npm run tauri:build' first."
@@ -47,7 +81,14 @@ if (!(Test-Path $buildMetadataPath)) {
   throw "Missing generated build metadata: $buildMetadataPath`nRun 'npm run tauri:build' first."
 }
 
-if (Test-Path $stagingRoot) {
+if ($CandidateRoot) {
+  $sourceExeHash = Get-Sha256Hex -Path $sourceExe
+  if ($sourceExeHash -ne $ExpectedCandidateExeSha256) {
+    throw "Candidate executable hash mismatch before staging. Expected=$ExpectedCandidateExeSha256 Source=$sourceExeHash Path=$sourceExe"
+  }
+}
+
+if ((Test-Path $stagingRoot) -and !$CandidateRoot) {
   Remove-Item -LiteralPath $stagingRoot -Recurse -Force
 }
 
@@ -65,7 +106,9 @@ $null = New-Item -ItemType Directory -Path $portableLogDir -Force
 Copy-Item -LiteralPath $sourceExe -Destination $portableExe -Force
 Copy-Item -Path (Join-Path $rendererDistRoot '*') -Destination $stagingRoot -Recurse -Force
 
-$sourceExeHash = Get-Sha256Hex -Path $sourceExe
+if (!$CandidateRoot) {
+  $sourceExeHash = Get-Sha256Hex -Path $sourceExe
+}
 $portableExeHash = Get-Sha256Hex -Path $portableExe
 
 if ($sourceExeHash -ne $portableExeHash) {
@@ -136,6 +179,7 @@ Set-Content -Path $readmePath -Value $readme -Encoding UTF8
 
 $finalRoot = $portableRoot
 if (Test-Path $portableRoot) {
+  if ($CandidateRoot) { throw "Candidate output unexpectedly exists: $portableRoot" }
   try {
     Remove-Item -LiteralPath $portableRoot -Recurse -Force -ErrorAction Stop
   } catch {

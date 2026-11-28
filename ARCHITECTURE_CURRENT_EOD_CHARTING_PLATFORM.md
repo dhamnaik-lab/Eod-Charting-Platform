@@ -1,3 +1,5 @@
+**Portable candidate executable verification.** Candidate staging requires the SHA-256 recorded when that candidate was built and verifies the shared source and staged copy before finalizing the output. [Portable candidate change record](docs/changes/2026-11-28_1559_IST_PORTABLE_BUILD_METADATA_FALLBACK.md)
+
 **Portable release retention.** The opt-in Windows portable build command verifies the staged EXE at its final path before deleting the project release artifact tree. The ordinary portable command retains the release cache. [Portable cleanup change record](docs/changes/2026-11-28_2112_IST_PORTABLE_RELEASE_CLEANUP.md)
 
 **Shared Cargo artifact budget.** The Windows shared Cargo wrapper measures logical file lengths and available drive space before launching Cargo. It pauses builds at 25 GiB of target files or below 8 GiB free. It provides Cargo's read-only dev-profile cleanup preview for the shell package. Direct Cargo and Tauri calls have their own entry points outside the wrapper. [BUILD-01 change record](docs/changes/2026-11-28_1946_IST_BUILD01_TARGET_GROWTH_GUARD.md)
