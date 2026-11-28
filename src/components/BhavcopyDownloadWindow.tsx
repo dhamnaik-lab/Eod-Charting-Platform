@@ -29,11 +29,8 @@ import {
   contentStyle,
   copyButtonStyle,
   dateInputStyle,
-  dateRangeStyle,
   emptyLogStyle,
   footerStyle,
-  inputGroupStyle,
-  labelStyle,
   logAreaStyle,
   logCountStyle,
   logEntryErrorStyle,
@@ -83,6 +80,7 @@ import {
   windowBodyStyle,
 } from './BhavcopyDownloadWindow.styles';
 import { BhavcopySourceSettingsDialog } from './BhavcopySourceSettingsDialog';
+import { BhavcopyDateRange, parseBhavcopyDate } from './BhavcopyDateRange';
 import { localDownloadDate } from '@/features/bhavcopy/bseHistoryDownload';
 import { beginDownloadRun, dismissDownloadRun, finishDownloadRun } from '@/features/bhavcopy/downloadRunState';
 
@@ -1116,15 +1114,24 @@ export function BhavcopyDownloadWindow({ onClose }: BhavcopyDownloadWindowProps)
       return;
     }
 
+    let { startDate, endDate } = config;
     if (config.mode === 'range') {
-      if (!config.startDate || !config.endDate) {
-        addLog('error', 'Please select a valid start and end date');
+      const start = parseBhavcopyDate(startDate);
+      const end = parseBhavcopyDate(endDate);
+      if (!start || !end) {
+        addLog('error', 'Enter valid start and end dates as YYYY-MM-DD or DD-MM-YYYY');
         return;
       }
-      if (config.startDate > config.endDate) {
+      if (start > end) {
         addLog('error', 'Start date must be on or before end date');
         return;
       }
+      if (end > localDownloadDate()) {
+        addLog('error', 'End date cannot be in the future');
+        return;
+      }
+      startDate = start;
+      endDate = end;
     }
 
     const runId = crypto.randomUUID();
@@ -1134,7 +1141,7 @@ export function BhavcopyDownloadWindow({ onClose }: BhavcopyDownloadWindowProps)
     addLog('info', `Mode: ${getDownloadModeLabel(config.mode)}`);
     addLog('info', `Starting download for: ${selectedExchangeLabels.join(', ')}`);
     if (config.mode === 'range') {
-      addLog('info', `Date range: ${config.startDate} to ${config.endDate}`);
+      addLog('info', `Date range: ${startDate} to ${endDate}`);
     } else {
       addLog('info', getDownloadModeHint(config.mode));
     }
@@ -1149,8 +1156,8 @@ export function BhavcopyDownloadWindow({ onClose }: BhavcopyDownloadWindowProps)
       const response = await api.runTrackedBhavcopyBatch({
         mode: config.mode,
         exchanges: config.exchanges,
-        startDate: config.startDate,
-        endDate: config.endDate,
+        startDate,
+        endDate,
         workers: config.workers,
         excludedSeries: config.excludedSeries,
         nseEquityUrlOverride: config.nseEquityUrlOverride,
@@ -1370,28 +1377,16 @@ export function BhavcopyDownloadWindow({ onClose }: BhavcopyDownloadWindowProps)
           <div style={sectionStyle}>
             <div style={sectionTitleStyle}>Date Range</div>
             {config.mode === 'range' ? (
-              <div style={dateRangeStyle}>
-                <div style={inputGroupStyle}>
-                  <label style={labelStyle}>Start</label>
-                  <input
-                    type="date"
-                    value={config.startDate}
-                    onChange={(e) => updateConfig((previous) => ({ ...previous, startDate: e.target.value }))}
-                    style={dateInputStyle}
-                    disabled={isDownloading}
-                  />
-                </div>
-                <div style={inputGroupStyle}>
-                  <label style={labelStyle}>End</label>
-                  <input
-                    type="date"
-                    value={config.endDate}
-                    onChange={(e) => updateConfig((previous) => ({ ...previous, endDate: e.target.value }))}
-                    style={dateInputStyle}
-                    disabled={isDownloading}
-                  />
-                </div>
-              </div>
+              <BhavcopyDateRange
+                start={config.startDate}
+                end={config.endDate}
+                today={localDownloadDate()}
+                disabled={isDownloading}
+                onChange={(field, value) => updateConfig((previous) => ({
+                  ...previous,
+                  [field === 'start' ? 'startDate' : 'endDate']: value,
+                }))}
+              />
             ) : (
               <div style={modeRangeInfoStyle}>
                 {config.mode === 'update'

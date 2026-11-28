@@ -9,6 +9,7 @@ import type { DownloadResult, DesktopApi } from '@/platform';
 import type { BhavcopyActivityReport } from '@/types/desktop';
 import { activitySummaryText } from '@/features/bhavcopy/activityLog';
 import { beginDownloadRun, finishDownloadRun } from '@/features/bhavcopy/downloadRunState';
+import { parseBhavcopyDate } from '../BhavcopyDateRange';
 
 vi.mock('@/platform', () => ({ getDesktopApi: () => null }));
 
@@ -26,7 +27,9 @@ function downloadHandler(results: DownloadResult[], stops: Array<string | null>,
   };
   visit(component);
   assert.ok(handler?.initializer);
-  const runTrackedBhavcopyBatch: DesktopApi['runTrackedBhavcopyBatch'] = async (_config, runId, onStarted) => {
+  const runTrackedBhavcopyBatch: DesktopApi['runTrackedBhavcopyBatch'] = async (config, runId, onStarted) => {
+    expect(config.startDate).toBe('2011-01-03');
+    expect(config.endDate).toBe('2011-01-07');
     expect(useBhavcopyStore.getState().activeBatch).toEqual({ runId, phase: 'starting' });
     onStarted();
     expect(useBhavcopyStore.getState().activeBatch).toEqual({ runId, phase: 'running' });
@@ -49,7 +52,7 @@ function downloadHandler(results: DownloadResult[], stops: Array<string | null>,
     reportedDownloadResults: useBhavcopyStore.getState().reportedDownloadResults,
     reportDownloadResult: useBhavcopyStore.getState().reportDownloadResult,
     api: { runTrackedBhavcopyBatch, cancelBhavcopyBatch: async () => 'noMatchingRun' },
-    config: { mode: 'range', exchanges: { nseIndex: true }, startDate: '2011-01-03', endDate: '2011-01-07', workers: 2 },
+    config: { mode: 'range', exchanges: { nseIndex: true }, startDate: '03-01-2011', endDate: '2011-01-07', workers: 2 },
     crypto: globalThis.crypto,
     useChartStore: { getState: () => chart },
     useUiStore: { getState: () => ({ bhavcopyWindowOpen: true }) },
@@ -61,6 +64,8 @@ function downloadHandler(results: DownloadResult[], stops: Array<string | null>,
     formatExchangeLabel: () => 'NSE Indices',
     getDownloadModeLabel: () => 'Date Range',
     getDownloadModeHint: () => '',
+    localDownloadDate: () => '2026-11-28',
+    parseBhavcopyDate,
     getErrorMessage: String,
     isSkippedResult,
     isPartialCoverageResult,
